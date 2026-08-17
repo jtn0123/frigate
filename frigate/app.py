@@ -352,6 +352,7 @@ class FrigateApp:
             comms,
             notice_registry=self.notice_registry,
         )
+        self.dispatcher.start_communicators()
 
     def init_profile_manager(self) -> None:
         self.profile_manager = ProfileManager(
