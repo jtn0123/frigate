@@ -954,7 +954,7 @@ async def event_thumbnail(
     except DoesNotExist:
         thumbnail_bytes = None
 
-    if thumbnail_bytes is None:
+    if not thumbnail_bytes:
         # see if the object is currently being tracked
         try:
             camera_states = request.app.detected_frames_processor.camera_states.values()
@@ -970,7 +970,7 @@ async def event_thumbnail(
                 status_code=404,
             )
 
-    if thumbnail_bytes is None:
+    if not thumbnail_bytes:
         return JSONResponse(
             content={"success": False, "message": _EVENT_NOT_FOUND},
             status_code=404,
@@ -978,6 +978,13 @@ async def event_thumbnail(
 
     img_as_np = np.frombuffer(thumbnail_bytes, dtype=np.uint8)
     img = cv2.imdecode(img_as_np, flags=1)
+
+    if img is None:
+        # thumbnail on disk is truncated or corrupt
+        return JSONResponse(
+            content={"success": False, "message": "Event not found"},
+            status_code=404,
+        )
 
     # android notifications prefer a 2:1 ratio
     if format == "android":
