@@ -521,6 +521,7 @@ export default function Events() {
     previewTimes ?? { after: 0, before: 0 },
     {
       fetchPreviews: previewTimes != undefined,
+      refreshOnHourRollover: true,
     },
   );
 
