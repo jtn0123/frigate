@@ -54,6 +54,7 @@ from frigate.util.file import (
 from frigate.util.image import get_image_from_recording, get_image_quality_params
 from frigate.util.media import get_keyframe_before
 from frigate.util.object import create_empty_regions_grid
+from frigate.util.path import safe_join
 
 logger = logging.getLogger(__name__)
 
@@ -1738,13 +1739,16 @@ async def preview_thumbnail(request: Request, file_name: str):
     camera_name = name_part.rsplit("-", 1)[0]  # split off timestamp
     await require_camera_access(camera_name, request=request)
 
-    safe_file_name_current = sanitize_filename(file_name)
-    preview_dir = os.path.join(CACHE_DIR, "preview_frames")
+    preview_path = safe_join(CACHE_DIR, "preview_frames", file_name)
+
+    if preview_path is None:
+        return JSONResponse(
+            content={"success": False, "message": "Invalid preview filename"},
+            status_code=400,
+        )
 
     try:
-        jpg_bytes = await asyncio.to_thread(
-            FilePath(preview_dir, safe_file_name_current).read_bytes
-        )
+        jpg_bytes = await asyncio.to_thread(FilePath(preview_path).read_bytes)
     except FileNotFoundError:
         return JSONResponse(
             content=({"success": False, "message": "Image file not found"}),

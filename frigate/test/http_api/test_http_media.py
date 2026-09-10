@@ -1,6 +1,10 @@
 """Unit tests for recordings/media API endpoints."""
 
+import os
+import shutil
+import tempfile
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytz
 from fastapi import Request
@@ -527,3 +531,47 @@ class TestHttpMedia(BaseTestHttp):
 
             assert response.status_code == 200
             assert response.json() == [{"start_time": 1010, "end_time": 1030}]
+
+
+class TestHttpPreviewThumbnail(BaseTestHttp):
+    """GET /preview/{file_name}/thumbnail.webp resolves under the cache dir."""
+
+    def setUp(self):
+        super().setUp([Recordings])
+        self.app = super().create_app()
+        self.cache_dir = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.cache_dir, "preview_frames"))
+        with open(
+            os.path.join(self.cache_dir, "preview_frames", "preview_front_door-1.webp"),
+            "wb",
+        ) as f:
+            f.write(b"webp-bytes")
+        self.patcher = patch("frigate.api.media.CACHE_DIR", self.cache_dir)
+        self.patcher.start()
+
+    def tearDown(self):
+        self.patcher.stop()
+        shutil.rmtree(self.cache_dir, ignore_errors=True)
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+    def test_serves_existing_preview_frame(self):
+        with AuthTestClient(self.app) as client:
+            response = client.get("/preview/preview_front_door-1.webp/thumbnail.webp")
+        assert response.status_code == 200
+        assert response.content == b"webp-bytes"
+
+    def test_missing_preview_frame_is_404(self):
+        with AuthTestClient(self.app) as client:
+            response = client.get("/preview/preview_front_door-2.webp/thumbnail.webp")
+        assert response.status_code == 404
+
+    def test_separator_characters_never_escape_cache_dir(self):
+        # a slash is consumed by the router, so backslashes are the only
+        # separator that reaches the handler; safe_join strips them
+        with AuthTestClient(self.app) as client:
+            response = client.get(
+                "/preview/preview_front_door-1%5C..%5C..%5Csecret.webp/thumbnail.webp"
+            )
+        assert response.status_code == 404, (response.status_code, response.text)
+        assert response.json()["message"] == "Image file not found"
