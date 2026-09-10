@@ -16,7 +16,7 @@ import numpy as np
 from fastapi import APIRouter, Request
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse
-from peewee import JOIN, DoesNotExist, fn, operator
+from peewee import DoesNotExist, fn, operator
 from playhouse.shortcuts import model_to_dict
 
 from frigate.api.auth import (
@@ -580,7 +580,6 @@ def events_search(
         Event.top_score,
         Event.data,
         Event.plus_id,
-        ReviewSegment.thumb_path,
     ]
 
     if include_thumbnails:
@@ -811,25 +810,41 @@ def events_search(
     if not search_results:
         return JSONResponse(content=[])
 
-    # Fetch events in a single query
-    events_query = Event.select(*selected_columns).join(
-        ReviewSegment,
-        JOIN.LEFT_OUTER,
-        on=(fn.json_extract(ReviewSegment.data, "$.detections").contains(Event.id)),
+    # The candidate set is bounded by the vector search (k=100 per source).
+    events_query = Event.select(*selected_columns).where(
+        Event.id << list(search_results.keys())
     )
 
     # Apply filters, if any
     if event_filters:
         events_query = events_query.where(reduce(operator.and_, event_filters))
 
-    # If we did a similarity search, limit events to those in search_results
-    if search_results:
-        events_query = events_query.where(Event.id << list(search_results.keys()))
+    # Relevance is ordered by the search distance in Python; every other sort
+    # is pushed into SQL together with the limit so only `limit` rows are read.
+    sort_by_relevance = sort is None or sort == "relevance"
 
-    # Fetch events and process them in a single pass
+    if not sort_by_relevance:
+        events_query = events_query.order_by(*_events_search_order(sort)).limit(limit)
+
+    events = list(events_query.dicts())
+
+    if sort_by_relevance:
+        events.sort(key=lambda e: search_results[e["id"]]["distance"])
+        events = events[:limit]
+
+    thumb_paths = _review_thumb_paths_for_events(events)
+
+    # Process the (already limited) events in a single pass
     processed_events = []
-    for event in events_query.dicts():
-        processed_event = {k: v for k, v in event.items() if k != "data"}
+    for event in events:
+        processed_event = {
+            k: v for k, v in event.items() if k not in ("data", "thumbnail")
+        }
+        processed_event["thumb_path"] = thumb_paths.get(event["id"])
+
+        if include_thumbnails:
+            processed_event["thumbnail"] = event["thumbnail"]
+
         processed_event["data"] = {
             k: v
             for k, v in event["data"].items()
@@ -849,43 +864,77 @@ def events_search(
             ]
         }
 
-        if event["id"] in search_results:
-            processed_event["search_distance"] = search_results[event["id"]]["distance"]
-            processed_event["search_source"] = search_results[event["id"]]["source"]
+        processed_event["search_distance"] = search_results[event["id"]]["distance"]
+        processed_event["search_source"] = search_results[event["id"]]["source"]
 
         processed_events.append(processed_event)
 
-    if (sort is None or sort == "relevance") and search_results:
-        processed_events.sort(key=lambda x: x.get("search_distance", float("inf")))
-    elif sort == "score_asc":
-        processed_events.sort(key=lambda x: x["data"]["score"])
-    elif sort == "score_desc":
-        processed_events.sort(key=lambda x: x["data"]["score"], reverse=True)
-    elif sort == "speed_asc":
-        processed_events.sort(
-            key=lambda x: (
-                x["data"].get("average_estimated_speed") is None,
-                x["data"].get("average_estimated_speed"),
-            )
-        )
-    elif sort == "speed_desc":
-        processed_events.sort(
-            key=lambda x: (
-                x["data"].get("average_estimated_speed") is None,
-                x["data"].get("average_estimated_speed", float("-inf")),
-            ),
-            reverse=True,
-        )
-    elif sort == "date_asc":
-        processed_events.sort(key=lambda x: x["start_time"])
-    else:
-        # "date_desc" default
-        processed_events.sort(key=lambda x: x["start_time"], reverse=True)
-
-    # Limit the number of events returned
-    processed_events = processed_events[:limit]
-
     return JSONResponse(content=processed_events)
+
+
+def _events_search_order(sort: str) -> list:
+    """Return the ORDER BY terms for a non-relevance /events/search sort."""
+    score = Event.data["score"]
+    speed = Event.data["average_estimated_speed"]
+
+    if sort == "score_asc":
+        return [score.asc()]
+    if sort == "score_desc":
+        return [score.desc()]
+    # events without a speed estimate always sort last
+    if sort == "speed_asc":
+        return [speed.is_null(), speed.asc()]
+    if sort == "speed_desc":
+        return [speed.is_null(), speed.desc()]
+    if sort == "date_asc":
+        return [Event.start_time.asc()]
+
+    # "date_desc" default
+    return [Event.start_time.desc()]
+
+
+def _review_thumb_paths_for_events(events: list[dict]) -> dict[str, str]:
+    """Map event ids to the thumb_path of the review segment that contains them.
+
+    Review segments store their event ids in a JSON list, so the match has to
+    be a substring test. Restricting the scan to the cameras and time window
+    of the (already limited) events keeps it cheap.
+    """
+    if not events:
+        return {}
+
+    ids = [e["id"] for e in events]
+    now = datetime.datetime.now().timestamp()
+    window_start = min(e["start_time"] for e in events)
+    window_end = max(e["end_time"] or now for e in events)
+
+    segments = (
+        ReviewSegment.select(ReviewSegment.thumb_path, ReviewSegment.data)
+        .where(
+            ReviewSegment.camera << list({e["camera"] for e in events}),
+            ReviewSegment.start_time <= window_end,
+            ReviewSegment.end_time >= window_start,
+            reduce(
+                operator.or_,
+                [
+                    fn.json_extract(ReviewSegment.data, "$.detections").contains(
+                        event_id
+                    )
+                    for event_id in ids
+                ],
+            ),
+        )
+        .order_by(ReviewSegment.start_time.asc())
+        .dicts()
+    )
+
+    thumb_paths: dict[str, str] = {}
+    for segment in segments:
+        for event_id in (segment["data"] or {}).get("detections") or []:
+            if event_id in ids and event_id not in thumb_paths:
+                thumb_paths[event_id] = segment["thumb_path"]
+
+    return thumb_paths
 
 
 @router.get("/events/summary", dependencies=[Depends(allow_any_authenticated())])

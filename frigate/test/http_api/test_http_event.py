@@ -481,3 +481,108 @@ class TestHttpApp(BaseTestHttp):
             'frigate_camera_events_total{camera="porch",label="Mock"} 2.0' in event.text
         )
         assert 'frigate_camera_events_total{camera="porch",label="inside"} 2.0'
+
+
+class TestHttpEventSearch(BaseTestHttp):
+    """Sort, limit, and review thumb lookup behaviour of GET /events/search."""
+
+    def setUp(self):
+        super().setUp([Event, Recordings, ReviewSegment, Timeline])
+        self.app = super().create_app()
+        self.app.frigate_config.semantic_search.enabled = True
+        self.embeddings = Mock()
+        self.app.embeddings = self.embeddings
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+    def _insert_events(self):
+        now = datetime.now().timestamp()
+        # id, start offset, score, speed
+        rows = [
+            ("ev.a", -300, 0.9, 5.0),
+            ("ev.b", -200, 0.5, None),
+            ("ev.c", -100, 0.7, 1.0),
+        ]
+        for event_id, offset, score, speed in rows:
+            data = {"score": score, "top_score": score}
+            if speed is not None:
+                data["average_estimated_speed"] = speed
+            super().insert_mock_event(event_id, start_time=now + offset, data=data)
+        # relevance order: c, a, b
+        self.embeddings.search_thumbnail.return_value = [
+            ("ev.c", 0.1),
+            ("ev.a", 0.2),
+            ("ev.b", 0.3),
+        ]
+
+    def _search(self, **params):
+        params.setdefault("search_type", "similarity")
+        params.setdefault("event_id", "ev.a")
+        with AuthTestClient(self.app) as client:
+            response = client.get("/events/search", params=params)
+        assert response.status_code == 200, response.text
+        return [e["id"] for e in response.json()]
+
+    def test_relevance_sort_and_limit(self):
+        self._insert_events()
+        assert self._search() == ["ev.c", "ev.a", "ev.b"]
+        assert self._search(sort="relevance", limit=2) == ["ev.c", "ev.a"]
+
+    def test_score_sort_and_limit(self):
+        self._insert_events()
+        assert self._search(sort="score_desc") == ["ev.a", "ev.c", "ev.b"]
+        assert self._search(sort="score_asc", limit=2) == ["ev.b", "ev.c"]
+
+    def test_speed_sort_puts_missing_speed_last(self):
+        self._insert_events()
+        assert self._search(sort="speed_asc") == ["ev.c", "ev.a", "ev.b"]
+        assert self._search(sort="speed_desc") == ["ev.a", "ev.c", "ev.b"]
+
+    def test_date_sort(self):
+        self._insert_events()
+        assert self._search(sort="date_asc") == ["ev.a", "ev.b", "ev.c"]
+        assert self._search(sort="date_desc", limit=1) == ["ev.c"]
+
+    def test_limit_does_not_change_which_events_match(self):
+        self._insert_events()
+        # only events returned by the vector search are candidates
+        self.embeddings.search_thumbnail.return_value = [("ev.b", 0.1)]
+        assert self._search(sort="score_desc", limit=10) == ["ev.b"]
+
+    def test_review_thumb_path_is_attached(self):
+        self._insert_events()
+        now = datetime.now().timestamp()
+        super().insert_mock_review_segment(
+            "rev.1",
+            start_time=now - 320,
+            end_time=now - 250,
+            data={"detections": ["ev.a"]},
+        )
+        ReviewSegment.update(thumb_path="/thumbs/rev.1.webp").where(
+            ReviewSegment.id == "rev.1"
+        ).execute()
+
+        with AuthTestClient(self.app) as client:
+            events = client.get(
+                "/events/search",
+                params={"search_type": "similarity", "event_id": "ev.a"},
+            ).json()
+
+        by_id = {e["id"]: e for e in events}
+        assert by_id["ev.a"]["thumb_path"] == "/thumbs/rev.1.webp"
+        assert by_id["ev.b"]["thumb_path"] is None
+        assert "thumbnail" in by_id["ev.a"]
+        assert by_id["ev.a"]["search_source"] == "thumbnail"
+
+        with AuthTestClient(self.app) as client:
+            events = client.get(
+                "/events/search",
+                params={
+                    "search_type": "similarity",
+                    "event_id": "ev.a",
+                    "include_thumbnails": 0,
+                },
+            ).json()
+        assert all("thumbnail" not in e for e in events)
