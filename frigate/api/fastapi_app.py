@@ -9,6 +9,7 @@ from playhouse.sqliteq import SqliteQueueDatabase
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette_context import middleware, plugins
 from starlette_context.plugins import Plugin
 
@@ -59,6 +60,22 @@ def check_csrf(request: Request) -> bool:
         return False
 
     return True
+
+
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
+    """Render HTTPException in both error shapes the API uses.
+
+    Handlers return ``{"success": false, "message": ...}`` while FastAPI's
+    default renders ``{"detail": ...}``. Emit both keys so every client reads
+    the same error regardless of how it was raised.
+    """
+    return JSONResponse(
+        content={"success": False, "message": exc.detail, "detail": exc.detail},
+        status_code=exc.status_code,
+        headers=exc.headers,
+    )
 
 
 # Used to retrieve the remote-user header: https://starlette-context.readthedocs.io/en/latest/plugins.html#easy-mode
@@ -137,6 +154,7 @@ def create_fastapi_app(
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_middleware(SlowAPIMiddleware)
 
     # Routes

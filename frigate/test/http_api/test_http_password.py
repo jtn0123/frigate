@@ -77,6 +77,12 @@ class TestUpdatePasswordAccess(BaseTestHttp):
         assert resp.status_code == 403
         assert self._admin_password_unchanged()
 
+        # HTTPException is rendered in both error shapes the API uses
+        body = resp.json()
+        assert body["success"] is False
+        assert body["message"] == "Users can only update their own password"
+        assert body["detail"] == body["message"]
+
     def test_admin_can_target_another_account(self):
         User.insert(
             username="neighbor",
