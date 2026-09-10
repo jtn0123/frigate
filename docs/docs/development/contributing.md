@@ -85,7 +85,7 @@ VS Code will start the Docker Compose file for you and open a terminal window co
 
 #### 5. Teardown
 
-After closing VS Code, you may still have containers running. To close everything down, just run `docker-compose down -v` to cleanup all containers.
+After closing VS Code, you may still have containers running. To close everything down, just run `docker compose down -v` to cleanup all containers.
 
 ### Testing
 
@@ -186,13 +186,17 @@ cd web && npm run dev
 
 ##### 3a. Run the development server against a non-local instance
 
-To run the development server against a non-local instance, you will need to
-replace the `localhost` values in `vite.config.ts` with the IP address of the
-non-local backend server.
+To run the development server against a non-local instance, set the
+`PROXY_HOST` environment variable to the address of the backend (see
+`web/.env.example`). Do not edit `vite.config.ts`.
+
+```console
+PROXY_HOST=192.168.1.10:5000 npm run dev
+```
 
 #### 4. Making changes
 
-The Web UI is built using [Vite](https://vitejs.dev/), [Preact](https://preactjs.com), and [Tailwind CSS](https://tailwindcss.com).
+The Web UI is built using [Vite](https://vitejs.dev/), [React](https://react.dev) 19, and [Tailwind CSS](https://tailwindcss.com).
 
 Light guidelines and advice:
 
@@ -205,10 +209,9 @@ npm run lint
 ```
 
 - Add to unit tests and ensure they pass. As much as possible, you should strive to _increase_ test coverage whenever making changes. This will help ensure features do not accidentally become broken in the future.
-- If you run into error messages like "TypeError: Cannot read properties of undefined (reading 'context')" when running tests, this may be due to these issues (https://github.com/vitest-dev/vitest/issues/1910, https://github.com/vitest-dev/vitest/issues/1652) in vitest, but I haven't been able to resolve them.
 
 ```console
-npm run test
+npx vitest run
 ```
 
 - Test in different browsers. Firefox, Chrome, and Safari all have different quirks that make them unique targets to interact with.

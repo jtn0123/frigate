@@ -6,7 +6,7 @@ This document provides coding guidelines and best practices for contributing to 
 
 Frigate NVR is a realtime object detection system for IP cameras that uses:
 
-- **Backend**: Python 3.13+ with FastAPI, OpenCV, TensorFlow/ONNX
+- **Backend**: Python 3.11 (the version installed by `docker/main/Dockerfile`) with FastAPI, OpenCV, TensorFlow/ONNX
 - **Frontend**: React with TypeScript, Vite, TailwindCSS
 - **Architecture**: Multiprocessing design with ZMQ and MQTT communication
 - **Focus**: Minimal resource usage with maximum performance
@@ -23,7 +23,7 @@ When reviewing code, do NOT comment on:
 
 ### Python Requirements
 
-- **Compatibility**: Python 3.13+
+- **Compatibility**: Python 3.11, as installed by `docker/main/Dockerfile` (the source of truth for the runtime version)
 - **Language Features**: Use modern Python features:
   - Pattern matching
   - Type hints (comprehensive typing preferred)
