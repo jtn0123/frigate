@@ -14,8 +14,9 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.routing import APIRoute
 from joserfc import jwt
 from peewee import DoesNotExist
 from slowapi import Limiter
@@ -95,6 +96,8 @@ def require_admin_by_default():
         "/go2rtc/streams",
         "/event_ids",
         "/events",
+        "/review",
+        "/review_ids",
         "/cases",
         "/exports",
         "/jobs/export",
@@ -103,7 +106,7 @@ def require_admin_by_default():
     # Path prefixes that should be exempt (for paths with parameters)
     EXEMPT_PREFIXES = (
         "/logs/",  # /logs/{service}
-        "/review",  # /review, /review/{id}, /review/summary, /review_ids, etc.
+        "/review/",  # /review/{id}, /review/summary, /review/event/{id}, etc.
         "/reviews/",  # /reviews/viewed, /reviews/delete
         "/events/",  # /events/{id}/thumbnail, /events/summary, etc. (camera-scoped)
         "/export/",  # /export/{camera}/start/..., /export/{id}/rename, /export/{id}
@@ -144,7 +147,10 @@ def require_admin_by_default():
                 ):
                     return
         except Exception:
-            pass
+            # fail closed: fall through to the admin check
+            logger.debug(
+                "Could not evaluate camera path exemption for %s", path, exc_info=True
+            )
 
         # For all other paths, require admin role
         # Internal port requests have admin role set automatically
@@ -158,6 +164,59 @@ def require_admin_by_default():
         )
 
     return admin_checker
+
+
+# Names of the dependency callables that count as a route's auth gate. Every
+# API route must declare exactly one of these; see assert_routes_have_auth_gate.
+AUTH_GATE_NAMES = frozenset(
+    {
+        "public_checker",  # allow_public()
+        "auth_checker",  # allow_any_authenticated()
+        "role_checker",  # require_role([...])
+        "require_camera_access",
+        "require_go2rtc_stream_access",
+        "require_full_camera_access",
+    }
+)
+
+
+def route_auth_gates(route: APIRoute) -> list[str]:
+    """Return the names of the auth gate dependencies declared on a route."""
+    gates: list[str] = []
+
+    for dependency in route.dependant.dependencies:
+        name = getattr(dependency.call, "__name__", "") or ""
+        if name in AUTH_GATE_NAMES:
+            gates.append(name)
+
+    return gates
+
+
+def assert_routes_have_auth_gate(app: FastAPI) -> None:
+    """Fail startup if any API route does not declare exactly one auth gate.
+
+    The global admin default plus the exemption lists above are the safety
+    net; the route-level gate is what documents (and enforces) the intended
+    access level, so a route without one is a mistake.
+    """
+    problems: list[str] = []
+
+    for route in app.routes:
+        if not isinstance(route, APIRoute):
+            continue
+
+        gates = route_auth_gates(route)
+
+        if len(gates) != 1:
+            methods = ",".join(sorted(route.methods or []))
+            problems.append(
+                f"{methods} {route.path}: expected one auth gate, found {gates or 'none'}"
+            )
+
+    if problems:
+        raise RuntimeError(
+            "Routes without exactly one auth dependency:\n  " + "\n  ".join(problems)
+        )
 
 
 def _is_authenticated(request: Request) -> bool:

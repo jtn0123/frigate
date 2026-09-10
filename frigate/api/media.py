@@ -787,6 +787,7 @@ def vod_clip(
 
 @router.get(
     "/events/{event_id}/snapshot.jpg",
+    dependencies=[Depends(allow_any_authenticated())],
     description="Returns a snapshot image for the specified object id.",
 )
 async def event_snapshot(
@@ -881,6 +882,7 @@ async def event_snapshot(
 
 @router.get(
     "/events/{event_id}/thumbnail.{extension}",
+    dependencies=[Depends(allow_any_authenticated())],
 )
 async def event_thumbnail(
     request: Request,
@@ -1114,6 +1116,7 @@ def clear_region_grid(request: Request, camera_name: str):
 
 @router.get(
     "/events/{event_id}/snapshot-clean.webp",
+    dependencies=[Depends(allow_any_authenticated())],
 )
 async def event_snapshot_clean(request: Request, event_id: str, download: bool = False):
     webp_bytes = None
@@ -1226,6 +1229,7 @@ async def event_snapshot_clean(request: Request, event_id: str, download: bool =
 
 @router.get(
     "/events/{event_id}/clip.mp4",
+    dependencies=[Depends(allow_any_authenticated())],
 )
 async def event_clip(
     request: Request,
@@ -1258,6 +1262,7 @@ async def event_clip(
 
 @router.get(
     "/review/{review_id}/clip.mp4",
+    dependencies=[Depends(allow_any_authenticated())],
 )
 async def review_clip(
     request: Request,
@@ -1287,6 +1292,7 @@ async def review_clip(
 
 @router.get(
     "/events/{event_id}/preview.gif",
+    dependencies=[Depends(allow_any_authenticated())],
 )
 async def event_preview(request: Request, event_id: str):
     try:
@@ -1670,7 +1676,10 @@ async def preview_mp4(
     )
 
 
-@router.get("/review/{event_id}/preview")
+@router.get(
+    "/review/{event_id}/preview",
+    dependencies=[Depends(allow_any_authenticated())],
+)
 async def review_preview(
     request: Request,
     event_id: str,

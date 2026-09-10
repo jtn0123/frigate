@@ -28,7 +28,12 @@ from frigate.api import (
     record,
     review,
 )
-from frigate.api.auth import get_jwt_secret, limiter, require_admin_by_default
+from frigate.api.auth import (
+    assert_routes_have_auth_gate,
+    get_jwt_secret,
+    limiter,
+    require_admin_by_default,
+)
 from frigate.comms.dispatcher import Dispatcher
 from frigate.comms.event_metadata_updater import (
     EventMetadataPublisher,
@@ -150,6 +155,8 @@ def create_fastapi_app(
     app.include_router(motion_search.router)
     app.include_router(record.router)
     app.include_router(debug_replay.router)
+    # every route must declare its own auth gate; fail fast if one is missing
+    assert_routes_have_auth_gate(app)
     # App Properties
     app.frigate_config = frigate_config
     # snapshot the port nginx bound at startup, the live config can be swapped

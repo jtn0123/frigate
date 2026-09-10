@@ -60,6 +60,7 @@ def invalid_name_response(value: str) -> JSONResponse:
 @router.get(
     "/faces",
     response_model=FacesResponse,
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Get all registered faces",
     description="""Returns a dictionary mapping face names to lists of image filenames.
     Each key represents a registered face name, and the value is a list of image
@@ -140,6 +141,7 @@ def reclassify_face(request: Request, body: dict = None):
 @router.post(
     "/faces/train/{name}/classify",
     response_model=GenericResponse,
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Classify and save a face training image",
     description="""Adds a training image to a specific face name for face recognition.
     Accepts either a training file from the train directory or an event_id to extract
@@ -328,6 +330,7 @@ def register_face(request: Request, name: str, file: UploadFile):
 @router.post(
     "/faces/recognize",
     response_model=FaceRecognitionResponse,
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Recognize a face from an uploaded image",
     description="""Recognizes a face from an uploaded image file by comparing it against
     registered faces in the system. Returns the recognized face name and confidence score,
@@ -511,6 +514,7 @@ def rename_face(request: Request, old_name: str, body: RenameFaceBody):
 
 @router.put(
     "/lpr/reprocess",
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Reprocess a license plate",
     description="""Reprocesses a license plate image to update the plate.
     Requires license plate recognition to be enabled in the configuration. The event_id
@@ -605,6 +609,7 @@ def reindex_embeddings(request: Request):
 @router.put(
     "/audio/transcribe",
     response_model=GenericResponse,
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Transcribe audio",
     description="""Transcribes audio from a specific event.
     Requires audio transcription to be enabled in the configuration. The event_id
@@ -670,6 +675,7 @@ def transcribe_audio(request: Request, body: AudioTranscriptionBody):
 
 @router.get(
     "/classification/{name}/dataset",
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Get classification dataset",
     description="""Gets the dataset for a specific classification model.
     The name must exist in the classification models. Returns a success message or an error if the name is invalid.""",
@@ -795,6 +801,7 @@ def get_custom_attributes(
 
 @router.get(
     "/classification/{name}/train",
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Get classification train images",
     description="""Gets the train images for a specific classification model.
     The name must exist in the classification models. Returns a success message or an error if the name is invalid.""",
@@ -822,6 +829,7 @@ def get_classification_images(name: str):
 @router.post(
     "/classification/{name}/train",
     response_model=GenericResponse,
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Train a classification model",
     description="""Trains a specific classification model.
     The name must exist in the classification models. Returns a success message or an error if the name is invalid.""",
