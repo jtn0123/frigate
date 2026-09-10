@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import psutil
 
 from frigate.comms.detections_updater import DetectionSubscriber, DetectionTypeEnum
 from frigate.comms.inter_process import InterProcessRequestor
@@ -37,6 +36,7 @@ from frigate.const import (
     RECORD_DIR,
 )
 from frigate.models import Recordings, ReviewSegment
+from frigate.record.cache_tracker import CacheFileTracker
 from frigate.review.types import SeverityEnum
 from frigate.util.services import get_video_properties
 
@@ -102,6 +102,7 @@ class RecordingMaintainer(threading.Thread):
         self.audio_recordings_info: dict[str, list] = defaultdict(list)
         self.end_time_cache: dict[str, tuple[datetime.datetime, float]] = {}
         self.unexpected_cache_files_logged: bool = False
+        self.cache_tracker = CacheFileTracker()
 
     async def move_files(self) -> None:
         cache_files = [
@@ -154,18 +155,7 @@ class RecordingMaintainer(threading.Thread):
                     RecordingsDataTypeEnum.latest.value,
                 )
 
-        files_in_use = []
-        for process in psutil.process_iter():
-            try:
-                if process.name() != "ffmpeg":
-                    continue
-                file_list = process.open_files()
-                if file_list:
-                    for nt in file_list:
-                        if nt.path.startswith(CACHE_DIR):
-                            files_in_use.append(nt.path.split("/")[-1])
-            except psutil.Error:
-                continue
+        files_in_use = self.cache_tracker.files_in_use(cache_files)
 
         # group recordings by camera (skip in-use for validation/moving)
         grouped_recordings: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
