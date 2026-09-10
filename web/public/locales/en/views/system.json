@@ -9,7 +9,8 @@
       "go2rtc": "Go2RTC Logs - Frigate",
       "nginx": "Nginx Logs - Frigate",
       "websocket": "Messages Logs - Frigate"
-    }
+    },
+    "health": "Camera Health - Frigate"
   },
   "title": "System",
   "metrics": "System metrics",
@@ -265,5 +266,8 @@
       "classification_speed": "{{name}} Classification Speed",
       "classification_events_per_second": "{{name}} Classification Events Per Second"
     }
+  },
+  "health": {
+    "title": "Health"
   }
 }

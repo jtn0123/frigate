@@ -67,5 +67,38 @@
       "markedReviewed_other": "Marked {{count}} items as reviewed",
       "markFailed": "Could not mark items as reviewed"
     }
+  },
+  "cameraHealth": {
+    "description": "Per-camera health from the live stats stream. Frame rates refresh with each stats update.",
+    "state": {
+      "ok": "OK",
+      "degraded": "Degraded",
+      "offline": "Offline",
+      "disabled": "Disabled"
+    },
+    "reason": {
+      "noStats": "No stats reported",
+      "noFrames": "No frames received",
+      "lowFps": "Frame rate below half of expected",
+      "skippedFrames": "Frames are being skipped",
+      "poorConnection": "Poor connection quality",
+      "reconnects": "FFmpeg reconnected in the last hour",
+      "stalls": "Stream stalled in the last hour"
+    },
+    "metric": {
+      "cameraFps": "Camera FPS",
+      "detectionFps": "Detection FPS",
+      "skippedFps": "Skipped FPS",
+      "detectorShare": "Detector share",
+      "reconnects": "Reconnects (1h)",
+      "stalls": "Stalls (1h)",
+      "ffmpegCpu": "FFmpeg CPU"
+    },
+    "sparklineLabel": "Camera FPS history for {{camera}}",
+    "sparklineCaption_one": "Camera FPS, {{count}} sample",
+    "sparklineCaption_other": "Camera FPS, last {{count}} samples",
+    "lastUpdate": "Updated",
+    "openLive": "Live view",
+    "openSettings": "Settings"
   }
 }

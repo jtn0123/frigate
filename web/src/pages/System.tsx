@@ -7,7 +7,12 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { isDesktop, isMobile } from "react-device-detect";
 import GeneralMetrics from "@/views/system/GeneralMetrics";
 import StorageMetrics from "@/views/system/StorageMetrics";
-import { LuActivity, LuHardDrive, LuSearchCode } from "react-icons/lu";
+import {
+  LuActivity,
+  LuHardDrive,
+  LuHeartPulse,
+  LuSearchCode,
+} from "react-icons/lu";
 import { FaVideo } from "react-icons/fa";
 import Logo from "@/components/Logo";
 import useOptimisticState from "@/hooks/use-optimistic-state";
@@ -17,8 +22,16 @@ import { Toaster } from "@/components/ui/sonner";
 import { FrigateConfig } from "@/types/frigateConfig";
 import EnrichmentMetrics from "@/views/system/EnrichmentMetrics";
 import { useTranslation } from "react-i18next";
+import CameraHealthView from "@/views/fork/CameraHealthView";
+import { isForkEnabled } from "@/fork/flags";
 
-const allMetrics = ["general", "enrichments", "storage", "cameras"] as const;
+const allMetrics = [
+  "general",
+  "enrichments",
+  "storage",
+  "cameras",
+  "health",
+] as const;
 type SystemMetric = (typeof allMetrics)[number];
 
 function System() {
@@ -37,6 +50,10 @@ function System() {
     ) {
       const index = metrics.indexOf("enrichments");
       metrics.splice(index, 1);
+    }
+
+    if (!isForkEnabled("cameraHealth")) {
+      metrics.splice(metrics.indexOf("health"), 1);
     }
 
     return metrics;
@@ -107,6 +124,7 @@ function System() {
               {item == "enrichments" && <LuSearchCode className="size-4" />}
               {item == "storage" && <LuHardDrive className="size-4" />}
               {item == "cameras" && <FaVideo className="size-4" />}
+              {item == "health" && <LuHeartPulse className="size-4" />}
               {isDesktop && (
                 <div className="smart-capitalize">{t(item + ".title")}</div>
               )}
@@ -169,6 +187,11 @@ function System() {
             setLastUpdated={setLastUpdated}
             isActive={page == "cameras"}
           />
+        </div>
+      )}
+      {metrics.includes("health") && visitedTabs.has("health") && (
+        <div className={page == "health" ? "contents" : "hidden"}>
+          <CameraHealthView />
         </div>
       )}
     </div>

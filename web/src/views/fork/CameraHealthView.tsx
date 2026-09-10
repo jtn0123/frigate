@@ -1,0 +1,234 @@
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import useSWR from "swr";
+import { LuSettings } from "react-icons/lu";
+import { FaVideo } from "react-icons/fa";
+import { MdCircle } from "react-icons/md";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import TimeAgo from "@/components/dynamic/TimeAgo";
+import { ConnectionQualityIndicator } from "@/components/camera/ConnectionQualityIndicator";
+import { useEnabledState } from "@/api/ws";
+import Sparkline from "@/components/fork/Sparkline";
+import { useAutoFrigateStats } from "@/hooks/use-stats";
+import { useStatsHistory } from "@/hooks/fork/use-stats-history";
+import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
+import { isReplayCamera } from "@/utils/cameraUtil";
+import { cn } from "@/lib/utils";
+import {
+  cameraFpsSeries,
+  computeCameraHealth,
+  detectorShare,
+  type CameraHealthState,
+} from "@/lib/fork/camera-health";
+import { FrigateConfig } from "@/types/frigateConfig";
+import { FrigateStats } from "@/types/stats";
+
+const STATE_DOT: Record<CameraHealthState, string> = {
+  ok: "text-success",
+  degraded: "text-orange-400",
+  offline: "text-danger",
+  disabled: "text-muted-foreground",
+};
+
+const STATE_BADGE: Record<CameraHealthState, string> = {
+  ok: "border-success/40 bg-success/15 text-success",
+  degraded: "border-orange-400/40 bg-orange-400/15 text-orange-400",
+  offline: "border-danger/40 bg-danger/15 text-danger",
+  disabled: "border-transparent bg-secondary text-muted-foreground",
+};
+
+function formatFps(value: number | undefined) {
+  if (value === undefined || Number.isNaN(value)) return "-";
+  return value.toFixed(1);
+}
+
+/**
+ * One health card per configured camera, fed by the same stats stream the
+ * status bar uses (initial /api/stats, then WebSocket updates).
+ */
+export default function CameraHealthView() {
+  const { t } = useTranslation(["fork", "views/system"]);
+  const { data: config } = useSWR<FrigateConfig>("config", {
+    revalidateOnFocus: false,
+  });
+  const stats = useAutoFrigateStats();
+  const history = useStatsHistory(stats);
+
+  const cameras = useMemo(
+    () =>
+      Object.values(config?.cameras ?? {})
+        .filter((camera) => !isReplayCamera(camera.name))
+        .filter((camera) => camera.enabled_in_config)
+        .sort(
+          (a, b) => a.ui.order - b.ui.order || a.name.localeCompare(b.name),
+        ),
+    [config],
+  );
+
+  if (!config) {
+    return null;
+  }
+
+  return (
+    <div className="scrollbar-container mt-4 flex flex-col gap-3 overflow-y-auto">
+      <div className="text-sm text-muted-foreground">
+        {t("cameraHealth.description")}
+      </div>
+      <div
+        className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+        data-testid="camera-health-grid"
+      >
+        {cameras.map((camera) => (
+          <CameraHealthCard
+            key={camera.name}
+            cameraName={camera.name}
+            label={resolveCameraName(config, camera)}
+            enabled={camera.enabled}
+            stats={stats}
+            fpsSeries={cameraFpsSeries(history, camera.name)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type CameraHealthCardProps = {
+  cameraName: string;
+  label: string;
+  enabled: boolean;
+  stats: FrigateStats | undefined;
+  fpsSeries: number[];
+};
+
+function CameraHealthCard({
+  cameraName,
+  label,
+  enabled,
+  stats,
+  fpsSeries,
+}: CameraHealthCardProps) {
+  const { t } = useTranslation(["fork"]);
+  // runtime enable/disable arrives over the WebSocket; fall back to config
+  const { payload: enabledState } = useEnabledState(cameraName);
+  const isEnabled = enabledState ? enabledState === "ON" : enabled;
+  const cameraStats = stats?.cameras?.[cameraName];
+  const health = computeCameraHealth({ enabled: isEnabled }, cameraStats);
+  const share = detectorShare(stats, cameraName);
+
+  const ffmpegCpu =
+    cameraStats?.ffmpeg_cpu ??
+    (cameraStats?.ffmpeg_pid
+      ? stats?.cpu_usages?.[cameraStats.ffmpeg_pid]?.cpu
+      : undefined);
+
+  const metrics: Array<{ key: string; value: string }> = [
+    {
+      key: "cameraFps",
+      value: cameraStats?.expected_fps
+        ? `${formatFps(cameraStats.camera_fps)} / ${cameraStats.expected_fps}`
+        : formatFps(cameraStats?.camera_fps),
+    },
+    { key: "detectionFps", value: formatFps(cameraStats?.detection_fps) },
+    { key: "skippedFps", value: formatFps(cameraStats?.skipped_fps) },
+    {
+      key: "detectorShare",
+      value: share === undefined ? "-" : `${share}%`,
+    },
+    {
+      key: "reconnects",
+      value: String(cameraStats?.reconnects_last_hour ?? "-"),
+    },
+    { key: "stalls", value: String(cameraStats?.stalls_last_hour ?? "-") },
+    {
+      key: "ffmpegCpu",
+      value: ffmpegCpu && ffmpegCpu !== "0.0" ? `${ffmpegCpu}%` : "-",
+    },
+  ];
+
+  return (
+    <Card
+      className="flex flex-col gap-3 p-4"
+      data-testid={`camera-health-${cameraName}`}
+      data-state={health.state}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <MdCircle
+            className={cn("size-2 shrink-0", STATE_DOT[health.state])}
+          />
+          <span className="truncate font-medium smart-capitalize">{label}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {cameraStats?.connection_quality && (
+            <ConnectionQualityIndicator
+              quality={cameraStats.connection_quality}
+              expectedFps={cameraStats.expected_fps ?? 0}
+              reconnects={cameraStats.reconnects_last_hour ?? 0}
+              stalls={cameraStats.stalls_last_hour ?? 0}
+            />
+          )}
+          <Badge variant="outline" className={STATE_BADGE[health.state]}>
+            {t(`cameraHealth.state.${health.state}`)}
+          </Badge>
+        </div>
+      </div>
+      {health.reasons.length > 0 && (
+        <div
+          className="text-xs text-muted-foreground"
+          data-testid="camera-health-reason"
+        >
+          {health.reasons
+            .map((reason) => t(`cameraHealth.reason.${reason}`))
+            .join(", ")}
+        </div>
+      )}
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.key} className="flex flex-col">
+            <dt className="text-xs text-muted-foreground">
+              {t(`cameraHealth.metric.${metric.key}`)}
+            </dt>
+            <dd className="font-medium tabular-nums">{metric.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="flex flex-col gap-1">
+        <Sparkline
+          values={fpsSeries}
+          label={t("cameraHealth.sparklineLabel", { camera: label })}
+          strokeClassName={STATE_DOT[health.state]}
+          className="text-selected"
+        />
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {t("cameraHealth.sparklineCaption", { count: fpsSeries.length })}
+          </span>
+          {stats?.service?.last_updated && (
+            <span>
+              {t("cameraHealth.lastUpdate")}{" "}
+              <TimeAgo time={stats.service.last_updated * 1000} dense />
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link to={`/#${cameraName}`}>
+            <FaVideo className="mr-2 size-3.5" />
+            {t("cameraHealth.openLive")}
+          </Link>
+        </Button>
+        <Button asChild size="sm" variant="ghost">
+          <Link to={`/settings?page=cameraFfmpeg&camera=${cameraName}`}>
+            <LuSettings className="mr-2 size-3.5" />
+            {t("cameraHealth.openSettings")}
+          </Link>
+        </Button>
+      </div>
+    </Card>
+  );
+}
