@@ -18,5 +18,24 @@
   "readError": {
     "withStatus": "Failed to load {{resource}} (HTTP {{status}})",
     "network": "Failed to load {{resource}}: no response from Frigate"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "density": {
+      "label": "Density",
+      "comfortable": "Comfortable",
+      "compact": "Compact"
+    },
+    "fontScale": {
+      "label": "Text size",
+      "small": "Small",
+      "default": "Default",
+      "large": "Large",
+      "larger": "Larger"
+    },
+    "oled": {
+      "label": "OLED black",
+      "description": "Use pure black backgrounds in dark mode."
+    }
   }
 }
