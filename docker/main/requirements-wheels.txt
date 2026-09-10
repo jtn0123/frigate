@@ -16,7 +16,6 @@ python-multipart == 0.0.26
 tensorflow == 2.19.* ; platform_machine == 'aarch64'
 tensorflow-cpu == 2.19.* ; platform_machine == 'x86_64'
 # General
-mypy == 1.6.1
 onvif-zeep-async == 4.0.*
 paho-mqtt == 2.1.*
 pandas == 2.2.*
@@ -38,8 +37,8 @@ unidecode == 1.3.*
 titlecase == 2.4.*
 # Image Manipulation
 numpy == 1.26.*
-opencv-python-headless == 4.11.0.*
-opencv-contrib-python == 4.11.0.*
+# contrib is required (cv2.face); one wheel avoids two packages fighting over cv2
+opencv-contrib-python-headless == 4.11.0.*
 scipy == 1.16.*
 # OpenVino & ONNX
 openvino == 2025.4.*
