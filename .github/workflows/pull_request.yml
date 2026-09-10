@@ -46,9 +46,9 @@ jobs:
       - name: Build web
         run: npm run build
         working-directory: ./web
-      # - name: Test
-      #   run: npm run test
-      #   working-directory: ./web
+      - name: Test
+        run: npx vitest run
+        working-directory: ./web
 
   web_e2e:
     name: Web - E2E Tests
