@@ -1,0 +1,11 @@
+# Backend unit-test runner for the fork. Layers the working tree's Python
+# sources over the matching upstream image so tests run against the exact
+# runtime (labelmaps, ffmpeg, wheels) without a full image build.
+ARG BASE=ghcr.io/blakeblackshear/frigate:0.18.0-rc2
+FROM ${BASE}
+WORKDIR /opt/frigate
+COPY frigate /opt/frigate/frigate
+COPY migrations /opt/frigate/migrations
+COPY docker/main/requirements-dev.txt /tmp/requirements-dev.txt
+RUN pip3 install --break-system-packages -q -r /tmp/requirements-dev.txt 2>/dev/null || true
+ENTRYPOINT ["python3", "-u", "-m", "unittest"]

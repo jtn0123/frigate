@@ -59,3 +59,38 @@ run_tests: local
 		python3 -u -m mypy --config-file frigate/mypy.ini frigate
 
 .PHONY: run_tests
+
+# ---- fork inner-loop targets (see fork/README.md) ---------------------------
+FORK_TEST_BASE ?= ghcr.io/blakeblackshear/frigate:0.18.0-rc2
+PROXY_HOST ?= localhost:5000
+
+fork-test-image: version
+	docker build -q -f fork/Dockerfile.test --build-arg BASE=$(FORK_TEST_BASE) -t frigate-fork-test .
+
+test-py: fork-test-image
+	docker run --rm frigate-fork-test $(TESTS)
+
+check-py: fork-test-image
+	docker run --rm --entrypoint python3 frigate-fork-test -u -m mypy --config-file frigate/mypy.ini frigate
+	docker run --rm --entrypoint python3 frigate-fork-test generate_api_auth_spec.py --check
+
+lint:
+	ruff format --check frigate migrations docker *.py
+	ruff check frigate migrations docker *.py
+	cd web && npm run lint
+
+format:
+	ruff format frigate migrations docker *.py
+	ruff check --fix frigate migrations docker *.py
+	cd web && npm run lint:fix
+
+test-web:
+	cd web && npx vitest run
+
+e2e:
+	cd web && npm run e2e:build && npm run e2e
+
+dev-web:
+	cd web && PROXY_HOST=$(PROXY_HOST) npm run dev
+
+.PHONY: fork-test-image test-py check-py lint format test-web e2e dev-web

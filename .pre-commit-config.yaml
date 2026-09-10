@@ -1,0 +1,24 @@
+# Install once with: pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff-format
+        files: ^(frigate|migrations|docker)/.*\.py$|^[^/]+\.py$
+      - id: ruff
+        args: [--fix]
+        files: ^(frigate|migrations|docker)/.*\.py$|^[^/]+\.py$
+  - repo: local
+    hooks:
+      - id: eslint-web
+        name: eslint (web)
+        entry: bash -c 'cd web && npx eslint --ext .jsx,.js,.tsx,.ts --ignore-path .gitignore --fix "$@"' --
+        language: system
+        files: ^web/.*\.(ts|tsx|js|jsx)$
+        exclude: ^web/(dist|node_modules)/
+      - id: prettier-web
+        name: prettier (web)
+        entry: bash -c 'cd web && npx prettier --write "$@"' --
+        language: system
+        files: ^web/.*\.(ts|tsx|js|jsx|css|html|json)$
+        exclude: ^web/(dist|node_modules|public/locales)/
