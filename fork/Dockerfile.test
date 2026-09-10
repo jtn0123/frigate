@@ -6,6 +6,8 @@ FROM ${BASE}
 WORKDIR /opt/frigate
 COPY frigate /opt/frigate/frigate
 COPY migrations /opt/frigate/migrations
+COPY generate_api_auth_spec.py /opt/frigate/generate_api_auth_spec.py
+COPY docs/static/frigate-api.yaml /opt/frigate/docs/static/frigate-api.yaml
 COPY docker/main/requirements-dev.txt /tmp/requirements-dev.txt
 RUN pip3 install --break-system-packages -q -r /tmp/requirements-dev.txt 2>/dev/null || true
 ENTRYPOINT ["python3", "-u", "-m", "unittest"]
