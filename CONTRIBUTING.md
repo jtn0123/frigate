@@ -34,7 +34,22 @@ AI tools are a reality of modern development and we're not opposed to their use.
 
 Pull requests that appear to be unreviewed AI output will be closed without review.
 
+## Development environment
+
+The repository ships a [Dev Container](https://containers.dev/) in `.devcontainer/` with the runtime, ffmpeg, the Python wheels and the frontend toolchain preinstalled. Open the repository in VS Code and choose "Reopen in Container" (or use the `devcontainer` CLI). CI runs mypy, the API spec check and the backend tests inside this same container, so it is the reference environment. The full walkthrough, including config and sample clips, is in the [contributing docs](https://docs.frigate.video/development/contributing).
+
 ## Pull request guidelines
+
+### What CI checks before merge
+
+Every pull request runs these gates; all of them must pass:
+
+1. `ruff format --check` and `ruff check` on the Python code (`python_checks`).
+2. `python3 -u -m mypy --config-file frigate/mypy.ini frigate` inside the devcontainer.
+3. `python3 generate_api_auth_spec.py --check`, so `docs/static/frigate-api.yaml` matches the routes.
+4. `python3 -u -m unittest` inside the devcontainer.
+5. `npm run lint` and `npm run i18n:extract:ci` in `web/` (lint and locale keys in sync).
+6. `npm run build` and the Playwright end-to-end suite in `web/` (`npm run e2e:build && npm run e2e`).
 
 ### Before submitting
 

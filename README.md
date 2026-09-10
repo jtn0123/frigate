@@ -70,6 +70,10 @@ Please see our [Trademark Policy](TRADEMARK.md) for details on acceptable use of
 <img width="800" alt="Built-in mask and zone editor" src="https://github.com/blakeblackshear/frigate/assets/569905/d7885fc3-bfe6-452f-b7d0-d957cb3e31f5">
 </div>
 
+## Contributing
+
+Bug reports, feature discussions and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first: it covers the AI usage policy, the development environment, and the checks CI runs before a change can merge.
+
 ## Translations
 
 We use [Weblate](https://hosted.weblate.org/projects/frigate-nvr/) to support language translations. Contributions are always welcome.
