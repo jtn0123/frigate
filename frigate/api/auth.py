@@ -1,5 +1,6 @@
 """Auth apis."""
 
+import asyncio
 import base64
 import hashlib
 import ipaddress
@@ -996,7 +997,7 @@ async def update_password(
     HASH_ITERATIONS = request.app.frigate_config.auth.hash_iterations
 
     try:
-        user = User.get_by_id(username)
+        user = await asyncio.to_thread(User.get_by_id, username)
     except DoesNotExist:
         return JSONResponse(content={"message": "User not found"}, status_code=404)
 
@@ -1022,13 +1023,19 @@ async def update_password(
             status_code=400,
         )
 
-    password_hash = hash_password(body.password, iterations=HASH_ITERATIONS)
-    User.update(
-        {
-            User.password_hash: password_hash,
-            User.password_changed_at: datetime.now(),
-        }
-    ).where(User.username == username).execute()
+    password_hash = await asyncio.to_thread(
+        hash_password, body.password, iterations=HASH_ITERATIONS
+    )
+    await asyncio.to_thread(
+        User.update(
+            {
+                User.password_hash: password_hash,
+                User.password_changed_at: datetime.now(),
+            }
+        )
+        .where(User.username == username)
+        .execute
+    )
 
     response = JSONResponse(content={"success": True})
 
@@ -1087,7 +1094,7 @@ async def update_role(
             status_code=400,
         )
 
-    User.set_by_id(username, {User.role: body.role})
+    await asyncio.to_thread(User.set_by_id, username, {User.role: body.role})
     request.app.config_publisher.publisher.publish("config/auth", None)
     return JSONResponse(content={"success": True})
 

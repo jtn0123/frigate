@@ -294,7 +294,7 @@ async def latest_frame(
     "/{camera_name}/recordings/{frame_time}/snapshot.{format}",
     dependencies=[Depends(require_camera_access)],
 )
-async def get_snapshot_from_recording(
+def get_snapshot_from_recording(
     request: Request,
     camera_name: str,
     frame_time: float,
@@ -404,10 +404,14 @@ async def submit_recording_snapshot_to_plus(
 
     try:
         config: FrigateConfig = request.app.frigate_config
-        recording: Recordings = recording_query.get()
+        recording: Recordings = await asyncio.to_thread(recording_query.get)
         time_in_segment = frame_time - recording.start_time
-        image_data = get_image_from_recording(
-            config.ffmpeg, recording.path, time_in_segment, "png"
+        image_data = await asyncio.to_thread(
+            get_image_from_recording,
+            config.ffmpeg,
+            recording.path,
+            time_in_segment,
+            "png",
         )
 
         if not image_data:
@@ -446,7 +450,7 @@ async def submit_recording_snapshot_to_plus(
     dependencies=[Depends(require_camera_access)],
     description="For iOS devices, use the master.m3u8 HLS link instead of clip.mp4. Safari does not reliably process progressive mp4 files.",
 )
-async def recording_clip(
+def recording_clip(
     request: Request,
     camera_name: str,
     start_ts: float,
@@ -554,7 +558,7 @@ async def recording_clip(
     dependencies=[Depends(require_camera_access)],
     description="Returns an HLS playlist for the specified timestamp-range on the specified camera. Append /master.m3u8 or /index.m3u8 for HLS playback.",
 )
-async def vod_ts(
+def vod_ts(
     camera_name: str,
     start_ts: float,
     end_ts: float,
@@ -696,9 +700,9 @@ async def vod_ts(
     dependencies=[Depends(require_camera_access)],
     description="Returns an HLS playlist for the specified date-time on the specified camera. Append /master.m3u8 or /index.m3u8 for HLS playback.",
 )
-async def vod_hour_no_timezone(year_month: str, day: int, hour: int, camera_name: str):
+def vod_hour_no_timezone(year_month: str, day: int, hour: int, camera_name: str):
     """VOD for specific hour. Uses the default timezone (UTC)."""
-    return await vod_hour(
+    return vod_hour(
         year_month, day, hour, camera_name, get_localzone_name().replace("/", ",")
     )
 
@@ -708,9 +712,7 @@ async def vod_hour_no_timezone(year_month: str, day: int, hour: int, camera_name
     dependencies=[Depends(require_camera_access)],
     description="Returns an HLS playlist for the specified date-time (with timezone) on the specified camera. Append /master.m3u8 or /index.m3u8 for HLS playback.",
 )
-async def vod_hour(
-    year_month: str, day: int, hour: int, camera_name: str, tz_name: str
-):
+def vod_hour(year_month: str, day: int, hour: int, camera_name: str, tz_name: str):
     parts = year_month.split("-")
     start_date = (
         datetime(int(parts[0]), int(parts[1]), day, hour, tzinfo=UTC)
@@ -720,7 +722,7 @@ async def vod_hour(
     start_ts = start_date.timestamp()
     end_ts = end_date.timestamp()
 
-    return await vod_ts(camera_name, start_ts, end_ts)
+    return vod_ts(camera_name, start_ts, end_ts)
 
 
 @router.get(
@@ -734,7 +736,7 @@ async def vod_event(
     padding: int = Query(0, description="Padding to apply to the vod."),
 ):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
     except DoesNotExist:
         logger.error(f"Event not found: {event_id}")
         return JSONResponse(
@@ -752,7 +754,9 @@ async def vod_event(
         if event.end_time is None
         else (event.end_time + padding)
     )
-    vod_response = await vod_ts(event.camera, event.start_time - padding, end_ts)
+    vod_response = await asyncio.to_thread(
+        vod_ts, event.camera, event.start_time - padding, end_ts
+    )
 
     # If the recordings are not found and the event started more than 5 minutes ago, set has_clip to false
     if (
@@ -761,7 +765,9 @@ async def vod_event(
         and len(vod_response) == 2
         and vod_response[1] == 404
     ):
-        Event.update(has_clip=False).where(Event.id == event_id).execute()
+        await asyncio.to_thread(
+            Event.update(has_clip=False).where(Event.id == event_id).execute
+        )
 
     return vod_response
 
@@ -771,12 +777,12 @@ async def vod_event(
     dependencies=[Depends(require_camera_access)],
     description="Returns an HLS playlist for a timestamp range with HLS discontinuity enabled. Append /master.m3u8 or /index.m3u8 for HLS playback.",
 )
-async def vod_clip(
+def vod_clip(
     camera_name: str,
     start_ts: float,
     end_ts: float,
 ):
-    return await vod_ts(camera_name, start_ts, end_ts, force_discontinuity=True)
+    return vod_ts(camera_name, start_ts, end_ts, force_discontinuity=True)
 
 
 @router.get(
@@ -792,7 +798,9 @@ async def event_snapshot(
     jpg_bytes = None
     frame_time = 0
     try:
-        event = Event.get(Event.id == event_id, Event.end_time != None)
+        event = await asyncio.to_thread(
+            Event.get, Event.id == event_id, Event.end_time != None
+        )
         event_complete = True
         await require_camera_access(event.camera, request=request)
         if not event.has_snapshot:
@@ -886,7 +894,7 @@ async def event_thumbnail(
     thumbnail_bytes = None
     event_complete = False
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
         if event.end_time is not None:
             event_complete = True
@@ -1111,7 +1119,7 @@ async def event_snapshot_clean(request: Request, event_id: str, download: bool =
     webp_bytes = None
     event_complete = False
     try:
-        event = Event.get(Event.id == event_id)
+        event = await asyncio.to_thread(Event.get, Event.id == event_id)
         event_complete = event.end_time is not None
         await require_camera_access(event.camera, request=request)
         snapshot_config = request.app.frigate_config.cameras[event.camera].snapshots
@@ -1164,8 +1172,7 @@ async def event_snapshot_clean(request: Request, event_id: str, download: bool =
                 )
 
             if image_path.endswith(".webp"):
-                with open(image_path, "rb") as image_file:
-                    webp_bytes = image_file.read()
+                webp_bytes = await asyncio.to_thread(FilePath(image_path).read_bytes)
             else:
                 image = load_event_snapshot_image(event, clean_only=True)[0]
                 if image is None:
@@ -1226,7 +1233,7 @@ async def event_clip(
     padding: int = Query(0, description="Padding to apply to clip."),
 ):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
     except DoesNotExist:
         return JSONResponse(
             content={"success": False, "message": "Event not found"}, status_code=404
@@ -1244,8 +1251,8 @@ async def event_clip(
         if event.end_time is None
         else event.end_time + padding
     )
-    return await recording_clip(
-        request, event.camera, event.start_time - padding, end_ts
+    return await asyncio.to_thread(
+        recording_clip, request, event.camera, event.start_time - padding, end_ts
     )
 
 
@@ -1258,7 +1265,9 @@ async def review_clip(
     padding: int = Query(0, description="Padding to apply to clip."),
 ):
     try:
-        review: ReviewSegment = ReviewSegment.get(ReviewSegment.id == review_id)
+        review: ReviewSegment = await asyncio.to_thread(
+            ReviewSegment.get, ReviewSegment.id == review_id
+        )
     except DoesNotExist:
         return JSONResponse(
             content={"success": False, "message": "Review not found"}, status_code=404
@@ -1271,8 +1280,8 @@ async def review_clip(
         if review.end_time is None
         else review.end_time + padding
     )
-    return await recording_clip(
-        request, review.camera, review.start_time - padding, end_ts
+    return await asyncio.to_thread(
+        recording_clip, request, review.camera, review.start_time - padding, end_ts
     )
 
 
@@ -1281,7 +1290,7 @@ async def review_clip(
 )
 async def event_preview(request: Request, event_id: str):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
     except DoesNotExist:
         return JSONResponse(
             content={"success": False, "message": "Event not found"}, status_code=404
@@ -1311,24 +1320,24 @@ async def preview_gif(
 ):
     if datetime.fromtimestamp(start_ts) < datetime.now().replace(minute=0, second=0):
         # has preview mp4
-        try:
-            preview: Previews = (
-                Previews.select(
-                    Previews.camera,
-                    Previews.path,
-                    Previews.duration,
-                    Previews.start_time,
-                    Previews.end_time,
-                )
-                .where(
-                    Previews.start_time.between(start_ts, end_ts)
-                    | Previews.end_time.between(start_ts, end_ts)
-                    | ((start_ts > Previews.start_time) & (end_ts < Previews.end_time))
-                )
-                .where(Previews.camera == camera_name)
-                .limit(1)
-                .get()
+        preview_query = (
+            Previews.select(
+                Previews.camera,
+                Previews.path,
+                Previews.duration,
+                Previews.start_time,
+                Previews.end_time,
             )
+            .where(
+                Previews.start_time.between(start_ts, end_ts)
+                | Previews.end_time.between(start_ts, end_ts)
+                | ((start_ts > Previews.start_time) & (end_ts < Previews.end_time))
+            )
+            .where(Previews.camera == camera_name)
+            .limit(1)
+        )
+        try:
+            preview: Previews = await asyncio.to_thread(preview_query.get)
         except DoesNotExist:
             return JSONResponse(
                 content={"success": False, "message": "Preview not found"},
@@ -1499,24 +1508,24 @@ async def preview_mp4(
 
     if datetime.fromtimestamp(start_ts) < datetime.now().replace(minute=0, second=0):
         # has preview mp4
-        try:
-            preview: Previews = (
-                Previews.select(
-                    Previews.camera,
-                    Previews.path,
-                    Previews.duration,
-                    Previews.start_time,
-                    Previews.end_time,
-                )
-                .where(
-                    Previews.start_time.between(start_ts, end_ts)
-                    | Previews.end_time.between(start_ts, end_ts)
-                    | ((start_ts > Previews.start_time) & (end_ts < Previews.end_time))
-                )
-                .where(Previews.camera == camera_name)
-                .limit(1)
-                .get()
+        preview_query = (
+            Previews.select(
+                Previews.camera,
+                Previews.path,
+                Previews.duration,
+                Previews.start_time,
+                Previews.end_time,
             )
+            .where(
+                Previews.start_time.between(start_ts, end_ts)
+                | Previews.end_time.between(start_ts, end_ts)
+                | ((start_ts > Previews.start_time) & (end_ts < Previews.end_time))
+            )
+            .where(Previews.camera == camera_name)
+            .limit(1)
+        )
+        try:
+            preview: Previews = await asyncio.to_thread(preview_query.get)
         except DoesNotExist:
             preview = None
 
@@ -1668,7 +1677,9 @@ async def review_preview(
     format: str = Query(default="gif", enum=["gif", "mp4"]),
 ):
     try:
-        review: ReviewSegment = ReviewSegment.get(ReviewSegment.id == event_id)
+        review: ReviewSegment = await asyncio.to_thread(
+            ReviewSegment.get, ReviewSegment.id == event_id
+        )
     except DoesNotExist:
         return JSONResponse(
             content=({"success": False, "message": "Review segment not found"}),
@@ -1722,10 +1733,9 @@ async def preview_thumbnail(request: Request, file_name: str):
     preview_dir = os.path.join(CACHE_DIR, "preview_frames")
 
     try:
-        with open(
-            os.path.join(preview_dir, safe_file_name_current), "rb"
-        ) as image_file:
-            jpg_bytes = image_file.read()
+        jpg_bytes = await asyncio.to_thread(
+            FilePath(preview_dir, safe_file_name_current).read_bytes
+        )
     except FileNotFoundError:
         return JSONResponse(
             content=({"success": False, "message": "Image file not found"}),
@@ -1759,7 +1769,7 @@ async def label_thumbnail(request: Request, camera_name: str, label: str):
         event_query = event_query.where(Event.label == label)
 
     try:
-        event_id = event_query.scalar()
+        event_id = await asyncio.to_thread(event_query.scalar)
 
         return await event_thumbnail(request, event_id, Extension.jpg, 60)
     except DoesNotExist:
@@ -1785,7 +1795,7 @@ async def label_clip(request: Request, camera_name: str, label: str):
         event_query = event_query.where(Event.label == label)
 
     try:
-        event = event_query.get()
+        event = await asyncio.to_thread(event_query.get)
 
         return await event_clip(request, event.id, 0)
     except DoesNotExist:
@@ -1817,7 +1827,7 @@ async def label_snapshot(request: Request, camera_name: str, label: str):
         )
 
     try:
-        event: Event = event_query.get()
+        event: Event = await asyncio.to_thread(event_query.get)
         return await event_snapshot(request, event.id, MediaEventsSnapshotQueryParams())
     except DoesNotExist:
         frame = np.zeros((720, 1280, 3), np.uint8)

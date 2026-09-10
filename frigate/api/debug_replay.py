@@ -162,7 +162,9 @@ async def start_debug_replay_from_export(
 ):
     """Start a debug replay session from an existing export."""
     try:
-        export: Export = Export.get(Export.id == body.export_id)
+        export: Export = await asyncio.to_thread(
+            Export.get, Export.id == body.export_id
+        )
     except DoesNotExist:
         return JSONResponse(
             content={"success": False, "message": "Export not found"},

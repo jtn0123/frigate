@@ -120,7 +120,7 @@ def all_recordings_summary(
 @router.get(
     "/{camera_name}/recordings/summary", dependencies=[Depends(require_camera_access)]
 )
-async def recordings_summary(camera_name: str, timezone: str = "utc"):
+def recordings_summary(camera_name: str, timezone: str = "utc"):
     """Returns hourly summary for recordings of given camera"""
 
     time_range_query = (
@@ -224,7 +224,7 @@ async def recordings_summary(camera_name: str, timezone: str = "utc"):
 
 
 @router.get("/{camera_name}/recordings", dependencies=[Depends(require_camera_access)])
-async def recordings(
+def recordings(
     camera_name: str,
     after: float = (datetime.now() - timedelta(hours=1)).timestamp(),
     before: float = datetime.now().timestamp(),
@@ -259,7 +259,7 @@ async def recordings(
     response_model=list[dict],
     dependencies=[Depends(allow_any_authenticated())],
 )
-async def no_recordings(
+def no_recordings(
     request: Request,
     params: MediaRecordingsAvailabilityQueryParams = Depends(),
     allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
@@ -360,7 +360,7 @@ async def no_recordings(
     Recordings can be filtered by cameras and kept based on motion, objects, or audio attributes.
     """,
 )
-async def delete_recordings(
+def delete_recordings(
     start: float = PathParam(..., description="Start timestamp (unix)"),
     end: float = PathParam(..., description="End timestamp (unix)"),
     params: RecordingsDeleteQueryParams = Depends(),

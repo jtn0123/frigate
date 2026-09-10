@@ -25,3 +25,4 @@ Deployed builds are tagged `fork/<version>-<date>` and published by
 | ID | Area | Files | Why | Upstream PR |
 |----|------|-------|-----|-------------|
 | S0 | scaffold | `FORK.md`, `fork/`, `web/src/fork/flags.ts`, `.github/workflows/fork-*.yml`, `.pre-commit-config.yaml`, `web/.env.example`, `web/tsconfig.e2e.json`, `Makefile` (new targets only) | Fork infrastructure: ledger, flags, CI that builds an amd64 image from this branch, inner-loop targets | n/a (fork-only) |
+| G3 | backend | `frigate/api/{auth,camera,debug_replay,event,export,media,record,review}.py`, `pyproject.toml` | Route handlers no longer run peewee queries on the event loop: sync-only handlers are plain `def`, handlers that await auth wrap DB calls in `asyncio.to_thread`; full ruff `ASYNC` family enabled | candidate |

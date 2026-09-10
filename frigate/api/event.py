@@ -486,15 +486,17 @@ async def event_ids(ids: str, request: Request):
 
     for event_id in ids:
         try:
-            event = Event.get(Event.id == event_id)
+            event = await asyncio.to_thread(Event.get, Event.id == event_id)
             await require_camera_access(event.camera, request=request)
         except DoesNotExist:
             # we should not fail the entire request if an event is not found
             continue
 
     try:
-        events = Event.select().where(Event.id << ids).dicts().iterator()
-        return JSONResponse(list(events))
+        events = await asyncio.to_thread(
+            list, Event.select().where(Event.id << ids).dicts()
+        )
+        return JSONResponse(events)
     except Exception:
         return JSONResponse(
             content=({"success": False, "message": "Events not found"}), status_code=400
@@ -1002,7 +1004,7 @@ def events_summary(
 )
 async def event(event_id: str, request: Request):
     try:
-        event = Event.get(Event.id == event_id)
+        event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
         return model_to_dict(event)
     except DoesNotExist:
@@ -1063,7 +1065,7 @@ async def send_to_plus(request: Request, event_id: str, body: SubmitPlusBody = N
     include_annotation = body.include_annotation if body is not None else None
 
     try:
-        event = Event.get(Event.id == event_id)
+        event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         message = f"Event {event_id} not found"
@@ -1131,7 +1133,7 @@ async def send_to_plus(request: Request, event_id: str, body: SubmitPlusBody = N
 
     # store image id in the database
     event.plus_id = plus_id
-    event.save()
+    await asyncio.to_thread(event.save)
 
     if include_annotation is not None:
         box = event.data["box"]
@@ -1186,7 +1188,7 @@ async def false_positive(request: Request, event_id: str):
         )
 
     try:
-        event = Event.get(Event.id == event_id)
+        event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         message = f"Event {event_id} not found"
@@ -1215,7 +1217,7 @@ async def false_positive(request: Request, event_id: str):
         if plus_response.status_code != 200:
             return plus_response
         # need to refetch the event now that it has a plus_id
-        event = Event.get(Event.id == event_id)
+        event = await asyncio.to_thread(Event.get, Event.id == event_id)
 
     region = event.data["region"]
     box = event.data["box"]
@@ -1254,7 +1256,7 @@ async def false_positive(request: Request, event_id: str):
         )
 
     event.false_positive = True
-    event.save()
+    await asyncio.to_thread(event.save)
 
     return JSONResponse(
         content=({"success": True, "plus_id": event.plus_id}), status_code=200
@@ -1273,7 +1275,7 @@ async def false_positive(request: Request, event_id: str):
 )
 async def delete_retain(event_id: str, request: Request):
     try:
-        event = Event.get(Event.id == event_id)
+        event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
@@ -1282,7 +1284,7 @@ async def delete_retain(event_id: str, request: Request):
         )
 
     event.retain_indefinitely = False
-    event.save()
+    await asyncio.to_thread(event.save)
 
     return JSONResponse(
         content=({"success": True, "message": "Event " + event_id + " un-retained"}),
@@ -1305,7 +1307,7 @@ async def set_sub_label(
     body: EventsSubLabelBody,
 ):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         event = None
@@ -1364,7 +1366,7 @@ async def set_plate(
     body: EventsLPRBody,
 ):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         event = None
@@ -1425,7 +1427,7 @@ async def set_attributes(
     body: EventsAttributesBody,
 ):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
@@ -1525,7 +1527,7 @@ async def set_description(
     body: EventsDescriptionBody,
 ):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
@@ -1536,7 +1538,7 @@ async def set_description(
     new_description = body.description
 
     event.data["description"] = new_description
-    event.save()
+    await asyncio.to_thread(event.save)
 
     context: EmbeddingsContext | None = request.app.embeddings
 
@@ -1582,7 +1584,7 @@ async def regenerate_description(
     request: Request, event_id: str, params: RegenerateQueryParameters = Depends()
 ):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
@@ -1658,13 +1660,8 @@ def generate_description_embedding(
     )
 
 
-async def delete_single_event(event_id: str, request: Request) -> dict:
-    try:
-        event = Event.get(Event.id == event_id)
-        await require_camera_access(event.camera, request=request)
-    except DoesNotExist:
-        return {"success": False, "message": f"Event {event_id} not found"}
-
+def _delete_event_data(event: Event, context: EmbeddingsContext | None) -> None:
+    """Remove an event's media files, database rows, and embeddings."""
     media_name = f"{event.camera}-{event.id}"
     if event.has_snapshot:
         snapshot_paths = [
@@ -1676,15 +1673,23 @@ async def delete_single_event(event_id: str, request: Request) -> dict:
             media.unlink(missing_ok=True)
 
     event.delete_instance()
-    Timeline.delete().where(Timeline.source_id == event_id).execute()
+    Timeline.delete().where(Timeline.source_id == event.id).execute()
 
     # embeddings are always cleaned up, even when semantic search is disabled,
     # so that they don't outlive their events
-    context: EmbeddingsContext | None = request.app.embeddings
-
     if context is not None:
-        context.db.delete_embeddings_thumbnail(event_ids=[event_id])
-        context.db.delete_embeddings_description(event_ids=[event_id])
+        context.db.delete_embeddings_thumbnail(event_ids=[event.id])
+        context.db.delete_embeddings_description(event_ids=[event.id])
+
+
+async def delete_single_event(event_id: str, request: Request) -> dict:
+    try:
+        event = await asyncio.to_thread(Event.get, Event.id == event_id)
+        await require_camera_access(event.camera, request=request)
+    except DoesNotExist:
+        return {"success": False, "message": f"Event {event_id} not found"}
+
+    await asyncio.to_thread(_delete_event_data, event, request.app.embeddings)
 
     return {"success": True, "message": f"Event {event_id} deleted"}
 
@@ -1816,7 +1821,7 @@ def create_event(
 )
 async def end_event(request: Request, event_id: str, body: EventsEndBody):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
 
         if body.end_time is not None and body.end_time < event.start_time:

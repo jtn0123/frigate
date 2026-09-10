@@ -2,5 +2,13 @@
 target-version = "py311"
 
 [tool.ruff.lint]
-ignore = ["E501","E711","E712","UP031","UP032","UP042","G004"]
-extend-select = ["I", "UP", "G", "ASYNC210", "B904"]
+# ASYNC109: the service manager's stop hooks take a timeout that is forwarded
+# to asyncio.wait_for, which is the documented contract of that API.
+# ASYNC240: os.path/pathlib metadata calls on the local disk are accepted in
+# async code; the alternative (anyio.Path everywhere) is not worth the churn.
+ignore = ["E501","E711","E712","UP031","UP032","UP042","G004","ASYNC109","ASYNC240"]
+extend-select = ["I", "UP", "G", "ASYNC", "ASYNC210", "B904"]
+
+[tool.ruff.lint.per-file-ignores]
+# delete_camera edits the config file synchronously under a FileLock.
+"frigate/api/camera.py" = ["ASYNC230"]

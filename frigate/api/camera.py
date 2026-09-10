@@ -112,15 +112,22 @@ async def go2rtc_streams(request: Request):
     dependencies=[Depends(require_go2rtc_stream_access)],
 )
 def go2rtc_camera_stream(request: Request, stream_name: str):
-    r = requests.get(
-        "http://127.0.0.1:1984/api/streams",
-        params={
-            "src": stream_name,
-            "video": "all",
-            "audio": "all",
-            "microphone": "",
-        },
-    )
+    try:
+        r = requests.get(
+            "http://127.0.0.1:1984/api/streams",
+            params={
+                "src": stream_name,
+                "video": "all",
+                "audio": "all",
+                "microphone": "",
+            },
+        )
+    except requests.RequestException as e:
+        logger.error("Error communicating with go2rtc: %s", e)
+        return JSONResponse(
+            content=({"success": False, "message": "Error fetching stream data"}),
+            status_code=500,
+        )
     if not r.ok:
         camera_config = request.app.frigate_config.cameras.get(stream_name)
 

@@ -1,5 +1,6 @@
 """Review apis."""
 
+import asyncio
 import datetime
 import logging
 from functools import reduce
@@ -48,7 +49,7 @@ router = APIRouter(tags=[Tags.review])
     response_model=list[ReviewSegmentResponse],
     dependencies=[Depends(allow_any_authenticated())],
 )
-async def review(
+def review(
     params: ReviewQueryParams = Depends(),
     current_user: dict = Depends(get_current_user),
     allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
@@ -174,7 +175,9 @@ async def review_ids(request: Request, ids: str):
 
     for review_id in ids:
         try:
-            review = ReviewSegment.get(ReviewSegment.id == review_id)
+            review = await asyncio.to_thread(
+                ReviewSegment.get, ReviewSegment.id == review_id
+            )
             await require_camera_access(review.camera, request=request)
         except DoesNotExist:
             return JSONResponse(
@@ -185,10 +188,10 @@ async def review_ids(request: Request, ids: str):
             )
 
     try:
-        reviews = (
-            ReviewSegment.select().where(ReviewSegment.id << ids).dicts().iterator()
+        reviews = await asyncio.to_thread(
+            list, ReviewSegment.select().where(ReviewSegment.id << ids).dicts()
         )
-        return JSONResponse(list(reviews))
+        return JSONResponse(reviews)
     except Exception:
         return JSONResponse(
             content=({"success": False, "message": "Review segments not found"}),
@@ -201,7 +204,7 @@ async def review_ids(request: Request, ids: str):
     response_model=ReviewSummaryResponse,
     dependencies=[Depends(allow_any_authenticated())],
 )
-async def review_summary(
+def review_summary(
     params: ReviewSummaryQueryParams = Depends(),
     current_user: dict = Depends(get_current_user),
     allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
@@ -492,24 +495,33 @@ async def set_multiple_reviewed(
 
     for review_id in body.ids:
         try:
-            review = ReviewSegment.get(ReviewSegment.id == review_id)
-            await require_camera_access(review.camera, request=request)
-            review_status = UserReviewStatus.get(
+            review = await asyncio.to_thread(
+                ReviewSegment.get, ReviewSegment.id == review_id
+            )
+        except DoesNotExist:
+            continue
+
+        await require_camera_access(review.camera, request=request)
+
+        try:
+            review_status = await asyncio.to_thread(
+                UserReviewStatus.get,
                 UserReviewStatus.user_id == user_id,
                 UserReviewStatus.review_segment == review_id,
             )
             # Update based on the reviewed parameter
             if review_status.has_been_reviewed != body.reviewed:
                 review_status.has_been_reviewed = body.reviewed
-                review_status.save()
+                await asyncio.to_thread(review_status.save)
         except DoesNotExist:
             try:
-                UserReviewStatus.create(
+                await asyncio.to_thread(
+                    UserReviewStatus.create,
                     user_id=user_id,
-                    review_segment=ReviewSegment.get(id=review_id),
+                    review_segment=review,
                     has_been_reviewed=body.reviewed,
                 )
-            except (DoesNotExist, IntegrityError):
+            except IntegrityError:
                 pass
 
     return JSONResponse(
@@ -675,8 +687,9 @@ def motion_activity(
 )
 async def get_review_from_event(request: Request, event_id: str):
     try:
-        review = ReviewSegment.get(
-            ReviewSegment.data["detections"].cast("text") % f'*"{event_id}"*'
+        review = await asyncio.to_thread(
+            ReviewSegment.get,
+            ReviewSegment.data["detections"].cast("text") % f'*"{event_id}"*',
         )
         await require_camera_access(review.camera, request=request)
         return JSONResponse(model_to_dict(review))
@@ -694,7 +707,9 @@ async def get_review_from_event(request: Request, event_id: str):
 )
 async def get_review(request: Request, review_id: str):
     try:
-        review = ReviewSegment.get(ReviewSegment.id == review_id)
+        review = await asyncio.to_thread(
+            ReviewSegment.get, ReviewSegment.id == review_id
+        )
         await require_camera_access(review.camera, request=request)
         return JSONResponse(content=model_to_dict(review))
     except DoesNotExist:
@@ -720,7 +735,9 @@ async def set_not_reviewed(
     user_id = current_user["username"]
 
     try:
-        review: ReviewSegment = ReviewSegment.get(ReviewSegment.id == review_id)
+        review: ReviewSegment = await asyncio.to_thread(
+            ReviewSegment.get, ReviewSegment.id == review_id
+        )
     except DoesNotExist:
         return JSONResponse(
             content=(
@@ -732,12 +749,13 @@ async def set_not_reviewed(
     await require_camera_access(review.camera, request=request)
 
     try:
-        user_review = UserReviewStatus.get(
+        user_review = await asyncio.to_thread(
+            UserReviewStatus.get,
             UserReviewStatus.user_id == user_id,
             UserReviewStatus.review_segment == review,
         )
         # we could update here instead of delete if we need
-        user_review.delete_instance()
+        await asyncio.to_thread(user_review.delete_instance)
     except DoesNotExist:
         pass  # Already effectively "not reviewed"
 

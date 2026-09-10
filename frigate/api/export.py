@@ -1,5 +1,6 @@
 """Export apis."""
 
+import asyncio
 import datetime
 import logging
 import random
@@ -915,7 +916,7 @@ def export_recording(
 )
 async def export_rename(event_id: str, body: ExportRenameBody, request: Request):
     try:
-        export: Export = Export.get(Export.id == event_id)
+        export: Export = await asyncio.to_thread(Export.get, Export.id == event_id)
         await require_camera_access(export.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
@@ -929,7 +930,7 @@ async def export_rename(event_id: str, body: ExportRenameBody, request: Request)
         )
 
     export.name = body.name
-    export.save()
+    await asyncio.to_thread(export.save)
     return JSONResponse(
         content=(
             {
@@ -1065,7 +1066,7 @@ def export_recording_custom(
 )
 async def get_export(export_id: str, request: Request):
     try:
-        export = Export.get(Export.id == export_id)
+        export = await asyncio.to_thread(Export.get, Export.id == export_id)
         await require_camera_access(export.camera, request=request)
         return JSONResponse(content=model_to_dict(export))
     except DoesNotExist:
