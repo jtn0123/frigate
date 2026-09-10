@@ -675,7 +675,10 @@ test.describe("Multi-Review Export @high", () => {
 
     // Creating a case must not pull the user off the review they were
     // working through — the case is offered as a link on the toast instead.
-    const viewCase = frigateApp.page.getByRole("link", { name: /view/i });
+    const viewCase = frigateApp.page.getByRole("link", {
+      name: "View",
+      exact: true,
+    });
     await expect(viewCase).toBeVisible({ timeout: 5_000 });
     await expect(viewCase).toHaveAttribute(
       "href",
@@ -842,7 +845,10 @@ test.describe("Multi-Review Export @high", () => {
 
     // Attaching to a case leaves the user on the review page; the case is
     // reachable from the toast action.
-    const viewCase = frigateApp.page.getByRole("link", { name: /view/i });
+    const viewCase = frigateApp.page.getByRole("link", {
+      name: "View",
+      exact: true,
+    });
     await expect(viewCase).toBeVisible({ timeout: 5_000 });
     await expect(viewCase).toHaveAttribute(
       "href",

@@ -101,16 +101,4 @@ export const GLOBAL_ALLOWLIST: RegExp[] = [
   // on a stable connection.
   // -------------------------------------------------------------------------
   /failed: net::ERR_ABORTED.*\/assets\//,
-
-  // -------------------------------------------------------------------------
-  // Real app bug — Radix UI DialogContent missing accessible title.
-  //
-  // TODO(real-bug): A dialog somewhere in the app renders <DialogContent>
-  // without a <DialogTitle>, violating Radix UI's accessibility contract.
-  // The warning originates from the bundled main-*.js. Investigate which
-  // dialog component is missing the title and add a VisuallyHidden DialogTitle.
-  // Likely candidate: face-library or search-detail dialog in explore page.
-  // See: https://radix-ui.com/primitives/docs/components/dialog
-  // -------------------------------------------------------------------------
-  /`DialogContent` requires a `DialogTitle`/,
 ];
