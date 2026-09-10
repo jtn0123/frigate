@@ -1,5 +1,21 @@
 import { MutableRefObject, useCallback, useEffect, useMemo } from "react";
 
+// Global shortcuts must not fire while the user is typing in a text field,
+// select, or contenteditable region (Monaco, chat composer, and the like).
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tag = target.tagName;
+  return (
+    tag == "INPUT" ||
+    tag == "TEXTAREA" ||
+    tag == "SELECT" ||
+    target.isContentEditable
+  );
+}
+
 export type KeyModifiers = {
   down: boolean;
   repeat: boolean;
@@ -22,8 +38,7 @@ export default function useKeyboardListener(
 
   const keyDownListener = useCallback(
     (e: KeyboardEvent) => {
-      // @ts-expect-error we know this field exists
-      if (!e || e.target.tagName == "INPUT") {
+      if (!e || isEditableTarget(e.target)) {
         return;
       }
 
