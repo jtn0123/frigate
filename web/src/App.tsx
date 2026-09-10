@@ -6,7 +6,7 @@ import Sidebar from "@/components/navigation/Sidebar";
 import { isDesktop, isMobile } from "react-device-detect";
 import Statusbar from "./components/Statusbar";
 import Bottombar from "./components/navigation/Bottombar";
-import { Suspense, lazy } from "react";
+import { lazy } from "react";
 import { Redirect } from "./components/navigation/Redirect";
 import { cn } from "./lib/utils";
 import { isPWA } from "./utils/isPWA";
@@ -15,6 +15,9 @@ import useSWR from "swr";
 import { FrigateConfig } from "./types/frigateConfig";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { isRedirectingToLogin } from "@/api/auth-redirect";
+import RouteErrorBoundary, {
+  RouteSuspense,
+} from "@/components/fork/RouteErrorBoundary";
 
 const Live = lazy(() => import("@/pages/Live"));
 const Events = lazy(() => import("@/pages/Events"));
@@ -70,9 +73,11 @@ function DefaultAppView() {
 
   return (
     <div className="size-full overflow-hidden">
-      {isDesktop && <Sidebar />}
-      {isDesktop && <Statusbar />}
-      {isMobile && <Bottombar />}
+      <RouteErrorBoundary variant="chrome">
+        {isDesktop && <Sidebar />}
+        {isDesktop && <Statusbar />}
+        {isMobile && <Bottombar />}
+      </RouteErrorBoundary>
       <div
         id="pageRoot"
         className={cn(
@@ -84,7 +89,7 @@ function DefaultAppView() {
             : "bottom-8 left-[52px]",
         )}
       >
-        <Suspense
+        <RouteSuspense
           fallback={
             <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
           }
@@ -110,7 +115,7 @@ function DefaultAppView() {
             <Route path="/unauthorized" element={<AccessDenied />} />
             <Route path="*" element={<Redirect to="/" />} />
           </Routes>
-        </Suspense>
+        </RouteSuspense>
       </div>
     </div>
   );
@@ -123,9 +128,9 @@ function SafeAppView() {
         id="pageRoot"
         className={cn("absolute bottom-0 left-0 right-0 top-0 overflow-hidden")}
       >
-        <Suspense>
+        <RouteSuspense>
           <ConfigEditor />
-        </Suspense>
+        </RouteSuspense>
       </div>
     </div>
   );

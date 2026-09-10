@@ -38,6 +38,7 @@ i18n
 
     ns: [
       "common",
+      "fork",
       "objects",
       "audio",
       "components/auth",

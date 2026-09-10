@@ -1,0 +1,13 @@
+{
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "This page hit an error and could not be displayed. Reloading usually fixes it. If it keeps happening, copy the details below and include them in a bug report.",
+    "chunkTitle": "Update available",
+    "chunkDescription": "Part of the interface failed to load, which usually means Frigate was updated while this tab was open. Reload to pick up the new version.",
+    "chromeTitle": "The navigation bar hit an error",
+    "reload": "Reload",
+    "copyDetails": "Copy details",
+    "copied": "Copied",
+    "copyFallback": "Copy the error details below"
+  }
+}
