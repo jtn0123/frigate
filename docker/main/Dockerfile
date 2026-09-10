@@ -60,10 +60,18 @@ ARG DEBIAN_FRONTEND
 RUN --mount=type=bind,source=docker/main/build_intel_media_driver.sh,target=/deps/build_intel_media_driver.sh \
     /deps/build_intel_media_driver.sh
 
-FROM scratch AS go2rtc
-ARG TARGETARCH
+# go2rtc is fetched per architecture so each download can carry its checksum
+FROM scratch AS go2rtc-amd64
 WORKDIR /rootfs/usr/local/go2rtc/bin
-ADD --link --chmod=755 "https://github.com/AlexxIT/go2rtc/releases/download/v1.9.14/go2rtc_linux_${TARGETARCH}" go2rtc
+ADD --link --chmod=755 --checksum=sha256:32d616af226bd731678ffde328b94cfb94e30339bfefc469cfb76323144615a6 \
+    "https://github.com/AlexxIT/go2rtc/releases/download/v1.9.14/go2rtc_linux_amd64" go2rtc
+
+FROM scratch AS go2rtc-arm64
+WORKDIR /rootfs/usr/local/go2rtc/bin
+ADD --link --chmod=755 --checksum=sha256:359fabade8a7a51e81a55fe6df6b0ef81764a5e1d63179577534eaaa71904b50 \
+    "https://github.com/AlexxIT/go2rtc/releases/download/v1.9.14/go2rtc_linux_arm64" go2rtc
+
+FROM go2rtc-${TARGETARCH} AS go2rtc
 
 FROM wget AS tempio
 ARG TARGETARCH

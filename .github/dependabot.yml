@@ -24,6 +24,18 @@ updates:
       interval: daily
     open-pull-requests-limit: 10
     target-branch: dev
+  - package-ecosystem: "pip"
+    directory: "/docker/rockchip"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+    target-branch: dev
+  - package-ecosystem: "pip"
+    directory: "/docker/rocm"
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+    target-branch: dev
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
@@ -34,7 +46,5 @@ updates:
     directory: "/docs"
     schedule:
       interval: daily
-    allow:
-      - dependency-name: "@docusaurus/*"
     open-pull-requests-limit: 10
     target-branch: dev

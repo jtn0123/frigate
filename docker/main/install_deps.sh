@@ -45,18 +45,21 @@ if [[ "${TARGETARCH}" == "arm64" ]]; then
     fi
 fi
 
-# ffmpeg -> amd64
+# ffmpeg -> amd64 (each tarball is verified against its release checksum)
 if [[ "${TARGETARCH}" == "amd64" ]]; then
     mkdir -p /usr/lib/ffmpeg/5.0
     wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n5.1-2-g915ef932a3-linux64-gpl-5.1.tar.xz"
+    echo "377abec133f9d9e8014dee1b91c9684ac8bb0b5b7d80100a57116ff837c4c0d4  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/5.0 --strip-components 1 amd64/bin/ffmpeg amd64/bin/ffprobe
     rm -rf ffmpeg.tar.xz
     mkdir -p /usr/lib/ffmpeg/7.0
     wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2024-09-19-12-51/ffmpeg-n7.0.2-18-g3e6cec1286-linux64-gpl-7.0.tar.xz"
+    echo "e13860eb90409c8218319c928067834ce450128e86f24cfed5cfe91ce6e31037  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/7.0 --strip-components 1 amd64/bin/ffmpeg amd64/bin/ffprobe
     rm -rf ffmpeg.tar.xz
     mkdir -p /usr/lib/ffmpeg/8.0
     wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2026-06-02-14-20/ffmpeg-n8.1.1-9-g58d4114d36-linux64-gpl-8.1.tar.xz"
+    echo "9bac85054d351cdc89c0a4f45c8ea5c44df94009aabd964b719bbadd56aedae9  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/8.0 --strip-components 1 amd64/bin/ffmpeg amd64/bin/ffprobe
     rm -rf ffmpeg.tar.xz
 fi
@@ -65,14 +68,17 @@ fi
 if [[ "${TARGETARCH}" == "arm64" ]]; then
     mkdir -p /usr/lib/ffmpeg/5.0
     wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n5.1-2-g915ef932a3-linuxarm64-gpl-5.1.tar.xz"
+    echo "57ee475407bad49910ba9b946428396e30cf075ea28a7912fbe1aa2578085af0  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/5.0 --strip-components 1 arm64/bin/ffmpeg arm64/bin/ffprobe
     rm -f ffmpeg.tar.xz
     mkdir -p /usr/lib/ffmpeg/7.0
     wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2024-09-19-12-51/ffmpeg-n7.0.2-18-g3e6cec1286-linuxarm64-gpl-7.0.tar.xz"
+    echo "16c8b04e9d0ea9c769ad964c4c453fcf05121a1947237329d2e9d8a5e43e2a3c  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/7.0 --strip-components 1 arm64/bin/ffmpeg arm64/bin/ffprobe
     rm -f ffmpeg.tar.xz
     mkdir -p /usr/lib/ffmpeg/8.0
     wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2026-06-02-14-20/ffmpeg-n8.1.1-9-g58d4114d36-linuxarm64-gpl-8.1.tar.xz"
+    echo "cd91948468d0f11ce795a2cdaa0c69911bd1db313b49bb19c22512beb88cde69  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/8.0 --strip-components 1 arm64/bin/ffmpeg arm64/bin/ffprobe
     rm -f ffmpeg.tar.xz
 fi
