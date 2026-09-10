@@ -4,6 +4,7 @@ import { Link, useMatch } from "react-router-dom";
 import useNavigation from "@/hooks/use-navigation";
 import { baseUrl } from "@/api/baseUrl";
 import { Suspense, lazy, useMemo } from "react";
+import ForkNavItems from "@/components/fork/ForkNavItems";
 
 // These three pull in the icon picker, forms, motion and the settings menus;
 // none of them is needed for first paint, so they load after the shell.
@@ -51,6 +52,7 @@ function Sidebar() {
         })}
       </div>
       <div className="mb-8 flex flex-col items-center gap-4">
+        <ForkNavItems variant="sidebar" />
         <Suspense fallback={<div className="size-8" />}>
           <GeneralSettings />
         </Suspense>

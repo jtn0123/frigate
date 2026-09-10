@@ -37,5 +37,35 @@
       "label": "OLED black",
       "description": "Use pure black backgrounds in dark mode."
     }
+  },
+  "commandPalette": {
+    "title": "Command palette",
+    "description": "Search pages, cameras, settings, and actions.",
+    "open": "Open command palette",
+    "placeholder": "Search pages, cameras, settings, and actions",
+    "empty": "No results found.",
+    "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
+    "groups": {
+      "recent": "Recent",
+      "pages": "Pages",
+      "cameras": "Cameras",
+      "cameraGroups": "Camera groups",
+      "settings": "Settings",
+      "actions": "Actions"
+    },
+    "camera": {
+      "live": "Live view",
+      "review": "Review"
+    },
+    "actions": {
+      "toggleTheme": "Toggle dark / light theme",
+      "markAllReviewed": "Mark all as reviewed"
+    },
+    "toast": {
+      "nothingToReview": "Nothing left to review",
+      "markedReviewed_one": "Marked {{count}} item as reviewed",
+      "markedReviewed_other": "Marked {{count}} items as reviewed",
+      "markFailed": "Could not mark items as reviewed"
+    }
   }
 }

@@ -18,6 +18,7 @@ import { isRedirectingToLogin } from "@/api/auth-redirect";
 import RouteErrorBoundary, {
   RouteSuspense,
 } from "@/components/fork/RouteErrorBoundary";
+import CommandPalette from "@/components/fork/CommandPalette";
 
 const Live = lazy(() => import("@/pages/Live"));
 const Events = lazy(() => import("@/pages/Events"));
@@ -79,6 +80,7 @@ function DefaultAppView() {
         {isDesktop && <Sidebar />}
         {isDesktop && <Statusbar />}
         {isMobile && <Bottombar />}
+        <CommandPalette />
       </RouteErrorBoundary>
       <div
         id="pageRoot"

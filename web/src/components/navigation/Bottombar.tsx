@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { isMobile } from "react-device-detect";
 import { isPWA } from "@/utils/isPWA";
 import { useTranslation } from "react-i18next";
+import ForkNavItems from "@/components/fork/ForkNavItems";
 
 // not needed for first paint, so it loads after the shell
 const GeneralSettings = lazy(() => import("../menu/GeneralSettings"));
@@ -95,6 +96,7 @@ function Bottombar() {
       >
         <GeneralSettings large={large} className="p-2" />
       </Suspense>
+      <ForkNavItems variant="bottombar" large={large} />
       <StatusAlertNav large={large} className="p-2" />
     </div>
   );
