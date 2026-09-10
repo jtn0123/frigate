@@ -16,11 +16,12 @@ import {
   useRef,
   useState,
 } from "react";
+import { Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { HiDotsHorizontal } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { LuPencil, LuPlus } from "react-icons/lu";
+import { LuPencil, LuPlus, LuSettings } from "react-icons/lu";
 import {
   Dialog,
   DialogContent,
@@ -69,9 +70,8 @@ import ActivityIndicator from "../indicators/activity-indicator";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";
-import * as LuIcons from "react-icons/lu";
-import IconPicker, { IconName, IconRenderer } from "../icons/IconPicker";
-import { isValidIconName } from "@/utils/iconUtil";
+import { LuIcon } from "../icons/LuIcon";
+import { IconName, isLuIconName, useLuIcons } from "../icons/luIcons";
 import {
   MobilePage,
   MobilePageContent,
@@ -90,6 +90,9 @@ import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 import { useHasFullCameraAccess } from "@/hooks/use-has-full-camera-access";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useUserPersistedOverlayState } from "@/hooks/use-overlay-state";
+
+// the picker needs every lucide icon, so it stays out of the eager bundle
+const IconPicker = lazy(() => import("../icons/IconPicker"));
 
 type CameraGroupSelectorProps = {
   className?: string;
@@ -264,8 +267,8 @@ export function CameraGroupSelector({ className }: CameraGroupSelectorProps) {
             afterSelect?.();
           }}
         >
-          {config && config.icon && isValidIconName(config.icon) && (
-            <IconRenderer icon={LuIcons[config.icon]} className="size-5" />
+          {config && config.icon && (
+            <LuIcon name={config.icon} className="size-5" />
           )}
         </Button>
       )),
@@ -348,11 +351,8 @@ export function CameraGroupSelector({ className }: CameraGroupSelectorProps) {
                     onMouseEnter={() => showTooltip(name)}
                     onMouseLeave={() => showTooltip(undefined)}
                   >
-                    {config && config.icon && isValidIconName(config.icon) && (
-                      <IconRenderer
-                        icon={LuIcons[config.icon]}
-                        className="size-4"
-                      />
+                    {config && config.icon && (
+                      <LuIcon name={config.icon} className="size-4" />
                     )}
                   </Button>
                 </TooltipTrigger>
@@ -942,7 +942,7 @@ export function CameraGroupEdit({
     icon: z
       .string()
       .min(1, { message: "You must select an icon." })
-      .refine((value) => Object.keys(LuIcons).includes(value), {
+      .refine((value) => isLuIconName(value), {
         message: "Invalid icon",
       }),
   });
@@ -1045,6 +1045,8 @@ export function CameraGroupEdit({
     ],
   );
 
+  const luIcons = useLuIcons();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     mode: "onSubmit",
@@ -1127,7 +1129,7 @@ export function CameraGroupEdit({
                                   !(field.value && field.value.includes(camera))
                                 }
                               >
-                                <LuIcons.LuSettings
+                                <LuSettings
                                   className={cn(
                                     field.value && field.value.includes(camera)
                                       ? "text-primary"
@@ -1176,17 +1178,19 @@ export function CameraGroupEdit({
             <FormItem className="flex flex-col space-y-2">
               <FormLabel>{t("group.icon")}</FormLabel>
               <FormControl>
-                <IconPicker
-                  selectedIcon={{
-                    name: field.value,
-                    Icon: field.value
-                      ? LuIcons[field.value as IconName]
-                      : undefined,
-                  }}
-                  setSelectedIcon={(newIcon) => {
-                    field.onChange(newIcon?.name ?? undefined);
-                  }}
-                />
+                <Suspense fallback={<div className="mt-2 h-10 w-full" />}>
+                  <IconPicker
+                    selectedIcon={{
+                      name: field.value,
+                      Icon: field.value
+                        ? luIcons?.[field.value as IconName]
+                        : undefined,
+                    }}
+                    setSelectedIcon={(newIcon) => {
+                      field.onChange(newIcon?.name ?? undefined);
+                    }}
+                  />
+                </Suspense>
               </FormControl>
               <FormMessage />
             </FormItem>

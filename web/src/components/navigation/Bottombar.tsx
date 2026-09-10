@@ -5,6 +5,8 @@ import useSWR from "swr";
 import { FrigateStats } from "@/types/stats";
 import { useEmbeddingsReindexProgress, useFrigateStats } from "@/api/ws";
 import {
+  Suspense,
+  lazy,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -13,7 +15,6 @@ import {
   useState,
 } from "react";
 import useStats from "@/hooks/use-stats";
-import GeneralSettings from "../menu/GeneralSettings";
 import useNavigation from "@/hooks/use-navigation";
 import {
   StatusBarMessagesContext,
@@ -24,6 +25,9 @@ import { cn } from "@/lib/utils";
 import { isMobile } from "react-device-detect";
 import { isPWA } from "@/utils/isPWA";
 import { useTranslation } from "react-i18next";
+
+// not needed for first paint, so it loads after the shell
+const GeneralSettings = lazy(() => import("../menu/GeneralSettings"));
 
 function Bottombar() {
   const navItems = useNavigation("secondary");
@@ -86,7 +90,11 @@ function Bottombar() {
           Icon={item.icon}
         />
       ))}
-      <GeneralSettings large={large} className="p-2" />
+      <Suspense
+        fallback={<div className={cn("p-2", large ? "size-12" : "size-9")} />}
+      >
+        <GeneralSettings large={large} className="p-2" />
+      </Suspense>
       <StatusAlertNav large={large} className="p-2" />
     </div>
   );

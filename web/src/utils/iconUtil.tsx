@@ -1,4 +1,4 @@
-import { IconName } from "@/components/icons/IconPicker";
+import { IconName, isLuIconName } from "@/components/icons/luIcons";
 import SkunkIcon from "@/components/icons/SkunkIcon";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { EventType } from "@/types/search";
@@ -44,7 +44,6 @@ import {
   GiSquirrel,
 } from "react-icons/gi";
 import { LuBox, LuLassoSelect, LuScanBarcode } from "react-icons/lu";
-import * as LuIcons from "react-icons/lu";
 import { MdRecordVoiceOver } from "react-icons/md";
 import { PiBirdFill } from "react-icons/pi";
 import { HiMiniTruck } from "react-icons/hi2";
@@ -63,7 +62,7 @@ export function getAttributeLabels(config?: FrigateConfig) {
 }
 
 export function isValidIconName(value: string): value is IconName {
-  return Object.keys(LuIcons).includes(value as IconName);
+  return isLuIconName(value);
 }
 
 export function getIconForLabel(

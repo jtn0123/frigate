@@ -1,12 +1,19 @@
 import Logo from "../Logo";
 import NavItem from "./NavItem";
-import { CameraGroupSelector } from "../filter/CameraGroupSelector";
 import { Link, useMatch } from "react-router-dom";
-import GeneralSettings from "../menu/GeneralSettings";
-import AccountSettings from "../menu/AccountSettings";
 import useNavigation from "@/hooks/use-navigation";
 import { baseUrl } from "@/api/baseUrl";
-import { useMemo } from "react";
+import { Suspense, lazy, useMemo } from "react";
+
+// These three pull in the icon picker, forms, motion and the settings menus;
+// none of them is needed for first paint, so they load after the shell.
+const CameraGroupSelector = lazy(() =>
+  import("../filter/CameraGroupSelector").then((module) => ({
+    default: module.CameraGroupSelector,
+  })),
+);
+const GeneralSettings = lazy(() => import("../menu/GeneralSettings"));
+const AccountSettings = lazy(() => import("../menu/AccountSettings"));
 
 function Sidebar() {
   const basePath = useMemo(() => new URL(baseUrl).pathname, []);
@@ -34,14 +41,22 @@ function Sidebar() {
                 item={item}
                 Icon={item.icon}
               />
-              {showCameraGroups && <CameraGroupSelector className="mb-4" />}
+              {showCameraGroups && (
+                <Suspense fallback={<div className="mb-4 size-6" />}>
+                  <CameraGroupSelector className="mb-4" />
+                </Suspense>
+              )}
             </div>
           );
         })}
       </div>
       <div className="mb-8 flex flex-col items-center gap-4">
-        <GeneralSettings />
-        <AccountSettings />
+        <Suspense fallback={<div className="size-8" />}>
+          <GeneralSettings />
+        </Suspense>
+        <Suspense fallback={<div className="size-8" />}>
+          <AccountSettings />
+        </Suspense>
       </div>
     </aside>
   );

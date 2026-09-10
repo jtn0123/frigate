@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Button } from "../ui/button";
 import { ExportMode } from "@/types/filter";
 import { FaArrowDown } from "react-icons/fa";
-import { LuAudioLines } from "react-icons/lu";
+import { LuAudioLines, LuFolder } from "react-icons/lu";
 import axios from "axios";
 import { toast } from "sonner";
 import { Input } from "../ui/input";
@@ -48,8 +48,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "../ui/command";
-import { IconRenderer } from "../icons/IconPicker";
-import * as LuIcons from "react-icons/lu";
+import { LuIcon } from "../icons/LuIcon";
 import { isDesktop, isMobile } from "react-device-detect";
 import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
 import SaveExportOverlay from "./SaveExportOverlay";
@@ -1139,14 +1138,14 @@ export function ExportContent({
                                   applyCameraSelection(group.cameras)
                                 }
                               >
-                                <IconRenderer
-                                  icon={
-                                    isValidIconName(group.icon)
-                                      ? LuIcons[group.icon]
-                                      : LuIcons.LuFolder
-                                  }
-                                  className="mr-2 size-4 text-secondary-foreground"
-                                />
+                                {isValidIconName(group.icon) ? (
+                                  <LuIcon
+                                    name={group.icon}
+                                    className="mr-2 size-4 text-secondary-foreground"
+                                  />
+                                ) : (
+                                  <LuFolder className="mr-2 size-4 text-secondary-foreground" />
+                                )}
                                 <span className="truncate">{group.name}</span>
                                 <span className="ml-auto text-xs text-muted-foreground">
                                   {group.cameras.length}

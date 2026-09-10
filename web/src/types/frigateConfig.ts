@@ -1,4 +1,4 @@
-import { IconName } from "@/components/icons/IconPicker";
+import type { IconName } from "@/components/icons/luIcons";
 import { TriggerAction, TriggerType } from "./trigger";
 
 export interface UiConfig {

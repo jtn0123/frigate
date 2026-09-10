@@ -58,6 +58,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // second module id for the full lucide set, see src/components/icons/luIcons.ts
+      "react-icons-lu-all": path.resolve(
+        __dirname,
+        "node_modules/react-icons/lu/index.js",
+      ),
     },
   },
   test: {

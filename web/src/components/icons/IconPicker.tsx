@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { IconType } from "react-icons";
-import * as LuIcons from "react-icons/lu";
+import { IconName, isLuIconName, useLuIcons } from "./luIcons";
+import ActivityIndicator from "../indicators/activity-indicator";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -14,7 +15,7 @@ import { Button } from "../ui/button";
 
 import { useTranslation } from "react-i18next";
 
-export type IconName = keyof typeof LuIcons;
+export type { IconName };
 
 export type IconElement = {
   name?: string;
@@ -37,7 +38,12 @@ export default function IconPicker({
   const containerRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const iconSets = useMemo(() => [...Object.entries(LuIcons)], []);
+  // the full set is fetched on demand the first time a picker mounts
+  const luIcons = useLuIcons();
+  const iconSets = useMemo(
+    () => (luIcons ? [...Object.entries(luIcons)] : []),
+    [luIcons],
+  );
 
   const icons = useMemo(
     () =>
@@ -68,7 +74,7 @@ export default function IconPicker({
         }}
       >
         <PopoverTrigger asChild>
-          {!selectedIcon?.name || !selectedIcon?.Icon ? (
+          {!selectedIcon?.name || !isLuIconName(selectedIcon.name) ? (
             <Button
               className="mt-2 w-full text-muted-foreground"
               aria-label={t("iconPicker.selectIcon")}
@@ -79,7 +85,11 @@ export default function IconPicker({
             <div className="hover:cursor-pointer">
               <div className="my-3 flex w-full flex-row items-center justify-between gap-2">
                 <div className="flex flex-row items-center gap-2">
-                  <selectedIcon.Icon size={15} />
+                  {selectedIcon.Icon ? (
+                    <selectedIcon.Icon size={15} />
+                  ) : (
+                    <span className="inline-block size-[15px]" />
+                  )}
                   <div className="text-sm">
                     {selectedIcon.name
                       .replace(/^Lu/, "")
@@ -124,6 +134,7 @@ export default function IconPicker({
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <div className="scrollbar-container flex h-full flex-col overflow-y-auto">
+            {!luIcons && <ActivityIndicator className="my-4 w-full" />}
             <div className="grid grid-cols-6 gap-2 pr-1">
               {icons.map(([name, Icon]) => (
                 <div
