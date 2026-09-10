@@ -114,11 +114,11 @@ class VLMWatchRunner(threading.Thread):
             try:
                 self.detection_subscriber.stop()
             except Exception:
-                pass
+                logger.debug("Error stopping detection subscriber", exc_info=True)
             try:
                 self.requestor.stop()
             except Exception:
-                pass
+                logger.debug("Error stopping requestor", exc_info=True)
 
     def _run_iteration(self) -> float:
         """Run one VLM analysis iteration. Returns seconds until next run."""

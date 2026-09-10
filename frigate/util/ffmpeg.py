@@ -166,6 +166,6 @@ def run_ffmpeg_with_progress(
             if remaining:
                 captured.append(remaining)
         except Exception:
-            pass
+            logger.debug("Unable to drain ffmpeg stderr", exc_info=True)
 
     return proc.returncode or 0, "".join(captured)

@@ -363,7 +363,7 @@ class FileLock:
                 lock_age = time.time() - self.lock_path.stat().st_mtime
                 return lock_age > self.stale_timeout
         except Exception:
-            pass
+            logger.debug("Unable to stat lock file %s", self.lock_path, exc_info=True)
 
         return False
 
@@ -422,7 +422,7 @@ class FileLock:
                 try:
                     os.close(self._fd)
                 except Exception:
-                    pass
+                    logger.debug("Error closing lock file descriptor", exc_info=True)
                 self._fd = None
             return False
 

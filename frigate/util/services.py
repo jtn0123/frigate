@@ -795,7 +795,7 @@ def get_axcl_npu_stats() -> dict[str, str | float] | None:
                 stats: dict[str, str | float] = {"npu": utilization, "mem": "-%"}
                 return stats
     except Exception:
-        pass
+        logger.debug("Unable to read NPU utilization", exc_info=True)
 
     return None
 
@@ -875,7 +875,7 @@ def get_nvidia_gpu_stats() -> dict[int, dict]:
                 "temp": temp,
             }
     except Exception:
-        pass
+        logger.debug("Unable to read NVIDIA GPU stats", exc_info=True)
     finally:
         return results
 
@@ -1198,7 +1198,7 @@ def get_nvidia_driver_info() -> dict[str, Any]:
                 "vbios": vbios or "unknown",
             }
     except Exception:
-        pass
+        logger.debug("Unable to read NVIDIA driver info", exc_info=True)
     finally:
         return results
 

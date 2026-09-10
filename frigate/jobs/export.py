@@ -139,7 +139,7 @@ class JobStatePublisher:
             try:
                 requestor.stop()
             except Exception:
-                pass
+                logger.debug("Error stopping requestor", exc_info=True)
 
 
 class ExportJobManager:

@@ -886,7 +886,7 @@ def yuv_region_2_yuv(frame, region):
         # TODO: does this copy the numpy array?
         yuv_cropped_frame = yuv_crop_and_resize(frame, region)
         return yuv_to_3_channel_yuv(yuv_cropped_frame)
-    except:
+    except Exception:
         print(f"frame.shape: {frame.shape}")
         print(f"region: {region}")
         raise
@@ -897,7 +897,7 @@ def yuv_region_2_rgb(frame, region):
         # TODO: does this copy the numpy array?
         yuv_cropped_frame = yuv_crop_and_resize(frame, region)
         return cv2.cvtColor(yuv_cropped_frame, cv2.COLOR_YUV2RGB_I420)
-    except:
+    except Exception:
         print(f"frame.shape: {frame.shape}")
         print(f"region: {region}")
         raise
@@ -907,7 +907,7 @@ def yuv_region_2_bgr(frame, region):
     try:
         yuv_cropped_frame = yuv_crop_and_resize(frame, region)
         return cv2.cvtColor(yuv_cropped_frame, cv2.COLOR_YUV2BGR_I420)
-    except:
+    except Exception:
         print(f"frame.shape: {frame.shape}")
         print(f"region: {region}")
         raise
@@ -1088,7 +1088,9 @@ class SharedMemoryFrameManager(FrameManager):
                 try:
                     shm.close()
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Error closing stale shared memory %s", name, exc_info=True
+                    )
                 self.shm_store.pop(name, None)
                 shm = None
             if shm is None:
@@ -1098,7 +1100,11 @@ class SharedMemoryFrameManager(FrameManager):
                     try:
                         shm.close()
                     except Exception:
-                        pass
+                        logger.debug(
+                            "Error closing mismatched shared memory %s",
+                            name,
+                            exc_info=True,
+                        )
                     return None
                 self.shm_store[name] = shm
             return np.ndarray(shape, dtype=np.uint8, buffer=shm.buf)

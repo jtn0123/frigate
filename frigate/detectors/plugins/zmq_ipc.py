@@ -94,7 +94,7 @@ class ZmqIpcDetector(DetectionApi):
             try:
                 self._socket.close(linger=self._linger_ms)
             except Exception:
-                pass
+                logger.debug("Error closing ZMQ detector socket", exc_info=True)
         self._socket = self._context.socket(zmq.REQ)
         # Apply timeouts and linger so calls don't block indefinitely
         self._socket.setsockopt(zmq.RCVTIMEO, self._request_timeout_ms)
@@ -322,7 +322,7 @@ class ZmqIpcDetector(DetectionApi):
                 self._create_socket()
                 self._initialize_model()
             except Exception:
-                pass
+                logger.debug("ZMQ detector reset after timeout failed", exc_info=True)
             return self._zero_result
         except zmq.ZMQError as exc:
             logger.error(f"ZMQ detector ZMQError: {exc}; resetting socket")
@@ -330,7 +330,7 @@ class ZmqIpcDetector(DetectionApi):
                 self._create_socket()
                 self._initialize_model()
             except Exception:
-                pass
+                logger.debug("ZMQ detector reset after error failed", exc_info=True)
             return self._zero_result
         except Exception as exc:  # noqa: BLE001
             logger.error(f"ZMQ detector unexpected error: {exc}")
@@ -341,4 +341,6 @@ class ZmqIpcDetector(DetectionApi):
             if self._socket is not None:
                 self._socket.close(linger=self.detector_config.linger_ms)
         except Exception:
-            pass
+            logger.debug(
+                "Error closing ZMQ detector socket during cleanup", exc_info=True
+            )

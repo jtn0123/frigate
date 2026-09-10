@@ -768,7 +768,9 @@ class LlamaCppClient(GenAIClient):
                 try:
                     error_detail = f"{str(e)} - Response: {e.response.text[:500]}"
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Unable to read llama.cpp error response body", exc_info=True
+                    )
             logger.warning("llama.cpp embeddings error: %s", error_detail)
             return []
         except Exception as e:
@@ -832,7 +834,9 @@ class LlamaCppClient(GenAIClient):
                 try:
                     error_detail = f"{str(e)} - Response: {e.response.text[:500]}"
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Unable to read llama.cpp error response body", exc_info=True
+                    )
             logger.warning("llama.cpp returned an error: %s", error_detail)
             return {
                 "content": None,

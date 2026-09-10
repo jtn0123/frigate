@@ -233,7 +233,7 @@ def train_face(request: Request, name: str, body: dict = None):
                 cv2.imwrite(os.path.join(new_file_folder, new_name), face)
                 success = True
             except Exception:
-                pass
+                logger.debug("Unable to write face image %s", new_name, exc_info=True)
 
         if not success:
             return JSONResponse(

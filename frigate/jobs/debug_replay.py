@@ -295,7 +295,9 @@ class DebugReplayJobRunner(threading.Thread):
             try:
                 proc.terminate()
             except Exception:
-                pass
+                logger.debug(
+                    "Unable to terminate cancelled replay process", exc_info=True
+                )
 
     def _broadcast(self, force: bool = False) -> None:
         now = time.monotonic()

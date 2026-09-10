@@ -1096,7 +1096,7 @@ async def onvif_probe(
                         if cred_uri not in to_test:
                             to_test.append(cred_uri)
                 except Exception:
-                    pass
+                    logger.debug("Unable to build credentialed RTSP uri", exc_info=True)
 
                 for test_uri in to_test:
                     try:

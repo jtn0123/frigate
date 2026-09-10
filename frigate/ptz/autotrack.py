@@ -173,7 +173,11 @@ class PtzMotionEstimator:
                     f"{camera}: Motion estimator transformation: {self.coord_transformations.rel_to_abs([[0, 0]])}"
                 )
             except Exception:
-                pass
+                logger.debug(
+                    "%s: unable to log motion estimator transformation",
+                    camera,
+                    exc_info=True,
+                )
 
             self.frame_manager.close(frame_name)
 

@@ -581,7 +581,7 @@ class RKNNModelRunner(BaseModelRunner):
             try:
                 self.rknn.release()
             except Exception:
-                pass
+                logger.debug("Error releasing RKNN runtime", exc_info=True)
 
 
 def get_optimized_runner(

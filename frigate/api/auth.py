@@ -1175,7 +1175,7 @@ async def require_camera_access(
                 error_payload.get("message") or error_payload.get("detail") or detail
             )
         except Exception:
-            pass
+            logger.debug("Unable to parse auth error payload", exc_info=True)
 
         raise HTTPException(status_code=current_user.status_code, detail=detail)
 
@@ -1286,7 +1286,7 @@ async def require_go2rtc_stream_access(
                 error_payload.get("message") or error_payload.get("detail") or detail
             )
         except Exception:
-            pass
+            logger.debug("Unable to parse auth error payload", exc_info=True)
 
         raise HTTPException(status_code=current_user.status_code, detail=detail)
 

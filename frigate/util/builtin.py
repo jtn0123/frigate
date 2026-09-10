@@ -399,7 +399,7 @@ def empty_and_close_queue(q):
             q.close()
             q.join_thread()
         except Exception:
-            pass
+            logger.debug("Error closing multiprocessing queue", exc_info=True)
 
 
 def generate_color_palette(n):
