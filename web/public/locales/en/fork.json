@@ -68,6 +68,41 @@
       "markFailed": "Could not mark items as reviewed"
     }
   },
+  "inbox": {
+    "open": "Open notification inbox",
+    "openWithUnread_one": "Open notification inbox, {{count}} unread",
+    "openWithUnread_other": "Open notification inbox, {{count}} unread",
+    "title": "Inbox",
+    "description": "Review alerts and detections collected while this page was open.",
+    "unreadCount_one": "{{count}} unread",
+    "unreadCount_other": "{{count}} unread",
+    "allRead": "All caught up",
+    "markAllRead": "Mark all as read",
+    "clear": "Clear inbox",
+    "empty": "No notifications yet. New alerts and detections will show up here.",
+    "noLabels": "No labels",
+    "dismiss": "Dismiss",
+    "severity": {
+      "alert": "Alert",
+      "detection": "Detection"
+    },
+    "settings": {
+      "title": "Inbox settings"
+    },
+    "quietHours": {
+      "title": "Quiet hours",
+      "description": "Items arriving during quiet hours are stored without an unread badge.",
+      "start": "From",
+      "end": "To",
+      "active": "Quiet hours {{start}} to {{end}}"
+    },
+    "mute": {
+      "title": "Muted cameras",
+      "description": "Muted cameras do not add items to the inbox.",
+      "camera": "Mute {{camera}}"
+    },
+    "openItem": "Open {{camera}} in review"
+  },
   "cameraHealth": {
     "description": "Per-camera health from the live stats stream. Frame rates refresh with each stats update.",
     "state": {
