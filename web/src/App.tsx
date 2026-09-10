@@ -26,7 +26,9 @@ const Exports = lazy(() => import("@/pages/Exports"));
 const ConfigEditor = lazy(() => import("@/pages/ConfigEditor"));
 const System = lazy(() => import("@/pages/System"));
 const Settings = lazy(() => import("@/pages/Settings"));
-const UIPlayground = lazy(() => import("@/pages/UIPlayground"));
+const UIPlayground = import.meta.env.DEV
+  ? lazy(() => import("@/pages/UIPlayground"))
+  : undefined;
 const FaceLibrary = lazy(() => import("@/pages/FaceLibrary"));
 const Classification = lazy(() => import("@/pages/ClassificationModel"));
 const Chat = lazy(() => import("@/pages/Chat"));
@@ -109,8 +111,10 @@ function DefaultAppView() {
               <Route path="/faces" element={<FaceLibrary />} />
               <Route path="/classification" element={<Classification />} />
               <Route path="/chat" element={<Chat />} />
-              <Route path="/playground" element={<UIPlayground />} />{" "}
-              <Route path="/replay" element={<Replay />} />{" "}
+              {UIPlayground && (
+                <Route path="/playground" element={<UIPlayground />} />
+              )}
+              <Route path="/replay" element={<Replay />} />
             </Route>
             <Route path="/unauthorized" element={<AccessDenied />} />
             <Route path="*" element={<Redirect to="/" />} />

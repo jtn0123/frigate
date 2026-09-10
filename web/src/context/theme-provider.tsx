@@ -126,8 +126,6 @@ export function ThemeProvider({
   }, [theme, systemPrefersDark]);
 
   useEffect(() => {
-    //localStorage.removeItem(storageKey);
-    //console.log(localStorage.getItem(storageKey));
     const root = window.document.documentElement;
 
     root.classList.remove("light", "dark", "system", ...colorSchemes);

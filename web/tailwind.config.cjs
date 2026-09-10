@@ -4,12 +4,7 @@ const plugin = require("tailwindcss/plugin");
 
 module.exports = {
   darkMode: ["class"],
-  content: [
-    "./pages/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-    "./app/**/*.{ts,tsx}",
-    "./src/**/*.{ts,tsx}",
-  ],
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   safelist: [
     {
       pattern: /(outline|shadow)-severity_(alert|detection|significant_motion)/,

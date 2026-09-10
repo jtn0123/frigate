@@ -53,17 +53,9 @@ export function ApiProvider({ children, options }: ApiProviderType) {
         ...options,
       }}
     >
-      <WsWithConfig>{children}</WsWithConfig>
+      <WsProvider>{children}</WsProvider>
     </SWRConfig>
   );
-}
-
-type WsWithConfigType = {
-  children: ReactNode;
-};
-
-function WsWithConfig({ children }: WsWithConfigType) {
-  return <WsProvider>{children}</WsProvider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
