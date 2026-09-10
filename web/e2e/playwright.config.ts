@@ -3,6 +3,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const port = Number(process.env.E2E_PORT ?? 4173);
 const webRoot = resolve(__dirname, "..");
 
 const DESKTOP_UA =
@@ -21,14 +22,14 @@ export default defineConfig({
   expect: { timeout: 5_000 },
 
   use: {
-    baseURL: "http://localhost:4173",
+    baseURL: `http://localhost:${port}`,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
 
   webServer: {
-    command: "npx vite preview --port 4173",
-    port: 4173,
+    command: `npx vite preview --port ${port}`,
+    port,
     cwd: webRoot,
     reuseExistingServer: !process.env.CI,
   },
