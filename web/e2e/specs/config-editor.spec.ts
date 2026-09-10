@@ -221,7 +221,10 @@ test.describe("Config Editor — Cmd+S keyboard shortcut @medium", () => {
 
     // Focus the editor so Monaco's keybinding receives the shortcut.
     await frigateApp.page.locator(".monaco-editor").first().click();
-    await frigateApp.page.keyboard.press("ControlOrMeta+s");
+    // The desktop project spoofs a Linux user agent, and Monaco resolves
+    // CtrlCmd from the UA rather than the host OS, so the binding is
+    // always Control+S here even when the suite runs on macOS.
+    await frigateApp.page.keyboard.press("Control+s");
 
     await expect
       .poll(() => capture.capturedUrl(), { timeout: 5_000 })
