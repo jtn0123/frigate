@@ -34,6 +34,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import useSWR from "swr";
+import ErrorState from "@/components/fork/ErrorState";
 
 export default function Events() {
   const { t } = useTranslation(["views/events"]);
@@ -358,14 +359,14 @@ export default function Events() {
     return ["review", params];
   }, [reviewSearchParams, reviewCamerasParam, last24Hours, timezone]);
 
-  const { data: reviews, mutate: updateSegments } = useSWR<ReviewSegment[]>(
-    getKey,
-    reviewSegmentFetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-    },
-  );
+  const {
+    data: reviews,
+    mutate: updateSegments,
+    error: reviewsError,
+  } = useSWR<ReviewSegment[]>(getKey, reviewSegmentFetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
 
   const reviewItems = useMemo<SegmentedReviewData>(() => {
     if (!reviews) {
@@ -718,6 +719,8 @@ export default function Events() {
           onBack={closeMotionSearch}
         />
       )
+    ) : reviewsError ? (
+      <ErrorState error={reviewsError} onRetry={() => updateSegments()} />
     ) : (
       <EventView
         reviewItems={reviewItems}

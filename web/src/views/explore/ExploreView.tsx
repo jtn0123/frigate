@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { isDesktop, isIOS, isMobileOnly, isSafari } from "react-device-detect";
 import useSWR from "swr";
+import ErrorState from "@/components/fork/ErrorState";
 import { useApiHost } from "@/api";
 import { cn } from "@/lib/utils";
 import { BsArrowRightCircle } from "react-icons/bs";
@@ -46,6 +47,7 @@ export default function ExploreView({
 
   const {
     data: events,
+    error,
     mutate,
     isLoading,
     isValidating,
@@ -80,6 +82,16 @@ export default function ExploreView({
       mutate();
     }
   }, [wsUpdate, mutate]);
+
+  if (error) {
+    return (
+      <ErrorState
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        error={error}
+        onRetry={() => mutate()}
+      />
+    );
+  }
 
   if (isLoading) {
     return (

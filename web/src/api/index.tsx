@@ -4,6 +4,7 @@ import { WsProvider } from "./WsProvider";
 import axios from "axios";
 import { ReactNode } from "react";
 import { isRedirectingToLogin, setRedirectingToLogin } from "./auth-redirect";
+import { reportReadError } from "./fork/read-error-toast";
 
 axios.defaults.baseURL = `${baseUrl}api/`;
 
@@ -36,6 +37,8 @@ export function ApiProvider({ children, options }: ApiProviderType) {
               setRedirectingToLogin(true);
               window.location.href = loginPage;
             }
+          } else {
+            reportReadError(error, _key);
           }
         },
         ...options,

@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import ErrorState from "@/components/fork/ErrorState";
 import { FrigateStats } from "@/types/stats";
 import { useEffect, useMemo, useRef, useState } from "react";
 import TimeAgo from "@/components/dynamic/TimeAgo";
@@ -69,7 +70,11 @@ function System() {
 
   // stats collection
 
-  const { data: statsSnapshot } = useSWR<FrigateStats>("stats", {
+  const {
+    data: statsSnapshot,
+    error: statsError,
+    mutate: refreshStats,
+  } = useSWR<FrigateStats>("stats", {
     revalidateOnFocus: false,
   });
 
@@ -126,6 +131,14 @@ function System() {
           </div>
         )}
       </div>
+      {statsError && (
+        <ErrorState
+          compact
+          className="mt-2"
+          error={statsError}
+          onRetry={() => refreshStats()}
+        />
+      )}
       {visitedTabs.has("general") && (
         <div className={page == "general" ? "contents" : "hidden"}>
           <GeneralMetrics

@@ -36,6 +36,7 @@ import {
   isTablet,
 } from "react-device-detect";
 import useSWR from "swr";
+import ErrorState from "@/components/fork/ErrorState";
 import DraggableGridLayout from "./DraggableGridLayout";
 import { IoClose } from "react-icons/io5";
 import { LuLayoutDashboard } from "react-icons/lu";
@@ -120,7 +121,11 @@ export default function LiveDashboardView({
       .join(",");
   }, [cameras, cameraGroup, config, includeBirdseye, allowedCameras]);
 
-  const { data: allEvents, mutate: updateEvents } = useSWR<ReviewSegment[]>([
+  const {
+    data: allEvents,
+    mutate: updateEvents,
+    error: eventsError,
+  } = useSWR<ReviewSegment[]>([
     "review",
     {
       limit: 10,
@@ -468,6 +473,14 @@ export default function LiveDashboardView({
         <NoCameraView cameraGroup={cameraGroup} />
       ) : (
         <>
+          {!fullscreen && eventsError && (
+            <ErrorState
+              compact
+              className="mx-1 mb-2"
+              error={eventsError}
+              onRetry={() => updateEvents()}
+            />
+          )}
           {!fullscreen && events && events.length > 0 && (
             <ScrollArea>
               <TooltipProvider>

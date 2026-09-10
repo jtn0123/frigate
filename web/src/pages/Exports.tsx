@@ -67,6 +67,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "sonner";
 import useSWR from "swr";
+import ErrorState from "@/components/fork/ErrorState";
 import ExportActionGroup from "@/components/filter/ExportActionGroup";
 import ExportFilterGroup from "@/components/filter/ExportFilterGroup";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -123,7 +124,11 @@ function Exports() {
   // in_progress so the UI flips from spinner to playable card without a
   // manual reload. Once active jobs disappear from the WS feed we also
   // mutate() below to fetch newly-completed exports immediately.
-  const { data: rawExports, mutate: updateExports } = useSWR<Export[]>(
+  const {
+    data: rawExports,
+    mutate: updateExports,
+    error: exportsError,
+  } = useSWR<Export[]>(
     exportSearchParams && Object.keys(exportSearchParams).length > 0
       ? ["exports", exportSearchParams]
       : "exports",
@@ -853,7 +858,9 @@ function Exports() {
         )}
       </div>
 
-      {selectedCase ? (
+      {exportsError ? (
+        <ErrorState error={exportsError} onRetry={() => updateExports()} />
+      ) : selectedCase ? (
         <CaseView
           contentRef={contentRef}
           selectedCase={selectedCase}

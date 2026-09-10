@@ -9,5 +9,14 @@
     "copyDetails": "Copy details",
     "copied": "Copied",
     "copyFallback": "Copy the error details below"
+  },
+  "errorState": {
+    "title": "Could not load this data",
+    "description": "Frigate did not return a valid response. Check that the service is running and try again.",
+    "retry": "Retry"
+  },
+  "readError": {
+    "withStatus": "Failed to load {{resource}} (HTTP {{status}})",
+    "network": "Failed to load {{resource}}: no response from Frigate"
   }
 }
