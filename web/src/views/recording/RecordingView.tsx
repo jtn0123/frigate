@@ -1062,6 +1062,14 @@ function Timeline({
   const internalTimelineRef = useRef<HTMLDivElement>(null);
   const selectedTimelineRef = timelineRef || internalTimelineRef;
 
+  // stable so memoized ReviewCards skip the per-tick re-render
+  const onReviewCardClick = useCallback(
+    (review: ReviewSegment) => {
+      manuallySetCurrentTime(review.start_time - REVIEW_PADDING, true);
+    },
+    [manuallySetCurrentTime],
+  );
+
   // timeline interaction
 
   const [zoomSettings, setZoomSettings] = useState({
@@ -1271,12 +1279,7 @@ function Timeline({
                     key={review.id}
                     event={review}
                     activeReviewItem={activeReviewItem}
-                    onClick={() => {
-                      manuallySetCurrentTime(
-                        review.start_time - REVIEW_PADDING,
-                        true,
-                      );
-                    }}
+                    onClick={onReviewCardClick}
                   />
                 );
               })

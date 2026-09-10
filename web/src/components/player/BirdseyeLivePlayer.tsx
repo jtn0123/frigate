@@ -1,11 +1,9 @@
-import WebRtcPlayer from "./WebRTCPlayer";
 import { BirdseyeConfig } from "@/types/frigateConfig";
 import ActivityIndicator from "../indicators/activity-indicator";
-import JSMpegPlayer from "./JSMpegPlayer";
-import MSEPlayer from "./MsePlayer";
+import { JSMpegPlayer, MSEPlayer, WebRtcPlayer } from "./lazyPlayers";
 import { LivePlayerMode } from "@/types/live";
 import { cn } from "@/lib/utils";
-import React from "react";
+import React, { Suspense } from "react";
 import { ImageShadowOverlay } from "../overlay/ImageShadowOverlay";
 import { onActivate } from "@/utils/fork/a11y";
 
@@ -86,7 +84,7 @@ export default function BirdseyeLivePlayer({
         lowerClassName="md:rounded-2xl"
       />
       <div className="size-full" ref={playerRef}>
-        {player}
+        <Suspense fallback={<ActivityIndicator />}>{player}</Suspense>
       </div>
     </div>
   );

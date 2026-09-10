@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { useApiHost } from "@/api";
 import { getIconForLabel } from "@/utils/iconUtil";
 import useSWR from "swr";
@@ -21,10 +21,7 @@ type SearchThumbnailProps = {
   onClick: (searchResult: SearchResult, ctrl: boolean, detail: boolean) => void;
 };
 
-export default function SearchThumbnail({
-  searchResult,
-  onClick,
-}: SearchThumbnailProps) {
+function SearchThumbnail({ searchResult, onClick }: SearchThumbnailProps) {
   const { t } = useTranslation(["common"]);
   const apiHost = useApiHost();
   const { data: config } = useSWR<FrigateConfig>("config");
@@ -182,3 +179,9 @@ export default function SearchThumbnail({
     </div>
   );
 }
+
+// SearchView keeps every result mounted; with a stable onClick from the
+// parent only the cards whose result changed re-render.
+const MemoizedSearchThumbnail = memo(SearchThumbnail);
+
+export default MemoizedSearchThumbnail;

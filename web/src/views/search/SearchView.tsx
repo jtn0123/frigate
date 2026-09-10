@@ -281,6 +281,18 @@ export default function SearchView({
     [selectedObjects],
   );
 
+  // stable so memoized SearchThumbnails only re-render when selection changes
+  const onThumbnailClick = useCallback(
+    (value: SearchResult, ctrl: boolean, detail: boolean) => {
+      if (detail && selectedObjects.length == 0) {
+        setSelectedId(value.id);
+      } else {
+        onSelectSearch(value, ctrl || selectedObjects.length > 0);
+      }
+    },
+    [selectedObjects, onSelectSearch],
+  );
+
   const onSelectAllObjects = useCallback(() => {
     if (!uniqueResults || uniqueResults.length == 0) {
       return;
@@ -631,20 +643,7 @@ export default function SearchView({
                     >
                       <SearchThumbnail
                         searchResult={value}
-                        onClick={(
-                          value: SearchResult,
-                          ctrl: boolean,
-                          detail: boolean,
-                        ) => {
-                          if (detail && selectedObjects.length == 0) {
-                            setSelectedId(value.id);
-                          } else {
-                            onSelectSearch(
-                              value,
-                              ctrl || selectedObjects.length > 0,
-                            );
-                          }
-                        }}
+                        onClick={onThumbnailClick}
                       />
                       {(searchTerm ||
                         searchFilter?.search_type?.includes("similarity")) && (

@@ -1,11 +1,16 @@
-import WebRtcPlayer from "./WebRTCPlayer";
 import { CameraConfig } from "@/types/frigateConfig";
 import AutoUpdatingCameraImage from "../camera/AutoUpdatingCameraImage";
 import ActivityIndicator from "../indicators/activity-indicator";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useResizeObserver } from "@/hooks/resize-observer";
-import MSEPlayer from "./MsePlayer";
-import JSMpegPlayer from "./JSMpegPlayer";
+import { JSMpegPlayer, MSEPlayer, WebRtcPlayer } from "./lazyPlayers";
 import { MdCircle } from "react-icons/md";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useCameraActivity } from "@/hooks/use-camera-activity";
@@ -364,7 +369,7 @@ export default function LivePlayer({
             lowerClassName="md:rounded-2xl"
           />
         )}
-      {player}
+      <Suspense fallback={null}>{player}</Suspense>
       {cameraEnabled &&
         !offline &&
         (!showStillWithoutActivity || isReEnabling) &&

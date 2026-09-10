@@ -41,10 +41,63 @@ export default defineConfig({
     keepNames: true,
   },
   build: {
+    // Only the monaco editor chunk legitimately exceeds this.
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
         login: resolve(__dirname, "login.html"),
+      },
+      output: {
+        // Named vendor chunks so a release that touches app code does not
+        // invalidate the cached framework and library bundles.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) {
+            return;
+          }
+          const pkg = id.split("node_modules/").pop()?.split("/") ?? [];
+          const name = pkg[0]?.startsWith("@") ? `${pkg[0]}/${pkg[1]}` : pkg[0];
+          if (!name) {
+            return;
+          }
+          if (
+            [
+              "react",
+              "react-dom",
+              "react-router",
+              "react-router-dom",
+              "@remix-run/router",
+              "scheduler",
+            ].includes(name)
+          ) {
+            return "vendor-react";
+          }
+          if (name.startsWith("@radix-ui/")) {
+            return "vendor-radix";
+          }
+          if (name === "apexcharts" || name === "react-apexcharts") {
+            return "vendor-charts";
+          }
+          if (name === "monaco-editor" || name === "monaco-yaml") {
+            return "vendor-monaco";
+          }
+          if (name === "hls.js") {
+            return "vendor-hls";
+          }
+          if (name === "konva" || name === "react-konva") {
+            return "vendor-konva";
+          }
+          if (
+            name === "framer-motion" ||
+            name === "motion-dom" ||
+            name === "motion-utils"
+          ) {
+            return "vendor-motion";
+          }
+          if (name.startsWith("i18next") || name === "react-i18next") {
+            return "vendor-i18n";
+          }
+        },
       },
     },
   },

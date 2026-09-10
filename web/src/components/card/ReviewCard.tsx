@@ -6,7 +6,7 @@ import { getIconForLabel } from "@/utils/iconUtil";
 import { isDesktop, isIOS, isSafari } from "react-device-detect";
 import useSWR from "swr";
 import TimeAgo from "../dynamic/TimeAgo";
-import { useCallback, useRef, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import useImageLoaded from "@/hooks/use-image-loaded";
 import ImageLoadingIndicator from "../indicators/ImageLoadingIndicator";
 import { FaCompactDisc } from "react-icons/fa";
@@ -47,13 +47,9 @@ import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 type ReviewCardProps = {
   event: ReviewSegment;
   activeReviewItem?: ReviewSegment;
-  onClick?: () => void;
+  onClick?: (event: ReviewSegment) => void;
 };
-export default function ReviewCard({
-  event,
-  activeReviewItem,
-  onClick,
-}: ReviewCardProps) {
+function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
   const { t } = useTranslation(["components/dialog"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [imgRef, imgLoaded, onImgLoad] = useImageLoaded();
@@ -151,10 +147,10 @@ export default function ReviewCard({
   const content = (
     <div
       className="relative flex w-full cursor-pointer flex-col gap-1.5"
-      onClick={onClick}
+      onClick={() => onClick?.(event)}
       role="button"
       tabIndex={0}
-      onKeyDown={onActivate(onClick)}
+      onKeyDown={onActivate(() => onClick?.(event))}
       aria-label={cardLabel}
       onContextMenu={
         isDesktop
@@ -413,3 +409,16 @@ export default function ReviewCard({
     </>
   );
 }
+
+// Recording view re-renders on every playback tick; a card only needs to
+// re-render when its own item, its active state or its callback changes.
+const MemoizedReviewCard = memo(
+  ReviewCard,
+  (prev, next) =>
+    prev.event === next.event &&
+    prev.onClick === next.onClick &&
+    (prev.activeReviewItem?.id === prev.event.id) ===
+      (next.activeReviewItem?.id === next.event.id),
+);
+
+export default MemoizedReviewCard;
