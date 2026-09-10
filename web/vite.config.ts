@@ -69,9 +69,22 @@ export default defineConfig({
       ),
     },
     setupFiles: ["./__test__/test-setup.ts"],
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "__test__/**/*.{test,spec}.{ts,tsx}",
+    ],
+    exclude: ["node_modules/**", "dist/**", "e2e/**"],
     includeSource: ["src/**/*.{js,jsx,ts,tsx}"],
     coverage: {
-      reporter: ["text-summary", "text"],
+      provider: "v8",
+      reporter: ["text-summary", "lcov"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/**/*.test.{ts,tsx}",
+        "src/**/*.d.ts",
+        "src/types/**",
+        "src/components/ui/**",
+      ],
     },
     mockReset: true,
     restoreMocks: true,

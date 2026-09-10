@@ -277,13 +277,17 @@ export function resolveSchemaRefs(
     for (const subSchema of schemaObj.allOf) {
       if (isSchemaObject(subSchema)) {
         const resolved = resolveSchemaRefs(subSchema as RJSFSchema, root);
+        // Capture before Object.assign, which would otherwise replace the
+        // accumulated properties/required with this branch's alone.
+        const previousProperties = merged.properties;
+        const previousRequired = merged.required;
         Object.assign(merged, resolved);
         if (
           isSchemaObject(resolved) &&
           (resolved as Record<string, unknown>).properties
         ) {
           merged.properties = {
-            ...(merged.properties as object),
+            ...(previousProperties as object),
             ...((resolved as Record<string, unknown>).properties as object),
           };
         }
@@ -292,7 +296,7 @@ export function resolveSchemaRefs(
           Array.isArray((resolved as Record<string, unknown>).required)
         ) {
           merged.required = [
-            ...((merged.required as string[]) || []),
+            ...((previousRequired as string[]) || []),
             ...((resolved as Record<string, unknown>).required as string[]),
           ];
         }

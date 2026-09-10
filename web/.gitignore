@@ -27,3 +27,5 @@ test-results
 *.sln
 *.sw?
 .env
+# Coverage
+coverage
