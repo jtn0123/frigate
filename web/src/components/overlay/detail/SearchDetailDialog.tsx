@@ -317,6 +317,7 @@ function DialogContentComponent({
   dialogContainer,
   setShowNavigationButtons,
 }: DialogContentComponentProps) {
+  const { t } = useTranslation(["common"]);
   if (page === "tracking_details") {
     return (
       <TrackingDetails
@@ -373,6 +374,10 @@ function DialogContentComponent({
         }
         draggable={false}
         src={`${apiHost}api/events/${search.id}/thumbnail.webp`}
+        alt={t("image.thumbnailOf", {
+          ns: "common",
+          label: getTranslatedLabel(search.label, search.data.type),
+        })}
       />
     </div>
   );

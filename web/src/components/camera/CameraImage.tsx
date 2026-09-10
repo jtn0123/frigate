@@ -6,6 +6,7 @@ import { useResizeObserver } from "@/hooks/resize-observer";
 import { isDesktop } from "react-device-detect";
 import { cn } from "@/lib/utils";
 import { useEnabledState } from "@/api/ws";
+import { useTranslation } from "react-i18next";
 
 type CameraImageProps = {
   className?: string;
@@ -28,6 +29,7 @@ export default function CameraImage({
 
   const cameraConfig = config?.cameras?.[camera];
   const { name } = cameraConfig ?? { name: camera };
+  const { t } = useTranslation(["common"]);
   const { payload: enabledState } = useEnabledState(camera);
   const enabled = enabledState ? enabledState === "ON" : true;
 
@@ -86,6 +88,7 @@ export default function CameraImage({
       {enabled ? (
         <img
           ref={imgRef}
+          alt={t("image.latestFrom", { camera: name })}
           className={cn(
             "object-contain",
             imageLoaded

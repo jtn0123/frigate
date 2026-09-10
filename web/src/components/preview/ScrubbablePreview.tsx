@@ -12,6 +12,7 @@ import { TimelineScrubMode, TimeRange } from "@/types/timeline";
 import { NoThumbSlider } from "../ui/slider";
 import { PREVIEW_FPS, PREVIEW_PADDING, Preview } from "@/types/preview";
 import { baseUrl } from "@/api/baseUrl";
+import { useTranslation } from "react-i18next";
 
 type VideoPreviewProps = {
   relevantPreview: Preview;
@@ -312,6 +313,7 @@ export function InProgressPreview({
   onTimeUpdate,
   windowVisible,
 }: InProgressPreviewProps) {
+  const { t } = useTranslation(["common"]);
   const apiHost = useApiHost();
   const sliderRef = useRef<HTMLDivElement | null>(null);
   const { data: previewFrames } = useSWR<string[]>(
@@ -424,6 +426,7 @@ export function InProgressPreview({
       <img
         className="size-full"
         src={defaultImageUrl} //{`${apiHost}${review.thumb_path.replace("/media/frigate/", "")}`}
+        alt={t("image.previewFrom", { camera })}
       />
     );
   }
@@ -433,6 +436,7 @@ export function InProgressPreview({
       <img
         className="pointer-events-none size-full object-contain"
         src={`${apiHost}api/preview/${previewFrames[key]}/thumbnail.webp`}
+        alt={t("image.previewFrom", { camera })}
         onLoad={handleLoad}
       />
       {showProgress && (
