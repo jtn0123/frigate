@@ -2,6 +2,7 @@
 
 import logging
 import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +70,16 @@ class IntelGpuNameResolver:
         return names
 
     @staticmethod
-    def _format_pdev(pci) -> str | None:
+    def _format_pdev(pci: Any) -> str | None:
         try:
             return f"{pci.domain:04x}:{pci.bus:02x}:{pci.device:02x}.{pci.function:x}"
         except AttributeError:
             return None
 
     @classmethod
-    def _resolve_name(cls, raw_name: str, device_type, cpu_name: str | None) -> str:
+    def _resolve_name(
+        cls, raw_name: str, device_type: Any, cpu_name: str | None
+    ) -> str:
         """Build a display name for a GPU.
 
         Modern integrated Intel GPUs are reported by OpenVINO with a generic

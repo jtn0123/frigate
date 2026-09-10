@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from enum import Enum
 from typing import TypedDict
 
@@ -7,7 +8,7 @@ from frigate.object_detection.base import ObjectDetectProcess
 
 
 class StatsTrackingTypes(TypedDict):
-    camera_metrics: dict[str, CameraMetrics]
+    camera_metrics: Mapping[str, CameraMetrics]
     embeddings_metrics: DataProcessorMetrics
     detectors: dict[str, ObjectDetectProcess]
     started: int

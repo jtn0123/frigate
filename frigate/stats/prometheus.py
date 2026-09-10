@@ -1,5 +1,6 @@
 import logging
 import re
+from collections.abc import Iterator
 from typing import Any
 
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -9,17 +10,26 @@ from prometheus_client.core import (
     GaugeMetricFamily,
     InfoMetricFamily,
 )
+from prometheus_client.metrics_core import Metric
+from prometheus_client.registry import Collector
 
 
-class CustomCollector:
-    def __init__(self, _url):
-        self.complete_stats = {}  # Store complete stats data
-        self.process_stats = {}  # Keep for CPU processing
-        self.previous_event_id = None
-        self.previous_event_start_time = None
-        self.all_events = {}
+class CustomCollector(Collector):
+    def __init__(self, _url: str | None) -> None:
+        self.complete_stats: dict[str, Any] = {}  # Store complete stats data
+        self.process_stats: dict[str, Any] = {}  # Keep for CPU processing
+        self.previous_event_id: str | None = None
+        self.previous_event_start_time: float | None = None
+        self.all_events: list[dict[str, Any]] = []
 
-    def add_metric(self, metric, label, stats, key, multiplier=1.0):  # Now a method
+    def add_metric(
+        self,
+        metric: GaugeMetricFamily | CounterMetricFamily,
+        label: list[str],
+        stats: dict[str, Any],
+        key: str,
+        multiplier: float = 1.0,
+    ) -> None:
         try:
             string = str(stats[key])
             value = float(re.findall(r"-?\d*\.?\d*", string)[0])
@@ -29,15 +39,15 @@ class CustomCollector:
 
     def add_metric_process(
         self,
-        metric,
-        camera_stats,
-        camera_name,
-        pid_name,
-        process_name,
-        cpu_or_memory,
-        process_type,
-        cpu_usages,
-    ):
+        metric: GaugeMetricFamily,
+        camera_stats: dict[str, Any],
+        camera_name: str,
+        pid_name: str,
+        process_name: str,
+        cpu_or_memory: str,
+        process_type: str,
+        cpu_usages: dict[str, Any],
+    ) -> None:
         try:
             pid = str(camera_stats[pid_name])
             label_values = [pid, camera_name, process_name, process_type]
@@ -51,12 +61,12 @@ class CustomCollector:
         except (KeyError, TypeError, IndexError):
             pass
 
-    def collect(self):
+    def collect(self) -> Iterator[Metric]:
         # Work with a copy of the complete stats
         stats = self.complete_stats.copy()
 
         # Create a local copy of CPU usages to work with
-        cpu_usages = {}
+        cpu_usages: dict[str, Any] = {}
         try:
             cpu_usages = stats.get("cpu_usages", {}).copy()
         except (KeyError, AttributeError):
@@ -491,7 +501,7 @@ collector = CustomCollector(None)
 REGISTRY.register(collector)
 
 
-def update_metrics(stats: dict[str, Any], event_counts: list[dict[str, Any]]):
+def update_metrics(stats: dict[str, Any], event_counts: list[dict[str, Any]]) -> None:
     """Updates the Prometheus metrics with the given stats data."""
     try:
         # Store the complete stats for later use by collect()
@@ -507,7 +517,7 @@ def update_metrics(stats: dict[str, Any], event_counts: list[dict[str, Any]]):
         logging.error(f"Error updating metrics: {e}")
 
 
-def get_metrics():
+def get_metrics() -> tuple[bytes, str]:
     """Returns the Prometheus metrics in text format."""
     content = generate_latest(REGISTRY)  # Use generate_latest
     return content, CONTENT_TYPE_LATEST

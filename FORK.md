@@ -38,3 +38,4 @@ Deployed builds are tagged `fork/<version>-<date>` and published by
 | H1 | docs | `AGENTS.md`, `docs/docs/development/contributing.md`, `docs/docs/integrations/api.md` (deleted) | Python version, React 19, `PROXY_HOST`, vitest command and `docker compose` syntax corrected; empty api.md that collided with the generated API route removed | candidate |
 | H2 | docs | `CONTRIBUTING.md`, `README.md` | CONTRIBUTING lists every CI gate and points at the devcontainer; README links to it | candidate |
 | I4 | tooling | `.pylintrc` (deleted), `.devcontainer/devcontainer.json`, `pyproject.toml` | Unused pylint config removed, dead VS Code settings dropped, ruff bandit (`S`) rules enabled with documented ignores | candidate |
+| I3 | typing | `frigate/mypy.ini`, `frigate/stats/*.py`, `frigate/types.py` | `frigate.stats` is type-checked again (ignore block removed, 21 errors fixed, dead broken `StatsEmitter.stats_init` removed) | candidate |

@@ -320,14 +320,14 @@ async def set_gpu_stats(
 
 
 async def set_npu_usages(config: FrigateConfig, all_stats: dict[str, Any]) -> None:
-    stats: dict[str, dict] = {}
+    stats: dict[str, dict[str, Any] | None] = {}
 
     for detector in config.detectors.values():
         if detector.type == "rknn":
             # Rockchip NPU usage
             rk_usage = get_rockchip_npu_stats()
             stats["rockchip"] = rk_usage
-        elif detector.type == "openvino" and detector.device == "NPU":
+        elif detector.type == "openvino" and getattr(detector, "device", None) == "NPU":
             # OpenVINO NPU usage
             ov_usage = get_openvino_npu_stats()
             stats["openvino"] = ov_usage
@@ -349,7 +349,7 @@ def stats_snapshot(
     camera_metrics = stats_tracking["camera_metrics"]
     stats: dict[str, Any] = {}
 
-    total_camera_fps = total_process_fps = total_skipped_fps = total_detection_fps = 0
+    total_camera_fps = total_process_fps = total_skipped_fps = total_detection_fps = 0.0
 
     stats["cameras"] = {}
     for name, camera_stats in camera_metrics.items():
