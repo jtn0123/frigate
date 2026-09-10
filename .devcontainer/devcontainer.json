@@ -73,7 +73,6 @@
       ],
       "settings": {
         "remote.autoForwardPorts": false,
-        "python.formatting.provider": "none",
         "python.languageServer": "Pylance",
         "editor.formatOnPaste": false,
         "editor.formatOnSave": true,
@@ -88,9 +87,6 @@
         "files.trimTrailingWhitespace": true,
         "eslint.workingDirectories": [
           "./web"
-        ],
-        "isort.args": [
-          "--settings-path=./pyproject.toml"
         ],
         "[python]": {
           "editor.defaultFormatter": "charliermarsh.ruff",

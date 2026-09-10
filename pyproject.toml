@@ -6,9 +6,27 @@ target-version = "py311"
 # to asyncio.wait_for, which is the documented contract of that API.
 # ASYNC240: os.path/pathlib metadata calls on the local disk are accepted in
 # async code; the alternative (anyio.Path everywhere) is not worth the churn.
-ignore = ["E501","E711","E712","UP031","UP032","UP042","G004","ASYNC109","ASYNC240"]
-extend-select = ["I", "UP", "G", "ASYNC", "ASYNC210", "B904"]
+# S (bandit) rules that do not apply to how Frigate runs:
+#   S101      assert narrows types for mypy and guards internal invariants;
+#             the interpreter never runs with -O
+#   S108      cache, shm and log paths under /tmp and /dev/shm are fixed by design
+#   S110/S112 try/except/pass sites on specific exception types are intentional
+#   S113      requests without a timeout; to be fixed per call site, not blanket
+#   S310      urlopen of model download URLs that come from the config
+#   S311      random is used for ids and jitter, never for secrets
+#   S324      md5 is a cache key for model files, not a security hash
+#   S603/S607 subprocess is always invoked without a shell
+#   S608      SQL built only from trusted table and column names
+ignore = [
+  "E501","E711","E712","UP031","UP032","UP042","G004","ASYNC109","ASYNC240",
+  "S101","S108","S110","S112","S113","S310","S311","S324","S603","S607","S608",
+]
+extend-select = ["I", "UP", "G", "ASYNC", "ASYNC210", "B904", "S"]
 
 [tool.ruff.lint.per-file-ignores]
 # delete_camera edits the config file synchronously under a FileLock.
 "frigate/api/camera.py" = ["ASYNC230"]
+# regex and env var *names* for credentials, not credentials
+"frigate/const.py" = ["S105"]
+# tests use literal passwords on purpose
+"frigate/test/**" = ["S105", "S106"]
