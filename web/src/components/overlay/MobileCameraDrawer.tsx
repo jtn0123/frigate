@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "../ui/drawer";
 import { Button } from "../ui/button";
 import { FaVideo } from "react-icons/fa";
 import { isMobile } from "react-device-detect";
@@ -35,18 +40,23 @@ export default function MobileCameraDrawer({
         </Button>
       </DrawerTrigger>
       <DrawerContent className="mx-1 max-h-[75dvh] overflow-hidden rounded-t-2xl">
+        <DrawerTitle className="sr-only">
+          {t("menu.live.cameras.title")}
+        </DrawerTitle>
         <div className="scrollbar-container flex h-auto w-full flex-col items-center gap-2 overflow-y-auto overflow-x-hidden p-4">
           {allCameras.map((cam) => (
-            <div
+            <button
+              type="button"
               key={cam}
               className={`mx-4 w-full py-2 text-center smart-capitalize ${cam == selected ? "rounded-lg bg-secondary" : ""}`}
+              aria-pressed={cam == selected}
               onClick={() => {
                 onSelectCamera(cam);
                 setCameraDrawer(false);
               }}
             >
               <CameraNameLabel camera={cam} />
-            </div>
+            </button>
           ))}
         </div>
       </DrawerContent>

@@ -28,6 +28,7 @@ import { useCameraFriendlyName } from "@/hooks/use-camera-friendly-name";
 import { ImageShadowOverlay } from "../overlay/ImageShadowOverlay";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { formatList } from "@/utils/stringUtil";
+import { onActivate } from "@/utils/fork/a11y";
 
 type LivePlayerProps = {
   cameraRef?: (ref: HTMLDivElement | null) => void;
@@ -346,6 +347,10 @@ export default function LivePlayer({
         className,
       )}
       onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? cameraName : undefined}
+      onKeyDown={onActivate(onClick)}
       onAuxClick={(e) => {
         if (e.button === 1) {
           window.open(`${baseUrl}#${cameraConfig.name}`, "_blank")?.focus();

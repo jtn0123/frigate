@@ -46,6 +46,7 @@ export default function NavItem({
     <NavLink
       to={item.url}
       onClick={onClick}
+      aria-label={t(item.title)}
       className={({ isActive }) =>
         cn(
           "flex flex-col items-center justify-center rounded-lg p-[6px]",
@@ -62,7 +63,9 @@ export default function NavItem({
   if (isDesktop) {
     return (
       <Tooltip>
-        <TooltipTrigger>{content}</TooltipTrigger>
+        <TooltipTrigger asChild>
+          <div className="contents">{content}</div>
+        </TooltipTrigger>
         <TooltipPortal>
           <TooltipContent side="right">
             <p>{t(item.title)}</p>

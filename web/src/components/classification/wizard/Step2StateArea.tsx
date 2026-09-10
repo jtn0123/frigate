@@ -18,6 +18,7 @@ import { isReplayCamera } from "@/utils/cameraUtil";
 import Heading from "@/components/ui/heading";
 import { isMobile } from "react-device-detect";
 import { cn } from "@/lib/utils";
+import { onActivate } from "@/utils/fork/a11y";
 
 export type CameraAreaConfig = {
   camera: string;
@@ -307,6 +308,10 @@ export default function Step2StateArea({
                       : "hover:bg-secondary/50"
                   } cursor-pointer`}
                   onClick={() => setSelectedCameraIndex(index)}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  onKeyDown={onActivate(() => setSelectedCameraIndex(index))}
                 >
                   <span className="text-sm capitalize">{displayName}</span>
                   <Button

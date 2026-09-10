@@ -35,6 +35,7 @@ import useContextMenu from "@/hooks/use-contextmenu";
 import axios from "axios";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { onActivate } from "@/utils/fork/a11y";
 
 type CaseCardProps = {
   className: string;
@@ -65,6 +66,10 @@ export function CaseCard({
         className,
       )}
       onClick={() => onSelect()}
+      role="button"
+      tabIndex={0}
+      aria-label={exportCase.name}
+      onKeyDown={onActivate(() => onSelect())}
     >
       {firstExport && (
         <img
@@ -302,6 +307,18 @@ export function ExportCard({
             }
           }
         }}
+        role="button"
+        tabIndex={0}
+        aria-label={exportedRecording.name}
+        onKeyDown={onActivate(() => {
+          if (!exportedRecording.in_progress) {
+            if (selectionMode && onContextSelect) {
+              onContextSelect(exportedRecording);
+            } else {
+              onSelect(exportedRecording);
+            }
+          }
+        })}
       >
         {exportedRecording.in_progress ? (
           <ActivityIndicator />
@@ -311,6 +328,10 @@ export function ExportCard({
               <img
                 className="absolute inset-0 aspect-video size-full rounded-lg object-cover md:rounded-2xl"
                 src={`${baseUrl}${exportedRecording.thumb_path.replace("/media/frigate/", "")}`}
+                alt={t("image.thumbnailOf", {
+                  ns: "common",
+                  label: exportedRecording.name,
+                })}
                 onLoad={() => setLoading(false)}
               />
             ) : (

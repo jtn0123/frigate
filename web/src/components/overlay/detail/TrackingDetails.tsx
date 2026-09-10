@@ -56,6 +56,7 @@ import ObjectTrackOverlay from "../ObjectTrackOverlay";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { VideoResolutionType } from "@/types/live";
 import { VodManifest } from "@/types/playback";
+import { onActivate } from "@/utils/fork/a11y";
 
 type TrackingDetailsProps = {
   className?: string;
@@ -754,6 +755,10 @@ export function TrackingDetails({
                 <img
                   key={event.id}
                   ref={imgRef}
+                  alt={t("image.thumbnailOf", {
+                    ns: "common",
+                    label: getTranslatedLabel(event.label, event.data.type),
+                  })}
                   className={cn(
                     "max-h-[50dvh] max-w-full select-none rounded-lg object-contain",
                   )}
@@ -814,6 +819,13 @@ export function TrackingDetails({
                   );
                 }}
                 role="button"
+                tabIndex={0}
+                onKeyDown={onActivate((e) => {
+                  e.stopPropagation();
+                  handleSeekToTime(
+                    (event.start_time ?? 0) + annotationOffset / 1000,
+                  );
+                })}
               >
                 <div
                   className={cn(
@@ -1058,7 +1070,9 @@ function LifecycleIconRow({
   return (
     <div
       role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={onActivate(onClick)}
       className={cn(
         "rounded-md p-2 pr-0 text-sm text-primary-variant",
         isActive && "bg-secondary-highlight font-semibold text-primary",

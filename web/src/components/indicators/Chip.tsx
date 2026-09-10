@@ -4,6 +4,7 @@ import { ReactNode, useMemo } from "react";
 import { isIOS } from "react-device-detect";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { onActivate } from "@/utils/fork/a11y";
 
 type ChipProps = {
   className?: string;
@@ -74,6 +75,16 @@ export function LogChip({ severity, onClickSeverity }: LogChipProps) {
             onClickSeverity();
           }
         }}
+        role={onClickSeverity ? "button" : undefined}
+        tabIndex={onClickSeverity ? 0 : undefined}
+        onKeyDown={onActivate(
+          onClickSeverity
+            ? (e) => {
+                e.stopPropagation();
+                onClickSeverity();
+              }
+            : undefined,
+        )}
       >
         {t(`logger.logLevel.${severity}`, { ns: "views/settings" })}
       </span>

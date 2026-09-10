@@ -38,6 +38,7 @@ import LivePlayer from "@/components/player/LivePlayer";
 import { IoClose } from "react-icons/io5";
 import { LuLayoutDashboard, LuPencil } from "react-icons/lu";
 import { cn } from "@/lib/utils";
+import { onActivate } from "@/utils/fork/a11y";
 import { EditGroupDialog } from "@/components/filter/CameraGroupSelector";
 import { useUserPersistedOverlayState } from "@/hooks/use-overlay-state";
 import { FaCompress, FaExpand } from "react-icons/fa";
@@ -707,6 +708,16 @@ export default function DraggableGridLayout({
                     onClick={() =>
                       setIsEditMode((prevIsEditMode) => !prevIsEditMode)
                     }
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={onActivate(() =>
+                      setIsEditMode((prevIsEditMode) => !prevIsEditMode),
+                    )}
+                    aria-label={
+                      isEditMode
+                        ? t("editLayout.exitEdit")
+                        : t("editLayout.label")
+                    }
                   >
                     {isEditMode ? (
                       <IoClose className="size-5 md:m-[6px]" />
@@ -731,6 +742,12 @@ export default function DraggableGridLayout({
                           onClick={() =>
                             setEditGroup((prevEditGroup) => !prevEditGroup)
                           }
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={onActivate(() =>
+                            setEditGroup((prevEditGroup) => !prevEditGroup),
+                          )}
+                          aria-label={t("editLayout.group.label")}
                         >
                           <LuPencil className="size-5 md:m-[6px]" />
                         </div>
@@ -747,6 +764,14 @@ export default function DraggableGridLayout({
                       <div
                         className="cursor-pointer rounded-lg bg-secondary text-secondary-foreground opacity-60 transition-all duration-300 hover:bg-muted hover:opacity-100"
                         onClick={toggleFullscreen}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={onActivate(toggleFullscreen)}
+                        aria-label={
+                          fullscreen
+                            ? t("button.exitFullscreen", { ns: "common" })
+                            : t("button.fullscreen", { ns: "common" })
+                        }
                       >
                         {fullscreen ? (
                           <FaCompress className="size-5 md:m-[6px]" />

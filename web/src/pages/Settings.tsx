@@ -15,7 +15,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   Collapsible,
   CollapsibleContent,
@@ -594,9 +599,10 @@ function MobileMenuItem({
   const { t } = useTranslation(["views/settings"]);
 
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        "inline-flex h-10 w-full cursor-pointer items-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-primary-variant disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex h-10 w-full cursor-pointer items-center whitespace-nowrap rounded-md px-4 py-2 text-left text-sm font-medium text-primary-variant disabled:pointer-events-none disabled:opacity-50",
         className,
       )}
       onClick={() => {
@@ -607,7 +613,7 @@ function MobileMenuItem({
       <div className="w-full">
         {label ?? <div>{t("menu." + item.key)}</div>}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -1157,11 +1163,9 @@ export default function Settings() {
           {
             duration: 10000,
             action: (
-              <a onClick={() => setRestartDialogOpen(true)}>
-                <Button>
-                  {t("restart.button", { ns: "components/dialog" })}
-                </Button>
-              </a>
+              <Button onClick={() => setRestartDialogOpen(true)}>
+                {t("restart.button", { ns: "components/dialog" })}
+              </Button>
             ),
           },
         );
@@ -2342,6 +2346,9 @@ function CameraSelectButton({
       >
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
         <DrawerContent className="max-h-[75dvh] overflow-hidden">
+          <DrawerTitle className="sr-only">
+            {t("menu.settings", { ns: "common" })}
+          </DrawerTitle>
           {content}
         </DrawerContent>
       </Drawer>

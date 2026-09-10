@@ -388,9 +388,9 @@ export default function CloneCameraDialog({
         (error instanceof Error ? error.message : "Unknown error");
 
       const restartAction = (
-        <a onClick={() => setRestartDialogOpen(true)}>
-          <Button>{t("restart.button", { ns: "components/dialog" })}</Button>
-        </a>
+        <Button onClick={() => setRestartDialogOpen(true)}>
+          {t("restart.button", { ns: "components/dialog" })}
+        </Button>
       );
 
       const markRestartRequired = () =>
@@ -851,19 +851,23 @@ export default function CloneCameraDialog({
                   </p>
                 </div>
                 <div className="flex flex-row items-center gap-2 text-xs text-muted-foreground">
-                  <span
+                  <button
+                    type="button"
                     className="cursor-pointer whitespace-nowrap"
-                    onClick={isSubmitting ? undefined : selectAllCategories}
+                    disabled={isSubmitting}
+                    onClick={selectAllCategories}
                   >
                     {t("cameraManagement.clone.categories.selectAll")}
-                  </span>
+                  </button>
                   <span aria-hidden="true">|</span>
-                  <span
+                  <button
+                    type="button"
                     className="cursor-pointer whitespace-nowrap"
-                    onClick={isSubmitting ? undefined : selectNoneCategories}
+                    disabled={isSubmitting}
+                    onClick={selectNoneCategories}
                   >
                     {t("cameraManagement.clone.categories.selectNone")}
-                  </span>
+                  </button>
                 </div>
               </div>
 

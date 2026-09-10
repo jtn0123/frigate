@@ -208,5 +208,6 @@
         "description": "Not all classes have examples. Try generating new examples to find the missing class, or continue and use the Recent Classifications view to add images later."
       }
     }
-  }
+  },
+  "coverImage": "Cover image for {{name}}"
 }

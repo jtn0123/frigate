@@ -33,6 +33,7 @@ import {
   MobilePageTitle,
   MobilePageTrigger,
 } from "../mobile/MobilePage";
+import { onActivate } from "@/utils/fork/a11y";
 
 type ClassificationCardProps = {
   className?: string;
@@ -117,6 +118,9 @@ export const ClassificationCard = forwardRef<
         }
         onClick(data, isMeta);
       }}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? onActivate(() => onClick(data, false)) : undefined}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -125,6 +129,7 @@ export const ClassificationCard = forwardRef<
     >
       <img
         ref={imgRef}
+        alt={data.name}
         className={cn(
           "absolute bottom-0 left-0 right-0 top-0 size-full",
           imgClassName,
@@ -408,10 +413,17 @@ export function GroupedClassificationCard({
                     <TooltipTrigger asChild>
                       <div
                         className="cursor-pointer"
-                        tabIndex={-1}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={t("details.item.button.viewInExplore", {
+                          ns: "views/explore",
+                        })}
                         onClick={() => {
                           navigate(`/explore?event_id=${classifiedEvent.id}`);
                         }}
+                        onKeyDown={onActivate(() => {
+                          navigate(`/explore?event_id=${classifiedEvent.id}`);
+                        })}
                       >
                         <LuSearch className="size-4 text-secondary-foreground" />
                       </div>

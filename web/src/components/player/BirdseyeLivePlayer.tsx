@@ -7,6 +7,7 @@ import { LivePlayerMode } from "@/types/live";
 import { cn } from "@/lib/utils";
 import React from "react";
 import { ImageShadowOverlay } from "../overlay/ImageShadowOverlay";
+import { onActivate } from "@/utils/fork/a11y";
 
 type LivePlayerProps = {
   className?: string;
@@ -76,6 +77,9 @@ export default function BirdseyeLivePlayer({
         className,
       )}
       onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onActivate(onClick)}
     >
       <ImageShadowOverlay
         upperClassName="md:rounded-2xl"

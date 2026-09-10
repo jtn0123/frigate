@@ -29,6 +29,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { MdOutlinePersonSearch } from "react-icons/md";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { formatList } from "@/utils/stringUtil";
+import { onActivate } from "@/utils/fork/a11y";
 
 type PreviewPlayerProps = {
   review: ReviewSegment;
@@ -195,6 +196,13 @@ export default function PreviewThumbnailPlayer({
       onMouseOver={isMobile ? undefined : () => setIsHovered(true)}
       onMouseLeave={isMobile ? undefined : () => setIsHovered(false)}
       onClick={handleOnClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onActivate(() => {
+        if (!ignoreClick) {
+          onClick(review, false, false);
+        }
+      })}
       onAuxClick={(e) => {
         if (e.button === 1) {
           window.open(`${baseUrl}review?id=${review.id}`, "_blank")?.focus();
@@ -222,6 +230,7 @@ export default function PreviewThumbnailPlayer({
       <div className={`${imgLoaded ? "visible" : "invisible"}`}>
         <img
           ref={imgRef}
+          alt={t("image.previewFrom", { ns: "common", camera: review.camera })}
           className={`size-full select-none transition-opacity ${
             playingBack ? "opacity-0" : "opacity-100"
           }`}

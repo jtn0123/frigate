@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import useContextMenu from "@/hooks/use-contextmenu";
 import { getTranslatedLabel } from "@/utils/i18n";
+import { useTranslation } from "react-i18next";
+import { onActivate } from "@/utils/fork/a11y";
 
 type SearchThumbnailProps = {
   searchResult: SearchResult;
@@ -23,6 +25,7 @@ export default function SearchThumbnail({
   searchResult,
   onClick,
 }: SearchThumbnailProps) {
+  const { t } = useTranslation(["common"]);
   const apiHost = useApiHost();
   const { data: config } = useSWR<FrigateConfig>("config");
   const [imgRef, imgLoaded, onImgLoad] = useImageLoaded();
@@ -36,8 +39,9 @@ export default function SearchThumbnail({
   const handleOnClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (e.metaKey) {
-        e.stopPropagation();
         onClick(searchResult, true, false);
+      } else {
+        onClick(searchResult, false, true);
       }
     },
     [searchResult, onClick],
@@ -95,7 +99,10 @@ export default function SearchThumbnail({
   return (
     <div
       className="relative size-full cursor-pointer"
-      onClick={() => onClick(searchResult, false, true)}
+      onClick={handleOnClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onActivate(() => onClick(searchResult, false, true))}
     >
       <ImageLoadingIndicator
         className="absolute inset-0"
@@ -104,7 +111,12 @@ export default function SearchThumbnail({
       <div className={`size-full ${imgLoaded ? "visible" : "invisible"}`}>
         <img
           ref={imgRef}
-          onClick={handleOnClick}
+          alt={t("image.thumbnailOf", {
+            label: getTranslatedLabel(
+              searchResult.label,
+              searchResult.data.type,
+            ),
+          })}
           className={cn(
             "size-full select-none object-cover object-center opacity-100 transition-opacity",
           )}

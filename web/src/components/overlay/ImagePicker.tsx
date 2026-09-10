@@ -16,6 +16,7 @@ import { Event } from "@/types/event";
 import { useApiHost } from "@/api";
 import { isDesktop, isMobile } from "react-device-detect";
 import ActivityIndicator from "../indicators/activity-indicator";
+import { onActivate } from "@/utils/fork/a11y";
 
 type ImagePickerProps = {
   selectedImageId?: string;
@@ -112,12 +113,16 @@ export default function ImagePicker({
               selectedImageId === image.id &&
                 "border-selected ring-2 ring-selected",
             )}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedImageId === image.id}
+            onClick={() => handleImageSelect(image.id)}
+            onKeyDown={onActivate(() => handleImageSelect(image.id))}
           >
             <img
               src={`${apiHost}api/events/${image.id}/thumbnail.webp`}
               alt={image.label}
               className="h-full w-full object-cover"
-              onClick={() => handleImageSelect(image.id)}
               onLoad={() => handleImageLoad(image.id)}
               loading="lazy"
             />

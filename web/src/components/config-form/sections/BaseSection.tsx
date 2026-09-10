@@ -744,11 +744,9 @@ export function ConfigSection({
           {
             duration: 10000,
             action: (
-              <a onClick={() => setRestartDialogOpen(true)}>
-                <Button>
-                  {t("restart.button", { ns: "components/dialog" })}
-                </Button>
-              </a>
+              <Button onClick={() => setRestartDialogOpen(true)}>
+                {t("restart.button", { ns: "components/dialog" })}
+              </Button>
             ),
           },
         );

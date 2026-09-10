@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { extractCameraName } from "@/utils/wsUtil";
 import { getIconForLabel } from "@/utils/iconUtil";
 import { LuCheck, LuCopy } from "react-icons/lu";
+import { onActivate } from "@/utils/fork/a11y";
 
 type TopicCategory = "events" | "camera_activity" | "system" | "other";
 
@@ -357,6 +358,10 @@ const WsMessageRow = memo(function WsMessageRow({
           expanded && "bg-muted/30",
         )}
         onClick={handleToggle}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onKeyDown={onActivate(handleToggle)}
       >
         <ChevronRight
           className={cn(

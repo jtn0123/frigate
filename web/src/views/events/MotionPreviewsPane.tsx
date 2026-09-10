@@ -21,6 +21,7 @@ import ActivityIndicator from "@/components/indicators/activity-indicator";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { useFormattedTimestamp, use24HourTime } from "@/hooks/use-date-utils";
 import { FrigateConfig } from "@/types/frigateConfig";
+import { onActivate } from "@/utils/fork/a11y";
 
 const MOTION_HEATMAP_GRID_SIZE = 16;
 const MIN_MOTION_CELL_ALPHA = 0.06;
@@ -595,6 +596,9 @@ function MotionPreviewClip({
       className="relative size-full cursor-pointer overflow-hidden rounded-lg bg-black md:rounded-2xl"
       style={{ aspectRatio }}
       onClick={() => onSeek(range.start_time)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onActivate(() => onSeek(range.start_time))}
     >
       {showLoadingIndicator && (
         <Skeleton className="absolute inset-0 z-10 rounded-lg md:rounded-2xl" />

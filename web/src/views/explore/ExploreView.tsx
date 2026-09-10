@@ -24,6 +24,7 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { useTranslation } from "react-i18next";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { LuSearchX } from "react-icons/lu";
+import { onActivate } from "@/utils/fork/a11y";
 
 type ExploreViewProps = {
   setSearchDetail: (search: SearchResult | undefined) => void;
@@ -192,7 +193,11 @@ function ThumbnailRow({
           onClick={() => handleSearch(label)}
         >
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger
+              aria-label={t("exploreMore", {
+                label: getTranslatedLabel(label, labelType),
+              })}
+            >
               <BsArrowRightCircle
                 className="ml-2 text-secondary-foreground transition-all duration-300 hover:text-primary"
                 size={24}
@@ -230,6 +235,7 @@ function ExploreThumbnailImage({
   const { data: config } = useSWR<FrigateConfig>("config");
   const [imgRef, imgLoaded, onImgLoad] = useImageLoaded();
   const navigate = useNavigate();
+  const { t } = useTranslation(["common"]);
 
   const handleFindSimilar = () => {
     if (config?.semantic_search.enabled) {
@@ -279,8 +285,14 @@ function ExploreThumbnailImage({
           draggable={false}
           src={`${apiHost}api/events/${event.id}/thumbnail.webp`}
           onClick={() => setSearchDetail(event)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={onActivate(() => setSearchDetail(event))}
           onLoad={onImgLoad}
-          alt={`${event.label} thumbnail`}
+          alt={t("image.thumbnailOf", {
+            ns: "common",
+            label: getTranslatedLabel(event.label, event.data.type),
+          })}
         />
         {isDesktop && (
           <div className="absolute bottom-1 right-1 z-10 rounded-lg bg-black/50 px-2 py-1 text-xs text-white">

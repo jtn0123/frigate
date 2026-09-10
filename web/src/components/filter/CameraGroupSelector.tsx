@@ -428,6 +428,7 @@ export function CameraGroupSelector({ className }: CameraGroupSelectorProps) {
             <div
               className="fixed inset-0 z-20"
               onClick={() => setExpanded(false)}
+              aria-hidden="true"
             />
           )}
           <AnimatePresence>

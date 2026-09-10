@@ -23,6 +23,7 @@ import { getTranslatedLabel } from "@/utils/i18n";
 import EventMenu from "@/components/timeline/EventMenu";
 import { FrigatePlusDialog } from "@/components/overlay/dialog/FrigatePlusDialog";
 import { cn } from "@/lib/utils";
+import { onActivate as onActivateKey } from "@/utils/fork/a11y";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { Link } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
@@ -288,6 +289,7 @@ export default function DetailStream({
           <div
             className="absolute inset-0 z-20 cursor-pointer bg-black/50"
             onClick={() => setControlsExpanded(false)}
+            aria-hidden="true"
           />
         )}
         <div
@@ -487,6 +489,12 @@ function ReviewGroup({
           onActivate?.();
           onSeek(startRecord);
         }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={onActivateKey(() => {
+          onActivate?.();
+          onSeek(startRecord);
+        })}
       >
         <div className="ml-4 mr-2 mt-1.5 flex flex-row items-start">
           <LuCircle
@@ -558,6 +566,14 @@ function ReviewGroup({
               setOpen((v) => !v);
             }}
             className="inline-flex items-center justify-center self-center rounded p-1 hover:bg-secondary/10"
+            role="button"
+            tabIndex={0}
+            aria-expanded={open}
+            aria-label={t("detail.aria")}
+            onKeyDown={onActivateKey((e) => {
+              e.stopPropagation();
+              setOpen((v) => !v);
+            })}
           >
             {open ? (
               <LuChevronDown className="size-4 text-primary-variant" />
@@ -703,7 +719,7 @@ function EventList({
                 e.stopPropagation();
                 handleObjectSelect(event);
               }}
-              role="button"
+              aria-hidden="true"
             >
               {getIconForLabel(
                 event.sub_label ? event.label + "-verified" : event.label,
@@ -718,6 +734,11 @@ function EventList({
                 handleObjectSelect(event);
               }}
               role="button"
+              tabIndex={0}
+              onKeyDown={onActivateKey((e) => {
+                e.stopPropagation();
+                handleObjectSelect(event);
+              })}
             >
               <div className="flex gap-2">
                 <span className="capitalize">{label}</span>
@@ -875,10 +896,15 @@ function LifecycleItem({
   return (
     <div
       role="button"
+      tabIndex={0}
       onClick={() => {
         const recordTimestamp = item.timestamp + annotationOffset / 1000;
         onSeek?.(recordTimestamp, false);
       }}
+      onKeyDown={onActivateKey(() => {
+        const recordTimestamp = item.timestamp + annotationOffset / 1000;
+        onSeek?.(recordTimestamp, false);
+      })}
       className={cn(
         "flex cursor-pointer items-center gap-2 text-sm text-primary-variant",
         isActive

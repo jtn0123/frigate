@@ -1421,12 +1421,13 @@ export default function MotionSearchView({
                   ) : (
                     <div className="flex w-full flex-col">
                       <div className="relative h-8 w-full">
-                        <div
+                        <button
+                          type="button"
                           className="absolute left-0 text-selected"
                           onClick={() => setMobileSettingsMode("actions")}
                         >
                           {t("button.back", { ns: "common" })}
-                        </div>
+                        </button>
                         <div className="absolute left-1/2 -translate-x-1/2 text-muted-foreground">
                           {t("calendar", { ns: "views/recording" })}
                         </div>

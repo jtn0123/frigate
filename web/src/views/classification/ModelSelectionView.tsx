@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import useOptimisticState from "@/hooks/use-optimistic-state";
 import { cn } from "@/lib/utils";
+import { onActivate } from "@/utils/fork/a11y";
 import {
   CustomClassificationModelConfig,
   FrigateConfig,
@@ -327,6 +328,9 @@ function ModelCard({ config, onClick, onUpdate, onDelete }: ModelCardProps) {
           "relative aspect-square w-full cursor-pointer overflow-hidden rounded-lg",
         )}
         onClick={onClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={onActivate(onClick)}
       >
         {coverImage ? (
           <>
@@ -336,6 +340,7 @@ function ModelCard({ config, onClick, onUpdate, onDelete }: ModelCardProps) {
                 !config.enabled && "opacity-50 grayscale",
               )}
               src={`${baseUrl}clips/${config.name}/dataset/${coverImage.name}/${coverImage.img}`}
+              alt={t("coverImage", { name: config.name })}
             />
             <ImageShadowOverlay lowerClassName="h-[30%] z-0" />
           </>

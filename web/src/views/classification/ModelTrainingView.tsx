@@ -462,19 +462,21 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
                 })}
               </div>
               <div className="p-1">{"|"}</div>
-              <div
+              <button
+                type="button"
                 className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
                 onClick={() => setSelectedImages([])}
               >
                 {t("button.unselect", { ns: "common" })}
-              </div>
+              </button>
               {selectedImages.length <
                 (pageToggle === "train"
                   ? trainImages?.length || 0
                   : dataset?.[pageToggle]?.length || 0) && (
                 <>
                   <div className="p-1">{"|"}</div>
-                  <div
+                  <button
+                    type="button"
                     className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
                     onClick={() =>
                       setSelectedImages([
@@ -485,7 +487,7 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
                     }
                   >
                     {t("select_all", { ns: "views/events" })}
-                  </div>
+                  </button>
                 </>
               )}
             </div>
@@ -744,11 +746,9 @@ function LibrarySelector({
               <DropdownMenuItem
                 key={id}
                 className="group flex items-center justify-between p-0"
+                onClick={() => setPageToggle(id)}
               >
-                <div
-                  className="flex-grow cursor-pointer px-2 py-1.5 capitalize"
-                  onClick={() => setPageToggle(id)}
-                >
+                <div className="flex-grow cursor-pointer px-2 py-1.5 capitalize">
                   {id === "none" ? t("details.none") : id.replaceAll("_", " ")}
                   <span className="ml-2 text-muted-foreground">
                     ({dataset?.[id].length})

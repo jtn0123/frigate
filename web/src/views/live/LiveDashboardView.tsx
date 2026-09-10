@@ -41,6 +41,7 @@ import DraggableGridLayout from "./DraggableGridLayout";
 import { IoClose } from "react-icons/io5";
 import { LuLayoutDashboard } from "react-icons/lu";
 import { cn } from "@/lib/utils";
+import { onActivate } from "@/utils/fork/a11y";
 import {
   AudioState,
   LivePlayerError,
@@ -654,6 +655,14 @@ export default function LiveDashboardView({
                       <div
                         className="cursor-pointer rounded-lg bg-secondary text-secondary-foreground opacity-60 transition-all duration-300 hover:bg-muted hover:opacity-100"
                         onClick={toggleFullscreen}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={onActivate(toggleFullscreen)}
+                        aria-label={
+                          fullscreen
+                            ? t("button.exitFullscreen", { ns: "common" })
+                            : t("button.fullscreen", { ns: "common" })
+                        }
                       >
                         {fullscreen ? (
                           <FaCompress className="size-5 md:m-[6px]" />

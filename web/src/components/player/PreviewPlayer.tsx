@@ -22,6 +22,7 @@ import {
 } from "@/hooks/use-camera-previews";
 import { useTranslation } from "react-i18next";
 import { useCameraFriendlyName } from "@/hooks/use-camera-friendly-name";
+import { onActivate } from "@/utils/fork/a11y";
 
 type PreviewPlayerProps = {
   previewRef?: (ref: HTMLDivElement | null) => void;
@@ -286,10 +287,14 @@ function PreviewVideoPlayer({
       )}
       data-camera={camera}
       onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onActivate(onClick)}
     >
       <img
         className={`absolute size-full object-contain ${currentHourFrame ? "visible" : "invisible"}`}
         src={currentHourFrame}
+        alt={t("image.previewFrom", { ns: "common", camera: cameraName })}
         onLoad={() => {
           if (changeoverTimeout) {
             clearTimeout(changeoverTimeout);
@@ -344,7 +349,7 @@ function PreviewVideoPlayer({
       )}
       {cameraPreviews && !currentPreview && (
         <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background_alt text-primary dark:bg-black md:rounded-2xl">
-          {t("noPreviewFoundFor", { camera: cameraName })}
+          {t("noPreviewFoundFor", { cameraName: cameraName })}
         </div>
       )}
       {firstLoad && <Skeleton className="absolute aspect-video size-full" />}
@@ -558,9 +563,13 @@ function PreviewFramesPlayer({
         onClick && "cursor-pointer",
       )}
       onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onActivate(onClick)}
     >
       <img
         ref={imgRef}
+        alt={t("image.previewFrom", { ns: "common", camera: cameraName })}
         className={`size-full rounded-lg bg-black object-contain md:rounded-2xl`}
         loading="lazy"
         onLoad={onImageLoaded}

@@ -589,11 +589,9 @@ function CameraStatusSelect({
             {
               position: "top-center",
               action: (
-                <a onClick={() => setRestartDialogOpen(true)}>
-                  <Button>
-                    {t("restart.button", { ns: "components/dialog" })}
-                  </Button>
-                </a>
+                <Button onClick={() => setRestartDialogOpen(true)}>
+                  {t("restart.button", { ns: "components/dialog" })}
+                </Button>
               ),
             },
           );
@@ -1092,11 +1090,9 @@ function CameraTypeSection({
           {
             position: "top-center",
             action: (
-              <a onClick={() => setRestartDialogOpen(true)}>
-                <Button>
-                  {t("restart.button", { ns: "components/dialog" })}
-                </Button>
-              </a>
+              <Button onClick={() => setRestartDialogOpen(true)}>
+                {t("restart.button", { ns: "components/dialog" })}
+              </Button>
             ),
           },
         );

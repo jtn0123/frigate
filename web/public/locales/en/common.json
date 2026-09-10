@@ -162,7 +162,10 @@
     "saveAll": "Save All",
     "savingAll": "Saving All…",
     "undoAll": "Undo All",
-    "retry": "Retry"
+    "retry": "Retry",
+    "pause": "Pause",
+    "mute": "Mute",
+    "unmute": "Unmute"
   },
   "menu": {
     "system": "System",
@@ -321,5 +324,10 @@
   "validation_errors": "Validation Errors",
   "credentialField": {
     "savedPlaceholder": "Saved — leave blank to keep current"
+  },
+  "image": {
+    "thumbnailOf": "Thumbnail of {{label}}",
+    "previewFrom": "Preview from {{camera}}",
+    "latestFrom": "Latest image from {{camera}}"
   }
 }

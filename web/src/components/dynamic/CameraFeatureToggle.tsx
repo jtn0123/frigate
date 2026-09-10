@@ -7,6 +7,7 @@ import {
 import { isDesktop } from "react-device-detect";
 import { cn } from "@/lib/utils";
 import ActivityIndicator from "../indicators/activity-indicator";
+import { onActivate } from "@/utils/fork/a11y";
 
 const variants = {
   primary: {
@@ -48,6 +49,12 @@ export default function CameraFeatureToggle({
   const content = (
     <div
       onClick={disabled ? undefined : onClick}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-label={title}
+      aria-pressed={isActive}
+      aria-disabled={disabled || undefined}
+      onKeyDown={onActivate(disabled ? undefined : onClick)}
       className={cn(
         "flex flex-col items-center justify-center",
         disabled
@@ -76,7 +83,9 @@ export default function CameraFeatureToggle({
   if (isDesktop) {
     return (
       <Tooltip>
-        <TooltipTrigger disabled={disabled}>{content}</TooltipTrigger>
+        <TooltipTrigger asChild disabled={disabled}>
+          {content}
+        </TooltipTrigger>
         <TooltipContent side="bottom">
           <p>{title}</p>
         </TooltipContent>

@@ -14,6 +14,7 @@ import { isPWA } from "@/utils/isPWA";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { useHistoryBack } from "@/hooks/use-history-back";
+import { onActivate } from "@/utils/fork/a11y";
 
 const MobilePageContext = createContext<{
   open: boolean;
@@ -72,7 +73,13 @@ export function MobilePageTrigger({
     throw new Error("MobilePageTrigger must be used within MobilePage");
 
   return (
-    <div onClick={() => context.onOpenChange(true)} {...props}>
+    <div
+      onClick={() => context.onOpenChange(true)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onActivate(() => context.onOpenChange(true))}
+      {...props}
+    >
       {children}
     </div>
   );

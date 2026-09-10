@@ -410,19 +410,21 @@ export default function FaceLibrary() {
                 })}
               </div>
               <div className="p-1">{"|"}</div>
-              <div
+              <button
+                type="button"
                 className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
                 onClick={() => setSelectedFaces([])}
               >
                 {t("button.unselect", { ns: "common" })}
-              </div>
+              </button>
               {selectedFaces.length <
                 (pageToggle === "train"
                   ? trainImages.length
                   : faceImages.length) && (
                 <>
                   <div className="p-1">{"|"}</div>
-                  <div
+                  <button
+                    type="button"
                     className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
                     onClick={() =>
                       setSelectedFaces([
@@ -431,7 +433,7 @@ export default function FaceLibrary() {
                     }
                   >
                     {t("select_all", { ns: "views/events" })}
-                  </div>
+                  </button>
                 </>
               )}
             </div>
@@ -631,11 +633,9 @@ function LibrarySelector({
             <DropdownMenuItem
               key={face}
               className="group flex items-center justify-between p-0"
+              onClick={() => setPageToggle(face)}
             >
-              <div
-                className="flex-grow cursor-pointer px-2 py-1.5"
-                onClick={() => setPageToggle(face)}
-              >
+              <div className="flex-grow cursor-pointer px-2 py-1.5">
                 {face}
                 <span className="ml-2 text-muted-foreground">
                   ({faceData?.[face].length})

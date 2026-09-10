@@ -100,7 +100,8 @@ export default function NameAndIdFields<T extends FieldValues = FieldValues>({
           <FormItem>
             <div className="flex items-center justify-between">
               <FormLabel>{nameLabel}</FormLabel>
-              <span
+              <button
+                type="button"
                 className="cursor-pointer text-right text-xs text-muted-foreground"
                 onClick={() => setIsIdVisible(!isIdVisible)}
               >
@@ -109,7 +110,7 @@ export default function NameAndIdFields<T extends FieldValues = FieldValues>({
                   : t("label.show", {
                       item: idLabel ?? t("label.ID"),
                     })}
-              </span>
+              </button>
             </div>
             <FormControl>
               <Input placeholder={placeholderName} {...field} />

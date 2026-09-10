@@ -36,6 +36,7 @@ import { isPWA } from "@/utils/isPWA";
 import { isInIframe } from "@/utils/isIFrame";
 import { useTranslation } from "react-i18next";
 import WsMessageFeed from "@/components/ws/WsMessageFeed";
+import { onActivate } from "@/utils/fork/a11y";
 
 function Logs() {
   const { t } = useTranslation(["views/system"]);
@@ -651,6 +652,9 @@ function LogLineData({
         "text-xs lg:text-sm/5",
       )}
       onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onActivate(onSelect)}
     >
       <div className="col-span-3 flex h-full items-center gap-2 lg:col-span-2">
         <div className="flex w-full flex-row items-center">

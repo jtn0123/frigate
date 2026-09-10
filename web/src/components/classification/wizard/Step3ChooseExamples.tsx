@@ -29,6 +29,7 @@ import {
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { IoIosWarning } from "react-icons/io";
 import { LuRefreshCw } from "react-icons/lu";
+import { onActivate } from "@/utils/fork/a11y";
 
 export type Step3FormData = {
   examplesGenerated: boolean;
@@ -662,6 +663,12 @@ export default function Step3ChooseExamples({
                         isSelected && "border-selected ring-2 ring-selected",
                       )}
                       onClick={() => toggleImageSelection(imageName)}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      onKeyDown={onActivate(() =>
+                        toggleImageSelection(imageName),
+                      )}
                     >
                       {!loadedImages.has(imageName) && (
                         <div className="flex h-full items-center justify-center">

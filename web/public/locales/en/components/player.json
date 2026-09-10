@@ -5,7 +5,8 @@
   "submitFrigatePlus": {
     "title": "Submit this frame to Frigate+?",
     "submit": "Submit",
-    "previewError": "Could not load snapshot preview. The recording may not be available at this time."
+    "previewError": "Could not load snapshot preview. The recording may not be available at this time.",
+    "previewAlt": "Snapshot preview to submit to Frigate+"
   },
   "livePlayerRequiredIOSVersion": "iOS 17.1 or greater is required for this live stream type.",
   "streamOffline": {
@@ -48,5 +49,9 @@
     "error": {
       "submitFrigatePlusFailed": "Failed to submit frame to Frigate+"
     }
+  },
+  "controls": {
+    "replay": "Replay 10 seconds",
+    "forward": "Skip forward 10 seconds"
   }
 }

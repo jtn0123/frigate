@@ -285,10 +285,19 @@ export default function LiveContextMenu({
                 <div className="flex w-full flex-col gap-1">
                   <p>{t("audio")}</p>
                   <div className="flex flex-row items-center gap-1">
-                    <VolumeIcon
-                      className="size-5"
+                    <button
+                      type="button"
+                      className="flex"
+                      aria-label={
+                        audioState
+                          ? t("cameraAudio.disable")
+                          : t("cameraAudio.enable")
+                      }
+                      aria-pressed={!!audioState}
                       onClick={handleVolumeIconClick}
-                    />
+                    >
+                      <VolumeIcon className="size-5" />
+                    </button>
                     <VolumeSlider
                       disabled={!audioState || !isEnabled}
                       className="my-3 ml-0.5 rounded-lg bg-background/60"
@@ -306,11 +315,10 @@ export default function LiveContextMenu({
           <ContextMenuSeparator />
           {isAdmin && (
             <>
-              <ContextMenuItem>
-                <div
-                  className="flex w-full cursor-pointer items-center justify-start gap-2"
-                  onClick={() => sendEnabled(isEnabled ? "OFF" : "ON")}
-                >
+              <ContextMenuItem
+                onClick={() => sendEnabled(isEnabled ? "OFF" : "ON")}
+              >
+                <div className="flex w-full cursor-pointer items-center justify-start gap-2">
                   <div className="text-primary">
                     {isEnabled ? t("camera.turnOff") : t("camera.turnOn")}
                   </div>
@@ -319,28 +327,28 @@ export default function LiveContextMenu({
               <ContextMenuSeparator />
             </>
           )}
-          <ContextMenuItem disabled={!isEnabled}>
-            <div
-              className="flex w-full cursor-pointer items-center justify-start gap-2"
-              onClick={isEnabled ? muteAll : undefined}
-            >
+          <ContextMenuItem
+            disabled={!isEnabled}
+            onClick={isEnabled ? muteAll : undefined}
+          >
+            <div className="flex w-full cursor-pointer items-center justify-start gap-2">
               <div className="text-primary">{t("muteCameras.enable")}</div>
             </div>
           </ContextMenuItem>
-          <ContextMenuItem disabled={!isEnabled}>
-            <div
-              className="flex w-full cursor-pointer items-center justify-start gap-2"
-              onClick={isEnabled ? unmuteAll : undefined}
-            >
+          <ContextMenuItem
+            disabled={!isEnabled}
+            onClick={isEnabled ? unmuteAll : undefined}
+          >
+            <div className="flex w-full cursor-pointer items-center justify-start gap-2">
               <div className="text-primary">{t("muteCameras.disable")}</div>
             </div>
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem disabled={!isEnabled}>
-            <div
-              className="flex w-full cursor-pointer items-center justify-start gap-2"
-              onClick={isEnabled ? toggleStats : undefined}
-            >
+          <ContextMenuItem
+            disabled={!isEnabled}
+            onClick={isEnabled ? toggleStats : undefined}
+          >
+            <div className="flex w-full cursor-pointer items-center justify-start gap-2">
               <div className="text-primary">
                 {statsState
                   ? t("streamStats.disable")
@@ -348,13 +356,13 @@ export default function LiveContextMenu({
               </div>
             </div>
           </ContextMenuItem>
-          <ContextMenuItem disabled={!isEnabled}>
-            <div
-              className="flex w-full cursor-pointer items-center justify-start gap-2"
-              onClick={
-                isEnabled ? () => navigate(`?debug=true#${camera}`) : undefined
-              }
-            >
+          <ContextMenuItem
+            disabled={!isEnabled}
+            onClick={
+              isEnabled ? () => navigate(`?debug=true#${camera}`) : undefined
+            }
+          >
+            <div className="flex w-full cursor-pointer items-center justify-start gap-2">
               <div className="text-primary">
                 {t("streaming.debugView", {
                   ns: "components/dialog",
@@ -365,11 +373,11 @@ export default function LiveContextMenu({
           {cameraGroup && cameraGroup !== "default" && (
             <>
               <ContextMenuSeparator />
-              <ContextMenuItem disabled={!isEnabled}>
-                <div
-                  className="flex w-full cursor-pointer items-center justify-start gap-2"
-                  onClick={isEnabled ? () => setShowSettings(true) : undefined}
-                >
+              <ContextMenuItem
+                disabled={!isEnabled}
+                onClick={isEnabled ? () => setShowSettings(true) : undefined}
+              >
+                <div className="flex w-full cursor-pointer items-center justify-start gap-2">
                   <div className="text-primary">{t("streamingSettings")}</div>
                 </div>
               </ContextMenuItem>
@@ -378,11 +386,11 @@ export default function LiveContextMenu({
           {preferredLiveMode == "jsmpeg" && isRestreamed && (
             <>
               <ContextMenuSeparator />
-              <ContextMenuItem disabled={!isEnabled}>
-                <div
-                  className="flex w-full cursor-pointer items-center justify-start gap-2"
-                  onClick={isEnabled ? resetPreferredLiveMode : undefined}
-                >
+              <ContextMenuItem
+                disabled={!isEnabled}
+                onClick={isEnabled ? resetPreferredLiveMode : undefined}
+              >
+                <div className="flex w-full cursor-pointer items-center justify-start gap-2">
                   <div className="text-primary">
                     {t("button.reset", { ns: "common" })}
                   </div>

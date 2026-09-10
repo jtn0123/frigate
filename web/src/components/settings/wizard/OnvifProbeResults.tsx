@@ -17,6 +17,7 @@ import type {
 import { FaCircleCheck } from "react-icons/fa6";
 import { cn } from "@/lib/utils";
 import { maskUri } from "@/utils/cameraUtil";
+import { onActivate } from "@/utils/fork/a11y";
 
 type OnvifProbeResultsProps = {
   isLoading: boolean;
@@ -318,6 +319,9 @@ function CandidateItem({
             <p
               className="flex-1 cursor-pointer break-all text-sm text-primary-variant hover:underline"
               onClick={() => setShowFull((s) => !s)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={onActivate(() => setShowFull((s) => !s))}
               title={t("cameraWizard.step2.toggleUriView")}
             >
               {showFull ? candidate.uri : maskUri(candidate.uri)}

@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../ui/alert-dialog";
-import { Drawer, DrawerContent } from "../ui/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "../ui/drawer";
 import axios from "axios";
 import { toast } from "sonner";
 import useKeyboardListener from "@/hooks/use-keyboard-listener";
@@ -41,6 +41,8 @@ import { MdAutoAwesome } from "react-icons/md";
 import { GenAISummaryDialog } from "../overlay/chip/GenAISummaryChip";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { formatList } from "@/utils/stringUtil";
+import { onActivate } from "@/utils/fork/a11y";
+import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 
 type ReviewCardProps = {
   event: ReviewSegment;
@@ -140,10 +142,20 @@ export default function ReviewCard({
     return "object";
   };
 
+  const cameraName = resolveCameraName(config, event.camera);
+  const cardLabel = t("review.card.open", {
+    camera: cameraName,
+    time: formattedDate,
+  });
+
   const content = (
     <div
       className="relative flex w-full cursor-pointer flex-col gap-1.5"
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onActivate(onClick)}
+      aria-label={cardLabel}
       onContextMenu={
         isDesktop
           ? undefined
@@ -166,6 +178,7 @@ export default function ReviewCard({
           imgLoaded ? "visible" : "invisible",
         )}
         src={`${baseUrl}${event.thumb_path.replace("/media/frigate/", "")}`}
+        alt={t("review.card.thumbnail", { camera: cameraName })}
         loading={isSafari ? "eager" : "lazy"}
         style={
           isIOS
@@ -287,11 +300,8 @@ export default function ReviewCard({
         <ContextMenu key={event.id}>
           <ContextMenuTrigger asChild>{content}</ContextMenuTrigger>
           <ContextMenuContent>
-            <ContextMenuItem>
-              <div
-                className="flex w-full cursor-pointer items-center justify-start gap-2 p-2"
-                onClick={onExport}
-              >
+            <ContextMenuItem onClick={onExport}>
+              <div className="flex w-full cursor-pointer items-center justify-start gap-2 p-2">
                 <FaCompactDisc className="text-secondary-foreground" />
                 <div className="text-primary">
                   {t("recording.button.export")}
@@ -299,11 +309,8 @@ export default function ReviewCard({
               </div>
             </ContextMenuItem>
             {!event.has_been_reviewed && (
-              <ContextMenuItem>
-                <div
-                  className="flex w-full cursor-pointer items-center justify-start gap-2 p-2"
-                  onClick={onMarkAsReviewed}
-                >
+              <ContextMenuItem onClick={onMarkAsReviewed}>
+                <div className="flex w-full cursor-pointer items-center justify-start gap-2 p-2">
                   <FaCircleCheck className="text-secondary-foreground" />
                   <div className="text-primary">
                     {t("recording.button.markAsReviewed")}
@@ -311,11 +318,8 @@ export default function ReviewCard({
                 </div>
               </ContextMenuItem>
             )}
-            <ContextMenuItem>
-              <div
-                className="flex w-full cursor-pointer items-center justify-start gap-2 p-2"
-                onClick={handleDelete}
-              >
+            <ContextMenuItem onClick={handleDelete}>
+              <div className="flex w-full cursor-pointer items-center justify-start gap-2 p-2">
                 <HiTrash className="text-secondary-foreground" />
                 <div className="text-primary">
                   {bypassDialogRef.current
@@ -363,9 +367,15 @@ export default function ReviewCard({
       <Drawer open={optionsOpen} onOpenChange={setOptionsOpen}>
         {content}
         <DrawerContent>
+          <DrawerTitle className="sr-only">
+            {t("menu.actions", { ns: "common" })}
+          </DrawerTitle>
           <div
             className="flex w-full items-center justify-start gap-2 p-2"
             onClick={onExport}
+            role="button"
+            tabIndex={0}
+            onKeyDown={onActivate(onExport)}
           >
             <FaCompactDisc className="text-secondary-foreground" />
             <div className="text-primary">{t("recording.button.export")}</div>
@@ -374,6 +384,9 @@ export default function ReviewCard({
             <div
               className="flex w-full items-center justify-start gap-2 p-2"
               onClick={onMarkAsReviewed}
+              role="button"
+              tabIndex={0}
+              onKeyDown={onActivate(onMarkAsReviewed)}
             >
               <FaCircleCheck className="text-secondary-foreground" />
               <div className="text-primary">
@@ -384,6 +397,9 @@ export default function ReviewCard({
           <div
             className="flex w-full items-center justify-start gap-2 p-2"
             onClick={handleDelete}
+            role="button"
+            tabIndex={0}
+            onKeyDown={onActivate(handleDelete)}
           >
             <HiTrash className="text-secondary-foreground" />
             <div className="text-primary">

@@ -105,6 +105,8 @@ export default function VideoControls({
   toggleFullscreen,
   containerRef,
 }: VideoControlsProps) {
+  const { t } = useTranslation(["components/player"]);
+
   // layout
 
   const controlsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -112,7 +114,7 @@ export default function VideoControls({
   // controls
 
   const onReplay = useCallback(
-    (e: React.MouseEvent<SVGElement>) => {
+    (e: React.MouseEvent) => {
       e.stopPropagation();
       onSeek(-10);
     },
@@ -120,7 +122,7 @@ export default function VideoControls({
   );
 
   const onSkip = useCallback(
-    (e: React.MouseEvent<SVGElement>) => {
+    (e: React.MouseEvent) => {
       e.stopPropagation();
       onSeek(10);
     },
@@ -128,7 +130,7 @@ export default function VideoControls({
   );
 
   const onTogglePlay = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent) => {
       e.stopPropagation();
       onPlayPause(!isPlaying);
     },
@@ -215,8 +217,14 @@ export default function VideoControls({
     >
       {video && features.volume && (
         <div className="flex cursor-pointer items-center justify-normal gap-2">
-          <VolumeIcon
-            className="size-5"
+          <button
+            type="button"
+            className="flex"
+            aria-label={
+              muted
+                ? t("button.unmute", { ns: "common" })
+                : t("button.mute", { ns: "common" })
+            }
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
 
@@ -224,7 +232,9 @@ export default function VideoControls({
                 setMuted(!muted);
               }
             }}
-          />
+          >
+            <VolumeIcon className="size-5" />
+          </button>
           {muted == false && (
             <VolumeSlider
               className="w-20"
@@ -238,17 +248,40 @@ export default function VideoControls({
         </div>
       )}
       {features.seek && (
-        <MdReplay10 className="size-5 cursor-pointer" onClick={onReplay} />
+        <button
+          type="button"
+          className="flex"
+          aria-label={t("controls.replay")}
+          onClick={onReplay}
+        >
+          <MdReplay10 className="size-5 cursor-pointer" />
+        </button>
       )}
-      <div className="cursor-pointer" onClick={onTogglePlay}>
+      <button
+        type="button"
+        className="cursor-pointer"
+        aria-label={
+          isPlaying
+            ? t("button.pause", { ns: "common" })
+            : t("button.play", { ns: "common" })
+        }
+        onClick={onTogglePlay}
+      >
         {isPlaying ? (
           <LuPause className="size-5 fill-primary text-primary" />
         ) : (
           <LuPlay className="size-5 fill-primary text-primary" />
         )}
-      </div>
+      </button>
       {features.seek && (
-        <MdForward10 className="size-5 cursor-pointer" onClick={onSkip} />
+        <button
+          type="button"
+          className="flex"
+          aria-label={t("controls.forward")}
+          onClick={onSkip}
+        >
+          <MdForward10 className="size-5 cursor-pointer" />
+        </button>
       )}
       {features.playbackRate && (
         <DropdownMenu
@@ -321,9 +354,18 @@ export default function VideoControls({
         />
       )}
       {features.fullscreen && toggleFullscreen && (
-        <div className="cursor-pointer" onClick={toggleFullscreen}>
+        <button
+          type="button"
+          className="cursor-pointer"
+          aria-label={
+            fullscreen
+              ? t("button.exitFullscreen", { ns: "common" })
+              : t("button.fullscreen", { ns: "common" })
+          }
+          onClick={toggleFullscreen}
+        >
           {fullscreen ? <FaCompress /> : <FaExpand />}
-        </div>
+        </button>
       )}
     </div>
   );
@@ -409,6 +451,7 @@ function FrigatePlusUploadButton({
           <img
             className="aspect-video w-full object-contain"
             src={previewUrl}
+            alt={t("submitFrigatePlus.previewAlt")}
             onError={() => setPreviewError(true)}
           />
         )}

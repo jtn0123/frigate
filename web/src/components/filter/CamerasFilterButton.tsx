@@ -193,15 +193,16 @@ export function CamerasFilterContent({
             <DropdownMenuSeparator />
             {groups.map(([name, conf]) => {
               return (
-                <div
+                <button
+                  type="button"
                   key={name}
-                  className="w-full cursor-pointer rounded-lg px-2 py-0.5 text-sm text-primary smart-capitalize hover:bg-muted"
+                  className="w-full cursor-pointer rounded-lg px-2 py-0.5 text-left text-sm text-primary smart-capitalize hover:bg-muted"
                   onClick={() => {
                     setCurrentCameras([...conf.cameras]);
                   }}
                 >
                   {name}
-                </div>
+                </button>
               );
             })}
           </>

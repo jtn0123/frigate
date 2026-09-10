@@ -192,5 +192,11 @@
       "placeholder": "Search by label or sub label..."
     },
     "noImages": "No thumbnails found for this camera"
+  },
+  "review": {
+    "card": {
+      "open": "Open review from {{camera}} at {{time}}",
+      "thumbnail": "Review thumbnail from {{camera}}"
+    }
   }
 }

@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { formatList } from "@/utils/stringUtil";
+import { onActivate } from "@/utils/fork/a11y";
 
 type AnimatedEventCardProps = {
   event: ReviewSegment;
@@ -191,6 +192,9 @@ export function AnimatedEventCard({
             <div
               className="size-full cursor-pointer"
               onClick={onOpenReview}
+              role="button"
+              tabIndex={0}
+              onKeyDown={onActivate(onOpenReview)}
               onAuxClick={(e) => {
                 if (e.button === 1) {
                   window
@@ -206,6 +210,10 @@ export function AnimatedEventCard({
                     isSafari && !isLoaded ? "hidden" : "visible",
                   )}
                   src={`${apiHost}${event.thumb_path.replace("/media/frigate/", "")}`}
+                  alt={t("image.previewFrom", {
+                    ns: "common",
+                    camera: event.camera,
+                  })}
                   loading={isSafari ? "eager" : "lazy"}
                   onLoad={() => setIsLoaded(true)}
                 />

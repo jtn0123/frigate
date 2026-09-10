@@ -122,21 +122,23 @@ export default function SearchActionGroup({
             })}
           </div>
           <div className="p-1">{"|"}</div>
-          <div
+          <button
+            type="button"
             className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
             onClick={onClearSelected}
           >
             {t("button.unselect", { ns: "common" })}
-          </div>
+          </button>
           {selectedObjects.length < totalItems && (
             <>
               <div className="p-1">{"|"}</div>
-              <div
+              <button
+                type="button"
                 className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
                 onClick={onSelectAllObjects}
               >
                 {t("select_all", { ns: "views/events" })}
-              </div>
+              </button>
             </>
           )}
         </div>

@@ -190,3 +190,11 @@ html {
 .react-lazylog-searchbar {
   background-color: transparent !important;
 }
+
+/* Keyboard focus ring for card and menu click targets that are not native
+   buttons (role="button" with tabIndex). Native buttons and inputs keep
+   the shadcn focus-visible ring from their own classes. */
+[role="button"]:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}

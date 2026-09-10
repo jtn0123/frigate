@@ -140,12 +140,13 @@ export default function ReviewActionGroup({
             })}
           </div>
           <div className="p-1">{"|"}</div>
-          <div
+          <button
+            type="button"
             className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
             onClick={onClearSelected}
           >
             {t("button.unselect", { ns: "common" })}
-          </div>
+          </button>
         </div>
         <div className="flex items-center gap-1 md:gap-2">
           {selectedReviews.length == 1 && (

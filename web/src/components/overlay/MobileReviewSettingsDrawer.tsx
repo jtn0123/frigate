@@ -1,6 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { baseUrl } from "@/api/baseUrl";
-import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "../ui/drawer";
 import { Button } from "../ui/button";
 import { FaArrowDown, FaCalendarAlt, FaCog, FaFilter } from "react-icons/fa";
 import { LuBug, LuSearch, LuShare2 } from "react-icons/lu";
@@ -502,12 +507,13 @@ export default function MobileReviewSettingsDrawer({
     content = (
       <div className="flex w-full flex-col">
         <div className="relative h-8 w-full">
-          <div
+          <button
+            type="button"
             className="absolute left-0 text-selected"
             onClick={() => setDrawerMode("select")}
           >
             {t("button.back", { ns: "common" })}
-          </div>
+          </button>
           <div className="absolute left-1/2 -translate-x-1/2 text-muted-foreground">
             {t("calendar")}
           </div>
@@ -552,12 +558,13 @@ export default function MobileReviewSettingsDrawer({
     content = (
       <div className="scrollbar-container flex h-auto w-full flex-col overflow-y-auto overflow-x-hidden">
         <div className="relative mb-4 h-8 w-full">
-          <div
+          <button
+            type="button"
             className="absolute left-4 text-selected"
             onClick={() => setDrawerMode("select")}
           >
             {t("button.back", { ns: "common" })}
-          </div>
+          </button>
           <div className="absolute left-1/2 -translate-x-1/2 text-muted-foreground">
             {t("filter")}
           </div>
@@ -736,6 +743,7 @@ export default function MobileReviewSettingsDrawer({
               : "overflow-hidden",
           )}
         >
+          <DrawerTitle className="sr-only">{t("filters")}</DrawerTitle>
           {content}
         </DrawerContent>
       </Drawer>

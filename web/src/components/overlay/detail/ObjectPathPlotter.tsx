@@ -25,6 +25,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { onActivate } from "@/utils/fork/a11y";
 
 export default function ObjectPathPlotter() {
   const apiHost = useApiHost();
@@ -222,6 +223,10 @@ export default function ObjectPathPlotter() {
                   selectedEvent?.id === event.id ? "bg-secondary" : ""
                 }`}
                 onClick={() => handleEventClick(event)}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedEvent?.id === event.id}
+                onKeyDown={onActivate(() => handleEventClick(event))}
               >
                 <div
                   className="mr-2 h-4 w-4 flex-shrink-0"
