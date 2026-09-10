@@ -41,6 +41,7 @@ type DrawerMode =
   | "debug-replay"
   | "share-timestamp";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- only used as a type below
 const DRAWER_FEATURES = [
   "export",
   "calendar",

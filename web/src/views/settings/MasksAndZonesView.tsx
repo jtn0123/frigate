@@ -643,7 +643,6 @@ export default function MasksAndZonesView({
       prevScaledRef.current = { w: scaledWidth, h: scaledHeight };
     }
     // we know that these deps are correct
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     cameraConfig,
     containerRef,

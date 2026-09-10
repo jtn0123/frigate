@@ -251,7 +251,6 @@ function PreviewVideoPlayer({
       setChangeoverTimeout(timeout);
 
       // we only want this to change when current preview changes
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [setCurrentHourFrame, videoSize],
   );

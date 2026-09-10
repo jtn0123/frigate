@@ -148,7 +148,6 @@ export default function VideoControls({
       return MdVolumeUp;
     }
     // only update when specific fields change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [volume, muted]);
 
   const onKeyboardShortcut = useCallback(

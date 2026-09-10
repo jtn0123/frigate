@@ -194,7 +194,6 @@ export default function LiveContextMenu({
       return MdVolumeUp;
     }
     // only update when specific fields change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [volumeState, audioState]);
 
   const handleVolumeIconClick = (e: React.MouseEvent) => {

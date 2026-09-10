@@ -40,7 +40,6 @@ export default function AutoUpdatingCameraImage({
       }
     };
     // we know that these deps are correct
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadInterval]);
 
   const handleLoad = useCallback(() => {

@@ -306,7 +306,6 @@ function GeneralFilterButton({
   useEffect(() => {
     setCurrentLabels(selectedLabels);
     // only refresh when state changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLabels]);
 
   const trigger = (
@@ -496,7 +495,6 @@ function SortTypeButton({
   useEffect(() => {
     setCurrentSortType(selectedSortType);
     // only refresh when state changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSortType]);
 
   const trigger = (

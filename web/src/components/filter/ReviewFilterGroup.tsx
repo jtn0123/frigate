@@ -28,6 +28,7 @@ import { getTranslatedLabel } from "@/utils/i18n";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 import { cn } from "@/lib/utils";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- only used as a type below
 const REVIEW_FILTERS = [
   "cameras",
   "reviewed",
@@ -356,7 +357,6 @@ function GeneralFilterButton({
       ...filter,
     });
     // only refresh when state changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLabels, selectedZones, showAll, filter]);
 
   const trigger = (
