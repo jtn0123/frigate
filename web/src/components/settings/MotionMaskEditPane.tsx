@@ -1,6 +1,7 @@
 import Heading from "../ui/heading";
 import { Separator } from "../ui/separator";
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -256,7 +257,7 @@ export default function MotionMaskEditPane({
                 position: "top-center",
               },
             );
-            updateConfig();
+            void updateConfig();
             // Only publish WS state for base config when mask has a name and
             // wasn't renamed (the hook is bound to the old name).
             if (!editingProfile && maskName && !renamingMask) {
@@ -310,7 +311,7 @@ export default function MotionMaskEditPane({
     }
     setIsLoading(true);
 
-    saveToConfig(values as MotionMaskFormValuesType);
+    void saveToConfig(values as MotionMaskFormValuesType);
     if (onSave) {
       onSave();
     }
@@ -401,7 +402,7 @@ export default function MotionMaskEditPane({
       <FormProvider {...form}>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
             className="flex flex-1 flex-col space-y-6"
           >
             <NameAndIdFields

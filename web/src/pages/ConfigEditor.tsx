@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { useRestart } from "@/api/ws";
 import { useResizeObserver } from "@/hooks/resize-observer";
 import { FrigateConfig } from "@/types/frigateConfig";
+import { wrapAsync } from "@/utils/promise";
 
 type SaveOptions = "saveonly" | "restart";
 
@@ -152,7 +153,7 @@ function ConfigEditor() {
       editorRef.current?.addCommand(
         monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
         () => {
-          onHandleSaveConfig("saveonly");
+          void onHandleSaveConfig("saveonly");
         },
       );
     } else if (editorRef.current) {
@@ -280,7 +281,7 @@ function ConfigEditor() {
               size="sm"
               className="flex items-center gap-2"
               aria-label={t("copyConfig")}
-              onClick={() => handleCopyConfig()}
+              onClick={wrapAsync(() => handleCopyConfig())}
             >
               <LuCopy className="text-secondary-foreground" />
               <span className="hidden md:block">{t("copyConfig")}</span>
@@ -289,7 +290,7 @@ function ConfigEditor() {
               size="sm"
               className="flex items-center gap-2"
               aria-label={t("saveAndRestart")}
-              onClick={handleSaveAndRestart}
+              onClick={wrapAsync(handleSaveAndRestart)}
             >
               <div className="relative size-5">
                 <LuSave className="absolute left-0 top-0 size-3 text-secondary-foreground" />
@@ -301,7 +302,7 @@ function ConfigEditor() {
               size="sm"
               className="flex items-center gap-2"
               aria-label={t("saveOnly")}
-              onClick={() => onHandleSaveConfig("saveonly")}
+              onClick={wrapAsync(() => onHandleSaveConfig("saveonly"))}
             >
               <LuSave className="text-secondary-foreground" />
               <span className="hidden md:block">{t("saveOnly")}</span>

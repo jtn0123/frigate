@@ -303,14 +303,14 @@ export default function CameraWizardDialog({
                         ),
                     );
 
-                    Promise.allSettled(updatePromises).then(() => {
+                    void Promise.allSettled(updatePromises).then(() => {
                       toast.success(
                         t("cameraWizard.save.success", {
                           cameraName: friendlyName || finalCameraName,
                         }),
                         { position: "top-center" },
                       );
-                      updateConfig();
+                      void updateConfig();
                       onClose();
                     });
                   })
@@ -322,7 +322,7 @@ export default function CameraWizardDialog({
                       }),
                       { position: "top-center" },
                     );
-                    updateConfig();
+                    void updateConfig();
                     onClose();
                   });
               } else {
@@ -333,7 +333,7 @@ export default function CameraWizardDialog({
                   }),
                   { position: "top-center" },
                 );
-                updateConfig();
+                void updateConfig();
                 onClose();
               }
             } else {
@@ -343,7 +343,7 @@ export default function CameraWizardDialog({
                 }),
                 { position: "top-center" },
               );
-              updateConfig();
+              void updateConfig();
               onClose();
             }
           } else {

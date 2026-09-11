@@ -7,6 +7,7 @@ import { useOverlayState, useSearchEffect } from "@/hooks/use-overlay-state";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { RecordingStartingPoint } from "@/types/record";
+import { wrapAsync } from "@/utils/promise";
 import {
   RecordingsSummary,
   REVIEW_PADDING,
@@ -411,7 +412,7 @@ export default function Events() {
 
   useEffect(() => {
     if (reviewUpdate?.type === "end" && reviews) {
-      updateSegments(
+      void updateSegments(
         (data) => {
           if (!data) return data;
           return data.map((seg) =>
@@ -485,7 +486,7 @@ export default function Events() {
 
   const reloadData = useCallback(() => {
     setBeforeTs(Date.now() / 1000);
-    updateSummary();
+    void updateSummary();
   }, [updateSummary]);
 
   // recordings summary
@@ -535,7 +536,7 @@ export default function Events() {
       }
 
       const severity = currentItems[0].severity;
-      updateSegments(
+      void updateSegments(
         (data: ReviewSegment[] | undefined) => {
           if (!data) {
             return data;
@@ -564,7 +565,7 @@ export default function Events() {
         reloadData();
 
         if (reviewSearchParams["after"] != undefined) {
-          updateSegments();
+          void updateSegments();
         }
       }
     },
@@ -579,7 +580,7 @@ export default function Events() {
       });
 
       if (resp.status == 200) {
-        updateSegments(
+        void updateSegments(
           (data: ReviewSegment[] | undefined) => {
             if (!data) {
               return data;
@@ -601,7 +602,7 @@ export default function Events() {
           { revalidate: false, populateCache: true },
         );
 
-        updateSummary(
+        void updateSummary(
           (data: ReviewSummary | undefined) => {
             if (!data) {
               return data;
@@ -718,7 +719,10 @@ export default function Events() {
         />
       )
     ) : reviewsError ? (
-      <ErrorState error={reviewsError} onRetry={() => updateSegments()} />
+      <ErrorState
+        error={reviewsError}
+        onRetry={wrapAsync(() => updateSegments())}
+      />
     ) : (
       <EventView
         reviewItems={reviewItems}
@@ -733,8 +737,8 @@ export default function Events() {
         showReviewed={showReviewed ?? false}
         setShowReviewed={setShowReviewed}
         setSeverity={setSeverity}
-        markItemAsReviewed={markItemAsReviewed}
-        markItemsAsReviewed={markItemsAsReviewed}
+        markItemAsReviewed={wrapAsync(markItemAsReviewed)}
+        markItemsAsReviewed={wrapAsync(markItemsAsReviewed)}
         onOpenRecording={setRecording}
         motionPreviewsCamera={motionPreviewsCamera ?? null}
         setMotionPreviewsCamera={(camera) =>

@@ -1,4 +1,5 @@
 import { Button } from "../ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -180,7 +181,7 @@ export default function CreateUserDialog({
 
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
             className="space-y-5 pt-4"
           >
             <FormField

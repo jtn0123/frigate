@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   useAudioLiveTranscription,
   useAudioState,
@@ -630,7 +631,7 @@ export default function LiveCameraView({
                   if (!pip) {
                     setPip(true);
                   } else {
-                    document.exitPictureInPicture();
+                    void document.exitPictureInPicture();
                     setPip(false);
                   }
                 }}
@@ -939,7 +940,7 @@ function FrigateCameraFeatures({
     }
     try {
       if (recordingEventIdRef.current) {
-        axios.put(`events/${recordingEventIdRef.current}/end`, {
+        void axios.put(`events/${recordingEventIdRef.current}/end`, {
           end_time: Math.ceil(Date.now() / 1000),
         });
         recordingEventIdRef.current = null;
@@ -982,7 +983,7 @@ function FrigateCameraFeatures({
     if (isRecording) {
       endEvent();
     } else {
-      createEvent();
+      void createEvent();
     }
   }, [createEvent, endEvent, isRecording]);
 
@@ -1167,7 +1168,7 @@ function FrigateCameraFeatures({
           Icon={TbCameraDown}
           isActive={false}
           title={t("snapshot.takeSnapshot")}
-          onClick={handleSnapshotClick}
+          onClick={wrapAsync(handleSnapshotClick)}
           disabled={!cameraEnabled || debug || isSnapshotLoading}
           loading={isSnapshotLoading}
         />
@@ -1756,7 +1757,7 @@ function FrigateCameraFeatures({
                 </div>
                 <div className="flex flex-row items-stretch gap-2">
                   <Button
-                    onClick={handleSnapshotClick}
+                    onClick={wrapAsync(handleSnapshotClick)}
                     disabled={!cameraEnabled || debug || isSnapshotLoading}
                     className="h-auto w-full whitespace-normal"
                   >

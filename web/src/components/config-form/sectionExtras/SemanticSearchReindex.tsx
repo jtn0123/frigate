@@ -3,6 +3,7 @@ import axios from "axios";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { wrapAsync } from "@/utils/promise";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,10 +91,10 @@ export default function SemanticSearchReindex() {
               </AlertDialogCancel>
               <AlertDialogAction
                 className={buttonVariants({ variant: "select" })}
-                onClick={async () => {
+                onClick={wrapAsync(async () => {
                   await onReindex();
                   setIsDialogOpen(false);
-                }}
+                })}
               >
                 {t("enrichments.semanticSearch.reindexNow.confirmButton")}
               </AlertDialogAction>

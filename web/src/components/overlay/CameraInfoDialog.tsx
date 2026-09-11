@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -208,7 +209,7 @@ export default function CameraInfoDialog({
             <Button
               variant="select"
               aria-label={t("button.copy", { ns: "common" })}
-              onClick={() => onCopyFfprobe()}
+              onClick={wrapAsync(() => onCopyFfprobe())}
             >
               {t("button.copy", { ns: "common" })}
             </Button>

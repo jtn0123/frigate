@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 import { useHasFullCameraAccess } from "@/hooks/use-has-full-camera-access";
+import { wrapAsync } from "@/utils/promise";
 
 function Live() {
   const { t } = useTranslation(["views/live"]);
@@ -58,7 +59,7 @@ function Live() {
 
     switch (key) {
       case "f":
-        toggleFullscreen();
+        void toggleFullscreen();
         return true;
     }
 
@@ -157,7 +158,7 @@ function Live() {
         <LiveBirdseyeView
           supportsFullscreen={supportsFullScreen}
           fullscreen={fullscreen}
-          toggleFullscreen={toggleFullscreen}
+          toggleFullscreen={wrapAsync(toggleFullscreen)}
           onSelectCamera={setSelectedCameraName}
         />
       ) : selectedCamera ? (
@@ -167,7 +168,7 @@ function Live() {
           camera={selectedCamera}
           supportsFullscreen={supportsFullScreen}
           fullscreen={fullscreen}
-          toggleFullscreen={toggleFullscreen}
+          toggleFullscreen={wrapAsync(toggleFullscreen)}
         />
       ) : (
         <LiveDashboardView
@@ -176,7 +177,7 @@ function Live() {
           includeBirdseye={includesBirdseye}
           onSelectCamera={setSelectedCameraName}
           fullscreen={fullscreen}
-          toggleFullscreen={toggleFullscreen}
+          toggleFullscreen={wrapAsync(toggleFullscreen)}
         />
       )}
     </div>

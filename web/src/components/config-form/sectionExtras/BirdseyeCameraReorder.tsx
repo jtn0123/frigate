@@ -10,6 +10,7 @@ import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { cn } from "@/lib/utils";
 import type { SectionRendererProps } from "./registry";
+import { wrapAsync } from "@/utils/promise";
 
 const SAVED_INDICATOR_MS = 1500;
 
@@ -142,7 +143,7 @@ export default function BirdseyeCameraReorder({
               <BirdseyeCameraRow
                 key={camera}
                 camera={camera}
-                onDragEnd={handleDragEnd}
+                onDragEnd={wrapAsync(handleDragEnd)}
               />
             ))}
           </Reorder.Group>

@@ -1,6 +1,7 @@
 import Heading from "../ui/heading";
 import { Separator } from "../ui/separator";
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -553,7 +554,7 @@ export default function ZoneEditPane({
                 position: "top-center",
               },
             );
-            updateConfig();
+            void updateConfig();
             // Only publish WS state for base config when zone has a name and
             // wasn't renamed (the hook is bound to the old name).
             if (!editingProfile && polygon?.name && !renamingZone) {
@@ -611,7 +612,7 @@ export default function ZoneEditPane({
     }
     setIsLoading(true);
 
-    saveToConfig(
+    void saveToConfig(
       values as ZoneFormValuesType,
       polygons[activePolygonIndex].objects,
     );
@@ -667,7 +668,10 @@ export default function ZoneEditPane({
       <Separator className="my-3 bg-secondary" />
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="mt-2 space-y-6">
+        <form
+          onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+          className="mt-2 space-y-6"
+        >
           <NameAndIdFields
             type="zone"
             control={form.control}

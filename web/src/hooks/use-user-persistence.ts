@@ -97,7 +97,7 @@ export function useUserPersistence<S>(
       async function update() {
         await setData(namespacedKey, newValue);
       }
-      update();
+      void update();
     },
     [namespacedKey],
   );
@@ -185,7 +185,7 @@ export function useUserPersistence<S>(
       setLoaded(true);
     }
 
-    loadWithMigration();
+    void loadWithMigration();
   }, [
     auth.isLoading,
     isAuthenticated,

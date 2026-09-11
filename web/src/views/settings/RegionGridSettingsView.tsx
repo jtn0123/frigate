@@ -1,5 +1,6 @@
 import Heading from "@/components/ui/heading";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -107,7 +108,7 @@ export default function RegionGridSettingsView({
             </AlertDialogCancel>
             <AlertDialogAction
               className={cn(buttonVariants({ variant: "destructive" }))}
-              onClick={handleClear}
+              onClick={wrapAsync(handleClear)}
             >
               {t("maintenance.regionGrid.clear")}
             </AlertDialogAction>

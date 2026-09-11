@@ -269,7 +269,7 @@ function CopyJsonButton({ payload }: { payload: unknown }) {
         typeof payload === "string"
           ? payload
           : JSON.stringify(payload, null, 2);
-      navigator.clipboard.writeText(text).then(() => {
+      void navigator.clipboard.writeText(text).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       });

@@ -6,6 +6,7 @@ import { z } from "zod";
 import useSWR from "swr";
 import NameAndIdFields from "@/components/input/NameAndIdFields";
 import { Form, FormDescription } from "@/components/ui/form";
+import { wrapAsync } from "@/utils/promise";
 import {
   FormControl,
   FormField,
@@ -134,7 +135,10 @@ export default function Step1NameAndType({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      <form
+        onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+        className="space-y-5"
+      >
         <NameAndIdFields
           type="trigger"
           control={form.control}

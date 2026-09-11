@@ -923,7 +923,7 @@ function ObjectDetailsTab({
             position: "top-center",
           });
         }
-        mutate(
+        void mutate(
           (key) => isEventsKey(key),
           (currentData: SearchResult[][] | SearchResult[] | undefined) =>
             mapSearchResults(currentData, (event) =>
@@ -1022,7 +1022,7 @@ function ObjectDetailsTab({
               position: "top-center",
             });
 
-            mutate(
+            void mutate(
               (key) => isEventsKey(key),
               (currentData: SearchResult[][] | SearchResult[] | undefined) =>
                 mapSearchResults(currentData, (event) =>
@@ -1093,7 +1093,7 @@ function ObjectDetailsTab({
               position: "top-center",
             });
 
-            mutate(
+            void mutate(
               (key) => isEventsKey(key),
               (currentData: SearchResult[][] | SearchResult[] | undefined) =>
                 mapSearchResults(currentData, (event) =>
@@ -1179,7 +1179,7 @@ function ObjectDetailsTab({
             return { ...event, data: updatedData } as SearchResult;
           };
 
-          mutate(
+          void mutate(
             (key) => isEventsKey(key),
             (currentData: SearchResult[][] | SearchResult[] | undefined) =>
               mapSearchResults(currentData, applyUpdatedAttributes),
@@ -1284,7 +1284,7 @@ function ObjectDetailsTab({
           setState("submitted");
         }
 
-        mutate(
+        void mutate(
           (key) => isEventsKey(key),
           (currentData: SearchResult[][] | SearchResult[] | undefined) =>
             mapSearchResults(currentData, (event) =>
@@ -1600,7 +1600,7 @@ function ObjectDetailsTab({
                       aria-label={t("button.yes", { ns: "common" })}
                       onClick={() => {
                         setState("uploading");
-                        onSubmitToPlus(false);
+                        void onSubmitToPlus(false);
                       }}
                     >
                       {t("button.yes", { ns: "common" })}
@@ -1611,7 +1611,7 @@ function ObjectDetailsTab({
                       variant="destructive"
                       onClick={() => {
                         setState("uploading");
-                        onSubmitToPlus(true);
+                        void onSubmitToPlus(true);
                       }}
                     >
                       {t("button.no", { ns: "common" })}

@@ -233,7 +233,7 @@ function MSEPlayer({
   const handlePause = useCallback(() => {
     // don't let the user pause the live stream
     if (isPlaying && playbackEnabled) {
-      videoRef.current?.play();
+      void videoRef.current?.play();
     }
   }, [isPlaying, playbackEnabled]);
 
@@ -710,7 +710,7 @@ function MSEPlayer({
       return;
     }
 
-    videoRef.current.requestPictureInPicture();
+    void videoRef.current.requestPictureInPicture();
   }, [pip, videoRef]);
 
   // control volume

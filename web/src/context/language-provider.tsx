@@ -50,7 +50,7 @@ export function LanguageProvider({
     try {
       const storedData = localStorage.getItem(storageKey);
       const newLanguage = storedData || systemLanguage;
-      i18next.changeLanguage(newLanguage);
+      void i18next.changeLanguage(newLanguage);
       return newLanguage;
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -64,7 +64,7 @@ export function LanguageProvider({
     document.documentElement.lang = language;
 
     if (language === systemLanguage) return;
-    i18next.changeLanguage(language);
+    void i18next.changeLanguage(language);
   }, [language, systemLanguage]);
 
   const value = {

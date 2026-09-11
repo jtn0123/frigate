@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { wrapAsync } from "@/utils/promise";
 import {
   useCallback,
   useEffect,
@@ -713,7 +714,7 @@ export function TrackingDetails({
                 getSnapshotUrl={getSnapshotUrlForPlus}
                 onPlaying={() => setIsVideoLoading(false)}
                 setFullResolution={setFullResolution}
-                toggleFullscreen={toggleFullscreen}
+                toggleFullscreen={wrapAsync(toggleFullscreen)}
                 isDetailMode={true}
                 camera={event.camera}
                 currentTimeOverride={currentTime}
@@ -1245,7 +1246,7 @@ function LifecycleIconRow({
                     {isAdmin && config?.plus?.enabled && (
                       <DropdownMenuItem
                         className="cursor-pointer"
-                        onSelect={async () => {
+                        onSelect={wrapAsync(async () => {
                           try {
                             const resp = await axios.post(
                               `/${item.camera}/plus/${item.timestamp + annotationOffset / 1000}`,
@@ -1273,7 +1274,7 @@ function LifecycleIconRow({
                               },
                             );
                           }
-                        }}
+                        })}
                       >
                         {t("itemMenu.submitToPlus.label")}
                       </DropdownMenuItem>

@@ -9,6 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import useOptimisticState from "@/hooks/use-optimistic-state";
 import { cn } from "@/lib/utils";
 import { onActivate } from "@/utils/fork/a11y";
+import { wrapAsync } from "@/utils/promise";
 import {
   CustomClassificationModelConfig,
   FrigateConfig,
@@ -111,7 +112,7 @@ export default function ModelSelectionView({
         defaultModelType={pageToggle === "objects" ? "object" : "state"}
         onClose={() => {
           setNewModel(false);
-          refreshConfig();
+          void refreshConfig();
         }}
       />
 
@@ -167,8 +168,8 @@ export default function ModelSelectionView({
               key={config.name}
               config={config}
               onClick={() => onClick(config)}
-              onUpdate={() => refreshConfig()}
-              onDelete={() => refreshConfig()}
+              onUpdate={wrapAsync(() => refreshConfig())}
+              onDelete={wrapAsync(() => refreshConfig())}
             />
           ))}
         </div>
@@ -315,7 +316,7 @@ function ModelCard({ config, onClick, onUpdate, onDelete }: ModelCardProps) {
             </AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: "destructive" })}
-              onClick={handleDelete}
+              onClick={wrapAsync(handleDelete)}
             >
               {t("button.delete", { ns: "common" })}
             </AlertDialogAction>

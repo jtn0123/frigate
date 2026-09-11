@@ -8,6 +8,7 @@ import { LuPlus, LuTrash2, LuX } from "react-icons/lu";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import axios from "axios";
 import { toast } from "sonner";
+import { wrapAsync } from "@/utils/promise";
 import {
   WizardFormData,
   StreamConfig,
@@ -563,7 +564,7 @@ export default function Step3StreamConfig({
                     )}
                     <Button
                       type="button"
-                      onClick={() => testStream(stream)}
+                      onClick={wrapAsync(() => testStream(stream))}
                       disabled={
                         testingStreams.has(stream.id) || !stream.url.trim()
                       }

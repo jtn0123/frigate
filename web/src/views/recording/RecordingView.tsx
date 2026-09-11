@@ -3,6 +3,7 @@ import ReviewFilterGroup from "@/components/filter/ReviewFilterGroup";
 import DebugReplayDialog from "@/components/overlay/DebugReplayDialog";
 import ExportDialog from "@/components/overlay/ExportDialog";
 import ActionsDropdown from "@/components/overlay/ActionsDropdown";
+import { wrapAsync } from "@/utils/promise";
 import PreviewPlayer, {
   PreviewController,
 } from "@/components/player/PreviewPlayer";
@@ -927,7 +928,7 @@ export function RecordingView({
                   }
                   supportsFullscreen={supportsFullScreen}
                   setFullResolution={setFullResolution}
-                  toggleFullscreen={toggleFullscreen}
+                  toggleFullscreen={wrapAsync(toggleFullscreen)}
                   containerRef={mainLayoutRef}
                 />
               </div>

@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   LuActivity,
   LuGithub,
@@ -391,7 +392,9 @@ export default function GeneralSettings({
                             aria-label={t("profiles.baseConfig", {
                               ns: "views/settings",
                             })}
-                            onClick={() => handleActivateProfile(null)}
+                            onClick={wrapAsync(() =>
+                              handleActivateProfile(null),
+                            )}
                           >
                             <div className="flex w-full items-center justify-between gap-2">
                               <span className="ml-6 mr-2">
@@ -430,9 +433,9 @@ export default function GeneralSettings({
                                   profileFriendlyNames.get(profileName) ??
                                   profileName
                                 }
-                                onClick={() =>
-                                  handleActivateProfile(profileName)
-                                }
+                                onClick={wrapAsync(() =>
+                                  handleActivateProfile(profileName),
+                                )}
                               >
                                 <div className="flex w-full items-center justify-between gap-2">
                                   <div className="flex items-center gap-2">
@@ -801,7 +804,7 @@ export default function GeneralSettings({
       />
       <SetPasswordDialog
         show={passwordDialogOpen}
-        onSave={handlePasswordSave}
+        onSave={wrapAsync(handlePasswordSave)}
         onCancel={() => {
           setPasswordDialogOpen(false);
           setPasswordError(null);

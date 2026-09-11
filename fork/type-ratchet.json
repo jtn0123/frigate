@@ -6,14 +6,14 @@
     "noExplicitAnyDisable": 25
   },
   "rules": {
-    "@typescript-eslint/no-floating-promises": 137,
-    "@typescript-eslint/no-misused-promises": 125,
-    "@typescript-eslint/no-unnecessary-condition": 1505,
-    "@typescript-eslint/no-unsafe-member-access": 399,
-    "@typescript-eslint/no-unsafe-assignment": 366,
+    "@typescript-eslint/no-floating-promises": 0,
+    "@typescript-eslint/no-misused-promises": 0,
+    "@typescript-eslint/no-unnecessary-condition": 1504,
+    "@typescript-eslint/no-unsafe-member-access": 398,
+    "@typescript-eslint/no-unsafe-assignment": 365,
     "@typescript-eslint/no-unsafe-return": 48,
     "@typescript-eslint/no-unsafe-argument": 43,
-    "@typescript-eslint/no-unsafe-call": 27,
+    "@typescript-eslint/no-unsafe-call": 26,
     "@typescript-eslint/switch-exhaustiveness-check": 18
   }
 }

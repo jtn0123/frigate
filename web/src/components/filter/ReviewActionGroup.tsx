@@ -7,6 +7,7 @@ import { FaCompactDisc } from "react-icons/fa";
 import { HiTrash } from "react-icons/hi";
 import { ReviewSegment } from "@/types/review";
 import { MAX_BATCH_EXPORT_ITEMS } from "@/types/export";
+import { wrapAsync } from "@/utils/promise";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -196,7 +197,7 @@ export default function ReviewActionGroup({
                 : t("recording.button.markAsReviewed")
             }
             size="sm"
-            onClick={onToggleReviewed}
+            onClick={wrapAsync(onToggleReviewed)}
           >
             {allReviewed ? (
               <FaCircleXmark className="text-secondary-foreground" />

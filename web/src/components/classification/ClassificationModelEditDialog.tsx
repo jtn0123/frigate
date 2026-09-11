@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -212,7 +213,7 @@ export default function ClassificationModelEditDialog({
       }
 
       if (isStateModel) {
-        mutateDataset();
+        void mutateDataset();
       }
     }
   }, [
@@ -444,7 +445,10 @@ export default function ClassificationModelEditDialog({
 
         <div className="space-y-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form
+              onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="enabled"

@@ -7,6 +7,7 @@ import AutoUpdatingCameraImage from "@/components/camera/AutoUpdatingCameraImage
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { wrapAsync } from "@/utils/promise";
 import {
   useImproveContrast,
   useMotionContourArea,
@@ -134,7 +135,7 @@ export default function MotionTunerView({
             position: "top-center",
           });
           setChangedValue(false);
-          updateConfig();
+          void updateConfig();
         } else {
           toast.error(
             t("toast.save.error.title", {
@@ -301,7 +302,7 @@ export default function MotionTunerView({
               disabled={!changedValue || isLoading}
               className="flex flex-1"
               aria-label={t("button.save", { ns: "common" })}
-              onClick={saveToConfig}
+              onClick={wrapAsync(saveToConfig)}
             >
               {isLoading ? (
                 <div className="flex flex-row items-center gap-2">

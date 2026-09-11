@@ -228,7 +228,7 @@ function Logs() {
     setIsLoading(true);
     setLogs([]);
     lastFetchedIndexRef.current = -1;
-    fetchInitialLogs().then(() => {
+    void fetchInitialLogs().then(() => {
       // Start streaming after initial load
       if (!logSettings.disableStreaming) {
         fetchLogsStream();
@@ -282,7 +282,7 @@ function Logs() {
           const nextStart = Math.max(0, nextEnd - (pageSize || 100));
           setIsLoading(true);
 
-          fetchLogRange(nextStart, nextEnd).then((newLines) => {
+          void fetchLogRange(nextStart, nextEnd).then((newLines) => {
             if (newLines.length > 0) {
               prependLines(newLines);
               lastFetchedIndexRef.current = nextStart;

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -64,7 +65,10 @@ export default function Step2ConfigureData({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      <form
+        onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+        className="space-y-5"
+      >
         <FormField
           control={form.control}
           name="data"

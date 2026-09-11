@@ -1,6 +1,7 @@
 import Heading from "../ui/heading";
 import { Separator } from "../ui/separator";
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Select,
   SelectContent,
@@ -261,7 +262,7 @@ export default function ObjectMaskEditPane({
                 position: "top-center",
               },
             );
-            updateConfig();
+            void updateConfig();
             // Only publish WS state for base config when mask has a name and
             // wasn't renamed (the hook is bound to the old name).
             if (!editingProfile && maskName && !renamingMask) {
@@ -318,7 +319,7 @@ export default function ObjectMaskEditPane({
     }
     setIsLoading(true);
 
-    saveToConfig(values as ObjectMaskFormValuesType);
+    void saveToConfig(values as ObjectMaskFormValuesType);
     if (onSave) {
       onSave();
     }
@@ -371,7 +372,7 @@ export default function ObjectMaskEditPane({
       <FormProvider {...form}>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
             className="flex flex-1 flex-col space-y-6"
           >
             <div className="space-y-4">

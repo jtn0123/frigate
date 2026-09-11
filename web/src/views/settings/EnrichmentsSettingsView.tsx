@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Link } from "react-router-dom";
 import { LuExternalLink } from "react-icons/lu";
 import { StatusBarMessagesContext } from "@/context/statusbar-provider";
+import { wrapAsync } from "@/utils/promise";
 import {
   Select,
   SelectContent,
@@ -146,7 +147,7 @@ export default function EnrichmentsSettingsView({
             position: "top-center",
           });
           setChangedValue(false);
-          updateConfig();
+          void updateConfig();
         } else {
           toast.error(
             t("enrichments.toast.error", { errorMessage: res.statusText }),
@@ -595,7 +596,7 @@ export default function EnrichmentsSettingsView({
               disabled={!changedValue || isLoading}
               className="flex flex-1"
               aria-label="Save"
-              onClick={saveToConfig}
+              onClick={wrapAsync(saveToConfig)}
             >
               {isLoading ? (
                 <div className="flex flex-row items-center gap-2">

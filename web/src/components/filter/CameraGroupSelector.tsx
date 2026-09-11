@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   AllGroupsStreamingSettings,
   CameraGroupConfig,
@@ -525,7 +526,7 @@ function NewGroupDialog({
               // deleting current group
               setGroup("default");
             }
-            updateConfig();
+            void updateConfig();
           } else {
             setOpen(false);
             setEditState("none");
@@ -644,7 +645,7 @@ function NewGroupDialog({
                   <CameraGroupRow
                     key={group[0]}
                     group={group}
-                    onDeleteGroup={() => onDeleteGroup(group[0])}
+                    onDeleteGroup={wrapAsync(() => onDeleteGroup(group[0]))}
                     onEditGroup={() => onEditGroup(group)}
                     isReadOnly={!isAdmin}
                   />
@@ -998,7 +999,7 @@ export function CameraGroupEdit({
                 position: "top-center",
               },
             );
-            updateConfig();
+            void updateConfig();
             if (onSave) {
               onSave();
             }
@@ -1060,7 +1061,7 @@ export function CameraGroupEdit({
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
         className="mt-2 space-y-6 overflow-y-hidden"
       >
         <FormField

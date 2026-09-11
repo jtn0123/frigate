@@ -7,6 +7,7 @@ import BirdseyeLivePlayer from "@/components/player/BirdseyeLivePlayer";
 import LivePlayer from "@/components/player/LivePlayer";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { wrapAsync } from "@/utils/promise";
 import {
   Tooltip,
   TooltipContent,
@@ -149,14 +150,17 @@ export default function LiveDashboardView({
         eventUpdate.type == "genai"
       ) {
         setTimeout(
-          () => updateEvents(),
+          wrapAsync(() => updateEvents()),
           eventUpdate.type == "end" ? 1000 : 6000,
         );
       } else if (
         eventUpdate.before.data.objects.length <
         eventUpdate.after.data.objects.length
       ) {
-        setTimeout(() => updateEvents(), 5000);
+        setTimeout(
+          wrapAsync(() => updateEvents()),
+          5000,
+        );
       }
 
       return;
@@ -479,7 +483,7 @@ export default function LiveDashboardView({
               compact
               className="mx-1 mb-2"
               error={eventsError}
-              onRetry={() => updateEvents()}
+              onRetry={wrapAsync(() => updateEvents())}
             />
           )}
           {!fullscreen && events && events.length > 0 && (
@@ -492,7 +496,7 @@ export default function LiveDashboardView({
                         key={event.id}
                         event={event}
                         selectedGroup={cameraGroup}
-                        updateEvents={updateEvents}
+                        updateEvents={wrapAsync(updateEvents)}
                       />
                     );
                   })}

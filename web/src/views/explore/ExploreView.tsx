@@ -6,6 +6,7 @@ import { useApiHost } from "@/api";
 import { cn } from "@/lib/utils";
 import { BsArrowRightCircle } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
+import { wrapAsync } from "@/utils/promise";
 import {
   Tooltip,
   TooltipContent,
@@ -88,7 +89,7 @@ export default function ExploreView({
 
   useEffect(() => {
     if (wsUpdate && wsUpdate.type == "description") {
-      mutate();
+      void mutate();
     }
   }, [wsUpdate, mutate]);
 
@@ -97,7 +98,7 @@ export default function ExploreView({
       <ErrorState
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         error={error}
-        onRetry={() => mutate()}
+        onRetry={wrapAsync(() => mutate())}
       />
     );
   }
@@ -127,7 +128,7 @@ export default function ExploreView({
           label={label}
           labelType={filteredEvents[0]?.data?.type || "object"}
           setSearchDetail={setSearchDetail}
-          mutate={mutate}
+          mutate={wrapAsync(mutate)}
           setSimilaritySearch={setSimilaritySearch}
           onSelectSearch={onSelectSearch}
           selectedIds={selectedIds}

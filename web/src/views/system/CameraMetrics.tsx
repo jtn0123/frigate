@@ -26,6 +26,7 @@ import { useTranslation } from "react-i18next";
 import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
 import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 import { isReplayCamera } from "@/utils/cameraUtil";
+import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
 
 type CameraMetricsProps = {
   lastUpdated: number;
@@ -93,17 +94,8 @@ export default function CameraMetrics({
     isActive,
   ]);
 
-  useEffect(() => {
-    if (isActive && statsHistory.length > 0) {
-      refreshStats().then((freshStats) => {
-        if (freshStats && freshStats.length > 0) {
-          setStatsHistory(freshStats);
-        }
-      });
-    }
-    // only re-fetch when tab becomes active, not on data changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
+  // prettier-ignore
+  useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);
 
   // timestamps
 

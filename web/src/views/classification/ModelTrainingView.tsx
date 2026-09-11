@@ -115,7 +115,7 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
         closeButton: true,
       });
       setWasTraining(false);
-      refreshDataset();
+      void refreshDataset();
     } else if (modelState == "failed") {
       toast.error(t("toast.error.trainingFailed"), {
         position: "top-center",
@@ -143,8 +143,8 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
   const [trainFilter, setTrainFilter] = useApiFilter<TrainFilter>();
 
   const refreshAll = useCallback(() => {
-    refreshTrain();
-    refreshDataset();
+    void refreshTrain();
+    void refreshDataset();
   }, [refreshTrain, refreshDataset]);
 
   // image multiselect
@@ -228,7 +228,7 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
               },
             );
             setPageToggle(new_name);
-            refreshDataset();
+            void refreshDataset();
           }
         })
         .catch((error) => {
@@ -275,10 +275,10 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
             }
 
             // Always refresh dataset to update the categories list
-            refreshDataset();
+            void refreshDataset();
 
             if (pageToggle == "train") {
-              refreshTrain();
+              void refreshTrain();
             }
           }
         })
@@ -319,7 +319,7 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
             toast.success(t("toast.success.reclassifiedImage"), {
               position: "top-center",
             });
-            refreshDataset();
+            void refreshDataset();
           }
         })
         .catch((error) => {

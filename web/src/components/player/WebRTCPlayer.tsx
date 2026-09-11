@@ -1,6 +1,7 @@
 import { baseUrl } from "@/api/baseUrl";
 import { LivePlayerError, PlayerStatsType } from "@/types/live";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { wrapAsync } from "@/utils/promise";
 
 type WebRtcPlayerProps = {
   className?: string;
@@ -125,11 +126,12 @@ export default function WebRtcPlayer({
 
   const connect = useCallback(
     async (aPc: Promise<RTCPeerConnection | undefined>) => {
-      if (!aPc) {
+      const pc = await aPc;
+      if (!pc) {
         return;
       }
 
-      pcRef.current = await aPc;
+      pcRef.current = pc;
       wsRef.current = new WebSocket(wsURL);
       const ws = wsRef.current;
 
@@ -143,7 +145,7 @@ export default function WebRtcPlayer({
           ws.send(JSON.stringify(msg));
         });
 
-        pcRef.current
+        void pcRef.current
           ?.createOffer()
           .then((offer) => pcRef.current?.setLocalDescription(offer))
           .then(() => {
@@ -158,9 +160,12 @@ export default function WebRtcPlayer({
       ws.addEventListener("message", (ev) => {
         const msg = JSON.parse(ev.data);
         if (msg.type === "webrtc/candidate") {
-          pcRef.current?.addIceCandidate({ candidate: msg.value, sdpMid: "0" });
+          void pcRef.current?.addIceCandidate({
+            candidate: msg.value,
+            sdpMid: "0",
+          });
         } else if (msg.type === "webrtc/answer") {
-          pcRef.current?.setRemoteDescription({
+          void pcRef.current?.setRemoteDescription({
             type: "answer",
             sdp: msg.value,
           });
@@ -182,7 +187,7 @@ export default function WebRtcPlayer({
     const aPc = PeerConnection(
       microphoneEnabled ? "video+audio+microphone" : "video+audio",
     );
-    connect(aPc);
+    void connect(aPc);
 
     return () => {
       if (wsRef.current) {
@@ -215,7 +220,7 @@ export default function WebRtcPlayer({
       return;
     }
 
-    videoRef.current.requestPictureInPicture();
+    void videoRef.current.requestPictureInPicture();
   }, [pip, videoRef]);
 
   // control volume
@@ -257,50 +262,53 @@ export default function WebRtcPlayer({
     let lastBytesReceived = 0;
     let lastTimestamp = 0;
 
-    const interval = setInterval(async () => {
-      if (pcRef.current && videoRef.current && !videoRef.current.paused) {
-        const report = await pcRef.current.getStats();
-        let bytesReceived = 0;
-        let timestamp = 0;
-        let roundTripTime = 0;
-        let framesReceived = 0;
-        let framesDropped = 0;
-        let framesDecoded = 0;
+    const interval = setInterval(
+      wrapAsync(async () => {
+        if (pcRef.current && videoRef.current && !videoRef.current.paused) {
+          const report = await pcRef.current.getStats();
+          let bytesReceived = 0;
+          let timestamp = 0;
+          let roundTripTime = 0;
+          let framesReceived = 0;
+          let framesDropped = 0;
+          let framesDecoded = 0;
 
-        report.forEach((stat) => {
-          if (stat.type === "inbound-rtp" && stat.kind === "video") {
-            bytesReceived = stat.bytesReceived;
-            timestamp = stat.timestamp;
-            framesReceived = stat.framesReceived;
-            framesDropped = stat.framesDropped;
-            framesDecoded = stat.framesDecoded;
-          }
-          if (stat.type === "candidate-pair" && stat.state === "succeeded") {
-            roundTripTime = stat.currentRoundTripTime;
-          }
-        });
+          report.forEach((stat) => {
+            if (stat.type === "inbound-rtp" && stat.kind === "video") {
+              bytesReceived = stat.bytesReceived;
+              timestamp = stat.timestamp;
+              framesReceived = stat.framesReceived;
+              framesDropped = stat.framesDropped;
+              framesDecoded = stat.framesDecoded;
+            }
+            if (stat.type === "candidate-pair" && stat.state === "succeeded") {
+              roundTripTime = stat.currentRoundTripTime;
+            }
+          });
 
-        const timeDiff = (timestamp - lastTimestamp) / 1000; // in seconds
-        const bitrate =
-          timeDiff > 0
-            ? (bytesReceived - lastBytesReceived) / timeDiff / 1000
-            : 0; // in kBps
+          const timeDiff = (timestamp - lastTimestamp) / 1000; // in seconds
+          const bitrate =
+            timeDiff > 0
+              ? (bytesReceived - lastBytesReceived) / timeDiff / 1000
+              : 0; // in kBps
 
-        setStats?.({
-          streamType: "WebRTC",
-          bandwidth: Math.round(bitrate),
-          latency: roundTripTime,
-          totalFrames: framesReceived,
-          droppedFrames: framesDropped,
-          decodedFrames: framesDecoded,
-          droppedFrameRate:
-            framesReceived > 0 ? (framesDropped / framesReceived) * 100 : 0,
-        });
+          setStats?.({
+            streamType: "WebRTC",
+            bandwidth: Math.round(bitrate),
+            latency: roundTripTime,
+            totalFrames: framesReceived,
+            droppedFrames: framesDropped,
+            decodedFrames: framesDecoded,
+            droppedFrameRate:
+              framesReceived > 0 ? (framesDropped / framesReceived) * 100 : 0,
+          });
 
-        lastBytesReceived = bytesReceived;
-        lastTimestamp = timestamp;
-      }
-    }, 1000);
+          lastBytesReceived = bytesReceived;
+          lastTimestamp = timestamp;
+        }
+      }),
+      1000,
+    );
 
     return () => {
       clearInterval(interval);

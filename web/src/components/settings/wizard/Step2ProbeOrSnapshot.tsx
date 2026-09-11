@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import axios from "axios";
 import { toast } from "sonner";
+import { wrapAsync } from "@/utils/promise";
 import type {
   WizardFormData,
   TestResult,
@@ -447,10 +448,10 @@ export default function Step2ProbeOrSnapshot({
     if (!hasStarted) {
       setHasStarted(true);
       if (probeMode) {
-        probeCamera();
+        void probeCamera();
       } else {
         // Auto-run the connection test but suppress toasts to avoid duplicates
-        testConnection(false);
+        void testConnection(false);
       }
     }
   }, [hasStarted, probeMode, probeCamera, testConnection]);
@@ -467,8 +468,8 @@ export default function Step2ProbeOrSnapshot({
                 isError={!!probeError}
                 error={probeError || undefined}
                 probeResult={probeResult}
-                onRetry={probeCamera}
-                testCandidate={testCandidate}
+                onRetry={wrapAsync(probeCamera)}
+                testCandidate={wrapAsync(testCandidate)}
                 candidateTests={candidateTests}
                 testingCandidates={testingCandidates}
               />
@@ -479,8 +480,8 @@ export default function Step2ProbeOrSnapshot({
             isProbing={isProbing}
             probeError={probeError}
             onBack={onBack}
-            onTestAll={testAllSelectedCandidates}
-            onRetry={probeCamera}
+            onTestAll={wrapAsync(testAllSelectedCandidates)}
+            onRetry={wrapAsync(probeCamera)}
             // disable next if either the overall testConnection is running or any candidate test is running
             isTesting={
               isTesting || Object.values(testingCandidates).some((v) => v)
@@ -548,8 +549,8 @@ export default function Step2ProbeOrSnapshot({
             isProbing={false}
             probeError={null}
             onBack={onBack}
-            onTestAll={testAllSelectedCandidates}
-            onRetry={probeCamera}
+            onTestAll={wrapAsync(testAllSelectedCandidates)}
+            onRetry={wrapAsync(probeCamera)}
             isTesting={
               isTesting || Object.values(testingCandidates).some((v) => v)
             }
@@ -560,7 +561,7 @@ export default function Step2ProbeOrSnapshot({
             }
             manualTestSuccess={!!testResult?.success}
             onContinue={handleContinue}
-            onManualTest={testConnection}
+            onManualTest={wrapAsync(testConnection)}
           />
         </>
       )}

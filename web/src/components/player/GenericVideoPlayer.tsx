@@ -40,7 +40,7 @@ export function GenericVideoPlayer({
       }
     };
 
-    checkSourceExists(source);
+    void checkSourceExists(source);
   }, [source]);
 
   const onSeek = useCallback(
@@ -78,13 +78,13 @@ export function GenericVideoPlayer({
           break;
         case " ":
           if (videoRef.current?.paused) {
-            videoRef.current?.play();
+            void videoRef.current?.play();
           } else {
             videoRef.current?.pause();
           }
           break;
         case "f":
-          videoRef.current?.requestFullscreen();
+          void videoRef.current?.requestFullscreen();
           break;
         case "m":
           if (videoRef.current) {

@@ -99,7 +99,7 @@ export function useFullscreen<T extends HTMLElement = HTMLElement>(
   const toggleFullscreen = useCallback(async () => {
     try {
       if (!getFullscreenElement()) {
-        NoSleep.enable();
+        void NoSleep.enable();
         await enterFullScreen(elementRef.current!);
       } else {
         await exitFullscreen();
@@ -118,7 +118,7 @@ export function useFullscreen<T extends HTMLElement = HTMLElement>(
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === "F11") {
-        toggleFullscreen();
+        void toggleFullscreen();
       }
     };
 

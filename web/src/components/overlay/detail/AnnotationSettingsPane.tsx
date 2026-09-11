@@ -15,6 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { Trans, useTranslation } from "react-i18next";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import { wrapAsync } from "@/utils/promise";
 import {
   ANNOTATION_OFFSET_MAX,
   ANNOTATION_OFFSET_MIN,
@@ -117,7 +118,7 @@ export function AnnotationSettingsPane({
           }),
           { position: "top-center" },
         );
-        updateConfig();
+        void updateConfig();
       } else {
         toast.error(
           t("toast.save.error.title", {
@@ -231,7 +232,7 @@ export function AnnotationSettingsPane({
               variant="select"
               aria-label={t("button.save", { ns: "common" })}
               disabled={isLoading}
-              onClick={saveToConfig}
+              onClick={wrapAsync(saveToConfig)}
             >
               {isLoading ? (
                 <div className="flex flex-row items-center gap-2">

@@ -1,6 +1,7 @@
 // Base Section Component for config form sections
 // Used as a foundation for reusable section components
 
+import { wrapAsync } from "@/utils/promise";
 import {
   useMemo,
   useCallback,
@@ -760,7 +761,7 @@ export function ConfigSection({
       }
 
       await refreshConfig();
-      swrMutate("config/raw_paths");
+      void swrMutate("config/raw_paths");
       setPendingData(null);
       onSave?.();
     } catch (error) {
@@ -854,7 +855,7 @@ export function ConfigSection({
 
       setPendingData(null);
       setExtraHasChanges(false);
-      refreshConfig();
+      void refreshConfig();
     } catch {
       toast.error(
         t("toast.resetError", {
@@ -1139,7 +1140,7 @@ export function ConfigSection({
                 </Button>
               )}
               <Button
-                onClick={handleSave}
+                onClick={wrapAsync(handleSave)}
                 variant="select"
                 disabled={
                   !hasChanges ||
@@ -1192,10 +1193,10 @@ export function ConfigSection({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-selected text-white hover:bg-selected/90"
-              onClick={async () => {
+              onClick={wrapAsync(async () => {
                 await handleResetToGlobal();
                 setIsResetDialogOpen(false);
-              }}
+              })}
             >
               {effectiveLevel === "global"
                 ? t("button.resetToDefault", { ns: "common" })

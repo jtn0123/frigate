@@ -1,6 +1,7 @@
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useState, useEffect, useMemo } from "react";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -232,7 +233,7 @@ export default function SetPasswordDialog({
 
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
             className="space-y-4 pt-4"
           >
             {username && (

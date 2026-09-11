@@ -69,7 +69,7 @@ export default function NameAndIdFields<T extends FieldValues = FieldValues>({
         hasUserTypedRef.current = true;
         const processedId = effectiveProcessId(value[nameField] || "");
         setValue(idField, processedId as PathValue<T, Path<T>>);
-        trigger(idField);
+        void trigger(idField);
       }
     });
     return () => subscription.unsubscribe();

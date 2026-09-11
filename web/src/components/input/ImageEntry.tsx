@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -122,7 +123,7 @@ export default function ImageEntry({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
+      <form onSubmit={wrapAsync(form.handleSubmit(onSubmit))}>
         <FormField
           control={form.control}
           name="file"

@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   useCallback,
   useContext,
@@ -889,7 +890,7 @@ export default function DetectorsAndModelSettingsView({
               </Button>
             )}
             <Button
-              onClick={onSave}
+              onClick={wrapAsync(onSave)}
               variant="select"
               disabled={saveDisabled}
               className="flex min-w-36 flex-1 gap-2"

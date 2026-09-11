@@ -15,6 +15,7 @@ import { formatUnixTimestampToDateTime } from "@/utils/dateUtil";
 import { MediaSyncResults, MediaSyncStats } from "@/types/ws";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { Link } from "react-router-dom";
+import { wrapAsync } from "@/utils/promise";
 
 export default function MediaSyncSettingsView() {
   const { t } = useTranslation("views/settings");
@@ -245,7 +246,7 @@ export default function MediaSyncSettingsView() {
                 {/* Action Buttons */}
                 <div className="flex w-full flex-row items-center gap-2 pt-2 md:w-[50%]">
                   <Button
-                    onClick={handleStartSync}
+                    onClick={wrapAsync(handleStartSync)}
                     disabled={isJobRunning || isSubmitting}
                     className="flex flex-1"
                     variant={"select"}

@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   MutableRefObject,
   ReactNode,
@@ -210,7 +211,7 @@ export default function HlsVideoPlayer({
       }
 
       if (play) {
-        videoRef.current.play();
+        void videoRef.current.play();
       } else {
         videoRef.current.pause();
       }
@@ -367,7 +368,7 @@ export default function HlsVideoPlayer({
             }
             return getSnapshotUrl(frameTime);
           }}
-          onUploadFrame={async () => {
+          onUploadFrame={wrapAsync(async () => {
             const frameTime = getVideoTime();
 
             if (frameTime && onUploadFrame) {
@@ -383,8 +384,8 @@ export default function HlsVideoPlayer({
                 });
               }
             }
-          }}
-          onSnapshot={onSnapshot ? handleSnapshot : undefined}
+          })}
+          onSnapshot={onSnapshot ? wrapAsync(handleSnapshot) : undefined}
           snapshotLoading={isSnapshotLoading}
           fullscreen={fullscreen}
           toggleFullscreen={toggleFullscreen}

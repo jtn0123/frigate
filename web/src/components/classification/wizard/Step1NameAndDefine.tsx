@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -203,7 +204,10 @@ export default function Step1NameAndDefine({
   return (
     <div className="space-y-6">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+          className="space-y-4"
+        >
           <FormField
             control={form.control}
             name="modelName"
@@ -495,7 +499,7 @@ export default function Step1NameAndDefine({
         </Button>
         <Button
           type="button"
-          onClick={form.handleSubmit(onSubmit)}
+          onClick={wrapAsync(form.handleSubmit(onSubmit))}
           variant="select"
           className="flex items-center justify-center gap-2 sm:flex-1"
           disabled={!form.formState.isValid}

@@ -10,6 +10,7 @@ import { LuCheck } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Command,
   CommandGroup,
@@ -86,7 +87,7 @@ export function GenAIModelWidget(props: WidgetProps) {
   useEffect(() => {
     if (configFingerprint !== prevFingerprint.current) {
       prevFingerprint.current = configFingerprint;
-      mutateModels();
+      void mutateModels();
     }
   }, [configFingerprint, mutateModels]);
 
@@ -317,7 +318,7 @@ export function GenAIModelWidget(props: WidgetProps) {
           size="icon"
           className="h-9 w-9 shrink-0"
           disabled={!canProbe || disabled || readonly}
-          onClick={probe}
+          onClick={wrapAsync(probe)}
           title={refreshLabel}
           aria-label={refreshLabel}
         >

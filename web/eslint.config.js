@@ -158,4 +158,21 @@ export default tseslint.config(
       "@typescript-eslint/switch-exhaustiveness-check": "error",
     },
   },
+  {
+    // C11: rejected promises and async onClick handlers were silent
+    // ("the button did nothing"). Covers all of src; fork paths already
+    // get the two promise rules from the C10 block above.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["**/*.d.ts", "src/**/fork/**", "src/fork/**"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+    },
+  },
 );

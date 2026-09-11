@@ -9,6 +9,7 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { TimeRange } from "@/types/timeline";
 import { RecordingsSummary } from "@/types/review";
 import { ExportMode } from "@/types/filter";
+import { wrapAsync } from "@/utils/promise";
 import {
   MotionSearchRequest,
   MotionSearchStartResponse,
@@ -1301,7 +1302,7 @@ export default function MotionSearchView({
           defaultRange={timeRange}
           isSearching={isSearching}
           canStartSearch={canStartSearch}
-          onStartSearch={performSearch}
+          onStartSearch={wrapAsync(performSearch)}
           timezone={timezone}
         />
 
@@ -1555,7 +1556,7 @@ export default function MotionSearchView({
                 }
                 supportsFullscreen={supportsFullScreen}
                 setFullResolution={setFullResolution}
-                toggleFullscreen={toggleFullscreen}
+                toggleFullscreen={wrapAsync(toggleFullscreen)}
                 containerRef={mainLayoutRef}
                 transformedOverlay={
                   <MotionSearchROICanvas

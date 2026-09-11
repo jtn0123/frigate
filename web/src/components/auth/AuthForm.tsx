@@ -10,6 +10,7 @@ import ActivityIndicator from "@/components/indicators/activity-indicator";
 import axios, { AxiosError } from "axios";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -99,7 +100,10 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
   return (
     <div className={cn("grid gap-6", className)} {...props}>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+          className="space-y-4"
+        >
           <FormField
             name="user"
             render={({ field }) => (
