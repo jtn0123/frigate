@@ -18,7 +18,6 @@ import useKeyboardListener, {
 } from "@/hooks/use-keyboard-listener";
 import scrollIntoView from "scroll-into-view-if-needed";
 import InputWithTags from "@/components/input/InputWithTags";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { formatDateToLocaleString } from "@/utils/dateUtil";
 import SearchThumbnailFooter from "@/components/card/SearchThumbnailFooter";
 import ExploreSettings from "@/components/settings/SearchSettings";
@@ -83,7 +82,7 @@ export default function SearchView({
   const is24Hour = use24HourTime(config);
   const navigate = useNavigate();
 
-  const { data: exploreEvents } = useSWR<SearchResult[]>(
+  const { data: exploreEvents, mutate: mutateExplore } = useSWR<SearchResult[]>(
     (!searchFilter || Object.keys(searchFilter).length === 0) &&
       !searchTerm &&
       defaultView === "summary"
@@ -283,12 +282,25 @@ export default function SearchView({
     [selectedObjects],
   );
 
+  const bulkItems = useMemo(() => {
+    const isSummaryView =
+      defaultView === "summary" &&
+      (!searchFilter || Object.keys(searchFilter).length === 0) &&
+      !searchTerm;
+    return isSummaryView ? (exploreEvents ?? []) : uniqueResults;
+  }, [defaultView, searchFilter, searchTerm, exploreEvents, uniqueResults]);
+
   const bulk = useBulkSelection({
-    items: uniqueResults,
+    items: bulkItems,
     getId: (item) => item.id,
     selectedIds: selectedObjects,
     setSelectedIds: setSelectedObjects,
   });
+
+  const onBulkChanged = useCallback(() => {
+    refresh();
+    mutateExplore();
+  }, [refresh, mutateExplore]);
 
   // stable so memoized SearchThumbnails only re-render when selection changes
   const onThumbnailClick = useCallback(
@@ -304,16 +316,16 @@ export default function SearchView({
   );
 
   const onSelectAllObjects = useCallback(() => {
-    if (!uniqueResults || uniqueResults.length == 0) {
+    if (bulkItems.length == 0) {
       return;
     }
 
-    if (selectedObjects.length < uniqueResults.length) {
-      setSelectedObjects(uniqueResults.map((value) => value.id));
+    if (selectedObjects.length < bulkItems.length) {
+      setSelectedObjects(bulkItems.map((value) => value.id));
     } else {
       setSelectedObjects([]);
     }
-  }, [uniqueResults, selectedObjects]);
+  }, [bulkItems, selectedObjects]);
 
   useEffect(() => {
     setSelectedObjects([]);
@@ -549,7 +561,7 @@ export default function SearchView({
 
       <div
         className={cn(
-          "flex flex-col items-start space-y-2 pl-2 pr-2 md:mb-2 md:pl-3 lg:relative lg:h-10 lg:flex-row lg:items-center lg:space-y-0",
+          "flex flex-col items-start space-y-2 pl-2 pr-2 md:mb-2 md:pl-3 lg:relative lg:min-h-10 lg:flex-row lg:items-center lg:space-y-0",
           config?.semantic_search?.enabled
             ? "justify-between"
             : "justify-center",
@@ -571,17 +583,30 @@ export default function SearchView({
         )}
 
         {hasExistingSearch && (
-          <ScrollArea className="w-full whitespace-nowrap lg:ml-[35%]">
-            <div className="flex flex-row gap-2">
-              {selectedObjects.length == 0 || bulk.enabled ? (
-                <>
-                  <SearchFilterGroup
-                    className={cn(
-                      "w-full justify-between md:justify-start lg:justify-end",
-                    )}
-                    filter={searchFilter}
-                    onUpdateFilter={onUpdateFilter}
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 lg:ml-[35%]">
+            {selectedObjects.length == 0 || bulk.enabled ? (
+              <>
+                <SearchFilterGroup
+                  className="order-1 w-max max-w-full justify-end"
+                  filter={searchFilter}
+                  onUpdateFilter={onUpdateFilter}
+                />
+                <BulkActionBar
+                  bulk={bulk}
+                  onChanged={onBulkChanged}
+                  className={
+                    bulk.active || bulk.selectedIds.length > 0
+                      ? "order-5"
+                      : "order-2"
+                  }
+                />
+                {(bulk.active || bulk.selectedIds.length > 0) && (
+                  <div
+                    className="order-4 h-0 w-full basis-full"
+                    aria-hidden="true"
                   />
+                )}
+                <div className="order-3">
                   <ExploreSettings
                     columns={columns}
                     setColumns={setColumns}
@@ -590,26 +615,25 @@ export default function SearchView({
                     filter={searchFilter}
                     onUpdateFilter={onUpdateFilter}
                   />
-                  <ScrollBar orientation="horizontal" className="h-0" />
-                </>
-              ) : (
-                <div
-                  className={cn(
-                    "scrollbar-container flex justify-center gap-2 overflow-x-auto",
-                    "h-10 w-full justify-between md:justify-start lg:justify-end",
-                  )}
-                >
-                  <SearchActionGroup
-                    selectedObjects={selectedObjects}
-                    setSelectedObjects={setSelectedObjects}
-                    pullLatestData={refresh}
-                    onSelectAllObjects={onSelectAllObjects}
-                    totalItems={uniqueResults.length}
-                  />
                 </div>
-              )}
-            </div>
-          </ScrollArea>
+              </>
+            ) : (
+              <div
+                className={cn(
+                  "scrollbar-container flex justify-center gap-2 overflow-x-auto",
+                  "h-10 w-full justify-between md:justify-start lg:justify-end",
+                )}
+              >
+                <SearchActionGroup
+                  selectedObjects={selectedObjects}
+                  setSelectedObjects={setSelectedObjects}
+                  pullLatestData={refresh}
+                  onSelectAllObjects={onSelectAllObjects}
+                  totalItems={uniqueResults.length}
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -726,7 +750,6 @@ export default function SearchView({
               })}
           </div>
         )}
-        <BulkActionBar bulk={bulk} onChanged={refresh} />
         {uniqueResults && uniqueResults.length > 0 && (
           <>
             <div ref={observerTarget} className="h-10 w-full" />
@@ -745,6 +768,8 @@ export default function SearchView({
               setSearchDetail={(item) => setSelectedId(item?.id)}
               setSimilaritySearch={setSimilaritySearch}
               onSelectSearch={onSelectSearch}
+              selectedIds={selectedObjects}
+              onThumbnailClick={onThumbnailClick}
             />
           </div>
         )}

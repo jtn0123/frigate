@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { isDesktop, isIOS, isMobileOnly, isSafari } from "react-device-detect";
 import useSWR from "swr";
 import ErrorState from "@/components/fork/ErrorState";
@@ -30,12 +30,20 @@ type ExploreViewProps = {
   setSearchDetail: (search: SearchResult | undefined) => void;
   setSimilaritySearch: (search: SearchResult) => void;
   onSelectSearch: (item: SearchResult, ctrl: boolean, page?: SearchTab) => void;
+  selectedIds?: string[];
+  onThumbnailClick?: (
+    item: SearchResult,
+    ctrl: boolean,
+    detail: boolean,
+  ) => void;
 };
 
 export default function ExploreView({
   setSearchDetail,
   setSimilaritySearch,
   onSelectSearch,
+  selectedIds,
+  onThumbnailClick,
 }: ExploreViewProps) {
   const { t } = useTranslation(["views/explore"]);
   // title
@@ -122,6 +130,8 @@ export default function ExploreView({
           mutate={mutate}
           setSimilaritySearch={setSimilaritySearch}
           onSelectSearch={onSelectSearch}
+          selectedIds={selectedIds}
+          onThumbnailClick={onThumbnailClick}
         />
       ))}
     </div>
@@ -137,6 +147,12 @@ type ThumbnailRowType = {
   mutate: () => void;
   setSimilaritySearch: (search: SearchResult) => void;
   onSelectSearch: (item: SearchResult, ctrl: boolean, page?: SearchTab) => void;
+  selectedIds?: string[];
+  onThumbnailClick?: (
+    item: SearchResult,
+    ctrl: boolean,
+    detail: boolean,
+  ) => void;
 };
 
 function ThumbnailRow({
@@ -148,6 +164,8 @@ function ThumbnailRow({
   mutate,
   setSimilaritySearch,
   onSelectSearch,
+  selectedIds,
+  onThumbnailClick,
 }: ThumbnailRowType) {
   const { t } = useTranslation(["views/explore"]);
   const navigate = useNavigate();
@@ -185,6 +203,8 @@ function ThumbnailRow({
               mutate={mutate}
               setSimilaritySearch={setSimilaritySearch}
               onSelectSearch={onSelectSearch}
+              selected={selectedIds?.includes(event.id) ?? false}
+              onThumbnailClick={onThumbnailClick}
             />
           </div>
         ))}
@@ -223,6 +243,12 @@ type ExploreThumbnailImageProps = {
   mutate: () => void;
   setSimilaritySearch: (search: SearchResult) => void;
   onSelectSearch: (item: SearchResult, ctrl: boolean, page?: SearchTab) => void;
+  selected?: boolean;
+  onThumbnailClick?: (
+    item: SearchResult,
+    ctrl: boolean,
+    detail: boolean,
+  ) => void;
 };
 function ExploreThumbnailImage({
   event,
@@ -230,6 +256,8 @@ function ExploreThumbnailImage({
   mutate,
   setSimilaritySearch,
   onSelectSearch,
+  selected = false,
+  onThumbnailClick,
 }: ExploreThumbnailImageProps) {
   const apiHost = useApiHost();
   const { data: config } = useSWR<FrigateConfig>("config");
@@ -253,6 +281,17 @@ function ExploreThumbnailImage({
     );
   };
 
+  const handleClick = useCallback(
+    (ctrl: boolean, detail: boolean) => {
+      if (onThumbnailClick) {
+        onThumbnailClick(event, ctrl, detail);
+        return;
+      }
+      setSearchDetail(event);
+    },
+    [event, onThumbnailClick, setSearchDetail],
+  );
+
   return (
     <SearchResultActions
       searchResult={event}
@@ -272,6 +311,8 @@ function ExploreThumbnailImage({
           className={cn(
             "absolute size-full cursor-pointer rounded-lg object-cover transition-all duration-300 ease-in-out lg:rounded-2xl",
             !imgLoaded && "invisible",
+            selected &&
+              "shadow-selected outline outline-[3px] -outline-offset-[2.8px] outline-selected",
           )}
           style={
             isIOS
@@ -284,10 +325,13 @@ function ExploreThumbnailImage({
           loading={isSafari ? "eager" : "lazy"}
           draggable={false}
           src={`${apiHost}api/events/${event.id}/thumbnail.webp`}
-          onClick={() => setSearchDetail(event)}
+          onClick={(e) => {
+            const ctrl = e.metaKey || e.ctrlKey;
+            handleClick(ctrl, !ctrl);
+          }}
           role="button"
           tabIndex={0}
-          onKeyDown={onActivate(() => setSearchDetail(event))}
+          onKeyDown={onActivate(() => handleClick(false, true))}
           onLoad={onImgLoad}
           alt={t("image.thumbnailOf", {
             ns: "common",

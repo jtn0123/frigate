@@ -1,10 +1,10 @@
 /**
- * Fork: floating action bar for Explore's selection mode.
+ * Fork: Explore selection controls.
  *
- * Idle it is a single "Select" button that enters selection mode. Once the
- * mode is on or anything is selected it shows the count, Select all,
- * Submit to Frigate+ (when enabled and the selection has unsubmitted
- * snapshots), Delete (admins, with confirmation) and Cancel.
+ * Idle it is a "Select" chip in the top filter row. Once the mode is on or
+ * anything is selected it shows the count, Select all, Submit to Frigate+
+ * (when enabled and the selection has unsubmitted snapshots), Delete
+ * (admins, with confirmation) and Cancel.
  */
 
 import { useCallback, useMemo, useState } from "react";
@@ -191,21 +191,16 @@ export default function BulkActionBar({
         </AlertDialogContent>
       </AlertDialog>
 
-      <div
-        className={cn(
-          "pointer-events-none fixed inset-x-0 bottom-20 z-40 flex justify-center px-2 md:bottom-6",
-          className,
-        )}
-      >
+      <div className={cn("flex shrink-0 items-center", className)}>
         {showBar ? (
           <div
             role="toolbar"
             aria-label={t("bulk.toolbarLabel")}
             data-testid="bulk-action-bar"
-            className="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-secondary bg-background/95 px-2 py-1 text-sm shadow-lg backdrop-blur md:gap-2 md:px-3"
+            className="flex max-w-full items-center gap-1 rounded-md bg-secondary px-1"
           >
             <span
-              className="px-2 font-medium text-primary"
+              className="whitespace-nowrap px-2 text-sm font-medium text-primary"
               data-testid="bulk-count"
             >
               {t("bulk.selected", { count })}
@@ -264,12 +259,11 @@ export default function BulkActionBar({
         ) : (
           <Button
             size="sm"
-            variant="secondary"
-            className="pointer-events-auto gap-2 rounded-full shadow-lg"
+            className="flex items-center gap-2"
             data-testid="bulk-select"
             onClick={() => bulk.setActive(true)}
           >
-            <LuSquareCheck className="size-4" />
+            <LuSquareCheck className="text-secondary-foreground" />
             {t("bulk.select")}
           </Button>
         )}

@@ -1,9 +1,9 @@
 /**
  * Fork: bulk actions with undo (UI item 10).
  *
- * Explore gets a selection mode with a floating action bar (Delete and
- * Submit to Frigate+); Review's existing multi-select gets an undo toast
- * for Mark as reviewed.
+ * Explore gets a selection mode with a Select chip in the top filter row
+ * (Delete and Submit to Frigate+); Review's existing multi-select gets an
+ * undo toast for Mark as reviewed.
  */
 
 import type { Page } from "@playwright/test";
@@ -23,6 +23,34 @@ async function enterSelectMode(page: Page) {
 }
 
 test.describe("Explore bulk actions @high", () => {
+  test("Select is on Explore home without a labels filter", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/explore");
+    const { page } = frigateApp;
+    const select = page.getByTestId("bulk-select");
+    await expect(select).toBeVisible({ timeout: 10_000 });
+
+    if (frigateApp.isMobile) {
+      await enterSelectMode(page);
+      await thumbnails(page).first().tap();
+    } else {
+      const selectBox = await select.boundingBox();
+      const settingsBox = await page
+        .getByRole("button", { name: /settings/i })
+        .last()
+        .boundingBox();
+      expect(
+        Math.abs((selectBox?.y ?? 0) - (settingsBox?.y ?? 0)),
+      ).toBeLessThan(24);
+      await enterSelectMode(page);
+      await thumbnails(page).first().click();
+    }
+
+    await expect(page.getByTestId("bulk-count")).toHaveText("1 selected");
+    await expect(page.locator(".outline-selected")).toHaveCount(1);
+  });
+
   test("Select mode toggles items and Shift-click selects a range", async ({
     frigateApp,
   }) => {
@@ -31,8 +59,26 @@ test.describe("Explore bulk actions @high", () => {
     const { page } = frigateApp;
     await expect(thumbnails(page)).toHaveCount(3);
 
+    const select = page.getByTestId("bulk-select");
+    await expect(select).toBeVisible({ timeout: 10_000 });
+    const selectBox = await select.boundingBox();
+    const settingsBox = await page
+      .getByRole("button", { name: /settings/i })
+      .last()
+      .boundingBox();
+    expect(selectBox?.y).toBeLessThan(120);
+    expect(Math.abs((selectBox?.y ?? 0) - (settingsBox?.y ?? 0))).toBeLessThan(
+      24,
+    );
+
     await enterSelectMode(page);
     await expect(page.getByTestId("bulk-count")).toHaveText("0 selected");
+    await expect(
+      page.getByRole("button", { name: /settings/i }).last(),
+    ).toBeVisible();
+    await expect(page.getByText("All Dates", { exact: true })).toBeVisible();
+    await expect(page.getByText("Sort", { exact: true })).toBeVisible();
+    await expect(page.getByText("More Filters", { exact: true })).toBeVisible();
     await thumbnails(page).nth(0).click();
     await expect(page.getByTestId("bulk-count")).toHaveText("1 selected");
     await expect(page.locator(".outline-selected")).toHaveCount(1);
