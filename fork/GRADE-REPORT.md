@@ -462,7 +462,7 @@ nothing tracks upstream automatically.
 - **Where:** `.github/workflows/fork-checks.yml`, `fork-build.yml`, `.github/actions/fork-web-setup/`, `fork/scripts/{ci-changes,py-checks}.sh`, `fork/Dockerfile.test`, `web/package.json`
 - **Done (2026-09-10):** docs-only commits run only gitleaks; node_modules cached on the lockfile; one incremental typecheck instead of three tsc runs; eslint content cache; the e2e bundle built once and Playwright in three shards; mypy, API spec and unittest in parallel; superseded runs cancelled; a single "Checks passed" job; the image build skips files that never reach the image.
 - **Changed from the original fix:** the thin test image is **not** pushed to GHCR. Pulling it would cost the same as pulling the 6.6 GB base it sits on, so it saves nothing. Installing the dev tools before the sources are copied gives the local win (rebuild after a Python edit: ~1 s). `make e2e-changed` became `make check-fast` (I10).
-- **Measure after merge:** CI wall time was ~6 min (E2E job 5m50s) with the image build ~9 min on every push; target ~3 min, and ~10 s plus no image build for docs-only commits.
+- **Measured (dispatch runs on `section/devtools`):** CI wall time 354 s → 206 s warm (246 s when the lockfile changes). The lint + typecheck job went from 68 s to 26 s; the E2E critical path is the 52 s build plus the slowest shard (~135 s). Docs-only commits drop to ~15 s and no image build (was ~9 min); that path can only be observed after merge.
 
 #### I10 — One-command local gates and ready worktrees `[fork]` — done on `section/devtools`, awaiting merge
 - **Where:** `Makefile` (fork block), `fork/scripts/{check,wt}.sh`, `.pre-commit-config.yaml`, `fork/PLAN.md` workflow

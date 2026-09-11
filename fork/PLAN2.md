@@ -269,7 +269,8 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
 
 ### PR-13 · ci-speed and dev loop — I9, I10, I8 (I11 trial on request) — M — **in progress**
 - **Status (2026-09-10):** I9 and I10 are done on `section/devtools`
-  (worktree `/Volumes/512Flash/frigate-wt/devtools`), local `make check` green;
+  (worktree `/Volumes/512Flash/frigate-wt/devtools`), rebased on `polish`
+  `a270ffa97`; local `make check` and dispatched CI green (354 s → 206 s);
   not merged or PR'd until the owner says so. Moved ahead of the ordering
   because every later block benefits.
 - **Remaining:** I8 overlay image for `polish` pushes (full build kept for
