@@ -73,7 +73,7 @@ parallel; each needs its own `E2E_PORT`.
   resolve `FORK.md`, gates (`E2E_PORT=4185`), fix anything red.
   *Pair with 1b.*
 - [x] **1b. security** (coordinator) — E5 patch shipped deps, E4 triage CodeQL.
-- [ ] **2a. features2** — UI7 settings navigation, UI10 bulk actions with undo.
+- [x] **2a. features2** — UI7 settings navigation, UI10 bulk actions with undo.
   `section/features2` has one `wip:` commit: `git reset --soft HEAD~1`, finish,
   one commit each (`E2E_PORT=4186`). *Pair with 2b.*
 - [x] **2b. ops** — I6 upstream-sync bot, G7 bundle budget, I5 typed env,
@@ -364,8 +364,8 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 
 ## Done (merged on `main`)
 
-24 of the 30 plus E4/E5, with e2e 373 passed / 101 skipped and 978 backend
-tests OK at the last full run:
+26 of the 30 plus E4/E5, with e2e 384 passed / 112 skipped, vitest 158, and
+978 backend tests OK at the last full run:
 
 - Non-UI (all 15): D1 unit tests, I1 pre-commit + CI caching, G3 non-blocking
   handlers, G4 bounded event search, E1 security headers, E2 per-route auth
@@ -374,7 +374,8 @@ tests OK at the last full run:
   cache tracker, I2 Makefile targets, H1/H2 docs.
 - UI: C1 error boundary, C2 keyboard + screen-reader access, G1/G5/UI3 first
   paint (eager JS 504 → 305 kB gzip), C5 error states, UI15 theme controls,
-  UI6 command palette, UI12 camera health, UI14 notification inbox.
+  UI6 command palette, UI12 camera health, UI14 notification inbox, UI7
+  settings navigation, UI10 Explore bulk actions and Review undo.
 - Security: E4 CodeQL triage (dismissals, no fork-code changes), E5 patched
   python-multipart and the web lockfile (vitest 3.2.7, not 5).
 - Ops: I5 typed env, G7 eager gzip budget (353 kB + 5%), I6 upstream-sync

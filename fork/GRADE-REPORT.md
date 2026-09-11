@@ -492,10 +492,10 @@ are in `fork/PLAN.md`. "Backlog" items wait for the owner to promote them.
 | ~~UI4~~ | Honest error states (= C5) | S | ✓ done |
 | UI5 | Layout follows the viewport (= A1, + D3) | M | queued — features4 |
 | UI6 | Command palette (Cmd/Ctrl+K) | S–M | committed on `section/features1`, needs rebase + verify |
-| UI7 | Settings navigation: scrollspy rail, search, diff before Save All | M | in progress — features2 |
+| ~~UI7~~ | Settings navigation: scrollspy rail, search, diff before Save All | M | ✓ done |
 | UI8 | Timeline scrubber: snap, arrow keys, touch targets | M | queued — features3 |
 | UI9 | Shared event summary header (Review + Explore) | M | queued — features3 |
-| UI10 | Bulk actions in Explore + undo for mark-reviewed | M | in progress — features2 |
+| ~~UI10~~ | Bulk actions in Explore + undo for mark-reviewed | M | ✓ done |
 | UI11 | Share a clip: expiring link + QR (small backend) | M | queued — features3 |
 | UI12 | Camera health cards | M | committed on `section/features1` |
 | UI13 | Live layout memory + picture-in-picture | M | queued — features4 |
