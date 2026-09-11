@@ -112,6 +112,7 @@ export default tseslint.config(
       "*.{js,cjs,mjs,ts}",
       "e2e/**/*.{js,mjs,ts}",
       "__test__/**/*.{js,ts}",
+      "scripts/**/*.{js,mjs,ts}",
     ],
     languageOptions: {
       globals: { ...globals.node },
@@ -123,7 +124,7 @@ export default tseslint.config(
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
   {
-    files: ["e2e/scripts/**"],
+    files: ["e2e/scripts/**", "scripts/**"],
     rules: { "no-console": "off" },
   },
   {
