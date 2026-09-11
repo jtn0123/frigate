@@ -268,6 +268,13 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** none (log hygiene)
 
+#### D13 — Unambiguous circular-progress timings `[FE] [fork, upstreamable]`
+- **Where:** `web/src/components/ui/circular-progress-bar.tsx` (value label classes `delay-[var(--delay)]` and `duration-[var(--transition-length)]`)
+- **What's wrong:** Tailwind 3 treats those arbitrary properties as ambiguous and prints a build warning.
+- **Fix:** Move the delay and duration onto the element's `style` using the same CSS variables. Vitest asserts the ambiguous classes are gone.
+- **Effort:** S
+- **Grade lift:** none (build hygiene)
+
 ---
 
 ## E — Security — B+
