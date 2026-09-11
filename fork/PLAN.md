@@ -66,7 +66,7 @@ parallel; each needs its own `E2E_PORT`.
   notification inbox. `section/features1` has 3 commits on an old base: rebase,
   resolve `FORK.md`, gates (`E2E_PORT=4185`), fix anything red.
   *Pair with 1b.*
-- [ ] **1b. security** (coordinator) — E5 patch shipped deps, E4 triage CodeQL.
+- [x] **1b. security** (coordinator) — E5 patch shipped deps, E4 triage CodeQL.
 - [ ] **2a. features2** — UI7 settings navigation, UI10 bulk actions with undo.
   `section/features2` has one `wip:` commit: `git reset --soft HEAD~1`, finish,
   one commit each (`E2E_PORT=4186`). *Pair with 2b.*
@@ -357,7 +357,7 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 
 ## Done (merged on `polish`)
 
-24 of the 30, with e2e 373 passed / 101 skipped (features1) and 978 backend
+24 of the 30 plus E4/E5, with e2e 373 passed / 101 skipped and 978 backend
 tests OK at the last full run:
 
 - Non-UI (all 15): D1 unit tests, I1 pre-commit + CI caching, G3 non-blocking
@@ -366,7 +366,10 @@ tests OK at the last full run:
   coverage, B1 one error shape, B3 logged exception swallows, G6 recording
   cache tracker, I2 Makefile targets, H1/H2 docs.
 - UI: C1 error boundary, C2 keyboard + screen-reader access, G1/G5/UI3 first
-  paint (eager JS 504 → 305 kB gzip), C5 error states, UI15 theme controls.
+  paint (eager JS 504 → 305 kB gzip), C5 error states, UI15 theme controls,
+  UI6 command palette, UI12 camera health, UI14 notification inbox.
+- Security: E4 CodeQL triage (dismissals, no fork-code changes), E5 patched
+  python-multipart and the web lockfile (vitest 3.2.7, not 5).
 - Extras: I3 mypy ratchet, I4 ruff S rules, E3 safe_join thumbnails, C8 dev
   sandbox out of prod, G2 SWR policy, T1 config editor Cmd/Ctrl+S, S0 fork
   scaffold, CI secret scanning and repo safety setup.
@@ -376,5 +379,10 @@ tests OK at the last full run:
 - Owner default confirmed: build UI14 and UI11.
 - Local e2e needs `npm run e2e:build` (or CI's equivalent) before Playwright;
   plain `npm run build` leaves `/BASE_PATH/` assets that 404 under vite preview.
+- E5 majors left open: react-router 7 (moderate advisories remain on v6),
+  vitest 5 (peer conflict with `@types/node` 20), and `sort-by` / `object-path`.
+  TensorRT/ARM and docs/ Dependabot alerts stay ignored.
+- Fork - Build image failed once on a runner disk-full during QEMU setup.
+  Not a product bug; image publishes are for tags, not every polish push.
 - Live-server tweaks were proposed but never approved (Tapo software decode,
   disabling `out_1..4`, camera renames). Leave them alone.
