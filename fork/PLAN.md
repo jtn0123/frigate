@@ -350,9 +350,13 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 
 ### Environment gotchas
 
-- Never run `npx playwright install`: the CDN returns HTTP 400 for
-  `chromium_headless_shell-1217` here. `~/Library/Caches/ms-playwright` has
-  symlinks `chromium_headless_shell-1217 -> …-1234` and `chromium-1217 -> …-1234`.
+- Playwright is 1.63 (F6, 2026-09-11) and needs
+  `chromium_headless_shell-1243`, which is installed. After a Playwright bump,
+  install its browser with `cd web && npx playwright install chromium
+  --only-shell` (owner OK 2026-09-11; that download works). History: under
+  1.59 the CDN returned HTTP 400 for `chromium_headless_shell-1217`, so
+  `~/Library/Caches/ms-playwright` still has symlinks `chromium_headless_shell-1217
+  -> …-1234` and `chromium-1217 -> …-1234`.
 - Unique `E2E_PORT` per worktree when two suites run at once.
 - Never two `npm ci` in one directory. `rm -rf node_modules` (and removing a
   worktree) on the USB volume takes ~20 minutes; run it in the background.
