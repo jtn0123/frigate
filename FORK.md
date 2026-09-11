@@ -13,7 +13,10 @@ Rules that keep this fork rebasable (see the `main` branch):
   the hunk small and self-contained.
 - Fork-only UI behaviour is gated in `web/src/fork/flags.ts`.
 - Never rename, move, or reformat an upstream file.
-- No dependency majors upstream has not already taken.
+- Dependency majors upstream has not taken yet are allowed, but they come last
+  (owner decision 2026-09-11): after the debugging and type-safety work, one
+  PR per major (or per tightly coupled group), toolchain first. See
+  `fork/PLAN2.md` PR-28.
 - Commits, pushes and pull requests only ever go to `jtn0123/*` repos. Entries
   marked "candidate" could be offered upstream, but only the owner sends them;
   once one merges upstream, its ledger entry is deleted.

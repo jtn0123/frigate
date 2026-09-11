@@ -273,7 +273,7 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
   warm). Moved ahead of the ordering because every later block benefits.
 - **Remaining:** I8 is on hold: the server will pull `:main`, so `main`
   keeps the full image build (see the report). I11 (TypeScript 7 / Vite 8 /
-  Vitest 5 trial) only if the owner approves it against the F4 rule.
+  Vitest 5 trial) moved to PR-28, the majors phase, which runs last.
 - **Done when:** a `main` push goes green in well under the current ~6 min
   (target ~3 min; docs-only ~10 s); numbers before/after in the PR.
   **Impact:** faster feedback for every later PR and agent. **Conflict:** none
@@ -361,9 +361,18 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
   file first, and prefer doing it as the local split for a feature that
   already has to touch that file.
 
-### PR-28 · frontend majors — F4 — blocked
-- Tailwind 4, react-router 7, i18next, apexcharts, date-fns, vite: only after
-  upstream takes each major; then rebase onto it rather than bumping here.
+### PR-28 · dependency majors — F4, I11 — series, L — **last** (owner OK 2026-09-11)
+- **When:** after the debugging work and the type-safety blocks (PR-01, PR-02,
+  PR-04, PR-14); the owner wants majors eventually, just not first.
+- **Order:** (1) toolchain, I11: TypeScript 7, Vite 8, Vitest 5 (also clears
+  the vitest alerts), ESLint 10, jsdom; (2) react-router 7 (Dependabot #7,
+  2 alerts); (3) i18next + react-i18next, date-fns, zod, apexcharts +
+  react-apexcharts, the rest of the runtime list in F4; (4) Tailwind 4 +
+  tailwind-merge + tailwind-scrollbar last. One PR per major or coupled group.
+- **Each done when:** `make check` and "Fork - Checks" green, before/after
+  timings or bundle size in the PR, no behaviour change unless listed.
+  **Conflict:** `package-lock.json` on every upstream sync; re-check on each
+  sync whether upstream has since taken the same major.
 
 ### PR-29 · camera-resilience — D10, D11 — S — **in progress**
 - **Status (2026-09-11):** owner request after the server switch: the dining

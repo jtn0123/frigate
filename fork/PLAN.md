@@ -52,7 +52,8 @@ the fork healthy and raise quality. Every item carries its ID from
   are gitignored; keep secrets there.
 - Small, additive changes: new files over edits; small self-contained hunks
   when an upstream file must change; never rename, move or reformat an upstream
-  file; no dependency majors upstream has not taken.
+  file; dependency majors ahead of upstream only in the final majors phase
+  (`fork/PLAN2.md` PR-28, owner decision 2026-09-11).
 - Gate fork-only UI behaviour behind a flag in `web/src/fork/flags.ts`
   (overridable at runtime with `localStorage.frigateFork` JSON).
 - Fork strings go in the `fork` i18n namespace (`web/public/locales/en/fork.json`).

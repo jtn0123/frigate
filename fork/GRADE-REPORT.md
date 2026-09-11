@@ -320,10 +320,10 @@ Deliberately, the fork takes no major upstream has not taken.
 - **Effort:** S
 - **Grade lift:** B− → B−
 
-#### F4 — Frontend major bumps `[fork]` — backlog, blocked by policy
-- **Where:** `web/package.json` (Tailwind 3, react-router 6, i18next 24, apexcharts 3, date-fns 3, vite 6)
-- **What's wrong:** One or two majors behind each.
-- **Fix:** Only after upstream takes each major; then rebase onto it.
+#### F4 — Frontend major bumps `[fork]` — backlog, scheduled last (owner OK 2026-09-11)
+- **Where:** `web/package.json`: 34 packages a major behind on 2026-09-11 (toolchain: TypeScript 5.9, Vite 6, Vitest 3, ESLint 9, Tailwind 3, jsdom 24; runtime: react-router 6, i18next 24 / react-i18next 15, date-fns 3, zod 3, apexcharts 3, lucide 0.x, framer-motion 12, react-dropzone 14, tailwind-merge 2)
+- **What's wrong:** One or more majors behind each; react-router 6 and vitest 3 carry open Dependabot alerts (react-router: Dependabot #7) that only the next major fixes.
+- **Fix:** Last phase, after the debugging and type-safety blocks: one PR per major (or tightly coupled group, e.g. react-router + react-router-dom, i18next + react-i18next). Toolchain first (I11), then runtime libraries by alert and risk, Tailwind 4 last (widest diff). Each PR records before/after gates and accepts the extra `package-lock.json` conflict on upstream syncs. Python pins stay upstream-owned (security fixes only).
 - **Effort:** L
 - **Grade lift:** B− → B
 
@@ -484,7 +484,7 @@ nothing tracks upstream automatically.
 - **Done (2026-09-10):** `make check` runs every CI gate, `make check-fast` only what changed; incremental tsc (17 s → 1.5 s warm) and cached eslint (8 s → 0.7 s warm); CI's pinned ruff through uvx (Homebrew's is older); one test image per worktree; `make wt NAME=x` with an APFS-cloned node_modules (5.5 min, ~no disk, vs 7 min and ~1 GB for `npm ci` on the USB drive) and its own e2e port.
 - **Found:** this Mac (16 GB) runs with ~10 GB of swap in use when several agents and Docker are up; parallel Node gates were then 10x slower than the same gates in sequence, so host gates queue and only the Docker gates run beside them.
 
-#### I11 — Toolchain trial: TypeScript 7, Vite 8, Vitest 5 `[fork]` — backlog, needs the owner's OK (conflicts with the F4 rule)
+#### I11 — Toolchain trial: TypeScript 7, Vite 8, Vitest 5 `[fork]` — backlog, first step of the majors phase (F4, last)
 - **Where:** `web/package.json`, `web/package-lock.json`; upstream is on TypeScript 5.9, Vite 6, Vitest 3
 - **What's wrong:** Typecheck (17 s cold) and `vite build` (30–60 s) are the slowest web steps; TypeScript 7 is the native compiler and Vite 8 bundles with Rolldown.
 - **Fix:** A measured trial on a throwaway branch: before/after for typecheck, build, test and e2e, plus a check that typescript-eslint and vite-plugin-monaco-editor still work. Adopt only if the owner accepts the extra `package-lock.json` conflict on each upstream sync.
