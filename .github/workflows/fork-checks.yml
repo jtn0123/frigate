@@ -18,6 +18,27 @@ env:
   FORK_TEST_BASE: ghcr.io/blakeblackshear/frigate:0.18.0-rc2
 
 jobs:
+  secrets_scan:
+    name: Secrets - gitleaks
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # dev mirrors upstream, so dev..HEAD is exactly the fork's own commits.
+      - run: git fetch --no-tags origin dev:refs/remotes/origin/dev
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+      - name: Scan fork commits
+        run: ./gitleaks git --no-banner --redact --log-opts="origin/dev..HEAD" .
+
   web_lint:
     name: Web - Lint
     runs-on: ubuntu-latest

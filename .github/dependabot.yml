@@ -16,35 +16,55 @@ updates:
     directory: "/docker/main"
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: dev
+    # fork: no version-update PRs (versions arrive by rebasing onto upstream);
+    # security fixes land on polish as one grouped PR. target-branch is left
+    # unset because it would stop these settings applying to security updates.
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: "pip"
     directory: "/docker/tensorrt"
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: dev
+    # fork: not part of the amd64 image this fork builds; no PRs of any kind.
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
   - package-ecosystem: "pip"
     directory: "/docker/rockchip"
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: dev
+    # fork: not part of the amd64 image this fork builds; no PRs of any kind.
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
   - package-ecosystem: "pip"
     directory: "/docker/rocm"
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: dev
+    # fork: not part of the amd64 image this fork builds; no PRs of any kind.
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: dev
+    # fork: no version-update PRs (versions arrive by rebasing onto upstream);
+    # security fixes land on polish as one grouped PR. target-branch is left
+    # unset because it would stop these settings applying to security updates.
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: "npm"
     directory: "/docs"
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: dev
+    # fork: not part of the amd64 image this fork builds; no PRs of any kind.
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"

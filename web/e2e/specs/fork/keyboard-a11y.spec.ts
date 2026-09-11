@@ -44,7 +44,7 @@ test.describe("Keyboard access: sidebar @critical", () => {
     );
     const focusedIndex = () =>
       links.evaluateAll((els) =>
-        els.indexOf(document.activeElement as Element),
+        els.indexOf(document.activeElement as HTMLElement),
       );
     const first = await focusedIndex();
     expect(first).toBeGreaterThanOrEqual(0);

@@ -10,7 +10,7 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
 Inner loop (from the repo root):
 
 ```
-make dev-web PROXY_HOST=10.27.27.80:5000   # vite against a live Frigate
+make dev-web PROXY_HOST=<frigate-host>:5000   # vite against a live Frigate
 make lint                                  # ruff + eslint + e2e spec lint
 make test-web                              # vitest
 make e2e                                   # playwright, fully mocked
