@@ -20,7 +20,9 @@ import { cn } from "@/lib/utils";
 import {
   cameraFpsSeries,
   computeCameraHealth,
+  connectionQualityProps,
   detectorShare,
+  enabledFromWs,
   newestRestarts,
   restartKindCounts,
   type CameraHealthState,
@@ -164,19 +166,21 @@ type CameraHealthCardProps = {
 function CameraHealthCard({
   cameraName,
   label,
+  enabled,
   stats,
   fpsSeries,
 }: CameraHealthCardProps) {
   const { t } = useTranslation(["fork"]);
   const { payload: enabledState } = useEnabledState(cameraName);
-  const isEnabled = enabledState === "ON";
+  const isEnabled = enabledFromWs(enabledState, enabled);
   const cameraStats = stats?.cameras[cameraName];
+  const quality = connectionQualityProps(cameraStats);
   const health = computeCameraHealth({ enabled: isEnabled }, cameraStats);
   const share = detectorShare(stats, cameraName);
 
   const ffmpegCpu =
     cameraStats?.ffmpeg_cpu ??
-    (cameraStats
+    (stats && cameraStats
       ? stats.cpu_usages[String(cameraStats.ffmpeg_pid)]?.cpu
       : undefined);
 
@@ -218,14 +222,7 @@ function CameraHealthCard({
           <span className="truncate font-medium smart-capitalize">{label}</span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {cameraStats && (
-            <ConnectionQualityIndicator
-              quality={cameraStats.connection_quality}
-              expectedFps={cameraStats.expected_fps}
-              reconnects={cameraStats.reconnects_last_hour}
-              stalls={cameraStats.stalls_last_hour}
-            />
-          )}
+          {quality && <ConnectionQualityIndicator {...quality} />}
           <Badge variant="outline" className={STATE_BADGE[health.state]}>
             {t(`cameraHealth.state.${health.state}`)}
           </Badge>

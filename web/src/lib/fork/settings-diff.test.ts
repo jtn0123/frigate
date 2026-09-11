@@ -120,6 +120,18 @@ describe("computeSettingsDiff", () => {
     ]);
   });
 
+  it("does not throw when go2rtc.streams is missing from the config", () => {
+    const pending: Record<string, ConfigSectionData> = {
+      go2rtc_streams: { front: ["rtsp://front"] },
+    };
+    const diffs = computeSettingsDiff(pending, cfg({ go2rtc: {} }), fullSchema);
+    const streams = diffs.find((d) => d.section === "go2rtc.streams");
+    expect(streams).toBeDefined();
+    expect(streams?.changes.some((change) => change.path === "front")).toBe(
+      true,
+    );
+  });
+
   it("memoizes on input identity", () => {
     const pending: Record<string, ConfigSectionData> = { detect: { fps: 1 } };
     const first = getSettingsDiff(pending, config, fullSchema);

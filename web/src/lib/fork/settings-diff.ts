@@ -94,19 +94,29 @@ function getUnknown(object: unknown, path: string): unknown {
   return get(object, path) as unknown;
 }
 
+function objectEntries(value: unknown): Array<[string, unknown]> {
+  if (typeof value !== "object" || value === null) {
+    return [];
+  }
+  return Object.entries(value);
+}
+
 function go2rtcDiff(
   pending: Record<string, string[]>,
   config: FrigateConfig,
 ): SettingsSectionDiff {
   const saved: Record<string, string[]> = {};
-  for (const [name, urls] of Object.entries(config.go2rtc.streams)) {
+  for (const [name, urls] of objectEntries(
+    getUnknown(config, "go2rtc.streams"),
+  )) {
     saved[name] = (Array.isArray(urls) ? urls : [urls]).map((url) =>
       maskCredentials(String(url)),
     );
   }
   const live: Record<string, string[]> = {};
   for (const [name, urls] of Object.entries(pending)) {
-    live[name] = urls.map((url) => maskCredentials(url));
+    const list = Array.isArray(urls) ? urls : [];
+    live[name] = list.map((url) => maskCredentials(url));
   }
   return {
     pendingKey: "go2rtc_streams",
