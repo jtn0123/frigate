@@ -6,6 +6,60 @@ ordered by impact, most to least. Item IDs and full descriptions live in
 `fork/GRADE-REPORT.md`; this file adds the grouping, order, and acceptance
 criteria.
 
+## Track status (2026-09-11)
+
+Owner asked for debugging, then type safety, then dependencies, ahead of
+PLAN.md step 9. Work is on `section/debug`.
+
+| Track | Status |
+|---|---|
+| 1. Debugging | D12, D13, I12 committed. Demo QA logged below. No high-severity runtime bugs found to fix without an owner call. |
+| 2. Type safety | Not started. Next: PR-02 type-guardrails, then PR-04, PR-01, PR-14. |
+| 3. Dependencies | Not started. Wait for the debug PR. |
+
+## Bugs found
+
+Logged from the I7 demo stack at `https://127.0.0.1:8971` on 2026-09-11
+(desktop, then iPhone 14 viewport). Walked Live, Review, Explore (including a
+tracked-object detail), Exports, Settings, System → Health, the command
+palette, and the inbox. Overlay at the time was an older polish2 UI build
+(`0.18.0-c69ec86b1`); behaviour below is still from this fork.
+
+### Fixed in this branch
+
+- **D12 (high, logs):** repeat ffmpeg-exit warnings doubled a trailing period
+  when ffmpeg's message already ended in ".". Test then fix.
+- **D13 (build):** Tailwind ambiguous `delay-[var(--delay)]` /
+  `duration-[var(--transition-length)]` on the circular progress label.
+- **I12 (CI):** actionlint SC2016 on markdown backticks in
+  `fork-upstream-sync.yml` issue-body printf strings.
+
+### Needs an owner call (not fixing yet)
+
+- **Nameless account/menu control.** Every page has a sidebar (desktop) or
+  top-bar (phone) `button` with `expanded=false` and no accessible name, next
+  to the command palette and inbox. Likely the user menu. Icon-only may be
+  intentional; C9 would catch it later.
+- **Two "Labels" filters on Explore.** After "Explore more Person objects",
+  the toolbar has two `Labels` buttons (`e17` and `e20` in the a11y tree).
+  Could be a duplicate control or a Sort/Labels mislabel. Ask before changing.
+- **Review timeline buttons have no names.** Dozens of unnamed buttons on
+  `/review` (the hour ticks / scrubber). Covered by C9; not a crash.
+
+### Not a product bug (harness / a11y snapshot)
+
+- Overlay **Close** and **Escape** did not dismiss the command palette or
+  inbox in agent-browser; choosing a palette item (Live) did. Existing e2e
+  covers close. Treat as harness unless a Playwright spec fails.
+- Radix scroll-area CSS (`[data-radix-scroll-area-viewport]{scrollbar-width…}`)
+  shows up in the a11y snapshot's root name on Live, but
+  `document.body.innerText` does not include it. Not visible to users.
+- Live PNG screenshots hung in this harness (video tiles). Snapshots were
+  used instead.
+
+No crashes, wrong data, dead primary buttons, or stray error toasts on the
+walk. The C5 Explore-detail 404 toast was already fixed on `main`.
+
 ## When and how
 
 - Start a block only when PLAN.md's queue has reached step 9 (closing), or
