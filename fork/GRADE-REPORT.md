@@ -430,7 +430,7 @@ nothing tracks upstream automatically.
 - **Effort:** M
 - **Grade lift:** B → B+ (keeps the fork alive)
 
-#### I7 — Local demo stack `[fork]`
+#### ~~I7~~ ✓ done 2026-09-10 — Local demo stack `[fork]`
 - **Where:** `fork/` (no way to run the fork's UI against a real backend except pointing `make dev-web` at a live server)
 - **What's wrong:** Features are validated only against mocks; dogfooding, CSP tuning (E6), profiling (G11) and web-vitals (G12) have nowhere to run.
 - **Fix:** `fork/demo/` compose on the multi-arch rc2 image with `frigate/`, `migrations/`, `web/dist` overlaid, 2–3 looping sample cameras, CPU detector, `127.0.0.1` ports, `make demo-up/down/logs`.

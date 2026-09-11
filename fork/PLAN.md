@@ -81,7 +81,7 @@ parallel; each needs its own `E2E_PORT`.
 - [ ] **3a. features3** — UI8 timeline scrubber, UI9 shared event header,
   UI11 clip sharing. Branch exists, no work yet (`E2E_PORT=4187`).
   *Pair with 3b.*
-- [ ] **3b. demo** — I7 local demo stack.
+- [x] **3b. demo** — I7 local demo stack.
 - [ ] **4a. features4** — A1/UI5 viewport hook + D3 tablet project, UI13 live
   layout memory + PiP, H3 frontend READMEs. `section/features4` has one `wip:`
   commit of 17 unreviewed files on an old base: `git reset --soft HEAD~1`,
@@ -379,7 +379,7 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 - Security: E4 CodeQL triage (dismissals, no fork-code changes), E5 patched
   python-multipart and the web lockfile (vitest 3.2.7, not 5).
 - Ops: I5 typed env, G7 eager gzip budget (353 kB + 5%), I6 upstream-sync
-  bot, D8 Python coverage XML (report-only).
+  bot, D8 Python coverage XML (report-only), I7 local overlay demo stack.
 - Extras: I3 mypy ratchet, I4 ruff S rules, E3 safe_join thumbnails, C8 dev
   sandbox out of prod, G2 SWR policy, T1 config editor Cmd/Ctrl+S, S0 fork
   scaffold, CI secret scanning and repo safety setup.
@@ -387,6 +387,8 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 ## Follow-ups
 
 - Owner default confirmed: build UI14 and UI11.
+- Preview thumbnails can 404 for a minute after `make demo-up`, until Frigate
+  writes preview frames. Live and Explore still work.
 - Local e2e needs `npm run e2e:build` (or CI's equivalent) before Playwright;
   plain `npm run build` leaves `/BASE_PATH/` assets that 404 under vite preview.
 - E5 majors left open: react-router 7 (moderate advisories remain on v6),
