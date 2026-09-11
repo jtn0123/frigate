@@ -111,4 +111,14 @@ check-fast:
 wt:
 	fork/scripts/wt.sh $(NAME)
 
-.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast wt
+demo-up:
+	fork/demo/prepare-build.sh
+	docker compose -f fork/demo/compose.yml up -d --build
+
+demo-down:
+	docker compose -f fork/demo/compose.yml down
+
+demo-logs:
+	docker compose -f fork/demo/compose.yml logs -f --tail=200
+
+.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast wt demo-up demo-down demo-logs

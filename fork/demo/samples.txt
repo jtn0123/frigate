@@ -1,0 +1,9 @@
+# Sample clips downloaded by fetch-samples.sh. Never commit the media.
+#
+# Source: https://github.com/intel-iot-devkit/sample-videos
+# Licence: MIT (see that repository's LICENSE).
+# Used as looping fake cameras so the CPU detector can produce review items.
+#
+# person-bicycle-car-detection.mp4  people, bicycles, cars
+# head-pose-face-detection-female.mp4  a person walking
+# car-detection.mp4  cars

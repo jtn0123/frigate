@@ -1,0 +1,27 @@
+# Local demo. Ports are loopback-only. Do not publish them on a LAN.
+name: frigate-demo
+
+services:
+  frigate:
+    build:
+      context: .build
+      dockerfile: ../Dockerfile
+    image: frigate-fork-demo
+    container_name: frigate-demo
+    restart: unless-stopped
+    shm_size: 512mb
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "127.0.0.1:8971:8971"
+      - "127.0.0.1:1984:1984"
+    volumes:
+      - demo-config:/config
+      - demo-media:/media/frigate
+    environment:
+      TZ: America/Los_Angeles
+
+volumes:
+  demo-config:
+  demo-media:

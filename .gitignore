@@ -38,3 +38,7 @@ docs/src/components/DockerComposeGenerator/config/ports.ts
 # fork: eslint/tsc caches (npm run lint / typecheck) and the port make wt assigns
 web/.cache/
 web/.e2e-port
+# fork demo: secrets, downloaded clips, compose staging dir
+fork/demo/.env
+fork/demo/.data/
+fork/demo/.build/

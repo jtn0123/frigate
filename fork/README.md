@@ -16,6 +16,9 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
   changed, so docs-only commits skip both suites.
 - `scripts/wt.sh` creates a section worktree with node_modules and its own e2e
   port (`make wt NAME=<name>`).
+- `demo/` overlays this checkout on the rc2 image with three looping sample
+  cameras (`make demo-up` / `demo-down` / `demo-logs`). Ports are loopback-only.
+  See `fork/demo/README.md`.
 
 Inner loop (from the repo root):
 
@@ -30,6 +33,9 @@ make test-web                              # vitest
 make e2e                                   # playwright, fully mocked (port from web/.e2e-port)
 make test-py TESTS=frigate.test.test_x     # backend unittest in the thin image
 make check-py                              # mypy + API spec drift + unittest, in parallel
+make demo-up                               # local overlay Frigate on 127.0.0.1:8971
+make demo-down
+make demo-logs
 ```
 
 Caches live in `web/.cache/` (eslint, tsc) and are safe to delete. Each

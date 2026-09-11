@@ -1,0 +1,87 @@
+# Local demo only. Never point this stack at a live camera or the owner's server.
+mqtt:
+  enabled: false
+
+auth:
+  enabled: true
+
+tls:
+  enabled: true
+
+detectors:
+  cpu:
+    type: cpu
+
+ffmpeg:
+  # File cameras; do not inherit the RTSP input preset.
+  hwaccel_args: []
+
+record:
+  enabled: true
+  alerts:
+    retain:
+      days: 1
+  detections:
+    retain:
+      days: 1
+
+snapshots:
+  enabled: true
+
+detect:
+  enabled: true
+  fps: 5
+
+objects:
+  track:
+    - person
+    - car
+    - bicycle
+
+cameras:
+  street:
+    ffmpeg:
+      inputs:
+        - path: /opt/frigate/demo/samples/person-bicycle-car-detection.mp4
+          input_args: -re -stream_loop -1 -fflags +genpts
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: true
+      fps: 5
+    objects:
+      track:
+        - person
+        - car
+        - bicycle
+  walkway:
+    ffmpeg:
+      inputs:
+        - path: /opt/frigate/demo/samples/head-pose-face-detection-female.mp4
+          input_args: -re -stream_loop -1 -fflags +genpts
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: true
+      fps: 5
+    objects:
+      track:
+        - person
+  lot:
+    ffmpeg:
+      inputs:
+        - path: /opt/frigate/demo/samples/car-detection.mp4
+          input_args: -re -stream_loop -1 -fflags +genpts
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: true
+      fps: 5
+    objects:
+      track:
+        - car
+
+version: "0.18-0"
