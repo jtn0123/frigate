@@ -20,7 +20,12 @@ item IDs A1–I5, is kept locally at `.claude/grade-report.md` (git-excluded).
 
 - Never touch the live Frigate server (10.27.27.80 / LXC 106) or its Portainer
   stack. Pushing to GitHub is allowed; deploying to the server is not.
-- Do not put camera passwords, tokens or credentials in git or docs.
+- Commits, pushes and PRs go only to `github.com/jtn0123/*`. Never open a PR,
+  issue or comment on `blakeblackshear/frigate`. Use
+  `gh pr create --repo jtn0123/frigate --base polish` for PRs. A clone made
+  elsewhere needs the guards from `FORK.md` set up again.
+- Do not put camera passwords, tokens or credentials in git or docs. Root
+  `.env*` files are gitignored; keep secrets in those, never in tracked files.
 - Small, additive changes: new files over edits; small self-contained hunks
   when an upstream file must change; never rename, move or reformat an upstream
   file; no dependency majors upstream has not taken.
@@ -170,8 +175,9 @@ Two agents at a time.
    - Tag `fork/0.18.0-rc2` and push the tag; the Fork - Build image workflow
      publishes `ghcr.io/jtn0123/frigate`. Do not deploy it.
    - Update `.claude/grade-report.md` with new grades.
-   - Open the first upstream PRs from commits marked "candidate" in `FORK.md`,
-     starting with the bug fixes found by the new tests.
+   - List the commits marked "candidate" in `FORK.md` that would make good
+     upstream PRs, starting with the bug fixes found by the new tests. Do not
+     open them; the owner decides whether to send any upstream.
    - Remove leftover worktrees: `git worktree remove --force
      /Volumes/512Flash/frigate-wt/shots`, then the merged section worktrees.
 

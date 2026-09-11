@@ -28,3 +28,10 @@ core
 docs/src/components/DockerComposeGenerator/config/devices.ts
 docs/src/components/DockerComposeGenerator/config/hardware.ts
 docs/src/components/DockerComposeGenerator/config/ports.ts
+
+# fork: local secrets and tool caches never belong in git
+.env
+.env.*
+!.env.example
+.venv/
+.ruff_cache/

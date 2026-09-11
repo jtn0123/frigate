@@ -14,8 +14,11 @@ Rules that keep this fork rebasable (see the "polish" branch):
 - Fork-only UI behaviour is gated in `web/src/fork/flags.ts`.
 - Never rename, move, or reformat an upstream file.
 - No dependency majors upstream has not already taken.
-- Upstream first: anything the maintainers would plausibly accept is sent as a
-  PR, and the ledger entry is deleted once it merges.
+- Commits, pushes and pull requests only ever go to `jtn0123/*` repos. Entries
+  marked "candidate" could be offered upstream, but only the owner sends them;
+  once one merges upstream, its ledger entry is deleted.
+- Local guards: `gh repo set-default jtn0123/frigate`, `upstream` has its push
+  URL set to `no_push`, and `.git/hooks/pre-push` rejects any other URL.
 
 Deployed builds are tagged `fork/<version>-<date>` and published by
 `.github/workflows/fork-build.yml` to `ghcr.io/jtn0123/frigate`.
@@ -24,7 +27,7 @@ Deployed builds are tagged `fork/<version>-<date>` and published by
 
 | ID | Area | Files | Why | Upstream PR |
 |----|------|-------|-----|-------------|
-| S0 | scaffold | `FORK.md`, `fork/`, `web/src/fork/flags.ts`, `.github/workflows/fork-*.yml`, `.pre-commit-config.yaml`, `web/.env.example`, `web/tsconfig.e2e.json`, `Makefile` (new targets only) | Fork infrastructure: ledger, flags, CI that builds an amd64 image from this branch, inner-loop targets | n/a (fork-only) |
+| S0 | scaffold | `FORK.md`, `fork/`, `web/src/fork/flags.ts`, `.github/workflows/fork-*.yml`, `.pre-commit-config.yaml`, `web/.env.example`, `web/tsconfig.e2e.json`, `Makefile` (new targets only), `.gitignore` (appended block) | Fork infrastructure: ledger, flags, CI that builds an amd64 image from this branch, inner-loop targets | n/a (fork-only) |
 | G3 | backend | `frigate/api/{auth,camera,debug_replay,event,export,media,record,review}.py`, `pyproject.toml` | Route handlers no longer run peewee queries on the event loop: sync-only handlers are plain `def`, handlers that await auth wrap DB calls in `asyncio.to_thread`; full ruff `ASYNC` family enabled | candidate |
 | G4 | backend | `frigate/api/event.py`, `frigate/test/http_api/test_http_event.py` | `/events/search` pushes ORDER BY and LIMIT into SQL for non-relevance sorts, bounds the candidate set to the vector-search hits, and replaces the non-sargable JSON LEFT JOIN with a windowed review-segment lookup | candidate |
 | E1 | nginx | `docker/main/rootfs/usr/local/nginx/conf/security_headers.conf` (new), `nginx.conf`, `auth_request.conf`, `templates/listen.gotmpl` | Browser security headers (nosniff, SAMEORIGIN, Referrer-Policy, Permissions-Policy, report-only CSP) and HSTS re-added in every location that calls `add_header`, since nginx does not inherit them | candidate |
