@@ -74,6 +74,15 @@ function serverMessage(error: unknown): string | undefined {
   return typeof found === "string" ? found : undefined;
 }
 
+/**
+ * Upstream answers 404 when a preview lookup has nothing yet ("No previews
+ * found." on a new install or a quiet camera), and the pages already render
+ * that as their empty state. It is not a failure, so it gets no toast.
+ */
+function isEmptyResult(id: string, status: number | undefined): boolean {
+  return status === 404 && id.startsWith("preview/");
+}
+
 /** Test hook: forget every cooldown so the next failure toasts again. */
 export function resetReadErrorCooldowns(): void {
   lastShown.clear();
@@ -85,6 +94,12 @@ export function reportReadError(error: unknown, key: unknown): void {
   }
 
   const id = readErrorKeyId(key);
+  const status = (error as { response?: { status?: number } })?.response
+    ?.status;
+  if (isEmptyResult(id, status)) {
+    return;
+  }
+
   const now = Date.now();
   const previous = lastShown.get(id);
   if (previous !== undefined && now - previous < READ_ERROR_COOLDOWN_MS) {
@@ -92,8 +107,6 @@ export function reportReadError(error: unknown, key: unknown): void {
   }
   lastShown.set(id, now);
 
-  const status = (error as { response?: { status?: number } })?.response
-    ?.status;
   const title = status
     ? t("readError.withStatus", { ns: "fork", resource: id, status })
     : t("readError.network", { ns: "fork", resource: id });
