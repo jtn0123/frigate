@@ -16,7 +16,7 @@ this file says what each item is.
 
 | ID | Category | Baseline | Now | Open items |
 |----|----------|----------|-----|------------|
-| A | Architecture & Design | B− | B− | 5 |
+| A | Architecture & Design | B− | B | 4 |
 | B | Backend Quality | B− | B | 2 |
 | C | Frontend Quality | C | C+ | 6 |
 | D | Testing & Reliability | C+ | B− | 7 |
@@ -43,16 +43,18 @@ functions are fully annotated, with 147 `type: ignore` and 784 `Any`; only
 
 ---
 
-## A — Architecture & Design — B−
+## A — Architecture & Design — B
 
-Unchanged grade. The process model (ZMQ IPC `frigate/comms/zmq_proxy.py`,
-shared-memory frames `frigate/app.py`) is still the strongest part. The fork
-added its code in isolated folders (`web/src/{components,hooks,lib,views}/fork/`,
-`web/src/fork/flags.ts`) behind runtime flags, which keeps rebases cheap. Still
-held back by god modules (`web/src/pages/Settings.tsx` 2,373 lines, 36
-frontend files over 800 lines, `frigate/api/event.py`), no service layer, UA
-sniffing for layout (205 `isMobile` / 389 `isDesktop` references), and an
-untyped client/server contract.
+Lifted from B− by A5: generated client types and path-typed reads. The
+process model (ZMQ IPC `frigate/comms/zmq_proxy.py`, shared-memory frames
+`frigate/app.py`) is still the strongest part. The fork added its code in
+isolated folders (`web/src/{components,hooks,lib,views}/fork/`,
+`web/src/fork/flags.ts`) behind runtime flags, which keeps rebases cheap.
+Still held back by god modules (`web/src/pages/Settings.tsx` 2,373 lines, 36
+frontend files over 800 lines, `frigate/api/event.py`), no service layer, and
+UA sniffing for layout (205 `isMobile` / 389 `isDesktop` references).
+
+- ~~A5~~ ✓ done 2026-09-11 — generated `api.gen.ts`, `useApi`/`apiGet` for config/review/events/stats
 
 #### A1 — Introduce a viewport hook and retire user-agent layout branching `[fork]` (= UI5)
 - **Where:** `web/src/App.tsx`, `components/navigation/{Sidebar,Bottombar,NavItem}.tsx`, `hooks/use-navigation.ts`; 594 `isMobile`/`isDesktop` references; partial work on `section/features4` (`wip:` commit)
@@ -61,7 +63,7 @@ untyped client/server contract.
 - **Effort:** M (scoped)
 - **Grade lift:** B− → B− (removes the worst layout bug; the full migration stays out of scope)
 
-#### A5 — Generate frontend API types from the OpenAPI spec `[fork, upstreamable]`
+#### ~~A5~~ ✓ done 2026-09-11 — Generate frontend API types from the OpenAPI spec `[fork, upstreamable]`
 - **Where:** `web/src/types/` (29 files, 2,187 lines, hand-written), `docs/static/frigate-api.yaml` (generated and CI-checked by `generate_api_auth_spec.py --check`)
 - **What's wrong:** The one untyped seam in an otherwise typed app. When an upstream rebase changes a response, the UI compiles fine and breaks at runtime.
 - **Fix:** Generate `web/src/types/fork/api.gen.ts` from the spec (`openapi-typescript`, dev dependency only) in a CI-checked script; migrate the most-used SWR keys (`config`, `review`, `events`, `stats`) to generated types first. Coverage grows as B2 adds response models.

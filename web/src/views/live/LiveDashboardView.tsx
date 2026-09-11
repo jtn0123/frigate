@@ -19,9 +19,7 @@ import { useUserPersistence } from "@/hooks/use-user-persistence";
 import {
   AllGroupsStreamingSettings,
   CameraConfig,
-  FrigateConfig,
 } from "@/types/frigateConfig";
-import { ReviewSegment } from "@/types/review";
 import {
   useCallback,
   useContext,
@@ -36,7 +34,7 @@ import {
   isMobileOnly,
   isTablet,
 } from "react-device-detect";
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import ErrorState from "@/components/fork/ErrorState";
 import DraggableGridLayout from "./DraggableGridLayout";
 import { IoClose } from "react-icons/io5";
@@ -78,7 +76,7 @@ export default function LiveDashboardView({
 }: LiveDashboardViewProps) {
   const { t } = useTranslation(["views/live"]);
 
-  const { data: config } = useSWR<FrigateConfig>("config");
+  const { data: config } = useApi("/config");
 
   // layout
 
@@ -127,15 +125,14 @@ export default function LiveDashboardView({
     data: allEvents,
     mutate: updateEvents,
     error: eventsError,
-  } = useSWR<ReviewSegment[]>([
-    "review",
-    {
+  } = useApi("/review", {
+    params: {
       limit: 10,
       severity: "alert",
       reviewed: 0,
       cameras: alertCameras,
     },
-  ]);
+  });
 
   useEffect(() => {
     if (!eventUpdate) {

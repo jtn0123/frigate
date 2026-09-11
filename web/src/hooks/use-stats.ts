@@ -1,4 +1,3 @@
-import { FrigateConfig } from "@/types/frigateConfig";
 import {
   CameraDetectThreshold,
   CameraFfmpegThreshold,
@@ -6,7 +5,7 @@ import {
 } from "@/types/graph";
 import { FrigateStats, PotentialProblem } from "@/types/stats";
 import { useMemo } from "react";
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import useDeepMemo from "./use-deep-memo";
 import { capitalizeAll, capitalizeFirstLetter } from "@/utils/stringUtil";
 import { isReplayCamera } from "@/utils/cameraUtil";
@@ -19,7 +18,7 @@ import { useTranslation } from "react-i18next";
 
 export default function useStats(stats: FrigateStats | undefined) {
   const { t } = useTranslation(["views/system"]);
-  const { data: config } = useSWR<FrigateConfig>("config");
+  const { data: config } = useApi("/config");
   const isAdmin = useIsAdmin();
 
   // Pass isAdmin as revalidateOnFocus so non-admins never send the jobState snapshot pull
@@ -178,7 +177,7 @@ export default function useStats(stats: FrigateStats | undefined) {
 }
 
 export function useAutoFrigateStats() {
-  const { data: initialStats } = useSWR<FrigateStats>("stats", {
+  const { data: initialStats } = useApi("/stats", {
     revalidateOnFocus: false,
   });
   const latestStats = useFrigateStats();

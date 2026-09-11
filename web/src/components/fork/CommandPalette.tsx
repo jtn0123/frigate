@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import axios from "axios";
 import { toast } from "sonner";
 import { isDesktop } from "react-device-detect";
@@ -53,7 +53,6 @@ import {
   VIEWER_SETTINGS_SECTIONS,
 } from "@/lib/fork/command-items";
 import { isForkEnabled } from "@/fork/flags";
-import { FrigateConfig } from "@/types/frigateConfig";
 import { ReviewSegment } from "@/types/review";
 import { ENV } from "@/env";
 
@@ -93,7 +92,7 @@ function CommandPaletteInner() {
   const { t } = useTranslation(["fork", "common", "views/settings"]);
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
-  const { data: config } = useSWR<FrigateConfig>("config", {
+  const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
   const allowedCameras = useAllowedCameras();

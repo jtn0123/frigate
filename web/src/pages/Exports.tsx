@@ -44,8 +44,6 @@ import {
 } from "@/types/export";
 import OptionAndInputDialog from "@/components/overlay/dialog/OptionAndInputDialog";
 import axios from "axios";
-import { FrigateConfig } from "@/types/frigateConfig";
-
 import {
   MutableRefObject,
   useCallback,
@@ -68,6 +66,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import ErrorState from "@/components/fork/ErrorState";
 import ExportActionGroup from "@/components/filter/ExportActionGroup";
 import ExportFilterGroup from "@/components/filter/ExportFilterGroup";
@@ -1090,7 +1089,7 @@ function CaseView({
   onAddExport,
 }: CaseViewProps) {
   const { t } = useTranslation(["views/exports", "common"]);
-  const { data: config } = useSWR<FrigateConfig>("config");
+  const { data: config } = useApi("/config");
   const timeFormat = useTimeFormat(config);
   const createdAt = useFormattedTimestamp(
     selectedCase.created_at,

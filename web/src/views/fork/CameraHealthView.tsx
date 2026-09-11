@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import { LuSettings } from "react-icons/lu";
 import { FaVideo } from "react-icons/fa";
 import { MdCircle } from "react-icons/md";
@@ -27,7 +27,6 @@ import {
   restartKindCounts,
   type CameraHealthState,
 } from "@/lib/fork/camera-health";
-import { FrigateConfig } from "@/types/frigateConfig";
 import { CameraStats, FrigateStats } from "@/types/stats";
 
 const STATE_DOT: Record<CameraHealthState, string> = {
@@ -55,7 +54,7 @@ function formatFps(value: number | undefined) {
  */
 export default function CameraHealthView() {
   const { t } = useTranslation(["fork", "views/system"]);
-  const { data: config } = useSWR<FrigateConfig>("config", {
+  const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
   const stats = useAutoFrigateStats();

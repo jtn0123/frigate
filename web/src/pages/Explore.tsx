@@ -9,7 +9,6 @@ import AnimatedCircularProgressBar from "@/components/ui/circular-progress-bar";
 import { useApiFilterArgs } from "@/hooks/use-api-filter";
 import { useTimezone } from "@/hooks/use-date-utils";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
-import { FrigateConfig } from "@/types/frigateConfig";
 import { SearchFilter, SearchQuery, SearchResult } from "@/types/search";
 import { ModelState } from "@/types/ws";
 import { formatSecondsToDuration } from "@/utils/dateUtil";
@@ -21,7 +20,7 @@ import { LuCheck, LuExternalLink, LuX } from "react-icons/lu";
 import { TbExclamationCircle } from "react-icons/tb";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import useSWRInfinite from "swr/infinite";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { JINA_EMBEDDING_MODELS } from "@/lib/const";
@@ -47,7 +46,7 @@ export default function Explore() {
 
   const dateLocale = useDateLocale();
 
-  const { data: config } = useSWR<FrigateConfig>("config", {
+  const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
 

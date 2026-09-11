@@ -40,6 +40,7 @@ export default tseslint.config(
       "test-results/**",
       "**/*.d.ts",
       "src/components/ui/**",
+      "src/types/fork/api.gen.ts",
     ],
   },
   js.configs.recommended,
