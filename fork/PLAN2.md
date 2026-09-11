@@ -364,11 +364,26 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
 ### PR-28 · dependency majors — F4, I11 — series, L — **last** (owner OK 2026-09-11)
 - **When:** after the debugging work and the type-safety blocks (PR-01, PR-02,
   PR-04, PR-14); the owner wants majors eventually, just not first.
-- **Order:** (1) toolchain, I11: TypeScript 7, Vite 8, Vitest 5 (also clears
-  the vitest alerts), ESLint 10, jsdom; (2) react-router 7 (Dependabot #7,
-  2 alerts); (3) i18next + react-i18next, date-fns, zod, apexcharts +
-  react-apexcharts, the rest of the runtime list in F4; (4) Tailwind 4 +
-  tailwind-merge + tailwind-scrollbar last. One PR per major or coupled group.
+- **Order and groups** (one PR each; coupled packages move together):
+  1. Toolchain (I11): (a) Vitest 5 + @vitest/coverage-v8 + jsdom +
+     @testing-library/jest-dom, which clears the vitest alerts; (b) ESLint 10 +
+     @eslint/js + eslint-config-prettier + eslint-plugin-react-hooks + globals;
+     (c) Vite 8 + @vitejs/plugin-react-swc (+ the patched
+     vite-plugin-monaco-editor); (d) TypeScript 7 (+ typescript-eslint);
+     (e) Prettier 3.9 + @playwright/test 1.63, which reformats files and needs
+     new browser binaries, so it needs the owner's OK to reformat.
+  2. react-router 7 + react-router-dom (Dependabot #7, 2 alerts).
+  3. Runtime groups: i18next + react-i18next + i18next-http-backend;
+     date-fns 4 + react-day-picker 10; zod 4 + @hookform/resolvers 5;
+     apexcharts + react-apexcharts; konva 10.5 + monaco-yaml 5.5 (small type
+     fixes in PolygonCanvas and ConfigEditor); then singles in one or two PRs:
+     framer-motion, immer, js-yaml, lucide-react, react-dropzone,
+     react-markdown, react-zoom-pan-pinch, copy-to-clipboard,
+     @melloware/react-logviewer (after its immutable pin is fixed), @types/node.
+  4. Fork GitHub Actions: checkout 7, setup-node 7, cache 6,
+     upload-artifact 7, download-artifact 8, setup-python 7.
+  5. Tailwind 4 + tailwind-merge + tailwind-scrollbar + @tailwindcss/forms +
+     prettier-plugin-tailwindcss, last (widest diff).
 - **Each done when:** `make check` and "Fork - Checks" green, before/after
   timings or bundle size in the PR, no behaviour change unless listed.
   **Conflict:** `package-lock.json` on every upstream sync; re-check on each

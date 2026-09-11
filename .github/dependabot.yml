@@ -4,14 +4,23 @@ updates:
     directory: "/"
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: dev
+    # fork: `dev` only mirrors upstream, so PRs there would never reach the
+    # workflows that run. Security fixes land on main as one grouped PR;
+    # version bumps of the fork's own workflows are part of the majors phase
+    # (fork/PLAN2.md PR-28). target-branch unset so this applies to security.
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: "docker"
     directory: "/docker"
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: dev
+    # fork: base images arrive by rebasing onto upstream; no PRs of any kind.
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
   - package-ecosystem: "pip"
     directory: "/docker/main"
     schedule:
