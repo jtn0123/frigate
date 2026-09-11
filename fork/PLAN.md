@@ -70,7 +70,7 @@ parallel; each needs its own `E2E_PORT`.
 - [ ] **2a. features2** — UI7 settings navigation, UI10 bulk actions with undo.
   `section/features2` has one `wip:` commit: `git reset --soft HEAD~1`, finish,
   one commit each (`E2E_PORT=4186`). *Pair with 2b.*
-- [ ] **2b. ops** — I6 upstream-sync bot, G7 bundle budget, I5 typed env,
+- [x] **2b. ops** — I6 upstream-sync bot, G7 bundle budget, I5 typed env,
   D8 Python coverage.
 - [ ] **3a. features3** — UI8 timeline scrubber, UI9 shared event header,
   UI11 clip sharing. Branch exists, no work yet (`E2E_PORT=4187`).
@@ -370,6 +370,8 @@ tests OK at the last full run:
   UI6 command palette, UI12 camera health, UI14 notification inbox.
 - Security: E4 CodeQL triage (dismissals, no fork-code changes), E5 patched
   python-multipart and the web lockfile (vitest 3.2.7, not 5).
+- Ops: I5 typed env, G7 eager gzip budget (353 kB + 5%), I6 upstream-sync
+  bot, D8 Python coverage XML (report-only).
 - Extras: I3 mypy ratchet, I4 ruff S rules, E3 safe_join thumbnails, C8 dev
   sandbox out of prod, G2 SWR policy, T1 config editor Cmd/Ctrl+S, S0 fork
   scaffold, CI secret scanning and repo safety setup.
