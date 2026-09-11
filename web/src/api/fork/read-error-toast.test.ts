@@ -32,6 +32,18 @@ describe("reportReadError", () => {
     expect(toastError).not.toHaveBeenCalled();
   });
 
+  it("does not toast a 404 when Explore has no matching review item", () => {
+    reportReadError(
+      httpError(404, "Review item not found"),
+      "review/event/1789140562.067691-d0isz7",
+    );
+    reportReadError(
+      httpError(404, "Review item not found"),
+      '@"review/event/abc123",',
+    );
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
   it("still toasts other failures of the preview endpoints", () => {
     reportReadError(
       httpError(500, "boom"),
