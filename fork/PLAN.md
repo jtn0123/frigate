@@ -84,13 +84,14 @@ parallel; each needs its own `E2E_PORT`.
 
 - [ ] **5a. settings-save** — F (report C3), after features2. *Pair with 5b.*
 - [ ] **5b. camera-alerts** — I, after features1.
-- [ ] **6. visual** — B screenshot tests, after all UI sections so baselines
+- [ ] **6. storage-forecast** — promoted from the backlog by the owner.
+- [ ] **7. visual** — B screenshot tests, after all UI sections so baselines
   do not churn.
-- [ ] **7. a11y-ratchet** — G, last before closing (touches many files).
+- [ ] **8. a11y-ratchet** — G, last before closing (touches many files).
 
 ### Phase 3 — closing pass
 
-- [ ] **8. closing** — see **Closing pass** below.
+- [ ] **9. closing** — see **Closing pass** below.
 
 ## Section specs
 
@@ -207,7 +208,28 @@ notification when a tab is open, respecting quiet hours. Recovery clears it.
 Flag `cameraAlerts`. Vitest for debounce and recovery; e2e flipping the
 mocked stats websocket.
 
-### 6. visual — B screenshot tests
+### 6. storage-forecast
+
+Answer "how long until the disk fills, and what retention can I afford?"
+
+- Backend (small, fork-only): `frigate/api/fork_storage.py` with
+  `GET /api/fork/storage/daily?days=30` returning bytes recorded per camera per
+  day, from `SUM(Recordings.segment_size)` (MB) grouped by local day of
+  `start_time`. Admin-only via the E2 per-route auth marker, same as the
+  existing `/recordings/storage`. Tests in the thin image.
+- Model: with retention, usage settles at about daily bytes × retain days per
+  camera (continuous vs. alert/detection retention differ; read them from the
+  config). Show current usage, projected steady state, free space, and either
+  "fills in N days" or "headroom for N more days of retention".
+- UI: a card on the System storage view (`web/src/views/system/StorageMetrics.tsx`
+  is the host; keep that hunk small, card in `web/src/components/fork/`), a
+  30-day per-camera stacked bar using the existing apexcharts vendor chunk, and
+  a retention simulator: pick days per camera, see projected size. Flag
+  `storageForecast`. Handle less than 3 days of history with a clear message.
+- Vitest for the projection maths (steady state, growth, empty data); e2e with
+  mocked endpoint, desktop and `@mobile`. Dogfood in the demo stack.
+
+### 7. visual — B screenshot tests
 
 Playwright `toHaveScreenshot` in a separate `visual` project: about 8 views
 (Live, Review, Explore, System health, Settings, error boundary, command
@@ -219,7 +241,7 @@ snapshot folder as an artifact; commit it from there. The `visual` project runs
 in CI; locally on macOS it runs only when `E2E_VISUAL=1` inside the matching
 `mcr.microsoft.com/playwright` container (same version as `@playwright/test`).
 
-### 7. a11y-ratchet — G
+### 8. a11y-ratchet — G
 
 83 jsx-a11y warnings remain (label-has-for 24, no-noninteractive-tabindex 13,
 no-static-element-interactions 11, control-has-associated-label 9,
@@ -230,7 +252,7 @@ media-has-caption 3, aria-role 3, no-noninteractive-element-to-interactive-role
 cannot be fixed without a rewrite, leave that rule at `warn` and list the
 sites under **Follow-ups**.
 
-### 8. Closing pass
+### 9. Closing pass
 
 - Rebase `polish` onto the newest upstream tag (rc2 or later) and re-run every
   gate.
@@ -277,8 +299,6 @@ Rough size S/M/L. Promote by moving an item into the queue.
 - **Morning digest** (S) — card at the top of Review: overnight counts per
   camera and label with jump links, from the existing review summary API.
 - **Activity heatmap** (M) — per-camera hour × day grid from review summary.
-- **Storage forecast** (S) — System page: days of retention left at the current
-  growth rate, per-camera share, from the recordings storage API.
 - **Setup health checklist** (S) — auth on, admin password changed, HTTPS
   (needed for web push), notifications, retention, detector not CPU; each links
   into Settings.
@@ -306,6 +326,104 @@ Rough size S/M/L. Promote by moving an item into the queue.
 - Unscheduled report items: A2 (split `ws.ts`), A3, A4, B2, B4, D4, F4, F5,
   H4, C4, C6, C7. C4/C6 are rewrites; only local splits when a feature touches
   the file.
+
+### Backlog — more UI/UX (brainstorm 2026-09-10)
+
+"Verify" means 0.18 may already have part of it; check before building.
+
+- **Last-event chip on Live tiles** (S) — "Person · 2 min ago" on each tile,
+  tap to jump to that review item.
+- **Tile quick actions** (S) — long-press / right-click a tile: snapshot,
+  mute, detect on/off, PTZ presets.
+- **Skip-idle playback** (M) — recordings player jumps over stretches with no
+  motion or objects; remembers playback speed per device.
+- **Swipe to review on mobile** (S) — swipe a Review card to mark it reviewed,
+  with the UI10 undo toast.
+- **Cross-camera stories** (L) — group consecutive alerts of the same label
+  across cameras within a short window into one card (driveway → porch).
+- **Calendar with activity dots** (S) — date picker shows which days had
+  alerts and how many.
+- **Timeline hover previews** (M, verify) — thumbnail preview while scrubbing.
+- **Connection banner** (S, verify) — clear "reconnecting…" banner with retry
+  countdown when the websocket drops, instead of stale data.
+- **Recent and suggested searches** (S) — dropdown in Explore search.
+- **Guided empty states** (S) — "No alerts today; 6 cameras watching" with
+  links, instead of blank panels.
+- **Undo for destructive actions** (M) — deleting clips and exports gets the
+  same undo toast as UI10.
+- **Performance advisor** (M) — System page panel that reads config + stats and
+  flags fixable costs: detect resolution or fps higher than needed, no hwaccel,
+  more than one connection per camera without go2rtc restream, Birdseye on but
+  unused, decoder restarts (the Tapo case). Each tip links to the setting and
+  the docs. Client-side rules only. Pairs with the storage forecast.
+- **Retention simulator on its own** (S) — if the storage forecast ships, also
+  offer it inside camera record settings.
+
+### Backlog — performance, all layers (brainstorm 2026-09-10)
+
+Measured or checked in code on 2026-09-10 unless marked "verify".
+
+Frontend load:
+- **Settings chunk diet** (M) — `ConfigSectionTemplate` is 246 kB gzip (rjsf +
+  ajv8 compiling schemas at runtime). Precompile validators at build time (ajv
+  standalone) or load the validator on first validation. Settings opens much
+  faster.
+- **Immutable hashed assets** (S) — `/assets/` sends `expires 1y` +
+  `Cache-Control: public` but not `immutable`, so reloads still revalidate
+  every chunk. Small nginx hunk.
+- **Precompressed assets** (S) — nginx gzips on the fly at level 6; emit `.gz`
+  at build and turn on `gzip_static` for `/assets/` (brotli only if the image's
+  nginx has the module; verify).
+- **Keep heavy vendors off the critical path** (S, verify) — monaco 1 MB gzip,
+  hls.js 164 kB, charts 140 kB, konva 99 kB are split out; confirm none is
+  `modulepreload`-ed from `index.html` and hls.js never loads where native HLS
+  works.
+- **Route prefetch on hover/idle** (S) — prefetch the Review/Explore chunks
+  when the nav item is hovered or the browser is idle.
+
+Frontend runtime:
+- **Lazy, async images** (S) — only 9 of 33 `<img>` use `loading="lazy"` /
+  `decoding="async"`.
+- **Virtualised grids** (M) — nothing in the app virtualises today (already in
+  the backlog above; it is the biggest runtime win for long Review/Explore
+  lists).
+- **Stream bandwidth audit** (M) — measure bytes/s with 8 cameras on the Live
+  dashboard in the demo stack: grid tiles on sub streams, offscreen and
+  hidden-tab tiles paused (players already listen for visibility; verify every
+  path).
+- **Re-render audit** (S) — React Profiler pass in the demo stack for
+  components that re-render on every stats or camera_activity message (the
+  websocket store already uses per-topic `useSyncExternalStore`, so look at
+  consumers).
+- **Web-vitals budget** (M) — record LCP/INP/CLS for key pages in the demo
+  stack (Lighthouse CI or `web-vitals`), and fail CI on regressions like the
+  bundle budget does.
+
+Backend/API:
+- **Profile the page-load endpoints** (M) — py-spy against the demo stack while
+  loading Live, Review, Explore; fix the slowest five.
+- **ETag / 304 for summary endpoints** (M) — review and recording summaries are
+  recomputed per request; key an ETag on the newest row so repeat loads are
+  304s.
+- **Sized, WebP thumbnails** (M) — serve thumbnails at the width the grid needs
+  and as WebP where supported; grids download far less.
+- **SQLite tuning** (S) — WAL, `synchronous=NORMAL` and a 512 MB cache are
+  already set; add `mmap_size` and a periodic `PRAGMA optimize`, and check the
+  indexes behind review and timeline queries (pairs with report B4).
+- **Faster JSON** (S, verify) — `ORJSONResponse` for large list endpoints if
+  orjson is already in the image.
+
+Build and CI:
+- **Overlay image for fast builds** (M) — the full image build takes about 40
+  minutes cold. For branch/test images, layer `frigate/`, `migrations/` and
+  `web/dist` over the upstream image (like `fork/Dockerfile.test`) in a few
+  minutes; keep the full build for `fork/*` release tags, since F2/F3 change
+  Docker dependencies.
+- **Shard e2e in CI** (S) — split Playwright across 2–3 runners.
+- **Cache the thin test image** (S) — push `frigate-fork-test` to GHCR keyed on
+  its inputs instead of rebuilding each run.
+- **Changed-only local e2e** (S) — `make e2e-changed` using Playwright
+  `--only-changed` for the inner loop.
 
 ## Workflow per section
 
