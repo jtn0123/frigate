@@ -9,8 +9,8 @@
 `FORK.md` and `fork/PLAN.md` refer to them. Done items are struck through
 with ✓ and kept as one line. New items take the next free number in their
 category. Product features live in the **UX feature track** (UI1…) at the
-end. `fork/PLAN.md` decides the order work happens in; this file says what
-each item is.
+end. `fork/PLAN.md` and then `fork/PLAN2.md` decide the order work happens in;
+this file says what each item is.
 
 ## Summary
 
@@ -18,14 +18,14 @@ each item is.
 |----|----------|----------|-----|------------|
 | A | Architecture & Design | B− | B− | 5 |
 | B | Backend Quality | B− | B | 2 |
-| C | Frontend Quality | C | C+ | 6 |
-| D | Testing & Reliability | C+ | B− | 6 |
+| C | Frontend Quality | C | C+ | 7 |
+| D | Testing & Reliability | C+ | B− | 7 |
 | E | Security | B+ | B+ | 3 |
 | F | Dependencies & Tech Currency | C+ | B− | 2 |
 | G | Performance & Scalability | C+ | B− | 6 |
 | H | Documentation & Onboarding | C | C+ | 3 |
 | I | Developer Experience & Tooling | C+ | B | 6 |
-| **Overall** | | **B−** | **B** | **39** + UX track |
+| **Overall** | | **B−** | **B** | **41** + UX track |
 
 **Top 5 highest-leverage open fixes:** E5, E4, I6, D2, G9
 
@@ -155,6 +155,13 @@ untested.
 - **Effort:** S
 - **Grade lift:** C+ → C+ (type-safety hygiene; pairs with A5)
 
+#### C11 — Fix floating and misused promises `[fork, upstreamable]`
+- **Where:** `web/src`: 136 `@typescript-eslint/no-floating-promises` in 62 files, 127 `no-misused-promises` in 72 files (hotspots `views/settings/AuthenticationView.tsx` 10, `components/card/ReviewCard.tsx` 9, `components/settings/wizard/Step2ProbeOrSnapshot.tsx` 9, `pages/Events.tsx` 9); measured 2026-09-10 with the type-aware rules, which the lint config does not enable
+- **What's wrong:** Rejected promises vanish and async handlers passed to `onClick` and similar have unhandled failures; users see "the button did nothing".
+- **Fix:** Await with error handling (existing toasts), `void` only for intended fire-and-forget with a comment, wrap async handlers; then set both rules to `error` for all of `web/src` (see `fork/PLAN2.md` PR-04).
+- **Effort:** M
+- **Grade lift:** C+ → B− (with C9)
+
 #### C4 — Kill four-level prop drilling in Events → EventView → DetectionReview → MotionReview `[fork]` — backlog
 - **Where:** `web/src/pages/Events.tsx` → `views/events/EventView.tsx` (1,767 lines); `SearchDetailDialog.tsx` (1,910)
 - **What's wrong:** Props pass through four levels with renames.
@@ -232,6 +239,13 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Fix:** Record responses from the I7 demo stack into fixtures with a script; diff on rebase.
 - **Effort:** S
 - **Grade lift:** B− → B− (fidelity)
+
+#### D9 — Validate e2e mock fixtures against the API spec `[FE] [fork]`
+- **Where:** `web/e2e/fixtures/` (hand-built JSON payloads), `docs/static/frigate-api.yaml`
+- **What's wrong:** Mocks can drift from the real API after an upstream rebase and the e2e suite keeps passing against a shape the server no longer sends.
+- **Fix:** Validate every fixture against the spec's response schemas in the e2e setup (ships with A5 in `fork/PLAN2.md` PR-01).
+- **Effort:** S
+- **Grade lift:** B− → B− (test fidelity)
 
 ---
 
@@ -488,7 +502,7 @@ are in `fork/PLAN.md`. "Backlog" items wait for the owner to promote them.
 | UI26 | Skip-idle playback + remembered speed | M | backlog |
 | UI27 | Swipe to review on mobile | S | backlog |
 | UI28 | Activity heatmap (hour × day) | M | backlog |
-| UI29 | Calendar with activity dots | S | backlog |
+| UI29 | Date-range filter on Exports (0.18 already has the calendar with activity markers on Review and Explore) | S | backlog — PLAN2 PR-17 |
 | UI30 | Connection banner on websocket loss (verify 0.18 first) | S | backlog |
 | UI31 | Guided empty states | S | backlog |
 | UI32 | Undo for destructive actions (clips, exports) | M | backlog |
