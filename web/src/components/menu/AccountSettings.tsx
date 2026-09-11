@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   Tooltip,
   TooltipContent,
@@ -159,7 +160,7 @@ export default function AccountSettings({ className }: AccountSettingsProps) {
       </Content>
       <SetPasswordDialog
         show={passwordDialogOpen}
-        onSave={handlePasswordSave}
+        onSave={wrapAsync(handlePasswordSave)}
         onCancel={() => {
           setPasswordDialogOpen(false);
           setPasswordError(null);

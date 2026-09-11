@@ -22,7 +22,7 @@ export function usePersistence<S>(
         await setData(key, value);
       }
 
-      update();
+      void update();
     },
     [key],
   );
@@ -43,7 +43,7 @@ export function usePersistence<S>(
       setLoaded(true);
     }
 
-    load();
+    void load();
   }, [key, defaultValue, setValue]);
 
   return [value, setValue, loaded, deleteValue];

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import StepIndicator from "../indicators/StepIndicator";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -146,7 +147,7 @@ export default function ClassificationModelWizardDialog({
       open={open}
       onOpenChange={(open) => {
         if (!open) {
-          handleCancel();
+          void handleCancel();
         }
       }}
     >
@@ -187,7 +188,7 @@ export default function ClassificationModelWizardDialog({
               initialData={wizardState.step1Data}
               defaultModelType={defaultModelType}
               onNext={handleStep1Next}
-              onCancel={handleCancel}
+              onCancel={wrapAsync(handleCancel)}
             />
           )}
           {wizardState.currentStep === 1 &&

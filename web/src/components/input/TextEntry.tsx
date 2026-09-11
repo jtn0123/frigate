@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -68,7 +69,10 @@ export default function TextEntry({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form
+        onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+        className="space-y-4"
+      >
         <FormField
           control={form.control}
           name="text"

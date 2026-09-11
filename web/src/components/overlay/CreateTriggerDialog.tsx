@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import useSWR from "swr";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -247,7 +248,7 @@ export default function CreateTriggerDialog({
 
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
             className="space-y-5 pt-4"
           >
             <NameAndIdFields

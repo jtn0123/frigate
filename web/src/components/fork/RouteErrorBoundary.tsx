@@ -10,6 +10,7 @@
  * are rendered directly and upstream behaviour is unchanged.
  */
 
+import { wrapAsync } from "@/utils/promise";
 import {
   Component,
   Suspense,
@@ -158,7 +159,7 @@ function ErrorPanel({ error, info, variant }: ErrorPanelProps) {
           <LuRotateCw className="mr-2 size-4" />
           {t("errorBoundary.reload")}
         </Button>
-        <Button size="sm" variant="outline" onClick={copyDetails}>
+        <Button size="sm" variant="outline" onClick={wrapAsync(copyDetails)}>
           <LuCopy className={cn("mr-2 size-4", copied && "text-success")} />
           {copied ? t("errorBoundary.copied") : t("errorBoundary.copyDetails")}
         </Button>

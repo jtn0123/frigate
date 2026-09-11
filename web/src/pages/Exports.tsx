@@ -1,5 +1,6 @@
 import { baseUrl } from "@/api/baseUrl";
 import { useJobStatus } from "@/api/ws";
+import { wrapAsync } from "@/utils/promise";
 import {
   ActiveExportJobCard,
   CaseCard,
@@ -155,12 +156,12 @@ function Exports() {
     );
 
     if (removedJob) {
-      updateExports();
-      updateCases();
+      void updateExports();
+      void updateCases();
     }
 
     if (previousIds.size > 0 && currentIds.size === 0) {
-      updateActiveJobs([], false);
+      void updateActiveJobs([], false);
     }
     previousActiveJobIdsRef.current = currentIds;
   }, [activeExportJobs, updateExports, updateCases, updateActiveJobs]);
@@ -245,8 +246,8 @@ function Exports() {
   );
 
   const mutate = useCallback(() => {
-    updateExports();
-    updateCases();
+    void updateExports();
+    void updateCases();
   }, [updateExports, updateCases]);
 
   // Deletes one or more exports and keeps the UI in sync. SWR's default
@@ -859,7 +860,10 @@ function Exports() {
       </div>
 
       {exportsError ? (
-        <ErrorState error={exportsError} onRetry={() => updateExports()} />
+        <ErrorState
+          error={exportsError}
+          onRetry={wrapAsync(() => updateExports())}
+        />
       ) : selectedCase ? (
         <CaseView
           contentRef={contentRef}
@@ -876,7 +880,7 @@ function Exports() {
           renameClip={onHandleRename}
           setDeleteClip={setDeleteClip}
           onAssignToCase={setExportToAssign}
-          onRemoveFromCase={handleRemoveExportFromCase}
+          onRemoveFromCase={wrapAsync(handleRemoveExportFromCase)}
           onAddExport={() => setCaseForAddExport(selectedCase)}
         />
       ) : (

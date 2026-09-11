@@ -3,6 +3,7 @@ import axios from "axios";
 import { Button, buttonVariants } from "../ui/button";
 import { isDesktop } from "react-device-detect";
 import { HiTrash } from "react-icons/hi";
+import { wrapAsync } from "@/utils/promise";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,7 +74,7 @@ export default function SearchActionGroup({
 
   const handleDelete = useCallback(() => {
     if (bypassDialog) {
-      onDelete();
+      void onDelete();
     } else {
       setDeleteDialogOpen(true);
     }
@@ -105,7 +106,7 @@ export default function SearchActionGroup({
             </AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: "destructive" })}
-              onClick={onDelete}
+              onClick={wrapAsync(onDelete)}
             >
               {t("button.delete", { ns: "common" })}
             </AlertDialogAction>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -1314,7 +1315,7 @@ export function ExportContent({
             aria-label={t("export.selectOrExport")}
             variant="select"
             disabled={isStartingExport}
-            onClick={async () => {
+            onClick={wrapAsync(async () => {
               if (selectedOption == "timeline") {
                 setRange(
                   buildRangeAroundCurrentTime(TIMELINE_SELECTION_SECONDS),
@@ -1326,7 +1327,7 @@ export function ExportContent({
                   setSelectedOption("1");
                 }
               }
-            }}
+            })}
           >
             {isStartingExport
               ? t("export.queueing")

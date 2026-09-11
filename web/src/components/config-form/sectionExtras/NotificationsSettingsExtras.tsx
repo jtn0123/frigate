@@ -394,7 +394,7 @@ export default function NotificationsSettingsExtras({
         "registration",
       );
 
-      workerRegistration.pushManager
+      void workerRegistration.pushManager
         .subscribe({
           userVisibleOnly: true,
           applicationServerKey: publicKey,
@@ -408,8 +408,8 @@ export default function NotificationsSettingsExtras({
               toast.error(t("notification.toast.error.registerFailed"), {
                 position: "top-center",
               });
-              pushSubscription.unsubscribe();
-              workerRegistration.unregister();
+              void pushSubscription.unsubscribe();
+              void workerRegistration.unregister();
               setRegistration(null);
             });
           toast.success(t("notification.toast.success.registered"), {
@@ -651,35 +651,37 @@ export default function NotificationsSettingsExtras({
                   disabled={!shouldFetchPubKey || publicKey == undefined}
                   onClick={() => {
                     if (registration == null) {
-                      Notification.requestPermission().then((permission) => {
-                        if (permission === "granted") {
-                          navigator.serviceWorker
-                            .register(NOTIFICATION_SERVICE_WORKER, {
-                              updateViaCache: "none",
-                            })
-                            .then((workerRegistration) => {
-                              setRegistration(workerRegistration);
+                      void Notification.requestPermission().then(
+                        (permission) => {
+                          if (permission === "granted") {
+                            void navigator.serviceWorker
+                              .register(NOTIFICATION_SERVICE_WORKER, {
+                                updateViaCache: "none",
+                              })
+                              .then((workerRegistration) => {
+                                setRegistration(workerRegistration);
 
-                              if (workerRegistration.active) {
-                                subscribeToNotifications(workerRegistration);
-                              } else {
-                                setTimeout(
-                                  () =>
-                                    subscribeToNotifications(
-                                      workerRegistration,
-                                    ),
-                                  1000,
-                                );
-                              }
-                            });
-                        }
-                      });
+                                if (workerRegistration.active) {
+                                  subscribeToNotifications(workerRegistration);
+                                } else {
+                                  setTimeout(
+                                    () =>
+                                      subscribeToNotifications(
+                                        workerRegistration,
+                                      ),
+                                    1000,
+                                  );
+                                }
+                              });
+                          }
+                        },
+                      );
                     } else {
-                      registration.pushManager
+                      void registration.pushManager
                         .getSubscription()
                         .then((pushSubscription) => {
-                          pushSubscription?.unsubscribe();
-                          registration.unregister();
+                          void pushSubscription?.unsubscribe();
+                          void registration.unregister();
                           setRegistration(null);
                           removeMessage(
                             "notification_settings",

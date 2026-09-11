@@ -69,7 +69,7 @@ export function useDateLocale(): Locale {
       }
     };
 
-    loadLocale();
+    void loadLocale();
   }, [i18n.language]);
 
   return locale;

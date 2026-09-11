@@ -10,6 +10,7 @@ import axios from "axios";
 import i18n from "i18next";
 import { toast } from "sonner";
 import { isForkEnabled } from "@/fork/flags";
+import { wrapAsync } from "@/utils/promise";
 
 export const UNDO_TOAST_MS = 8000;
 
@@ -34,7 +35,7 @@ export async function markReviewedWithUndo(
     duration: UNDO_TOAST_MS,
     action: {
       label: i18n.t("button.undo", { ns: "common" }),
-      onClick: async () => {
+      onClick: wrapAsync(async () => {
         try {
           await axios.post("reviews/viewed", { ids, reviewed: !reviewed });
           toast.success(i18n.t("bulk.undone", { ns: "fork" }), {
@@ -46,7 +47,7 @@ export async function markReviewedWithUndo(
           });
         }
         onReverted();
-      },
+      }),
     },
   });
 }

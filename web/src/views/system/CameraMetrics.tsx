@@ -95,7 +95,7 @@ export default function CameraMetrics({
 
   useEffect(() => {
     if (isActive && statsHistory.length > 0) {
-      refreshStats().then((freshStats) => {
+      void refreshStats().then((freshStats) => {
         if (freshStats && freshStats.length > 0) {
           setStatsHistory(freshStats);
         }

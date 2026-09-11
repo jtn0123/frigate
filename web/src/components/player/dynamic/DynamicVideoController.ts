@@ -63,7 +63,7 @@ export class DynamicVideoController {
   }
 
   play() {
-    this.playerController.play();
+    void this.playerController.play();
   }
 
   pause() {
@@ -99,7 +99,7 @@ export class DynamicVideoController {
       this.playerController.currentTime = seekSeconds;
 
       if (play) {
-        this.waitAndPlay();
+        void this.waitAndPlay();
       } else {
         this.playerController.pause();
       }
@@ -115,7 +115,7 @@ export class DynamicVideoController {
       const onSeekedHandler = () => {
         clearTimeout(fallback);
         this.playerController.removeEventListener("seeked", onSeekedHandler);
-        playWithTemporaryMuteFallback(this.playerController);
+        void playWithTemporaryMuteFallback(this.playerController);
         resolve(undefined);
       };
 

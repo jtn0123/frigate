@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
+import { wrapAsync } from "@/utils/promise";
 import {
   useUserPersistence,
   deleteUserNamespacedKey,
@@ -116,29 +117,36 @@ export default function UiSettingsView() {
       return [];
     }
 
-    Object.entries(config.camera_groups).forEach(async ([cameraName]) => {
-      await deleteUserNamespacedKey(`${cameraName}-draggable-layout`, username)
-        .then(() => {
-          toast.success(
-            t("general.toast.success.clearStoredLayout", { cameraName }),
-            {
-              position: "top-center",
-            },
-          );
-        })
-        .catch((error) => {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.response?.data?.detail ||
-            "Unknown error";
-          toast.error(
-            t("general.toast.error.clearStoredLayoutFailed", { errorMessage }),
-            {
-              position: "top-center",
-            },
-          );
-        });
-    });
+    Object.entries(config.camera_groups).forEach(
+      wrapAsync(async ([cameraName]) => {
+        await deleteUserNamespacedKey(
+          `${cameraName}-draggable-layout`,
+          username,
+        )
+          .then(() => {
+            toast.success(
+              t("general.toast.success.clearStoredLayout", { cameraName }),
+              {
+                position: "top-center",
+              },
+            );
+          })
+          .catch((error) => {
+            const errorMessage =
+              error.response?.data?.message ||
+              error.response?.data?.detail ||
+              "Unknown error";
+            toast.error(
+              t("general.toast.error.clearStoredLayoutFailed", {
+                errorMessage,
+              }),
+              {
+                position: "top-center",
+              },
+            );
+          });
+      }),
+    );
   }, [config, t, username]);
 
   const clearStreamingSettings = useCallback(async () => {
@@ -291,7 +299,7 @@ export default function UiSettingsView() {
                     id="camera-group-streaming-clear"
                     aria-label={t("general.cameraGroupStreaming.clearAll")}
                     className="w-full md:w-auto"
-                    onClick={clearStreamingSettings}
+                    onClick={wrapAsync(clearStreamingSettings)}
                   >
                     {t("general.cameraGroupStreaming.clearAll")}
                   </Button>

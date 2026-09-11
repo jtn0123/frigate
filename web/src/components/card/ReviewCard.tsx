@@ -12,6 +12,7 @@ import ImageLoadingIndicator from "../indicators/ImageLoadingIndicator";
 import { FaCompactDisc } from "react-icons/fa";
 import { FaCircleCheck } from "react-icons/fa6";
 import { HiTrash } from "react-icons/hi";
+import { wrapAsync } from "@/utils/promise";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -126,7 +127,7 @@ function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
 
   const handleDelete = useCallback(() => {
     if (bypassDialogRef.current) {
-      onDelete();
+      void onDelete();
     } else {
       setDeleteDialogOpen(true);
     }
@@ -286,7 +287,7 @@ function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
               </AlertDialogCancel>
               <AlertDialogAction
                 className={buttonVariants({ variant: "destructive" })}
-                onClick={onDelete}
+                onClick={wrapAsync(onDelete)}
               >
                 {t("button.delete", { ns: "common" })}
               </AlertDialogAction>
@@ -296,7 +297,7 @@ function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
         <ContextMenu key={event.id}>
           <ContextMenuTrigger asChild>{content}</ContextMenuTrigger>
           <ContextMenuContent>
-            <ContextMenuItem onClick={onExport}>
+            <ContextMenuItem onClick={wrapAsync(onExport)}>
               <div className="flex w-full cursor-pointer items-center justify-start gap-2 p-2">
                 <FaCompactDisc className="text-secondary-foreground" />
                 <div className="text-primary">
@@ -305,7 +306,7 @@ function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
               </div>
             </ContextMenuItem>
             {!event.has_been_reviewed && (
-              <ContextMenuItem onClick={onMarkAsReviewed}>
+              <ContextMenuItem onClick={wrapAsync(onMarkAsReviewed)}>
                 <div className="flex w-full cursor-pointer items-center justify-start gap-2 p-2">
                   <FaCircleCheck className="text-secondary-foreground" />
                   <div className="text-primary">
@@ -353,7 +354,7 @@ function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
             </AlertDialogCancel>
             <AlertDialogAction
               className={buttonVariants({ variant: "destructive" })}
-              onClick={onDelete}
+              onClick={wrapAsync(onDelete)}
             >
               {t("button.delete", { ns: "common" })}
             </AlertDialogAction>
@@ -368,10 +369,10 @@ function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
           </DrawerTitle>
           <div
             className="flex w-full items-center justify-start gap-2 p-2"
-            onClick={onExport}
+            onClick={wrapAsync(onExport)}
             role="button"
             tabIndex={0}
-            onKeyDown={onActivate(onExport)}
+            onKeyDown={onActivate(wrapAsync(onExport))}
           >
             <FaCompactDisc className="text-secondary-foreground" />
             <div className="text-primary">{t("recording.button.export")}</div>
@@ -379,10 +380,10 @@ function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
           {!event.has_been_reviewed && (
             <div
               className="flex w-full items-center justify-start gap-2 p-2"
-              onClick={onMarkAsReviewed}
+              onClick={wrapAsync(onMarkAsReviewed)}
               role="button"
               tabIndex={0}
-              onKeyDown={onActivate(onMarkAsReviewed)}
+              onKeyDown={onActivate(wrapAsync(onMarkAsReviewed))}
             >
               <FaCircleCheck className="text-secondary-foreground" />
               <div className="text-primary">

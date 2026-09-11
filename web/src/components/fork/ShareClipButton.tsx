@@ -7,6 +7,7 @@ import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { LuShare2 } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -126,7 +127,7 @@ export default function ShareClipButton({
                   aria-label={t("clipShare.link")}
                   data-testid="share-clip-url"
                 />
-                <Button type="button" onClick={copyLink}>
+                <Button type="button" onClick={wrapAsync(copyLink)}>
                   {t("clipShare.copy")}
                 </Button>
               </div>

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Trans } from "react-i18next";
 import axios from "axios";
 import { toast } from "sonner";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -178,7 +179,7 @@ export default function DeleteCameraDialog({
               </Button>
               <Button
                 variant="destructive"
-                onClick={handleConfirmDelete}
+                onClick={wrapAsync(handleConfirmDelete)}
                 disabled={isDeleting}
               >
                 {isDeleting ? (

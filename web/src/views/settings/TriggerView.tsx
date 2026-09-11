@@ -138,7 +138,7 @@ export default function TriggerView({
   useEffect(() => {
     if (!triggers_status_ws) return;
 
-    mutate();
+    void mutate();
 
     setTriggeredTrigger((prev) => {
       const current = prev || [];

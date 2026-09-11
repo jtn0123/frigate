@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -81,7 +82,7 @@ export default function GPUInfoDialog({
             <Button
               aria-label={t("general.hardwareInfo.gpuInfo.copyInfo.label")}
               variant="select"
-              onClick={() => onCopyInfo()}
+              onClick={wrapAsync(() => onCopyInfo())}
             >
               {t("button.copy", { ns: "common" })}
             </Button>
@@ -140,7 +141,7 @@ export default function GPUInfoDialog({
             <Button
               aria-label={t("general.hardwareInfo.gpuInfo.copyInfo.label")}
               variant="select"
-              onClick={() => onCopyInfo()}
+              onClick={wrapAsync(() => onCopyInfo())}
             >
               {t("button.copy", { ns: "common" })}
             </Button>

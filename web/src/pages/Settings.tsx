@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1123,7 +1124,7 @@ export default function Settings() {
     // pending entries so consumers don't observe a moment where pending is
     // empty AND config is still stale
     await mutate("config");
-    mutate("config/raw_paths");
+    void mutate("config/raw_paths");
 
     if (keysToClear.length > 0) {
       setPendingDataBySection((prev) => {
@@ -1231,7 +1232,7 @@ export default function Settings() {
   const handleDialog = useCallback(
     (save: boolean) => {
       if (unsavedChanges && save) {
-        handleSaveAll();
+        void handleSaveAll();
       }
       setConfirmationDialogOpen(false);
       setUnsavedChanges(false);
@@ -1717,7 +1718,7 @@ export default function Settings() {
     pendingDataBySection,
     sectionStatusByKey,
     pendingKeyToMenuKey,
-    saveAll: handleSaveAll,
+    saveAll: wrapAsync(handleSaveAll),
     saveDisabled:
       isSavingAll || isAnySectionSaving || hasPendingValidationErrors,
   });
@@ -1933,9 +1934,9 @@ export default function Settings() {
                     pendingDataBySection={pendingDataBySection}
                     onPendingDataChange={handlePendingDataChange}
                     profileState={profileState}
-                    onDeleteProfileSection={
-                      handleDeleteProfileForCurrentSection
-                    }
+                    onDeleteProfileSection={wrapAsync(
+                      handleDeleteProfileForCurrentSection,
+                    )}
                     profilesUIEnabled={profilesUIEnabled}
                     setProfilesUIEnabled={setProfilesUIEnabled}
                     isSavingAll={isSavingAll}
@@ -2230,7 +2231,9 @@ export default function Settings() {
                   pendingDataBySection={pendingDataBySection}
                   onPendingDataChange={handlePendingDataChange}
                   profileState={profileState}
-                  onDeleteProfileSection={handleDeleteProfileForCurrentSection}
+                  onDeleteProfileSection={wrapAsync(
+                    handleDeleteProfileForCurrentSection,
+                  )}
                   profilesUIEnabled={profilesUIEnabled}
                   setProfilesUIEnabled={setProfilesUIEnabled}
                   isSavingAll={isSavingAll}

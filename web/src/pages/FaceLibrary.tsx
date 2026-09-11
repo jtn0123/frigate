@@ -7,6 +7,7 @@ import UploadImageDialog from "@/components/overlay/dialog/UploadImageDialog";
 import FaceSelectionDialog from "@/components/overlay/FaceSelectionDialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import BlurredIconButton from "@/components/button/BlurredIconButton";
+import { wrapAsync } from "@/utils/promise";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -131,7 +132,7 @@ export default function FaceLibrary() {
         .then((resp) => {
           if (resp.status == 200) {
             setUpload(false);
-            refreshFaces();
+            void refreshFaces();
             toast.success(t("toast.success.uploadedImage"), {
               position: "top-center",
             });
@@ -219,7 +220,7 @@ export default function FaceLibrary() {
               setPageToggle("train");
             }
 
-            refreshFaces();
+            void refreshFaces();
           }
         })
         .catch((error) => {
@@ -251,7 +252,7 @@ export default function FaceLibrary() {
               position: "top-center",
             });
             setPageToggle("train");
-            refreshFaces();
+            void refreshFaces();
           }
         })
         .catch((error) => {
@@ -279,7 +280,7 @@ export default function FaceLibrary() {
             toast.success(t("toast.success.reclassifiedFace"), {
               position: "top-center",
             });
-            refreshFaces();
+            void refreshFaces();
           }
         })
         .catch((error) => {
@@ -387,7 +388,7 @@ export default function FaceLibrary() {
       <CreateFaceWizardDialog
         open={addFace}
         setOpen={setAddFace}
-        onFinish={refreshFaces}
+        onFinish={wrapAsync(refreshFaces)}
       />
 
       <div className="relative mb-2 flex h-11 w-full items-center justify-between">
@@ -905,7 +906,7 @@ function FaceAttemptGroup({
               position: "top-center",
               closeButton: true,
             });
-            onRefresh();
+            void onRefresh();
           }
         })
         .catch((error) => {
@@ -932,7 +933,7 @@ function FaceAttemptGroup({
             const parts = oldFilename.split("-");
             const newFilename = `${parts[0]}-${parts[1]}-${parts[2]}-${face_name}-${score}.webp`;
 
-            onRefresh(
+            void onRefresh(
               (currentData: FaceLibraryData | undefined) => {
                 if (!currentData?.train) return currentData;
 

@@ -205,7 +205,7 @@ export default function PolygonItem({
                 }),
                 { position: "top-center" },
               );
-              updateConfig();
+              void updateConfig();
               onDeleted?.();
             } else {
               toast.error(
@@ -301,7 +301,7 @@ export default function PolygonItem({
               }),
               { position: "top-center" },
             );
-            updateConfig();
+            void updateConfig();
             onDeleted?.();
           } else {
             toast.error(
@@ -343,7 +343,7 @@ export default function PolygonItem({
 
   const handleDelete = () => {
     setActivePolygonIndex(undefined);
-    saveToConfig(polygon);
+    void saveToConfig(polygon);
   };
 
   const handleToggleEnabled = useCallback(

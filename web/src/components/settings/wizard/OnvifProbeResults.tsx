@@ -46,7 +46,7 @@ export default function OnvifProbeResults({
   const [copiedUri, setCopiedUri] = useState<string | null>(null);
 
   const handleCopyUri = (uri: string) => {
-    navigator.clipboard.writeText(uri);
+    void navigator.clipboard.writeText(uri);
     setCopiedUri(uri);
     toast.success(t("cameraWizard.step2.uriCopied"));
     setTimeout(() => setCopiedUri(null), 2000);

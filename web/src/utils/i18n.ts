@@ -26,7 +26,7 @@ export const getTranslatedLabel = (
   return t(key, { ns });
 };
 
-i18n
+void i18n
   .use(initReactI18next)
   .use(HttpBackend)
   .init({

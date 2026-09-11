@@ -183,7 +183,7 @@ export function FrigatePlusDialog({
                                 aria-label={t("button.yes", { ns: "common" })}
                                 onClick={() => {
                                   setState("uploading");
-                                  onSubmitToPlus(false);
+                                  void onSubmitToPlus(false);
                                 }}
                               >
                                 {t("button.yes", { ns: "common" })}
@@ -194,7 +194,7 @@ export function FrigatePlusDialog({
                                 variant="destructive"
                                 onClick={() => {
                                   setState("uploading");
-                                  onSubmitToPlus(true);
+                                  void onSubmitToPlus(true);
                                 }}
                               >
                                 {t("button.no", { ns: "common" })}

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -347,7 +348,7 @@ export default function MultiExportDialog({
       </Button>
       <Button
         variant="select"
-        onClick={handleSubmit}
+        onClick={wrapAsync(handleSubmit)}
         disabled={!canSubmit}
         aria-label={t("export.multi.exportButton", { count: count })}
       >

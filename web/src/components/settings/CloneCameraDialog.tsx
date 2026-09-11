@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   useCallback,
   useContext,
@@ -577,7 +578,10 @@ export default function CloneCameraDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form
+            onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+            className="space-y-6"
+          >
             <div className="relative flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start md:gap-12">
               <div className="space-y-3">
                 <Label className="text-base">

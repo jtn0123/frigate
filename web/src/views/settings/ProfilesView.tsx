@@ -7,6 +7,7 @@ import useSWR from "swr";
 import axios from "axios";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
+import { wrapAsync } from "@/utils/promise";
 import {
   LuChevronDown,
   LuChevronRight,
@@ -415,9 +416,9 @@ export default function ProfilesView({
               </span>
               <Select
                 value={activeProfile ?? "__none__"}
-                onValueChange={(v) =>
-                  handleActivateProfile(v === "__none__" ? null : v)
-                }
+                onValueChange={wrapAsync((v) =>
+                  handleActivateProfile(v === "__none__" ? null : v),
+                )}
                 disabled={activating}
               >
                 <SelectTrigger className="">
@@ -637,7 +638,7 @@ export default function ProfilesView({
           </DialogHeader>
           <FormProvider {...addForm}>
             <form
-              onSubmit={addForm.handleSubmit(handleAddSubmit)}
+              onSubmit={wrapAsync(addForm.handleSubmit(handleAddSubmit))}
               className="space-y-4 py-2"
             >
               <NameAndIdFields<AddProfileForm>
@@ -715,7 +716,7 @@ export default function ProfilesView({
               className={cn(buttonVariants({ variant: "destructive" }))}
               onClick={(e) => {
                 e.preventDefault();
-                handleDeleteProfile();
+                void handleDeleteProfile();
               }}
               disabled={deleting}
             >
@@ -756,7 +757,7 @@ export default function ProfilesView({
               </Button>
               <Button
                 variant="select"
-                onClick={handleRename}
+                onClick={wrapAsync(handleRename)}
                 disabled={renaming || !renameValue.trim()}
               >
                 {renaming && <ActivityIndicator className="mr-2 size-4" />}

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { wrapAsync } from "@/utils/promise";
 import {
   Popover,
   PopoverContent,
@@ -294,7 +295,7 @@ export default function Step4Validation({
             {t("cameraWizard.step4.validationTitle")}
           </h3>
           <Button
-            onClick={validateAllStreams}
+            onClick={wrapAsync(validateAllStreams)}
             disabled={isValidating || streams.length === 0}
             variant="outline"
           >
@@ -440,7 +441,7 @@ export default function Step4Validation({
                           });
                         } else {
                           // Test/Connect: perform validation
-                          validateStream(stream);
+                          void validateStream(stream);
                         }
                       }}
                       disabled={
@@ -498,7 +499,7 @@ export default function Step4Validation({
         )}
         <Button
           type="button"
-          onClick={handleSave}
+          onClick={wrapAsync(handleSave)}
           disabled={!canSave || isLoading}
           className="sm:flex-1"
           variant="select"
@@ -833,7 +834,7 @@ function StreamPreview({
         <Button
           variant="outline"
           size="sm"
-          onClick={handleReload}
+          onClick={wrapAsync(handleReload)}
           className="flex items-center gap-2"
         >
           <LuRotateCcw className="size-4" />

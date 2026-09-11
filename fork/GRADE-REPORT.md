@@ -18,7 +18,7 @@ this file says what each item is.
 |----|----------|----------|-----|------------|
 | A | Architecture & Design | B− | B− | 5 |
 | B | Backend Quality | B− | B | 2 |
-| C | Frontend Quality | C | C+ | 7 |
+| C | Frontend Quality | C | C+ | 6 |
 | D | Testing & Reliability | C+ | B− | 7 |
 | E | Security | B+ | B+ | 3 |
 | F | Dependencies & Tech Currency | C+ | B− | 2 |
@@ -133,6 +133,7 @@ untested.
 - ~~C2~~ ✓ done 2026-09-10 — jsx-a11y lint, 42 role/tabIndex sites, 27 real buttons, 16 alt texts, keyboard listener fix (residue tracked as C9)
 - ~~C5~~ ✓ done 2026-09-10 — SWR read-error toasts + `ErrorState`
 - ~~C8~~ ✓ done 2026-09-10 — sandbox gated to dev, hygiene nits
+- ~~C11~~ ✓ done 2026-09-11 — floating and misused promises are errors (269 → 0)
 
 #### C9 — Ratchet the remaining 83 jsx-a11y warnings to errors `[fork, upstreamable]`
 - **Where:** `web/eslint.config.js:25-30` (all jsx-a11y rules downgraded to `warn`); by rule: label-has-for 24, no-noninteractive-tabindex 13, no-static-element-interactions 11, control-has-associated-label 9, no-autofocus 8, click-events-have-key-events 5, role-has-required-aria-props 4, media-has-caption 3, aria-role 3, no-noninteractive-element-to-interactive-role 2, heading-has-content 1 (e.g. `views/explore/ExploreView.tsx:191,288`, `views/live/DraggableGridLayout.tsx:842,923`, `views/settings/Go2RtcStreamsSettingsView.tsx:600,680`)
@@ -155,12 +156,11 @@ untested.
 - **Effort:** S
 - **Grade lift:** C+ → C+ (type-safety hygiene; pairs with A5)
 
-#### C11 — Fix floating and misused promises `[fork, upstreamable]`
-- **Where:** `web/src`: 136 `@typescript-eslint/no-floating-promises` in 62 files, 127 `no-misused-promises` in 72 files (hotspots `views/settings/AuthenticationView.tsx` 10, `components/card/ReviewCard.tsx` 9, `components/settings/wizard/Step2ProbeOrSnapshot.tsx` 9, `pages/Events.tsx` 9); measured 2026-09-10 with the type-aware rules, which the lint config does not enable
-- **What's wrong:** Rejected promises vanish and async handlers passed to `onClick` and similar have unhandled failures; users see "the button did nothing".
-- **Fix:** Await with error handling (existing toasts), `void` only for intended fire-and-forget with a comment, wrap async handlers; then set both rules to `error` for all of `web/src` (see `fork/PLAN2.md` PR-04).
+#### ~~C11~~ ✓ done 2026-09-11 — Fix floating and misused promises `[fork, upstreamable]`
+- **Where:** `web/src`: 136 `@typescript-eslint/no-floating-promises` in 62 files, 127 `no-misused-promises` in 72 files (hotspots `AuthenticationView`, `ReviewCard`, wizard step 2, `Events.tsx`); 269 on this branch when the rules were first enabled
+- **Done (2026-09-11):** both rules are `error` for all of `web/src` with 0 findings. `wrapAsync` in `web/src/utils/promise.ts` turns async event handlers into void functions (callee still handles errors via existing toasts). `void` marks fire-and-forget. WebRTCPlayer awaits the peer connection before using it (`if (!aPc)` was always true because a Promise is truthy).
 - **Effort:** M
-- **Grade lift:** C+ → B− (with C9)
+- **Grade lift:** C+ → B− (with C9; C9 still open)
 
 #### C4 — Kill four-level prop drilling in Events → EventView → DetectionReview → MotionReview `[fork]` — backlog
 - **Where:** `web/src/pages/Events.tsx` → `views/events/EventView.tsx` (1,767 lines); `SearchDetailDialog.tsx` (1,910)

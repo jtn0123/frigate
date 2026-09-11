@@ -263,7 +263,7 @@ export default function LiveBirdseyeView({
                     if (!pip) {
                       setPip(true);
                     } else {
-                      document.exitPictureInPicture();
+                      void document.exitPictureInPicture();
                       setPip(false);
                     }
                   }}

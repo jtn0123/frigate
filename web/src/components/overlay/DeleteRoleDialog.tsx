@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Dialog,
   DialogContent,
@@ -83,7 +84,7 @@ export default function DeleteRoleDialog({
             aria-label={t("button.delete", { ns: "common" })}
             variant="destructive"
             disabled={isLoading}
-            onClick={handleDelete}
+            onClick={wrapAsync(handleDelete)}
             type="button"
           >
             {isLoading ? (

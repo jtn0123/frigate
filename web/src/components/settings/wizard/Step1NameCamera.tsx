@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { wrapAsync } from "@/utils/promise";
 import {
   Form,
   FormControl,
@@ -161,7 +162,10 @@ export default function Step1NameCamera({
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+          className="space-y-4"
+        >
           <FormField
             control={form.control}
             name="cameraName"
@@ -462,7 +466,7 @@ export default function Step1NameCamera({
         </Button>
         <Button
           type="button"
-          onClick={handleContinue}
+          onClick={wrapAsync(handleContinue)}
           disabled={!isContinueButtonEnabled}
           variant="select"
           className="flex items-center justify-center gap-2 sm:flex-1"

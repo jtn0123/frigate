@@ -205,7 +205,7 @@ export function VideoPreview({
         setPlaybackMode("compat");
       } else {
         setPlaybackMode("auto");
-        playerRef.current?.play();
+        void playerRef.current?.play();
       }
     }, 500);
   }, [playerRef]);

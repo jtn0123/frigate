@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { baseUrl } from "@/api/baseUrl";
+import { wrapAsync } from "@/utils/promise";
 import {
   Drawer,
   DrawerContent,
@@ -615,7 +616,7 @@ export default function MobileReviewSettingsDrawer({
         selectedOption={selectedReplayOption}
         isStarting={isDebugReplayStarting}
         onSelectedOptionChange={handleTimeOptionChange}
-        onStart={onStartDebugReplay}
+        onStart={wrapAsync(onStartDebugReplay)}
         onCancel={() => {
           setDebugReplayMode("none");
           setDebugReplayRange(undefined);
@@ -696,7 +697,7 @@ export default function MobileReviewSettingsDrawer({
         className="pointer-events-none absolute left-1/2 top-8 z-50 -translate-x-1/2"
         show={debugReplayRange != undefined && debugReplayMode == "timeline"}
         isStarting={isDebugReplayStarting}
-        onSave={onStartDebugReplay}
+        onSave={wrapAsync(onStartDebugReplay)}
         onCancel={() => {
           setDebugReplayMode("none");
           setDebugReplayRange(undefined);

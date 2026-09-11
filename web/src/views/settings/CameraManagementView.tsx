@@ -1,4 +1,5 @@
 import Heading from "@/components/ui/heading";
+import { wrapAsync } from "@/utils/promise";
 import {
   useCallback,
   useContext,
@@ -322,7 +323,7 @@ export default function CameraManagementView({
                               key={camera}
                               camera={camera}
                               onConfigChanged={updateConfig}
-                              onDragEnd={handleReorderDragEnd}
+                              onDragEnd={wrapAsync(handleReorderDragEnd)}
                               setRestartDialogOpen={setRestartDialogOpen}
                             />
                           ))}
@@ -392,7 +393,7 @@ export default function CameraManagementView({
         onClose={() => setShowDeleteDialog(false)}
         onDeleted={() => {
           setShowDeleteDialog(false);
-          updateConfig();
+          void updateConfig();
         }}
       />
       <RestartDialog
@@ -676,7 +677,7 @@ function CameraStatusSelect({
   }
 
   return (
-    <Select value={currentStatus} onValueChange={handleChange}>
+    <Select value={currentStatus} onValueChange={wrapAsync(handleChange)}>
       <SelectTrigger className="h-7 w-[110px] text-xs">
         <SelectValue />
       </SelectTrigger>
@@ -899,7 +900,10 @@ function CameraDetailsEditor({
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form
+              onSubmit={wrapAsync(form.handleSubmit(onSubmit))}
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="friendlyName"
@@ -1175,7 +1179,9 @@ function CameraTypeSection({
                   ) : (
                     <Select
                       value={currentType}
-                      onValueChange={(v) => handleTypeChange(camera, v)}
+                      onValueChange={wrapAsync((v) =>
+                        handleTypeChange(camera, v),
+                      )}
                     >
                       <SelectTrigger className="h-7 w-full max-w-[140px] text-xs">
                         <SelectValue />
@@ -1377,7 +1383,9 @@ function ProfileCameraEnableSection({
                   ) : (
                     <Select
                       value={state}
-                      onValueChange={(v) => handleEnabledChange(camera, v)}
+                      onValueChange={wrapAsync((v) =>
+                        handleEnabledChange(camera, v),
+                      )}
                     >
                       <SelectTrigger className="h-7 w-[120px] text-xs">
                         <SelectValue />

@@ -25,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { formatList } from "@/utils/stringUtil";
 import { onActivate } from "@/utils/fork/a11y";
+import { wrapAsync } from "@/utils/promise";
 
 type AnimatedEventCardProps = {
   event: ReviewSegment;
@@ -121,7 +122,7 @@ export function AnimatedEventCard({
         } as RecordingStartingPoint,
       },
     });
-    axios.post(`reviews/viewed`, { ids: [event.id] });
+    void axios.post(`reviews/viewed`, { ids: [event.id] });
   }, [navigate, selectedGroup, event]);
 
   // image behavior
@@ -172,10 +173,10 @@ export function AnimatedEventCard({
                 )}
                 size="xs"
                 aria-label={t("markAsReviewed")}
-                onClick={async () => {
+                onClick={wrapAsync(async () => {
                   await axios.post(`reviews/viewed`, { ids: [event.id] });
                   updateEvents();
-                }}
+                })}
               >
                 {threatLevel === ThreatLevel.SECURITY_CONCERN ? (
                   <FaExclamationTriangle className="size-3 text-white" />

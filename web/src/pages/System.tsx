@@ -7,6 +7,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { isDesktop, isMobile } from "react-device-detect";
 import GeneralMetrics from "@/views/system/GeneralMetrics";
 import StorageMetrics from "@/views/system/StorageMetrics";
+import { wrapAsync } from "@/utils/promise";
 import {
   LuActivity,
   LuHardDrive,
@@ -154,7 +155,7 @@ function System() {
           compact
           className="mt-2"
           error={statsError}
-          onRetry={() => refreshStats()}
+          onRetry={wrapAsync(() => refreshStats())}
         />
       )}
       {visitedTabs.has("general") && (

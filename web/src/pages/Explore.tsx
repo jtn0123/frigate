@@ -1,3 +1,4 @@
+import { wrapAsync } from "@/utils/promise";
 import {
   useEmbeddingsReindexProgress,
   useTrackedObjectUpdate,
@@ -261,7 +262,7 @@ export default function Explore() {
         }
       }
 
-      setSize(size + 1);
+      void setSize(size + 1);
     }
   }, [isReachingEnd, isLoadingMore, setSize, size, searchResults, searchQuery]);
 
@@ -271,7 +272,7 @@ export default function Explore() {
 
   useEffect(() => {
     if (wsUpdate && wsUpdate.type == "description") {
-      mutate();
+      void mutate();
     }
   }, [wsUpdate, mutate]);
 
@@ -538,7 +539,7 @@ export default function Explore() {
           setColumns={setColumnCount}
           setDefaultView={setDefaultView}
           loadMore={loadMore}
-          refresh={mutate}
+          refresh={wrapAsync(mutate)}
         />
       )}
     </>

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Trans, useTranslation } from "react-i18next";
 import { LuExternalLink, LuInfo, LuMinus, LuPlus } from "react-icons/lu";
 import { cn } from "@/lib/utils";
+import { wrapAsync } from "@/utils/promise";
 import {
   ANNOTATION_OFFSET_MAX,
   ANNOTATION_OFFSET_MIN,
@@ -224,7 +225,7 @@ export default function AnnotationOffsetSlider({
           {t("button.reset", { ns: "common" })}
         </Button>
         {isAdmin && (
-          <Button size="sm" onClick={save} disabled={isSaving}>
+          <Button size="sm" onClick={wrapAsync(save)} disabled={isSaving}>
             {isSaving
               ? t("button.saving", { ns: "common" })
               : t("button.save", { ns: "common" })}

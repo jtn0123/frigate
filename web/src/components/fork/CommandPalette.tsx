@@ -146,7 +146,7 @@ function CommandPaletteInner() {
         return;
       }
       await axios.post("reviews/viewed", { ids, reviewed: true });
-      mutate((key) => typeof key === "string" && key.includes("review"));
+      void mutate((key) => typeof key === "string" && key.includes("review"));
       toast.success(
         t("commandPalette.toast.markedReviewed", { count: ids.length }),
         { position: "top-center" },
@@ -326,7 +326,7 @@ function CommandPaletteInner() {
       keywords: ["review", "reviewed", "alerts", "detections"],
       icon: LuCheckCheck,
       run: () => {
-        markAllReviewed();
+        void markAllReviewed();
       },
     });
     if (isAdmin) {

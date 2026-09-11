@@ -299,7 +299,7 @@ export default function SearchView({
 
   const onBulkChanged = useCallback(() => {
     refresh();
-    mutateExplore();
+    void mutateExplore();
   }, [refresh, mutateExplore]);
 
   // stable so memoized SearchThumbnails only re-render when selection changes

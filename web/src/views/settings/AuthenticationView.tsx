@@ -14,6 +14,7 @@ import { HiTrash } from "react-icons/hi";
 import { FaUserEdit } from "react-icons/fa";
 
 import { LuPencil, LuPlus, LuShield, LuUserCog } from "react-icons/lu";
+import { wrapAsync } from "@/utils/promise";
 import {
   Table,
   TableBody,
@@ -105,7 +106,7 @@ export default function AuthenticationView({
       .then((response) => {
         if (response.status === 200 || response.status === 201) {
           setShowCreate(false);
-          mutateUsers((users) => {
+          void mutateUsers((users) => {
             users?.push({ username: user, role: role });
             return users;
           }, false);
@@ -136,7 +137,7 @@ export default function AuthenticationView({
       .then((response) => {
         if (response.status === 200) {
           setShowDelete(false);
-          mutateUsers(
+          void mutateUsers(
             (users) => users?.filter((u) => u.username !== user),
             false,
           );
@@ -169,7 +170,7 @@ export default function AuthenticationView({
       .then((response) => {
         if (response.status === 200) {
           setShowRoleChange(false);
-          mutateUsers(
+          void mutateUsers(
             (users) =>
               users?.map((u) =>
                 u.username === user ? { ...u, role: newRole } : u,
@@ -227,7 +228,7 @@ export default function AuthenticationView({
         .then((response) => {
           if (response.status === 200) {
             setShowCreateRole(false);
-            updateConfig();
+            void updateConfig();
             toast.success(t("roles.toast.success.createRole", { role }), {
               position: "top-center",
             });
@@ -273,7 +274,7 @@ export default function AuthenticationView({
             setShowEditRole(false);
             setSelectedRole(undefined);
             setCurrentRoleCameras([]);
-            updateConfig();
+            void updateConfig();
             toast.success(
               t("roles.toast.success.updateCameras", { role: selectedRole }),
               {
@@ -312,7 +313,7 @@ export default function AuthenticationView({
           ),
         )
           .then(() => {
-            mutateUsers(
+            void mutateUsers(
               (users) =>
                 users?.map((u) =>
                   u.role === role ? { ...u, role: "viewer" } : u,
@@ -356,7 +357,7 @@ export default function AuthenticationView({
           if (response.status === 200) {
             setShowDeleteRole(false);
             setSelectedRoleForDelete("");
-            updateConfig();
+            void updateConfig();
             toast.success(t("roles.toast.success.deleteRole", { role }), {
               position: "top-center",
             });
@@ -750,7 +751,7 @@ export default function AuthenticationView({
       <CreateRoleDialog
         show={showCreateRole}
         config={config}
-        onCreate={onCreateRole}
+        onCreate={wrapAsync(onCreateRole)}
         onCancel={() => setShowCreateRole(false)}
       />
       {selectedRole && (
@@ -759,7 +760,7 @@ export default function AuthenticationView({
           config={config}
           role={selectedRole}
           currentCameras={currentRoleCameras}
-          onSave={onEditRoleCameras}
+          onSave={wrapAsync(onEditRoleCameras)}
           onCancel={() => {
             setShowEditRole(false);
             setSelectedRole(undefined);
@@ -774,7 +775,7 @@ export default function AuthenticationView({
           setShowDeleteRole(false);
           setSelectedRoleForDelete("");
         }}
-        onDelete={async () => {
+        onDelete={wrapAsync(async () => {
           if (selectedRoleForDelete) {
             try {
               await onDeleteRole(selectedRoleForDelete);
@@ -782,7 +783,7 @@ export default function AuthenticationView({
               // Error handling is already done in onDeleteRole
             }
           }
-        }}
+        })}
       />
     </>
   );

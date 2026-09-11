@@ -4,6 +4,7 @@ import useSWR from "swr";
 import axios from "axios";
 import isEqual from "lodash/isEqual";
 import { toast } from "sonner";
+import { wrapAsync } from "@/utils/promise";
 import {
   LuChevronDown,
   LuExternalLink,
@@ -463,7 +464,7 @@ export default function Go2RtcStreamsSettingsView({
               </Button>
             )}
             <Button
-              onClick={saveToConfig}
+              onClick={wrapAsync(saveToConfig)}
               variant="select"
               disabled={
                 !hasChanges || isLoading || isSavingAll || hasValidationErrors

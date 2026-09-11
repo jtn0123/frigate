@@ -189,7 +189,10 @@ export default function ChatPage() {
         : text;
       setInput("");
       setAttachedEventId(null);
-      submitConversation([...messages, { role: "user", content: wireText }]);
+      void submitConversation([
+        ...messages,
+        { role: "user", content: wireText },
+      ]);
     },
     [attachedEventId, input, isLoading, messages, submitConversation],
   );
@@ -218,7 +221,7 @@ export default function ChatPage() {
         ...messages.slice(0, messageIndex),
         { role: "user", content: newContent },
       ];
-      submitConversation(newList);
+      void submitConversation(newList);
     },
     [messages, submitConversation],
   );
@@ -373,7 +376,7 @@ export default function ChatPage() {
               <ChatStartingState
                 onSendMessage={(message) => {
                   setInput("");
-                  submitConversation([{ role: "user", content: message }]);
+                  void submitConversation([{ role: "user", content: message }]);
                 }}
                 supportsThinking={supportsThinking}
                 thinkingEnabled={!!thinkingEnabled}

@@ -131,7 +131,7 @@ export default function Replay() {
       await refreshStatus();
       setIsInitializing(false);
     };
-    initializeStatus();
+    void initializeStatus();
   }, [refreshStatus]);
 
   const [options, setOptions] = useState<DebugOptions>(DEFAULT_OPTIONS);
@@ -157,7 +157,7 @@ export default function Replay() {
     axios
       .post("debug_replay/stop")
       .then(() => {
-        refreshStatus();
+        void refreshStatus();
       })
       .catch((error) => {
         const errorMessage =

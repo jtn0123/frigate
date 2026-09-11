@@ -177,9 +177,9 @@ export default function BulkActionBar({
               onClick={(event) => {
                 event.preventDefault();
                 if (confirm === "plus") {
-                  onSubmitToPlus();
+                  void onSubmitToPlus();
                 } else {
-                  onDelete();
+                  void onDelete();
                 }
               }}
             >

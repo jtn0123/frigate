@@ -11,6 +11,7 @@ import { baseUrl } from "@/api/baseUrl";
 import { isMobile } from "react-device-detect";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { wrapAsync } from "@/utils/promise";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -381,7 +382,7 @@ export default function Step3ChooseExamples({
 
   useEffect(() => {
     if (!hasGenerated && !isGenerating) {
-      generateExamples();
+      void generateExamples();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -509,7 +510,7 @@ export default function Step3ChooseExamples({
     setImageClassifications({});
     setLoadedImages(new Set());
     setShowRefreshConfirm(false);
-    generateExamples();
+    void generateExamples();
   }, [generateExamples]);
 
   const handleRefresh = useCallback(() => {
@@ -640,7 +641,7 @@ export default function Step3ChooseExamples({
                 <p className="text-muted-foreground">
                   {t("wizard.step3.noImages")}
                 </p>
-                <Button onClick={generateExamples} variant="select">
+                <Button onClick={wrapAsync(generateExamples)} variant="select">
                   {t("wizard.step3.retryGenerate")}
                 </Button>
               </div>
@@ -693,7 +694,7 @@ export default function Step3ChooseExamples({
           <p className="text-sm text-destructive">
             {t("wizard.step3.errors.generationFailed")}
           </p>
-          <Button onClick={generateExamples} variant="select">
+          <Button onClick={wrapAsync(generateExamples)} variant="select">
             {t("wizard.step3.retryGenerate")}
           </Button>
         </div>
@@ -706,11 +707,11 @@ export default function Step3ChooseExamples({
           </Button>
           <Button
             type="button"
-            onClick={
+            onClick={wrapAsync(
               allImagesClassified
                 ? handleContinue
-                : handleContinueClassification
-            }
+                : handleContinueClassification,
+            )}
             variant="select"
             className="flex items-center justify-center gap-2 sm:flex-1"
             disabled={!hasGenerated || isGenerating || isProcessing}
