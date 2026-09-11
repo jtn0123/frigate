@@ -458,6 +458,13 @@ nothing tracks upstream automatically.
 - **Effort:** M
 - **Grade lift:** B → B+ (keeps the fork alive)
 
+#### I12 — Silence actionlint SC2016 in the upstream-sync workflow `[fork]`
+- **Where:** `.github/workflows/fork-upstream-sync.yml` (issue body `printf` strings)
+- **What's wrong:** actionlint/shellcheck SC2016 flagged markdown backticks inside single-quoted printf formats (` ``` `, `` `sync/upstream` ``).
+- **Fix:** Build the issue bodies with `%s` placeholders only; no backticks in the format string.
+- **Effort:** S
+- **Grade lift:** none (CI hygiene)
+
 #### ~~I7~~ ✓ done 2026-09-10 — Local demo stack `[fork]`
 - **Where:** `fork/` (no way to run the fork's UI against a real backend except pointing `make dev-web` at a live server)
 - **What's wrong:** Features are validated only against mocks; dogfooding, CSP tuning (E6), profiling (G11) and web-vitals (G12) have nowhere to run.
