@@ -248,8 +248,9 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
   commit in 180 days, `EventView` 9).
 
 ### PR-04 · promise-safety — C11 — M
-- **Status (2026-09-11):** C11 on `section/promise-safety`. Both rules are
-  `error` for all of `web/src`; 269 findings (this branch) to 0. `wrapAsync`
+- **Status (2026-09-11):** C11 on `section/promise-safety`, merged onto main
+  after #13 and #19. Both rules are `error` for all of `web/src`; 269
+  findings to 0. Ratchet locked at floating 0 and misused 0. `wrapAsync`
   plus `void` for fire-and-forget. WebRTCPlayer awaits the peer connection
   before assigning `pcRef` (the old `if (!aPc)` checked the Promise object).
 - **Scope:** fix the 136 `no-floating-promises` and 127 `no-misused-promises`

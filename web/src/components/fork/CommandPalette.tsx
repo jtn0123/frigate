@@ -58,11 +58,7 @@ import { ReviewSegment } from "@/types/review";
 import { ENV } from "@/env";
 
 type PaletteGroup =
-  | "pages"
-  | "cameras"
-  | "cameraGroups"
-  | "settings"
-  | "actions";
+  "pages" | "cameras" | "cameraGroups" | "settings" | "actions";
 
 type PaletteItem = {
   id: string;

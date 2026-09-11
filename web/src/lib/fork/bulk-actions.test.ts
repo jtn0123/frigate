@@ -41,8 +41,7 @@ describe("markReviewedWithUndo", () => {
     });
     expect(toastSuccess).toHaveBeenCalledTimes(1);
     const toastArg = toastSuccess.mock.calls.at(0)?.at(1) as
-      | { action?: { onClick: () => Promise<void> } }
-      | undefined;
+      { action?: { onClick: () => Promise<void> } } | undefined;
     expect(toastArg?.action).toBeDefined();
 
     await toastArg?.action?.onClick();
