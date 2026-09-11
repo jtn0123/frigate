@@ -35,3 +35,6 @@ docs/src/components/DockerComposeGenerator/config/ports.ts
 !.env.example
 .venv/
 .ruff_cache/
+# fork: eslint/tsc caches (npm run lint / typecheck) and the port make wt assigns
+web/.cache/
+web/.e2e-port

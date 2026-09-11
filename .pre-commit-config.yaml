@@ -16,7 +16,7 @@ repos:
     hooks:
       - id: eslint-web
         name: eslint (web)
-        entry: bash -c 'cd web && npx eslint --fix "${@#web/}"' --
+        entry: bash -c 'cd web && npx eslint --cache --cache-strategy content --cache-location .cache/eslint/ --fix "${@#web/}"' --
         language: system
         files: ^web/.*\.(ts|tsx|js|jsx)$
         exclude: ^web/(dist|node_modules)/

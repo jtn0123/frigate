@@ -62,26 +62,35 @@ run_tests: local
 
 # ---- fork inner-loop targets (see fork/README.md) ---------------------------
 FORK_TEST_BASE ?= ghcr.io/blakeblackshear/frigate:0.18.0-rc2
+# One test image per worktree, so parallel worktrees never test each other's sources.
+FORK_TEST_IMAGE ?= frigate-fork-test-$(notdir $(CURDIR))
 PROXY_HOST ?= localhost:5000
+# The ruff version CI pins, run through uvx when available.
+RUFF ?= $(if $(shell command -v uvx),uvx -q ruff@$(shell sed -n 's/^ruff *== *//p' docker/main/requirements-dev.txt),ruff)
+# Written by `make wt`; worktrees without one use Playwright's default.
+E2E_PORT ?= $(shell cat web/.e2e-port 2>/dev/null || echo 4173)
+export E2E_PORT
 
 fork-test-image: version
-	docker build -q -f fork/Dockerfile.test --build-arg BASE=$(FORK_TEST_BASE) -t frigate-fork-test .
+	docker build -q -f fork/Dockerfile.test --build-arg BASE=$(FORK_TEST_BASE) -t $(FORK_TEST_IMAGE) .
 
 test-py: fork-test-image
-	docker run --rm frigate-fork-test $(TESTS)
+	docker run --rm $(FORK_TEST_IMAGE) $(TESTS)
 
 check-py: fork-test-image
-	docker run --rm --entrypoint python3 frigate-fork-test -u -m mypy --config-file frigate/mypy.ini frigate
-	docker run --rm --entrypoint python3 frigate-fork-test generate_api_auth_spec.py --check
+	FORK_TEST_IMAGE=$(FORK_TEST_IMAGE) fork/scripts/py-checks.sh
 
 lint:
-	ruff format --check frigate migrations docker *.py
-	ruff check frigate migrations docker *.py
+	$(RUFF) format --check frigate migrations docker *.py
+	$(RUFF) check frigate migrations docker *.py
 	cd web && npm run lint
 
+typecheck:
+	cd web && npm run typecheck
+
 format:
-	ruff format frigate migrations docker *.py
-	ruff check --fix frigate migrations docker *.py
+	$(RUFF) format frigate migrations docker *.py
+	$(RUFF) check --fix frigate migrations docker *.py
 	cd web && npm run lint:fix
 
 test-web:
@@ -93,4 +102,13 @@ e2e:
 dev-web:
 	cd web && PROXY_HOST=$(PROXY_HOST) npm run dev
 
-.PHONY: fork-test-image test-py check-py lint format test-web e2e dev-web
+check:
+	fork/scripts/check.sh
+
+check-fast:
+	fork/scripts/check.sh --fast
+
+wt:
+	fork/scripts/wt.sh $(NAME)
+
+.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast wt

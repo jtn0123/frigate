@@ -302,25 +302,19 @@ set its status in the report.
 
 ## Workflow per section
 
-1. Worktree `/Volumes/512Flash/frigate-wt/<name>` on `section/<name>`, rebased
-   onto the latest `polish`. Push the section branch to origin as a backup.
-2. Implement and commit per item.
-3. Gates — these mirror every job in `.github/workflows/fork-checks.yml`:
-   ```
-   cd web
-   npx tsc --noEmit
-   npx tsc -p tsconfig.e2e.json      # e2e typecheck (CI "Web - Lint")
-   npm run lint                      # eslint + e2e:lint spec linter
-   npx vitest run
-   npm run i18n:extract:ci
-   npm run build
-   npm run e2e:build              # --base=/ (plain build uses BASE_PATH)
-   E2E_PORT=<unique port> npx playwright test -c e2e/playwright.config.ts
-   cd .. && gitleaks git --no-banner --redact --log-opts="upstream/dev..HEAD" .
-   ```
-   Backend changes also need `ruff check frigate migrations && ruff format
-   --check frigate migrations` and `make fork-test-image && make test-py
-   check-py` (thin test image over rc2, see `fork/Dockerfile.test`).
+1. `make wt NAME=<name>` from any checkout: worktree
+   `/Volumes/512Flash/frigate-wt/<name>` on `section/<name>` from
+   `origin/polish`, with node_modules and its own e2e port in `web/.e2e-port`.
+   Push the section branch to origin as a backup.
+2. Implement and commit per item. `make check-fast` after each commit: lint and
+   typecheck on the whole tree (cached), vitest and e2e for what changed, the
+   backend gates when Python changed.
+3. `make check` before merging: every job in `.github/workflows/fork-checks.yml`
+   (ruff with CI's pinned version, gitleaks, eslint + spec lint, app and e2e
+   typecheck, i18n, vitest, e2e build + full Playwright run, and mypy + API
+   spec + unittest in this worktree's test image, beside the rest). It prints
+   one line per gate and the log of any failure; about 3–4 minutes. Individual
+   targets are in `fork/README.md`.
 4. Rebase onto `polish`. `FORK.md` conflicts on every rebase: keep both sides'
    rows (rerere is on, so a resolution is replayed next time). Fast-forward
    `polish`, re-run the gates in the main checkout, `git push origin polish`.
@@ -354,6 +348,13 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 - In zsh, never name a shell variable `path` (it overwrites `PATH`).
 - The harness blocks chained `sleep`; use until-loops or background commands.
 - Docker Desktop is arm64; the rc2 image is already pulled.
+- The Mac has 16 GB and runs with ~10 GB of swap in use when several agents,
+  Chrome and Docker (6 GB VM) are up. Under that pressure Node tools run up to
+  10x slower side by side than in sequence, which is why `make check` queues
+  the host gates. Don't start extra parallel builds or test runs by hand.
+- Docker bind mounts from `/Volumes` arrive empty (not shared with Docker
+  Desktop); the test image copies sources in at build time instead.
+- `vite build --outDir` must stay inside `web/` (see `fork/README.md`).
 
 ## Done (merged on `polish`)
 
