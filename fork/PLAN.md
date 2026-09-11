@@ -234,6 +234,17 @@ Two agents at a time.
    minor bumps only; for a major, leave the alert open and note it here. On
    the next upstream rebase, take upstream's `package-lock.json` and re-run
    `npm install` rather than hand-merging it.
+   CodeQL (first scan 2026-09-10): every open alert is in upstream code or
+   upstream workflows, none in fork commits. Review these and either fix
+   them as candidates (small hunks, own commit, ledger row) or dismiss them
+   with a reason in the Security tab:
+   - critical `py/command-line-injection` `frigate/util/image.py:1221`,
+     `frigate/util/services.py:1017`; `py/full-ssrf` `frigate/api/camera.py:505`
+   - high `py/clear-text-logging-sensitive-data` in `frigate/api/auth.py`
+     (331–384), `frigate/app.py` (537, 555), `frigate/util/services.py:1021`
+   - high `py/polynomial-redos` `frigate/util/builtin.py:113,123`
+   - medium `actions/missing-workflow-permissions` in the disabled upstream
+     workflows (ci, pull_request, release, stale): dismiss as "won't fix".
 6. **Closing pass**
    - Rebase `polish` onto the `v0.18.0-rc2` tag (or the newest upstream tag if
      one has shipped) and re-run every gate.
