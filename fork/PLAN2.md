@@ -365,12 +365,14 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
 - Tailwind 4, react-router 7, i18next, apexcharts, date-fns, vite: only after
   upstream takes each major; then rebase onto it rather than bumping here.
 
-### PR-29 · camera-resilience — D10 — S — **in progress**
+### PR-29 · camera-resilience — D10, D11 — S — **in progress**
 - **Status (2026-09-11):** owner request after the server switch: the dining
   room camera's detect stream kept crashing on VAAPI; "it should disable the
   fancy feature and flag a warning, not kill the feed". Branch
   `section/hwaccel`; verified on the real UHD 730 with a throwaway instance
-  before review.
+  before review. D11 added the same day: the owner stopped a long external
+  benchmark and asked for "better logging and tracking without being
+  annoying" inside Frigate instead.
 - **Done when:** a camera whose hardware decoding keeps crashing detect ends
   up on software decoding with one log warning, a Camera Health reason and a
   status-bar message; other cameras keep hardware decoding.

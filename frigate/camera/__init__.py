@@ -1,6 +1,6 @@
 import multiprocessing as mp
 import queue
-from multiprocessing.managers import SyncManager, ValueProxy
+from multiprocessing.managers import ListProxy, SyncManager, ValueProxy
 from multiprocessing.sharedctypes import Synchronized
 from multiprocessing.synchronize import Event
 
@@ -23,6 +23,7 @@ class CameraMetrics:
     reconnects_last_hour: ValueProxy[int]
     stalls_last_hour: ValueProxy[int]
     hwaccel_fallback: ValueProxy[int]  # fork (D10): 1 while detect decodes in software
+    restart_events: ListProxy  # fork (D11): ffmpeg restarts in the last 24 h
 
     def __init__(self, manager: SyncManager):
         self.camera_fps = manager.Value("d", 0)
@@ -42,6 +43,7 @@ class CameraMetrics:
         self.reconnects_last_hour = manager.Value("i", 0)
         self.stalls_last_hour = manager.Value("i", 0)
         self.hwaccel_fallback = manager.Value("i", 0)
+        self.restart_events = manager.list()
 
 
 class PTZMetrics:

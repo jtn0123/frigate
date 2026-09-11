@@ -254,6 +254,13 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** B− → B− (reliability)
 
+#### D11 — Track camera restarts with a reason, and stop flooding the log `[BE] [FE] [fork, upstreamable]`
+- **Where:** `frigate/video/ffmpeg.py` `CameraWatchdog` (every exit logs "last 100 lines" plus the dump at ERROR; "crashed unexpectedly" repeats every second until the 10 s retry), `frigate/stats/util.py` (only `reconnects_last_hour`, no reason)
+- **What's wrong:** Investigating D10 meant reading raw logs: a camera in a bad spell wrote the same 100-line block every minute, and nothing recorded how often or why a feed restarted, so a pattern (which camera, which failure, when) needed a long external benchmark to see.
+- **Fix:** Classify each exit from ffmpeg's last lines (hardware decoding, connection, stalled, other); keep 24 h per camera in a manager list; publish count, per-kind counts and the last 10 in camera stats; Camera Health shows one collapsed line only when a camera restarted. Log the full dump once per failure kind per hour and one counted line for repeats; log "crashed unexpectedly" once per crash.
+- **Effort:** S
+- **Grade lift:** B− → B− (operability)
+
 ---
 
 ## E — Security — B+

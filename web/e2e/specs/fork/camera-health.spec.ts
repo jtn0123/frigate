@@ -19,6 +19,14 @@ type CameraOverride = Partial<{
   reconnects_last_hour: number;
   stalls_last_hour: number;
   hwaccel_fallback: boolean;
+  restarts_24h: number;
+  restart_kinds_24h: Record<string, number>;
+  recent_restarts: Array<{
+    time: number;
+    role: string;
+    kind: string;
+    message: string;
+  }>;
 }>;
 
 function sendStats(
@@ -161,6 +169,53 @@ test.describe("Camera health cards @high", () => {
         ),
       ).toBeVisible();
     }
+  });
+
+  test("feed restarts show as one collapsed line with the reasons (D11)", async ({
+    frigateApp,
+  }) => {
+    await gotoHealth(frigateApp);
+    const backyard = frigateApp.page.getByTestId("camera-health-backyard");
+    await expect(backyard.getByTestId("camera-health-restarts")).toHaveCount(0);
+
+    const now = Date.now() / 1000;
+    const restarts = frigateApp.page
+      .getByTestId("camera-health-front_door")
+      .getByTestId("camera-health-restarts");
+    await expect(async () => {
+      sendStats(frigateApp, now + 5, {
+        front_door: {
+          restarts_24h: 3,
+          restart_kinds_24h: { hwaccel: 2, connection: 1 },
+          recent_restarts: [
+            {
+              time: now - 600,
+              role: "detect",
+              kind: "connection",
+              message: "Connection refused",
+            },
+            {
+              time: now - 120,
+              role: "detect",
+              kind: "hwaccel",
+              message: "Failed to sync surface 0x3: 1 (operation failed).",
+            },
+          ],
+        },
+      });
+      await expect(restarts).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+
+    await expect(restarts.locator("summary")).toHaveText(
+      "3 feed restarts in the last 24 h (2 hardware decoding, 1 connection lost)",
+    );
+    const items = restarts.locator("li");
+    await expect(items.first()).toBeHidden();
+    await restarts.locator("summary").click();
+    await expect(items).toHaveCount(2);
+    await expect(items.first()).toContainText("hardware decoding");
+    await expect(items.first()).toContainText("Failed to sync surface");
+    await expect(items.last()).toContainText("Connection refused");
   });
 
   test("sparkline grows with each stats update", async ({ frigateApp }) => {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { CameraStats, FrigateStats } from "@/types/stats";
-import { computeCameraHealth, softwareDecodingCameras } from "./camera-health";
+import {
+  computeCameraHealth,
+  newestRestarts,
+  restartKindCounts,
+  softwareDecodingCameras,
+} from "./camera-health";
 
 function cameraStats(overrides: Partial<CameraStats> = {}): CameraStats {
   return {
@@ -59,5 +64,35 @@ describe("softwareDecodingCameras", () => {
 
   it("is empty without stats", () => {
     expect(softwareDecodingCameras(undefined)).toEqual([]);
+  });
+});
+
+describe("restart history (D11)", () => {
+  it("orders restart kinds by how often they happened", () => {
+    const stats = cameraStats({
+      restarts_24h: 6,
+      restart_kinds_24h: { connection: 1, hwaccel: 4, other: 1, stalled: 0 },
+    });
+    expect(restartKindCounts(stats)).toEqual([
+      ["hwaccel", 4],
+      ["connection", 1],
+      ["other", 1],
+    ]);
+  });
+
+  it("has nothing to show for a camera without restarts or an older backend", () => {
+    expect(restartKindCounts(cameraStats())).toEqual([]);
+    expect(newestRestarts(cameraStats())).toEqual([]);
+    expect(newestRestarts(undefined)).toEqual([]);
+  });
+
+  it("lists the latest restart first without mutating the stats", () => {
+    const recent = [
+      { time: 100, role: "detect", kind: "hwaccel" as const, message: "a" },
+      { time: 200, role: "record", kind: "stalled" as const, message: "b" },
+    ];
+    const stats = cameraStats({ recent_restarts: recent });
+    expect(newestRestarts(stats).map((r) => r.time)).toEqual([200, 100]);
+    expect(recent[0].time).toBe(100);
   });
 });

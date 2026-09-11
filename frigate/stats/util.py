@@ -386,6 +386,14 @@ def stats_snapshot(
         else:
             quality_str = "poor"
 
+        # fork (D11): ffmpeg restarts in the last 24 h, oldest first ([:] is one IPC call)
+        restarts = [
+            e for e in camera_stats.restart_events[:] if e["time"] > time.time() - 86400
+        ]
+        restart_kinds: dict[str, int] = {}
+        for event in restarts:
+            restart_kinds[event["kind"]] = restart_kinds.get(event["kind"], 0) + 1
+
         connection_quality = {
             "connection_quality": quality_str,
             "expected_fps": expected_fps,
@@ -405,6 +413,9 @@ def stats_snapshot(
             "audio_rms": round(camera_stats.audio_rms.value, 4),
             "audio_dBFS": round(camera_stats.audio_dBFS.value, 4),
             "hwaccel_fallback": bool(camera_stats.hwaccel_fallback.value),  # fork (D10)
+            "restarts_24h": len(restarts),  # fork (D11)
+            "restart_kinds_24h": restart_kinds,  # fork (D11)
+            "recent_restarts": restarts[-10:],  # fork (D11)
             **connection_quality,
         }
 

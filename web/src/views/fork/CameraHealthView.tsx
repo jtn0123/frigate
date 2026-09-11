@@ -21,10 +21,12 @@ import {
   cameraFpsSeries,
   computeCameraHealth,
   detectorShare,
+  newestRestarts,
+  restartKindCounts,
   type CameraHealthState,
 } from "@/lib/fork/camera-health";
 import { FrigateConfig } from "@/types/frigateConfig";
-import { FrigateStats } from "@/types/stats";
+import { CameraStats, FrigateStats } from "@/types/stats";
 
 const STATE_DOT: Record<CameraHealthState, string> = {
   ok: "text-success",
@@ -93,6 +95,61 @@ export default function CameraHealthView() {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Feed restarts in the last 24 h (D11): one collapsed summary line, only when
+ * there were any; expanding it lists the latest ones with their reason.
+ */
+function CameraRestarts({
+  cameraStats,
+}: {
+  cameraStats: CameraStats | undefined;
+}) {
+  const { t } = useTranslation(["fork"]);
+  const count = cameraStats?.restarts_24h ?? 0;
+  if (count === 0) {
+    return null;
+  }
+
+  const kinds = restartKindCounts(cameraStats)
+    .map(([kind, n]) =>
+      t("cameraHealth.restarts.kindCount", {
+        n,
+        kind: t(`cameraHealth.restartKind.${kind}`),
+      }),
+    )
+    .join(", ");
+
+  return (
+    <details className="text-xs" data-testid="camera-health-restarts">
+      <summary className="cursor-pointer text-muted-foreground">
+        {t("cameraHealth.restarts.summary", { count, kinds })}
+      </summary>
+      <ul className="mt-1 flex flex-col gap-1">
+        {newestRestarts(cameraStats).map((restart) => (
+          <li
+            key={`${restart.time}-${restart.role}`}
+            className="flex min-w-0 gap-2"
+          >
+            <span className="shrink-0 tabular-nums text-muted-foreground">
+              <TimeAgo time={restart.time * 1000} dense />
+            </span>
+            <span className="shrink-0">
+              {t(`cameraHealth.restartKind.${restart.kind}`)}
+              {restart.role !== "detect" && ` · ${restart.role}`}
+            </span>
+            <span
+              className="truncate text-muted-foreground"
+              title={restart.message}
+            >
+              {restart.message}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -196,6 +253,7 @@ function CameraHealthCard({
           </div>
         ))}
       </dl>
+      <CameraRestarts cameraStats={cameraStats} />
       <div className="flex flex-col gap-1">
         <Sparkline
           values={fpsSeries}

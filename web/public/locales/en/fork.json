@@ -122,6 +122,18 @@
       "softwareDecoding": "Hardware decoding kept failing, so detection decodes in software"
     },
     "softwareDecodingProblem": "{{camera}}: hardware decoding kept failing, now decoding in software",
+    "restarts": {
+      "summary_one": "{{count}} feed restart in the last 24 h ({{kinds}})",
+      "summary_other": "{{count}} feed restarts in the last 24 h ({{kinds}})",
+      "kindCount": "{{n}} {{kind}}",
+      "summary": "{{count}} feed restarts in the last 24 h ({{kinds}})"
+    },
+    "restartKind": {
+      "hwaccel": "hardware decoding",
+      "connection": "connection lost",
+      "stalled": "stalled",
+      "other": "ffmpeg error"
+    },
     "metric": {
       "cameraFps": "Camera FPS",
       "detectionFps": "Detection FPS",

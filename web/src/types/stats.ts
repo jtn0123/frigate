@@ -30,9 +30,23 @@ export type CameraStats = {
   stalls_last_hour: number;
   /** Fork (D10): detect decodes in software after hwaccel kept crashing it. */
   hwaccel_fallback?: boolean;
+  /** Fork (D11): ffmpeg restarts in the last 24 h, by kind, and the last 10. */
+  restarts_24h?: number;
+  restart_kinds_24h?: Partial<Record<CameraRestartKind, number>>;
+  recent_restarts?: CameraRestart[];
   ffmpeg_cpu?: string;
   capture_cpu?: string;
   detect_cpu?: string;
+};
+
+/** Fork (D11): why a camera's ffmpeg process was restarted. */
+export type CameraRestartKind = "hwaccel" | "connection" | "stalled" | "other";
+
+export type CameraRestart = {
+  time: number;
+  role: string;
+  kind: CameraRestartKind;
+  message: string;
 };
 
 export type CpuStats = {

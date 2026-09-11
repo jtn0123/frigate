@@ -32,6 +32,7 @@ from frigate.util.image import (
 )
 from frigate.util.process import FrigateProcess
 from frigate.video.hwaccel_fallback import HwaccelFallback
+from frigate.video.restart_log import RestartLog
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ class CameraWatchdog(threading.Thread):
         detection_frame,
         stop_event,
         hwaccel_fallback=None,
+        restart_events=None,
     ):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(f"watchdog.{config.name}")
@@ -152,6 +154,9 @@ class CameraWatchdog(threading.Thread):
         self.hwaccel_fallback_flag = hwaccel_fallback
         if self.hwaccel_fallback_flag is not None:
             self.hwaccel_fallback_flag.value = 0
+        # Fork (D11): restart history for Camera Health, throttled ffmpeg dumps.
+        self.restart_log = RestartLog(config.name, self.logger, restart_events)
+        self._crash_logged: threading.Thread | None = None
 
         self.config_subscriber = CameraConfigUpdateSubscriber(
             None,
@@ -232,7 +237,10 @@ class CameraWatchdog(threading.Thread):
         return self.config.enabled
 
     def reset_capture_thread(
-        self, terminate: bool = True, drain_output: bool = True
+        self,
+        terminate: bool = True,
+        drain_output: bool = True,
+        cause: str | None = None,
     ) -> None:
         if terminate:
             self.ffmpeg_detect_process.terminate()
@@ -270,10 +278,7 @@ class CameraWatchdog(threading.Thread):
                     f"Capture thread for {self.config.name} did not exit in time"
                 )
 
-        self.logger.error(
-            "The following ffmpeg logs include the last 100 lines prior to exit."
-        )
-        self.logpipe.dump()
+        self.restart_log.note_exit("detect", self.logpipe, cause)
         self.logger.info("Restarting ffmpeg...")
         self.start_ffmpeg_detect()
 
@@ -390,9 +395,12 @@ class CameraWatchdog(threading.Thread):
             if not self.capture_thread.is_alive():
                 self._send_detect_status("offline", now)
                 self.camera_fps.value = 0
-                self.logger.error(
-                    f"Ffmpeg process crashed unexpectedly for {self.config.name}."
-                )
+                # fork (D11): once per crash, not every second until the retry
+                if self._crash_logged is not self.capture_thread:
+                    self._crash_logged = self.capture_thread
+                    self.logger.error(
+                        f"Ffmpeg process crashed unexpectedly for {self.config.name}."
+                    )
                 if can_restart:
                     self._check_hwaccel_fallback()
                     self.reset_capture_thread(terminate=False)
@@ -408,7 +416,9 @@ class CameraWatchdog(threading.Thread):
                         f"{self.config.name} exceeded fps limit. Exiting ffmpeg..."
                     )
                     if can_restart:
-                        self.reset_capture_thread(drain_output=False)
+                        self.reset_capture_thread(
+                            drain_output=False, cause="exceeded the fps limit"
+                        )
                         last_restart_time = now
             elif now - self.capture_thread.current_frame.value > 20:
                 self._send_detect_status("offline", now)
@@ -417,7 +427,7 @@ class CameraWatchdog(threading.Thread):
                     f"No frames received from {self.config.name} in 20 seconds. Exiting ffmpeg..."
                 )
                 if can_restart:
-                    self.reset_capture_thread()
+                    self.reset_capture_thread(cause="no frames for 20 seconds")
                     last_restart_time = now
             else:
                 # process is running normally
@@ -485,6 +495,7 @@ class CameraWatchdog(threading.Thread):
                         self.logger.error(
                             f"{reason} for {self.config.name} in the last {self.record_stale_threshold}s. Restarting the ffmpeg record process..."
                         )
+                        self.restart_log.record("record", "stalled", reason)
                         p["process"] = start_or_restart_ffmpeg(
                             p["cmd"],
                             self.logger,
@@ -510,7 +521,9 @@ class CameraWatchdog(threading.Thread):
                         f"{self.config.name}/status/{role.value}", "offline"
                     )
 
-                p["logpipe"].dump()
+                self.restart_log.note_exit(
+                    "_".join(sorted(role.value for role in p["roles"])), p["logpipe"]
+                )
                 p["process"] = start_or_restart_ffmpeg(
                     p["cmd"], self.logger, p["logpipe"], ffmpeg_process=p["process"]
                 )
@@ -694,6 +707,7 @@ class CameraCapture(FrigateProcess):
             self.camera_metrics.detection_frame,
             self.stop_event,
             self.camera_metrics.hwaccel_fallback,
+            self.camera_metrics.restart_events,
         )
         camera_watchdog.start()
         camera_watchdog.join()

@@ -1,5 +1,10 @@
 import type { CameraConfig } from "@/types/frigateConfig";
-import type { CameraStats, FrigateStats } from "@/types/stats";
+import type {
+  CameraRestart,
+  CameraRestartKind,
+  CameraStats,
+  FrigateStats,
+} from "@/types/stats";
 
 export type CameraHealthState = "ok" | "degraded" | "offline" | "disabled";
 
@@ -78,6 +83,35 @@ export function softwareDecodingCameras(
   return Object.entries(stats?.cameras ?? {})
     .filter(([, cam]) => cam.hwaccel_fallback)
     .map(([name]) => name);
+}
+
+/**
+ * Restart kinds in the last 24 h, most frequent first (D11), for the one-line
+ * summary on the card.
+ */
+export function restartKindCounts(
+  stats: CameraStats | undefined,
+): Array<[CameraRestartKind, number]> {
+  const kinds: CameraRestartKind[] = [
+    "hwaccel",
+    "connection",
+    "stalled",
+    "other",
+  ];
+  return kinds
+    .map((kind): [CameraRestartKind, number] => [
+      kind,
+      stats?.restart_kinds_24h?.[kind] ?? 0,
+    ])
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]);
+}
+
+/** The last restarts, newest first (the stats list is oldest first). */
+export function newestRestarts(
+  stats: CameraStats | undefined,
+): CameraRestart[] {
+  return [...(stats?.recent_restarts ?? [])].reverse();
 }
 
 /** Share of total detection fps consumed by this camera, 0..100. */
