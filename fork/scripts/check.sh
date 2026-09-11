@@ -5,7 +5,7 @@
 #   fork/scripts/check.sh           # every gate CI runs (make check)
 #   fork/scripts/check.sh --fast    # changed-only, for the inner loop (make check-fast)
 #
-# --fast compares against the merge base with $FORK_BASE (default origin/polish),
+# --fast compares against the merge base with $FORK_BASE (default origin/main),
 # including uncommitted and untracked files: vitest runs only tests affected by
 # the change, e2e runs only changed specs, and the Python gates run only when
 # Python changed. lint and typecheck always cover the whole tree (their caches
@@ -23,7 +23,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 mode=full
 if [[ "${1:-}" == "--fast" ]]; then mode=fast; fi
 
-base_ref="${FORK_BASE:-origin/polish}"
+base_ref="${FORK_BASE:-origin/main}"
 base="$(git merge-base HEAD "$base_ref")" || {
   echo "no merge base with $base_ref (set FORK_BASE)" >&2
   exit 1
@@ -73,8 +73,11 @@ gate_ruff() {
   fi
 }
 
+# The e2e bundle, checked against CI's eager-bundle budget (fork/bundle-budget.json).
+gate_build() { (cd web && npx vite build --base=/ && npm run -s bundle:budget); }
+
 gate_e2e() {
-  (cd web && npx vite build --base=/ && npx playwright test -c e2e/playwright.config.ts "${e2e_args[@]+"${e2e_args[@]}"}")
+  (cd web && npx playwright test -c e2e/playwright.config.ts "${e2e_args[@]+"${e2e_args[@]}"}")
 }
 
 gate_python() {
@@ -116,8 +119,9 @@ docker_lane=()
 if [[ "$mode" == fast ]]; then
   if touches '^web/e2e/'; then
     e2e_args=(--only-changed="$base")
-    host+=(e2e)
+    host+=(build e2e)
   else
+    skip build "no e2e changes (make check builds and checks the budget)"
     skip e2e "no e2e changes (make check runs the full suite)"
   fi
   if touches "$py_gates"; then
@@ -126,7 +130,7 @@ if [[ "$mode" == fast ]]; then
     skip python "no backend changes"
   fi
 else
-  host+=(e2e)
+  host+=(build e2e)
   docker_lane=(python)
 fi
 
