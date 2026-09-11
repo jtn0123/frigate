@@ -13,6 +13,7 @@ import {
   ZoomLevel,
 } from "@/types/review";
 import ReviewTimeline from "./ReviewTimeline";
+import { eventTimesFromItems } from "@/lib/fork/timeline-scrubber";
 import {
   VirtualizedEventSegments,
   VirtualizedEventSegmentsRef,
@@ -130,6 +131,8 @@ export function EventReviewTimeline({
     segmentDuration,
   ]);
 
+  const eventTimes = useMemo(() => eventTimesFromItems(events), [events]);
+
   const scrollToSegment = useCallback(
     (segmentTime: number, ifNeeded?: boolean, behavior?: ScrollBehavior) => {
       if (virtualizedSegmentsRef.current) {
@@ -167,6 +170,7 @@ export function EventReviewTimeline({
       onZoomChange={onZoomChange}
       possibleZoomLevels={possibleZoomLevels}
       currentZoomLevel={currentZoomLevel}
+      eventTimes={eventTimes}
     >
       <VirtualizedEventSegments
         ref={virtualizedSegmentsRef}

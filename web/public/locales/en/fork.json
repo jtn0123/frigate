@@ -183,5 +183,8 @@
       "failed_one": "{{count}} submission failed",
       "failed_other": "{{count}} submissions failed"
     }
+  },
+  "timelineScrubber": {
+    "handlebar": "Timeline playhead. Use Left and Right arrows to step between events."
   }
 }
