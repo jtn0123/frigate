@@ -23,6 +23,14 @@ Rules that keep this fork rebasable (see the "polish" branch):
 Deployed builds are tagged `fork/<version>-<date>` and published by
 `.github/workflows/fork-build.yml` to `ghcr.io/jtn0123/frigate`.
 
+Daily (and on `workflow_dispatch`), `.github/workflows/fork-upstream-sync.yml`
+fetches `blakeblackshear/frigate` read-only, fast-forwards `origin/dev`, and
+if `polish` does not already contain `upstream/dev` it rebases a copy onto
+`sync/upstream` (never `polish`) and opens or updates an issue. A new
+upstream `v*` tag after `v0.18.0-rc2` gets its own issue. `GITHUB_TOKEN`
+pushes do not trigger workflows, so the bot dispatches "Fork - Checks" on
+`sync/upstream`.
+
 ## Divergences
 
 | ID | Area | Files | Why | Upstream PR |
@@ -63,3 +71,4 @@ Deployed builds are tagged `fork/<version>-<date>` and published by
 | E5 | deps | `docker/main/requirements-wheels.txt`, `web/package.json`, `web/package-lock.json` | Patch shipped advisories: `python-multipart` 0.0.26→0.0.31; web axios/react-router-dom/postcss/vitest 3.x and overrides for nanoid/fast-uri/browserslist/form-data; `i18next-cli` pinned to 1.5.11 so extract:ci stays stable; close Dependabot #1–#4; leave react-router 7, sort-by/object-path, and vitest 5 majors open | candidate |
 | I5 | web: env | `web/src/vite-env.d.ts`, `web/.env.example` | Declare `VITE_GIT_COMMIT_HASH` on `ImportMetaEnv` and document `E2E_PORT` for parallel worktrees | fork-only |
 | G7 | web: perf | `web/scripts/fork/bundle-budget.mjs`, `fork/bundle-budget.json`, `web/package.json`, `.github/workflows/fork-checks.yml` | Fail CI when eager JS+CSS gzip exceeds the measured size plus 5% | fork-only |
+| I6 | CI | `.github/workflows/fork-upstream-sync.yml`, `.github/workflows/fork-checks.yml` | Daily read-only sync of upstream `dev` onto `origin/dev`; rebase preview on `sync/upstream`; issues for drift and new `v*` tags | fork-only |

@@ -1,0 +1,105 @@
+name: Fork - Upstream sync
+
+# Read-only fetch of blakeblackshear/frigate. Fast-forwards origin/dev.
+# Never pushes polish or tags. A clean rebase of polish onto upstream/dev
+# is force-pushed to sync/upstream only; conflicts open or update an issue.
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: fork-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync upstream/dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          ref: polish
+
+      - name: Fetch upstream (read-only)
+        run: |
+          git remote add upstream https://github.com/blakeblackshear/frigate.git
+          git fetch --no-tags upstream dev
+          git fetch --tags --force upstream
+          git fetch origin dev:refs/remotes/origin/dev || true
+          git fetch origin polish:refs/remotes/origin/polish
+
+      - name: Fast-forward origin/dev
+        run: |
+          git checkout -B dev origin/dev
+          git merge --ff-only upstream/dev
+          git push origin dev
+
+      - name: Rebase polish onto upstream/dev or open an issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          UPSTREAM=$(git rev-parse upstream/dev)
+          POLISH=$(git rev-parse origin/polish)
+          if git merge-base --is-ancestor "$UPSTREAM" "$POLISH"; then
+            echo "polish already contains upstream/dev ($UPSTREAM)"
+            exit 0
+          fi
+
+          COMMITS=$(git log --oneline "$POLISH..$UPSTREAM")
+          N=$(echo "$COMMITS" | grep -c . || true)
+          ISSUE_TITLE="Upstream moved ${N} commits"
+
+          git checkout -B sync/upstream origin/polish
+          if git rebase upstream/dev; then
+            git push --force-with-lease origin sync/upstream
+            gh workflow run "Fork - Checks" --ref sync/upstream
+            BODY=$(printf 'upstream/dev moved %s commit(s) that are not in polish.\n\n```\n%s\n```\n\nA rebase is on `sync/upstream`. Fork - Checks was dispatched on that ref.\nThis bot never pushes `polish` or tags.\n' "$N" "$COMMITS")
+            EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
+            if [ -n "$EXISTING" ]; then
+              gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
+            else
+              gh issue create --title "$ISSUE_TITLE" --body "$BODY"
+            fi
+          else
+            CONFLICTS=$(git diff --name-only --diff-filter=U || true)
+            git rebase --abort || true
+            BODY=$(printf 'Could not rebase polish onto upstream/dev (%s).\n\nConflicted files:\n```\n%s\n```\n\nUpstream commits not in polish:\n```\n%s\n```\n' "$UPSTREAM" "$CONFLICTS" "$COMMITS")
+            EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
+            if [ -n "$EXISTING" ]; then
+              gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
+            else
+              gh issue create --title "$ISSUE_TITLE" --body "$BODY"
+            fi
+          fi
+
+      - name: Open an issue for new upstream v* tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Only tags that contain the fork base (rc2), excluding the base itself,
+          # so the first run does not file issues for every historical v*.
+          git fetch --tags --force origin || true
+          BASE=v0.18.0-rc2
+          git rev-parse "$BASE" >/dev/null
+          git tag -l 'v*' | while read -r TAG; do
+            [ "$TAG" = "$BASE" ] && continue
+            git merge-base --is-ancestor "$BASE" "$TAG" || continue
+            TITLE="Upstream released ${TAG}"
+            if gh issue list --search "${TITLE} in:title" --state all --json number --jq '.[0].number // empty' | grep -q .; then
+              continue
+            fi
+            gh issue create --title "$TITLE" --body "Upstream published \`${TAG}\`. This bot does not push tags. Rebase polish when ready and tag \`fork/<version>\` yourself."
+          done

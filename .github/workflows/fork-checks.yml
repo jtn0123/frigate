@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - polish
+      - "sync/**"
   pull_request:
     branches:
       - polish
