@@ -11,8 +11,8 @@ criteria.
 - Start a block only when PLAN.md's queue has reached step 9 (closing), or
   earlier if the owner says so. A block that touches files a PLAN.md section is
   still changing waits for that section (noted per block).
-- One block = one PR: branch `pr/<nn>-<slug>` from `polish`,
-  `gh pr create --repo jtn0123/frigate --base polish`, one commit per item ID
+- One block = one PR: branch `pr/<nn>-<slug>` from `main`,
+  `gh pr create --repo jtn0123/frigate --base main`, one commit per item ID
   inside it, "Fork - Checks" green, then merge. Blocks marked "series" are
   several PRs in the listed order.
 - All of PLAN.md's hard rules, gates, safety setup and environment gotchas
@@ -51,7 +51,7 @@ and **D9** (e2e mocks validated against the API spec); with PR-13, **I10**
 
 ## Type safety: what clamping down buys
 
-Measured on `polish` @ 41edb589c, 2026-09-10, without changing any code.
+Measured on `polish` (now `main`) @ 41edb589c, 2026-09-10, without changing any code.
 
 ### Where it stands
 
@@ -268,15 +268,13 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
 - **Impact:** faster Live workflows. **Conflict:** medium (`LiveCameraView` 7).
 
 ### PR-13 · ci-speed and dev loop — I9, I10, I8 (I11 trial on request) — M — **in progress**
-- **Status (2026-09-10):** I9 and I10 are done on `section/devtools`
-  (worktree `/Volumes/512Flash/frigate-wt/devtools`), rebased on `polish`
-  `a270ffa97`; local `make check` and dispatched CI green (354 s → 206 s);
-  not merged or PR'd until the owner says so. Moved ahead of the ordering
-  because every later block benefits.
-- **Remaining:** I8 overlay image for `polish` pushes (full build kept for
-  `fork/*` tags). I11 (TypeScript 7 / Vite 8 / Vitest 5 trial) only if the
-  owner approves it against the F4 rule.
-- **Done when:** a `polish` push goes green in well under the current ~6 min
+- **Status (2026-09-10):** I9 and I10 merged to `main` (the owner renamed
+  `polish` to `main` in the same change); dispatched CI green (354 s → 206 s
+  warm). Moved ahead of the ordering because every later block benefits.
+- **Remaining:** I8 is on hold: the server will pull `:main`, so `main`
+  keeps the full image build (see the report). I11 (TypeScript 7 / Vite 8 /
+  Vitest 5 trial) only if the owner approves it against the F4 rule.
+- **Done when:** a `main` push goes green in well under the current ~6 min
   (target ~3 min; docs-only ~10 s); numbers before/after in the PR.
   **Impact:** faster feedback for every later PR and agent. **Conflict:** none
   (fork workflows and the fork block of the `Makefile`; one-line hunks in
@@ -381,8 +379,8 @@ I3 in fork/GRADE-REPORT.md.
 Goal: make API drift and type holes fail CI, without touching more upstream
 code than needed. Do the blocks in this order: PR-01, PR-02, PR-04, then the
 PR-14 series (14a first). One PR per block (14 is one PR per wave), branch
-pr/<nn>-<slug> from polish, one commit per item ID, PR against
-jtn0123/frigate base polish.
+pr/<nn>-<slug> from main, one commit per item ID, PR against
+jtn0123/frigate base main.
 
 Rules:
 - Never enable noUncheckedIndexedAccess, exactOptionalPropertyTypes,

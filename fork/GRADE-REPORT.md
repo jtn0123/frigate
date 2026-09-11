@@ -1,6 +1,6 @@
 # Codebase Grade Report
 
-**Project:** frigate — fork `jtn0123/frigate`, branch `polish` @ 752bc3047 (base upstream v0.18.0-rc2)
+**Project:** frigate — fork `jtn0123/frigate`, branch `main` (named `polish` until 2026-09-10) @ 752bc3047 (base upstream v0.18.0-rc2)
 **Audited:** 2026-09-10 (regrade; baseline audit of upstream `dev` the same morning)
 **Stack:** Python 3.11 / FastAPI 0.116 / peewee 3.17 + SQLite (WAL) / pydantic 2.10 / ZMQ multiprocess pipeline, go2rtc + ffmpeg binaries; React 19 / TypeScript 5.9 (strict) / Vite 6 / Tailwind 3 / Radix + shadcn / SWR / react-router 6 / i18next 24; vitest + Playwright; Debian 12 Docker image, nginx front
 **Focus:** frontend (`web/`) — this fork exists for UI/UX work
@@ -24,8 +24,8 @@ this file says what each item is.
 | F | Dependencies & Tech Currency | C+ | B− | 2 |
 | G | Performance & Scalability | C+ | B− | 6 |
 | H | Documentation & Onboarding | C | C+ | 3 |
-| I | Developer Experience & Tooling | C+ | B | 6 (+ I9, I10 awaiting merge) |
-| **Overall** | | **B−** | **B** | **41** (+ 2 awaiting merge) + UX track |
+| I | Developer Experience & Tooling | C+ | B | 6 |
+| **Overall** | | **B−** | **B** | **41** + UX track |
 
 **Top 5 highest-leverage open fixes:** E5, E4, I6, D2, G9
 
@@ -426,7 +426,7 @@ nothing tracks upstream automatically.
 #### I6 — Upstream-sync bot `[fork]`
 - **Where:** `.github/workflows/` (no scheduled sync); `dev` is updated by hand
 - **What's wrong:** A fork dies when rebases pile up; today nobody notices upstream moving (including 0.18.0 final).
-- **Fix:** `fork-upstream-sync.yml`: daily fast-forward of `dev`, trial rebase of `polish` onto it pushed to `sync/upstream` with "Fork - Checks" dispatched, and one issue per event (clean, conflicted files, new `v*` tag). Never pushes `polish`.
+- **Fix:** `fork-upstream-sync.yml`: daily fast-forward of `dev`, trial rebase of `main` onto it pushed to `sync/upstream` with "Fork - Checks" dispatched, and one issue per event (clean, conflicted files, new `v*` tag). Never pushes `main`.
 - **Effort:** M
 - **Grade lift:** B → B+ (keeps the fork alive)
 
@@ -453,18 +453,19 @@ nothing tracks upstream automatically.
 
 #### I8 — Overlay image for fast branch builds `[fork]`
 - **Where:** `.github/workflows/fork-build.yml` (full image build, ~40 minutes cold); `fork/Dockerfile.test` shows the overlay pattern
-- **What's wrong:** Every `polish` push waits on a full build even when only Python or web files changed.
-- **Fix:** For `polish` pushes, layer `frigate/`, `migrations/` and `web/dist` over the upstream image (minutes); keep the full build for `fork/*` tags because F2/F3 change Docker dependencies.
+- **What's wrong:** Every `main` push waits on a full build even when only Python or web files changed.
+- **Fix:** For `main` pushes, layer `frigate/`, `migrations/` and `web/dist` over the upstream image (minutes); keep the full build for `fork/*` tags because F2/F3 change Docker dependencies.
+- **Update 2026-09-10:** the owner's server will pull `ghcr.io/jtn0123/frigate:main`, so `main` keeps the full build (the overlay would miss Docker-level changes such as E5's wheel pins). An overlay only fits preview branches; low value until those exist.
 - **Effort:** M
 - **Grade lift:** B → B
 
-#### I9 — Faster test loop in CI and locally `[fork]` — done on `section/devtools`, awaiting merge
+#### ~~I9~~ ✓ done 2026-09-10 — Faster test loop in CI and locally `[fork]`
 - **Where:** `.github/workflows/fork-checks.yml`, `fork-build.yml`, `.github/actions/fork-web-setup/`, `fork/scripts/{ci-changes,py-checks}.sh`, `fork/Dockerfile.test`, `web/package.json`
 - **Done (2026-09-10):** docs-only commits run only gitleaks; node_modules cached on the lockfile; one incremental typecheck instead of three tsc runs; eslint content cache; the e2e bundle built once and Playwright in three shards; mypy, API spec and unittest in parallel; superseded runs cancelled; a single "Checks passed" job; the image build skips files that never reach the image.
 - **Changed from the original fix:** the thin test image is **not** pushed to GHCR. Pulling it would cost the same as pulling the 6.6 GB base it sits on, so it saves nothing. Installing the dev tools before the sources are copied gives the local win (rebuild after a Python edit: ~1 s). `make e2e-changed` became `make check-fast` (I10).
-- **Measured (dispatch runs on `section/devtools`):** CI wall time 354 s → 206 s warm (246 s when the lockfile changes). The lint + typecheck job went from 68 s to 26 s; the E2E critical path is the 52 s build plus the slowest shard (~135 s). Docs-only commits drop to ~15 s and no image build (was ~9 min); that path can only be observed after merge.
+- **Measured (dispatch runs before the merge):** CI wall time 354 s → 206 s warm (246 s when the lockfile changes). The lint + typecheck job went from 68 s to 26 s; the E2E critical path is the 52 s build plus the slowest shard (~135 s). Docs-only commits drop to ~15 s and no image build (was ~9 min).
 
-#### I10 — One-command local gates and ready worktrees `[fork]` — done on `section/devtools`, awaiting merge
+#### ~~I10~~ ✓ done 2026-09-10 — One-command local gates and ready worktrees `[fork]`
 - **Where:** `Makefile` (fork block), `fork/scripts/{check,wt}.sh`, `.pre-commit-config.yaml`, `fork/PLAN.md` workflow
 - **Done (2026-09-10):** `make check` runs every CI gate, `make check-fast` only what changed; incremental tsc (17 s → 1.5 s warm) and cached eslint (8 s → 0.7 s warm); CI's pinned ruff through uvx (Homebrew's is older); one test image per worktree; `make wt NAME=x` with an APFS-cloned node_modules (5.5 min, ~no disk, vs 7 min and ~1 GB for `npm ci` on the USB drive) and its own e2e port.
 - **Found:** this Mac (16 GB) runs with ~10 GB of swap in use when several agents and Docker are up; parallel Node gates were then 10x slower than the same gates in sequence, so host gates queue and only the Docker gates run beside them.

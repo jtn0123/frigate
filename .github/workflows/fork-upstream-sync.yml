@@ -1,7 +1,7 @@
 name: Fork - Upstream sync
 
 # Read-only fetch of blakeblackshear/frigate. Fast-forwards origin/dev.
-# Never pushes polish or tags. A clean rebase of polish onto upstream/dev
+# Never pushes main or tags. A clean rebase of main onto upstream/dev
 # is force-pushed to sync/upstream only; conflicts open or update an issue.
 
 on:
@@ -27,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-          ref: polish
+          ref: main
 
       - name: Fetch upstream (read-only)
         run: |
@@ -35,7 +35,7 @@ jobs:
           git fetch --no-tags upstream dev
           git fetch --tags --force upstream
           git fetch origin dev:refs/remotes/origin/dev || true
-          git fetch origin polish:refs/remotes/origin/polish
+          git fetch origin main:refs/remotes/origin/main
 
       - name: Fast-forward origin/dev
         run: |
@@ -43,28 +43,28 @@ jobs:
           git merge --ff-only upstream/dev
           git push origin dev
 
-      - name: Rebase polish onto upstream/dev or open an issue
+      - name: Rebase main onto upstream/dev or open an issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           UPSTREAM=$(git rev-parse upstream/dev)
-          POLISH=$(git rev-parse origin/polish)
-          if git merge-base --is-ancestor "$UPSTREAM" "$POLISH"; then
-            echo "polish already contains upstream/dev ($UPSTREAM)"
+          MAIN=$(git rev-parse origin/main)
+          if git merge-base --is-ancestor "$UPSTREAM" "$MAIN"; then
+            echo "main already contains upstream/dev ($UPSTREAM)"
             exit 0
           fi
 
-          COMMITS=$(git log --oneline "$POLISH..$UPSTREAM")
+          COMMITS=$(git log --oneline "$MAIN..$UPSTREAM")
           N=$(echo "$COMMITS" | grep -c . || true)
           ISSUE_TITLE="Upstream moved ${N} commits"
 
-          git checkout -B sync/upstream origin/polish
+          git checkout -B sync/upstream origin/main
           if git rebase upstream/dev; then
             git push --force-with-lease origin sync/upstream
             gh workflow run "Fork - Checks" --ref sync/upstream
-            BODY=$(printf 'upstream/dev moved %s commit(s) that are not in polish.\n\n```\n%s\n```\n\nA rebase is on `sync/upstream`. Fork - Checks was dispatched on that ref.\nThis bot never pushes `polish` or tags.\n' "$N" "$COMMITS")
+            BODY=$(printf 'upstream/dev moved %s commit(s) that are not in main.\n\n```\n%s\n```\n\nA rebase is on `sync/upstream`. Fork - Checks was dispatched on that ref.\nThis bot never pushes `main` or tags.\n' "$N" "$COMMITS")
             EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
             if [ -n "$EXISTING" ]; then
               gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
@@ -74,7 +74,7 @@ jobs:
           else
             CONFLICTS=$(git diff --name-only --diff-filter=U || true)
             git rebase --abort || true
-            BODY=$(printf 'Could not rebase polish onto upstream/dev (%s).\n\nConflicted files:\n```\n%s\n```\n\nUpstream commits not in polish:\n```\n%s\n```\n' "$UPSTREAM" "$CONFLICTS" "$COMMITS")
+            BODY=$(printf 'Could not rebase main onto upstream/dev (%s).\n\nConflicted files:\n```\n%s\n```\n\nUpstream commits not in main:\n```\n%s\n```\n' "$UPSTREAM" "$CONFLICTS" "$COMMITS")
             EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
             if [ -n "$EXISTING" ]; then
               gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
@@ -101,5 +101,5 @@ jobs:
             if gh issue list --search "${TITLE} in:title" --state all --json number --jq '.[0].number // empty' | grep -q .; then
               continue
             fi
-            gh issue create --title "$TITLE" --body "Upstream published \`${TAG}\`. This bot does not push tags. Rebase polish when ready and tag \`fork/<version>\` yourself."
+            gh issue create --title "$TITLE" --body "Upstream published \`${TAG}\`. This bot does not push tags. Rebase main when ready and tag \`fork/<version>\` yourself."
           done

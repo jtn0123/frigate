@@ -4,11 +4,11 @@
 # Writes web=true|false and python=true|false to $GITHUB_OUTPUT (stdout when
 # run by hand). Anything it cannot diff runs everything.
 #
-#   fork/scripts/ci-changes.sh [base-sha]    # default base: origin/polish
+#   fork/scripts/ci-changes.sh [base-sha]    # default base: origin/main
 set -euo pipefail
 
 out="${GITHUB_OUTPUT:-/dev/stdout}"
-base="${1:-${BASE_SHA:-origin/polish}}"
+base="${1:-${BASE_SHA:-origin/main}}"
 
 emit() {
   echo "web=$1" >>"$out"

@@ -3,31 +3,37 @@
 The single source of truth for work on this fork. Read `FORK.md` first for the
 rebase rules. This file says what is next, in order, and how to do it.
 
+> **2026-09-10: the work branch `polish` was renamed `main`.** Rebase section
+> branches onto `origin/main` and open PRs with `--base main`. `polish` no
+> longer exists; pushes to it are rejected by the pre-push hook and a ruleset.
+> New local tooling: `make wt`, `make check-fast`, `make check` (see
+> **Workflow per section**).
+
 ## Start here (new agent)
 
 1. Read `FORK.md`, this file, and the report entries for your items in
    `fork/GRADE-REPORT.md`.
 2. Take the next unchecked section from **The queue**. On this Mac, its worktree
    lives under `/Volumes/512Flash/frigate-wt/<name>` (create it if missing:
-   `git worktree add /Volumes/512Flash/frigate-wt/<name> -b section/<name> polish`).
+   `make wt NAME=<name>`).
    On another machine, clone `jtn0123/frigate` and set up the local guards in
    **Safety setup** first.
-3. `git fetch origin && git rebase origin/polish` in the worktree.
+3. `git fetch origin && git rebase origin/main` in the worktree.
 4. Build, commit per item, run every gate in **Workflow per section**.
-5. Only the coordinating agent merges into `polish`, pushes it, and ticks the
+5. Only the coordinating agent merges into `main`, pushes it, and ticks the
    box here, so two agents never race on the same branch.
 
 ## Goal
 
 A UI/UX-focused fork of Frigate that stays easy to rebase onto upstream.
 Phase 1 finishes the original 30 items (top 15 non-UI + top 15 UI/UX from the
-baseline grade, B−; the 2026-09-10 regrade of `polish` is B). Phases 2–3 keep
+baseline grade, B−; the 2026-09-10 regrade is B). Phases 2–3 keep
 the fork healthy and raise quality. Every item carries its ID from
 `fork/GRADE-REPORT.md`; the backlog there waits for the owner to promote it.
 
 - Base: upstream `v0.18.0-rc2`. Repo `github.com/jtn0123/frigate`, clone at
   `/Volumes/512Flash/frigate`.
-- Work branch `polish` (the GitHub default branch). `dev` mirrors upstream and
+- Work branch `main` (the GitHub default branch). `dev` mirrors upstream and
   is never committed to.
 
 ## Hard rules
@@ -37,7 +43,7 @@ the fork healthy and raise quality. Every item carries its ID from
   GitHub is allowed.
 - Commits, pushes, PRs and issues go only to `github.com/jtn0123/*`. Never open
   a PR, issue or comment on `blakeblackshear/frigate`. Use
-  `gh pr create --repo jtn0123/frigate --base polish`.
+  `gh pr create --repo jtn0123/frigate --base main`.
 - No camera passwords, tokens or credentials in git or docs. Root `.env*` files
   are gitignored; keep secrets there.
 - Small, additive changes: new files over edits; small self-contained hunks
@@ -56,7 +62,7 @@ the fork healthy and raise quality. Every item carries its ID from
 
 ## The queue
 
-Tick a box only after the section is merged into `polish`, pushed, and
+Tick a box only after the section is merged into `main`, pushed, and
 "Fork - Checks" is green on that commit. Pairs on the same line can run in
 parallel; each needs its own `E2E_PORT`.
 
@@ -134,15 +140,15 @@ actions: write`.
 
 - Fetch `https://github.com/blakeblackshear/frigate` (read-only) `dev` + tags.
 - Fast-forward `origin/dev` to `upstream/dev` (ff only; never force).
-- If `polish` already contains `upstream/dev`, stop.
-- Otherwise rebase a copy of `polish` onto `upstream/dev`. Clean: force-push
+- If `main` already contains `upstream/dev`, stop.
+- Otherwise rebase a copy of `main` onto `upstream/dev`. Clean: force-push
   it to `sync/upstream` only, dispatch "Fork - Checks" on that ref
   (`gh workflow run` — pushes made with `GITHUB_TOKEN` do not trigger
   workflows), and open or update one issue "Upstream moved N commits" with the
   commit list and a link to the run. Conflict: open or update the issue with
   the conflicted files and the upstream commits that touched them.
 - A new upstream `v*` tag (e.g. 0.18.0 final) opens its own issue.
-- Never push `polish` or tags. Issues are enabled on the repo.
+- Never push `main` or tags. Issues are enabled on the repo.
 - Add `sync/**` to "Fork - Checks" `workflow_dispatch`-able refs if needed, and
   document the bot in `FORK.md`.
 
@@ -261,7 +267,7 @@ sites under **Follow-ups**.
 
 ### 9. Closing pass
 
-- Rebase `polish` onto the newest upstream tag (rc2 or later) and re-run every
+- Rebase `main` onto the newest upstream tag (rc2 or later) and re-run every
   gate.
 - Tag `fork/<version>` and push it; "Fork - Build image" publishes
   `ghcr.io/jtn0123/frigate`. Do not deploy.
@@ -304,7 +310,7 @@ set its status in the report.
 
 1. `make wt NAME=<name>` from any checkout: worktree
    `/Volumes/512Flash/frigate-wt/<name>` on `section/<name>` from
-   `origin/polish`, with node_modules and its own e2e port in `web/.e2e-port`.
+   `origin/main`, with node_modules and its own e2e port in `web/.e2e-port`.
    Push the section branch to origin as a backup.
 2. Implement and commit per item. `make check-fast` after each commit: lint and
    typecheck on the whole tree (cached), vitest and e2e for what changed, the
@@ -315,18 +321,18 @@ set its status in the report.
    spec + unittest in this worktree's test image, beside the rest). It prints
    one line per gate and the log of any failure; about 3–4 minutes. Individual
    targets are in `fork/README.md`.
-4. Rebase onto `polish`. `FORK.md` conflicts on every rebase: keep both sides'
+4. Rebase onto `main`. `FORK.md` conflicts on every rebase: keep both sides'
    rows (rerere is on, so a resolution is replayed next time). Fast-forward
-   `polish`, re-run the gates in the main checkout, `git push origin polish`.
-5. Confirm CI: `gh run list -R jtn0123/frigate --branch polish --limit 3`.
+   `main`, re-run the gates in the main checkout, `git push origin main`.
+5. Confirm CI: `gh run list -R jtn0123/frigate --branch main --limit 3`.
    Red "Fork - Checks" is a bug to fix before the next section.
 
 ## Safety setup (already configured)
 
-GitHub `jtn0123/frigate`: default branch `polish`; secret scanning + push
+GitHub `jtn0123/frigate`: default branch `main`; secret scanning + push
 protection; Dependabot alerts + grouped security updates (version updates off);
 CodeQL default setup (Python, JS/TS, Actions); rulesets stop deletion of
-`polish`/`dev` and deletion or moving of `fork/*` tags (force-push on `polish`
+`main`/`dev` and deletion or moving of `fork/*` tags (force-push on `main`
 stays allowed for rebases); upstream workflows CI, On pull request, PR template
 check, On release and Stalebot are disabled; Issues enabled for the sync bot;
 "Fork - Checks" runs gitleaks over `origin/dev..HEAD`.
@@ -356,7 +362,7 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
   Desktop); the test image copies sources in at build time instead.
 - `vite build --outDir` must stay inside `web/` (see `fork/README.md`).
 
-## Done (merged on `polish`)
+## Done (merged on `main`)
 
 24 of the 30 plus E4/E5, with e2e 373 passed / 101 skipped and 978 backend
 tests OK at the last full run:
@@ -386,6 +392,6 @@ tests OK at the last full run:
   vitest 5 (peer conflict with `@types/node` 20), and `sort-by` / `object-path`.
   TensorRT/ARM and docs/ Dependabot alerts stay ignored.
 - Fork - Build image failed once on a runner disk-full during QEMU setup.
-  Not a product bug; image publishes are for tags, not every polish push.
+  Not a product bug; image publishes are for tags, not every main push.
 - Live-server tweaks were proposed but never approved (Tapo software decode,
   disabling `out_1..4`, camera renames). Leave them alone.

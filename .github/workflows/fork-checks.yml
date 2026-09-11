@@ -1,6 +1,6 @@
 name: Fork - Checks
 
-# Same gates as upstream's pull_request.yml, run on every push to polish, with
+# Same gates as upstream's pull_request.yml, run on every push to main, with
 # dependency caching and a thin backend test image instead of a full devcontainer
 # build. Web and Python jobs run only when their files changed (docs-only
 # commits run just the secrets scan); "Checks passed" is the single job to
@@ -10,11 +10,11 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - polish
+      - main
       - "sync/**"
   pull_request:
     branches:
-      - polish
+      - main
 
 permissions:
   contents: read

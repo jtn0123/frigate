@@ -5,9 +5,9 @@ The backend is kept as close to upstream as possible; every divergence is listed
 here with its reason and, where one exists, the upstream pull request that would
 make the entry go away.
 
-Rules that keep this fork rebasable (see the "polish" branch):
+Rules that keep this fork rebasable (see the `main` branch):
 
-- `dev` mirrors upstream and is never committed to. All work lives on `polish`,
+- `dev` mirrors upstream and is never committed to. All work lives on `main`,
   rebased onto `upstream/dev` weekly. One report item = one commit.
 - Add files rather than editing them. When an upstream file must change, keep
   the hunk small and self-contained.
@@ -25,8 +25,8 @@ Deployed builds are tagged `fork/<version>-<date>` and published by
 
 Daily (and on `workflow_dispatch`), `.github/workflows/fork-upstream-sync.yml`
 fetches `blakeblackshear/frigate` read-only, fast-forwards `origin/dev`, and
-if `polish` does not already contain `upstream/dev` it rebases a copy onto
-`sync/upstream` (never `polish`) and opens or updates an issue. A new
+if `main` does not already contain `upstream/dev` it rebases a copy onto
+`sync/upstream` (never `main`) and opens or updates an issue. A new
 upstream `v*` tag after `v0.18.0-rc2` gets its own issue. `GITHUB_TOKEN`
 pushes do not trigger workflows, so the bot dispatches "Fork - Checks" on
 `sync/upstream`.

@@ -17,7 +17,7 @@ updates:
     schedule:
       interval: daily
     # fork: no version-update PRs (versions arrive by rebasing onto upstream);
-    # security fixes land on polish as one grouped PR. target-branch is left
+    # security fixes land on main as one grouped PR. target-branch is left
     # unset because it would stop these settings applying to security updates.
     open-pull-requests-limit: 0
     groups:
@@ -53,7 +53,7 @@ updates:
     schedule:
       interval: daily
     # fork: no version-update PRs (versions arrive by rebasing onto upstream);
-    # security fixes land on polish as one grouped PR. target-branch is left
+    # security fixes land on main as one grouped PR. target-branch is left
     # unset because it would stop these settings applying to security updates.
     open-pull-requests-limit: 0
     groups:

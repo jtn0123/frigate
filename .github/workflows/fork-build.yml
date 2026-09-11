@@ -1,6 +1,6 @@
 name: Fork - Build image
 
-# Builds an amd64 image from the polish branch (and any fork/* tag) and pushes it
+# Builds an amd64 image from the main branch (and any fork/* tag) and pushes it
 # to ghcr.io/<owner>/frigate. Pulls layer cache from upstream's public build cache
 # so a rebuild is usually well under the 40 minutes a cold build takes.
 
@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - polish
+      - main
     tags:
       - "fork/*"
     # Files that never reach the image: a push touching only these keeps the
-    # previous :polish image, which is byte-for-byte what it would rebuild.
+    # previous :main image, which is byte-for-byte what it would rebuild.
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -50,7 +50,7 @@ jobs:
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           SHORT_SHA="${GITHUB_SHA::7}"
-          TAGS="${IMAGE}:${SHORT_SHA}-amd64,${IMAGE}:polish"
+          TAGS="${IMAGE}:${SHORT_SHA}-amd64,${IMAGE}:main"
           if [[ "${GITHUB_REF}" == refs/tags/fork/* ]]; then
             TAGS="${TAGS},${IMAGE}:${GITHUB_REF#refs/tags/fork/}"
           fi

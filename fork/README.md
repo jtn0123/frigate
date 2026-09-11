@@ -8,7 +8,7 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
   before the sources are copied, so a Python edit rebuilds it in about a second.
   Used by `make test-py` and `.github/workflows/fork-checks.yml`.
 - `scripts/check.sh` runs every CI gate locally (`make check`), or only what
-  changed since `origin/polish` (`make check-fast`). Host gates run one after
+  changed since `origin/main` (`make check-fast`). Host gates run one after
   another, the Docker gates beside them; see the script header for why.
 - `scripts/py-checks.sh` runs mypy, the API spec check and unittest in the test
   image at the same time (`make check-py`, CI "Python - mypy, API spec, unittest").
