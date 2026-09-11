@@ -35,6 +35,7 @@ const STATE_DOT: Record<CameraHealthState, string> = {
   degraded: "text-orange-400",
   offline: "text-danger",
   disabled: "text-muted-foreground",
+  starting: "text-selected",
 };
 
 const STATE_BADGE: Record<CameraHealthState, string> = {
@@ -42,6 +43,7 @@ const STATE_BADGE: Record<CameraHealthState, string> = {
   degraded: "border-orange-400/40 bg-orange-400/15 text-orange-400",
   offline: "border-danger/40 bg-danger/15 text-danger",
   disabled: "border-transparent bg-secondary text-muted-foreground",
+  starting: "border-transparent bg-secondary text-selected",
 };
 
 function formatFps(value: number | undefined) {
@@ -175,7 +177,11 @@ function CameraHealthCard({
   const isEnabled = enabledFromWs(enabledState, enabled);
   const cameraStats = stats?.cameras[cameraName];
   const quality = connectionQualityProps(cameraStats);
-  const health = computeCameraHealth({ enabled: isEnabled }, cameraStats);
+  const health = computeCameraHealth(
+    { enabled: isEnabled },
+    cameraStats,
+    stats?.service.uptime,
+  );
   const share = detectorShare(stats, cameraName);
 
   const ffmpegCpu =
@@ -236,6 +242,28 @@ function CameraHealthCard({
           {health.reasons
             .map((reason) => t(`cameraHealth.reason.${reason}`))
             .join(", ")}
+        </div>
+      )}
+      {health.notes.length > 0 && (
+        <div
+          className="text-xs text-muted-foreground"
+          data-testid="camera-health-note"
+        >
+          {health.notes.map((note) => (
+            <span key={note}>
+              {t(`cameraHealth.note.${note}`)}
+              {/* softwareDecoding is the only note, and the one with a time */}
+              {!!cameraStats?.hwaccel_fallback_since && (
+                <>
+                  {" · "}
+                  <TimeAgo
+                    time={cameraStats.hwaccel_fallback_since * 1000}
+                    dense
+                  />
+                </>
+              )}
+            </span>
+          ))}
         </div>
       )}
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">

@@ -413,6 +413,8 @@ def stats_snapshot(
             "audio_rms": round(camera_stats.audio_rms.value, 4),
             "audio_dBFS": round(camera_stats.audio_dBFS.value, 4),
             "hwaccel_fallback": bool(camera_stats.hwaccel_fallback.value),  # fork (D10)
+            # fork (D14): when detect switched to software, kept across restarts
+            "hwaccel_fallback_since": camera_stats.hwaccel_fallback_since.value or None,
             "restarts_24h": len(restarts),  # fork (D11)
             "restart_kinds_24h": restart_kinds,  # fork (D11)
             "recent_restarts": restarts[-10:],  # fork (D11)

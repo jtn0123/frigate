@@ -23,6 +23,7 @@ class CameraMetrics:
     reconnects_last_hour: ValueProxy[int]
     stalls_last_hour: ValueProxy[int]
     hwaccel_fallback: ValueProxy[int]  # fork (D10): 1 while detect decodes in software
+    hwaccel_fallback_since: ValueProxy[float]  # fork (D14): when it switched, or 0
     restart_events: ListProxy  # fork (D11): ffmpeg restarts in the last 24 h
 
     def __init__(self, manager: SyncManager):
@@ -43,6 +44,7 @@ class CameraMetrics:
         self.reconnects_last_hour = manager.Value("i", 0)
         self.stalls_last_hour = manager.Value("i", 0)
         self.hwaccel_fallback = manager.Value("i", 0)
+        self.hwaccel_fallback_since = manager.Value("d", 0)
         self.restart_events = manager.list()
 
 

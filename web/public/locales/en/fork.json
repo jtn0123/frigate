@@ -109,17 +109,19 @@
       "ok": "OK",
       "degraded": "Degraded",
       "offline": "Offline",
-      "disabled": "Disabled"
+      "disabled": "Disabled",
+      "starting": "Starting"
     },
     "reason": {
       "noStats": "No stats reported",
       "noFrames": "No frames received",
       "lowFps": "Frame rate below half of expected",
-      "skippedFrames": "Frames are being skipped",
+      "skippedFrames": "Detection skips half of the frames or more",
       "poorConnection": "Poor connection quality",
-      "reconnects": "FFmpeg reconnected in the last hour",
-      "stalls": "Stream stalled in the last hour",
-      "softwareDecoding": "Hardware decoding kept failing, so detection decodes in software"
+      "stalls": "Stream stalled 5 or more times in the last hour"
+    },
+    "note": {
+      "softwareDecoding": "Decodes in software because hardware decoding kept failing"
     },
     "softwareDecodingProblem": "{{camera}}: hardware decoding kept failing, now decoding in software",
     "restarts": {

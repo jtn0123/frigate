@@ -275,6 +275,13 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** none (build hygiene)
 
+#### D14 — Camera Health cried wolf after every restart `[BE] [FE] [fork]`
+- **Where:** `web/src/lib/fork/camera-health.ts` (any reconnect, stall or skipped frame in the last hour meant Degraded), `frigate/video/hwaccel_fallback.py` (the D10 switch lived only until the next restart)
+- **What's wrong:** Found on the owner's server 2026-09-11 right after the 1feb4d7 update: 7 of 9 cards said Degraded while all 9 cameras ran at 5 fps. Four cameras skipped 1 in 5 frames (a busy detector), one had a single start-up stall and one had 2 reconnects (Frigate's own rating: excellent and fair), and the two flaky Tapos had to crash three times again before falling back, because the switch was forgotten on restart. The owner could not tell real trouble from noise.
+- **Fix:** Degraded only for lasting trouble (fps below half, half the frames or more skipped, Frigate's own poor/unusable rating, 5+ stalls an hour). Software decoding is a note on the card, not a problem, and the status bar mentions it for a day after the switch. "Starting" instead of Offline/Degraded for the first 2 minutes (the status bar's own grace). The switch is remembered per camera for 7 days across restarts and dropped when the camera's ffmpeg settings change (a hash of the command is stored, not the URL).
+- **Effort:** S
+- **Grade lift:** B− → B− (operability)
+
 ---
 
 ## E — Security — B+

@@ -61,38 +61,138 @@ describe("computeCameraHealth", () => {
     expect(computeCameraHealth({ enabled: true }, cameraStats())).toEqual({
       state: "ok",
       reasons: [],
+      notes: [],
     });
   });
 
-  it("marks a camera degraded while detect decodes in software", () => {
+  it("stays ok through a reconnect, a stall and some skipped frames (D14)", () => {
+    const health = computeCameraHealth(
+      { enabled: true },
+      cameraStats({
+        connection_quality: "fair",
+        reconnects_last_hour: 2,
+        stalls_last_hour: 1,
+        process_fps: 4,
+        skipped_fps: 1,
+      }),
+    );
+    expect(health).toEqual({ state: "ok", reasons: [], notes: [] });
+  });
+
+  it.each([
+    ["lowFps", { camera_fps: 2 }],
+    ["skippedFrames", { process_fps: 2.5, skipped_fps: 2.5 }],
+    ["poorConnection", { connection_quality: "poor", reconnects_last_hour: 3 }],
+    ["stalls", { stalls_last_hour: 5 }],
+  ] satisfies Array<[string, Partial<CameraStats>]>)(
+    "is degraded for %s",
+    (reason, overrides) => {
+      const health = computeCameraHealth(
+        { enabled: true },
+        cameraStats(overrides),
+      );
+      expect(health.state).toBe("degraded");
+      expect(health.reasons).toEqual([reason]);
+    },
+  );
+
+  it("notes software decoding without calling the camera degraded (D14)", () => {
     const health = computeCameraHealth(
       { enabled: true },
       cameraStats({ hwaccel_fallback: true }),
     );
-    expect(health.state).toBe("degraded");
-    expect(health.reasons).toContain("softwareDecoding");
+    expect(health).toEqual({
+      state: "ok",
+      reasons: [],
+      notes: ["softwareDecoding"],
+    });
   });
 
   it("treats a missing fallback field (older backend) as hardware decoding", () => {
     const health = computeCameraHealth({ enabled: true }, cameraStats());
-    expect(health.reasons).not.toContain("softwareDecoding");
+    expect(health.notes).not.toContain("softwareDecoding");
+  });
+
+  it("says starting instead of offline or degraded right after a start", () => {
+    const starting = { state: "starting", reasons: [], notes: [] };
+    expect(
+      computeCameraHealth(
+        { enabled: true },
+        cameraStats({ camera_fps: 0 }),
+        30,
+      ),
+    ).toEqual(starting);
+    expect(computeCameraHealth({ enabled: true }, undefined, 30)).toEqual(
+      starting,
+    );
+    expect(
+      computeCameraHealth(
+        { enabled: true },
+        cameraStats({ camera_fps: 1 }),
+        30,
+      ),
+    ).toEqual(starting);
+    expect(
+      computeCameraHealth({ enabled: true }, cameraStats(), 30).state,
+    ).toBe("ok");
+  });
+
+  it("reports offline once the start-up grace is over", () => {
+    const offline = { state: "offline", reasons: ["noFrames"], notes: [] };
+    expect(
+      computeCameraHealth(
+        { enabled: true },
+        cameraStats({ camera_fps: 0 }),
+        300,
+      ),
+    ).toEqual(offline);
+    expect(
+      computeCameraHealth({ enabled: true }, cameraStats({ camera_fps: 0 })),
+    ).toEqual(offline);
+  });
+
+  it("keeps a disabled camera disabled during start-up", () => {
+    expect(computeCameraHealth({ enabled: false }, undefined, 30).state).toBe(
+      "disabled",
+    );
   });
 });
 
 describe("softwareDecodingCameras", () => {
-  it("lists only the cameras that fell back", () => {
+  const now = 1_800_000_000;
+
+  it("lists the cameras that switched in the last day", () => {
     const stats: Pick<FrigateStats, "cameras"> = {
       cameras: {
-        dining_room: cameraStats({ hwaccel_fallback: true }),
+        dining_room: cameraStats({
+          hwaccel_fallback: true,
+          hwaccel_fallback_since: now - 3600,
+        }),
+        c120_2: cameraStats({
+          hwaccel_fallback: true,
+          hwaccel_fallback_since: now - 3 * 86400,
+        }),
         doorbell: cameraStats({ hwaccel_fallback: false }),
         garage: cameraStats(),
       },
     };
-    expect(softwareDecodingCameras(stats)).toEqual(["dining_room"]);
+    expect(softwareDecodingCameras(stats, now)).toEqual(["dining_room"]);
+  });
+
+  it("keeps the warning when the backend does not say when it switched", () => {
+    const stats: Pick<FrigateStats, "cameras"> = {
+      cameras: {
+        garage: cameraStats({
+          hwaccel_fallback: true,
+          hwaccel_fallback_since: null,
+        }),
+      },
+    };
+    expect(softwareDecodingCameras(stats, now)).toEqual(["garage"]);
   });
 
   it("is empty without stats", () => {
-    expect(softwareDecodingCameras(undefined)).toEqual([]);
+    expect(softwareDecodingCameras(undefined, now)).toEqual([]);
   });
 });
 

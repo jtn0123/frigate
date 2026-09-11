@@ -453,14 +453,17 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
   **Conflict:** `package-lock.json` on every upstream sync; re-check on each
   sync whether upstream has since taken the same major.
 
-### PR-29 · camera-resilience — D10, D11 — S — **in progress**
+### PR-29 · camera-resilience — D10, D11, D14 — S — **D10 + D11 done (PR #11); D14 in review**
 - **Status (2026-09-11):** owner request after the server switch: the dining
   room camera's detect stream kept crashing on VAAPI; "it should disable the
   fancy feature and flag a warning, not kill the feed". Branch
   `section/hwaccel`; verified on the real UHD 730 with a throwaway instance
   before review. D11 added the same day: the owner stopped a long external
   benchmark and asked for "better logging and tracking without being
-  annoying" inside Frigate instead.
+  annoying" inside Frigate instead. D14 (branch `section/health-quiet`): after
+  the next update every card said Degraded and the owner "cannot tell if it is
+  or not because of the clutter", so Degraded now means lasting trouble,
+  start-up shows Starting, and the software switch survives restarts.
 - **Done when:** a camera whose hardware decoding keeps crashing detect ends
   up on software decoding with one log warning, a Camera Health reason and a
   status-bar message; other cameras keep hardware decoding.

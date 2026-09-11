@@ -1,6 +1,8 @@
 """Fork (D10): software-decoding fallback when hwaccel keeps crashing detect."""
 
 import logging
+import os
+import tempfile
 import unittest
 from collections import deque
 from types import SimpleNamespace
@@ -9,6 +11,7 @@ from unittest.mock import MagicMock, patch
 from frigate.config import FrigateConfig
 from frigate.video.ffmpeg import CameraWatchdog
 from frigate.video.hwaccel_fallback import (
+    REMEMBER_SECONDS,
     HwaccelFallback,
     hwaccel_failure_line,
     software_detect_cmd,
@@ -136,12 +139,13 @@ class TestWatchdogHooks(unittest.TestCase):
 
     def watchdog(self, threshold=1):
         config = camera_config()
-        return SimpleNamespace(
+        watchdog = SimpleNamespace(
             config=config,
             logger=logging.getLogger("watchdog.back"),
             logpipe=SimpleNamespace(deque=deque(VAAPI_CRASH_LOG)),
             hwaccel_fallback=HwaccelFallback(config, threshold=threshold),
             hwaccel_fallback_flag=SimpleNamespace(value=0),
+            hwaccel_fallback_since=SimpleNamespace(value=0.0),
             frame_size=640 * 360 * 3 // 2,
             shm_frame_count=2,
             frame_index=0,
@@ -152,6 +156,10 @@ class TestWatchdogHooks(unittest.TestCase):
             stop_event=None,
             ffmpeg_pid=SimpleNamespace(value=0),
         )
+        watchdog._publish_hwaccel_fallback = lambda: (
+            CameraWatchdog._publish_hwaccel_fallback(watchdog)
+        )
+        return watchdog
 
     def test_switch_is_logged_as_a_warning_and_published(self):
         watchdog = self.watchdog()
@@ -160,7 +168,9 @@ class TestWatchdogHooks(unittest.TestCase):
             CameraWatchdog._check_hwaccel_fallback(watchdog)
 
         self.assertEqual(watchdog.hwaccel_fallback_flag.value, 1)
+        self.assertGreater(watchdog.hwaccel_fallback_since.value, 0)
         self.assertIn("software", logs.output[0])
+        self.assertIn("across restarts", logs.output[0])
         self.assertIn("Failed to sync surface", logs.output[0])
 
     def test_no_warning_before_the_threshold(self):
@@ -184,6 +194,126 @@ class TestWatchdogHooks(unittest.TestCase):
         CameraWatchdog.start_ffmpeg_detect(watchdog)
         self.assertNotIn("-hwaccel", start.call_args.args[0])
         self.assertEqual(watchdog.ffmpeg_pid.value, 1234)
+
+
+class TestRememberedFallback(unittest.TestCase):
+    """D14: the switch survives a restart, for a while, with the same settings."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = tmp.name
+        self.path = os.path.join(self.tmp, "fork", "back.json")
+
+    def switched(self):
+        fallback = HwaccelFallback(camera_config(), threshold=1, state_path=self.path)
+        self.assertTrue(fallback.record_crash(VAAPI_CRASH_LOG, now=0))
+        return fallback
+
+    def test_a_restart_starts_in_software_right_away(self):
+        before = self.switched()
+
+        after = HwaccelFallback(camera_config(), state_path=self.path)
+
+        self.assertTrue(after.active)
+        self.assertNotIn("-hwaccel", after.detect_cmd())
+        self.assertEqual(after.since, before.since)
+        self.assertIn("Failed to sync surface", after.reason)
+
+    def test_the_file_holds_no_stream_address(self):
+        self.switched()
+        with open(self.path, encoding="utf-8") as file:
+            saved = file.read()
+        self.assertNotIn("rtsp://", saved)
+        self.assertNotIn("10.0.0.1", saved)
+
+    def test_hardware_is_tried_again_once_the_entry_expires(self):
+        before = self.switched()
+
+        after = HwaccelFallback(
+            camera_config(),
+            state_path=self.path,
+            now=before.since + REMEMBER_SECONDS + 1,
+        )
+
+        self.assertFalse(after.active)
+        self.assertIsNone(after.detect_cmd())
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_changed_ffmpeg_settings_start_on_hardware(self):
+        self.switched()
+
+        after = HwaccelFallback(
+            camera_config(hwaccel_args="preset-intel-qsv-h264"), state_path=self.path
+        )
+
+        self.assertFalse(after.active)
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_reset_forgets_the_switch(self):
+        self.switched().reset()
+
+        self.assertFalse(os.path.exists(self.path))
+        self.assertFalse(HwaccelFallback(camera_config(), state_path=self.path).active)
+
+    def test_an_unreadable_file_is_ignored_with_a_warning(self):
+        os.makedirs(os.path.dirname(self.path))
+        with open(self.path, "w", encoding="utf-8") as file:
+            file.write("{not json")
+
+        with self.assertLogs("frigate.video.hwaccel_fallback", level="WARNING"):
+            fallback = HwaccelFallback(camera_config(), state_path=self.path)
+
+        self.assertFalse(fallback.active)
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_an_unwritable_location_still_switches_with_a_warning(self):
+        blocker = os.path.join(self.tmp, "blocker")
+        with open(blocker, "w", encoding="utf-8"):
+            pass
+        fallback = HwaccelFallback(
+            camera_config(),
+            threshold=1,
+            state_path=os.path.join(blocker, "back.json"),
+        )
+
+        with self.assertLogs("frigate.video.hwaccel_fallback", level="WARNING"):
+            self.assertTrue(fallback.record_crash(VAAPI_CRASH_LOG, now=0))
+
+        self.assertTrue(fallback.active)
+
+    @patch("frigate.video.ffmpeg.RecordingsDataSubscriber")
+    @patch("frigate.video.ffmpeg.InterProcessRequestor")
+    @patch("frigate.video.ffmpeg.CameraConfigUpdateSubscriber")
+    @patch("frigate.video.ffmpeg.LogPipe")
+    def test_the_watchdog_starts_in_software_and_says_so(self, *_ipc):
+        self.switched()
+        flag = SimpleNamespace(value=0)
+        since = SimpleNamespace(value=0.0)
+
+        with (
+            patch("frigate.video.ffmpeg.fallback_state_path", return_value=self.path),
+            self.assertLogs("watchdog.back", level="INFO") as logs,
+        ):
+            watchdog = CameraWatchdog(
+                camera_config(),
+                2,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                hwaccel_fallback=flag,
+                hwaccel_fallback_since=since,
+            )
+
+        self.assertTrue(watchdog.hwaccel_fallback.active)
+        self.assertEqual(flag.value, 1)
+        self.assertGreater(since.value, 0)
+        self.assertTrue(any("decodes in software" in line for line in logs.output))
 
 
 if __name__ == "__main__":

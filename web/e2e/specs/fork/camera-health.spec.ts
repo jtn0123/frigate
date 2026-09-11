@@ -19,6 +19,7 @@ type CameraOverride = Partial<{
   reconnects_last_hour: number;
   stalls_last_hour: number;
   hwaccel_fallback: boolean;
+  hwaccel_fallback_since: number;
   restarts_24h: number;
   restart_kinds_24h: Record<string, number>;
   recent_restarts: Array<{
@@ -33,6 +34,7 @@ function sendStats(
   frigateApp: FrigateApp,
   lastUpdated: number,
   overrides: Record<string, CameraOverride> = {},
+  uptime = 86400,
 ) {
   const camera = (name: string) => ({
     camera_fps: 5,
@@ -56,7 +58,7 @@ function sendStats(
       },
       service: {
         last_updated: lastUpdated,
-        uptime: 86400,
+        uptime,
         version: "0.15.0-test",
         latest_version: "0.15.0",
         storage: {},
@@ -111,7 +113,7 @@ test.describe("Camera health cards @high", () => {
     ).toBeVisible();
   });
 
-  test("zero fps marks a camera offline and skipped frames degraded", async ({
+  test("zero fps marks a camera offline; only lasting trouble marks it degraded", async ({
     frigateApp,
   }) => {
     await gotoHealth(frigateApp);
@@ -119,7 +121,20 @@ test.describe("Camera health cards @high", () => {
     await expect(async () => {
       sendStats(frigateApp, now + 5, {
         front_door: { camera_fps: 0, detection_fps: 0 },
-        backyard: { skipped_fps: 2.5, reconnects_last_hour: 3 },
+        backyard: {
+          process_fps: 2.5,
+          skipped_fps: 2.5,
+          connection_quality: "poor",
+          reconnects_last_hour: 3,
+        },
+        // D14: a blip is normal and shows only in the numbers
+        garage: {
+          process_fps: 4,
+          skipped_fps: 1,
+          connection_quality: "fair",
+          reconnects_last_hour: 1,
+          stalls_last_hour: 1,
+        },
       });
       await expect(
         frigateApp.page.getByTestId("camera-health-front_door"),
@@ -134,41 +149,85 @@ test.describe("Camera health cards @high", () => {
 
     const back = frigateApp.page.getByTestId("camera-health-backyard");
     await expect(back).toHaveAttribute("data-state", "degraded");
-    await expect(back.getByTestId("camera-health-reason")).toContainText(
-      "Frames are being skipped",
-    );
-    await expect(back.getByTestId("camera-health-reason")).toContainText(
-      "FFmpeg reconnected in the last hour",
+    await expect(back.getByTestId("camera-health-reason")).toHaveText(
+      "Detection skips half of the frames or more, Poor connection quality",
     );
 
-    await expect(
-      frigateApp.page.getByTestId("camera-health-garage"),
-    ).toHaveAttribute("data-state", "ok");
+    const garage = frigateApp.page.getByTestId("camera-health-garage");
+    await expect(garage).toHaveAttribute("data-state", "ok");
+    await expect(garage.getByTestId("camera-health-reason")).toHaveCount(0);
   });
 
-  test("a camera that fell back to software decoding is flagged (D10)", async ({
+  test("right after a start, a camera without frames is starting, not offline (D14)", async ({
+    frigateApp,
+  }) => {
+    await gotoHealth(frigateApp);
+    const now = Date.now() / 1000;
+    const front = frigateApp.page.getByTestId("camera-health-front_door");
+    await expect(async () => {
+      sendStats(
+        frigateApp,
+        now + 5,
+        { front_door: { camera_fps: 0, detection_fps: 0 } },
+        30,
+      );
+      await expect(front).toHaveAttribute("data-state", "starting", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+    await expect(front.getByText("Starting", { exact: true })).toBeVisible();
+    await expect(front.getByTestId("camera-health-reason")).toHaveCount(0);
+
+    await expect(async () => {
+      sendStats(
+        frigateApp,
+        now + 10,
+        { front_door: { camera_fps: 0, detection_fps: 0 } },
+        600,
+      );
+      await expect(front).toHaveAttribute("data-state", "offline", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+  });
+
+  test("software decoding is a note on the card and a status bar message for a day (D10, D14)", async ({
     frigateApp,
   }) => {
     await gotoHealth(frigateApp);
     const now = Date.now() / 1000;
     const garage = frigateApp.page.getByTestId("camera-health-garage");
+    const note = garage.getByTestId("camera-health-note");
+    const message = frigateApp.page.getByText(
+      "Garage: hardware decoding kept failing, now decoding in software",
+    );
     await expect(async () => {
-      sendStats(frigateApp, now + 5, { garage: { hwaccel_fallback: true } });
-      await expect(garage).toHaveAttribute("data-state", "degraded", {
-        timeout: 1_000,
+      sendStats(frigateApp, now + 5, {
+        garage: { hwaccel_fallback: true, hwaccel_fallback_since: now - 3600 },
       });
+      await expect(note).toBeVisible({ timeout: 1_000 });
     }).toPass({ timeout: 10_000 });
 
-    await expect(garage.getByTestId("camera-health-reason")).toHaveText(
-      "Hardware decoding kept failing, so detection decodes in software",
+    await expect(garage).toHaveAttribute("data-state", "ok");
+    await expect(note).toHaveText(
+      "Decodes in software because hardware decoding kept failing · 1h ago",
     );
     if (!frigateApp.isMobile) {
-      await expect(
-        frigateApp.page.getByText(
-          "Garage: hardware decoding kept failing, now decoding in software",
-        ),
-      ).toBeVisible();
+      await expect(message).toBeVisible();
     }
+
+    // Two days later (and across restarts) the card keeps the note but the
+    // status bar stops repeating it.
+    await expect(async () => {
+      sendStats(frigateApp, now + 10, {
+        garage: {
+          hwaccel_fallback: true,
+          hwaccel_fallback_since: now - 2 * 86400,
+        },
+      });
+      await expect(note).toContainText("2d ago", { timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+    await expect(message).toHaveCount(0);
   });
 
   test("feed restarts show as one collapsed line with the reasons (D11)", async ({
