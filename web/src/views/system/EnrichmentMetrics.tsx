@@ -14,6 +14,7 @@ import { ThresholdBarGraph } from "@/components/graph/SystemGraph";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { EventsPerSecondsLineGraph } from "@/components/graph/LineGraph";
+import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
 
 type EnrichmentMetricsProps = {
   lastUpdated: number;
@@ -65,17 +66,12 @@ export default function EnrichmentMetrics({
     isActive,
   ]);
 
-  useEffect(() => {
-    if (isActive && statsHistory.length > 0) {
-      void refreshStats().then((freshStats) => {
-        if (freshStats && freshStats.length > 0) {
-          setStatsHistory(freshStats);
-        }
-      });
-    }
-    // only re-fetch when tab becomes active, not on data changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
+  useRefreshStatsOnActivate(
+    isActive,
+    statsHistory,
+    refreshStats,
+    setStatsHistory,
+  );
 
   const getThreshold = useCallback((key: string) => {
     if (key.includes("description")) {

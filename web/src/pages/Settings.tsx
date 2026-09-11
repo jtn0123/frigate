@@ -1410,7 +1410,7 @@ export default function Settings() {
     [config, selectedCamera, currentSectionKey],
   );
 
-  const handleDeleteProfileForCurrentSection = useCallback(
+  const deleteProfileForCurrentSection = useCallback(
     async (profileName: string) => {
       if (!selectedCamera || !currentSectionKey) return;
 
@@ -1500,6 +1500,11 @@ export default function Settings() {
       profileFriendlyNames,
       t,
     ],
+  );
+
+  const handleDeleteProfileForCurrentSection = useMemo(
+    () => wrapAsync(deleteProfileForCurrentSection),
+    [deleteProfileForCurrentSection],
   );
 
   const handleSectionStatusChange = useCallback(
@@ -1723,6 +1728,50 @@ export default function Settings() {
       isSavingAll || isAnySectionSaving || hasPendingValidationErrors,
   });
 
+  const CurrentSettingsSection = getCurrentComponent(page);
+  const settingsSection = CurrentSettingsSection ? (
+    <CurrentSettingsSection
+      selectedCamera={selectedCamera}
+      setUnsavedChanges={setUnsavedChanges}
+      selectedZoneMask={filterZoneMask}
+      onSectionStatusChange={handleSectionStatusChange}
+      pendingDataBySection={pendingDataBySection}
+      onPendingDataChange={handlePendingDataChange}
+      profileState={profileState}
+      onDeleteProfileSection={handleDeleteProfileForCurrentSection}
+      profilesUIEnabled={profilesUIEnabled}
+      setProfilesUIEnabled={setProfilesUIEnabled}
+      isSavingAll={isSavingAll}
+      onSectionSavingChange={handleSectionSavingChange}
+    />
+  ) : null;
+
+  const unsavedChangesDialog = confirmationDialogOpen ? (
+    <AlertDialog
+      open={confirmationDialogOpen}
+      onOpenChange={() => setConfirmationDialogOpen(false)}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("dialog.unsavedChanges.title")}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("dialog.unsavedChanges.desc")}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => handleDialog(false)}>
+            {t("button.cancel", { ns: "common" })}
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={() => handleDialog(true)}>
+            {t("button.save", { ns: "common" })}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  ) : null;
+
   if (isMobile) {
     return (
       <>
@@ -1922,56 +1971,11 @@ export default function Settings() {
 
             <div className="p-2">
               <SettingsNav />
-              {(() => {
-                const CurrentComponent = getCurrentComponent(page);
-                if (!CurrentComponent) return null;
-                return (
-                  <CurrentComponent
-                    selectedCamera={selectedCamera}
-                    setUnsavedChanges={setUnsavedChanges}
-                    selectedZoneMask={filterZoneMask}
-                    onSectionStatusChange={handleSectionStatusChange}
-                    pendingDataBySection={pendingDataBySection}
-                    onPendingDataChange={handlePendingDataChange}
-                    profileState={profileState}
-                    onDeleteProfileSection={wrapAsync(
-                      handleDeleteProfileForCurrentSection,
-                    )}
-                    profilesUIEnabled={profilesUIEnabled}
-                    setProfilesUIEnabled={setProfilesUIEnabled}
-                    isSavingAll={isSavingAll}
-                    onSectionSavingChange={handleSectionSavingChange}
-                  />
-                );
-              })()}
+              {settingsSection}
             </div>
           </MobilePageContent>
         </MobilePage>
-        {confirmationDialogOpen && (
-          <AlertDialog
-            open={confirmationDialogOpen}
-            onOpenChange={() => setConfirmationDialogOpen(false)}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t("dialog.unsavedChanges.title")}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("dialog.unsavedChanges.desc")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => handleDialog(false)}>
-                  {t("button.cancel", { ns: "common" })}
-                </AlertDialogCancel>
-                <AlertDialogAction onClick={() => handleDialog(true)}>
-                  {t("button.save", { ns: "common" })}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        {unsavedChangesDialog}
         <RestartDialog
           isOpen={restartDialogOpen}
           onClose={() => setRestartDialogOpen(false)}
@@ -2219,55 +2223,10 @@ export default function Settings() {
             )}
           >
             <SettingsNav />
-            {(() => {
-              const CurrentComponent = getCurrentComponent(page);
-              if (!CurrentComponent) return null;
-              return (
-                <CurrentComponent
-                  selectedCamera={selectedCamera}
-                  setUnsavedChanges={setUnsavedChanges}
-                  selectedZoneMask={filterZoneMask}
-                  onSectionStatusChange={handleSectionStatusChange}
-                  pendingDataBySection={pendingDataBySection}
-                  onPendingDataChange={handlePendingDataChange}
-                  profileState={profileState}
-                  onDeleteProfileSection={wrapAsync(
-                    handleDeleteProfileForCurrentSection,
-                  )}
-                  profilesUIEnabled={profilesUIEnabled}
-                  setProfilesUIEnabled={setProfilesUIEnabled}
-                  isSavingAll={isSavingAll}
-                  onSectionSavingChange={handleSectionSavingChange}
-                />
-              );
-            })()}
+            {settingsSection}
           </div>
         </SidebarInset>
-        {confirmationDialogOpen && (
-          <AlertDialog
-            open={confirmationDialogOpen}
-            onOpenChange={() => setConfirmationDialogOpen(false)}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t("dialog.unsavedChanges.title")}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("dialog.unsavedChanges.desc")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => handleDialog(false)}>
-                  {t("button.cancel", { ns: "common" })}
-                </AlertDialogCancel>
-                <AlertDialogAction onClick={() => handleDialog(true)}>
-                  {t("button.save", { ns: "common" })}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        {unsavedChangesDialog}
       </SidebarProvider>
       <RestartDialog
         isOpen={restartDialogOpen}
