@@ -186,5 +186,8 @@
   },
   "timelineScrubber": {
     "handlebar": "Timeline playhead. Use Left and Right arrows to step between events."
+  },
+  "eventSummary": {
+    "label": "Event summary"
   }
 }

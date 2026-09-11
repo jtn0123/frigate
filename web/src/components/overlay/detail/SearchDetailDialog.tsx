@@ -89,6 +89,8 @@ import { Trans, useTranslation } from "react-i18next";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
+import EventSummaryHeader from "@/components/fork/EventSummaryHeader";
+import { summaryFromSearchResult } from "@/lib/fork/event-summary";
 import { DialogPortal } from "@radix-ui/react-dialog";
 import { useDetailStream } from "@/context/detail-stream-context";
 import { PiSlidersHorizontalBold } from "react-icons/pi";
@@ -639,6 +641,7 @@ export default function SearchDetailDialog({
         >
           <Header className={cn(!isDesktop && "top-0 z-[60] mb-0")}>
             <Title>{t("trackedObjectDetails")}</Title>
+            <EventSummaryHeader {...summaryFromSearchResult(search)} />
             <Description className="sr-only">
               {t("trackedObjectDetails")}
               <span className="sr-only" tabIndex={0} />

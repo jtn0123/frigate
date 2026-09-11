@@ -24,6 +24,8 @@ import EventMenu from "@/components/timeline/EventMenu";
 import { FrigatePlusDialog } from "@/components/overlay/dialog/FrigatePlusDialog";
 import { cn } from "@/lib/utils";
 import { onActivate as onActivateKey } from "@/utils/fork/a11y";
+import EventSummaryHeader from "@/components/fork/EventSummaryHeader";
+import { summaryFromReview } from "@/lib/fork/event-summary";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { Link } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
@@ -272,6 +274,11 @@ export default function DetailStream({
     return <ActivityIndicator />;
   }
 
+  const activeReview = reviewItems?.find((review) => {
+    const id = `review-${review.id ?? review.start_time ?? Math.floor(review.start_time ?? 0)}`;
+    return id === activeReviewId;
+  });
+
   return (
     <>
       <FrigatePlusDialog
@@ -285,6 +292,12 @@ export default function DetailStream({
       />
 
       <div className="relative flex h-full flex-col">
+        {activeReview && (
+          <EventSummaryHeader
+            className="shrink-0 border-b border-secondary px-3 py-2"
+            {...summaryFromReview(activeReview)}
+          />
+        )}
         {controlsExpanded && (
           <div
             className="absolute inset-0 z-20 cursor-pointer bg-black/50"
