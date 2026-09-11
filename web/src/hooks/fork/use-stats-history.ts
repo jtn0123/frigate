@@ -20,7 +20,7 @@ function subscribe(listener: () => void) {
 }
 
 export function pushStatsSnapshot(stats: FrigateStats | undefined) {
-  if (!stats?.service?.last_updated) return;
+  if (!stats?.service.last_updated) return;
   const last = history[history.length - 1];
   if (last && last.service.last_updated >= stats.service.last_updated) {
     return;

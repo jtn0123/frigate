@@ -8,7 +8,7 @@ import { setCommandPaletteOpen } from "@/hooks/fork/use-command-palette";
 
 type CommandPaletteHintProps = {
   variant: ForkNavVariant;
-  large?: boolean;
+  large?: boolean | undefined;
 };
 
 export default function CommandPaletteHint({

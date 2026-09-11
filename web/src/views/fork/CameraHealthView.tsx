@@ -20,7 +20,9 @@ import { cn } from "@/lib/utils";
 import {
   cameraFpsSeries,
   computeCameraHealth,
+  connectionQualityProps,
   detectorShare,
+  enabledFromWs,
   newestRestarts,
   restartKindCounts,
   type CameraHealthState,
@@ -169,17 +171,17 @@ function CameraHealthCard({
   fpsSeries,
 }: CameraHealthCardProps) {
   const { t } = useTranslation(["fork"]);
-  // runtime enable/disable arrives over the WebSocket; fall back to config
   const { payload: enabledState } = useEnabledState(cameraName);
-  const isEnabled = enabledState ? enabledState === "ON" : enabled;
-  const cameraStats = stats?.cameras?.[cameraName];
+  const isEnabled = enabledFromWs(enabledState, enabled);
+  const cameraStats = stats?.cameras[cameraName];
+  const quality = connectionQualityProps(cameraStats);
   const health = computeCameraHealth({ enabled: isEnabled }, cameraStats);
   const share = detectorShare(stats, cameraName);
 
   const ffmpegCpu =
     cameraStats?.ffmpeg_cpu ??
-    (cameraStats?.ffmpeg_pid
-      ? stats?.cpu_usages?.[cameraStats.ffmpeg_pid]?.cpu
+    (stats && cameraStats
+      ? stats.cpu_usages[String(cameraStats.ffmpeg_pid)]?.cpu
       : undefined);
 
   const metrics: Array<{ key: string; value: string }> = [
@@ -220,14 +222,7 @@ function CameraHealthCard({
           <span className="truncate font-medium smart-capitalize">{label}</span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {cameraStats?.connection_quality && (
-            <ConnectionQualityIndicator
-              quality={cameraStats.connection_quality}
-              expectedFps={cameraStats.expected_fps ?? 0}
-              reconnects={cameraStats.reconnects_last_hour ?? 0}
-              stalls={cameraStats.stalls_last_hour ?? 0}
-            />
-          )}
+          {quality && <ConnectionQualityIndicator {...quality} />}
           <Badge variant="outline" className={STATE_BADGE[health.state]}>
             {t(`cameraHealth.state.${health.state}`)}
           </Badge>
@@ -265,7 +260,7 @@ function CameraHealthCard({
           <span>
             {t("cameraHealth.sparklineCaption", { count: fpsSeries.length })}
           </span>
-          {stats?.service?.last_updated && (
+          {stats?.service.last_updated && (
             <span>
               {t("cameraHealth.lastUpdate")}{" "}
               <TimeAgo time={stats.service.last_updated * 1000} dense />

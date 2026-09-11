@@ -158,7 +158,13 @@ function ErrorPanel({ error, info, variant }: ErrorPanelProps) {
           <LuRotateCw className="mr-2 size-4" />
           {t("errorBoundary.reload")}
         </Button>
-        <Button size="sm" variant="outline" onClick={copyDetails}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            void copyDetails(); // clipboard write is fire-and-forget
+          }}
+        >
           <LuCopy className={cn("mr-2 size-4", copied && "text-success")} />
           {copied ? t("errorBoundary.copied") : t("errorBoundary.copyDetails")}
         </Button>
@@ -179,19 +185,19 @@ type BoundaryState = {
 };
 
 class Boundary extends Component<BoundaryProps, BoundaryState> {
-  state: BoundaryState = { error: null, info: null, hasError: false };
+  override state: BoundaryState = { error: null, info: null, hasError: false };
 
   static getDerivedStateFromError(error: unknown): Partial<BoundaryState> {
     return { error, hasError: true };
   }
 
-  componentDidCatch(_error: unknown, info: ErrorInfo) {
+  override componentDidCatch(_error: unknown, info: ErrorInfo) {
     // React already reports the error through console.error; keep the
     // component stack so "Copy details" can include it.
     this.setState({ info });
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return (
         <ErrorPanel

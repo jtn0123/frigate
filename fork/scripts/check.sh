@@ -49,6 +49,7 @@ e2e_args=()
 
 gate_lint() { (cd web && npm run -s lint); }
 gate_typecheck() { (cd web && npm run -s typecheck); }
+gate_ratchet() { (cd web && npm run -s type-ratchet); }
 gate_i18n() { (cd web && npm run -s i18n:extract:ci); }
 gate_gitleaks() { gitleaks git --no-banner --redact --log-opts="origin/dev..HEAD" .; }
 
@@ -114,7 +115,7 @@ lane() {
 # skip <name> <reason>: a gate --fast leaves out, reported so it is never silent.
 skip() { notes+=("  -  $(printf '%-10s' "$1") not run: $2"); }
 
-host=(lint typecheck vitest i18n ruff gitleaks)
+host=(lint typecheck ratchet vitest i18n ruff gitleaks)
 docker_lane=()
 if [[ "$mode" == fast ]]; then
   if touches '^web/e2e/'; then

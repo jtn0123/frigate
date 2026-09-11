@@ -77,11 +77,11 @@ describe("computeSettingsDiff", () => {
     const pending: Record<string, ConfigSectionData> = {
       detect: { enabled: true, fps: 10, width: 1280, height: 720 },
     };
-    const [diff] = computeSettingsDiff(pending, config, fullSchema);
-    expect(diff.scope).toBe("global");
-    expect(diff.section).toBe("detect");
-    expect(diff.needsRestart).toBe(true);
-    expect(diff.changes).toEqual([{ path: "fps", oldValue: 5, newValue: 10 }]);
+    const diff = computeSettingsDiff(pending, config, fullSchema).at(0);
+    expect(diff?.scope).toBe("global");
+    expect(diff?.section).toBe("detect");
+    expect(diff?.needsRestart).toBe(true);
+    expect(diff?.changes).toEqual([{ path: "fps", oldValue: 5, newValue: 10 }]);
   });
 
   it("scopes camera entries and skips sections with no effective change", () => {
@@ -118,6 +118,18 @@ describe("computeSettingsDiff", () => {
     expect(detectors?.changes).toEqual([
       { path: "coral.device", oldValue: "usb", newValue: "pci" },
     ]);
+  });
+
+  it("does not throw when go2rtc.streams is missing from the config", () => {
+    const pending: Record<string, ConfigSectionData> = {
+      go2rtc_streams: { front: ["rtsp://front"] },
+    };
+    const diffs = computeSettingsDiff(pending, cfg({ go2rtc: {} }), fullSchema);
+    const streams = diffs.find((d) => d.section === "go2rtc.streams");
+    expect(streams).toBeDefined();
+    expect(streams?.changes.some((change) => change.path === "front")).toBe(
+      true,
+    );
   });
 
   it("memoizes on input identity", () => {

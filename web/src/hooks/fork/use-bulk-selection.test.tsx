@@ -4,7 +4,11 @@ import { useState } from "react";
 import { useBulkSelection } from "./use-bulk-selection";
 
 type Item = { id: string };
-const items: Item[] = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+const itemA: Item = { id: "a" };
+const itemB: Item = { id: "b" };
+const itemC: Item = { id: "c" };
+const itemD: Item = { id: "d" };
+const items: Item[] = [itemA, itemB, itemC, itemD];
 
 function useHarness() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -31,20 +35,20 @@ describe("useBulkSelection", () => {
     const { result } = renderHook(useHarness);
     let handled = true;
     act(() => {
-      handled = result.current.onItemClick(items[0], false);
+      handled = result.current.onItemClick(itemA, false);
     });
     expect(handled).toBe(false);
     expect(result.current.selectedIds).toEqual([]);
 
     act(() => result.current.setActive(true));
     act(() => {
-      handled = result.current.onItemClick(items[0], false);
+      handled = result.current.onItemClick(itemA, false);
     });
     expect(handled).toBe(true);
     expect(result.current.selectedIds).toEqual(["a"]);
 
     act(() => {
-      result.current.onItemClick(items[0], false);
+      result.current.onItemClick(itemA, false);
     });
     expect(result.current.selectedIds).toEqual([]);
   });
@@ -53,11 +57,11 @@ describe("useBulkSelection", () => {
     const { result } = renderHook(useHarness);
     act(() => result.current.setActive(true));
     act(() => {
-      result.current.onItemClick(items[1], false);
+      result.current.onItemClick(itemB, false);
     });
     act(() => press("Shift", "keydown"));
     act(() => {
-      result.current.onItemClick(items[3], false);
+      result.current.onItemClick(itemD, false);
     });
     act(() => press("Shift", "keyup"));
     expect(result.current.selectedIds).toEqual(["b", "c", "d"]);

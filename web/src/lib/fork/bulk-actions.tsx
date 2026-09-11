@@ -29,23 +29,27 @@ export async function markReviewedWithUndo(
     { ns: "fork", count: ids.length },
   );
 
+  const revertReviewed = async () => {
+    try {
+      await axios.post("reviews/viewed", { ids, reviewed: !reviewed });
+      toast.success(i18n.t("bulk.undone", { ns: "fork" }), {
+        position: "top-center",
+      });
+    } catch {
+      toast.error(i18n.t("bulk.undoFailed", { ns: "fork" }), {
+        position: "top-center",
+      });
+    }
+    onReverted();
+  };
+
   toast.success(message, {
     position: "top-center",
     duration: UNDO_TOAST_MS,
     action: {
       label: i18n.t("button.undo", { ns: "common" }),
-      onClick: async () => {
-        try {
-          await axios.post("reviews/viewed", { ids, reviewed: !reviewed });
-          toast.success(i18n.t("bulk.undone", { ns: "fork" }), {
-            position: "top-center",
-          });
-        } catch {
-          toast.error(i18n.t("bulk.undoFailed", { ns: "fork" }), {
-            position: "top-center",
-          });
-        }
-        onReverted();
+      onClick: () => {
+        void revertReviewed(); // toast action onClick cannot be async
       },
     },
   });

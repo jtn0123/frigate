@@ -43,6 +43,13 @@ type ApiError = {
   response?: { data?: { message?: string; detail?: string } };
 };
 
+function plusSubmitSucceeded(data: unknown): boolean {
+  if (typeof data !== "object" || data === null || !("success" in data)) {
+    return false;
+  }
+  return data.success === true;
+}
+
 export default function BulkActionBar({
   bulk,
   onChanged,
@@ -57,12 +64,10 @@ export default function BulkActionBar({
   const count = bulk.selectedIds.length;
   const plusEligible = useMemo(
     () =>
-      config?.plus?.enabled
+      config?.plus.enabled
         ? bulk.selectedItems.filter(
             (item) =>
-              item.has_snapshot &&
-              !item.plus_id &&
-              item.data?.type === "object",
+              item.has_snapshot && !item.plus_id && item.data.type === "object",
           )
         : [],
     [config, bulk.selectedItems],
@@ -110,12 +115,13 @@ export default function BulkActionBar({
         axios.post(`events/${item.id}/plus`, { include_annotation: 1 }),
       ),
     );
-    const failed = results.filter(
-      (result) =>
-        result.status === "rejected" ||
-        result.value.status !== 200 ||
-        !result.value.data?.success,
-    ).length;
+    const failed = results.filter((result) => {
+      if (result.status === "rejected" || result.value.status !== 200) {
+        return true;
+      }
+      const data: unknown = result.value.data as unknown;
+      return !plusSubmitSucceeded(data);
+    }).length;
     const submitted = results.length - failed;
     if (submitted > 0) {
       toast.success(t("bulk.plus.submitted", { count: submitted }), {
@@ -177,9 +183,9 @@ export default function BulkActionBar({
               onClick={(event) => {
                 event.preventDefault();
                 if (confirm === "plus") {
-                  onSubmitToPlus();
+                  void onSubmitToPlus(); // dialog action cannot be async
                 } else {
-                  onDelete();
+                  void onDelete(); // dialog action cannot be async
                 }
               }}
             >

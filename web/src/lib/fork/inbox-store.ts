@@ -18,7 +18,7 @@ export type InboxItem = {
   labels: string[];
   zones: string[];
   startTime: number;
-  endTime?: number;
+  endTime?: number | undefined;
   thumbPath: string;
   read: boolean;
   /** Epoch ms when the item first arrived in this browser. */
@@ -151,11 +151,7 @@ export function isInQuietHours(
 
 function labelsOf(segment: ReviewSegment): string[] {
   const data = segment.data;
-  const labels = [
-    ...(data?.objects ?? []),
-    ...(data?.audio ?? []),
-    ...(data?.sub_labels ?? []),
-  ];
+  const labels = [...data.objects, ...data.audio, ...(data.sub_labels ?? [])];
   return Array.from(new Set(labels));
 }
 
@@ -164,7 +160,7 @@ function labelsOf(segment: ReviewSegment): string[] {
  * store changed.
  */
 export function ingestReview(review: FrigateReview | undefined): boolean {
-  if (!review || !review.after) return false;
+  if (!review) return false;
   const segment = review.after;
   if (segment.severity !== "alert" && segment.severity !== "detection") {
     return false;
@@ -188,9 +184,9 @@ export function ingestReview(review: FrigateReview | undefined): boolean {
       camera: segment.camera,
       severity: segment.severity,
       labels: labelsOf(segment),
-      zones: segment.data?.zones ?? [],
+      zones: segment.data.zones,
       startTime: segment.start_time,
-      endTime: segment.end_time ?? undefined,
+      endTime: segment.end_time,
       thumbPath: segment.thumb_path,
       read: quiet,
       receivedAt: Date.now(),
@@ -199,12 +195,15 @@ export function ingestReview(review: FrigateReview | undefined): boolean {
     return true;
   }
 
-  const existing = state.items[existingIndex];
+  const existing = state.items.at(existingIndex);
+  if (existing === undefined) {
+    return false;
+  }
   const updated: InboxItem = {
     ...existing,
     severity: segment.severity,
     labels: labelsOf(segment),
-    zones: segment.data?.zones ?? existing.zones,
+    zones: segment.data.zones,
     endTime: segment.end_time ?? existing.endTime,
     thumbPath: segment.thumb_path || existing.thumbPath,
     // an escalation from detection to alert deserves a fresh badge unless

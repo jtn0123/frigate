@@ -45,14 +45,14 @@ export function readErrorKeyId(key: unknown): string {
   if (typeof key === "string") {
     // SWR hands onError the serialised key; array keys arrive as
     // `@"path",#param:"value",` so pull the path back out.
-    const serialised = /^@"([^"]*)"/.exec(key);
-    return serialised ? serialised[1] : key;
+    const captured = /^@"([^"]*)"/.exec(key)?.at(1);
+    return captured !== undefined ? captured : key;
   }
   if (Array.isArray(key) && key.length > 0) {
-    return String(key[0]);
+    return String(key.at(0));
   }
   try {
-    return JSON.stringify(key) ?? String(key);
+    return JSON.stringify(key);
   } catch {
     return String(key);
   }
@@ -99,8 +99,7 @@ export function reportReadError(error: unknown, key: unknown): void {
   }
 
   const id = readErrorKeyId(key);
-  const status = (error as { response?: { status?: number } })?.response
-    ?.status;
+  const status = (error as { response?: { status?: number } }).response?.status;
   if (isEmptyResult(id, status)) {
     return;
   }

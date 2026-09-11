@@ -10,11 +10,11 @@ import { toUnixTime } from "./timeline-scrubber";
 export type EventSummaryData = {
   camera: string;
   label: string;
-  subLabel?: string | null;
+  subLabel?: string | null | undefined;
   startTime: number;
-  endTime?: number;
-  type?: EventType;
-  zones?: string[];
+  endTime?: number | undefined;
+  type?: EventType | undefined;
+  zones?: string[] | undefined;
 };
 
 export function summaryFromSearchResult(
@@ -26,7 +26,7 @@ export function summaryFromSearchResult(
     subLabel: search.sub_label,
     startTime: toUnixTime(search.start_time) ?? 0,
     endTime: toUnixTime(search.end_time),
-    type: search.data?.type,
+    type: search.data.type,
     zones: search.zones,
   };
 }
@@ -38,20 +38,20 @@ export function summaryFromEvent(event: Event): EventSummaryData {
     subLabel: event.sub_label,
     startTime: toUnixTime(event.start_time) ?? 0,
     endTime: toUnixTime(event.end_time),
-    type: event.data?.type,
+    type: event.data.type,
     zones: event.zones,
   };
 }
 
 export function summaryFromReview(review: ReviewSegment): EventSummaryData {
-  const objects = review.data?.objects ?? [];
+  const label = review.data.objects.at(0) ?? review.severity;
   return {
     camera: review.camera,
-    label: objects[0] ?? review.severity,
-    subLabel: review.data?.sub_labels?.[0],
+    label,
+    subLabel: review.data.sub_labels?.at(0),
     startTime: toUnixTime(review.start_time) ?? 0,
     endTime: toUnixTime(review.end_time),
     type: "object",
-    zones: review.data?.zones,
+    zones: review.data.zones,
   };
 }

@@ -126,7 +126,12 @@ export default function ShareClipButton({
                   aria-label={t("clipShare.link")}
                   data-testid="share-clip-url"
                 />
-                <Button type="button" onClick={copyLink}>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void copyLink(); // clipboard write is fire-and-forget
+                  }}
+                >
                   {t("clipShare.copy")}
                 </Button>
               </div>
