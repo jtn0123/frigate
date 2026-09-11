@@ -37,7 +37,7 @@ lines of hand-written types in `web/src/types/` and no runtime validation of
 responses, so TypeScript trusts whatever the server sends. Backend: config is
 strongly validated by 166 pydantic models, but mypy's strict flags are
 switched off (`ignore_errors`) for `api`, `config`, `util`, `video`,
-`detectors`, `embeddings`, `ptz`, `http`, `debug_replay` and tests; 70% of
+`detectors`, `embeddings`, `ptz` and tests; 70% of
 functions are fully annotated, with 147 `type: ignore` and 784 `Any`; only
 77 of 179 routes declare a `response_model`; the peewee ORM is untyped.
 
@@ -452,9 +452,9 @@ nothing tracks upstream automatically.
 - **Grade lift:** B → B+ (real-app feedback loop)
 
 #### I3 — Continue the mypy ratchet `[upstream]`
-- **Where:** `frigate/mypy.ini` (`ignore_errors = true` for `frigate.api.*`, `config.*`, `util.*`, `video.*`, `detectors.*`, `embeddings.*`, `ptz.*`, `http`, `debug_replay`, `test.*`); `frigate.stats` re-enabled by the fork
-- **What's wrong:** Strict flags cover a minority of the backend; all routes are unchecked.
-- **Fix:** Smallest module group first (`ptz`, `http`, then `util`), one commit each so the ratchet holds.
+- **Where:** `frigate/mypy.ini` (`ignore_errors = true` for `frigate.api.*`, `config.*`, `util.*`, `video.*`, `detectors.*`, `embeddings.*`, `ptz.*`, `test.*`); `frigate.stats` re-enabled by the fork; `frigate.debug_replay` re-enabled 2026-09-11 (1 `no-untyped-def` on `_build_camera_config_dict` fixed); leftover `frigate.http` ignore removed (module does not exist)
+- **What's wrong:** Strict flags still skip the large packages; all routes are unchecked.
+- **Fix:** Remaining waves in PR-14: `ptz`+`video`, then `config`, `util`, `detectors`+`embeddings`, `api` last, one PR each so the ratchet holds. Never enable mypy on `frigate.test`.
 - **Effort:** L
 - **Grade lift:** B → B+
 

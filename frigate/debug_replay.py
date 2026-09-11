@@ -15,6 +15,7 @@ import time
 from ruamel.yaml import YAML
 
 from frigate.config import FrigateConfig
+from frigate.config.camera.camera import CameraConfig
 from frigate.config.camera.updater import (
     CameraConfigUpdateEnum,
     CameraConfigUpdatePublisher,
@@ -201,7 +202,7 @@ class DebugReplayManager:
 
     def _build_camera_config_dict(
         self,
-        source_config,
+        source_config: CameraConfig,
         replay_name: str,
         clip_path: str,
     ) -> dict:
