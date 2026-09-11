@@ -20,7 +20,8 @@
     "e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
     "i18n:extract": "i18next-cli extract",
     "i18n:extract:ci": "i18next-cli extract --ci",
-    "i18n:status": "i18next-cli status"
+    "i18n:status": "i18next-cli status",
+    "bundle:budget": "node scripts/fork/bundle-budget.mjs"
   },
   "dependencies": {
     "@cycjimmy/jsmpeg-player": "^6.1.2",
