@@ -62,7 +62,7 @@ parallel; each needs its own `E2E_PORT`.
 
 ### Phase 1 — finish the original 30
 
-- [ ] **1a. features1** — UI6 command palette, UI12 camera health cards, UI14
+- [x] **1a. features1** — UI6 command palette, UI12 camera health cards, UI14
   notification inbox. `section/features1` has 3 commits on an old base: rebase,
   resolve `FORK.md`, gates (`E2E_PORT=4185`), fix anything red.
   *Pair with 1b.*
@@ -314,6 +314,7 @@ set its status in the report.
    npx vitest run
    npm run i18n:extract:ci
    npm run build
+   npm run e2e:build              # --base=/ (plain build uses BASE_PATH)
    E2E_PORT=<unique port> npx playwright test -c e2e/playwright.config.ts
    cd .. && gitleaks git --no-banner --redact --log-opts="upstream/dev..HEAD" .
    ```
@@ -356,8 +357,8 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 
 ## Done (merged on `polish`)
 
-21 of the 30, with e2e 331 passed / 95 skipped and 978 backend tests OK at the
-last full run:
+24 of the 30, with e2e 373 passed / 101 skipped (features1) and 978 backend
+tests OK at the last full run:
 
 - Non-UI (all 15): D1 unit tests, I1 pre-commit + CI caching, G3 non-blocking
   handlers, G4 bounded event search, E1 security headers, E2 per-route auth
@@ -372,7 +373,8 @@ last full run:
 
 ## Follow-ups
 
-- Owner question (open): cut UI14 notification inbox and UI11 clip sharing to
-  keep the fork lighter? Default is to build both.
+- Owner default confirmed: build UI14 and UI11.
+- Local e2e needs `npm run e2e:build` (or CI's equivalent) before Playwright;
+  plain `npm run build` leaves `/BASE_PATH/` assets that 404 under vite preview.
 - Live-server tweaks were proposed but never approved (Tapo software decode,
   disabling `out_1..4`, camera renames). Leave them alone.
