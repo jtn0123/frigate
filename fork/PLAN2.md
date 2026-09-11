@@ -165,6 +165,11 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
 - **Impact:** A B− → B. **Conflict:** low (new files; one-line imports).
 
 ### PR-02 · type-guardrails — C10, I3 (first step) — S
+- **Status (2026-09-11):** C10 on `section/type-guardrails`. I3 step 1 next
+  in this PR. Baselines in `fork/type-ratchet.json`: 23 `any`, 18
+  `@ts-expect-error`, 25 `as unknown as`, 25 `no-explicit-any` disables;
+  type-aware rule counts across `web/src` as of this commit (floating 137,
+  misused 125, unnecessary-condition 1505).
 - **Scope:** `web/tsconfig.fork-strict.json` (extends the base, adds the five
   extra flags, includes only `src/**/fork/**`, `src/fork/**`, `e2e/specs/fork/**`)
   run in "Web - Lint"; type-aware lint rules from the table above on the same

@@ -148,10 +148,10 @@ untested.
 - **Effort:** M
 - **Grade lift:** C+ → C+ (risk reduction; enables D2 assertions)
 
-#### C10 — Ratchet TypeScript escape hatches `[fork]`
-- **Where:** `web/src`: 23 explicit `any` (+25 `no-explicit-any` disables), 18 `@ts-expect-error`, 20 `as unknown as`; `web/eslint.config.js:46` uses `tseslint.configs.recommended`, not the type-checked presets
+#### ~~C10~~ ✓ done 2026-09-11 — Ratchet TypeScript escape hatches `[fork]`
+- **Where:** `web/src`: 23 explicit `any` (+25 `no-explicit-any` disables), 18 `@ts-expect-error`, 25 `as unknown as`; `web/eslint.config.js` uses `tseslint.configs.recommended`, not the type-checked presets
 - **What's wrong:** Each hatch is a spot where strict mode is switched off by hand; nothing stops the count growing.
-- **Fix:** Replace hatches in fork-touched files first; add a CI count check that fails if any of the three counts rises; trial `recommendedTypeChecked` on `web/src/**/fork/**` only.
+- **Fix:** `web/tsconfig.fork-strict.json` (five extra flags, fork paths only; `typecheck-fork.mjs` ignores errors in imported upstream files). Type-aware rules from PLAN2 as errors on `src/**/fork` and `src/fork`. `web/scripts/fork/type-ratchet.mjs` + `fork/type-ratchet.json` fail CI if any hatch or type-aware-rule count across `web/src` rises. `noImplicitOverride` on the error-boundary class. e2e specs stay on the extra tsc flags but not the unsafe-* lint rules (Playwright `evaluate` is `any`).
 - **Effort:** S
 - **Grade lift:** C+ → C+ (type-safety hygiene; pairs with A5)
 

@@ -5,7 +5,7 @@ import { isForkEnabled } from "@/fork/flags";
 
 type ForkNavItemsProps = {
   variant: ForkNavVariant;
-  large?: boolean;
+  large?: boolean | undefined;
 };
 
 /**

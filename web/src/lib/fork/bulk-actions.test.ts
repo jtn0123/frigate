@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const post = vi.fn();
-const toastSuccess = vi.fn();
-const toastError = vi.fn();
+const post = vi.fn<(...args: unknown[]) => Promise<{ status: number }>>();
+const toastSuccess = vi.fn<(...args: unknown[]) => void>();
+const toastError = vi.fn<(...args: unknown[]) => void>();
 
 vi.mock("axios", () => ({
   default: { post: (...args: unknown[]) => post(...args) },
@@ -40,12 +40,12 @@ describe("markReviewedWithUndo", () => {
       reviewed: true,
     });
     expect(toastSuccess).toHaveBeenCalledTimes(1);
-    const toastArg = toastSuccess.mock.calls[0][1] as {
-      action?: { onClick: () => Promise<void> };
-    };
-    expect(toastArg.action).toBeDefined();
+    const toastArg = toastSuccess.mock.calls.at(0)?.at(1) as
+      | { action?: { onClick: () => Promise<void> } }
+      | undefined;
+    expect(toastArg?.action).toBeDefined();
 
-    await toastArg.action?.onClick();
+    await toastArg?.action?.onClick();
     expect(post).toHaveBeenNthCalledWith(2, "reviews/viewed", {
       ids: ["a", "b"],
       reviewed: false,

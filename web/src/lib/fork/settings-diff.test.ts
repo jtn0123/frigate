@@ -77,11 +77,11 @@ describe("computeSettingsDiff", () => {
     const pending: Record<string, ConfigSectionData> = {
       detect: { enabled: true, fps: 10, width: 1280, height: 720 },
     };
-    const [diff] = computeSettingsDiff(pending, config, fullSchema);
-    expect(diff.scope).toBe("global");
-    expect(diff.section).toBe("detect");
-    expect(diff.needsRestart).toBe(true);
-    expect(diff.changes).toEqual([{ path: "fps", oldValue: 5, newValue: 10 }]);
+    const diff = computeSettingsDiff(pending, config, fullSchema).at(0);
+    expect(diff?.scope).toBe("global");
+    expect(diff?.section).toBe("detect");
+    expect(diff?.needsRestart).toBe(true);
+    expect(diff?.changes).toEqual([{ path: "fps", oldValue: 5, newValue: 10 }]);
   });
 
   it("scopes camera entries and skips sections with no effective change", () => {

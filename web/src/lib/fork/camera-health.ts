@@ -135,5 +135,5 @@ export function cameraFpsSeries(
   history: FrigateStats[],
   camera: string,
 ): number[] {
-  return history.map((snapshot) => snapshot.cameras?.[camera]?.camera_fps ?? 0);
+  return history.map((snapshot) => snapshot.cameras[camera]?.camera_fps ?? 0);
 }

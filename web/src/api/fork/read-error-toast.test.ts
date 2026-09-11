@@ -55,7 +55,7 @@ describe("reportReadError", () => {
   it("still toasts a 404 from other endpoints", () => {
     reportReadError(httpError(404, "Event not found"), "events/abc123");
     expect(toastError).toHaveBeenCalledTimes(1);
-    expect(toastError.mock.calls[0][1]).toMatchObject({
+    expect(toastError.mock.calls.at(0)?.at(1)).toMatchObject({
       description: "Event not found",
     });
   });

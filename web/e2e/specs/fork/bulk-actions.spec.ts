@@ -197,13 +197,13 @@ test.describe("Review mark-as-reviewed undo @high", () => {
 
     await page.getByRole("button", { name: "Mark as reviewed" }).click();
     await expect.poll(() => viewed.length).toBe(1);
-    expect(viewed[0]).toMatchObject({ reviewed: true });
-    expect(viewed[0].ids).toHaveLength(2);
+    expect(viewed.at(0)).toMatchObject({ reviewed: true });
+    expect(viewed.at(0)?.ids).toHaveLength(2);
     await expect(page.getByText("2 items marked as reviewed")).toBeVisible();
 
     await page.getByRole("button", { name: "Undo" }).click();
     await expect.poll(() => viewed.length).toBe(2);
-    expect(viewed[1]).toEqual({ ids: viewed[0].ids, reviewed: false });
+    expect(viewed.at(1)).toEqual({ ids: viewed.at(0)?.ids, reviewed: false });
     await expect(page.getByText("Change undone")).toBeVisible();
   });
 
@@ -228,13 +228,13 @@ test.describe("Review mark-as-reviewed undo @high", () => {
 
     await page.getByRole("button", { name: "Mark as reviewed" }).click();
     await expect.poll(() => viewed.length).toBe(1);
-    expect(viewed[0]).toMatchObject({ reviewed: true });
-    expect(viewed[0].ids).toHaveLength(1);
+    expect(viewed.at(0)).toMatchObject({ reviewed: true });
+    expect(viewed.at(0)?.ids).toHaveLength(1);
     await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
 
     await page.getByRole("button", { name: "Undo" }).click();
     await expect.poll(() => viewed.length).toBe(2);
-    expect(viewed[1]).toEqual({ ids: viewed[0].ids, reviewed: false });
+    expect(viewed.at(1)).toEqual({ ids: viewed.at(0)?.ids, reviewed: false });
     await expect(page.getByText("Change undone")).toBeVisible();
   });
 });

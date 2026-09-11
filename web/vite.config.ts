@@ -130,6 +130,7 @@ export default defineConfig({
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "__test__/**/*.{test,spec}.{ts,tsx}",
+      "scripts/fork/**/*.test.ts",
     ],
     exclude: ["node_modules/**", "dist/**", "e2e/**"],
     includeSource: ["src/**/*.{js,jsx,ts,tsx}"],

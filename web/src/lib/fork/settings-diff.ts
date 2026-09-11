@@ -32,8 +32,8 @@ export type SettingsChange = {
 export type SettingsSectionDiff = {
   pendingKey: string;
   scope: "global" | "camera";
-  cameraName?: string;
-  profileName?: string;
+  cameraName?: string | undefined;
+  profileName?: string | undefined;
   /** Config section this entry writes to, e.g. `detect` or `go2rtc.streams`. */
   section: string;
   needsRestart: boolean;
@@ -90,19 +90,23 @@ function parsePendingKey(pendingKey: string) {
   };
 }
 
+function getUnknown(object: unknown, path: string): unknown {
+  return get(object, path) as unknown;
+}
+
 function go2rtcDiff(
   pending: Record<string, string[]>,
   config: FrigateConfig,
 ): SettingsSectionDiff {
   const saved: Record<string, string[]> = {};
-  for (const [name, urls] of Object.entries(config.go2rtc?.streams ?? {})) {
+  for (const [name, urls] of Object.entries(config.go2rtc.streams)) {
     saved[name] = (Array.isArray(urls) ? urls : [urls]).map((url) =>
       maskCredentials(String(url)),
     );
   }
   const live: Record<string, string[]> = {};
   for (const [name, urls] of Object.entries(pending)) {
-    live[name] = (urls ?? []).map((url) => maskCredentials(url));
+    live[name] = urls.map((url) => maskCredentials(url));
   }
   return {
     pendingKey: "go2rtc_streams",
@@ -137,7 +141,7 @@ function schemaSectionDiff(
   if (scope === "camera" && cameraName) {
     base = getBaseCameraSectionValue(config, cameraName, actualSection);
     if (isProfile) {
-      const overrides = get(config.cameras?.[cameraName], sectionPath);
+      const overrides = getUnknown(config.cameras[cameraName], sectionPath);
       if (
         overrides &&
         typeof overrides === "object" &&
@@ -148,13 +152,13 @@ function schemaSectionDiff(
       }
     }
   } else {
-    base = get(config, sectionPath);
+    base = getUnknown(config, sectionPath);
   }
 
   const changes = flattenOverrides(payload.sanitizedOverrides).map(
     ({ path, value }) => ({
       path,
-      oldValue: path ? get(base, path) : base,
+      oldValue: path ? getUnknown(base, path) : base,
       newValue: value,
     }),
   );
@@ -186,7 +190,7 @@ export function computeSettingsDiff(
         scope: "global",
         section: pendingKey,
         needsRestart: true,
-        changes: diffValues(get(config, pendingKey), pendingData),
+        changes: diffValues(getUnknown(config, pendingKey), pendingData),
       });
       continue;
     }

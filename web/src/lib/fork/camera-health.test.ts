@@ -93,6 +93,6 @@ describe("restart history (D11)", () => {
     ];
     const stats = cameraStats({ recent_restarts: recent });
     expect(newestRestarts(stats).map((r) => r.time)).toEqual([200, 100]);
-    expect(recent[0].time).toBe(100);
+    expect(recent.at(0)?.time).toBe(100);
   });
 });
