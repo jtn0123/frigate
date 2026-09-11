@@ -135,5 +135,28 @@
     "lastUpdate": "Updated",
     "openLive": "Live view",
     "openSettings": "Settings"
+  },
+  "settingsNav": {
+    "searchPlaceholder": "Search settings",
+    "searchLabel": "Search settings",
+    "sectionLabel": "Settings section",
+    "noMatches": "No matching settings",
+    "inThisSection": "In this section",
+    "onThisPage": "On this page",
+    "unsaved": "Unsaved changes",
+    "restartRequired": "Restart required",
+    "review": {
+      "title": "Review changes",
+      "description": "These changes will be written to the config when you save.",
+      "empty": "No pending changes.",
+      "field": "Field",
+      "from": "Current",
+      "to": "New",
+      "defaultValue": "(default)",
+      "reset": "(reset)",
+      "global": "Global",
+      "camera": "Camera: {{cameraName}}",
+      "profile": "Profile: {{profileName}}"
+    }
   }
 }

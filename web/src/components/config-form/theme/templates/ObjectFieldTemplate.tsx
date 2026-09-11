@@ -374,7 +374,10 @@ export function ObjectFieldTemplate(props: ObjectFieldTemplateProps) {
             key={group.groupKey}
             className="space-y-4 rounded-lg border border-border/70 bg-card/30 p-4"
           >
-            <div className="border-b border-border/60 pb-4 font-semibold text-primary-variant">
+            <div
+              className="border-b border-border/60 pb-4 font-semibold text-primary-variant"
+              data-settings-anchor={group.groupKey}
+            >
               {group.label}
             </div>
             <div className="space-y-6">
@@ -469,6 +472,7 @@ export function ObjectFieldTemplate(props: ObjectFieldTemplateProps) {
           "flex items-center text-sm",
           hasModifiedDescendants && "text-unsaved",
         )}
+        data-settings-anchor={propertyName ?? ""}
       >
         {inferredLabel}
         {objectRequiresRestart && <RestartRequiredIndicator className="ml-2" />}

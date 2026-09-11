@@ -88,6 +88,8 @@ import { cn } from "@/lib/utils";
 import Heading from "@/components/ui/heading";
 import { LuChevronRight } from "react-icons/lu";
 import Logo from "@/components/Logo";
+import SettingsNav from "@/components/fork/settings/SettingsNav";
+import { useSettingsNavPublish } from "@/hooks/fork/use-settings-nav";
 import {
   MobilePage,
   MobilePageContent,
@@ -1706,6 +1708,20 @@ export default function Settings() {
     ],
   );
 
+  const settingsNav = useSettingsNavPublish({
+    page: pageToggle,
+    setPage: (key) => setPageToggle(key as SettingsType),
+    setContentOpen: setContentMobileOpen,
+    groups: settingsGroups,
+    visibleKeys: visibleSettingsViews,
+    pendingDataBySection,
+    sectionStatusByKey,
+    pendingKeyToMenuKey,
+    saveAll: handleSaveAll,
+    saveDisabled:
+      isSavingAll || isAnySectionSaving || hasPendingValidationErrors,
+  });
+
   if (isMobile) {
     return (
       <>
@@ -1828,7 +1844,7 @@ export default function Settings() {
                     })}
                   </Button>
                   <Button
-                    onClick={handleSaveAll}
+                    onClick={settingsNav.requestSaveAll}
                     variant="select"
                     size="sm"
                     disabled={
@@ -1904,6 +1920,7 @@ export default function Settings() {
             </MobilePageHeader>
 
             <div className="p-2">
+              <SettingsNav />
               {(() => {
                 const CurrentComponent = getCurrentComponent(page);
                 if (!CurrentComponent) return null;
@@ -2002,7 +2019,7 @@ export default function Settings() {
               <Button
                 variant="select"
                 size="sm"
-                onClick={handleSaveAll}
+                onClick={settingsNav.requestSaveAll}
                 disabled={
                   isSavingAll ||
                   isAnySectionSaving ||
@@ -2200,6 +2217,7 @@ export default function Settings() {
               "scrollbar-container flex-1 overflow-y-auto pl-2 pr-0 pt-2",
             )}
           >
+            <SettingsNav />
             {(() => {
               const CurrentComponent = getCurrentComponent(page);
               if (!CurrentComponent) return null;
