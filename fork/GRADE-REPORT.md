@@ -314,7 +314,7 @@ Deliberately, the fork takes no major upstream has not taken.
 - ~~F3~~ ✓ done 2026-09-10 — mypy out of runtime, single `opencv-contrib-python-headless`
 
 #### F5 — Retire abandoned packages and document the Radix patches `[fork, upstreamable]`
-- **Where:** `web/package.json` (`sort-by`, `strftime`, `nosleep.js`, `vite-plugin-monaco-editor` interop hack), `web/patches/*.patch` (no README), repo-root stub `package-lock.json`
+- **Where:** `web/package.json` (~~`sort-by`~~ removed 2026-09-11, `strftime`, `nosleep.js`, `vite-plugin-monaco-editor` interop hack), `web/patches/*.patch` (no README), repo-root stub `package-lock.json`
 - **What's wrong:** Dormant dependencies and two unexplained patches that will bite on upgrade.
 - **Fix:** Replace the three small deps; `web/patches/README.md` (lands with H3); delete the stub lockfile.
 - **Effort:** S
