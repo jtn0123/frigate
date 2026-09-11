@@ -22,6 +22,7 @@ from frigate.api import (
     debug_replay,
     event,
     export,
+    fork_share,
     media,
     motion_search,
     notification,
@@ -173,6 +174,7 @@ def create_fastapi_app(
     app.include_router(motion_search.router)
     app.include_router(record.router)
     app.include_router(debug_replay.router)
+    app.include_router(fork_share.router)
     # every route must declare its own auth gate; fail fast if one is missing
     assert_routes_have_auth_gate(app)
     # App Properties

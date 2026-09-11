@@ -14,6 +14,7 @@ from frigate.api import (
     debug_replay,
     event,
     export,
+    fork_share,
     media,
     motion_search,
     notification,
@@ -45,6 +46,7 @@ ALL_ROUTERS = [
     motion_search.router,
     record.router,
     debug_replay.router,
+    fork_share.router,
 ]
 
 

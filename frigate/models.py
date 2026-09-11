@@ -164,6 +164,17 @@ class User(Model):
         return [cam for cam in allowed if cam in all_camera_names]
 
 
+class ShareLink(Model):
+    """Expiring public clip share (fork UI11)."""
+
+    token = CharField(null=False, primary_key=True, max_length=64)
+    event_id = CharField(index=True, max_length=30)
+    camera = CharField(index=True, max_length=20)
+    created_by = CharField(max_length=30)
+    created_at = FloatField()
+    expires_at = FloatField()
+
+
 class Trigger(Model):
     camera = CharField(max_length=20)
     name = CharField()

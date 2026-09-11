@@ -1,5 +1,5 @@
 import Providers from "@/context/providers";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Wrapper from "@/components/Wrapper";
 import Sidebar from "@/components/navigation/Sidebar";
 
@@ -19,6 +19,7 @@ import RouteErrorBoundary, {
   RouteSuspense,
 } from "@/components/fork/RouteErrorBoundary";
 import CommandPalette from "@/components/fork/CommandPalette";
+import { isPublicSharePath } from "@/lib/fork/share-path";
 
 const Live = lazy(() => import("@/pages/Live"));
 const Events = lazy(() => import("@/pages/Events"));
@@ -36,6 +37,7 @@ const Chat = lazy(() => import("@/pages/Chat"));
 const Logs = lazy(() => import("@/pages/Logs"));
 const AccessDenied = lazy(() => import("@/pages/AccessDenied"));
 const Replay = lazy(() => import("@/pages/Replay"));
+const ShareClipPage = lazy(() => import("@/pages/fork/ShareClipPage"));
 
 function App() {
   const { data: config } = useSWR<FrigateConfig>("config", {
@@ -54,9 +56,30 @@ function App() {
 }
 
 function DefaultAppView() {
-  const { data: config } = useSWR<FrigateConfig>("config", {
-    revalidateOnFocus: false,
-  });
+  const location = useLocation();
+  const publicShare = isPublicSharePath(location.pathname);
+  const { data: config } = useSWR<FrigateConfig>(
+    publicShare ? null : "config",
+    {
+      revalidateOnFocus: false,
+    },
+  );
+
+  if (publicShare) {
+    return (
+      <div className="size-full overflow-hidden">
+        <RouteSuspense
+          fallback={
+            <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+          }
+        >
+          <Routes>
+            <Route path="/share/:token" element={<ShareClipPage />} />
+          </Routes>
+        </RouteSuspense>
+      </div>
+    );
+  }
 
   // Compute required roles for main routes, ensuring we have config first
   // to prevent race condition where custom roles are temporarily unavailable
@@ -118,6 +141,7 @@ function DefaultAppView() {
               )}
               <Route path="/replay" element={<Replay />} />
             </Route>
+            <Route path="/share/:token" element={<ShareClipPage />} />
             <Route path="/unauthorized" element={<AccessDenied />} />
             <Route path="*" element={<Redirect to="/" />} />
           </Routes>

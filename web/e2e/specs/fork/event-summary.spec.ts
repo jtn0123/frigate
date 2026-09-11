@@ -8,7 +8,7 @@
 import { test, expect } from "../../fixtures/frigate-test";
 
 test.describe("Event summary header @high", () => {
-  test("Explore detail dialog shows camera and label", async ({
+  test("Explore detail dialog shows camera and label @mobile", async ({
     frigateApp,
   }) => {
     await frigateApp.goto("/explore?labels=person");

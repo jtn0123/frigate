@@ -5,6 +5,7 @@ import axios from "axios";
 import { ReactNode } from "react";
 import { isRedirectingToLogin, setRedirectingToLogin } from "./auth-redirect";
 import { reportReadError } from "./fork/read-error-toast";
+import { isPublicSharePath } from "@/lib/fork/share-path";
 
 axios.defaults.baseURL = `${baseUrl}api/`;
 // Set once at module scope (not in render) and merge so headers other code
@@ -36,17 +37,23 @@ export function ApiProvider({ children, options }: ApiProviderType) {
           return axios.get(path, { params }).then((res) => res.data);
         },
         onError: (error, _key) => {
+          const publicShare = isPublicSharePath(window.location.pathname);
           if (
             error.response &&
             [401, 302, 307].includes(error.response.status)
           ) {
+            // Public share pages are usable without a login; a 401 on
+            // /profile or /config must not bounce the recipient away.
+            if (publicShare) {
+              return;
+            }
             // redirect to the login page if not already there
             const loginPage = error.response.headers.get("location") ?? "login";
             if (window.location.href !== loginPage && !isRedirectingToLogin()) {
               setRedirectingToLogin(true);
               window.location.href = loginPage;
             }
-          } else {
+          } else if (!publicShare) {
             reportReadError(error, _key);
           }
         },

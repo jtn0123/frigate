@@ -189,5 +189,22 @@
   },
   "eventSummary": {
     "label": "Event summary"
+  },
+  "clipShare": {
+    "action": "Share clip",
+    "title": "Share clip",
+    "description": "Anyone with this link can play the clip until it expires.",
+    "creating": "Creating a share link...",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy the link",
+    "createFailed": "Could not create a share link",
+    "link": "Share link",
+    "qr": "QR code for this share link",
+    "pageTitle": "Shared clip",
+    "missing": "This share link was not found.",
+    "expired": "This share link has expired.",
+    "noClip": "The clip is no longer available.",
+    "play": "Play clip"
   }
 }

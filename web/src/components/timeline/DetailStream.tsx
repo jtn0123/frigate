@@ -25,6 +25,7 @@ import { FrigatePlusDialog } from "@/components/overlay/dialog/FrigatePlusDialog
 import { cn } from "@/lib/utils";
 import { onActivate as onActivateKey } from "@/utils/fork/a11y";
 import EventSummaryHeader from "@/components/fork/EventSummaryHeader";
+import ShareClipButton from "@/components/fork/ShareClipButton";
 import { summaryFromReview } from "@/lib/fork/event-summary";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { Link } from "react-router-dom";
@@ -293,10 +294,16 @@ export default function DetailStream({
 
       <div className="relative flex h-full flex-col">
         {activeReview && (
-          <EventSummaryHeader
-            className="shrink-0 border-b border-secondary px-3 py-2"
-            {...summaryFromReview(activeReview)}
-          />
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-secondary px-3 py-2">
+            <EventSummaryHeader
+              className="min-w-0"
+              {...summaryFromReview(activeReview)}
+            />
+            <ShareClipButton
+              eventId={activeReview.data?.detections?.[0]}
+              hasClip
+            />
+          </div>
         )}
         {controlsExpanded && (
           <div
