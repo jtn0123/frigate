@@ -88,6 +88,8 @@ jobs:
         working-directory: ./web
       - run: npm run typecheck
         working-directory: ./web
+      - run: npm run type-ratchet
+        working-directory: ./web
       - run: npm run i18n:extract:ci
         working-directory: ./web
 

@@ -134,11 +134,36 @@ export default tseslint.config(
     },
   },
   {
+    // Type-aware rules on fork src only (C10). Counted across all of
+    // web/src by scripts/fork/type-ratchet.mjs; kept off globally so
+    // upstream files are not a rebase tax. e2e/specs/fork still get the
+    // extra tsc flags via typecheck-fork.mjs; Playwright's evaluate is
+    // `any`, so the unsafe-* rules stay off those specs.
+    files: ["src/**/fork/**/*.{ts,tsx}", "src/fork/**/*.{ts,tsx}"],
+    languageOptions: {
+      parserOptions: {
+        project: ["./tsconfig.fork-strict.json"],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/no-unnecessary-condition": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+    },
+  },
+  {
     // C11: rejected promises and async onClick handlers were silent
-    // ("the button did nothing"). Fork paths already get these from C10
-    // once that PR merges; keeping them here covers all of src.
+    // ("the button did nothing"). Covers all of src; fork paths already
+    // get the two promise rules from the C10 block above.
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["**/*.d.ts"],
+    ignores: ["**/*.d.ts", "src/**/fork/**", "src/fork/**"],
     languageOptions: {
       parserOptions: {
         projectService: true,

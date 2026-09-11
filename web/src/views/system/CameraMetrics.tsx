@@ -94,12 +94,8 @@ export default function CameraMetrics({
     isActive,
   ]);
 
-  useRefreshStatsOnActivate(
-    isActive,
-    statsHistory,
-    refreshStats,
-    setStatsHistory,
-  );
+  // prettier-ignore
+  useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);
 
   // timestamps
 

@@ -12,7 +12,7 @@ export type ForkNavVariant = "sidebar" | "bottombar";
 
 type ForkNavButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant: ForkNavVariant;
-  large?: boolean;
+  large?: boolean | undefined;
   label: string;
   children: ReactNode;
 };

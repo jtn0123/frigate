@@ -82,12 +82,8 @@ export default function GeneralMetrics({
     isActive,
   ]);
 
-  useRefreshStatsOnActivate(
-    isActive,
-    statsHistory,
-    refreshStats,
-    setStatsHistory,
-  );
+  // prettier-ignore
+  useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);
 
   const [canGetGpuInfo, gpuType] = useMemo<[boolean, GpuInfo]>(() => {
     let vaCount = 0;

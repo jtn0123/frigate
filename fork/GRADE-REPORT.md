@@ -37,7 +37,7 @@ lines of hand-written types in `web/src/types/` and no runtime validation of
 responses, so TypeScript trusts whatever the server sends. Backend: config is
 strongly validated by 166 pydantic models, but mypy's strict flags are
 switched off (`ignore_errors`) for `api`, `config`, `util`, `video`,
-`detectors`, `embeddings`, `ptz`, `http`, `debug_replay` and tests; 70% of
+`detectors`, `embeddings`, `ptz` and tests; 70% of
 functions are fully annotated, with 147 `type: ignore` and 784 `Any`; only
 77 of 179 routes declare a `response_model`; the peewee ORM is untyped.
 
@@ -149,10 +149,10 @@ untested.
 - **Effort:** M
 - **Grade lift:** C+ → C+ (risk reduction; enables D2 assertions)
 
-#### C10 — Ratchet TypeScript escape hatches `[fork]`
-- **Where:** `web/src`: 23 explicit `any` (+25 `no-explicit-any` disables), 18 `@ts-expect-error`, 20 `as unknown as`; `web/eslint.config.js:46` uses `tseslint.configs.recommended`, not the type-checked presets
+#### ~~C10~~ ✓ done 2026-09-11 — Ratchet TypeScript escape hatches `[fork]`
+- **Where:** `web/src`: 23 explicit `any` (+25 `no-explicit-any` disables), 18 `@ts-expect-error`, 25 `as unknown as`; `web/eslint.config.js` uses `tseslint.configs.recommended`, not the type-checked presets
 - **What's wrong:** Each hatch is a spot where strict mode is switched off by hand; nothing stops the count growing.
-- **Fix:** Replace hatches in fork-touched files first; add a CI count check that fails if any of the three counts rises; trial `recommendedTypeChecked` on `web/src/**/fork/**` only.
+- **Fix:** `web/tsconfig.fork-strict.json` (five extra flags, fork paths only; `typecheck-fork.mjs` ignores errors in imported upstream files). Type-aware rules from PLAN2 as errors on `src/**/fork` and `src/fork`. `web/scripts/fork/type-ratchet.mjs` + `fork/type-ratchet.json` fail CI if any hatch or type-aware-rule count across `web/src` rises. `noImplicitOverride` on the error-boundary class. e2e specs stay on the extra tsc flags but not the unsafe-* lint rules (Playwright `evaluate` is `any`).
 - **Effort:** S
 - **Grade lift:** C+ → C+ (type-safety hygiene; pairs with A5)
 
@@ -261,6 +261,20 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** B− → B− (operability)
 
+#### D12 — Do not double punctuation on repeat ffmpeg-exit warnings `[BE] [fork, upstreamable]`
+- **Where:** `frigate/video/restart_log.py` (the "exited again" warning)
+- **What's wrong:** ffmpeg's own last line already ends in "." (`(operation failed).`), and the warning added another, so logs read `(operation failed).).`
+- **Fix:** Strip a trailing period from the classified message before wrapping it in the sentence. Covered by `test_repeat_warning_does_not_double_trailing_punctuation`.
+- **Effort:** S
+- **Grade lift:** none (log hygiene)
+
+#### D13 — Unambiguous circular-progress timings `[FE] [fork, upstreamable]`
+- **Where:** `web/src/components/ui/circular-progress-bar.tsx` (value label classes `delay-[var(--delay)]` and `duration-[var(--transition-length)]`)
+- **What's wrong:** Tailwind 3 treats those arbitrary properties as ambiguous and prints a build warning.
+- **Fix:** Move the delay and duration onto the element's `style` using the same CSS variables. Vitest asserts the ambiguous classes are gone.
+- **Effort:** S
+- **Grade lift:** none (build hygiene)
+
 ---
 
 ## E — Security — B+
@@ -311,6 +325,7 @@ Deliberately, the fork takes no major upstream has not taken.
 
 - ~~F1~~ ✓ done 2026-09-10 — `web/eslint.config.js`
 - ~~F2~~ ✓ done 2026-09-10 — go2rtc/ffmpeg SHA256, py3nvml commit pin, `actions/stale@v9.1.0`
+- ~~F6~~ ✓ done 2026-09-11 — web minor/patch refresh within majors, then the held packages (konva, monaco-yaml, react-logviewer, Playwright, Prettier) with small fixes; only react-apexcharts waits for the apexcharts major
 - ~~F3~~ ✓ done 2026-09-10 — mypy out of runtime, single `opencv-contrib-python-headless`
 
 #### F5 — Retire abandoned packages and document the Radix patches `[fork, upstreamable]`
@@ -444,6 +459,13 @@ nothing tracks upstream automatically.
 - **Effort:** M
 - **Grade lift:** B → B+ (keeps the fork alive)
 
+#### I12 — Silence actionlint SC2016 in the upstream-sync workflow `[fork]`
+- **Where:** `.github/workflows/fork-upstream-sync.yml` (issue body `printf` strings)
+- **What's wrong:** actionlint/shellcheck SC2016 flagged markdown backticks inside single-quoted printf formats (` ``` `, `` `sync/upstream` ``).
+- **Fix:** Build the issue bodies with `%s` placeholders only; no backticks in the format string.
+- **Effort:** S
+- **Grade lift:** none (CI hygiene)
+
 #### ~~I7~~ ✓ done 2026-09-10 — Local demo stack `[fork]`
 - **Where:** `fork/` (no way to run the fork's UI against a real backend except pointing `make dev-web` at a live server)
 - **What's wrong:** Features are validated only against mocks; dogfooding, CSP tuning (E6), profiling (G11) and web-vitals (G12) have nowhere to run.
@@ -452,9 +474,9 @@ nothing tracks upstream automatically.
 - **Grade lift:** B → B+ (real-app feedback loop)
 
 #### I3 — Continue the mypy ratchet `[upstream]`
-- **Where:** `frigate/mypy.ini` (`ignore_errors = true` for `frigate.api.*`, `config.*`, `util.*`, `video.*`, `detectors.*`, `embeddings.*`, `ptz.*`, `http`, `debug_replay`, `test.*`); `frigate.stats` re-enabled by the fork
-- **What's wrong:** Strict flags cover a minority of the backend; all routes are unchecked.
-- **Fix:** Smallest module group first (`ptz`, `http`, then `util`), one commit each so the ratchet holds.
+- **Where:** `frigate/mypy.ini` (`ignore_errors = true` for `frigate.api.*`, `config.*`, `util.*`, `video.*`, `detectors.*`, `embeddings.*`, `ptz.*`, `test.*`); `frigate.stats` re-enabled by the fork; `frigate.debug_replay` re-enabled 2026-09-11 (1 `no-untyped-def` on `_build_camera_config_dict` fixed); leftover `frigate.http` ignore removed (module does not exist)
+- **What's wrong:** Strict flags still skip the large packages; all routes are unchecked.
+- **Fix:** Remaining waves in PR-14: `ptz`+`video`, then `config`, `util`, `detectors`+`embeddings`, `api` last, one PR each so the ratchet holds. Never enable mypy on `frigate.test`.
 - **Effort:** L
 - **Grade lift:** B → B+
 

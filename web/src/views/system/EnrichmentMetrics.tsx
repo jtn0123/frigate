@@ -66,12 +66,8 @@ export default function EnrichmentMetrics({
     isActive,
   ]);
 
-  useRefreshStatsOnActivate(
-    isActive,
-    statsHistory,
-    refreshStats,
-    setStatsHistory,
-  );
+  // prettier-ignore
+  useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);
 
   const getThreshold = useCallback((key: string) => {
     if (key.includes("description")) {

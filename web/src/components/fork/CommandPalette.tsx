@@ -121,7 +121,7 @@ function CommandPaletteInner() {
   const hasChatAgent = useMemo(
     () =>
       Object.values(config?.genai ?? {}).some((agent) =>
-        agent?.roles?.includes("chat"),
+        agent.roles.includes("chat"),
       ),
     [config?.genai],
   );
@@ -136,9 +136,7 @@ function CommandPaletteInner() {
       const resp = await axios.get<ReviewSegment[]>("review", {
         params: { reviewed: 0 },
       });
-      const ids = (resp.data ?? [])
-        .filter((seg) => seg.end_time)
-        .map((seg) => seg.id);
+      const ids = resp.data.filter((seg) => seg.end_time).map((seg) => seg.id);
       if (ids.length === 0) {
         toast.info(t("commandPalette.toast.nothingToReview"), {
           position: "top-center",
@@ -146,7 +144,7 @@ function CommandPaletteInner() {
         return;
       }
       await axios.post("reviews/viewed", { ids, reviewed: true });
-      void mutate((key) => typeof key === "string" && key.includes("review"));
+      await mutate((key) => typeof key === "string" && key.includes("review"));
       toast.success(
         t("commandPalette.toast.markedReviewed", { count: ids.length }),
         { position: "top-center" },
@@ -225,7 +223,7 @@ function CommandPaletteInner() {
         label: t("menu.faceLibrary", { ns: "common" }),
         to: "/faces",
         icon: TbFaceId,
-        enabled: isDesktop && isAdmin && !!config?.face_recognition?.enabled,
+        enabled: isDesktop && isAdmin && !!config?.face_recognition.enabled,
       },
       {
         id: "page:classification",
@@ -262,7 +260,7 @@ function CommandPaletteInner() {
     }
 
     for (const name of allowedCameras) {
-      const camera = config?.cameras?.[name];
+      const camera = config?.cameras[name];
       if (!camera) continue;
       const label = resolveCameraName(config, name);
       list.push({
@@ -326,7 +324,7 @@ function CommandPaletteInner() {
       keywords: ["review", "reviewed", "alerts", "detections"],
       icon: LuCheckCheck,
       run: () => {
-        void markAllReviewed();
+        void markAllReviewed(); // palette run() cannot be async
       },
     });
     if (isAdmin) {

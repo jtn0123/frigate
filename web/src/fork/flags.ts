@@ -56,7 +56,7 @@ const defaults: ForkFlags = {
 
 function readOverrides(): Partial<ForkFlags> {
   try {
-    const raw = globalThis.localStorage?.getItem("frigateFork");
+    const raw = globalThis.localStorage.getItem("frigateFork");
     return raw ? (JSON.parse(raw) as Partial<ForkFlags>) : {};
   } catch {
     return {};

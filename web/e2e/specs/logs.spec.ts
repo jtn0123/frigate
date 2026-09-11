@@ -204,6 +204,53 @@ test.describe("Logs — streaming @medium", () => {
   });
 });
 
+test.describe("Logs — history @medium", () => {
+  test("scrolling to the top fetches the previous page of lines", async ({
+    frigateApp,
+  }) => {
+    test.skip(frigateApp.isMobile, "Wheel scrolling is desktop-only");
+    // The newest 100 of 1000 lines load first; scrolling up must request the
+    // range that ends where they begin (Logs.tsx handleScroll, which reads the
+    // visible window from react-logviewer's virtua list).
+    const ranges: string[] = [];
+    const newest = Array.from(
+      { length: 100 },
+      (_, i) => `[2026-04-06 10:00:00] INFO: newest line ${900 + i}`,
+    );
+    await frigateApp.page.route(/\/api\/logs\/frigate(\?|$)/, (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get("stream") === "true") {
+        return route.fulfill({ status: 200, body: "" });
+      }
+      const end = url.searchParams.get("end");
+      if (end === null) {
+        return route.fulfill({ json: { lines: newest, totalLines: 1000 } });
+      }
+      const start = Number(url.searchParams.get("start"));
+      ranges.push(`${start}-${end}`);
+      const older = Array.from(
+        { length: Number(end) - start },
+        (_, i) => `[2026-04-06 09:00:00] INFO: older line ${start + i}`,
+      );
+      return route.fulfill({ json: { lines: older, totalLines: 1000 } });
+    });
+
+    await frigateApp.goto("/logs");
+    await expect(frigateApp.page.getByText("newest line 999")).toBeVisible({
+      timeout: 10_000,
+    });
+    await frigateApp.page.locator(".react-lazylog").hover();
+    await expect(async () => {
+      await frigateApp.page.mouse.wheel(0, -20_000);
+      expect(ranges[0]).toMatch(/^\d+-900$/);
+    }).toPass({ timeout: 10_000 });
+
+    const start = Number(ranges[0].split("-")[0]);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(start).toBeLessThan(900);
+  });
+});
+
 test.describe("Logs — mobile @medium @mobile", () => {
   test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile-only");
 

@@ -62,7 +62,7 @@ const HIGHLIGHT_CLASSES = ["ring-2", "ring-selected", "rounded-md"];
 const HIGHLIGHT_ATTR = "data-settings-nav-highlight";
 
 function readLabel(element: HTMLElement) {
-  return (element.textContent ?? "").replace(/\*\s*$/, "").trim();
+  return element.textContent.replace(/\*\s*$/, "").trim();
 }
 
 /** Scroll an element into view inside the settings content and flash it. */
@@ -199,7 +199,12 @@ export default function SettingsNav({ className }: SettingsNavProps) {
           break;
         }
       }
-      setActiveAnchor((current ?? anchors[0]).key);
+      const fallback = anchors.at(0);
+      if (fallback === undefined) {
+        setActiveAnchor(null);
+        return;
+      }
+      setActiveAnchor((current ?? fallback).key);
     };
     update();
     container.addEventListener("scroll", update, { passive: true });
@@ -264,7 +269,10 @@ export default function SettingsNav({ className }: SettingsNavProps) {
     [groups, needle, sectionTitle],
   );
 
-  if (!enabled || !published) {
+  if (!published) {
+    return null;
+  }
+  if (!isForkEnabled("settingsNav")) {
     return null;
   }
 

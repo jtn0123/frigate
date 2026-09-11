@@ -17,7 +17,7 @@ describe("sharePageUrl", () => {
     expect(sharePageUrl("tok", "https://cam.example")).toBe(
       "https://cam.example/nvr/share/tok",
     );
-    window.baseUrl = undefined;
+    delete window.baseUrl;
   });
 });
 

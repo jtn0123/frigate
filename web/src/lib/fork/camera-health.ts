@@ -114,6 +114,58 @@ export function newestRestarts(
   return [...(stats?.recent_restarts ?? [])].reverse();
 }
 
+export type ConnectionQuality = CameraStats["connection_quality"];
+
+export type ConnectionQualityProps = {
+  quality: ConnectionQuality;
+  expectedFps: number;
+  reconnects: number;
+  stalls: number;
+};
+
+function asConnectionQuality(value: unknown): ConnectionQuality | undefined {
+  switch (value) {
+    case "excellent":
+    case "fair":
+    case "poor":
+    case "unusable":
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function finiteNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Props for ConnectionQualityIndicator, or undefined when the stats payload
+ * omits quality (the /api/stats mock and older backends do). Rendering the
+ * indicator anyway calls toFixed on a missing expected_fps.
+ */
+export function connectionQualityProps(
+  stats: CameraStats | undefined,
+): ConnectionQualityProps | undefined {
+  if (stats === undefined) return undefined;
+  const quality = asConnectionQuality(stats.connection_quality);
+  if (quality === undefined) return undefined;
+  return {
+    quality,
+    expectedFps: finiteNumber(stats.expected_fps),
+    reconnects: finiteNumber(stats.reconnects_last_hour),
+    stalls: finiteNumber(stats.stalls_last_hour),
+  };
+}
+
+/** WS payload is "ON"/"OFF" once it arrives; until then use the config flag. */
+export function enabledFromWs(payload: unknown, configured: boolean): boolean {
+  if (payload === "ON") return true;
+  if (payload === "OFF") return false;
+  return configured;
+}
+
 /** Share of total detection fps consumed by this camera, 0..100. */
 export function detectorShare(
   stats: FrigateStats | undefined,
@@ -135,5 +187,5 @@ export function cameraFpsSeries(
   history: FrigateStats[],
   camera: string,
 ): number[] {
-  return history.map((snapshot) => snapshot.cameras?.[camera]?.camera_fps ?? 0);
+  return history.map((snapshot) => snapshot.cameras[camera]?.camera_fps ?? 0);
 }

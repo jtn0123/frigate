@@ -51,7 +51,12 @@ export function snapToNearestEvent(
     return time;
   }
 
-  let nearest = eventTimes[0];
+  const first = eventTimes.at(0);
+  if (first === undefined) {
+    return time;
+  }
+
+  let nearest = first;
   let best = Math.abs(time - nearest);
   for (const eventTime of eventTimes) {
     const delta = Math.abs(time - eventTime);
@@ -81,15 +86,22 @@ export function stepToEvent(
   }
 
   const sorted = [...eventTimes].sort((a, b) => a - b);
+  const last = sorted.at(-1);
+  const first = sorted.at(0);
+  if (first === undefined || last === undefined) {
+    return time;
+  }
+
   if (direction === 1) {
     const next = sorted.find((eventTime) => eventTime > time);
-    return next ?? sorted[sorted.length - 1];
+    return next ?? last;
   }
 
   for (let index = sorted.length - 1; index >= 0; index -= 1) {
-    if (sorted[index] < time) {
-      return sorted[index];
+    const candidate = sorted.at(index);
+    if (candidate !== undefined && candidate < time) {
+      return candidate;
     }
   }
-  return sorted[0];
+  return first;
 }

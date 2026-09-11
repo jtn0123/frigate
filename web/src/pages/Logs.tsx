@@ -262,12 +262,16 @@ function Logs() {
   const handleScroll = useMemo(
     () =>
       debounce(() => {
-        const scrollThreshold =
-          lazyLogRef.current?.listRef.current?.findEndIndex() ?? 10;
-        const startIndex =
-          lazyLogRef.current?.listRef.current?.findStartIndex() ?? 0;
-        const endIndex =
-          lazyLogRef.current?.listRef.current?.findEndIndex() ?? 0;
+        // virtua 0.49 (react-logviewer 6.5) replaced findStartIndex() and
+        // findEndIndex() with findItemIndex(offset) over the scroll window.
+        const list = lazyLogRef.current?.listRef.current;
+        const scrollThreshold = list
+          ? list.findItemIndex(list.scrollOffset + list.viewportSize)
+          : 10;
+        const startIndex = list ? list.findItemIndex(list.scrollOffset) : 0;
+        const endIndex = list
+          ? list.findItemIndex(list.scrollOffset + list.viewportSize)
+          : 0;
         const pageSize = endIndex - startIndex;
         if (
           scrollThreshold < pageSize + pageSize / 2 &&

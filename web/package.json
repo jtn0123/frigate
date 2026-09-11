@@ -8,9 +8,10 @@
     "postinstall": "patch-package",
     "build": "tsc && vite build --base=/BASE_PATH/",
     "lint": "eslint --cache --cache-strategy content --cache-location .cache/eslint/ . && npm run e2e:lint",
+    "type-ratchet": "node scripts/fork/type-ratchet.mjs",
     "e2e:lint": "node e2e/scripts/lint-specs.mjs",
     "lint:fix": "eslint --cache --cache-strategy content --cache-location .cache/eslint/ --fix .",
-    "typecheck": "tsc --incremental --tsBuildInfoFile .cache/tsc/app.tsbuildinfo && tsc -p tsconfig.e2e.json --incremental --tsBuildInfoFile .cache/tsc/e2e.tsbuildinfo",
+    "typecheck": "tsc --incremental --tsBuildInfoFile .cache/tsc/app.tsbuildinfo && tsc -p tsconfig.e2e.json --incremental --tsBuildInfoFile .cache/tsc/e2e.tsbuildinfo && node scripts/fork/typecheck-fork.mjs",
     "preview": "vite preview",
     "prettier:write": "prettier -u -w --ignore-path .gitignore \"*.{ts,tsx,js,jsx,css,html}\"",
     "test": "vitest",
@@ -152,6 +153,9 @@
     "form-data": "4.0.6",
     "i18next-cli": {
       "glob": "11.1.0"
+    },
+    "@melloware/react-logviewer": {
+      "immutable": "5.1.9"
     }
   }
 }

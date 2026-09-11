@@ -61,7 +61,7 @@ import { FrigateConfig } from "@/types/frigateConfig";
 
 type InboxBellProps = {
   variant: ForkNavVariant;
-  large?: boolean;
+  large?: boolean | undefined;
 };
 
 /**

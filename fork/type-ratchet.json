@@ -1,0 +1,19 @@
+{
+  "hatches": {
+    "explicitAny": 23,
+    "tsExpectError": 18,
+    "asUnknownAs": 25,
+    "noExplicitAnyDisable": 25
+  },
+  "rules": {
+    "@typescript-eslint/no-floating-promises": 137,
+    "@typescript-eslint/no-misused-promises": 125,
+    "@typescript-eslint/no-unnecessary-condition": 1505,
+    "@typescript-eslint/no-unsafe-member-access": 399,
+    "@typescript-eslint/no-unsafe-assignment": 366,
+    "@typescript-eslint/no-unsafe-return": 48,
+    "@typescript-eslint/no-unsafe-argument": 43,
+    "@typescript-eslint/no-unsafe-call": 27,
+    "@typescript-eslint/switch-exhaustiveness-check": 18
+  }
+}

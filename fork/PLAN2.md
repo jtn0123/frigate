@@ -6,6 +6,60 @@ ordered by impact, most to least. Item IDs and full descriptions live in
 `fork/GRADE-REPORT.md`; this file adds the grouping, order, and acceptance
 criteria.
 
+## Track status (2026-09-11)
+
+Owner asked for debugging, then type safety, then dependencies, ahead of
+PLAN.md step 9. Work is on `section/debug`.
+
+| Track | Status |
+|---|---|
+| 1. Debugging | D12, D13, I12 committed. Demo QA logged below. No high-severity runtime bugs found to fix without an owner call. |
+| 2. Type safety | Not started. Next: PR-02 type-guardrails, then PR-04, PR-01, PR-14. |
+| 3. Dependencies | Not started. Wait for the debug PR. |
+
+## Bugs found
+
+Logged from the I7 demo stack at `https://127.0.0.1:8971` on 2026-09-11
+(desktop, then iPhone 14 viewport). Walked Live, Review, Explore (including a
+tracked-object detail), Exports, Settings, System → Health, the command
+palette, and the inbox. Overlay at the time was an older polish2 UI build
+(`0.18.0-c69ec86b1`); behaviour below is still from this fork.
+
+### Fixed in this branch
+
+- **D12 (high, logs):** repeat ffmpeg-exit warnings doubled a trailing period
+  when ffmpeg's message already ended in ".". Test then fix.
+- **D13 (build):** Tailwind ambiguous `delay-[var(--delay)]` /
+  `duration-[var(--transition-length)]` on the circular progress label.
+- **I12 (CI):** actionlint SC2016 on markdown backticks in
+  `fork-upstream-sync.yml` issue-body printf strings.
+
+### Needs an owner call (not fixing yet)
+
+- **Nameless account/menu control.** Every page has a sidebar (desktop) or
+  top-bar (phone) `button` with `expanded=false` and no accessible name, next
+  to the command palette and inbox. Likely the user menu. Icon-only may be
+  intentional; C9 would catch it later.
+- **Two "Labels" filters on Explore.** After "Explore more Person objects",
+  the toolbar has two `Labels` buttons (`e17` and `e20` in the a11y tree).
+  Could be a duplicate control or a Sort/Labels mislabel. Ask before changing.
+- **Review timeline buttons have no names.** Dozens of unnamed buttons on
+  `/review` (the hour ticks / scrubber). Covered by C9; not a crash.
+
+### Not a product bug (harness / a11y snapshot)
+
+- Overlay **Close** and **Escape** did not dismiss the command palette or
+  inbox in agent-browser; choosing a palette item (Live) did. Existing e2e
+  covers close. Treat as harness unless a Playwright spec fails.
+- Radix scroll-area CSS (`[data-radix-scroll-area-viewport]{scrollbar-width…}`)
+  shows up in the a11y snapshot's root name on Live, but
+  `document.body.innerText` does not include it. Not visible to users.
+- Live PNG screenshots hung in this harness (video tiles). Snapshots were
+  used instead.
+
+No crashes, wrong data, dead primary buttons, or stray error toasts on the
+walk. The C5 Explore-detail 404 toast was already fixed on `main`.
+
 ## When and how
 
 - Start a block only when PLAN.md's queue has reached step 9 (closing), or
@@ -62,7 +116,7 @@ Measured on `polish` (now `main`) @ 41edb589c, 2026-09-10, without changing any 
 | API boundary | 212 of 228 `useSWR` calls carry a type, but it is an assertion against 2,187 hand-written lines in `web/src/types/`; nothing checks the real response |
 | Lint | `tseslint.configs.recommended` (no type-aware rules) |
 | Python config | 166 pydantic models validate config at startup |
-| Python mypy | strict flags, but `ignore_errors = true` for `api`, `config`, `util`, `video`, `detectors`, `embeddings`, `ptz`, `http`, `debug_replay`, `test` |
+| Python mypy | strict flags, but `ignore_errors = true` for `api`, `config`, `util`, `video`, `detectors`, `embeddings`, `ptz`, `test`; `http` leftover ignore removed (no module); `debug_replay` on |
 | Python annotations | 70% of functions fully annotated; 147 `type: ignore`; 784 `Any` |
 | API spec | 77 of 179 routes declare `response_model` |
 
@@ -165,6 +219,12 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
 - **Impact:** A B− → B. **Conflict:** low (new files; one-line imports).
 
 ### PR-02 · type-guardrails — C10, I3 (first step) — S
+- **Status (2026-09-11):** C10 and I3 step 1 on `section/type-guardrails`.
+  Baselines in `fork/type-ratchet.json`: 23 `any`, 18
+  `@ts-expect-error`, 25 `as unknown as`, 25 `no-explicit-any` disables;
+  type-aware rule counts across `web/src` as of this commit (floating 137,
+  misused 125, unnecessary-condition 1505). `debug_replay` mypy 1 → 0;
+  `frigate.http` ignore was a leftover (no module).
 - **Scope:** `web/tsconfig.fork-strict.json` (extends the base, adds the five
   extra flags, includes only `src/**/fork/**`, `src/fork/**`, `e2e/specs/fork/**`)
   run in "Web - Lint"; type-aware lint rules from the table above on the same
@@ -368,11 +428,25 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
 ### PR-28 · dependency majors — F4, I11 — series, L — **last** (owner OK 2026-09-11)
 - **When:** after the debugging work and the type-safety blocks (PR-01, PR-02,
   PR-04, PR-14); the owner wants majors eventually, just not first.
-- **Order:** (1) toolchain, I11: TypeScript 7, Vite 8, Vitest 5 (also clears
-  the vitest alerts), ESLint 10, jsdom; (2) react-router 7 (Dependabot #7,
-  2 alerts); (3) i18next + react-i18next, date-fns, zod, apexcharts +
-  react-apexcharts, the rest of the runtime list in F4; (4) Tailwind 4 +
-  tailwind-merge + tailwind-scrollbar last. One PR per major or coupled group.
+- **Order and groups** (one PR each; coupled packages move together):
+  1. Toolchain (I11): (a) Vitest 5 + @vitest/coverage-v8 + jsdom +
+     @testing-library/jest-dom, which clears the vitest alerts; (b) ESLint 10 +
+     @eslint/js + eslint-config-prettier + eslint-plugin-react-hooks + globals;
+     (c) Vite 8 + @vitejs/plugin-react-swc (+ the patched
+     vite-plugin-monaco-editor); (d) TypeScript 7 (+ typescript-eslint);
+     (Prettier 3.9 and @playwright/test 1.63 were done early in F6, with owner OK.)
+  2. react-router 7 + react-router-dom (Dependabot #7, 2 alerts).
+  3. Runtime groups: i18next + react-i18next + i18next-http-backend;
+     date-fns 4 + react-day-picker 10; zod 4 + @hookform/resolvers 5;
+     apexcharts + react-apexcharts; then singles in one or two PRs:
+     framer-motion, immer, js-yaml, lucide-react, react-dropzone,
+     react-markdown, react-zoom-pan-pinch, copy-to-clipboard,
+     @types/node. (konva 10.5, monaco-yaml 5.5 and react-logviewer 6.5.5 were
+     done early in F6.)
+  4. Fork GitHub Actions: checkout 7, setup-node 7, cache 6,
+     upload-artifact 7, download-artifact 8, setup-python 7.
+  5. Tailwind 4 + tailwind-merge + tailwind-scrollbar + @tailwindcss/forms +
+     prettier-plugin-tailwindcss, last (widest diff).
 - **Each done when:** `make check` and "Fork - Checks" green, before/after
   timings or bundle size in the PR, no behaviour change unless listed.
   **Conflict:** `package-lock.json` on every upstream sync; re-check on each

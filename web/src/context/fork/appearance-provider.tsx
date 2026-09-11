@@ -79,7 +79,7 @@ function readStored(): AppearanceState {
 
 function applyToDocument(state: AppearanceState) {
   const root = document.documentElement;
-  root.dataset.density = state.density;
+  root.dataset["density"] = state.density;
   root.style.setProperty("--fork-font-scale", String(state.fontScale));
   root.classList.toggle("oled", state.oled);
 }
