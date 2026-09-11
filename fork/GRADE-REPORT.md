@@ -247,6 +247,13 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** B− → B− (test fidelity)
 
+#### D10 — Fall back to software decoding when hardware decoding keeps killing a camera `[BE] [FE] [fork, upstreamable]`
+- **Where:** `frigate/video/ffmpeg.py` `CameraWatchdog` (restarts the detect ffmpeg with the same command after every crash), `frigate/ffmpeg_presets.py` (VAAPI detect scales on the GPU, then `hwdownload`)
+- **What's wrong:** Found on the owner's server 2026-09-11: one Tapo C120 behind a UHD 730 crashed its detect stream every ~40 s with VAAPI `Failed to sync surface` / `hwdownload: Failed to download frame`, while the three identical cameras were fine. ffmpeg treats a filter error as fatal, so each occurrence kills detection for ~10 s and the watchdog restarts the identical command forever. The same stream decodes cleanly in software, with QSV, or with VAAPI decode plus software scaling, and no GPU hang is logged on the host.
+- **Fix:** Count detect exits whose last ffmpeg lines name a hardware-decoding failure; after 3 in 10 minutes, restart that camera's detect stream with the software command (built from a copy of the config with hwaccel cleared), log one warning, publish `hwaccel_fallback` in the camera stats, and show it on Camera Health and in the status bar. Reset when the camera's ffmpeg config changes.
+- **Effort:** S
+- **Grade lift:** B− → B− (reliability)
+
 ---
 
 ## E — Security — B+

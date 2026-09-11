@@ -12,6 +12,8 @@ import { capitalizeAll, capitalizeFirstLetter } from "@/utils/stringUtil";
 import { isReplayCamera } from "@/utils/cameraUtil";
 import { useFrigateStats, useJobStatus } from "@/api/ws";
 import { useIsAdmin } from "./use-is-admin";
+import { isForkEnabled } from "@/fork/flags";
+import { softwareDecodingCameras } from "@/lib/fork/camera-health";
 
 import { useTranslation } from "react-i18next";
 
@@ -103,6 +105,21 @@ export default function useStats(stats: FrigateStats | undefined) {
         });
       }
     });
+
+    // fork (D10): cameras that fell back to software decoding
+    if (isForkEnabled("cameraHealth")) {
+      softwareDecodingCameras(memoizedStats).forEach((name) => {
+        const cameraName = config?.cameras?.[name]?.friendly_name ?? name;
+        problems.push({
+          text: t("cameraHealth.softwareDecodingProblem", {
+            ns: "fork",
+            camera: capitalizeFirstLetter(capitalizeAll(cameraName)),
+          }),
+          color: "text-orange-400",
+          relevantLink: "/system#health",
+        });
+      });
+    }
 
     // check camera cpu usages
     Object.entries(memoizedStats["cameras"]).forEach(([name, cam]) => {

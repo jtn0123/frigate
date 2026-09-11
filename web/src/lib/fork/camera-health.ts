@@ -10,7 +10,8 @@ export type CameraHealthReason =
   | "skippedFrames"
   | "poorConnection"
   | "reconnects"
-  | "stalls";
+  | "stalls"
+  | "softwareDecoding";
 
 export type CameraHealth = {
   state: CameraHealthState;
@@ -60,8 +61,23 @@ export function computeCameraHealth(
   if (stats.stalls_last_hour > 0) {
     reasons.push("stalls");
   }
+  if (stats.hwaccel_fallback) {
+    reasons.push("softwareDecoding");
+  }
 
   return { state: reasons.length > 0 ? "degraded" : "ok", reasons };
+}
+
+/**
+ * Cameras whose detect stream fell back to software decoding because hardware
+ * decoding kept crashing it (D10), for the status bar warning.
+ */
+export function softwareDecodingCameras(
+  stats: Pick<FrigateStats, "cameras"> | undefined,
+): string[] {
+  return Object.entries(stats?.cameras ?? {})
+    .filter(([, cam]) => cam.hwaccel_fallback)
+    .map(([name]) => name);
 }
 
 /** Share of total detection fps consumed by this camera, 0..100. */

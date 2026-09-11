@@ -404,6 +404,7 @@ def stats_snapshot(
             "ffmpeg_pid": ffmpeg_pid,
             "audio_rms": round(camera_stats.audio_rms.value, 4),
             "audio_dBFS": round(camera_stats.audio_dBFS.value, 4),
+            "hwaccel_fallback": bool(camera_stats.hwaccel_fallback.value),  # fork (D10)
             **connection_quality,
         }
 

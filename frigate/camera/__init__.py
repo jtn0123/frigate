@@ -22,6 +22,7 @@ class CameraMetrics:
     ffmpeg_pid: ValueProxy[int]
     reconnects_last_hour: ValueProxy[int]
     stalls_last_hour: ValueProxy[int]
+    hwaccel_fallback: ValueProxy[int]  # fork (D10): 1 while detect decodes in software
 
     def __init__(self, manager: SyncManager):
         self.camera_fps = manager.Value("d", 0)
@@ -40,6 +41,7 @@ class CameraMetrics:
         self.ffmpeg_pid = manager.Value("i", 0)
         self.reconnects_last_hour = manager.Value("i", 0)
         self.stalls_last_hour = manager.Value("i", 0)
+        self.hwaccel_fallback = manager.Value("i", 0)
 
 
 class PTZMetrics:

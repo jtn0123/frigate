@@ -31,6 +31,7 @@ from frigate.util.image import (
     SharedMemoryFrameManager,
 )
 from frigate.util.process import FrigateProcess
+from frigate.video.hwaccel_fallback import HwaccelFallback
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,7 @@ class CameraWatchdog(threading.Thread):
         reconnects,
         detection_frame,
         stop_event,
+        hwaccel_fallback=None,
     ):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(f"watchdog.{config.name}")
@@ -145,6 +147,11 @@ class CameraWatchdog(threading.Thread):
         self.stalls = stalls
         self.reconnects = reconnects
         self.detection_frame = detection_frame
+        # Fork (D10): software-decoding fallback for a crashing hwaccel path.
+        self.hwaccel_fallback = HwaccelFallback(config)
+        self.hwaccel_fallback_flag = hwaccel_fallback
+        if self.hwaccel_fallback_flag is not None:
+            self.hwaccel_fallback_flag.value = 0
 
         self.config_subscriber = CameraConfigUpdateSubscriber(
             None,
@@ -199,6 +206,21 @@ class CameraWatchdog(threading.Thread):
             self.requestor.send_data(f"{self.config.name}/status/record", status)
             self._last_record_status = status
             self._last_status_update_time = now
+
+    def _check_hwaccel_fallback(self) -> None:
+        """Fork (D10): stop decoding on the GPU if that keeps killing detect."""
+        if not self.hwaccel_fallback.record_crash(self.logpipe.deque.copy()):
+            return
+        self.logger.warning(
+            f"{self.config.name}: hardware-accelerated decoding ended the detect stream "
+            f"{self.hwaccel_fallback.threshold} times in "
+            f"{self.hwaccel_fallback.window / 60:.0f} minutes, so it is now decoded in "
+            "software until Frigate restarts or this camera's ffmpeg settings change. "
+            "To keep using the GPU, try a different hwaccel_args preset for this "
+            f"camera. Last error: {self.hwaccel_fallback.reason}"
+        )
+        if self.hwaccel_fallback_flag is not None:
+            self.hwaccel_fallback_flag.value = 1
 
     def _check_config_updates(self) -> dict[str, list[str]]:
         """Check for config updates and return the update dict."""
@@ -275,6 +297,9 @@ class CameraWatchdog(threading.Thread):
                     "FFmpeg config updated for %s, restarting ffmpeg processes",
                     self.config.name,
                 )
+                self.hwaccel_fallback.reset()
+                if self.hwaccel_fallback_flag is not None:
+                    self.hwaccel_fallback_flag.value = 0
                 self.stop_all_ffmpeg()
                 self.start_all_ffmpeg()
                 self.latest_valid_segment_time = 0
@@ -369,6 +394,7 @@ class CameraWatchdog(threading.Thread):
                     f"Ffmpeg process crashed unexpectedly for {self.config.name}."
                 )
                 if can_restart:
+                    self._check_hwaccel_fallback()
                     self.reset_capture_thread(terminate=False)
                     last_restart_time = now
             elif self.camera_fps.value >= (self.config.detect.fps + 10):
@@ -531,9 +557,10 @@ class CameraWatchdog(threading.Thread):
         self.segment_subscriber.stop()
 
     def start_ffmpeg_detect(self):
-        ffmpeg_cmd = [
-            c["cmd"] for c in self.config.ffmpeg_cmds if "detect" in c["roles"]
-        ][0]
+        ffmpeg_cmd = (
+            self.hwaccel_fallback.detect_cmd()
+            or [c["cmd"] for c in self.config.ffmpeg_cmds if "detect" in c["roles"]][0]
+        )
         self.ffmpeg_detect_process = start_or_restart_ffmpeg(
             ffmpeg_cmd, self.logger, self.logpipe, self.frame_size
         )
@@ -666,6 +693,7 @@ class CameraCapture(FrigateProcess):
             self.camera_metrics.reconnects_last_hour,
             self.camera_metrics.detection_frame,
             self.stop_event,
+            self.camera_metrics.hwaccel_fallback,
         )
         camera_watchdog.start()
         camera_watchdog.join()

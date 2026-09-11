@@ -28,6 +28,8 @@ export type CameraStats = {
   expected_fps: number;
   reconnects_last_hour: number;
   stalls_last_hour: number;
+  /** Fork (D10): detect decodes in software after hwaccel kept crashing it. */
+  hwaccel_fallback?: boolean;
   ffmpeg_cpu?: string;
   capture_cpu?: string;
   detect_cpu?: string;

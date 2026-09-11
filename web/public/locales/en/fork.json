@@ -118,8 +118,10 @@
       "skippedFrames": "Frames are being skipped",
       "poorConnection": "Poor connection quality",
       "reconnects": "FFmpeg reconnected in the last hour",
-      "stalls": "Stream stalled in the last hour"
+      "stalls": "Stream stalled in the last hour",
+      "softwareDecoding": "Hardware decoding kept failing, so detection decodes in software"
     },
+    "softwareDecodingProblem": "{{camera}}: hardware decoding kept failing, now decoding in software",
     "metric": {
       "cameraFps": "Camera FPS",
       "detectionFps": "Detection FPS",

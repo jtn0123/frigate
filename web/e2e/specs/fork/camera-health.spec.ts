@@ -18,6 +18,7 @@ type CameraOverride = Partial<{
   expected_fps: number;
   reconnects_last_hour: number;
   stalls_last_hour: number;
+  hwaccel_fallback: boolean;
 }>;
 
 function sendStats(
@@ -135,6 +136,31 @@ test.describe("Camera health cards @high", () => {
     await expect(
       frigateApp.page.getByTestId("camera-health-garage"),
     ).toHaveAttribute("data-state", "ok");
+  });
+
+  test("a camera that fell back to software decoding is flagged (D10)", async ({
+    frigateApp,
+  }) => {
+    await gotoHealth(frigateApp);
+    const now = Date.now() / 1000;
+    const garage = frigateApp.page.getByTestId("camera-health-garage");
+    await expect(async () => {
+      sendStats(frigateApp, now + 5, { garage: { hwaccel_fallback: true } });
+      await expect(garage).toHaveAttribute("data-state", "degraded", {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+
+    await expect(garage.getByTestId("camera-health-reason")).toHaveText(
+      "Hardware decoding kept failing, so detection decodes in software",
+    );
+    if (!frigateApp.isMobile) {
+      await expect(
+        frigateApp.page.getByText(
+          "Garage: hardware decoding kept failing, now decoding in software",
+        ),
+      ).toBeVisible();
+    }
   });
 
   test("sparkline grows with each stats update", async ({ frigateApp }) => {
