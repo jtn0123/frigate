@@ -72,3 +72,4 @@ pushes do not trigger workflows, so the bot dispatches "Fork - Checks" on
 | I5 | web: env | `web/src/vite-env.d.ts`, `web/.env.example` | Declare `VITE_GIT_COMMIT_HASH` on `ImportMetaEnv` and document `E2E_PORT` for parallel worktrees | fork-only |
 | G7 | web: perf | `web/scripts/fork/bundle-budget.mjs`, `fork/bundle-budget.json`, `web/package.json`, `.github/workflows/fork-checks.yml` | Fail CI when eager JS+CSS gzip exceeds the measured size plus 5% | fork-only |
 | I6 | CI | `.github/workflows/fork-upstream-sync.yml`, `.github/workflows/fork-checks.yml` | Daily read-only sync of upstream `dev` onto `origin/dev`; rebase preview on `sync/upstream`; issues for drift and new `v*` tags | fork-only |
+| D8 | CI | `.github/workflows/fork-checks.yml`, `docker/main/requirements-dev.txt` | Backend tests in `frigate-fork-test` run under `coverage`; the job prints a summary and uploads XML. No fail gate. | candidate |

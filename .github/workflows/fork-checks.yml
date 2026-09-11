@@ -152,4 +152,20 @@ jobs:
       - name: API spec is up to date
         run: docker run --rm --entrypoint python3 frigate-fork-test generate_api_auth_spec.py --check
       - name: unittest
-        run: docker run --rm frigate-fork-test
+        run: |
+          docker run --name fork-py-cov --entrypoint python3 frigate-fork-test -c "
+          import subprocess, sys
+          r = subprocess.call([sys.executable, '-m', 'coverage', 'run', '-m', 'unittest'])
+          subprocess.call([sys.executable, '-m', 'coverage', 'report'])
+          subprocess.check_call([sys.executable, '-m', 'coverage', 'xml', '-o', '/tmp/coverage.xml'])
+          sys.exit(r)
+          "
+          mkdir -p coverage-py
+          docker cp fork-py-cov:/tmp/coverage.xml coverage-py/coverage.xml
+          docker rm fork-py-cov
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-coverage
+          path: coverage-py/coverage.xml
+          retention-days: 7
