@@ -26,8 +26,7 @@ type KnownPlatesData = Record<string, string[]>;
 export function KnownPlatesField(props: FieldProps) {
   const { schema, formData, onChange, idSchema, disabled, readonly } = props;
   const formContext = props.registry?.formContext as
-    | ConfigFormContext
-    | undefined;
+    ConfigFormContext | undefined;
 
   const configNamespace =
     formContext?.i18nNamespace ??

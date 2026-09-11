@@ -311,7 +311,7 @@ Deliberately, the fork takes no major upstream has not taken.
 
 - ~~F1~~ ✓ done 2026-09-10 — `web/eslint.config.js`
 - ~~F2~~ ✓ done 2026-09-10 — go2rtc/ffmpeg SHA256, py3nvml commit pin, `actions/stale@v9.1.0`
-- ~~F6~~ ✓ done 2026-09-11 — web minor/patch refresh within majors, lockfile only (holds listed in FORK.md)
+- ~~F6~~ ✓ done 2026-09-11 — web minor/patch refresh within majors, then the held packages (konva, monaco-yaml, react-logviewer, Playwright, Prettier) with small fixes; only react-apexcharts waits for the apexcharts major
 - ~~F3~~ ✓ done 2026-09-10 — mypy out of runtime, single `opencv-contrib-python-headless`
 
 #### F5 — Retire abandoned packages and document the Radix patches `[fork, upstreamable]`

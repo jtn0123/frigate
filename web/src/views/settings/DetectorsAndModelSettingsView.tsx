@@ -396,8 +396,7 @@ export default function DetectorsAndModelSettingsView({
     // before navigating away. `pendingDataBySection["model"]` is the source of
     // truth for Save All; infer modelTab/plusModelId from it so the UI lines up.
     const pendingModel = pendingDataBySection?.["model"] as
-      | { path?: string }
-      | undefined;
+      { path?: string } | undefined;
     const pendingPath = pendingModel?.path;
     if (typeof pendingPath === "string" && pendingPath.startsWith("plus://")) {
       setState({

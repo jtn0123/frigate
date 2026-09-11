@@ -73,8 +73,7 @@ const getUnionSchemas = (schema?: RJSFSchema): RJSFSchema[] => {
 const getTypeValues = (schema: RJSFSchema): string[] => {
   const schemaObj = schema as Record<string, unknown>;
   const properties = schemaObj.properties as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const typeSchema = properties?.type as Record<string, unknown> | undefined;
   const values: string[] = [];
 

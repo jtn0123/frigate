@@ -370,16 +370,15 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
      @eslint/js + eslint-config-prettier + eslint-plugin-react-hooks + globals;
      (c) Vite 8 + @vitejs/plugin-react-swc (+ the patched
      vite-plugin-monaco-editor); (d) TypeScript 7 (+ typescript-eslint);
-     (e) Prettier 3.9 + @playwright/test 1.63, which reformats files and needs
-     new browser binaries, so it needs the owner's OK to reformat.
+     (Prettier 3.9 and @playwright/test 1.63 were done early in F6, with owner OK.)
   2. react-router 7 + react-router-dom (Dependabot #7, 2 alerts).
   3. Runtime groups: i18next + react-i18next + i18next-http-backend;
      date-fns 4 + react-day-picker 10; zod 4 + @hookform/resolvers 5;
-     apexcharts + react-apexcharts; konva 10.5 + monaco-yaml 5.5 (small type
-     fixes in PolygonCanvas and ConfigEditor); then singles in one or two PRs:
+     apexcharts + react-apexcharts; then singles in one or two PRs:
      framer-motion, immer, js-yaml, lucide-react, react-dropzone,
      react-markdown, react-zoom-pan-pinch, copy-to-clipboard,
-     @melloware/react-logviewer (after its immutable pin is fixed), @types/node.
+     @types/node. (konva 10.5, monaco-yaml 5.5 and react-logviewer 6.5.5 were
+     done early in F6.)
   4. Fork GitHub Actions: checkout 7, setup-node 7, cache 6,
      upload-artifact 7, download-artifact 8, setup-python 7.
   5. Tailwind 4 + tailwind-merge + tailwind-scrollbar + @tailwindcss/forms +

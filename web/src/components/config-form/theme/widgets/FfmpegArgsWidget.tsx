@@ -27,10 +27,7 @@ type FfmpegPresetResponse = {
 type FfmpegArgsMode = "preset" | "manual" | "inherit" | "none";
 
 type PresetField =
-  | "hwaccel_args"
-  | "input_args"
-  | "output_args.record"
-  | "output_args.detect";
+  "hwaccel_args" | "input_args" | "output_args.record" | "output_args.detect";
 
 const getPresetOptions = (
   data: FfmpegPresetResponse | undefined,
@@ -99,8 +96,7 @@ const normalizeManualText = (value: unknown): string => {
 
 export function FfmpegArgsWidget(props: WidgetProps) {
   const formContext = props.registry?.formContext as
-    | ConfigFormContext
-    | undefined;
+    ConfigFormContext | undefined;
   const i18nNamespace = formContext?.i18nNamespace as string | undefined;
   const isCameraLevel = formContext?.level === "camera";
   const effectiveNamespace = isCameraLevel ? "config/cameras" : i18nNamespace;
