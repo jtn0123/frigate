@@ -28,7 +28,7 @@ criteria.
 ### What was selected, and what was left out
 
 In this file: A2 A3 A4 A5 · B2 B4 · C4 C6 C7 C10 C11 · D4 D7 D9 · E6 · F4 F5 ·
-G8 G9 G10 G11 G12 · H5 · I3 I8 I9 · UI18 UI20 UI21 UI23–UI28 UI29 (revised)
+G8 G9 G10 G11 G12 · H5 · I3 I8 I9 I10 I11 · UI18 UI20 UI21 UI23–UI28 UI29 (revised)
 UI30–UI41.
 
 Left out on purpose: D3 (owner excluded; still ships with A1 in PLAN.md), H4,
@@ -44,7 +44,8 @@ UI29 is now "date-range filter on Exports, reusing `CalendarFilterButton`, no
 activity dots".
 
 New IDs added to `fork/GRADE-REPORT.md` with this plan: **C11** (promise misuse)
-and **D9** (e2e mocks validated against the API spec).
+and **D9** (e2e mocks validated against the API spec); with PR-13, **I10**
+(local gates and worktrees) and **I11** (toolchain trial).
 
 ---
 
@@ -266,13 +267,19 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
   presets). Flags `tileLastEvent`, `tileActions`. Wait for PLAN.md UI13.
 - **Impact:** faster Live workflows. **Conflict:** medium (`LiveCameraView` 7).
 
-### PR-13 · ci-speed — I8, I9 — M
-- **Scope:** overlay image for `polish` pushes (full build kept for `fork/*`
-  tags); shard Playwright across 2–3 runners; push the thin test image to GHCR
-  keyed on its inputs; `make e2e-changed`.
-- **Done when:** a `polish` push goes green in well under the current time;
-  numbers before/after in the PR. **Impact:** faster feedback for every later
-  PR. **Conflict:** none (fork workflows).
+### PR-13 · ci-speed and dev loop — I9, I10, I8 (I11 trial on request) — M — **in progress**
+- **Status (2026-09-10):** I9 and I10 are done on `section/devtools`
+  (worktree `/Volumes/512Flash/frigate-wt/devtools`), local `make check` green;
+  not merged or PR'd until the owner says so. Moved ahead of the ordering
+  because every later block benefits.
+- **Remaining:** I8 overlay image for `polish` pushes (full build kept for
+  `fork/*` tags). I11 (TypeScript 7 / Vite 8 / Vitest 5 trial) only if the
+  owner approves it against the F4 rule.
+- **Done when:** a `polish` push goes green in well under the current ~6 min
+  (target ~3 min; docs-only ~10 s); numbers before/after in the PR.
+  **Impact:** faster feedback for every later PR and agent. **Conflict:** none
+  (fork workflows and the fork block of the `Makefile`; one-line hunks in
+  `web/package.json` scripts).
 
 ### PR-14 · mypy waves — I3 — series, L total
 - **14a** `ptz` + `video` (273 production errors). **14b** `config` (116).
