@@ -353,13 +353,21 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
   worktree) on the USB volume takes ~20 minutes; run it in the background.
 - In zsh, never name a shell variable `path` (it overwrites `PATH`).
 - The harness blocks chained `sleep`; use until-loops or background commands.
-- Docker Desktop is arm64; the rc2 image is already pulled.
+- Docker is Colima (`docker context` colima: 4 CPUs, 6 GB, arm64, amd64 via
+  QEMU, not Rosetta), not Docker Desktop; the rc2 image is already pulled. Its
+  40 GB disk lives on the internal drive (~7 GB free), so don't pull large
+  extra images (an amd64 Frigate image is ~6.6 GB).
+- The Mac's npm (11.x, Node 26) skips dependency install scripts that are not
+  approved (`npm install-scripts ls`): esbuild, @swc/core, msw, fsevents. The
+  build and tests work without them; CI uses Node 22, where they run.
+- Screenshots hang in `agent-browser` on this machine (even for a blank page);
+  use the e2e suite or `curl` for checks.
 - The Mac has 16 GB and runs with ~10 GB of swap in use when several agents,
   Chrome and Docker (6 GB VM) are up. Under that pressure Node tools run up to
   10x slower side by side than in sequence, which is why `make check` queues
   the host gates. Don't start extra parallel builds or test runs by hand.
-- Docker bind mounts from `/Volumes` arrive empty (not shared with Docker
-  Desktop); the test image copies sources in at build time instead.
+- Docker bind mounts from `/Volumes` arrive empty (Colima shares only the home
+  folder); the test image copies sources in at build time instead.
 - `vite build --outDir` must stay inside `web/` (see `fork/README.md`).
 
 ## Done (merged on `main`)

@@ -82,7 +82,7 @@ gate_e2e() {
 
 gate_python() {
   if ! docker info >/dev/null 2>&1; then
-    echo "Docker is not running; start Docker Desktop and re-run."
+    echo "Docker is not running; start it with 'colima start' and re-run."
     return 1
   fi
   # Same per-worktree tag as the Makefile, so parallel worktrees never test
