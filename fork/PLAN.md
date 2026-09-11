@@ -1,65 +1,318 @@
 # Fork work plan
 
-Handoff doc for any agent picking up work on this fork. Read `FORK.md` first for
-the rebase rules; this file explains what is being built, what is done, and how
-to finish the rest.
+The single source of truth for work on this fork. Read `FORK.md` first for the
+rebase rules. This file says what is next, in order, and how to do it.
 
 ## Start here (new agent)
 
 1. Read `FORK.md`, this file, and the report entries for your items in
    `fork/GRADE-REPORT.md`.
-2. Take one section from "Remaining work" below. On this Mac, use its worktree
-   under `/Volumes/512Flash/frigate-wt/`. On another machine, clone
-   `jtn0123/frigate`, check out `section/<name>` from origin, and set up the
-   local guards from "Safety setup" first.
-3. `git fetch origin && git rebase origin/polish` in the section worktree.
-4. Build, commit per item, run every gate in "Workflow per section", then
-   report back. Only the coordinating agent merges into `polish` and pushes it,
-   so two agents never race on the same branch.
+2. Take the next unchecked section from **The queue**. On this Mac, its worktree
+   lives under `/Volumes/512Flash/frigate-wt/<name>` (create it if missing:
+   `git worktree add /Volumes/512Flash/frigate-wt/<name> -b section/<name> polish`).
+   On another machine, clone `jtn0123/frigate` and set up the local guards in
+   **Safety setup** first.
+3. `git fetch origin && git rebase origin/polish` in the worktree.
+4. Build, commit per item, run every gate in **Workflow per section**.
+5. Only the coordinating agent merges into `polish`, pushes it, and ticks the
+   box here, so two agents never race on the same branch.
 
 ## Goal
 
-A UI/UX-focused fork of Frigate that stays easy to rebase onto upstream. The
-work covers 30 items: the top 15 non-UI fixes and the top 15 UI/UX
-improvements from a codebase grade (overall B−). The full grade report, with
-item IDs A1–I5, is `fork/GRADE-REPORT.md`.
+A UI/UX-focused fork of Frigate that stays easy to rebase onto upstream.
+Phase 1 finishes the original 30 items (top 15 non-UI + top 15 UI/UX from the
+grade report, overall B−). Phases 2–3 keep the fork healthy and raise quality.
+The backlog holds ideas that wait for the owner to promote them.
 
-- Base: upstream `v0.18.0-rc2` (upstream `dev` was identical to that tag when
-  work started).
-- Repo: `github.com/jtn0123/frigate`, clone at `/Volumes/512Flash/frigate`.
-- Work branch: `polish`. `dev` mirrors upstream and is never committed to.
+- Base: upstream `v0.18.0-rc2`. Repo `github.com/jtn0123/frigate`, clone at
+  `/Volumes/512Flash/frigate`.
+- Work branch `polish` (the GitHub default branch). `dev` mirrors upstream and
+  is never committed to.
 
 ## Hard rules
 
 - Never touch the owner's live Frigate server (Proxmox LXC 106) or its Portainer
-  stack. Pushing to GitHub is allowed; deploying to the server is not.
-- Commits, pushes and PRs go only to `github.com/jtn0123/*`. Never open a PR,
-  issue or comment on `blakeblackshear/frigate`. Use
-  `gh pr create --repo jtn0123/frigate --base polish` for PRs. A clone made
-  elsewhere needs the guards from `FORK.md` set up again.
-- Do not put camera passwords, tokens or credentials in git or docs. Root
-  `.env*` files are gitignored; keep secrets in those, never in tracked files.
+  stack: no deploys, no API calls, no pointing dev tools at it. Pushing to
+  GitHub is allowed.
+- Commits, pushes, PRs and issues go only to `github.com/jtn0123/*`. Never open
+  a PR, issue or comment on `blakeblackshear/frigate`. Use
+  `gh pr create --repo jtn0123/frigate --base polish`.
+- No camera passwords, tokens or credentials in git or docs. Root `.env*` files
+  are gitignored; keep secrets there.
 - Small, additive changes: new files over edits; small self-contained hunks
   when an upstream file must change; never rename, move or reformat an upstream
   file; no dependency majors upstream has not taken.
 - Gate fork-only UI behaviour behind a flag in `web/src/fork/flags.ts`
   (overridable at runtime with `localStorage.frigateFork` JSON).
 - Fork strings go in the `fork` i18n namespace (`web/public/locales/en/fork.json`).
-- One report item = one commit, subject prefixed with the item ID
-  (`UI6: ...`). Commits end with the `Co-Authored-By` trailer. Git author is
-  `Justin <jtn0123@gmail.com>`.
-- Add a row to the `FORK.md` ledger for every item.
-- Fix bugs and warnings found along the way (logs, lint, tests). Never skip or
-  disable a failing test; fix it or list it under "Follow-ups" below.
-- Run at most two agents at once (usage limit).
+- One item = one commit, subject prefixed with the item ID (`UI6: ...`).
+  Commits end with the `Co-Authored-By` trailer. Git author
+  `Justin <jtn0123@gmail.com>`. Add a `FORK.md` ledger row per item.
+- Fix bugs and warnings found along the way. Never skip, disable or loosen a
+  failing test or lint rule to get green; fix it, or add it to **Follow-ups**.
+- At most two agents at once (usage limit). Suggested pairs are in the queue.
+- Backlog items are not started unless the owner promotes them.
+
+## The queue
+
+Tick a box only after the section is merged into `polish`, pushed, and
+"Fork - Checks" is green on that commit. Pairs on the same line can run in
+parallel; each needs its own `E2E_PORT`.
+
+### Phase 1 — finish the original 30
+
+- [ ] **1a. features1** — UI6 command palette, UI12 camera health cards, UI14
+  notification inbox. `section/features1` has 3 commits on an old base: rebase,
+  resolve `FORK.md`, gates (`E2E_PORT=4185`), fix anything red.
+  *Pair with 1b.*
+- [ ] **1b. security** (coordinator) — see **Security triage** below.
+- [ ] **2a. features2** — UI7 settings navigation, UI10 bulk actions with undo.
+  `section/features2` has one `wip:` commit: `git reset --soft HEAD~1`, finish,
+  one commit each (`E2E_PORT=4186`). *Pair with 2b.*
+- [ ] **2b. ops** — A upstream-sync bot, C bundle budget, H typed env.
+- [ ] **3a. features3** — UI8 timeline scrubber, UI9 shared event header,
+  UI11 clip sharing. Branch exists, no work yet (`E2E_PORT=4187`).
+  *Pair with 3b.*
+- [ ] **3b. demo** — D local demo stack.
+- [ ] **4a. features4** — A1/UI5 viewport hook + D3 tablet project, UI13 live
+  layout memory + PiP, H3 frontend READMEs. `section/features4` has one `wip:`
+  commit of 17 unreviewed files on an old base: `git reset --soft HEAD~1`,
+  keep only what is sound, rebase (`E2E_PORT=4188`). *Pair with 4b.*
+- [ ] **4b. e2e-coverage** — E (report D2) e2e for the riskiest screens.
+
+### Phase 2 — quality on top of the finished features
+
+- [ ] **5a. settings-save** — F (report C3), after features2. *Pair with 5b.*
+- [ ] **5b. camera-alerts** — I, after features1.
+- [ ] **6. visual** — B screenshot tests, after all UI sections so baselines
+  do not churn.
+- [ ] **7. a11y-ratchet** — G, last before closing (touches many files).
+
+### Phase 3 — closing pass
+
+- [ ] **8. closing** — see **Closing pass** below.
+
+## Section specs
+
+### 1b. Security triage (coordinator, any time before closing)
+
+Dependabot: 221 alerts at first scan, all inherited from upstream rc2. 125 are
+in `docs/` and 16 in TensorRT/ARM manifests this fork does not build; those are
+ignored in `.github/dependabot.yml`. What ships: `python-multipart` (2 high) in
+`docker/main/requirements-wheels.txt` and the `/web` lockfile (axios, fast-uri,
+nanoid, postcss, form-data and others; the vitest critical is dev-only).
+
+- Merge the grouped `security` PRs for `/web` and `/docker/main` once
+  "Fork - Checks" is green on them; add a `SEC` ledger row.
+- PRs #1–#6 are single-package PRs opened before grouping was configured, on a
+  base with a since-fixed CI error. If the grouped PR covers them, close them
+  with a comment; otherwise `@dependabot rebase` and merge if green.
+- Patch and minor bumps only. For a major, leave the alert open and note it
+  under **Follow-ups**.
+- On upstream rebases, take upstream's `package-lock.json` and re-run
+  `npm install` rather than hand-merging it.
+
+CodeQL (first scan 2026-09-10): no alert is in fork code. Fix as small
+"candidate" commits with ledger rows, or dismiss with a written reason:
+
+- critical `py/command-line-injection` `frigate/util/image.py:1221`,
+  `frigate/util/services.py:1017`; `py/full-ssrf` `frigate/api/camera.py:505`
+- high `py/clear-text-logging-sensitive-data` `frigate/api/auth.py` (331–384),
+  `frigate/app.py` (537, 555), `frigate/util/services.py:1021`
+- high `py/polynomial-redos` `frigate/util/builtin.py:113,123`
+- medium `actions/missing-workflow-permissions` in the disabled upstream
+  workflows (ci, pull_request, release, stale): dismiss as "won't fix".
+
+### 2b. ops — A sync bot, C bundle budget, H typed env
+
+**A. Upstream-sync bot** — `.github/workflows/fork-upstream-sync.yml`, daily
+schedule + `workflow_dispatch`, `permissions: contents: write, issues: write,
+actions: write`.
+
+- Fetch `https://github.com/blakeblackshear/frigate` (read-only) `dev` + tags.
+- Fast-forward `origin/dev` to `upstream/dev` (ff only; never force).
+- If `polish` already contains `upstream/dev`, stop.
+- Otherwise rebase a copy of `polish` onto `upstream/dev`. Clean: force-push
+  it to `sync/upstream` only, dispatch "Fork - Checks" on that ref
+  (`gh workflow run` — pushes made with `GITHUB_TOKEN` do not trigger
+  workflows), and open or update one issue "Upstream moved N commits" with the
+  commit list and a link to the run. Conflict: open or update the issue with
+  the conflicted files and the upstream commits that touched them.
+- A new upstream `v*` tag (e.g. 0.18.0 final) opens its own issue.
+- Never push `polish` or tags. Issues are enabled on the repo.
+- Add `sync/**` to "Fork - Checks" `workflow_dispatch`-able refs if needed, and
+  document the bot in `FORK.md`.
+
+**C. Bundle budget** — `web/scripts/fork/bundle-budget.mjs` reads
+`dist/index.html`, gzips every eagerly loaded script, `modulepreload` and
+stylesheet, prints a table, and fails when the total exceeds
+`fork/bundle-budget.json` (start at the measured size + 5%; eager JS was
+305 kB gzip after the perf section). Run it in the "Web - Unit tests + build"
+job after `npm run build`, plus an npm script `bundle:budget`. Raising the
+budget needs a sentence in the commit explaining why.
+
+**H. Typed env (report I5, mostly done by S0)** — e2e typecheck and
+`web/.env.example` already exist. Remaining: declare `VITE_GIT_COMMIT_HASH`
+in an `ImportMetaEnv` interface in `web/src/vite-env.d.ts`, and document
+`E2E_PORT` in `web/.env.example`.
+
+### 3b. demo — D local demo stack
+
+A real Frigate with the fork's UI and backend running on this Mac, for
+dogfooding and screenshots. Never uses or copies anything from the live server.
+
+- `fork/demo/`: `Dockerfile` (FROM `ghcr.io/blakeblackshear/frigate:0.18.0-rc2`,
+  which is multi-arch, so it runs native arm64; overlay `frigate/`,
+  `migrations/` like `fork/Dockerfile.test`, and `web/dist` over the image's
+  web root — find the path nginx serves), `compose.yml`, `config/config.yml`,
+  `README.md`, and `fetch-samples.sh`.
+- Cameras: 2–3 fake cameras from looping sample clips via go2rtc/ffmpeg
+  (`-stream_loop -1 -re`). At least one clip with people or cars so the CPU
+  detector produces review items. Clips and all state (db, recordings) live in
+  gitignored `fork/demo/.data/` or under `/Volumes/512Flash/frigate-demo/`.
+  Document the source and licence of each clip; never commit media.
+- Ports bound to `127.0.0.1` only. Auth on; credentials in gitignored
+  `fork/demo/.env`.
+- `Makefile` targets `demo-up`, `demo-down`, `demo-logs`.
+- Done when: `make demo-up` gives a working UI with live video, and review
+  items appear within a few minutes. Include screenshots of Live, Review,
+  Explore and System in the report.
+- Then dogfood Phase 1 features in it and add findings to **Follow-ups**.
+
+### 4b. e2e-coverage — E (report D2)
+
+Mocked-API Playwright specs, desktop and `@mobile` (the spec linter requires
+both), asserting request payloads, not just UI:
+
+- Settings: edit a field, unsaved indicator, Save All sends the right body,
+  restart-required notice.
+- Motion search: draw a region, run, results render, empty state.
+- Zone editing: add and move points, save payload, validation.
+- Camera wizard: each step, validation errors, final config payload.
+
+### 5a. settings-save — F (report C3, as a local split)
+
+Not a rewrite. Extract the Settings "Save All" transaction (collect pending
+changes → build `config/set` payloads → send → handle partial failure and
+restart-required) from `Settings.tsx` into `web/src/lib/fork/settings-save.ts`
+with vitest coverage of ordering, partial failure and restart-required. The
+hunk in `Settings.tsx` stays small. Builds on UI7's diff dialog.
+
+### 5b. camera-alerts — I
+
+Client-side v1, no backend: detect a camera going down (fps 0, or the 0.18
+connection-quality state offline/poor, for longer than a debounce window) from
+the same stats data as UI12, and raise a UI14 inbox entry, plus a browser
+notification when a tab is open, respecting quiet hours. Recovery clears it.
+Flag `cameraAlerts`. Vitest for debounce and recovery; e2e flipping the
+mocked stats websocket.
+
+### 6. visual — B screenshot tests
+
+Playwright `toHaveScreenshot` in a separate `visual` project: about 8 views
+(Live, Review, Explore, System health, Settings, error boundary, command
+palette, OLED appearance) × desktop and mobile. Mocked data, animations off,
+dynamic regions (times, video) masked, `maxDiffPixelRatio` ≈ 0.01.
+Baselines must be rendered on Linux to match CI: add a `workflow_dispatch`
+input to "Fork - Checks" that runs with `--update-snapshots` and uploads the
+snapshot folder as an artifact; commit it from there. The `visual` project runs
+in CI; locally on macOS it runs only when `E2E_VISUAL=1` inside the matching
+`mcr.microsoft.com/playwright` container (same version as `@playwright/test`).
+
+### 7. a11y-ratchet — G
+
+83 jsx-a11y warnings remain (label-has-for 24, no-noninteractive-tabindex 13,
+no-static-element-interactions 11, control-has-associated-label 9,
+no-autofocus 8, click-events-have-key-events 5, role-has-required-aria-props 4,
+media-has-caption 3, aria-role 3, no-noninteractive-element-to-interactive-role
+2, heading-has-content 1). Fix one rule per commit, then switch that rule to
+`error` in `web/eslint.config.js`. No `eslint-disable` comments; if a site
+cannot be fixed without a rewrite, leave that rule at `warn` and list the
+sites under **Follow-ups**.
+
+### 8. Closing pass
+
+- Rebase `polish` onto the newest upstream tag (rc2 or later) and re-run every
+  gate.
+- Tag `fork/<version>` and push it; "Fork - Build image" publishes
+  `ghcr.io/jtn0123/frigate`. Do not deploy.
+- Regrade `fork/GRADE-REPORT.md`.
+- List the "candidate" ledger rows that would make good upstream PRs, bug
+  fixes first. Do not open them; the owner decides.
+- Remove merged worktrees and `section/*` branches (local and origin).
+
+### Scope notes for Phase 1 features (0.18 already ships part of some)
+
+- **UI7**: only what 0.18 lacks — scrollspy section rail, settings search,
+  before/after diff dialog ahead of Save All. Flag `settingsNav`.
+- **UI10**: multi-select in Explore plus an undo toast for Review "mark
+  reviewed". Flag `bulkActions`.
+- **UI12**: builds on 0.18's connection-quality indicator and stats data
+  (`views/fork/CameraHealthView.tsx`, System page tab).
+- **UI8**: snap-to-event, arrow-key stepping, bigger touch targets. Flag
+  `timelineScrubber`.
+- **UI9**: a shared `EventSummaryHeader` for Review and Explore detail panels.
+  Flag `unifiedEventDetail`.
+- **UI11**: `frigate/api/fork_share.py`, a `ShareLink` model + migration,
+  tests, QR helper `web/src/lib/fork/qr.ts`. Public `GET /share/{token}` uses
+  the E2 per-route auth marker (`allow_public`), never a path exemption.
+  Tokens expire. Flag `clipSharing`.
+- **A1/UI5**: `web/src/hooks/fork/use-viewport.ts` for shell and nav only, plus
+  **D3** tablet 1024×768 Playwright project. Flag `viewportLayout`.
+- **UI13**: per-device live layout memory and picture-in-picture. Flag
+  `liveLayoutMemory`.
+- **H3**: `web/README.md`, `web/e2e/README.md`, `web/patches/README.md`.
+
+## Backlog — do not start unless the owner promotes it
+
+Rough size S/M/L. Promote by moving an item into the queue.
+
+- **J. Installable mobile app polish** (M) — better install-to-home-screen,
+  offline app shell, larger touch targets on Live. Long term.
+- **Kiosk / wall-display mode** (M) — `?kiosk=1` chrome-less Live view, camera
+  auto-cycle, OLED burn-in pixel shift, night dimming, wake on motion. Fits the
+  owner's Tab S6 kitchen panel.
+- **Review triage keys** (S) — j/k next/previous, space play/pause, r mark
+  reviewed, e export, `?` cheat sheet.
+- **Morning digest** (S) — card at the top of Review: overnight counts per
+  camera and label with jump links, from the existing review summary API.
+- **Activity heatmap** (M) — per-camera hour × day grid from review summary.
+- **Storage forecast** (S) — System page: days of retention left at the current
+  growth rate, per-camera share, from the recordings storage API.
+- **Setup health checklist** (S) — auth on, admin password changed, HTTPS
+  (needed for web push), notifications, retention, detector not CPU; each links
+  into Settings.
+- **Copy diagnostics** (S) — button that copies version, browser, a redacted
+  config summary and recent client errors for bug reports.
+- **Zone editor UX** (M) — snapping, undo/redo, numeric coordinates, keyboard
+  nudging.
+- **Saved searches** (S) — pin Explore filter sets; shareable URLs.
+- **Export queue UX** (S) — progress list, inbox entry when an export finishes,
+  filenames with camera and local time.
+- **Virtualised card grids** (M) — the unfinished half of G5 for Review and
+  Explore with thousands of items.
+- **Reduced motion + high-contrast theme** (S) — extends UI15.
+- **API contract check** (M) — generate TS types from
+  `docs/static/frigate-api.yaml` and type web API calls against them, so an
+  upstream API change fails the build after a rebase instead of at runtime.
+- **Refresh e2e mocks from the demo stack** (S) — record real responses from D
+  to keep fixtures realistic.
+- **Server-side camera-offline push** (M) — extend I with Frigate's web push so
+  alerts arrive with no tab open (needs HTTPS on the owner's server).
+- **Camera-group quick switch** (S) — groups in the command palette and Live.
+- **Deploy/rollback runbook** (S) — docs only: how the owner would point the
+  Portainer stack at `ghcr.io/jtn0123/frigate:<tag>` and back, and what to
+  check. Never executed by an agent.
+- Unscheduled report items: A2 (split `ws.ts`), A3, A4, B2, B4, D4, F4, F5,
+  H4, C4, C6, C7. C4/C6 are rewrites; only local splits when a feature touches
+  the file.
 
 ## Workflow per section
 
-1. Section branch `section/<name>` in a worktree at
-   `/Volumes/512Flash/frigate-wt/<name>`, rebased onto the latest `polish`.
+1. Worktree `/Volumes/512Flash/frigate-wt/<name>` on `section/<name>`, rebased
+   onto the latest `polish`. Push the section branch to origin as a backup.
 2. Implement and commit per item.
-3. Verify inside the worktree. These mirror every job in
-   `.github/workflows/fork-checks.yml`; all must pass:
+3. Gates — these mirror every job in `.github/workflows/fork-checks.yml`:
    ```
    cd web
    npx tsc --noEmit
@@ -73,195 +326,60 @@ item IDs A1–I5, is `fork/GRADE-REPORT.md`.
    ```
    Backend changes also need `ruff check frigate migrations && ruff format
    --check frigate migrations` and `make fork-test-image && make test-py
-   check-py` (thin test image over the rc2 image, see `fork/Dockerfile.test`).
+   check-py` (thin test image over rc2, see `fork/Dockerfile.test`).
 4. Rebase onto `polish`. `FORK.md` conflicts on every rebase: keep both sides'
-   rows. Then fast-forward merge into `polish`, re-run the gates in the main
-   checkout, and `git push origin polish`.
-5. After the push, confirm CI is green:
-   `gh run list -R jtn0123/frigate --branch polish --limit 2`. A red
-   "Fork - Checks" run is a bug to fix before starting the next section.
+   rows (rerere is on, so a resolution is replayed next time). Fast-forward
+   `polish`, re-run the gates in the main checkout, `git push origin polish`.
+5. Confirm CI: `gh run list -R jtn0123/frigate --branch polish --limit 3`.
+   Red "Fork - Checks" is a bug to fix before the next section.
 
 ## Safety setup (already configured)
 
-GitHub, `jtn0123/frigate`:
+GitHub `jtn0123/frigate`: default branch `polish`; secret scanning + push
+protection; Dependabot alerts + grouped security updates (version updates off);
+CodeQL default setup (Python, JS/TS, Actions); rulesets stop deletion of
+`polish`/`dev` and deletion or moving of `fork/*` tags (force-push on `polish`
+stays allowed for rebases); upstream workflows CI, On pull request, PR template
+check, On release and Stalebot are disabled; Issues enabled for the sync bot;
+"Fork - Checks" runs gitleaks over `origin/dev..HEAD`.
 
-- Default branch is `polish` so Dependabot security PRs, CodeQL and the repo
-  page all track the fork's real code. `dev` stays a pure upstream mirror.
-- Secret scanning and push protection on. Dependabot alerts and Dependabot
-  security updates on (PRs target `polish`). Dependabot *version* updates are
-  deliberately off: version bumps arrive by rebasing onto upstream, and the
-  fork takes no majors upstream has not.
-- CodeQL default setup for Python, JavaScript/TypeScript and Actions.
-- Rulesets: `polish` and `dev` cannot be deleted; `fork/*` tags cannot be
-  deleted or moved. Force-push on `polish` stays allowed because the branch is
-  rebased onto upstream.
-- Upstream workflows that do not fit a fork are disabled in Actions settings:
-  CI, On pull request, PR template check, On release, Stalebot. Active:
-  Fork - Checks, Fork - Build image, CodeQL, Dependency Graph.
-- Fork - Checks runs gitleaks over `origin/dev..HEAD` (fork commits only; some
-  upstream test fixtures contain fake keys that would trip a full scan).
-
-Local clone (shared by every worktree, not tracked by git):
-
-- `gh repo set-default jtn0123/frigate`; `upstream` push URL is `no_push`.
-- `.git/hooks/pre-push` refuses any URL outside `github.com/jtn0123/*` and runs
-  gitleaks over the pushed range.
-- `pre-commit install` done: ruff, gitleaks (staged changes), eslint and
-  prettier run on every commit. Needs `web/node_modules` in the worktree.
+Local clone (shared by all worktrees, not tracked by git):
+`gh repo set-default jtn0123/frigate`; `upstream` push URL `no_push`;
+`.git/hooks/pre-push` allows only `github.com/jtn0123/*` and gitleaks-scans the
+pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
+`web/node_modules`); `rerere.enabled`.
 
 ### Environment gotchas
 
-- Never run `npx playwright install`. The CDN returns HTTP 400 for
-  `chromium_headless_shell-1217` from this network. The cache has symlinks
-  `chromium_headless_shell-1217 -> chromium_headless_shell-1234` and
-  `chromium-1217 -> chromium-1234` under `~/Library/Caches/ms-playwright`.
-- Use a different `E2E_PORT` per worktree when two suites run at once.
-- Do not run two `npm ci` in the same directory, and avoid `rm -rf node_modules`
-  on the USB volume (about 20 minutes).
+- Never run `npx playwright install`: the CDN returns HTTP 400 for
+  `chromium_headless_shell-1217` here. `~/Library/Caches/ms-playwright` has
+  symlinks `chromium_headless_shell-1217 -> …-1234` and `chromium-1217 -> …-1234`.
+- Unique `E2E_PORT` per worktree when two suites run at once.
+- Never two `npm ci` in one directory. `rm -rf node_modules` (and removing a
+  worktree) on the USB volume takes ~20 minutes; run it in the background.
+- In zsh, never name a shell variable `path` (it overwrites `PATH`).
 - The harness blocks chained `sleep`; use until-loops or background commands.
+- Docker Desktop is arm64; the rc2 image is already pulled.
 
-## The 30 items and status
+## Done (merged on `polish`)
 
-Status as of 2026-09-10. `polish` = merged and pushed to origin (e2e 331
-passed / 95 skipped, backend 978 tests OK). `upstream/dev` still equals
-`v0.18.0-rc2`, so no upstream rebase is pending. Section branches are pushed
-to origin as backups; `section/features2` and `section/features4` carry a
-`wip:` commit holding unreviewed partial work (split it into per-item commits
-before merging).
+21 of the 30, with e2e 331 passed / 95 skipped and 978 backend tests OK at the
+last full run:
 
-### Non-UI (15)
+- Non-UI (all 15): D1 unit tests, I1 pre-commit + CI caching, G3 non-blocking
+  handlers, G4 bounded event search, E1 security headers, E2 per-route auth
+  markers, F2 checksummed downloads, F1 ESLint 9, F3 wheel cleanup, D5
+  coverage, B1 one error shape, B3 logged exception swallows, G6 recording
+  cache tracker, I2 Makefile targets, H1/H2 docs.
+- UI: C1 error boundary, C2 keyboard + screen-reader access, G1/G5/UI3 first
+  paint (eager JS 504 → 305 kB gzip), C5 error states, UI15 theme controls.
+- Extras: I3 mypy ratchet, I4 ruff S rules, E3 safe_join thumbnails, C8 dev
+  sandbox out of prod, G2 SWR policy, T1 config editor Cmd/Ctrl+S, S0 fork
+  scaffold, CI secret scanning and repo safety setup.
 
-| # | ID | Item | Section | Status |
-|---|----|------|---------|--------|
-| 1 | D1 | Restore frontend unit tests (vitest + jsdom) | tooling | polish |
-| 2 | I1 | Pre-commit hooks and CI caching | tooling | polish |
-| 3 | G3 | Stop blocking the event loop in async handlers | backend | polish |
-| 4 | G4 | Bound `/events/search` in SQL | backend | polish |
-| 5 | E1 | Security headers and HSTS inheritance fix | backend | polish |
-| 6 | E2 | Per-route auth markers + startup assertion | backend | polish |
-| 7 | F2 | Checksum binary downloads | backend | polish |
-| 8 | F1 | ESLint 9 flat config + typescript-eslint 8 | tooling | polish |
-| 9 | F3 | Clean the Python wheel set | backend | polish |
-| 10 | D5 | Coverage in CI | tooling | polish |
-| 11 | B1 | One error response shape | backend | polish |
-| 12 | B3 | Log silent exception swallows | backend | polish |
-| 13 | G6 | Recording maintainer stops polling every host process | backend | polish |
-| 14 | I2 | Inner-loop Makefile targets | scaffold | polish |
-| 15 | H1/H2 | Fix wrong docs, CONTRIBUTING matches CI | backend | polish |
+## Follow-ups
 
-Also merged: I3 (mypy ratchet), I4 (ruff S rules), E3 (safe_join thumbnails),
-C8 (dev sandbox out of prod routes), G2 (global SWR policy), T1 (config editor
-Cmd/Ctrl+S).
-
-### UI/UX (15)
-
-| # | ID | Item | Section | Status |
-|---|----|------|---------|--------|
-| 1 | C1 | Route error boundary, never a blank page | foundations | polish |
-| 2 | C2 | Keyboard and screen-reader access | a11y | polish |
-| 3 | G1/G5/UI3 | Faster first paint (icons, lazy players, chunks, font preload) | perf | polish |
-| 4 | C5 | Honest empty and error states | foundations | polish |
-| 5 | A1/UI5 | Layout follows the viewport, not the user agent | features4 | partial, uncommitted |
-| 6 | UI6 | Command palette (Cmd/Ctrl+K) | features1 | committed, needs rebase + verify |
-| 7 | UI7 | Settings navigation (narrowed) | features2 | in progress, uncommitted |
-| 8 | UI8 | Timeline scrubber (narrowed) | features3 | not started |
-| 9 | UI9 | One event detail header for Review and Explore | features3 | not started |
-| 10 | UI10 | Bulk actions with undo (narrowed) | features2 | in progress, uncommitted |
-| 11 | UI11 | Share a clip (expiring link + QR) | features3 | not started |
-| 12 | UI12 | Camera health cards | features1 | committed, needs rebase + verify |
-| 13 | UI13 | Live dashboard layout memory + PiP | features4 | partial, uncommitted |
-| 14 | UI14 | Notification inbox with quiet hours | features1 | committed, needs rebase + verify |
-| 15 | UI15 | Theme controls (density, text size, OLED black) | foundations | polish |
-
-### Scope notes (0.18 already ships part of some items)
-
-- **UI7** only adds what 0.18 lacks: a scrollspy section rail, settings search,
-  and a before/after diff dialog ahead of Save All. Files so far:
-  `components/fork/settings/{SettingsNav,SettingsReviewDialog}.tsx`,
-  `hooks/fork/use-settings-nav.ts`, `lib/fork/settings-diff.ts` (+ test),
-  `e2e/specs/fork/settings-nav.spec.ts`. Flag `settingsNav`.
-- **UI10** adds multi-select in Explore plus an undo toast for Review
-  "mark reviewed". Files so far: `components/fork/bulk/BulkActionBar.tsx`,
-  `hooks/fork/use-bulk-selection.ts` (+ test), `lib/fork/bulk-actions.tsx`,
-  `e2e/specs/fork/bulk-actions.spec.ts`. Flag `bulkActions`.
-- **UI12** builds on 0.18's connection-quality indicator and stats data rather
-  than new backend work (`views/fork/CameraHealthView.tsx`, System page tab).
-- **UI8** is snap-to-event, arrow-key stepping and bigger touch targets only.
-  Flag `timelineScrubber`.
-- **UI9** is a shared `EventSummaryHeader` used by both Review and Explore
-  detail panels. Flag `unifiedEventDetail`.
-- **UI11** needs a small backend piece: `frigate/api/fork_share.py`, a
-  `ShareLink` model + migration, tests, and a QR helper in
-  `web/src/lib/fork/qr.ts`. The public `GET /share/{token}` must use the E2
-  per-route auth marker (`allow_public`), not a path-string exemption. Tokens
-  expire. Flag `clipSharing`.
-- **A1/UI5**: `web/src/hooks/fork/use-viewport.ts` for the shell and nav only
-  (no full responsive migration). Includes **D3**, a tablet 1024x768 Playwright
-  project. Flag `viewportLayout`.
-- **UI13**: per-device live layout memory and picture-in-picture. Flag
-  `liveLayoutMemory`.
-- **H3** docs ride along in features4: `web/README.md`, `web/e2e/README.md`,
-  `web/patches/README.md`.
-
-Open question for the owner: notification inbox (UI14) and clip sharing (UI11)
-could be cut to keep the fork lighter. Default is to build both.
-
-## Remaining work, in order
-
-Two agents at a time.
-
-1. **features1** (`section/features1`, 3 commits). Rebase onto `polish`,
-   resolve `FORK.md`, run all gates with `E2E_PORT=4185`, fix anything red,
-   merge, push.
-2. **features2** (one `wip:` commit on top of `polish` with half-built UI7 and
-   UI10). `git reset --soft HEAD~1`, finish both, gates with
-   `E2E_PORT=4186`, one commit each, merge, push.
-3. **features3** (branch is behind, no work yet). Rebase onto `polish` first,
-   then UI8, UI9, UI11 (backend tests in the thin image), gates, merge, push.
-4. **features4** (one `wip:` commit with 17 unreviewed files from an aborted
-   run, on an old base). `git reset --soft HEAD~1`, review the files and keep
-   only what is sound, rebase onto `polish`, finish A1/UI5 + D3, UI13, H3,
-   gates, merge, push.
-5. **Security triage** (coordinating agent). Dependabot inherits upstream
-   rc2's alerts: 221 at first scan, 125 of them in `docs/` and 16 in
-   TensorRT/ARM manifests that this fork does not build (now ignored in
-   `.github/dependabot.yml`). What ships: `python-multipart` (2 high) in
-   `docker/main/requirements-wheels.txt`, and the `/web` lockfile (axios,
-   fast-uri, nanoid, postcss, form-data and others; vitest critical is
-   dev-only). Merge the grouped `security` PRs for `/web` and `/docker/main`
-   once "Fork - Checks" is green on them, add a `SEC` row to `FORK.md`, and
-   close any leftover single-package Dependabot PRs they supersede. Patch and
-   minor bumps only; for a major, leave the alert open and note it here. On
-   the next upstream rebase, take upstream's `package-lock.json` and re-run
-   `npm install` rather than hand-merging it.
-   CodeQL (first scan 2026-09-10): every open alert is in upstream code or
-   upstream workflows, none in fork commits. Review these and either fix
-   them as candidates (small hunks, own commit, ledger row) or dismiss them
-   with a reason in the Security tab:
-   - critical `py/command-line-injection` `frigate/util/image.py:1221`,
-     `frigate/util/services.py:1017`; `py/full-ssrf` `frigate/api/camera.py:505`
-   - high `py/clear-text-logging-sensitive-data` in `frigate/api/auth.py`
-     (331–384), `frigate/app.py` (537, 555), `frigate/util/services.py:1021`
-   - high `py/polynomial-redos` `frigate/util/builtin.py:113,123`
-   - medium `actions/missing-workflow-permissions` in the disabled upstream
-     workflows (ci, pull_request, release, stale): dismiss as "won't fix".
-6. **Closing pass**
-   - Rebase `polish` onto the `v0.18.0-rc2` tag (or the newest upstream tag if
-     one has shipped) and re-run every gate.
-   - Tag `fork/0.18.0-rc2` and push the tag; the Fork - Build image workflow
-     publishes `ghcr.io/jtn0123/frigate`. Do not deploy it.
-   - Update `fork/GRADE-REPORT.md` with new grades.
-   - List the commits marked "candidate" in `FORK.md` that would make good
-     upstream PRs, starting with the bug fixes found by the new tests. Do not
-     open them; the owner decides whether to send any upstream.
-   - Remove the merged section worktrees and their `section/*` branches
-     (local and origin).
-
-## Follow-ups (not in the 30)
-
-- About 267 jsx-a11y warnings remain at `warn` level; ratchet down.
-- Report items not scheduled: A2, A3, A4, B2, B4, C3, C4, C6, C7, D2, D4, F4,
-  F5, H4, I5. C3/C4/C6 are rewrites and stay off the table except as local
-  splits when a feature touches the file.
-- Live server tweaks were proposed but not approved (Tapo software decode,
+- Owner question (open): cut UI14 notification inbox and UI11 clip sharing to
+  keep the fork lighter? Default is to build both.
+- Live-server tweaks were proposed but never approved (Tapo software decode,
   disabling `out_1..4`, camera renames). Leave them alone.
