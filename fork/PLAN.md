@@ -21,8 +21,9 @@ rebase rules. This file says what is next, in order, and how to do it.
 
 A UI/UX-focused fork of Frigate that stays easy to rebase onto upstream.
 Phase 1 finishes the original 30 items (top 15 non-UI + top 15 UI/UX from the
-grade report, overall B−). Phases 2–3 keep the fork healthy and raise quality.
-The backlog holds ideas that wait for the owner to promote them.
+baseline grade, B−; the 2026-09-10 regrade of `polish` is B). Phases 2–3 keep
+the fork healthy and raise quality. Every item carries its ID from
+`fork/GRADE-REPORT.md`; the backlog there waits for the owner to promote it.
 
 - Base: upstream `v0.18.0-rc2`. Repo `github.com/jtn0123/frigate`, clone at
   `/Volumes/512Flash/frigate`.
@@ -65,29 +66,30 @@ parallel; each needs its own `E2E_PORT`.
   notification inbox. `section/features1` has 3 commits on an old base: rebase,
   resolve `FORK.md`, gates (`E2E_PORT=4185`), fix anything red.
   *Pair with 1b.*
-- [ ] **1b. security** (coordinator) — see **Security triage** below.
+- [ ] **1b. security** (coordinator) — E5 patch shipped deps, E4 triage CodeQL.
 - [ ] **2a. features2** — UI7 settings navigation, UI10 bulk actions with undo.
   `section/features2` has one `wip:` commit: `git reset --soft HEAD~1`, finish,
   one commit each (`E2E_PORT=4186`). *Pair with 2b.*
-- [ ] **2b. ops** — A upstream-sync bot, C bundle budget, H typed env.
+- [ ] **2b. ops** — I6 upstream-sync bot, G7 bundle budget, I5 typed env,
+  D8 Python coverage.
 - [ ] **3a. features3** — UI8 timeline scrubber, UI9 shared event header,
   UI11 clip sharing. Branch exists, no work yet (`E2E_PORT=4187`).
   *Pair with 3b.*
-- [ ] **3b. demo** — D local demo stack.
+- [ ] **3b. demo** — I7 local demo stack.
 - [ ] **4a. features4** — A1/UI5 viewport hook + D3 tablet project, UI13 live
   layout memory + PiP, H3 frontend READMEs. `section/features4` has one `wip:`
   commit of 17 unreviewed files on an old base: `git reset --soft HEAD~1`,
   keep only what is sound, rebase (`E2E_PORT=4188`). *Pair with 4b.*
-- [ ] **4b. e2e-coverage** — E (report D2) e2e for the riskiest screens.
+- [ ] **4b. e2e-coverage** — D2 e2e for the riskiest screens.
 
 ### Phase 2 — quality on top of the finished features
 
-- [ ] **5a. settings-save** — F (report C3), after features2. *Pair with 5b.*
-- [ ] **5b. camera-alerts** — I, after features1.
-- [ ] **6. storage-forecast** — promoted from the backlog by the owner.
-- [ ] **7. visual** — B screenshot tests, after all UI sections so baselines
+- [ ] **5a. settings-save** — C3, after features2. *Pair with 5b.*
+- [ ] **5b. camera-alerts** — UI16, after features1.
+- [ ] **6. storage-forecast** — UI17, promoted by the owner.
+- [ ] **7. visual** — D6 screenshot tests, after all UI sections so baselines
   do not churn.
-- [ ] **8. a11y-ratchet** — G, last before closing (touches many files).
+- [ ] **8. a11y-ratchet** — C9, last before closing (touches many files).
 
 ### Phase 3 — closing pass
 
@@ -95,7 +97,7 @@ parallel; each needs its own `E2E_PORT`.
 
 ## Section specs
 
-### 1b. Security triage (coordinator, any time before closing)
+### 1b. Security triage — E5, E4 (coordinator, any time before closing)
 
 Dependabot: 221 alerts at first scan, all inherited from upstream rc2. 125 are
 in `docs/` and 16 in TensorRT/ARM manifests this fork does not build; those are
@@ -124,9 +126,9 @@ CodeQL (first scan 2026-09-10): no alert is in fork code. Fix as small
 - medium `actions/missing-workflow-permissions` in the disabled upstream
   workflows (ci, pull_request, release, stale): dismiss as "won't fix".
 
-### 2b. ops — A sync bot, C bundle budget, H typed env
+### 2b. ops — I6 sync bot, G7 bundle budget, I5 typed env, D8 Python coverage
 
-**A. Upstream-sync bot** — `.github/workflows/fork-upstream-sync.yml`, daily
+**I6. Upstream-sync bot** — `.github/workflows/fork-upstream-sync.yml`, daily
 schedule + `workflow_dispatch`, `permissions: contents: write, issues: write,
 actions: write`.
 
@@ -144,7 +146,7 @@ actions: write`.
 - Add `sync/**` to "Fork - Checks" `workflow_dispatch`-able refs if needed, and
   document the bot in `FORK.md`.
 
-**C. Bundle budget** — `web/scripts/fork/bundle-budget.mjs` reads
+**G7. Bundle budget** — `web/scripts/fork/bundle-budget.mjs` reads
 `dist/index.html`, gzips every eagerly loaded script, `modulepreload` and
 stylesheet, prints a table, and fails when the total exceeds
 `fork/bundle-budget.json` (start at the measured size + 5%; eager JS was
@@ -152,12 +154,17 @@ stylesheet, prints a table, and fails when the total exceeds
 job after `npm run build`, plus an npm script `bundle:budget`. Raising the
 budget needs a sentence in the commit explaining why.
 
-**H. Typed env (report I5, mostly done by S0)** — e2e typecheck and
+**I5. Typed env (mostly done by S0)** — e2e typecheck and
 `web/.env.example` already exist. Remaining: declare `VITE_GIT_COMMIT_HASH`
 in an `ImportMetaEnv` interface in `web/src/vite-env.d.ts`, and document
 `E2E_PORT` in `web/.env.example`.
 
-### 3b. demo — D local demo stack
+**D8. Python coverage** — run the backend tests as `coverage run -m unittest`
+inside `frigate-fork-test` (add `coverage` to `docker/main/requirements-dev.txt`
+if missing), print the summary in the "Python - Tests" job and upload the XML.
+No gate yet.
+
+### 3b. demo — I7 local demo stack
 
 A real Frigate with the fork's UI and backend running on this Mac, for
 dogfooding and screenshots. Never uses or copies anything from the live server.
@@ -180,7 +187,7 @@ dogfooding and screenshots. Never uses or copies anything from the live server.
   Explore and System in the report.
 - Then dogfood Phase 1 features in it and add findings to **Follow-ups**.
 
-### 4b. e2e-coverage — E (report D2)
+### 4b. e2e-coverage — D2
 
 Mocked-API Playwright specs, desktop and `@mobile` (the spec linter requires
 both), asserting request payloads, not just UI:
@@ -191,7 +198,7 @@ both), asserting request payloads, not just UI:
 - Zone editing: add and move points, save payload, validation.
 - Camera wizard: each step, validation errors, final config payload.
 
-### 5a. settings-save — F (report C3, as a local split)
+### 5a. settings-save — C3 (as a local split)
 
 Not a rewrite. Extract the Settings "Save All" transaction (collect pending
 changes → build `config/set` payloads → send → handle partial failure and
@@ -199,7 +206,7 @@ restart-required) from `Settings.tsx` into `web/src/lib/fork/settings-save.ts`
 with vitest coverage of ordering, partial failure and restart-required. The
 hunk in `Settings.tsx` stays small. Builds on UI7's diff dialog.
 
-### 5b. camera-alerts — I
+### 5b. camera-alerts — UI16
 
 Client-side v1, no backend: detect a camera going down (fps 0, or the 0.18
 connection-quality state offline/poor, for longer than a debounce window) from
@@ -208,7 +215,7 @@ notification when a tab is open, respecting quiet hours. Recovery clears it.
 Flag `cameraAlerts`. Vitest for debounce and recovery; e2e flipping the
 mocked stats websocket.
 
-### 6. storage-forecast
+### 6. storage-forecast — UI17
 
 Answer "how long until the disk fills, and what retention can I afford?"
 
@@ -229,7 +236,7 @@ Answer "how long until the disk fills, and what retention can I afford?"
 - Vitest for the projection maths (steady state, growth, empty data); e2e with
   mocked endpoint, desktop and `@mobile`. Dogfood in the demo stack.
 
-### 7. visual — B screenshot tests
+### 7. visual — D6 screenshot tests
 
 Playwright `toHaveScreenshot` in a separate `visual` project: about 8 views
 (Live, Review, Explore, System health, Settings, error boundary, command
@@ -241,7 +248,7 @@ snapshot folder as an artifact; commit it from there. The `visual` project runs
 in CI; locally on macOS it runs only when `E2E_VISUAL=1` inside the matching
 `mcr.microsoft.com/playwright` container (same version as `@playwright/test`).
 
-### 8. a11y-ratchet — G
+### 8. a11y-ratchet — C9
 
 83 jsx-a11y warnings remain (label-has-for 24, no-noninteractive-tabindex 13,
 no-static-element-interactions 11, control-has-associated-label 9,
@@ -287,143 +294,11 @@ sites under **Follow-ups**.
 
 ## Backlog — do not start unless the owner promotes it
 
-Rough size S/M/L. Promote by moving an item into the queue.
-
-- **J. Installable mobile app polish** (M) — better install-to-home-screen,
-  offline app shell, larger touch targets on Live. Long term.
-- **Kiosk / wall-display mode** (M) — `?kiosk=1` chrome-less Live view, camera
-  auto-cycle, OLED burn-in pixel shift, night dimming, wake on motion. Fits the
-  owner's Tab S6 kitchen panel.
-- **Review triage keys** (S) — j/k next/previous, space play/pause, r mark
-  reviewed, e export, `?` cheat sheet.
-- **Morning digest** (S) — card at the top of Review: overnight counts per
-  camera and label with jump links, from the existing review summary API.
-- **Activity heatmap** (M) — per-camera hour × day grid from review summary.
-- **Setup health checklist** (S) — auth on, admin password changed, HTTPS
-  (needed for web push), notifications, retention, detector not CPU; each links
-  into Settings.
-- **Copy diagnostics** (S) — button that copies version, browser, a redacted
-  config summary and recent client errors for bug reports.
-- **Zone editor UX** (M) — snapping, undo/redo, numeric coordinates, keyboard
-  nudging.
-- **Saved searches** (S) — pin Explore filter sets; shareable URLs.
-- **Export queue UX** (S) — progress list, inbox entry when an export finishes,
-  filenames with camera and local time.
-- **Virtualised card grids** (M) — the unfinished half of G5 for Review and
-  Explore with thousands of items.
-- **Reduced motion + high-contrast theme** (S) — extends UI15.
-- **API contract check** (M) — generate TS types from
-  `docs/static/frigate-api.yaml` and type web API calls against them, so an
-  upstream API change fails the build after a rebase instead of at runtime.
-- **Refresh e2e mocks from the demo stack** (S) — record real responses from D
-  to keep fixtures realistic.
-- **Server-side camera-offline push** (M) — extend I with Frigate's web push so
-  alerts arrive with no tab open (needs HTTPS on the owner's server).
-- **Camera-group quick switch** (S) — groups in the command palette and Live.
-- **Deploy/rollback runbook** (S) — docs only: how the owner would point the
-  Portainer stack at `ghcr.io/jtn0123/frigate:<tag>` and back, and what to
-  check. Never executed by an agent.
-- Unscheduled report items: A2 (split `ws.ts`), A3, A4, B2, B4, D4, F4, F5,
-  H4, C4, C6, C7. C4/C6 are rewrites; only local splits when a feature touches
-  the file.
-
-### Backlog — more UI/UX (brainstorm 2026-09-10)
-
-"Verify" means 0.18 may already have part of it; check before building.
-
-- **Last-event chip on Live tiles** (S) — "Person · 2 min ago" on each tile,
-  tap to jump to that review item.
-- **Tile quick actions** (S) — long-press / right-click a tile: snapshot,
-  mute, detect on/off, PTZ presets.
-- **Skip-idle playback** (M) — recordings player jumps over stretches with no
-  motion or objects; remembers playback speed per device.
-- **Swipe to review on mobile** (S) — swipe a Review card to mark it reviewed,
-  with the UI10 undo toast.
-- **Cross-camera stories** (L) — group consecutive alerts of the same label
-  across cameras within a short window into one card (driveway → porch).
-- **Calendar with activity dots** (S) — date picker shows which days had
-  alerts and how many.
-- **Timeline hover previews** (M, verify) — thumbnail preview while scrubbing.
-- **Connection banner** (S, verify) — clear "reconnecting…" banner with retry
-  countdown when the websocket drops, instead of stale data.
-- **Recent and suggested searches** (S) — dropdown in Explore search.
-- **Guided empty states** (S) — "No alerts today; 6 cameras watching" with
-  links, instead of blank panels.
-- **Undo for destructive actions** (M) — deleting clips and exports gets the
-  same undo toast as UI10.
-- **Performance advisor** (M) — System page panel that reads config + stats and
-  flags fixable costs: detect resolution or fps higher than needed, no hwaccel,
-  more than one connection per camera without go2rtc restream, Birdseye on but
-  unused, decoder restarts (the Tapo case). Each tip links to the setting and
-  the docs. Client-side rules only. Pairs with the storage forecast.
-- **Retention simulator on its own** (S) — if the storage forecast ships, also
-  offer it inside camera record settings.
-
-### Backlog — performance, all layers (brainstorm 2026-09-10)
-
-Measured or checked in code on 2026-09-10 unless marked "verify".
-
-Frontend load:
-- **Settings chunk diet** (M) — `ConfigSectionTemplate` is 246 kB gzip (rjsf +
-  ajv8 compiling schemas at runtime). Precompile validators at build time (ajv
-  standalone) or load the validator on first validation. Settings opens much
-  faster.
-- **Immutable hashed assets** (S) — `/assets/` sends `expires 1y` +
-  `Cache-Control: public` but not `immutable`, so reloads still revalidate
-  every chunk. Small nginx hunk.
-- **Precompressed assets** (S) — nginx gzips on the fly at level 6; emit `.gz`
-  at build and turn on `gzip_static` for `/assets/` (brotli only if the image's
-  nginx has the module; verify).
-- **Keep heavy vendors off the critical path** (S, verify) — monaco 1 MB gzip,
-  hls.js 164 kB, charts 140 kB, konva 99 kB are split out; confirm none is
-  `modulepreload`-ed from `index.html` and hls.js never loads where native HLS
-  works.
-- **Route prefetch on hover/idle** (S) — prefetch the Review/Explore chunks
-  when the nav item is hovered or the browser is idle.
-
-Frontend runtime:
-- **Lazy, async images** (S) — only 9 of 33 `<img>` use `loading="lazy"` /
-  `decoding="async"`.
-- **Virtualised grids** (M) — nothing in the app virtualises today (already in
-  the backlog above; it is the biggest runtime win for long Review/Explore
-  lists).
-- **Stream bandwidth audit** (M) — measure bytes/s with 8 cameras on the Live
-  dashboard in the demo stack: grid tiles on sub streams, offscreen and
-  hidden-tab tiles paused (players already listen for visibility; verify every
-  path).
-- **Re-render audit** (S) — React Profiler pass in the demo stack for
-  components that re-render on every stats or camera_activity message (the
-  websocket store already uses per-topic `useSyncExternalStore`, so look at
-  consumers).
-- **Web-vitals budget** (M) — record LCP/INP/CLS for key pages in the demo
-  stack (Lighthouse CI or `web-vitals`), and fail CI on regressions like the
-  bundle budget does.
-
-Backend/API:
-- **Profile the page-load endpoints** (M) — py-spy against the demo stack while
-  loading Live, Review, Explore; fix the slowest five.
-- **ETag / 304 for summary endpoints** (M) — review and recording summaries are
-  recomputed per request; key an ETag on the newest row so repeat loads are
-  304s.
-- **Sized, WebP thumbnails** (M) — serve thumbnails at the width the grid needs
-  and as WebP where supported; grids download far less.
-- **SQLite tuning** (S) — WAL, `synchronous=NORMAL` and a 512 MB cache are
-  already set; add `mmap_size` and a periodic `PRAGMA optimize`, and check the
-  indexes behind review and timeline queries (pairs with report B4).
-- **Faster JSON** (S, verify) — `ORJSONResponse` for large list endpoints if
-  orjson is already in the image.
-
-Build and CI:
-- **Overlay image for fast builds** (M) — the full image build takes about 40
-  minutes cold. For branch/test images, layer `frigate/`, `migrations/` and
-  `web/dist` over the upstream image (like `fork/Dockerfile.test`) in a few
-  minutes; keep the full build for `fork/*` release tags, since F2/F3 change
-  Docker dependencies.
-- **Shard e2e in CI** (S) — split Playwright across 2–3 runners.
-- **Cache the thin test image** (S) — push `frigate-fork-test` to GHCR keyed on
-  its inputs instead of rebuilding each run.
-- **Changed-only local e2e** (S) — `make e2e-changed` using Playwright
-  `--only-changed` for the inner loop.
+Everything not in the queue lives in `fork/GRADE-REPORT.md` with a stable ID:
+open quality items marked "backlog" in categories A–I, and features UI18–UI41
+in the **UX feature track** (UI18 installable mobile polish is long term). To
+promote one, the owner names the ID; add it to the queue here with a spec, and
+set its status in the report.
 
 ## Workflow per section
 
