@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Wrapper from "@/components/Wrapper";
 import Sidebar from "@/components/navigation/Sidebar";
 
-import { isDesktop, isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import Statusbar from "./components/Statusbar";
 import Bottombar from "./components/navigation/Bottombar";
 import { Suspense, lazy } from "react";
@@ -48,6 +48,8 @@ function App() {
 }
 
 function DefaultAppView() {
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
   });

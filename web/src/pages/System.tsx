@@ -3,7 +3,7 @@ import { FrigateStats } from "@/types/stats";
 import { useEffect, useMemo, useRef, useState } from "react";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { isDesktop, isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import GeneralMetrics from "@/views/system/GeneralMetrics";
 import StorageMetrics from "@/views/system/StorageMetrics";
 import { LuActivity, LuHardDrive, LuSearchCode } from "react-icons/lu";
@@ -21,6 +21,8 @@ const allMetrics = ["general", "enrichments", "storage", "cameras"] as const;
 type SystemMetric = (typeof allMetrics)[number];
 
 function System() {
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
   const { t } = useTranslation(["views/system"]);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,

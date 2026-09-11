@@ -42,12 +42,12 @@ import React, {
 } from "react";
 import {
   isDesktop,
-  isFirefox,
   isIOS,
   isMobile,
   isTablet,
   useMobileOrientation,
 } from "react-device-detect";
+import { pipSupported } from "@/lib/fork/pip";
 import {
   FaCog,
   FaCompress,
@@ -615,7 +615,7 @@ export default function LiveCameraView({
                 onClick={toggleFullscreen}
               />
             )}
-            {!isIOS && !isFirefox && preferredLiveMode != "jsmpeg" && (
+            {pipSupported && preferredLiveMode != "jsmpeg" && (
               <CameraFeatureToggle
                 className="p-2 md:p-0"
                 variant={fullscreen ? "overlay" : "primary"}

@@ -53,5 +53,18 @@ export default defineConfig({
         hasTouch: true,
       },
     },
+    {
+      // Tablet-sized window with a desktop user agent: exercises the
+      // 768-1279 px range where the desktop shell has the least room.
+      // Tests that genuinely need a wide desktop window carry the @wide
+      // tag and are filtered out of this project.
+      name: "tablet",
+      grepInvert: /@wide/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1024, height: 768 },
+        userAgent: DESKTOP_UA,
+      },
+    },
   ],
 });

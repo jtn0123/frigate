@@ -53,7 +53,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { isMobile, isMobileOnly } from "react-device-detect";
+import { isMobileOnly } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import { useTranslation } from "react-i18next";
 
 import { IoMdArrowRoundBack } from "react-icons/io";
@@ -75,6 +76,7 @@ import { useIsAdmin } from "@/hooks/use-is-admin";
 const EXPORT_FILTER_ARRAY_KEYS = ["cameras"];
 
 function Exports() {
+  const isMobile = useIsMobile();
   const { t } = useTranslation(["views/exports"]);
   const isAdmin = useIsAdmin();
 

@@ -29,12 +29,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  isDesktop,
-  isMobile,
-  isMobileOnly,
-  isTablet,
-} from "react-device-detect";
+import { isMobileOnly, isTablet } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import useSWR from "swr";
 import DraggableGridLayout from "./DraggableGridLayout";
 import { IoClose } from "react-icons/io5";
@@ -74,6 +70,8 @@ export default function LiveDashboardView({
   toggleFullscreen,
 }: LiveDashboardViewProps) {
   const { t } = useTranslation(["views/live"]);
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
 
   const { data: config } = useSWR<FrigateConfig>("config");
 

@@ -32,17 +32,26 @@ export class FrigateApp {
   public page: Page;
 
   private isDesktop: boolean;
+  private projectName: string;
 
   constructor(page: Page, projectName: string) {
     this.page = page;
     this.api = new ApiMocker(page);
     this.media = new MediaMocker(page);
     this.ws = new WsMocker();
-    this.isDesktop = projectName === "desktop";
+    this.projectName = projectName;
+    // Only the "mobile" project spoofs a phone; "desktop" and "tablet"
+    // both send a desktop user agent and get the sidebar shell.
+    this.isDesktop = projectName !== "mobile";
   }
 
   get isMobile() {
     return !this.isDesktop;
+  }
+
+  /** True for the 1024x768 "tablet" project (desktop shell, less room). */
+  get isTablet() {
+    return this.projectName === "tablet";
   }
 
   /** Install all mocks with default data. Call before goto(). */

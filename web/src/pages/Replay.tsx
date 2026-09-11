@@ -44,7 +44,7 @@ import WsMessageFeed from "@/components/ws/WsMessageFeed";
 import { LuExternalLink, LuInfo } from "react-icons/lu";
 import { LuSquare } from "react-icons/lu";
 import { MdReplay } from "react-icons/md";
-import { isDesktop, isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import Logo from "@/components/Logo";
 import { Separator } from "@/components/ui/separator";
 import { useDocDomain } from "@/hooks/use-doc-domain";
@@ -110,6 +110,8 @@ const DEBUG_OPTION_I18N_KEY: Record<keyof DebugOptions, string> = {
 };
 
 export default function Replay() {
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
   const { t } = useTranslation(["views/replay", "views/settings", "common"]);
   const navigate = useNavigate();
   const { getLocaleDocUrl } = useDocDomain();

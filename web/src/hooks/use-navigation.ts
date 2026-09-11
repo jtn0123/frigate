@@ -2,7 +2,7 @@ import { ENV } from "@/env";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { NavData } from "@/types/navigation";
 import { useMemo } from "react";
-import { isDesktop } from "react-device-detect";
+import { useIsDesktop } from "@/hooks/fork/use-viewport";
 import { FaCompactDisc, FaVideo } from "react-icons/fa";
 import { IoSearch } from "react-icons/io5";
 import { LuConstruction } from "react-icons/lu";
@@ -27,6 +27,7 @@ export default function useNavigation(
     revalidateOnFocus: false,
   });
   const isAdmin = useIsAdmin();
+  const isDesktop = useIsDesktop();
 
   const hasChatAgent = useMemo(
     () =>
@@ -100,6 +101,6 @@ export default function useNavigation(
           enabled: isDesktop && isAdmin && hasChatAgent,
         },
       ] as NavData[],
-    [config?.face_recognition?.enabled, hasChatAgent, variant, isAdmin],
+    [config?.face_recognition?.enabled, hasChatAgent, variant, isAdmin, isDesktop],
   );
 }

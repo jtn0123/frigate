@@ -32,7 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useResizeObserver } from "@/hooks/resize-observer";
 import { isEqual } from "lodash";
 import useSWR from "swr";
-import { isDesktop, isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import BirdseyeLivePlayer from "@/components/player/BirdseyeLivePlayer";
 import LivePlayer from "@/components/player/LivePlayer";
 import { IoClose } from "react-icons/io5";
@@ -50,6 +50,10 @@ import { Toaster } from "@/components/ui/sonner";
 import LiveContextMenu from "@/components/menu/LiveContextMenu";
 import { useStreamingSettings } from "@/context/streaming-settings-provider";
 import { useTranslation } from "react-i18next";
+import {
+  liveGridClassName,
+  useLiveGridLayout,
+} from "@/hooks/fork/use-live-grid-layout";
 
 type DraggableGridLayoutProps = {
   cameras: CameraConfig[];
@@ -96,6 +100,8 @@ export default function DraggableGridLayout({
   streamMetadata,
 }: DraggableGridLayoutProps) {
   const { t } = useTranslation(["views/live"]);
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
   const { data: config } = useSWR<FrigateConfig>("config");
   const birdseyeConfig = useMemo(() => config?.birdseye, [config]);
 
@@ -116,7 +122,7 @@ export default function DraggableGridLayout({
   // grid layout
 
   const [gridLayout, setGridLayout, isGridLayoutLoaded] =
-    useUserPersistence<Layout>(`${cameraGroup}-draggable-layout`);
+    useLiveGridLayout(cameraGroup);
 
   const [group] = useUserPersistedOverlayState(
     "cameraGroup",
@@ -526,7 +532,10 @@ export default function DraggableGridLayout({
         </div>
       ) : (
         <div
-          className="no-scrollbar my-2 select-none overflow-x-hidden px-2 pb-8"
+          className={cn(
+            "no-scrollbar my-2 select-none overflow-x-hidden px-2 pb-8",
+            liveGridClassName,
+          )}
           ref={gridContainerRef}
         >
           <EditGroupDialog
