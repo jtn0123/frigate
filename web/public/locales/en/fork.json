@@ -158,5 +158,30 @@
       "camera": "Camera: {{cameraName}}",
       "profile": "Profile: {{profileName}}"
     }
+  },
+  "bulk": {
+    "select": "Select",
+    "selectAll": "Select all",
+    "toolbarLabel": "Bulk actions",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "selected": "{{count}} selected",
+    "markedReviewed_one": "{{count}} item marked as reviewed",
+    "markedReviewed_other": "{{count}} items marked as reviewed",
+    "markedUnreviewed_one": "{{count}} item marked as unreviewed",
+    "markedUnreviewed_other": "{{count}} items marked as unreviewed",
+    "undone": "Change undone",
+    "undoFailed": "Could not undo the change",
+    "plus": {
+      "action": "Submit to Frigate+",
+      "title": "Submit to Frigate+",
+      "description_one": "Submit the snapshot of {{count}} selected object to Frigate+? Objects without a snapshot or already submitted are skipped.",
+      "description_other": "Submit the snapshots of {{count}} selected objects to Frigate+? Objects without a snapshot or already submitted are skipped.",
+      "confirm": "Submit",
+      "submitted_one": "{{count}} snapshot submitted to Frigate+",
+      "submitted_other": "{{count}} snapshots submitted to Frigate+",
+      "failed_one": "{{count}} submission failed",
+      "failed_other": "{{count}} submissions failed"
+    }
   }
 }

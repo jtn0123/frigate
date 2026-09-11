@@ -30,6 +30,7 @@ import MotionSearchView from "@/views/motion-search/MotionSearchView";
 import { RecordingView } from "@/views/recording/RecordingView";
 import { useFrigateReviews } from "@/api/ws";
 import axios from "axios";
+import { markReviewedWithUndo } from "@/lib/fork/bulk-actions";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -559,10 +560,7 @@ export default function Events() {
         [];
 
       if (reviewList.length > 0) {
-        await axios.post(`reviews/viewed`, {
-          ids: reviewList,
-          reviewed: true,
-        });
+        await markReviewedWithUndo(reviewList, true, reloadData);
         reloadData();
 
         if (reviewSearchParams["after"] != undefined) {

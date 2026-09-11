@@ -30,6 +30,8 @@ import {
 import Chip from "@/components/indicators/Chip";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import SearchActionGroup from "@/components/filter/SearchActionGroup";
+import BulkActionBar from "@/components/fork/bulk/BulkActionBar";
+import { useBulkSelection } from "@/hooks/fork/use-bulk-selection";
 import { Trans, useTranslation } from "react-i18next";
 import { use24HourTime } from "@/hooks/use-date-utils";
 import { useNavigate } from "react-router-dom";
@@ -281,16 +283,24 @@ export default function SearchView({
     [selectedObjects],
   );
 
+  const bulk = useBulkSelection({
+    items: uniqueResults,
+    getId: (item) => item.id,
+    selectedIds: selectedObjects,
+    setSelectedIds: setSelectedObjects,
+  });
+
   // stable so memoized SearchThumbnails only re-render when selection changes
   const onThumbnailClick = useCallback(
     (value: SearchResult, ctrl: boolean, detail: boolean) => {
+      if (bulk.onItemClick(value, ctrl)) return;
       if (detail && selectedObjects.length == 0) {
         setSelectedId(value.id);
       } else {
         onSelectSearch(value, ctrl || selectedObjects.length > 0);
       }
     },
-    [selectedObjects, onSelectSearch],
+    [bulk, selectedObjects, onSelectSearch],
   );
 
   const onSelectAllObjects = useCallback(() => {
@@ -563,7 +573,7 @@ export default function SearchView({
         {hasExistingSearch && (
           <ScrollArea className="w-full whitespace-nowrap lg:ml-[35%]">
             <div className="flex flex-row gap-2">
-              {selectedObjects.length == 0 ? (
+              {selectedObjects.length == 0 || bulk.enabled ? (
                 <>
                   <SearchFilterGroup
                     className={cn(
@@ -716,6 +726,7 @@ export default function SearchView({
               })}
           </div>
         )}
+        <BulkActionBar bulk={bulk} onChanged={refresh} />
         {uniqueResults && uniqueResults.length > 0 && (
           <>
             <div ref={observerTarget} className="h-10 w-full" />

@@ -22,6 +22,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import MultiExportDialog from "../overlay/MultiExportDialog";
+import { markReviewedWithUndo } from "@/lib/fork/bulk-actions";
 
 type ReviewActionGroupProps = {
   selectedReviews: ReviewSegment[];
@@ -47,10 +48,7 @@ export default function ReviewActionGroup({
 
   const onToggleReviewed = useCallback(async () => {
     const ids = selectedReviews.map((review) => review.id);
-    await axios.post(`reviews/viewed`, {
-      ids,
-      reviewed: !allReviewed,
-    });
+    await markReviewedWithUndo(ids, !allReviewed, pullLatestData);
     setSelectedReviews([]);
     pullLatestData();
   }, [selectedReviews, setSelectedReviews, pullLatestData, allReviewed]);
