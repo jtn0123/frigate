@@ -2,7 +2,9 @@ name: Fork - Checks
 
 # Same gates as upstream's pull_request.yml, run on every push to polish, with
 # dependency caching and a thin backend test image instead of a full devcontainer
-# build.
+# build. Web and Python jobs run only when their files changed (docs-only
+# commits run just the secrets scan); "Checks passed" is the single job to
+# require.
 
 on:
   workflow_dispatch:
@@ -16,6 +18,11 @@ on:
 
 permissions:
   contents: read
+
+# A newer push to the same branch or PR supersedes the run in progress.
+concurrency:
+  group: fork-checks-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DEFAULT_PYTHON: "3.11"
@@ -43,44 +50,61 @@ jobs:
       - name: Scan fork commits
         run: ./gitleaks git --no-banner --redact --log-opts="origin/dev..HEAD" .
 
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - id: filter
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: fork/scripts/ci-changes.sh
+
   web_lint:
-    name: Web - Lint
+    name: Web - Lint + typecheck
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: ./.github/actions/fork-web-setup
+      # eslint (content strategy) and tsc (content hashes) both key their
+      # caches on file contents, so a cache from an earlier commit is safe.
+      - uses: actions/cache@v4
         with:
-          node-version: 22.x
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm ci
-        working-directory: ./web
+          path: web/.cache
+          key: web-lint-cache-${{ github.sha }}
+          restore-keys: web-lint-cache-
       - run: npm run lint
         working-directory: ./web
-      - run: npx tsc -p tsconfig.e2e.json
+      - run: npm run typecheck
         working-directory: ./web
       - run: npm run i18n:extract:ci
         working-directory: ./web
 
   web_unit:
-    name: Web - Unit tests + build
+    name: Web - Unit tests + production build
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22.x
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm ci
-        working-directory: ./web
+      - uses: ./.github/actions/fork-web-setup
       - run: npx vitest run --coverage
         working-directory: ./web
-      - run: npm run build
+      # Typechecking is web_lint's job; this is `npm run build` without tsc.
+      - run: npx vite build --base=/BASE_PATH/
         working-directory: ./web
       - run: npm run bundle:budget
         working-directory: ./web
@@ -91,30 +115,52 @@ jobs:
           path: web/coverage
           retention-days: 7
 
-  web_e2e:
-    name: Web - E2E
+  web_build:
+    name: Web - E2E build
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: ./.github/actions/fork-web-setup
+      # `npm run e2e:build` without tsc; built once and shared by every shard.
+      - run: npx vite build --base=/
+        working-directory: ./web
+      - uses: actions/upload-artifact@v4
         with:
-          node-version: 22.x
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm ci
+          name: e2e-dist
+          path: web/dist
+          retention-days: 1
+
+  web_e2e:
+    name: Web - E2E (${{ matrix.shard }}/3)
+    needs: web_build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/fork-web-setup
+      - uses: actions/download-artifact@v4
+        with:
+          name: e2e-dist
+          path: web/dist
+      # Headless runs use only the headless shell, a smaller download than the
+      # full browser.
+      - run: npx playwright install chromium --only-shell --with-deps
         working-directory: ./web
-      - run: npx playwright install chromium --with-deps
-        working-directory: ./web
-      - run: npm run e2e:build
-        working-directory: ./web
-      - run: npm run e2e
+      - run: npm run e2e -- --shard=${{ matrix.shard }}/3
         working-directory: ./web
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             web/playwright-report
             web/test-results
@@ -122,6 +168,8 @@ jobs:
 
   python_checks:
     name: Python - Lint
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -135,37 +183,43 @@ jobs:
       - run: |
           python3 -m pip install -U pip
           python3 -m pip install -r docker/main/requirements-dev.txt
-      - run: ruff format --check --diff frigate migrations docker *.py
-      - run: ruff check frigate migrations docker *.py
+      - run: ruff format --check --diff frigate migrations docker ./*.py
+      - run: ruff check frigate migrations docker ./*.py
 
   python_tests:
-    name: Python - Tests
+    name: Python - mypy, API spec, unittest
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - run: make version
-      - run: docker build -f fork/Dockerfile.test --build-arg BASE=${FORK_TEST_BASE} -t frigate-fork-test .
-      - name: mypy
-        run: docker run --rm --entrypoint python3 frigate-fork-test -u -m mypy --config-file frigate/mypy.ini frigate
-      - name: API spec is up to date
-        run: docker run --rm --entrypoint python3 frigate-fork-test generate_api_auth_spec.py --check
-      - name: unittest
-        run: |
-          docker run --name fork-py-cov --entrypoint python3 frigate-fork-test -c "
-          import subprocess, sys
-          r = subprocess.call([sys.executable, '-m', 'coverage', 'run', '-m', 'unittest'])
-          subprocess.call([sys.executable, '-m', 'coverage', 'report', '-i'])
-          subprocess.check_call([sys.executable, '-m', 'coverage', 'xml', '-i', '-o', '/tmp/coverage.xml'])
-          sys.exit(r)
-          "
-          mkdir -p coverage-py
-          docker cp fork-py-cov:/tmp/coverage.xml coverage-py/coverage.xml
-          docker rm fork-py-cov
+      - run: docker build -f fork/Dockerfile.test --build-arg BASE="${FORK_TEST_BASE}" -t frigate-fork-test .
+      - run: fork/scripts/py-checks.sh
+        env:
+          COVERAGE_XML: coverage-py/coverage.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: python-coverage
           path: coverage-py/coverage.xml
           retention-days: 7
+
+  checks_passed:
+    name: Checks passed
+    if: always()
+    needs:
+      [secrets_scan, changes, web_lint, web_unit, web_build, web_e2e, python_checks, python_tests]
+    runs-on: ubuntu-latest
+    steps:
+      # Skipped jobs are fine (their files did not change); failed or
+      # cancelled ones are not.
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: ${RESULTS}"
+          if [[ " ${RESULTS} " == *" failure "* || " ${RESULTS} " == *" cancelled "* ]]; then
+            exit 1
+          fi

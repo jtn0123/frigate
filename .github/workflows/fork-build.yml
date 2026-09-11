@@ -11,8 +11,18 @@ on:
       - polish
     tags:
       - "fork/*"
+    # Files that never reach the image: a push touching only these keeps the
+    # previous :polish image, which is byte-for-byte what it would rebuild.
     paths-ignore:
       - "docs/**"
+      - "**.md"
+      - "fork/**"
+      - "web/e2e/**"
+      - "web/__test__/**"
+      - ".github/actions/fork-web-setup/**"
+      - ".github/workflows/fork-checks.yml"
+      - ".github/dependabot.yml"
+      - ".pre-commit-config.yaml"
 
 concurrency:
   group: fork-build-${{ github.ref }}
