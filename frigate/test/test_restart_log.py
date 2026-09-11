@@ -98,6 +98,20 @@ class TestRestartLog(unittest.TestCase):
         )
         self.assertEqual(len(self.history), 3)
 
+    def test_repeat_warning_does_not_double_trailing_punctuation(self):
+        self.log.note_exit("detect", FakeLogPipe(VAAPI_EXIT), now=1000)
+
+        with self.assertLogs(self.logger, level="WARNING") as logs:
+            self.log.note_exit("detect", FakeLogPipe(VAAPI_EXIT), now=1060)
+
+        line = logs.output[0]
+        self.assertNotIn(").).", line)
+        self.assertIn(
+            "ffmpeg exited again (hwaccel: Failed to sync surface 0x3: 1 "
+            "(operation failed)).",
+            line,
+        )
+
     def test_the_full_output_is_logged_again_after_an_hour(self):
         self.log.note_exit("detect", FakeLogPipe(VAAPI_EXIT), now=1000)
         pipe = FakeLogPipe(VAAPI_EXIT)

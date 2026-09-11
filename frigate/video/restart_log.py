@@ -123,8 +123,10 @@ class RestartLog:
             dumped_at, repeats = last[0], last[1] + 1
             self._dumped[signature] = (dumped_at, repeats)
             logpipe.deque.clear()
+            # ffmpeg messages often already end in "."; don't add another.
+            detail = message.removesuffix(".")
             self.logger.warning(
-                f"{self.camera}: {role} ffmpeg exited again ({kind}: {message}). "
+                f"{self.camera}: {role} ffmpeg exited again ({kind}: {detail}). "
                 f"That is {repeats + 1} times since "
                 f"{time.strftime('%H:%M:%S', time.localtime(dumped_at))}, when its "
                 "full output was logged."

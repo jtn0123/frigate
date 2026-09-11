@@ -261,6 +261,13 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** B− → B− (operability)
 
+#### D12 — Do not double punctuation on repeat ffmpeg-exit warnings `[BE] [fork, upstreamable]`
+- **Where:** `frigate/video/restart_log.py` (the "exited again" warning)
+- **What's wrong:** ffmpeg's own last line already ends in "." (`(operation failed).`), and the warning added another, so logs read `(operation failed).).`
+- **Fix:** Strip a trailing period from the classified message before wrapping it in the sentence. Covered by `test_repeat_warning_does_not_double_trailing_punctuation`.
+- **Effort:** S
+- **Grade lift:** none (log hygiene)
+
 ---
 
 ## E — Security — B+
