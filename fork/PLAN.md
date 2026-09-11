@@ -8,6 +8,10 @@ rebase rules. This file says what is next, in order, and how to do it.
 > longer exists; pushes to it are rejected by the pre-push hook and a ruleset.
 > New local tooling: `make wt`, `make check-fast`, `make check` (see
 > **Workflow per section**).
+>
+> **2026-09-11: follow-up Phase 1 work continues on `polish2`.** `main` stays
+> the published default. Merge `polish2` into `main` when a section is done
+> and Fork - Checks is green.
 
 ## Start here (new agent)
 
@@ -79,7 +83,7 @@ parallel; each needs its own `E2E_PORT`.
 - [x] **2b. ops** — I6 upstream-sync bot, G7 bundle budget, I5 typed env,
   D8 Python coverage.
 - [ ] **3a. features3** — UI8 timeline scrubber, UI9 shared event header,
-  UI11 clip sharing. Branch exists, no work yet (`E2E_PORT=4187`).
+  UI11 clip sharing. In progress on `polish2` (`E2E_PORT=4187`).
   *Pair with 3b.*
 - [x] **3b. demo** — I7 local demo stack.
 - [ ] **4a. features4** — A1/UI5 viewport hook + D3 tablet project, UI13 live

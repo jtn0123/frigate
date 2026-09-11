@@ -18,6 +18,8 @@ import { LuZoomIn, LuZoomOut } from "react-icons/lu";
 import { useTranslation } from "react-i18next";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
+import { isForkEnabled } from "@/fork/flags";
+import { snapToNearestEvent, stepToEvent } from "@/lib/fork/timeline-scrubber";
 
 export type ReviewTimelineProps = {
   timelineRef: RefObject<HTMLDivElement | null>;
@@ -45,6 +47,8 @@ export type ReviewTimelineProps = {
   onZoomChange?: (newZoomLevel: number) => void;
   possibleZoomLevels?: ZoomLevel[];
   currentZoomLevel?: number;
+  /** Review/event start times for snap-to-event and arrow-key stepping. */
+  eventTimes?: number[];
   children: ReactNode;
 };
 
@@ -74,9 +78,11 @@ export function ReviewTimeline({
   onZoomChange,
   possibleZoomLevels,
   currentZoomLevel,
+  eventTimes,
   children,
 }: ReviewTimelineProps) {
-  const { t } = useTranslation("views/events");
+  const { t } = useTranslation(["views/events", "fork"]);
+  const scrubberEnabled = isForkEnabled("timelineScrubber");
   const [isDraggingHandlebar, setIsDraggingHandlebar] = useState(false);
   const [isDraggingExportStart, setIsDraggingExportStart] = useState(false);
   const [isDraggingExportEnd, setIsDraggingExportEnd] = useState(false);
@@ -353,6 +359,38 @@ export function ReviewTimeline({
     }
   }, [isDragging, onHandlebarDraggingChange]);
 
+  const wasDraggingHandlebar = useRef(false);
+  useEffect(() => {
+    if (
+      scrubberEnabled &&
+      wasDraggingHandlebar.current &&
+      !isDraggingHandlebar &&
+      setHandlebarTime &&
+      eventTimes &&
+      eventTimes.length > 0
+    ) {
+      setHandlebarTime((current) => snapToNearestEvent(current, eventTimes));
+    }
+    wasDraggingHandlebar.current = isDraggingHandlebar;
+  }, [eventTimes, isDraggingHandlebar, scrubberEnabled, setHandlebarTime]);
+
+  const handleHandlebarKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!scrubberEnabled || !setHandlebarTime || !eventTimes?.length) {
+        return;
+      }
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+        return;
+      }
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      setHandlebarTime((current) =>
+        stepToEvent(current, eventTimes, direction),
+      );
+    },
+    [eventTimes, scrubberEnabled, setHandlebarTime],
+  );
+
   const isHandlebarInNoRecordingPeriod = useMemo(() => {
     if (!getRecordingAvailability || handlebarTime === undefined) return false;
 
@@ -396,10 +434,20 @@ export function ReviewTimeline({
               <div
                 className={`absolute left-0 top-0 ${isDraggingHandlebar && isIOS ? "" : "z-20"} w-full`}
                 role="scrollbar"
+                aria-orientation="vertical"
+                aria-label={t("timelineScrubber.handlebar", { ns: "fork" })}
+                tabIndex={scrubberEnabled ? 0 : undefined}
+                data-testid="timeline-handlebar"
+                data-handlebar-time={handlebarTime}
+                data-touch-target={scrubberEnabled ? "large" : undefined}
+                onKeyDown={handleHandlebarKeyDown}
                 ref={handlebarRef}
               >
                 <div
-                  className="flex touch-none select-none items-center justify-center"
+                  className={cn(
+                    "flex touch-none select-none items-center justify-center",
+                    scrubberEnabled && "min-h-10 py-2",
+                  )}
                   onMouseDown={handleHandlebar}
                   onTouchStart={handleHandlebar}
                 >
@@ -411,11 +459,17 @@ export function ReviewTimeline({
                     <div
                       className={`mx-auto rounded-full bg-destructive ${
                         dense
-                          ? "w-12 md:w-20"
+                          ? scrubberEnabled
+                            ? "w-16 md:w-24"
+                            : "w-12 md:w-20"
                           : segmentDuration < 60
-                            ? "w-[80px]"
-                            : "w-20"
-                      } h-5 ${isDraggingHandlebar && isMobile ? "fixed left-1/2 top-[18px] z-20 h-[30px] w-auto -translate-x-1/2 transform bg-destructive/80 px-3" : "static"} flex items-center justify-center`}
+                            ? scrubberEnabled
+                              ? "w-[96px]"
+                              : "w-[80px]"
+                            : scrubberEnabled
+                              ? "w-24"
+                              : "w-20"
+                      } ${scrubberEnabled ? "h-8" : "h-5"} ${isDraggingHandlebar && isMobile ? "fixed left-1/2 top-[18px] z-20 h-[30px] w-auto -translate-x-1/2 transform bg-destructive/80 px-3" : "static"} flex items-center justify-center`}
                     >
                       <div
                         ref={handlebarTimeRef}

@@ -75,12 +75,17 @@ function serverMessage(error: unknown): string | undefined {
 }
 
 /**
- * Upstream answers 404 when a preview lookup has nothing yet ("No previews
- * found." on a new install or a quiet camera), and the pages already render
- * that as their empty state. It is not a failure, so it gets no toast.
+ * Upstream answers 404 when a lookup has nothing yet, and the pages already
+ * render that as empty. It is not a failure, so it gets no toast.
+ * - preview/*: no preview frames yet
+ * - review/event/*: Explore detail asks for a review item that often
+ *   does not exist for a standalone tracked object
  */
 function isEmptyResult(id: string, status: number | undefined): boolean {
-  return status === 404 && id.startsWith("preview/");
+  return (
+    status === 404 &&
+    (id.startsWith("preview/") || id.startsWith("review/event/"))
+  );
 }
 
 /** Test hook: forget every cooldown so the next failure toasts again. */

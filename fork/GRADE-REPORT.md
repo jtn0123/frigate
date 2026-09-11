@@ -510,7 +510,7 @@ are in `fork/PLAN.md`. "Backlog" items wait for the owner to promote them.
 | UI8 | Timeline scrubber: snap, arrow keys, touch targets | M | queued — features3 |
 | UI9 | Shared event summary header (Review + Explore) | M | queued — features3 |
 | ~~UI10~~ | Bulk actions in Explore + undo for mark-reviewed | M | ✓ done |
-| UI11 | Share a clip: expiring link + QR (small backend) | M | queued — features3 |
+| UI11 | Share a clip: expiring link + QR (small backend) | M | committed on `polish2` |
 | UI12 | Camera health cards | M | committed on `section/features1` |
 | UI13 | Live layout memory + picture-in-picture | M | queued — features4 |
 | UI14 | Notification inbox with quiet hours | M | committed on `section/features1` |

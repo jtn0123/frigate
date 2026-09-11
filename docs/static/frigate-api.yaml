@@ -7202,6 +7202,99 @@ paths:
       security:
         - frigateAdminAuth: []
       x-required-role: admin
+  /fork/share:
+    post:
+      tags:
+        - Share
+      summary: Create Share
+      description: |-
+        **Access:** Authenticated user with access to the referenced camera.
+
+        Create an expiring public link for an event clip.
+      operationId: create_share_fork_share_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareCreateBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: camera
+  /fork/share/{token}:
+    get:
+      tags:
+        - Share
+      summary: Get Share
+      description: |-
+        **Access:** Public — no authentication required.
+
+        Return metadata for a public share link.
+      operationId: get_share_fork_share__token__get
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-required-role: public
+  /fork/share/{token}/clip.mp4:
+    get:
+      tags:
+        - Share
+      summary: Get Share Clip
+      description: |-
+        **Access:** Public — no authentication required.
+
+        Stream the shared event clip without a login.
+      operationId: get_share_clip_fork_share__token__clip_mp4_get
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security: []
+      x-required-role: public
 components:
   schemas:
     AppConfigSetBody:
@@ -8780,6 +8873,23 @@ components:
         - alert
         - detection
       title: SeverityEnum
+    ShareCreateBody:
+      properties:
+        event_id:
+          type: string
+          maxLength: 30
+          minLength: 1
+          title: Event Id
+        expires_in_hours:
+          type: integer
+          maximum: 168.0
+          minimum: 1.0
+          title: Expires In Hours
+          default: 24
+      type: object
+      required:
+        - event_id
+      title: ShareCreateBody
     StartExportResponse:
       properties:
         success:

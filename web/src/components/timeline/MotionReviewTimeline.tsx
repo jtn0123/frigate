@@ -13,6 +13,7 @@ import {
   ZoomLevel,
 } from "@/types/review";
 import ReviewTimeline from "./ReviewTimeline";
+import { eventTimesFromItems } from "@/lib/fork/timeline-scrubber";
 import { useMotionSegmentUtils } from "@/hooks/use-motion-segment-utils";
 import {
   VirtualizedMotionSegments,
@@ -110,6 +111,8 @@ export function MotionReviewTimeline({
     segmentDuration,
     motion_events,
   );
+
+  const eventTimes = useMemo(() => eventTimesFromItems(events), [events]);
 
   const getRecordingAvailability = useCallback(
     (time: number): boolean | undefined => {
@@ -227,6 +230,7 @@ export function MotionReviewTimeline({
       onZoomChange={onZoomChange}
       possibleZoomLevels={possibleZoomLevels}
       currentZoomLevel={currentZoomLevel}
+      eventTimes={eventTimes}
     >
       <VirtualizedMotionSegments
         ref={virtualizedSegmentsRef}

@@ -101,6 +101,7 @@ def require_admin_by_default():
         "/cases",
         "/exports",
         "/jobs/export",
+        "/fork/share",
     }
 
     # Path prefixes that should be exempt (for paths with parameters)
@@ -118,6 +119,7 @@ def require_admin_by_default():
         "/jobs/export/",  # /jobs/export/{export_id}
         "/vod/",  # /vod/{camera_name}/...
         "/notifications/",  # /notifications/pubkey, /notifications/register
+        "/fork/share/",  # public GET by token; route gate is allow_public
     )
 
     async def admin_checker(request: Request):
