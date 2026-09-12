@@ -6,9 +6,7 @@ import json
 import logging
 import math
 import os
-import random
 import re
-import string
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +28,7 @@ from frigate.data_processing.common.license_plate.model import LicensePlateModel
 from frigate.embeddings.onnx.lpr_embedding import LPR_EMBEDDING_SIZE
 from frigate.types import TrackedObjectUpdateTypesEnum
 from frigate.util.builtin import EventsPerSecond, InferenceSpeed
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.image import area
 
 from ...types import DataProcessorMetrics
@@ -120,13 +119,6 @@ class LicensePlateProcessingMixin:
             return []
 
         outputs = outputs[0, :, :]
-
-        if False:
-            current_time = int(datetime.datetime.now().timestamp())  # type: ignore[unreachable]
-            cv2.imwrite(
-                f"debug/frames/probability_map_{current_time}.jpg",
-                (outputs * 255).astype(np.uint8),
-            )
 
         boxes, _ = self._boxes_from_bitmap(outputs, outputs > self.mask_thresh, w, h)
         return self._filter_polygon(boxes, (h, w))  # type: ignore[return-value,arg-type]
@@ -967,13 +959,6 @@ class LicensePlateProcessingMixin:
         )
         padded_image[:, :, :resized_w] = resized_image
 
-        if False:
-            current_time = int(datetime.datetime.now().timestamp() * 1000)  # type: ignore[unreachable]
-            cv2.imwrite(
-                f"debug/frames/preprocessed_recognition_{current_time}.jpg",
-                image,
-            )
-
         return padded_image
 
     @staticmethod
@@ -1197,7 +1182,7 @@ class LicensePlateProcessingMixin:
     def _generate_plate_event(self, camera: str, plate: str, plate_score: float) -> str:
         """Generate a unique ID for a plate event based on camera and text."""
         now = datetime.datetime.now().timestamp()
-        rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        rand_id = generate_id(6)
         event_id = f"{now}-{rand_id}"
 
         self.event_metadata_publisher.publish(

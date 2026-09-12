@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import AddFaceIcon from "@/components/icons/AddFaceIcon";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { EmptyCard } from "@/components/card/EmptyCard";
@@ -97,9 +98,7 @@ export default function FaceLibrary() {
   const faces = useMemo<string[]>(
     () =>
       faceData
-        ? Object.keys(faceData)
-            .filter((face) => face != "train")
-            .sort()
+        ? sortedStrings(Object.keys(faceData).filter((face) => face != "train"))
         : [],
     [faceData],
   );
@@ -1059,7 +1058,7 @@ function FaceGrid({
   const { t } = useTranslation(["views/faceLibrary"]);
 
   const sortedFaces = useMemo(
-    () => (faceImages || []).sort().reverse(),
+    () => sortedStrings(faceImages || []).reverse(),
     [faceImages],
   );
 

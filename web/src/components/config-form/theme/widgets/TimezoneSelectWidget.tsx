@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { useMemo } from "react";
 import type { WidgetProps } from "@rjsf/utils";
 import {
@@ -19,7 +20,7 @@ function getTimezoneList(): string[] {
     };
     const supported = intl.supportedValuesOf?.("timeZone");
     if (supported && supported.length > 0) {
-      return [...supported].sort();
+      return sortedStrings(supported);
     }
   }
 

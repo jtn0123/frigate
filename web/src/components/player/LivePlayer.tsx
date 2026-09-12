@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { CameraConfig } from "@/types/frigateConfig";
 import AutoUpdatingCameraImage from "../camera/AutoUpdatingCameraImage";
 import ActivityIndicator from "../indicators/activity-indicator";
@@ -386,18 +387,10 @@ export default function LivePlayer({
                       className={`z-0 flex items-start justify-between space-x-1 bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500`}
                     >
                       {[
-                        ...new Set([
-                          ...(objects || []).map(({ label }) => label),
-                        ]),
-                      ]
-                        .map((label) => {
-                          return getIconForLabel(
-                            label,
-                            "object",
-                            "size-3 text-white",
-                          );
-                        })
-                        .sort()}
+                        ...new Set((objects || []).map(({ label }) => label)),
+                      ].map((label) =>
+                        getIconForLabel(label, "object", "size-3 text-white"),
+                      )}
                     </Chip>
                   </div>
                 </TooltipTrigger>
@@ -405,8 +398,8 @@ export default function LivePlayer({
               <TooltipPortal>
                 <TooltipContent>
                   {formatList(
-                    [
-                      ...new Set(
+                    sortedStrings(
+                      new Set(
                         (objects || [])
                           .map(({ label, sub_label }) => {
                             const isManual = label.endsWith("verified");
@@ -419,7 +412,7 @@ export default function LivePlayer({
                               translated && !translated.includes("-verified"),
                           ),
                       ),
-                    ].sort(),
+                    ),
                   )}
                 </TooltipContent>
               </TooltipPortal>

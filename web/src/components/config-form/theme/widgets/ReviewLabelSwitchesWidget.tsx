@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 // Review Label Switches Widget - For selecting review alert/detection labels via switches.
 // Combines object labels (from objects.track) and audio labels (from audio.listen)
 // since review labels can include both types.
@@ -51,7 +52,7 @@ function getReviewLabels(context: FormContext): string[] {
     }
   }
 
-  return [...labels].sort();
+  return sortedStrings(labels);
 }
 
 function getReviewLabelDisplayName(

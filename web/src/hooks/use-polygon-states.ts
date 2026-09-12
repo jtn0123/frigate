@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { Polygon } from "@/types/canvas";
 import { subscribeWsTopic, getWsTopicValue } from "@/api/ws";
@@ -20,7 +21,7 @@ export function usePolygonStates(polygons: Polygon[]) {
             : `${polygon.camera}/object_mask/${polygon.name}/state`;
       set.add(topic);
     });
-    return Array.from(set).sort();
+    return sortedStrings(Array.from(set));
   }, [polygons]);
 
   // Stable key for the topic list so subscribe/getSnapshot stay in sync

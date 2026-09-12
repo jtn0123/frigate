@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { memo, useCallback, useMemo } from "react";
 import { useApiHost } from "@/api";
 import { getIconForLabel } from "@/utils/iconUtil";
@@ -162,14 +163,16 @@ function SearchThumbnail({
             </div>
             <TooltipPortal>
               <TooltipContent className="smart-capitalize">
-                {[searchResult.sub_label ?? objectLabel]
-                  .filter(
-                    (item) => item !== undefined && !item.includes("-verified"),
-                  )
-                  .map((text) =>
-                    getTranslatedLabel(text, searchResult.data.type),
-                  )
-                  .sort()
+                {sortedStrings(
+                  [searchResult.sub_label ?? objectLabel]
+                    .filter(
+                      (item) =>
+                        item !== undefined && !item.includes("-verified"),
+                    )
+                    .map((text) =>
+                      getTranslatedLabel(text, searchResult.data.type),
+                    ),
+                )
                   .join(", ")
                   .replaceAll("-verified", "")}
               </TooltipContent>

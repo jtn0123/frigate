@@ -88,7 +88,7 @@ class TestStartDebugReplayJob(unittest.TestCase):
         self.publisher = MagicMock()
 
         self.recordings_qs = MagicMock()
-        self.recordings_qs.count.return_value = 1
+        self.recordings_qs.get_or_none.return_value = object()
         self.recordings_qs.__iter__.return_value = iter([MagicMock(path="/tmp/r1.mp4")])
 
     def tearDown(self) -> None:
@@ -128,7 +128,7 @@ class TestStartDebugReplayJob(unittest.TestCase):
 
     def test_rejects_when_no_recordings(self) -> None:
         empty_qs = MagicMock()
-        empty_qs.count.return_value = 0
+        empty_qs.get_or_none.return_value = None
         with patch("frigate.jobs.debug_replay.query_recordings", return_value=empty_qs):
             with self.assertRaises(NoRecordingsError):
                 start_debug_replay_job(
@@ -243,7 +243,7 @@ class TestRunnerHappyPath(unittest.TestCase):
         self.publisher = MagicMock()
 
         self.recordings_qs = MagicMock()
-        self.recordings_qs.count.return_value = 1
+        self.recordings_qs.get_or_none.return_value = object()
         self.recordings_qs.__iter__.return_value = iter([MagicMock(path="/tmp/r1.mp4")])
 
     def tearDown(self) -> None:
@@ -326,7 +326,7 @@ class TestRunnerFailurePath(unittest.TestCase):
         self.frigate_config.ffmpeg.ffmpeg_path = "/bin/true"
         self.publisher = MagicMock()
         self.recordings_qs = MagicMock()
-        self.recordings_qs.count.return_value = 1
+        self.recordings_qs.get_or_none.return_value = object()
         self.recordings_qs.__iter__.return_value = iter([MagicMock(path="/tmp/r1.mp4")])
 
     def tearDown(self) -> None:
@@ -400,7 +400,7 @@ class TestRunnerCancellation(unittest.TestCase):
         self.frigate_config.ffmpeg.ffmpeg_path = "/bin/true"
         self.publisher = MagicMock()
         self.recordings_qs = MagicMock()
-        self.recordings_qs.count.return_value = 1
+        self.recordings_qs.get_or_none.return_value = object()
         self.recordings_qs.__iter__.return_value = iter([MagicMock(path="/tmp/r1.mp4")])
 
     def tearDown(self) -> None:

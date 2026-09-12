@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import type {
   ErrorSchema,
   FieldProps,
@@ -150,7 +151,7 @@ export function CameraInputsField(props: FieldProps) {
     if (!streams || typeof streams !== "object") {
       return [];
     }
-    return Object.keys(streams).sort();
+    return sortedStrings(Object.keys(streams));
   }, [formContext?.fullConfig?.go2rtc?.streams]);
 
   const [openByIndex, setOpenByIndex] = useState<Record<number, boolean>>({});

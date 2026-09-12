@@ -4,8 +4,6 @@ import asyncio
 import datetime
 import logging
 import os
-import random
-import string
 import threading
 import time
 from collections import defaultdict
@@ -38,6 +36,7 @@ from frigate.const import (
 from frigate.models import Recordings, ReviewSegment
 from frigate.record.cache_tracker import CacheFileTracker
 from frigate.review.types import SeverityEnum
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.services import get_video_properties
 
 logger = logging.getLogger(__name__)
@@ -665,9 +664,7 @@ class RecordingMaintainer(threading.Thread):
 
                 os.remove(cache_path)
 
-                rand_id = "".join(
-                    random.choices(string.ascii_lowercase + string.digits, k=6)
-                )
+                rand_id = generate_id(6)
 
                 return {
                     Recordings.id.name: f"{start_time.timestamp()}-{rand_id}",

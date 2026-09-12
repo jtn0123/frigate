@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { Button } from "../ui/button";
 import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
@@ -89,7 +90,7 @@ export default function SearchFilterGroup({
       }
     });
 
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config, filterList, filter, allowedCameras]);
 
   const allZones = useMemo<string[]>(() => {
@@ -117,12 +118,12 @@ export default function SearchFilterGroup({
         return;
       }
 
-      Object.entries(cameraConfig.zones).map(([name, _]) => {
+      Object.entries(cameraConfig.zones).forEach(([name, _]) => {
         zones.add(name);
       });
     });
 
-    return [...zones].sort();
+    return sortedStrings(zones);
   }, [config, filterList, filter, allowedCameras]);
 
   const filterValues = useMemo(
@@ -390,7 +391,7 @@ export function GeneralFilterContent({
         });
       }
     });
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config]);
 
   return (

@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import type { FieldPathList, FieldProps, RJSFSchema } from "@rjsf/utils";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -188,7 +189,7 @@ export function LiveStreamsField(props: FieldProps) {
   const go2rtcStreamNames = useMemo<string[]>(() => {
     const streams = formContext?.fullConfig?.go2rtc?.streams;
     if (!streams || typeof streams !== "object") return [];
-    return Object.keys(streams).sort();
+    return sortedStrings(Object.keys(streams));
   }, [formContext?.fullConfig?.go2rtc?.streams]);
 
   const emptyPath = useMemo(() => [] as FieldPathList, []);

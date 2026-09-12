@@ -70,3 +70,33 @@ class TestFileUtils(TestCase):
             assert rendered_image is not None
             assert rendered_image.shape[0] == 40
             assert rendered_image.max() > 0
+
+
+class TestDeleteEventThumbnail(TestCase):
+    def test_inline_thumbnail_does_not_touch_disk(self):
+        event = SimpleNamespace(id="event", camera="front", thumbnail="embedded")
+        with patch.object(file_util.Path, "unlink") as unlink:
+            self.assertTrue(file_util.delete_event_thumbnail(event))
+            unlink.assert_not_called()
+
+    def test_missing_thumbnail_is_already_deleted(self):
+        event = SimpleNamespace(id="event", camera="front", thumbnail=None)
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(file_util, "THUMB_DIR", directory):
+                self.assertTrue(file_util.delete_event_thumbnail(event))
+
+    def test_removes_external_thumbnail(self):
+        event = SimpleNamespace(id="event", camera="front", thumbnail=None)
+        with tempfile.TemporaryDirectory() as directory:
+            camera_dir = file_util.Path(directory) / event.camera
+            camera_dir.mkdir()
+            thumbnail = camera_dir / "event.webp"
+            thumbnail.write_bytes(b"thumbnail")
+            with patch.object(file_util, "THUMB_DIR", directory):
+                self.assertTrue(file_util.delete_event_thumbnail(event))
+            self.assertFalse(thumbnail.exists())
+
+    def test_deletion_error_returns_failure(self):
+        event = SimpleNamespace(id="event", camera="front", thumbnail=None)
+        with patch.object(file_util.Path, "unlink", side_effect=PermissionError):
+            self.assertFalse(file_util.delete_event_thumbnail(event))

@@ -1,6 +1,4 @@
 import logging
-import random
-import string
 from collections.abc import Sequence
 from typing import Any, cast
 
@@ -23,6 +21,7 @@ from frigate.track.stationary_classifier import (
     StationaryThresholds,
     get_stationary_threshold,
 )
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.image import (
     SharedMemoryFrameManager,
     get_histogram,
@@ -271,7 +270,7 @@ class NorfairTracker(ObjectTracker):
         return self.default_tracker[mode]
 
     def register(self, track_id: str, obj: dict[str, Any]) -> None:
-        rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        rand_id = generate_id(6)
         id = f"{obj['frame_time']}-{rand_id}"
         self.track_id_map[track_id] = id
         obj["id"] = id
@@ -674,11 +673,6 @@ class NorfairTracker(ObjectTracker):
         all_tracked_objects: list[TrackedObject] = []
 
         # print a table to the console with norfair tracked object info
-        if False:
-            if len(self.trackers["license_plate"]["static"].tracked_objects) > 0:  # type: ignore[unreachable]
-                self.print_objects_as_table(
-                    self.trackers["license_plate"]["static"].tracked_objects
-                )
 
         # Get tracked objects from type-specific trackers
         for object_trackers in self.trackers.values():
@@ -721,22 +715,5 @@ class NorfairTracker(ObjectTracker):
                 position=text_anchor,
                 size=None,
                 color=(255, 0, 0),
-                thickness=None,
-            )
-
-        if False:
-            # draw the current formatted time on the frame
-            from datetime import datetime  # type: ignore[unreachable]
-
-            formatted_time = datetime.fromtimestamp(frame_time).strftime(
-                "%m/%d/%Y %I:%M:%S %p"
-            )
-
-            frame = Drawer.text(
-                frame,
-                formatted_time,
-                position=(10, 50),
-                size=1.5,
-                color=(255, 255, 255),
                 thickness=None,
             )

@@ -3,10 +3,8 @@
 import datetime
 import logging
 import os
-import random
 import re
 import shutil
-import string
 import subprocess as sp
 import threading
 from collections.abc import Callable
@@ -31,6 +29,7 @@ from frigate.ffmpeg_presets import (
 )
 from frigate.models import Export, Previews, Recordings, ReviewSegment
 from frigate.util.ffmpeg import run_ffmpeg_with_progress
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.time import is_current_hour
 
 logger = logging.getLogger(__name__)
@@ -1006,10 +1005,10 @@ def migrate_exports(ffmpeg: FfmpegConfig, camera_names: list[str]) -> None:
                 camera = cam_name
                 break
 
-        id = f"{camera}_{''.join(random.choices(string.ascii_lowercase + string.digits, k=6))}"
+        export_id = f"{camera}_{generate_id(6)}"
         video_path = os.path.join(EXPORT_DIR, export_file)
         thumb_path = os.path.join(
-            CLIPS_DIR, f"export/{id}.jpg"
+            CLIPS_DIR, f"export/{export_id}.jpg"
         )  # use jpg because webp encoder can't get quality low enough
 
         ffmpeg_cmd = [
@@ -1039,7 +1038,7 @@ def migrate_exports(ffmpeg: FfmpegConfig, camera_names: list[str]) -> None:
 
         exports.append(
             {
-                Export.id: id,
+                Export.id: export_id,
                 Export.camera: camera,
                 Export.name: export_file.replace(".mp4", ""),
                 Export.date: os.path.getctime(video_path),

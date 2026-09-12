@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import SearchThumbnail from "@/components/card/SearchThumbnail";
 import SearchFilterGroup from "@/components/filter/SearchFilterGroup";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
@@ -142,7 +143,7 @@ export default function SearchView({
       }
     });
 
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config, searchFilter, allowedCameras]);
 
   const { data: allSubLabels } = useSWR("sub_labels");
@@ -178,12 +179,12 @@ export default function SearchView({
         return;
       }
 
-      Object.entries(cameraConfig.zones).map(([name, _]) => {
+      Object.entries(cameraConfig.zones).forEach(([name, _]) => {
         zones.add(name);
       });
     });
 
-    return [...zones].sort();
+    return sortedStrings(zones);
   }, [config, searchFilter, allowedCameras]);
 
   const suggestionsValues = useMemo(

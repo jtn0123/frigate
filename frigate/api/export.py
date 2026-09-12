@@ -3,8 +3,6 @@
 import asyncio
 import datetime
 import logging
-import random
-import string
 import time
 import zipfile
 from collections import deque
@@ -75,6 +73,7 @@ from frigate.record.export import (
     PlaybackSourceEnum,
     validate_ffmpeg_args,
 )
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.path import sanitize_contained_path
 from frigate.util.time import is_current_hour
 
@@ -89,7 +88,7 @@ router = APIRouter(tags=[Tags.export])
 
 
 def _generate_id(length: int = 12) -> str:
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
+    return generate_id(length)
 
 
 def _generate_export_id(camera_name: str) -> str:
@@ -403,6 +402,7 @@ class _StreamingZipBuffer:
         return self._offset
 
     def flush(self) -> None:
+        # Writes already enter the memory queue; drain() controls when bytes are yielded.
         pass
 
     def drain(self) -> Iterator[bytes]:

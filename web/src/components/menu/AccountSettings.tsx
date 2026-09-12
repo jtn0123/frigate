@@ -127,7 +127,7 @@ export default function AccountSettings({
             </div>
           </DropdownMenuLabel>
 
-          <DropdownMenuSeparator className={isDesktop ? "my-2" : "my-2"} />
+          <DropdownMenuSeparator className="my-2" />
 
           {config?.auth?.enabled !== false &&
             profile?.username &&

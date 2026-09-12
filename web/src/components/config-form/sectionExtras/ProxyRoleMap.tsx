@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { useMemo } from "react";
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
@@ -54,7 +55,9 @@ export default function ProxyRoleMap({
     const roles =
       rolesFromConfig.length > 0 ? rolesFromConfig : ["admin", "viewer"];
 
-    return Array.from(new Set([...roles, ...Object.keys(roleMap)])).sort();
+    return sortedStrings(
+      Array.from(new Set([...roles, ...Object.keys(roleMap)])),
+    );
   }, [formContext?.fullConfig, roleMap]);
 
   if (!onFormDataChange || !formContext?.formData) {

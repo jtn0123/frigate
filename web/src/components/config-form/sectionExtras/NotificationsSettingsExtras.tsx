@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { Button } from "@/components/ui/button";
 import {
@@ -287,7 +288,10 @@ export default function NotificationsSettingsExtras({
 
   const cameraSelectionDirty = useMemo(() => {
     const current = Array.isArray(watchCameras) ? watchCameras : [];
-    return !isEqual([...current].sort(), [...baselineCameraSelection].sort());
+    return !isEqual(
+      sortedStrings(current),
+      sortedStrings(baselineCameraSelection),
+    );
   }, [watchCameras, baselineCameraSelection]);
 
   useEffect(() => {

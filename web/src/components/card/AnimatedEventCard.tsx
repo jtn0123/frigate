@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import TimeAgo from "../dynamic/TimeAgo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -73,16 +74,17 @@ export function AnimatedEventCard({
 
     return (
       `${formatList(
-        [
-          ...new Set([
-            ...(event.data.objects || []),
-            ...(event.data.sub_labels || []),
-            ...(event.data.audio || []),
-          ]),
-        ]
-          .filter((item) => item !== undefined && !item.includes("-verified"))
-          .map((text) => getTranslatedLabel(text, getEventType(text)))
-          .sort(),
+        sortedStrings(
+          [
+            ...new Set([
+              ...(event.data.objects || []),
+              ...(event.data.sub_labels || []),
+              ...(event.data.audio || []),
+            ]),
+          ]
+            .filter((item) => item !== undefined && !item.includes("-verified"))
+            .map((text) => getTranslatedLabel(text, getEventType(text))),
+        ),
       )} ` + t("detected")
     );
   }, [event, getEventType, t]);
