@@ -57,24 +57,7 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
                 if "cameras" in data and camera_name in data["cameras"]:
                     del data["cameras"][camera_name]
 
-                # Remove camera from auth roles
-                auth = data.get("auth", {})
-                if auth and "roles" in auth:
-                    empty_roles = []
-                    for role_name, cameras_list in auth["roles"].items():
-                        if (
-                            isinstance(cameras_list, list)
-                            and camera_name in cameras_list
-                        ):
-                            cameras_list.remove(camera_name)
-                            # Custom roles can't be empty; mark for removal
-                            if not cameras_list and role_name not in (
-                                "admin",
-                                "viewer",
-                            ):
-                                empty_roles.append(role_name)
-                    for role_name in empty_roles:
-                        del auth["roles"][role_name]
+                _remove_camera_roles(data, camera_name)
 
                 with open(config_file, "w") as f:
                     yaml.dump(data, f)
@@ -98,9 +81,9 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
                         },
                         status_code=400,
                     )
-            except Exception as e:
-                logger.error(
-                    "Error updating config to remove camera %s: %s", camera_name, e
+            except Exception:
+                logger.exception(
+                    "Error updating config to remove camera %s", camera_name
                 )
                 return JSONResponse(
                     content={
@@ -135,3 +118,16 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
         )
 
     return None
+
+
+def _remove_camera_roles(data: dict, camera_name: str) -> None:
+    """Remove camera references and custom roles left without cameras."""
+    auth = data.get("auth")
+    if not auth:
+        return
+    roles = auth.get("roles", {})
+    for role_name, cameras in list(roles.items()):
+        if isinstance(cameras, list) and camera_name in cameras:
+            cameras.remove(camera_name)
+            if not cameras and role_name not in ("admin", "viewer"):
+                del roles[role_name]

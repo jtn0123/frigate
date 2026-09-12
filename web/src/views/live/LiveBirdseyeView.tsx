@@ -132,9 +132,7 @@ export default function LiveBirdseyeView({
 
   const playerRef = useRef<HTMLDivElement | null>(null);
   const handleOverlayClick = useCallback(
-    (
-      e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
-    ) => {
+    (e: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>) => {
       let clientX;
       let clientY;
       if ("TouchEvent" in window && e.nativeEvent instanceof TouchEvent) {
@@ -286,15 +284,14 @@ export default function LiveBirdseyeView({
           >
             {/* The camera map uses coordinates; the camera buttons provide keyboard access. */}
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
-            <div
+            <fieldset
               className={cn(
-                "flex flex-col items-center justify-center",
+                "flex min-w-0 flex-col items-center justify-center",
                 growClassName,
               )}
               style={{
                 aspectRatio: constrainedAspectRatio,
               }}
-              role="group"
               onClick={handleOverlayClick}
             >
               <div className="sr-only focus-within:not-sr-only">
@@ -319,7 +316,7 @@ export default function LiveBirdseyeView({
                 playerRef={playerRef}
                 pip={pip}
               />
-            </div>
+            </fieldset>
           </TransformComponent>
         </div>
       </div>

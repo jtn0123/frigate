@@ -1906,9 +1906,5 @@ export function VideoTab({ search }: VideoTabProps) {
 
   const source = `${baseUrl}vod/${search.camera}/${clipTimeRange}/index.m3u8`;
 
-  return (
-    <>
-      <GenericVideoPlayer source={source} />
-    </>
-  );
+  return <GenericVideoPlayer source={source} />;
 }

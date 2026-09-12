@@ -375,16 +375,13 @@ export function SummaryTimeline({
     const content = reviewTimelineRef.current;
     if (!content || event.target !== event.currentTarget) return;
     // Scrolling down moves toward the older footage displayed at the bottom.
-    const key =
-      event.key === "ArrowDown"
-        ? "ArrowRight"
-        : event.key === "ArrowUp"
-          ? "ArrowLeft"
-          : event.key === "PageDown"
-            ? "PageUp"
-            : event.key === "PageUp"
-              ? "PageDown"
-              : event.key;
+    const scrollKeys: Record<string, string> = {
+      ArrowDown: "ArrowRight",
+      ArrowUp: "ArrowLeft",
+      PageDown: "PageUp",
+      PageUp: "PageDown",
+    };
+    const key = scrollKeys[event.key] ?? event.key;
     const next = timelineKeyValue(
       key,
       content.scrollTop,

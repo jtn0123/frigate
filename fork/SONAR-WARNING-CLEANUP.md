@@ -16,9 +16,10 @@ exceptions. It does not represent 85 independent bug fixes.
 - Replaced the deprecated label rule with its current equivalent, recognizing
   labelable Radix controls and both wrapping and `htmlFor` associations. Increased
   label-content traversal depth to recognize existing text within nested markup.
-- Eight original warning locations have documented local exceptions: three camera
-  players without supplied captions, two grid-library drag wrappers, one focusable
-  clipboard-paste region, and two warnings on the coordinate-based birdseye map.
+- Six original warning locations have documented local exceptions: three camera
+  players without supplied captions, one focusable clipboard-paste region, and
+  two warnings on the coordinate-based birdseye map. Grid-library drag wrappers
+  are presentational containers around child controls.
   The birdseye map now also exposes camera buttons for keyboard navigation.
   These exceptions are not counted as implemented captioning or keyboard dragging.
 - Fixed 18 unresolved public font URLs using Vite public-asset paths, which also
@@ -45,3 +46,17 @@ editor features and the original bundling strategy are preserved. Node's
 experimental localStorage and terminal color notices come from the test runtime.
 
 Prepared for a PR from `fix/sonar-priority` into `next`. No merge or deployment.
+
+
+## PR analysis follow-up
+
+The initial PR scan reported 16 new findings, including two ONVIF log-injection
+findings that failed the security gate. The follow-up sanitizes camera names in
+those exception messages while retaining tracebacks and retry state, extracts
+camera-role cleanup from the locked transaction, uses one snapshot-error literal,
+and improves native accessibility markup and redundant JSX. These follow-up
+findings are not added to the 415 pre-existing source findings addressed.
+
+Two ONVIF regression tests check CR/LF camera names and preservation of exception
+and retry data. Two camera-role tests protect shared roles, built-in roles and
+absent auth data. Scan confirmation and final checks are pending.

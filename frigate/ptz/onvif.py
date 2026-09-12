@@ -185,8 +185,11 @@ class OnvifController:
         onvif: ONVIFCamera = self.cams[camera_name]["onvif"]
         try:
             await onvif.update_xaddrs()
-        except Exception as e:
-            logger.exception(f"Onvif connection failed for {camera_name}: {e}")
+        except Exception:
+            logger.exception(
+                "Onvif connection failed for %s",
+                camera_name.replace("\r", "_").replace("\n", "_"),
+            )
             return False
 
         # create init services
@@ -930,7 +933,8 @@ class OnvifController:
                     logger.warning(f"ONVIF initialization failed for {camera_name}")
             except Exception as e:
                 logger.exception(
-                    f"Error during ONVIF initialization for {camera_name}: {e}"
+                    "Error during ONVIF initialization for %s",
+                    camera_name.replace("\r", "_").replace("\n", "_"),
                 )
                 if camera_name not in self.failed_cams:
                     self.failed_cams[camera_name] = {"retry_attempts": 0}

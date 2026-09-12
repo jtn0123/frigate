@@ -19,6 +19,8 @@ from frigate.models import (
 
 logger = logging.getLogger(__name__)
 
+SNAPSHOT_REMOVE_ERROR = "Failed to remove snapshot %s: %s"
+
 
 def cleanup_camera_db(
     camera_name: str, delete_exports: bool = False
@@ -135,19 +137,19 @@ def cleanup_camera_files(
         try:
             os.remove(snapshot)
         except Exception as e:
-            logger.exception("Failed to remove snapshot %s: %s", snapshot, e)
+            logger.exception(SNAPSHOT_REMOVE_ERROR, snapshot, e)
 
     for snapshot in glob.glob(os.path.join(CLIPS_DIR, f"{camera_name}-*-clean.webp")):
         try:
             os.remove(snapshot)
         except Exception as e:
-            logger.exception("Failed to remove snapshot %s: %s", snapshot, e)
+            logger.exception(SNAPSHOT_REMOVE_ERROR, snapshot, e)
 
     for snapshot in glob.glob(os.path.join(CLIPS_DIR, f"{camera_name}-*-clean.png")):
         try:
             os.remove(snapshot)
         except Exception as e:
-            logger.exception("Failed to remove snapshot %s: %s", snapshot, e)
+            logger.exception(SNAPSHOT_REMOVE_ERROR, snapshot, e)
 
     # Remove review thumbnail files
     for thumb in glob.glob(

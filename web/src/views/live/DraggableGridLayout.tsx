@@ -840,9 +840,8 @@ const BirdseyeLivePlayerGridItem = React.forwardRef<
   ) => {
     return (
       // The grid library attaches drag gestures to the item wrapper, not an activation control.
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
       <div
-        role="group"
+        role="presentation"
         style={{ ...style }}
         ref={ref}
         onMouseDown={onMouseDown}
@@ -924,9 +923,8 @@ const GridLiveContextMenu = React.forwardRef<
   ) => {
     return (
       // The grid library attaches drag gestures to the item wrapper, not an activation control.
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
       <div
-        role="group"
+        role="presentation"
         style={{ ...style }}
         ref={ref}
         onMouseDown={onMouseDown}

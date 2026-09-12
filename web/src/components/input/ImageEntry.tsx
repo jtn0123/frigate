@@ -31,7 +31,7 @@ export default function ImageEntry({
 }: Readonly<ImageEntryProps>) {
   const { t } = useTranslation(["views/faceLibrary"]);
   const [preview, setPreview] = useState<string | null>(null);
-  const dropzoneRef = useRef<HTMLDivElement>(null);
+  const dropzoneRef = useRef<HTMLFieldSetElement>(null);
 
   // Auto focus the dropzone
   useEffect(() => {
@@ -84,7 +84,7 @@ export default function ImageEntry({
     });
 
   const handlePaste = useCallback(
-    (event: React.ClipboardEvent<HTMLDivElement>) => {
+    (event: React.ClipboardEvent<HTMLFieldSetElement>) => {
       event.preventDefault();
       const clipboardItems = Array.from(event.clipboardData.items);
       for (const item of clipboardItems) {
@@ -130,10 +130,9 @@ export default function ImageEntry({
           render={() => (
             <FormItem>
               <FormControl>
-                <div
-                  className="w-full"
+                <fieldset
+                  className="w-full min-w-0"
                   onPaste={handlePaste}
-                  role="group"
                   // Clipboard paste needs a focusable target containing the upload controls.
                   // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
                   tabIndex={0}
@@ -180,7 +179,7 @@ export default function ImageEntry({
                       </Button>
                     </div>
                   )}
-                </div>
+                </fieldset>
               </FormControl>
               <FormMessage />
             </FormItem>
