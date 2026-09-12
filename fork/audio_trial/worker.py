@@ -58,10 +58,10 @@ def health(large: bool = False) -> str:
 def infer(audio: Path, output: Path, model: str) -> dict:
     """Bound inference time and stop optional work during sustained camera stress."""
     STAGE_FILE.unlink(missing_ok=True)
-    with (STATE / "inference.log").open("w") as log:
+    with (STATE / "inference.log").open("w") as log, output.open("w") as result_file:
         process = subprocess.Popen(
-            [sys.executable, "infer.py", str(audio), str(output), "--model", model],
-            stdout=log,
+            [sys.executable, "infer.py", str(audio), "--model", model],
+            stdout=result_file,
             stderr=log,
         )
         start = time.monotonic()

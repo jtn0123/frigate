@@ -110,9 +110,6 @@ def analyze(path: str, size: str) -> dict:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("audio")
-    parser.add_argument("output")
     parser.add_argument("--model", choices=["medium", "large-v3"], default="medium")
     args = parser.parse_args()
-    Path(args.output).write_text(
-        json.dumps(analyze(args.audio, args.model), ensure_ascii=False)
-    )
+    print(json.dumps(analyze(args.audio, args.model), ensure_ascii=False))

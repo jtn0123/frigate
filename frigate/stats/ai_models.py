@@ -5,17 +5,19 @@ import json
 import math
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 import psutil
 
+from frigate.config import FrigateConfig, GenAIConfig
 from frigate.const import MODEL_CACHE_DIR
 from frigate.stats.generation_metrics import read_generation_metrics
 
 AUDIO_TELEMETRY = Path(MODEL_CACHE_DIR) / "audio-trial-telemetry/models.json"
 
 
-def number(value) -> float | None:
+def number(value: Any) -> float | None:
     """Accept only finite, nonnegative measurements."""
     try:
         result = float(value)
@@ -111,7 +113,7 @@ def audio_models() -> tuple[list[dict], dict]:
         return [], {"status": "invalid"}
 
 
-def collect_local_models(config, stats: dict) -> tuple[list[dict], dict]:
+def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict], dict]:
     """Combine detector and enabled-feature inventory with audio telemetry."""
     models = []
     for name, detector in config.detectors.items():
@@ -193,10 +195,10 @@ def collect_local_models(config, stats: dict) -> tuple[list[dict], dict]:
     return models + audio, queue
 
 
-async def collect_ollama_models(config) -> list[dict]:
+async def collect_ollama_models(config: FrigateConfig) -> list[dict]:
     """Query only configured Ollama servers without loading or generating models."""
 
-    async def collect(name, provider):
+    async def collect(name: str, provider: GenAIConfig) -> dict:
         row = {
             "id": "genai:" + name,
             "name": provider.model,
@@ -231,7 +233,7 @@ async def collect_ollama_models(config) -> list[dict]:
                 provider.model if ":" in provider.model else provider.model + ":latest"
             )
 
-            def match(item):
+            def match(item: dict) -> bool:
                 return item.get("name", item.get("model")) in {provider.model, expected}
 
             cached = next((m for m in stored if match(m)), None)

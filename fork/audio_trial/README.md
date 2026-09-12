@@ -73,11 +73,17 @@ retry is recorded but not scheduled again automatically in this first version.
 Copy this directory to `/opt/frigate/audio-trial` and run:
 
 ```sh
+install -d -o 1000 -g 1000 state /opt/frigate/config/model_cache/audio-trial-telemetry
+# For an existing trial, transfer only its own writable state and telemetry.
+chown -R 1000:1000 state /opt/frigate/config/model_cache/audio-trial-telemetry
 docker compose build
 docker compose run --rm --no-deps audio-trial python -m unittest discover -v
 docker compose up -d
 docker compose logs --tail 20
 ```
+
+The image runs as UID/GID 1000. Its state and telemetry directories must be
+writable by that identity; cached model files must be readable.
 
 The Compose file mounts existing cached models read-only from
 `/opt/frigate/config/model_cache`. Medium/Large must already exist in its

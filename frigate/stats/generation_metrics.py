@@ -7,26 +7,30 @@ import os
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
+from frigate.config import GenAIConfig
 from frigate.const import MODEL_CACHE_DIR
 
 METRICS_DIRECTORY = Path(MODEL_CACHE_DIR) / "generation-metrics"
 
 
-def metrics_path(provider) -> Path:
+def metrics_path(provider: GenAIConfig) -> Path:
     """Identify a configured endpoint and model without exposing its URL."""
     key = json.dumps([provider.base_url or "http://localhost:11434", provider.model])
     return METRICS_DIRECTORY / (hashlib.sha256(key.encode()).hexdigest() + ".json")
 
 
-def finite(value) -> float | None:
+def finite(value: Any) -> float | None:
     """Reject missing, nonnumeric, negative, and nonfinite provider metadata."""
     if isinstance(value, bool) or not isinstance(value, (float, int)):
         return None
     return float(value) if math.isfinite(value) and value >= 0 else None
 
 
-def record_generation_metrics(provider, response, elapsed: float) -> None:
+def record_generation_metrics(
+    provider: GenAIConfig, response: Any, elapsed: float
+) -> None:
     """Best-effort atomic timing write; failures never interrupt descriptions."""
     total = finite(response.get("total_duration"))
     load = finite(response.get("load_duration"))
@@ -55,7 +59,7 @@ def record_generation_metrics(provider, response, elapsed: float) -> None:
                 pass
 
 
-def read_generation_metrics(provider) -> dict:
+def read_generation_metrics(provider: GenAIConfig) -> dict:
     """Read only timing fields; these are historical values, not live usage."""
     try:
         path = metrics_path(provider)

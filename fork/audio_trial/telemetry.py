@@ -22,7 +22,8 @@ if whisper_spec and whisper_spec.origin:
 def atomic_json(path: Path, data: dict) -> None:
     """Replace a complete snapshot so readers never see a partial write."""
     temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(data))
+    with temporary.open("w") as output:
+        json.dump(data, output)
     temporary.replace(path)
 
 
