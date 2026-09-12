@@ -1329,7 +1329,7 @@ def delete_classification_model(request: Request, name: str):
     if os.path.exists(data_dir):
         try:
             shutil.rmtree(data_dir)
-            logger.info(f"Deleted classification data directory for {name}")
+            logger.info("Deleted classification data directory for %r", name)
         except Exception as e:
             logger.debug(f"Failed to delete data directory for {name}: {e}")
 
@@ -1337,7 +1337,7 @@ def delete_classification_model(request: Request, name: str):
     if os.path.exists(model_dir):
         try:
             shutil.rmtree(model_dir)
-            logger.info(f"Deleted classification model directory for {name}")
+            logger.info("Deleted classification model directory for %r", name)
         except Exception as e:
             logger.debug(f"Failed to delete model directory for {name}: {e}")
 

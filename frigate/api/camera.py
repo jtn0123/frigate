@@ -150,7 +150,7 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
     """Add or update a go2rtc stream configuration."""
     if src and is_restricted_go2rtc_source(src):
         logger.warning(
-            "Rejected go2rtc stream '%s' with restricted source type (echo/expr/exec)",
+            "Rejected go2rtc stream %r with restricted source type (echo/expr/exec)",
             stream_name,
         )
         return JSONResponse(
@@ -171,7 +171,7 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
 
             if is_restricted_go2rtc_source(resolved_src):
                 logger.warning(
-                    "Rejected go2rtc stream '%s' with restricted source type (echo/expr/exec)",
+                    "Rejected go2rtc stream %r with restricted source type (echo/expr/exec)",
                     stream_name,
                 )
                 return JSONResponse(
@@ -190,7 +190,11 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
             timeout=10,
         )
         if not r.ok:
-            logger.error(f"Failed to add go2rtc stream {stream_name}: {r.text}")
+            logger.error(
+                "Failed to add go2rtc stream %s: %s",
+                repr(stream_name).replace("\r", "_").replace("\n", "_"),
+                repr(r.text).replace("\r", "_").replace("\n", "_"),
+            )
             return JSONResponse(
                 content=(
                     {"success": False, "message": f"Failed to add stream: {r.text}"}
@@ -225,7 +229,11 @@ def go2rtc_delete_stream(stream_name: str):
             timeout=10,
         )
         if not r.ok:
-            logger.error(f"Failed to delete go2rtc stream {stream_name}: {r.text}")
+            logger.error(
+                "Failed to delete go2rtc stream %s: %s",
+                repr(stream_name).replace("\r", "_").replace("\n", "_"),
+                repr(r.text).replace("\r", "_").replace("\n", "_"),
+            )
             return JSONResponse(
                 content=(
                     {"success": False, "message": f"Failed to delete stream: {r.text}"}
@@ -1124,19 +1132,34 @@ async def onvif_probe(
         return JSONResponse(content=result)
 
     except ONVIFError as e:
-        logger.warning(f"ONVIF error probing {host}:{port}: {e}")
+        logger.warning(
+            "ONVIF error probing %s:%s: %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "ONVIF error"},
             status_code=400,
         )
     except (Fault, TransportError) as e:
-        logger.warning(f"Connection error probing {host}:{port}: {e}")
+        logger.warning(
+            "Connection error probing %s:%s: %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "Connection error"},
             status_code=503,
         )
     except Exception as e:
-        logger.warning(f"Error probing ONVIF device at {host}:{port}, {e}")
+        logger.warning(
+            "Error probing ONVIF device at %s:%s, %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "Probe failed"},
             status_code=500,
