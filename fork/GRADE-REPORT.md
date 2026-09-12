@@ -19,15 +19,15 @@ this file says what each item is.
 | A | Architecture & Design | B− | B− | 4 |
 | B | Backend Quality | B− | B | 2 |
 | C | Frontend Quality | C | C+ | 6 |
-| D | Testing & Reliability | C+ | B− | 7 |
+| D | Testing & Reliability | C+ | B− | 6 |
 | E | Security | B+ | B+ | 3 |
 | F | Dependencies & Tech Currency | C+ | B− | 2 |
 | G | Performance & Scalability | C+ | B− | 6 |
 | H | Documentation & Onboarding | C | C+ | 3 |
 | I | Developer Experience & Tooling | C+ | B | 6 |
-| **Overall** | | **B−** | **B** | **40** + UX track |
+| **Overall** | | **B−** | **B** | **39** + UX track |
 
-**Top 5 highest-leverage open fixes:** E5, E4, I6, D2, G9
+**Top 5 highest-leverage open fixes:** E5, E4, I6, D6, G9
 
 **Type safety at a glance.** Frontend: TypeScript `strict` (plus
 `noUnusedLocals/Parameters`, `noFallthroughCasesInSwitch`) gates the build;
@@ -189,8 +189,11 @@ coverage in CI) and found real bugs (dateUtil locales, transformer `allOf`,
 go2rtc route errors). E2E grew to 27 specs (331 passing, 95 skipped by
 viewport) with an error collector and a keyboard spec; backend has 78 test
 files / 958 tests, all green in CI. Held at B−: unit line coverage is 5.2%
-(pure modules only), the riskiest screens have no e2e (D2), the tracking
+(pure modules only), the tracking
 pipeline has no unit tests (D4), and nothing catches visual regressions.
+Settings save, the camera wizard, zone editing, and opening motion search
+now have e2e (D2); Konva polygon close is still too brittle for save/search
+payloads.
 
 - ~~D1~~ ✓ done 2026-09-10 — `web/__test__/test-setup.ts`, 147 tests, CI step
 - ~~D5~~ ✓ web half done 2026-09-10 — vitest v8 coverage uploaded by "Fork - Checks" (Python half → D8)
@@ -202,12 +205,9 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** B− → B− (enables a backend ratchet)
 
-#### D2 — Cover Settings, MotionSearch, zone editing and the camera wizard in e2e `[FE] [fork]`
-- **Where:** `web/e2e/specs/settings/ui-settings.spec.ts` (3 smoke tests); no spec for `views/motion-search/MotionSearchView.tsx`, `MasksAndZonesView` / `ZoneEditPane` / `PolygonCanvas`, `settings/wizard/`
-- **What's wrong:** The pages a UX fork changes most are the least tested.
-- **Fix:** One spec each (desktop + `@mobile`), asserting request payloads, following `e2e/fixtures/frigate-test.ts`.
-- **Effort:** M
-- **Grade lift:** B− → B
+#### ~~D2~~ ✓ done 2026-09-11 — Cover Settings, MotionSearch, zone editing and the camera wizard in e2e `[FE] [fork]`
+- **Where:** `web/e2e/specs/fork/{settings-save,camera-wizard,zone-editing,motion-search}.spec.ts` (vacuous `settings/ui-settings.spec.ts` deleted)
+- **Fix shipped:** Settings Save All body + restart notice; wizard validation and `config/set` for a new camera; zone editor empty-state Save disabled; motion search opens and canvas clicks record points. Grade stays B−: Konva close is too brittle for Start Search / zone Save payloads.
 
 #### D6 — Visual regression screenshots `[FE] [fork]`
 - **Where:** `web/e2e/playwright.config.ts` (no `toHaveScreenshot` anywhere); fork UI in `web/src/components/fork/`, `themes/fork-appearance.css`
