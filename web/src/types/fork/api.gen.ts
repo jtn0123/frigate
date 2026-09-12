@@ -3920,6 +3920,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fork/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fork Updates
+         * @description **Access:** Any authenticated user.
+         *
+         *     Compare the running build with the fork's releases.
+         *
+         *     Honors `telemetry.version_check: false` by never contacting GitHub. Only
+         *     admins can force a refetch with `refresh=true`.
+         */
+        get: operations["fork_updates_fork_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -10857,6 +10882,37 @@ export interface operations {
             path: {
                 token: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fork_updates_fork_updates_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
