@@ -40,3 +40,14 @@ wrong ordering. Do not describe them as 39 distinct user-visible defects.
 - The motion-preview reduce call already guards against an empty matching list.
 
 No Sonar findings were suppressed, accepted, or marked false positive by this batch.
+
+## Validation
+
+- Backend: 1,092 unittest tests passed in the Linux test container; mypy passed
+  for all 365 source files.
+- Frontend: 255 unit tests, typecheck, ESLint, the type ratchet, and production
+  build passed.
+- Browser: the complete desktop/mobile suite passed (428 passed, 93 existing
+  skips).
+- Ruff formatting/lint and commit hooks passed. The test container was removed.
+- These checks do not validate physical cameras, GPUs, or deployment behavior.
