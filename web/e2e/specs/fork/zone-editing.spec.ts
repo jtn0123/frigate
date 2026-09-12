@@ -40,6 +40,7 @@ test.describe("Zone editing @high", () => {
   });
 
   test.describe("mobile", () => {
+    // Skip on desktop: this case is the mobile unfinished-polygon path.
     test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile validation");
     test("Save stays disabled after a name if the polygon is unfinished @mobile", async ({
       frigateApp,

@@ -132,6 +132,7 @@ test.describe("Camera wizard @high", () => {
   });
 
   test.describe("mobile", () => {
+    // Skip on desktop: this case only checks the mobile Add Camera open path.
     test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile open path");
     test("opens from Add New Camera @mobile", async ({ frigateApp }) => {
       await installWizardRoutes(frigateApp.page);
