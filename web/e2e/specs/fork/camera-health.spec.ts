@@ -295,6 +295,33 @@ test.describe("Camera health cards @high", () => {
     await expect(spark.locator("polyline")).toHaveCount(1);
   });
 
+  test("the frame-rate chart starts from the server's recent history", async ({
+    frigateApp,
+  }) => {
+    await gotoHealth(frigateApp);
+    const card = frigateApp.page.getByTestId("camera-health-front_door");
+    const spark = card.getByTestId("sparkline");
+    await expect
+      .poll(async () => Number(await spark.getAttribute("data-points")), {
+        timeout: 10_000,
+      })
+      .toBeGreaterThanOrEqual(20);
+    await expect(spark.locator("polyline")).toHaveCount(1);
+    await expect(card.getByTestId("camera-health-chart-caption")).toHaveText(
+      /^Frame rate, last \d+ minutes$/,
+    );
+
+    // The dashed target line and its legend follow the camera's expected fps.
+    const now = Date.now() / 1000;
+    await expect(async () => {
+      sendStats(frigateApp, now + 5);
+      await expect(card.getByText("target 5 fps")).toBeVisible({
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+    await expect(spark.getByTestId("sparkline-reference")).toHaveCount(1);
+  });
+
   test("health tab is reachable on a phone @mobile", async ({ frigateApp }) => {
     test.skip(!frigateApp.isMobile, "Mobile layout");
     await gotoHealth(frigateApp);

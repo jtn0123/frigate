@@ -453,7 +453,7 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
   **Conflict:** `package-lock.json` on every upstream sync; re-check on each
   sync whether upstream has since taken the same major.
 
-### PR-29 · camera-resilience — D10, D11, D14 — S — **D10 + D11 done (PR #11); D14 in review**
+### PR-29 · camera-resilience — D10, D11, D14, D15 — S — **D10 + D11 done (PR #11), D14 done (PR #24); D15 in review**
 - **Status (2026-09-11):** owner request after the server switch: the dining
   room camera's detect stream kept crashing on VAAPI; "it should disable the
   fancy feature and flag a warning, not kill the feed". Branch
@@ -463,7 +463,10 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
   annoying" inside Frigate instead. D14 (branch `section/health-quiet`): after
   the next update every card said Degraded and the owner "cannot tell if it is
   or not because of the clutter", so Degraded now means lasting trouble,
-  start-up shows Starting, and the software switch survives restarts.
+  start-up shows Starting, and the software switch survives restarts. D15
+  (branch `section/health-polish`): the owner said the chart under each card
+  "is broken"; it was a one-point dash, so it is now seeded from the server's
+  history and drawn against a target line.
 - **Done when:** a camera whose hardware decoding keeps crashing detect ends
   up on software decoding with one log warning, a Camera Health reason and a
   status-bar message; other cameras keep hardware decoding.

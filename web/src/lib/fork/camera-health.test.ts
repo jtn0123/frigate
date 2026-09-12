@@ -1,13 +1,80 @@
 import { describe, expect, it } from "vitest";
 import type { CameraStats, FrigateStats } from "@/types/stats";
 import {
+  cameraFpsSeries,
   computeCameraHealth,
   connectionQualityProps,
   enabledFromWs,
+  fpsSample,
+  mergeFpsSamples,
   newestRestarts,
   restartKindCounts,
+  seriesMinutes,
   softwareDecodingCameras,
 } from "./camera-health";
+
+function snapshot(time: number, fps: Record<string, number>) {
+  return {
+    service: { last_updated: time },
+    cameras: Object.fromEntries(
+      Object.entries(fps).map(([name, value]) => [name, { camera_fps: value }]),
+    ),
+  };
+}
+
+describe("frame-rate history for the chart", () => {
+  it("keeps each camera's fps from a stats snapshot", () => {
+    expect(fpsSample(snapshot(100, { a: 5, b: 4.9 }))).toEqual({
+      time: 100,
+      fps: { a: 5, b: 4.9 },
+    });
+  });
+
+  it("merges server history and live samples in time order, once each", () => {
+    const history = [100, 115, 130].map((t) =>
+      fpsSample(snapshot(t, { a: 5 })),
+    );
+    const merged = mergeFpsSamples(history, [
+      fpsSample(snapshot(190, { a: 4 })),
+      fpsSample(snapshot(130, { a: 5 })),
+    ]);
+    expect(merged.map((sample) => sample.time)).toEqual([100, 115, 130, 190]);
+  });
+
+  it("returns the same array when nothing is new, so nothing re-renders", () => {
+    const history = [fpsSample(snapshot(100, { a: 5 }))];
+    expect(mergeFpsSamples(history, [fpsSample(snapshot(100, { a: 5 }))])).toBe(
+      history,
+    );
+  });
+
+  it("drops samples that fall out of the window", () => {
+    const merged = mergeFpsSamples(
+      [],
+      [10, 50, 100].map((t) => fpsSample(snapshot(t, { a: 5 }))),
+      60,
+    );
+    expect(merged.map((sample) => sample.time)).toEqual([50, 100]);
+  });
+
+  it("skips samples from before a camera existed instead of drawing a dip", () => {
+    const history = [
+      fpsSample(snapshot(100, { a: 5 })),
+      fpsSample(snapshot(115, { a: 5, b: 3 })),
+    ];
+    expect(cameraFpsSeries(history, "b")).toEqual({
+      times: [115],
+      values: [3],
+    });
+  });
+
+  it("describes the covered span in whole minutes", () => {
+    expect(seriesMinutes([])).toBe(0);
+    expect(seriesMinutes([100])).toBe(0);
+    expect(seriesMinutes([0, 30])).toBe(1);
+    expect(seriesMinutes([0, 900])).toBe(15);
+  });
+});
 
 function cameraStats(overrides: Partial<CameraStats> = {}): CameraStats {
   return {
