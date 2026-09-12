@@ -315,7 +315,7 @@ class DebugReplayManager:
                 shutil.rmtree(REPLAY_DIR)
                 logger.debug("Removed replay cache directory")
             except Exception as e:
-                logger.error("Failed to remove replay cache: %s", e)
+                logger.exception("Failed to remove replay cache: %s", e)
 
 
 def cleanup_replay_cameras() -> None:
@@ -358,7 +358,7 @@ def cleanup_replay_cameras() -> None:
         try:
             shutil.rmtree(REPLAY_DIR)
         except Exception as e:
-            logger.error("Failed to remove replay cache directory: %s", e)
+            logger.exception("Failed to remove replay cache directory: %s", e)
 
 
 async def debug_replay_auto_stop_watchdog(

@@ -19,6 +19,8 @@ from frigate.models import (
 
 logger = logging.getLogger(__name__)
 
+SNAPSHOT_REMOVE_ERROR = "Failed to remove snapshot %s: %s"
+
 
 def cleanup_camera_db(
     camera_name: str, delete_exports: bool = False
@@ -38,28 +40,30 @@ def cleanup_camera_db(
     try:
         counts["events"] = Event.delete().where(Event.camera == camera_name).execute()
     except Exception as e:
-        logger.error("Failed to delete events for camera %s: %s", camera_name, e)
+        logger.exception("Failed to delete events for camera %s: %s", camera_name, e)
 
     try:
         counts["timeline"] = (
             Timeline.delete().where(Timeline.camera == camera_name).execute()
         )
     except Exception as e:
-        logger.error("Failed to delete timeline for camera %s: %s", camera_name, e)
+        logger.exception("Failed to delete timeline for camera %s: %s", camera_name, e)
 
     try:
         counts["recordings"] = (
             Recordings.delete().where(Recordings.camera == camera_name).execute()
         )
     except Exception as e:
-        logger.error("Failed to delete recordings for camera %s: %s", camera_name, e)
+        logger.exception(
+            "Failed to delete recordings for camera %s: %s", camera_name, e
+        )
 
     try:
         counts["review_segments"] = (
             ReviewSegment.delete().where(ReviewSegment.camera == camera_name).execute()
         )
     except Exception as e:
-        logger.error(
+        logger.exception(
             "Failed to delete review segments for camera %s: %s", camera_name, e
         )
 
@@ -68,21 +72,21 @@ def cleanup_camera_db(
             Previews.delete().where(Previews.camera == camera_name).execute()
         )
     except Exception as e:
-        logger.error("Failed to delete previews for camera %s: %s", camera_name, e)
+        logger.exception("Failed to delete previews for camera %s: %s", camera_name, e)
 
     try:
         counts["regions"] = (
             Regions.delete().where(Regions.camera == camera_name).execute()
         )
     except Exception as e:
-        logger.error("Failed to delete regions for camera %s: %s", camera_name, e)
+        logger.exception("Failed to delete regions for camera %s: %s", camera_name, e)
 
     try:
         counts["triggers"] = (
             Trigger.delete().where(Trigger.camera == camera_name).execute()
         )
     except Exception as e:
-        logger.error("Failed to delete triggers for camera %s: %s", camera_name, e)
+        logger.exception("Failed to delete triggers for camera %s: %s", camera_name, e)
 
     if delete_exports:
         try:
@@ -97,7 +101,9 @@ def cleanup_camera_db(
                 Export.delete().where(Export.camera == camera_name).execute()
             )
         except Exception as e:
-            logger.error("Failed to delete exports for camera %s: %s", camera_name, e)
+            logger.exception(
+                "Failed to delete exports for camera %s: %s", camera_name, e
+            )
 
     return counts, export_paths
 
@@ -124,26 +130,26 @@ def cleanup_camera_files(
                 shutil.rmtree(dir_path)
                 logger.debug("Removed directory: %s", dir_path)
             except Exception as e:
-                logger.error("Failed to remove %s: %s", dir_path, e)
+                logger.exception("Failed to remove %s: %s", dir_path, e)
 
     # Remove event snapshot files
     for snapshot in glob.glob(os.path.join(CLIPS_DIR, f"{camera_name}-*.jpg")):
         try:
             os.remove(snapshot)
         except Exception as e:
-            logger.error("Failed to remove snapshot %s: %s", snapshot, e)
+            logger.exception(SNAPSHOT_REMOVE_ERROR, snapshot, e)
 
     for snapshot in glob.glob(os.path.join(CLIPS_DIR, f"{camera_name}-*-clean.webp")):
         try:
             os.remove(snapshot)
         except Exception as e:
-            logger.error("Failed to remove snapshot %s: %s", snapshot, e)
+            logger.exception(SNAPSHOT_REMOVE_ERROR, snapshot, e)
 
     for snapshot in glob.glob(os.path.join(CLIPS_DIR, f"{camera_name}-*-clean.png")):
         try:
             os.remove(snapshot)
         except Exception as e:
-            logger.error("Failed to remove snapshot %s: %s", snapshot, e)
+            logger.exception(SNAPSHOT_REMOVE_ERROR, snapshot, e)
 
     # Remove review thumbnail files
     for thumb in glob.glob(
@@ -152,7 +158,7 @@ def cleanup_camera_files(
         try:
             os.remove(thumb)
         except Exception as e:
-            logger.error("Failed to remove review thumbnail %s: %s", thumb, e)
+            logger.exception("Failed to remove review thumbnail %s: %s", thumb, e)
 
     # Remove export files if requested
     if export_paths:
@@ -162,4 +168,4 @@ def cleanup_camera_files(
                     os.remove(path)
                     logger.debug("Removed export file: %s", path)
                 except Exception as e:
-                    logger.error("Failed to remove export file %s: %s", path, e)
+                    logger.exception("Failed to remove export file %s: %s", path, e)

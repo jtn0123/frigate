@@ -865,7 +865,7 @@ function FrigateCameraFeatures({
   cameraEnabled,
   debug,
   setDebug,
-}: FrigateCameraFeaturesProps) {
+}: Readonly<FrigateCameraFeaturesProps>) {
   const { t } = useTranslation(["views/live", "components/dialog"]);
   const { getLocaleDocUrl } = useDocDomain();
 

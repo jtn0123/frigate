@@ -25,7 +25,7 @@ export default function TrainFilterDialog({
   filter,
   filterValues,
   onUpdateFilter,
-}: TrainFilterDialogProps) {
+}: Readonly<TrainFilterDialogProps>) {
   // data
   const { t } = useTranslation(["components/filter"]);
   const [currentFilter, setCurrentFilter] = useState(filter ?? {});
@@ -138,7 +138,7 @@ export function ClassFilterContent({
   allClasses,
   classes,
   updateClasses,
-}: ClassFilterContentProps) {
+}: Readonly<ClassFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
     <>
@@ -210,7 +210,7 @@ export function ScoreFilterContent({
   minScore,
   maxScore,
   setScoreRange,
-}: ScoreFilterContentProps) {
+}: Readonly<ScoreFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
     <div className="overflow-x-hidden">

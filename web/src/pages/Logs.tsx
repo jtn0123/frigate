@@ -647,7 +647,7 @@ function LogLineData({
   logService,
   onClickSeverity,
   onSelect,
-}: LogLineDataProps) {
+}: Readonly<LogLineDataProps>) {
   return (
     <div
       className={cn(

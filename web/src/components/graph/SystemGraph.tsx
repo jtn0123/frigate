@@ -27,7 +27,7 @@ export function ThresholdBarGraph({
   updateTimes,
   data,
   isActive = true,
-}: ThresholdBarGraphProps) {
+}: Readonly<ThresholdBarGraphProps>) {
   const displayName = name || data[0]?.name || "";
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,

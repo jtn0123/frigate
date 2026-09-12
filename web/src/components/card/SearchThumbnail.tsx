@@ -21,7 +21,10 @@ type SearchThumbnailProps = {
   onClick: (searchResult: SearchResult, ctrl: boolean, detail: boolean) => void;
 };
 
-function SearchThumbnail({ searchResult, onClick }: SearchThumbnailProps) {
+function SearchThumbnail({
+  searchResult,
+  onClick,
+}: Readonly<SearchThumbnailProps>) {
   const { t } = useTranslation(["common"]);
   const apiHost = useApiHost();
   const { data: config } = useSWR<FrigateConfig>("config");

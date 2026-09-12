@@ -1,32 +1,11 @@
+import { AuthContext, type AuthState } from "./auth-state";
 import axios from "axios";
-import { createContext, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 
-interface AuthState {
-  user: { username: string; role: string | null } | null;
-  allowedCameras: string[];
-  isLoading: boolean;
-  isAuthenticated: boolean; // true if auth is required
-}
-
-interface AuthContextType {
-  auth: AuthState;
-  login: (user: AuthState["user"]) => void;
-  logout: () => void;
-}
-
-export const AuthContext = createContext<AuthContextType>({
-  auth: {
-    user: null,
-    allowedCameras: [],
-    isLoading: true,
-    isAuthenticated: false,
-  },
-  login: () => {},
-  logout: () => {},
-});
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   const [auth, setAuth] = useState<AuthState>({
     user: null,
     allowedCameras: [],
@@ -83,16 +62,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [profile, error]);
 
-  const login = (user: AuthState["user"]) => {
+  const login = useCallback((user: AuthState["user"]) => {
     setAuth((current) => ({
       ...current,
       user,
       isLoading: false,
       isAuthenticated: true,
     }));
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setAuth({
       user: null,
       allowedCameras: [],
@@ -100,7 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: true,
     });
     void axios.get("/logout", { withCredentials: true });
-  };
+  }, []);
 
-  return <AuthContext value={{ auth, login, logout }}>{children}</AuthContext>;
+  const value = useMemo(() => ({ auth, login, logout }), [auth, login, logout]);
+
+  return <AuthContext value={value}>{children}</AuthContext>;
 }

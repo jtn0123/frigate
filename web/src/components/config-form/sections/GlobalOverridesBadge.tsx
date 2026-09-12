@@ -15,7 +15,7 @@ export function GlobalOverridesBadge({
   sectionPath,
   cameraName,
   className,
-}: Props) {
+}: Readonly<Props>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const { t } = useTranslation(["views/settings"]);
   const deltas = useCameraSectionDeltas(config, cameraName, sectionPath);

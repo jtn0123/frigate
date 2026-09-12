@@ -43,7 +43,7 @@ export default function NameAndIdFields<T extends FieldValues = FieldValues>({
   placeholderId,
   idVisible,
   idDisabled,
-}: NameAndIdFieldsProps<T>) {
+}: Readonly<NameAndIdFieldsProps<T>>) {
   const { t } = useTranslation(["common"]);
   const { watch, setValue, trigger, formState } = useFormContext<T>();
   const [isIdVisible, setIsIdVisible] = useState(idVisible ?? false);

@@ -473,7 +473,7 @@ class ReviewDescriptionProcessor(PostProcessorApi):
                         f"No recording found for {camera} at timestamp {timestamp}"
                     )
             except Exception as e:
-                logger.error(
+                logger.exception(
                     f"Error extracting frame from recording for {camera} at {timestamp}: {e}"
                 )
                 continue

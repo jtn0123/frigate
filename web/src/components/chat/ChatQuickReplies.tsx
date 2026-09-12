@@ -27,7 +27,7 @@ type ChatQuickRepliesProps = {
 export function ChatQuickReplies({
   onSend,
   disabled = false,
-}: ChatQuickRepliesProps) {
+}: Readonly<ChatQuickRepliesProps>) {
   const { t } = useTranslation(["views/chat"]);
 
   return (

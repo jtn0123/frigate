@@ -52,7 +52,7 @@ export default function SetPasswordDialog({
   initialError,
   username,
   isLoading = false,
-}: SetPasswordProps) {
+}: Readonly<SetPasswordProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { getLocaleDocUrl } = useDocDomain();
   const isAdmin = useIsAdmin();
@@ -303,7 +303,6 @@ export default function SetPasswordDialog({
                           "users.dialog.form.newPassword.placeholder",
                         )}
                         className="h-10 pr-10"
-                        autoFocus
                       />
                       <Button
                         type="button"

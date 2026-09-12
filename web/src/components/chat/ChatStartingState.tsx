@@ -16,7 +16,7 @@ export function ChatStartingState({
   supportsThinking,
   thinkingEnabled,
   setThinkingEnabled,
-}: ChatStartingStateProps) {
+}: Readonly<ChatStartingStateProps>) {
   const { t } = useTranslation(["views/chat"]);
   const [input, setInput] = useState("");
 

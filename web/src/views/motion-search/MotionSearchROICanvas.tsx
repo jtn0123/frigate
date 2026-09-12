@@ -30,7 +30,7 @@ export default function MotionSearchROICanvas({
   panMode = false,
   motionHeatmap,
   showMotionHeatmap = false,
-}: MotionSearchROICanvasProps) {
+}: Readonly<MotionSearchROICanvasProps>) {
   const stageRef = useRef<Konva.Stage>(null);
   const [containerNode, setContainerNode] = useState<HTMLDivElement | null>(
     null,

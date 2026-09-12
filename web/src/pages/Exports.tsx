@@ -939,7 +939,7 @@ function AllExportsView({
   renameClip,
   setDeleteClip,
   onAssignToCase,
-}: AllExportsViewProps) {
+}: Readonly<AllExportsViewProps>) {
   const { t } = useTranslation(["views/exports"]);
 
   // Filter
@@ -1088,7 +1088,7 @@ function CaseView({
   onAssignToCase,
   onRemoveFromCase,
   onAddExport,
-}: CaseViewProps) {
+}: Readonly<CaseViewProps>) {
   const { t } = useTranslation(["views/exports", "common"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const timeFormat = useTimeFormat(config);
@@ -1254,7 +1254,7 @@ function CaseEditorDialog({
   caseDialog,
   onClose,
   onSave,
-}: CaseEditorDialogProps) {
+}: Readonly<CaseEditorDialogProps>) {
   const { t } = useTranslation(["views/exports", "common"]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -1322,7 +1322,7 @@ function CaseAddExportDialog({
   availableExports,
   onClose,
   mutate,
-}: CaseAddExportDialogProps) {
+}: Readonly<CaseAddExportDialogProps>) {
   const { t } = useTranslation(["views/exports", "common"]);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1470,7 +1470,7 @@ function CaseAssignmentDialog({
   selectedCaseId,
   onClose,
   mutate,
-}: CaseAssignmentDialogProps) {
+}: Readonly<CaseAssignmentDialogProps>) {
   const { t } = useTranslation(["views/exports"]);
   const caseOptions = useMemo(
     () => [

@@ -20,7 +20,7 @@ export default function PolygonEditControls({
   activePolygonIndex,
   snapPoints,
   setSnapPoints,
-}: PolygonEditControlsProps) {
+}: Readonly<PolygonEditControlsProps>) {
   const { t } = useTranslation(["views/settings"]);
   const undo = () => {
     if (activePolygonIndex === undefined || !polygons) {

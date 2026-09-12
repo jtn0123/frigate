@@ -52,7 +52,7 @@ export default function ClassificationSelectionDialog({
   dialogLabel,
   tooltipLabel,
   children,
-}: ClassificationSelectionDialogProps) {
+}: Readonly<ClassificationSelectionDialogProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
 
   const onCategorizeImage = useCallback(

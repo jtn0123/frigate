@@ -27,7 +27,9 @@ const RoleMapTags = TagsWidget as unknown as ComponentType<{
   schema: { title: string };
 }>;
 
-export default function ProxyRoleMap({ formContext }: SectionRendererProps) {
+export default function ProxyRoleMap({
+  formContext,
+}: Readonly<SectionRendererProps>) {
   const { t } = useTranslation(["views/settings", "config/global"]);
 
   const fullFormData =

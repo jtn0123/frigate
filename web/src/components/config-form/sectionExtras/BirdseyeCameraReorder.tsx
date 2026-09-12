@@ -18,7 +18,7 @@ type SaveStatus = "idle" | "saving" | "saved";
 
 export default function BirdseyeCameraReorder({
   formContext,
-}: SectionRendererProps) {
+}: Readonly<SectionRendererProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { data: config, mutate: updateConfig } =
     useSWR<FrigateConfig>("config");
@@ -158,7 +158,7 @@ type SaveStatusIndicatorProps = {
   status: SaveStatus;
 };
 
-function SaveStatusIndicator({ status }: SaveStatusIndicatorProps) {
+function SaveStatusIndicator({ status }: Readonly<SaveStatusIndicatorProps>) {
   const { t } = useTranslation(["views/settings"]);
   return (
     <div
@@ -188,7 +188,10 @@ type BirdseyeCameraRowProps = {
   onDragEnd: () => void;
 };
 
-function BirdseyeCameraRow({ camera, onDragEnd }: BirdseyeCameraRowProps) {
+function BirdseyeCameraRow({
+  camera,
+  onDragEnd,
+}: Readonly<BirdseyeCameraRowProps>) {
   const { t } = useTranslation(["views/settings"]);
   const controls = useDragControls();
 

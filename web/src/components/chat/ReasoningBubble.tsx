@@ -30,7 +30,7 @@ type ReasoningBubbleProps = {
 export function ReasoningBubble({
   reasoning,
   answerStarted,
-}: ReasoningBubbleProps) {
+}: Readonly<ReasoningBubbleProps>) {
   const { t } = useTranslation(["views/chat"]);
   // Open while the model is still mid-thought (no answer tokens yet);
   // once the answer begins, collapse on its own but let the user reopen.

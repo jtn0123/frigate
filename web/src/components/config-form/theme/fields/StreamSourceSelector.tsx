@@ -36,7 +36,7 @@ function Go2rtcStreamCombobox({
   options,
   disabled,
   onSelect,
-}: Go2rtcStreamComboboxProps) {
+}: Readonly<Go2rtcStreamComboboxProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -136,7 +136,7 @@ export function StreamSourceSelector({
   manualField,
   disabled,
   readonly,
-}: StreamSourceSelectorProps) {
+}: Readonly<StreamSourceSelectorProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
 
   const restreamId = `${idPrefix}-source-restream`;

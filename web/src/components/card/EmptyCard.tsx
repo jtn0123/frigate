@@ -23,7 +23,7 @@ export function EmptyCard({
   buttonText,
   link,
   onClick,
-}: EmptyCardProps) {
+}: Readonly<EmptyCardProps>) {
   let TitleComponent;
 
   if (titleHeading) {

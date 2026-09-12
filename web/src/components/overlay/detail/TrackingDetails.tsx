@@ -72,7 +72,7 @@ export function TrackingDetails({
   event,
   tabs,
   isAnnotationSettingsOpen = false,
-}: TrackingDetailsProps) {
+}: Readonly<TrackingDetailsProps>) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const { t } = useTranslation(["views/explore"]);
   const apiHost = useApiHost();
@@ -678,8 +678,6 @@ export function TrackingDetails({
         className,
       )}
     >
-      <span tabIndex={0} className="sr-only" />
-
       <div
         className={cn(
           "flex items-start justify-center",
@@ -943,7 +941,7 @@ function LifecycleIconRow({
   effectiveTime,
   isTimelineActive,
   annotationOffset,
-}: LifecycleIconRowProps) {
+}: Readonly<LifecycleIconRowProps>) {
   const { t } = useTranslation(["views/explore", "components/player"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [isOpen, setIsOpen] = useState(false);

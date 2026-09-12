@@ -36,7 +36,7 @@ export default function EventMenu({
   onOpenSimilarity,
   isSelected = false,
   onToggleSelection,
-}: EventMenuProps) {
+}: Readonly<EventMenuProps>) {
   const apiHost = useApiHost();
   const navigate = useNavigate();
   const { t } = useTranslation(["views/explore", "views/replay"]);
@@ -113,92 +113,89 @@ export default function EventMenu({
   );
 
   return (
-    <>
-      <span tabIndex={0} className="sr-only" />
-      <DropdownMenu modal={false} open={isOpen} onOpenChange={setIsOpen}>
-        <DropdownMenuTrigger>
-          <div className="rounded p-1 pr-2" role="button">
-            <HiDotsHorizontal className="size-4 text-muted-foreground" />
-          </div>
-        </DropdownMenuTrigger>
-        <DropdownMenuPortal>
-          <DropdownMenuContent>
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onSelect={handleObjectSelect}
+    <DropdownMenu modal={false} open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger>
+        <div className="rounded p-1 pr-2" role="button">
+          <HiDotsHorizontal className="size-4 text-muted-foreground" />
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuPortal>
+        <DropdownMenuContent>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={handleObjectSelect}
+          >
+            {isSelected
+              ? t("itemMenu.hideObjectDetails.label")
+              : t("itemMenu.showObjectDetails.label")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="my-0.5" />
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={() => {
+              navigate(`/explore?event_id=${event.id}`);
+            }}
+          >
+            {t("details.item.button.viewInExplore")}
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer" asChild>
+            <a
+              download
+              href={
+                event.has_snapshot
+                  ? `${apiHost}api/events/${event.id}/snapshot.jpg?crop=0&bbox=1&timestamp=0`
+                  : `${apiHost}api/events/${event.id}/thumbnail.webp`
+              }
             >
-              {isSelected
-                ? t("itemMenu.hideObjectDetails.label")
-                : t("itemMenu.showObjectDetails.label")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="my-0.5" />
+              {t("itemMenu.downloadSnapshot.label")}
+            </a>
+          </DropdownMenuItem>
+
+          {isAdmin &&
+            event.has_snapshot &&
+            event.plus_id == undefined &&
+            event.data.type == "object" &&
+            config?.plus?.enabled && (
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onSelect={() => {
+                  setIsOpen(false);
+                  onOpenUpload?.(event);
+                }}
+              >
+                {t("itemMenu.submitToPlus.label")}
+              </DropdownMenuItem>
+            )}
+
+          {event.has_snapshot && config?.semantic_search?.enabled && (
             <DropdownMenuItem
               className="cursor-pointer"
               onSelect={() => {
-                navigate(`/explore?event_id=${event.id}`);
+                if (onOpenSimilarity) onOpenSimilarity(event);
+                else
+                  navigate(
+                    `/explore?search_type=similarity&event_id=${event.id}`,
+                  );
               }}
             >
-              {t("details.item.button.viewInExplore")}
+              {t("itemMenu.findSimilar.label")}
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer" asChild>
-              <a
-                download
-                href={
-                  event.has_snapshot
-                    ? `${apiHost}api/events/${event.id}/snapshot.jpg?crop=0&bbox=1&timestamp=0`
-                    : `${apiHost}api/events/${event.id}/thumbnail.webp`
-                }
-              >
-                {t("itemMenu.downloadSnapshot.label")}
-              </a>
+          )}
+          {isAdmin && event.has_clip && (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              disabled={isStarting}
+              onSelect={() => {
+                handleDebugReplay(event);
+              }}
+            >
+              {isStarting
+                ? t("dialog.starting", { ns: "views/replay" })
+                : t("itemMenu.debugReplay.label")}
             </DropdownMenuItem>
-
-            {isAdmin &&
-              event.has_snapshot &&
-              event.plus_id == undefined &&
-              event.data.type == "object" &&
-              config?.plus?.enabled && (
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onSelect={() => {
-                    setIsOpen(false);
-                    onOpenUpload?.(event);
-                  }}
-                >
-                  {t("itemMenu.submitToPlus.label")}
-                </DropdownMenuItem>
-              )}
-
-            {event.has_snapshot && config?.semantic_search?.enabled && (
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={() => {
-                  if (onOpenSimilarity) onOpenSimilarity(event);
-                  else
-                    navigate(
-                      `/explore?search_type=similarity&event_id=${event.id}`,
-                    );
-                }}
-              >
-                {t("itemMenu.findSimilar.label")}
-              </DropdownMenuItem>
-            )}
-            {isAdmin && event.has_clip && (
-              <DropdownMenuItem
-                className="cursor-pointer"
-                disabled={isStarting}
-                onSelect={() => {
-                  handleDebugReplay(event);
-                }}
-              >
-                {isStarting
-                  ? t("dialog.starting", { ns: "views/replay" })
-                  : t("itemMenu.debugReplay.label")}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenuPortal>
-      </DropdownMenu>
-    </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenuPortal>
+    </DropdownMenu>
   );
 }

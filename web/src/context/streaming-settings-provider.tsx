@@ -4,6 +4,7 @@ import {
   useEffect,
   ReactNode,
   useContext,
+  useMemo,
 } from "react";
 import { AllGroupsStreamingSettings } from "@/types/frigateConfig";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
@@ -19,9 +20,9 @@ const StreamingSettingsContext =
 
 export function StreamingSettingsProvider({
   children,
-}: {
+}: Readonly<{
   children: ReactNode;
-}) {
+}>) {
   const [allGroupsStreamingSettings, setAllGroupsStreamingSettings] =
     useState<AllGroupsStreamingSettings>({});
 
@@ -43,14 +44,17 @@ export function StreamingSettingsProvider({
     }
   }, [allGroupsStreamingSettings, setPersistedGroupStreamingSettings]);
 
+  const value = useMemo(
+    () => ({
+      allGroupsStreamingSettings,
+      setAllGroupsStreamingSettings,
+      isPersistedStreamingSettingsLoaded,
+    }),
+    [allGroupsStreamingSettings, isPersistedStreamingSettingsLoaded],
+  );
+
   return (
-    <StreamingSettingsContext
-      value={{
-        allGroupsStreamingSettings,
-        setAllGroupsStreamingSettings,
-        isPersistedStreamingSettingsLoaded,
-      }}
-    >
+    <StreamingSettingsContext value={value}>
       {children}
     </StreamingSettingsContext>
   );

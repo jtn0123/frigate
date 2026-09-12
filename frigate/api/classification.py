@@ -1096,7 +1096,7 @@ def rename_classification_category(
             status_code=200,
         )
     except Exception as e:
-        logger.error(f"Error renaming category: {e}")
+        logger.exception(f"Error renaming category: {e}")
         return JSONResponse(
             content=(
                 {

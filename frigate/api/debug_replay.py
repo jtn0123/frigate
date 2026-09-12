@@ -290,7 +290,7 @@ async def stop_debug_replay(request: Request):
             config_publisher=request.app.config_publisher,
         )
     except (ValueError, RuntimeError, OSError) as e:
-        logger.error("Error stopping replay: %s", e)
+        logger.exception("Error stopping replay: %s", e)
         return JSONResponse(
             content={
                 "success": False,

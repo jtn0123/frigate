@@ -29,7 +29,7 @@ export function ProfileSectionDropdown({
   hasProfileData,
   onSelectProfile,
   iconOnly = false,
-}: ProfileSectionDropdownProps) {
+}: Readonly<ProfileSectionDropdownProps>) {
   const { t } = useTranslation(["views/settings"]);
 
   const activeColor = editingProfile

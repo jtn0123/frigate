@@ -34,7 +34,7 @@ export default function AttributeSelectDialog({
   selectedAttributes,
   modelAttributes,
   className,
-}: AttributeSelectDialogProps) {
+}: Readonly<AttributeSelectDialogProps>) {
   const { t } = useTranslation();
   const [internalSelection, setInternalSelection] = useState<
     Record<string, string | null>

@@ -9,7 +9,7 @@ import {
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { usePersistence } from "./use-persistence";
 import { useUserPersistence } from "./use-user-persistence";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 
 export function useOverlayState<S>(
   key: string,

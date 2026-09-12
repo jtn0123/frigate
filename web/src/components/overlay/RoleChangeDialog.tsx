@@ -34,7 +34,7 @@ export default function RoleChangeDialog({
   availableRoles,
   onSave,
   onCancel,
-}: RoleChangeDialogProps) {
+}: Readonly<RoleChangeDialogProps>) {
   const { t } = useTranslation(["views/settings"]);
   const [selectedRole, setSelectedRole] = useState<string>(currentRole);
 

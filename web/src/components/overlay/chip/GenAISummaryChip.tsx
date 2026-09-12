@@ -14,7 +14,7 @@ import { MdAutoAwesome } from "react-icons/md";
 type GenAISummaryChipProps = {
   review?: ReviewSegment;
 };
-export function GenAISummaryChip({ review }: GenAISummaryChipProps) {
+export function GenAISummaryChip({ review }: Readonly<GenAISummaryChipProps>) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export function GenAISummaryDialog({
   review,
   onOpen,
   children,
-}: GenAISummaryDialogProps) {
+}: Readonly<GenAISummaryDialogProps>) {
   const { t } = useTranslation(["views/explore"]);
 
   // data

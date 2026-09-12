@@ -18,7 +18,9 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { isReplayCamera } from "@/utils/cameraUtil";
 import type { SettingsPageProps } from "@/views/settings/SingleSectionPage";
 
-export default function FrigatePlusSettingsView(_props: SettingsPageProps) {
+export default function FrigatePlusSettingsView(
+  _props: Readonly<SettingsPageProps>,
+) {
   const { t } = useTranslation("views/settings");
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config } = useSWR<FrigateConfig>("config");

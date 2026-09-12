@@ -22,7 +22,7 @@ export function LogSettingsButton({
   updateLabelFilter,
   logSettings,
   setLogSettings,
-}: LogSettingsButtonProps) {
+}: Readonly<LogSettingsButtonProps>) {
   const { t } = useTranslation(["components/filter"]);
   const trigger = (
     <Button

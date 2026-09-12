@@ -347,7 +347,7 @@ class FileLock:
                     self.lock_path.unlink()
                     return True
         except Exception as e:
-            logger.error(f"Error cleaning up stale lock: {e}")
+            logger.exception(f"Error cleaning up stale lock: {e}")
 
         return False
 
@@ -417,7 +417,7 @@ class FileLock:
             return False
 
         except Exception as e:
-            logger.error(f"Error acquiring lock: {e}")
+            logger.exception(f"Error acquiring lock: {e}")
             if self._fd is not None:
                 try:
                     os.close(self._fd)
@@ -455,7 +455,7 @@ class FileLock:
             # Lock file already removed, that's fine
             pass
         except Exception as e:
-            logger.error(f"Error releasing lock: {e}")
+            logger.exception(f"Error releasing lock: {e}")
         finally:
             self._acquired = False
 

@@ -20,7 +20,7 @@ import { parseAttachedEvent } from "@/utils/chatUtil";
 import type { ChatStats, ShowStatsMode } from "@/types/chat";
 
 type MessageBubbleProps = {
-  role: "user" | "assistant";
+  messageRole: "user" | "assistant";
   content: string;
   messageIndex?: number;
   onEditSubmit?: (messageIndex: number, newContent: string) => void;
@@ -41,16 +41,16 @@ function formatRate(rate: number | undefined): string | null {
 }
 
 export function MessageBubble({
-  role,
+  messageRole,
   content,
   messageIndex = 0,
   onEditSubmit,
   isComplete = true,
   stats,
   showStats = "while_generating",
-}: MessageBubbleProps) {
+}: Readonly<MessageBubbleProps>) {
   const { t } = useTranslation(["views/chat", "common"]);
-  const isUser = role === "user";
+  const isUser = messageRole === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [draftContent, setDraftContent] = useState(content);
   const editInputRef = useRef<HTMLTextAreaElement>(null);

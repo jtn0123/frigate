@@ -138,7 +138,7 @@ export default function WsMessageFeed({
   defaultCamera,
   lockedCamera,
   showCameraBadge = true,
-}: WsMessageFeedProps) {
+}: Readonly<WsMessageFeedProps>) {
   const { t } = useTranslation(["views/system"]);
   const [paused, setPaused] = useState(false);
   // undefined = all topics
@@ -288,7 +288,7 @@ type TopicFilterButtonProps = {
 function TopicFilterButton({
   selectedTopics,
   updateTopicFilter,
-}: TopicFilterButtonProps) {
+}: Readonly<TopicFilterButtonProps>) {
   const { t } = useTranslation(["views/system"]);
   const [open, setOpen] = useState(false);
   const [currentTopics, setCurrentTopics] = useState<
@@ -375,7 +375,7 @@ function TopicFilterContent({
   setCurrentTopics,
   onApply,
   onReset,
-}: TopicFilterContentProps) {
+}: Readonly<TopicFilterContentProps>) {
   const { t } = useTranslation(["views/system", "common"]);
 
   return (
@@ -448,7 +448,7 @@ function WsCamerasFilterButton({
   allCameras,
   selectedCameras,
   updateCameraFilter,
-}: WsCamerasFilterButtonProps) {
+}: Readonly<WsCamerasFilterButtonProps>) {
   const { t } = useTranslation(["views/system", "common"]);
   const [open, setOpen] = useState(false);
   const [currentCameras, setCurrentCameras] = useState<string[] | undefined>(
@@ -542,7 +542,7 @@ function WsCamerasFilterContent({
   setCurrentCameras,
   onApply,
   onReset,
-}: WsCamerasFilterContentProps) {
+}: Readonly<WsCamerasFilterContentProps>) {
   const { t } = useTranslation(["views/system", "common"]);
 
   return (

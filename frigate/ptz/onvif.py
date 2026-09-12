@@ -84,7 +84,7 @@ class OnvifController:
         try:
             self.loop.run_forever()
         except Exception as e:
-            logger.error(f"Onvif event loop terminated unexpectedly: {e}")
+            logger.exception(f"Onvif event loop terminated unexpectedly: {e}")
 
     async def _init_cameras(self) -> None:
         """Initialize all configured cameras."""
@@ -170,7 +170,9 @@ class OnvifController:
             }
             return True
         except (Fault, ONVIFError, TransportError, Exception) as e:
-            logger.error(f"Failed to create ONVIF camera instance for {cam_name}: {e}")
+            logger.exception(
+                f"Failed to create ONVIF camera instance for {cam_name}: {e}"
+            )
             # track initial failures
             self.failed_cams[cam_name] = {
                 "retry_attempts": 0,
@@ -183,8 +185,11 @@ class OnvifController:
         onvif: ONVIFCamera = self.cams[camera_name]["onvif"]
         try:
             await onvif.update_xaddrs()
-        except Exception as e:
-            logger.error(f"Onvif connection failed for {camera_name}: {e}")
+        except Exception:
+            logger.exception(
+                "Onvif connection failed for %s",
+                camera_name.replace("\r", "_").replace("\n", "_"),
+            )
             return False
 
         # create init services
@@ -864,7 +869,7 @@ class OnvifController:
         except TimeoutError:
             logger.error(f"Command {command} timed out for camera {camera_name}")
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Error executing command {command} for camera {camera_name}: {e}"
             )
 
@@ -927,8 +932,9 @@ class OnvifController:
                 else:
                     logger.warning(f"ONVIF initialization failed for {camera_name}")
             except Exception as e:
-                logger.error(
-                    f"Error during ONVIF initialization for {camera_name}: {e}"
+                logger.exception(
+                    "Error during ONVIF initialization for %s",
+                    camera_name.replace("\r", "_").replace("\n", "_"),
                 )
                 if camera_name not in self.failed_cams:
                     self.failed_cams[camera_name] = {"retry_attempts": 0}
@@ -1097,7 +1103,7 @@ class OnvifController:
             try:
                 self.loop.stop()
             except Exception as e:
-                logger.error(f"Error during loop cleanup: {e}")
+                logger.exception(f"Error during loop cleanup: {e}")
 
         # Schedule stop and cleanup in the loop thread
         self.loop.call_soon_threadsafe(stop_and_cleanup)

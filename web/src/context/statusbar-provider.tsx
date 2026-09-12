@@ -1,41 +1,12 @@
 import {
-  createContext,
-  useState,
-  ReactNode,
-  useCallback,
-  useMemo,
-} from "react";
-
-export type StatusMessage = {
-  id: string;
-  text: string;
-  color?: string;
-  link?: string;
-};
-
-export type StatusMessagesState = {
-  [key: string]: StatusMessage[];
-};
+  StatusBarMessagesContext,
+  type StatusMessagesState,
+} from "./statusbar-context";
+import { useState, ReactNode, useCallback, useMemo } from "react";
 
 type StatusBarMessagesProviderProps = {
   children: ReactNode;
 };
-
-type StatusBarMessagesContextValue = {
-  messages: StatusMessagesState;
-  addMessage: (
-    key: string,
-    message: string,
-    color?: string,
-    messageId?: string,
-    link?: string,
-  ) => string | undefined;
-  removeMessage: (key: string, messageId: string) => void;
-  clearMessages: (key: string) => void;
-};
-
-export const StatusBarMessagesContext =
-  createContext<StatusBarMessagesContextValue | null>(null);
 
 export function StatusBarMessagesProvider({
   children,
@@ -106,10 +77,18 @@ export function StatusBarMessagesProvider({
     });
   }, []);
 
+  const value = useMemo(
+    () => ({
+      messages,
+      addMessage,
+      removeMessage,
+      clearMessages,
+    }),
+    [messages, addMessage, removeMessage, clearMessages],
+  );
+
   return (
-    <StatusBarMessagesContext
-      value={{ messages, addMessage, removeMessage, clearMessages }}
-    >
+    <StatusBarMessagesContext value={value}>
       {children}
     </StatusBarMessagesContext>
   );

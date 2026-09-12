@@ -15,7 +15,7 @@ export default function StepIndicator({
   variant = "default",
   translationNameSpace,
   className,
-}: StepIndicatorProps) {
+}: Readonly<StepIndicatorProps>) {
   const { t } = useTranslation(translationNameSpace);
 
   if (variant == "dots") {

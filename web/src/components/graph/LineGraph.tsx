@@ -27,7 +27,7 @@ export function CameraLineGraph({
   updateTimes,
   data,
   isActive = true,
-}: CameraLineGraphProps) {
+}: Readonly<CameraLineGraphProps>) {
   const { t } = useTranslation(["views/system", "common"]);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
@@ -195,7 +195,7 @@ export function EventsPerSecondsLineGraph({
   updateTimes,
   data,
   isActive = true,
-}: EventsPerSecondLineGraphProps) {
+}: Readonly<EventsPerSecondLineGraphProps>) {
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
   });

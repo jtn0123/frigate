@@ -92,7 +92,7 @@ export default function LiveContextMenu({
   config,
   children,
   streamMetadata,
-}: LiveContextMenuProps) {
+}: Readonly<LiveContextMenuProps>) {
   const { t } = useTranslation("views/live");
   const [showSettings, setShowSettings] = useState(false);
 

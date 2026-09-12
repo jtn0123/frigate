@@ -50,7 +50,7 @@ export default function CreateRoleDialog({
   config,
   onCreate,
   onCancel,
-}: CreateRoleOverlayProps) {
+}: Readonly<CreateRoleOverlayProps>) {
   const { t } = useTranslation(["views/settings"]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 

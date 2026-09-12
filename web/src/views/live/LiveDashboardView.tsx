@@ -57,7 +57,7 @@ import { useStreamingSettings } from "@/context/streaming-settings-provider";
 import { useTranslation } from "react-i18next";
 import { EmptyCard } from "@/components/card/EmptyCard";
 import { BsFillCameraVideoOffFill } from "react-icons/bs";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 
 type LiveDashboardViewProps = {
@@ -712,7 +712,7 @@ export default function LiveDashboardView({
   );
 }
 
-function NoCameraView({ cameraGroup }: { cameraGroup?: string }) {
+function NoCameraView({ cameraGroup }: Readonly<{ cameraGroup?: string }>) {
   const { t } = useTranslation(["views/live"]);
   const { auth } = useContext(AuthContext);
   const isAdmin = useIsAdmin();

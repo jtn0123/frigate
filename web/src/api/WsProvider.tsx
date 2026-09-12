@@ -8,7 +8,7 @@ import {
   resetWsStore,
 } from "./ws";
 
-export function WsProvider({ children }: { children: ReactNode }) {
+export function WsProvider({ children }: Readonly<{ children: ReactNode }>) {
   const wsUrl = `${baseUrl.replace(/^http/, "ws")}ws`;
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

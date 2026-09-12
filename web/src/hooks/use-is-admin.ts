@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 
 export function useIsAdmin() {
   const { auth } = useContext(AuthContext);

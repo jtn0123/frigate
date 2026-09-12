@@ -47,7 +47,7 @@ export function EventSegment({
   setHandlebarTime,
   scrollToSegment,
   dense,
-}: EventSegmentProps) {
+}: Readonly<EventSegmentProps>) {
   const {
     getSeverity,
     getReviewed,
@@ -196,9 +196,11 @@ export function EventSegment({
   }, [startTimestamp]);
 
   return (
-    <div
+    <button
+      type="button"
       key={segmentKey}
       data-segment-id={segmentTime}
+      aria-label={timestamp.toLocaleString()}
       className={`segment ${segmentClasses}`}
       onClick={segmentClick}
       onTouchEnd={(event) => handleTouchStart(event, segmentClick)}
@@ -257,7 +259,7 @@ export function EventSegment({
           )}
         </React.Fragment>
       ))}
-    </div>
+    </button>
   );
 }
 

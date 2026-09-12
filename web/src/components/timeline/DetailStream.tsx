@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useId,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { TrackingDetailsSequence } from "@/types/timeline";
 import { getLifecycleItemDescription } from "@/utils/lifecycleUtil";
 import { useDetailStream } from "@/context/detail-stream-context";
@@ -52,8 +59,9 @@ export default function DetailStream({
   currentTime,
   isPlaying = false,
   onSeek,
-}: DetailStreamProps) {
+}: Readonly<DetailStreamProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
+  const alwaysExpandId = useId();
   const { t } = useTranslation("views/events");
   const { annotationOffset, selectedObjectIds, setSelectedObjectIds } =
     useDetailStream();
@@ -370,10 +378,14 @@ export default function DetailStream({
               <Separator />
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">
+                  <label
+                    htmlFor={alwaysExpandId}
+                    className="text-sm font-medium"
+                  >
                     {t("detail.alwaysExpandActive.title")}
                   </label>
                   <Switch
+                    id={alwaysExpandId}
                     checked={alwaysExpandActive}
                     onCheckedChange={setAlwaysExpandActive}
                   />
@@ -414,7 +426,7 @@ function ReviewGroup({
   effectiveTime,
   annotationOffset,
   alwaysExpandActive = false,
-}: ReviewGroupProps) {
+}: Readonly<ReviewGroupProps>) {
   const { t } = useTranslation("views/events");
   const [open, setOpen] = useState(false);
   const start = review.start_time ?? 0;
@@ -670,7 +682,7 @@ function EventList({
   annotationOffset,
   onSeek,
   onOpenUpload,
-}: EventListProps) {
+}: Readonly<EventListProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
 
   const { selectedObjectIds, setSelectedObjectIds, toggleObjectSelection } =
@@ -821,7 +833,7 @@ function LifecycleItem({
   effectiveTime,
   annotationOffset,
   isTimelineActive = false,
-}: LifecycleItemProps) {
+}: Readonly<LifecycleItemProps>) {
   const { t } = useTranslation("views/events");
   const { data: config } = useSWR<FrigateConfig>("config");
 
@@ -1041,7 +1053,7 @@ function ObjectTimeline({
   annotationOffset,
   startTime,
   endTime,
-}: {
+}: Readonly<{
   review: ReviewSegment;
   eventId: string;
   onSeek: (ts: number, play?: boolean) => void;
@@ -1049,7 +1061,7 @@ function ObjectTimeline({
   annotationOffset: number;
   startTime?: number;
   endTime?: number;
-}) {
+}>) {
   const { t } = useTranslation("views/events");
   const { data: fullTimeline, isValidating } = useSWR<
     TrackingDetailsSequence[]

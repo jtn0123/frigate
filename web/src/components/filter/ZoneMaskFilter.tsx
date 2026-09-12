@@ -75,7 +75,7 @@ export function GeneralFilterContent({
   selectedZoneMask,
   updateZoneMaskFilter,
   contentClassName,
-}: GeneralFilterContentProps) {
+}: Readonly<GeneralFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
     <>

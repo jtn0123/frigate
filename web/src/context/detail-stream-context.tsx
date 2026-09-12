@@ -4,6 +4,8 @@ import React, {
   useState,
   useEffect,
   useRef,
+  useCallback,
+  useMemo,
 } from "react";
 import { FrigateConfig } from "@/types/frigateConfig";
 import useSWR from "swr";
@@ -37,7 +39,7 @@ export function DetailStreamProvider({
   currentTime,
   camera,
   initialSelectedObjectIds,
-}: DetailStreamProviderProps) {
+}: Readonly<DetailStreamProviderProps>) {
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>(
     () => initialSelectedObjectIds ?? [],
   );
@@ -59,7 +61,7 @@ export function DetailStreamProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSelectedObjectIds]);
 
-  const toggleObjectSelection = (id: string | undefined) => {
+  const toggleObjectSelection = useCallback((id: string | undefined) => {
     if (id === undefined) {
       setSelectedObjectIds([]);
     } else {
@@ -71,7 +73,7 @@ export function DetailStreamProvider({
         }
       });
     }
-  };
+  }, []);
 
   const { data: config } = useSWR<FrigateConfig>("config");
 
@@ -114,16 +116,26 @@ export function DetailStreamProvider({
     prevCameraRef.current = camera;
   }, [isDetailMode, camera, initialSelectedObjectIds]);
 
-  const value: DetailStreamContextType = {
-    selectedObjectIds,
-    currentTime,
-    camera,
-    annotationOffset,
-    setAnnotationOffset,
-    setSelectedObjectIds,
-    toggleObjectSelection,
-    isDetailMode,
-  };
+  const value = useMemo<DetailStreamContextType>(
+    () => ({
+      selectedObjectIds,
+      currentTime,
+      camera,
+      annotationOffset,
+      setAnnotationOffset,
+      setSelectedObjectIds,
+      toggleObjectSelection,
+      isDetailMode,
+    }),
+    [
+      selectedObjectIds,
+      currentTime,
+      camera,
+      annotationOffset,
+      toggleObjectSelection,
+      isDetailMode,
+    ],
+  );
 
   return <DetailStreamContext value={value}>{children}</DetailStreamContext>;
 }

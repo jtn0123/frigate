@@ -57,7 +57,7 @@ export default function Step1NameAndDefine({
   defaultModelType,
   onNext,
   onCancel,
-}: Step1NameAndDefineProps) {
+}: Readonly<Step1NameAndDefineProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const { getLocaleDocUrl } = useDocDomain();

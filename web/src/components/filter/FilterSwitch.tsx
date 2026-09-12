@@ -18,7 +18,7 @@ export default function FilterSwitch({
   type = "",
   extraValue = "",
   onCheckedChange,
-}: FilterSwitchProps) {
+}: Readonly<FilterSwitchProps>) {
   return (
     <div className="flex items-center justify-between gap-1">
       {type === "camera" ? (

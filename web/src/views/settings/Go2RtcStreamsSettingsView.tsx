@@ -114,7 +114,7 @@ export default function Go2RtcStreamsSettingsView({
   onPendingDataChange,
   isSavingAll,
   onSectionSavingChange,
-}: SettingsPageProps) {
+}: Readonly<SettingsPageProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config, mutate: updateConfig } =
@@ -554,7 +554,7 @@ function RenameStreamDialog({
   allStreamNames,
   onRename,
   onClose,
-}: RenameStreamDialogProps) {
+}: Readonly<RenameStreamDialogProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const [newName, setNewName] = useState("");
 
@@ -598,7 +598,6 @@ function RenameStreamDialog({
                 onRename(streamName, newName);
               }
             }}
-            autoFocus
           />
           {nameError && newName !== streamName && (
             <p className="text-xs text-destructive">{nameError}</p>
@@ -633,7 +632,7 @@ function AddStreamDialog({
   allStreamNames,
   onAdd,
   onClose,
-}: AddStreamDialogProps) {
+}: Readonly<AddStreamDialogProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const [name, setName] = useState("");
 
@@ -678,7 +677,6 @@ function AddStreamDialog({
               }
             }}
             placeholder="camera_name"
-            autoFocus
           />
           {nameError && name.length > 0 && (
             <p className="text-xs text-destructive">{nameError}</p>
@@ -725,7 +723,7 @@ function StreamCard({
   onRemoveUrl,
   onToggleCredentialVisibility,
   defaultOpen = false,
-}: StreamCardProps) {
+}: Readonly<StreamCardProps>) {
   const { t } = useTranslation("views/settings");
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -823,7 +821,7 @@ function StreamUrlEntry({
   onUpdateUrl,
   onRemoveUrl,
   onToggleCredentialVisibility,
-}: StreamUrlEntryProps) {
+}: Readonly<StreamUrlEntryProps>) {
   const { t } = useTranslation("views/settings");
   const [isFocused, setIsFocused] = useState(false);
   const parsed = useMemo(() => parseFfmpegUrl(url), [url]);

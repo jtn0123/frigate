@@ -37,7 +37,7 @@ export default function CameraMetrics({
   lastUpdated,
   setLastUpdated,
   isActive,
-}: CameraMetricsProps) {
+}: Readonly<CameraMetricsProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const { t } = useTranslation(["views/system"]);
   // camera info dialog

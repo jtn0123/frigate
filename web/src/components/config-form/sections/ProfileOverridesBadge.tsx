@@ -22,7 +22,7 @@ export function ProfileOverridesBadge({
   profileFriendlyName,
   profileBorderColor,
   className,
-}: Props) {
+}: Readonly<Props>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const { t } = useTranslation(["views/settings"]);
   const deltas = useProfileSectionDeltas(

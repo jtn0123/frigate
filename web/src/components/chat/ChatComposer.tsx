@@ -50,7 +50,7 @@ export function ChatComposer({
   onAttach,
   recentEventIds,
   large = false,
-}: ChatComposerProps) {
+}: Readonly<ChatComposerProps>) {
   const { t } = useTranslation(["views/chat"]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

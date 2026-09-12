@@ -122,7 +122,7 @@ class ZmqIpcDetector(DetectionApi):
                 logger.error(f"Failed to initialize model {self._model_name}")
 
         except Exception as e:
-            logger.error(f"Failed to initialize model: {e}")
+            logger.exception(f"Failed to initialize model: {e}")
 
     def _check_and_transfer_model(self) -> bool:
         """Check if model is available and transfer if needed in one atomic operation."""
@@ -168,7 +168,7 @@ class ZmqIpcDetector(DetectionApi):
                 return False
 
         except Exception as e:
-            logger.error(f"Failed to check and transfer model: {e}")
+            logger.exception(f"Failed to check and transfer model: {e}")
             return False
 
     def _check_model_availability(self) -> bool:
@@ -205,7 +205,7 @@ class ZmqIpcDetector(DetectionApi):
                 return False
 
         except Exception as e:
-            logger.error(f"Failed to check model availability: {e}")
+            logger.exception(f"Failed to check model availability: {e}")
             return False
 
     def _send_model_data(self) -> bool:
@@ -262,7 +262,7 @@ class ZmqIpcDetector(DetectionApi):
                 return False
 
         except Exception as e:
-            logger.error(f"Failed to send model data: {e}")
+            logger.exception(f"Failed to send model data: {e}")
             return False
 
     def _build_header(self, tensor_input: np.ndarray) -> bytes:
@@ -294,7 +294,7 @@ class ZmqIpcDetector(DetectionApi):
             logger.warning("ZMQ detector received empty reply")
             return self._zero_result
         except Exception as exc:  # noqa: BLE001
-            logger.error(f"ZMQ detector failed to decode response: {exc}")
+            logger.exception(f"ZMQ detector failed to decode response: {exc}")
             return self._zero_result
 
     def detect_raw(self, tensor_input: np.ndarray) -> np.ndarray:
@@ -325,7 +325,7 @@ class ZmqIpcDetector(DetectionApi):
                 logger.debug("ZMQ detector reset after timeout failed", exc_info=True)
             return self._zero_result
         except zmq.ZMQError as exc:
-            logger.error(f"ZMQ detector ZMQError: {exc}; resetting socket")
+            logger.exception(f"ZMQ detector ZMQError: {exc}; resetting socket")
             try:
                 self._create_socket()
                 self._initialize_model()
@@ -333,7 +333,7 @@ class ZmqIpcDetector(DetectionApi):
                 logger.debug("ZMQ detector reset after error failed", exc_info=True)
             return self._zero_result
         except Exception as exc:  # noqa: BLE001
-            logger.error(f"ZMQ detector unexpected error: {exc}")
+            logger.exception(f"ZMQ detector unexpected error: {exc}")
             return self._zero_result
 
     def __del__(self) -> None:  # pragma: no cover - best-effort cleanup

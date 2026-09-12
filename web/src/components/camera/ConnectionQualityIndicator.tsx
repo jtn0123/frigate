@@ -18,7 +18,7 @@ export function ConnectionQualityIndicator({
   expectedFps,
   reconnects,
   stalls,
-}: ConnectionQualityIndicatorProps) {
+}: Readonly<ConnectionQualityIndicatorProps>) {
   const { t } = useTranslation(["views/system"]);
 
   const getColorClass = (quality: string): string => {

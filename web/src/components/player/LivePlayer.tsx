@@ -83,7 +83,7 @@ export default function LivePlayer({
   setFullResolution,
   onError,
   onResetLiveMode,
-}: LivePlayerProps) {
+}: Readonly<LivePlayerProps>) {
   const { t } = useTranslation(["components/player"]);
 
   const internalContainerRef = useRef<HTMLDivElement | null>(null);

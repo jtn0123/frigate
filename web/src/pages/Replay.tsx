@@ -635,7 +635,11 @@ type ObjectListProps = {
   config?: FrigateConfig;
 };
 
-function ObjectList({ cameraConfig, objects, config }: ObjectListProps) {
+function ObjectList({
+  cameraConfig,
+  objects,
+  config,
+}: Readonly<ObjectListProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
 
   const colormap = useMemo(() => {

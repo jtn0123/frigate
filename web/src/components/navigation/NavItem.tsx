@@ -36,7 +36,7 @@ export default function NavItem({
   Icon,
   onClick,
   large,
-}: NavItemProps) {
+}: Readonly<NavItemProps>) {
   const { t } = useTranslation(["common"]);
   if (item.enabled == false) {
     return;

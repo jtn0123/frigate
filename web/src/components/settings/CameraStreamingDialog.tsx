@@ -54,7 +54,7 @@ export function CameraStreamingDialog({
   setGroupStreamingSettings,
   setIsDialogOpen,
   onSave,
-}: CameraStreamingDialogProps) {
+}: Readonly<CameraStreamingDialogProps>) {
   const { t } = useTranslation(["components/camera", "components/dialog"]);
 
   const { getLocaleDocUrl } = useDocDomain();

@@ -63,7 +63,7 @@ export default function MultiExportDialog({
   selectedReviews,
   onStarted,
   children,
-}: MultiExportDialogProps) {
+}: Readonly<MultiExportDialogProps>) {
   const { t } = useTranslation(["components/dialog", "common"]);
   const locale = useDateLocale();
   const isAdmin = useIsAdmin();
@@ -295,7 +295,6 @@ export default function MultiExportDialog({
         value={newCaseName}
         onChange={(event) => setNewCaseName(event.target.value)}
         maxLength={100}
-        autoFocus={isDesktop}
       />
       <Textarea
         placeholder={t("export.case.newCaseDescriptionPlaceholder")}

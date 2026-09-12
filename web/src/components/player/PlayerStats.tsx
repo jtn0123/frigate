@@ -7,7 +7,7 @@ type PlayerStatsProps = {
   minimal: boolean;
 };
 
-export function PlayerStats({ stats, minimal }: PlayerStatsProps) {
+export function PlayerStats({ stats, minimal }: Readonly<PlayerStatsProps>) {
   const { t } = useTranslation(["components/player"]);
   const fullStatsContent = (
     <>

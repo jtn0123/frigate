@@ -25,7 +25,7 @@ export default function DeleteRoleDialog({
   role,
   onCancel,
   onDelete,
-}: DeleteRoleDialogProps) {
+}: Readonly<DeleteRoleDialogProps>) {
   const { t } = useTranslation("views/settings");
   const [isLoading, setIsLoading] = useState<boolean>(false);
 

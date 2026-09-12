@@ -50,7 +50,11 @@ type ReviewCardProps = {
   activeReviewItem?: ReviewSegment;
   onClick?: (event: ReviewSegment) => void;
 };
-function ReviewCard({ event, activeReviewItem, onClick }: ReviewCardProps) {
+function ReviewCard({
+  event,
+  activeReviewItem,
+  onClick,
+}: Readonly<ReviewCardProps>) {
   const { t } = useTranslation(["components/dialog"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [imgRef, imgLoaded, onImgLoad] = useImageLoaded();

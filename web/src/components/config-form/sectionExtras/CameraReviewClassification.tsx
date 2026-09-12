@@ -32,7 +32,7 @@ function getRequiredZones(
 export default function CameraReviewClassification({
   formContext,
   selectedCamera,
-}: SectionRendererProps) {
+}: Readonly<SectionRendererProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { getLocaleDocUrl } = useDocDomain();
   const cameraName = formContext?.cameraName ?? selectedCamera;

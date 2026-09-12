@@ -21,7 +21,7 @@ export function ToolCallBubble({
   arguments: args,
   response,
   side,
-}: ToolCallBubbleProps) {
+}: Readonly<ToolCallBubbleProps>) {
   const { t } = useTranslation(["views/chat"]);
   const [open, setOpen] = useState(false);
   const isLeft = side === "left";

@@ -36,7 +36,7 @@ export default function ExploreSettings({
   filter,
   setDefaultView,
   onUpdateFilter,
-}: ExploreSettingsProps) {
+}: Readonly<ExploreSettingsProps>) {
   const { t } = useTranslation(["components/filter"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [open, setOpen] = useState(false);
@@ -151,7 +151,7 @@ type SearchTypeContentProps = {
 export function SearchTypeContent({
   searchSources,
   setSearchSources,
-}: SearchTypeContentProps) {
+}: Readonly<SearchTypeContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
     <>

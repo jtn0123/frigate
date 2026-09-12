@@ -446,7 +446,9 @@ def delete_recordings(
             Path(recording["path"]).unlink(missing_ok=True)
             deleted_count += 1
         except Exception as e:
-            logger.error(f"Failed to delete recording file {recording['path']}: {e}")
+            logger.exception(
+                f"Failed to delete recording file {recording['path']}: {e}"
+            )
             error_count += 1
 
     if recording_ids:

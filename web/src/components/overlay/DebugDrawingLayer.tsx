@@ -20,7 +20,7 @@ function DebugDrawingLayer({
   containerRef,
   cameraWidth,
   cameraHeight,
-}: DebugDrawingLayerProps) {
+}: Readonly<DebugDrawingLayerProps>) {
   const [rectangle, setRectangle] = useState<{
     x: number;
     y: number;

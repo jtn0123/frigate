@@ -53,7 +53,7 @@ export default function SearchResultActions({
   addTrigger,
   isContextMenu = false,
   children,
-}: SearchResultActionsProps) {
+}: Readonly<SearchResultActionsProps>) {
   const { t } = useTranslation(["views/explore", "views/replay", "common"]);
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();

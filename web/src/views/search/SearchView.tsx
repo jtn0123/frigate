@@ -73,7 +73,7 @@ export default function SearchView({
   refresh,
   setColumns,
   setDefaultView,
-}: SearchViewProps) {
+}: Readonly<SearchViewProps>) {
   const { t } = useTranslation(["views/explore"]);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const { data: config } = useSWR<FrigateConfig>("config", {

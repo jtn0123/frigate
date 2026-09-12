@@ -23,7 +23,7 @@ export default function UploadImageDialog({
   description,
   setOpen,
   onSave,
-}: UploadImageDialogProps) {
+}: Readonly<UploadImageDialogProps>) {
   const { t } = useTranslation("common");
 
   return (

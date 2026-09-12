@@ -91,7 +91,7 @@ export default function HlsVideoPlayer({
   camera,
   currentTimeOverride,
   transformedOverlay,
-}: HlsVideoPlayerProps) {
+}: Readonly<HlsVideoPlayerProps>) {
   const { t } = useTranslation("components/player");
   const { data: config } = useSWR<FrigateConfig>("config");
   const isAdmin = useIsAdmin();
@@ -440,6 +440,8 @@ export default function HlsVideoPlayer({
                 />
               </div>
             )}
+          {/* Camera recordings have no supplied caption track. */}
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
             ref={videoRef}
             className={`size-full rounded-lg bg-black md:rounded-2xl ${loadedMetadata ? "" : "invisible"} cursor-pointer`}

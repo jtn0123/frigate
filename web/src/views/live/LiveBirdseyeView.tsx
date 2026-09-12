@@ -36,7 +36,7 @@ export default function LiveBirdseyeView({
   fullscreen,
   toggleFullscreen,
   onSelectCamera,
-}: LiveBirdseyeViewProps) {
+}: Readonly<LiveBirdseyeViewProps>) {
   const { t } = useTranslation(["views/live"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const navigate = useNavigate();
@@ -132,9 +132,7 @@ export default function LiveBirdseyeView({
 
   const playerRef = useRef<HTMLDivElement | null>(null);
   const handleOverlayClick = useCallback(
-    (
-      e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
-    ) => {
+    (e: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>) => {
       let clientX;
       let clientY;
       if ("TouchEvent" in window && e.nativeEvent instanceof TouchEvent) {
@@ -146,46 +144,48 @@ export default function LiveBirdseyeView({
       }
 
       if (
-        playerRef.current &&
-        clientX &&
-        clientY &&
-        config &&
-        birdseyeLayout?.payload
+        !playerRef.current ||
+        !clientX ||
+        !clientY ||
+        !config ||
+        !birdseyeLayout.payload
       ) {
-        const playerRect = playerRef.current.getBoundingClientRect();
+        return;
+      }
 
-        // Calculate coordinates relative to player div, accounting for offset
-        const rawX = clientX - playerRect.left;
-        const rawY = clientY - playerRect.top;
+      const playerRect = playerRef.current.getBoundingClientRect();
 
-        // Ensure click is within player bounds
+      // Calculate coordinates relative to player div, accounting for offset
+      const rawX = clientX - playerRect.left;
+      const rawY = clientY - playerRect.top;
+
+      // Ensure click is within player bounds
+      if (
+        rawX < 0 ||
+        rawX > playerRect.width ||
+        rawY < 0 ||
+        rawY > playerRect.height
+      ) {
+        return;
+      }
+
+      // Scale click coordinates to birdseye canvas resolution
+      const canvasX = rawX * (config.birdseye.width / playerRect.width);
+      const canvasY = rawY * (config.birdseye.height / playerRect.height);
+
+      for (const [cameraName, coords] of Object.entries(
+        birdseyeLayout.payload,
+      )) {
+        const parsedCoords =
+          typeof coords === "string" ? JSON.parse(coords) : coords;
         if (
-          rawX < 0 ||
-          rawX > playerRect.width ||
-          rawY < 0 ||
-          rawY > playerRect.height
+          canvasX >= parsedCoords.x &&
+          canvasX < parsedCoords.x + parsedCoords.width &&
+          canvasY >= parsedCoords.y &&
+          canvasY < parsedCoords.y + parsedCoords.height
         ) {
-          return;
-        }
-
-        // Scale click coordinates to birdseye canvas resolution
-        const canvasX = rawX * (config.birdseye.width / playerRect.width);
-        const canvasY = rawY * (config.birdseye.height / playerRect.height);
-
-        for (const [cameraName, coords] of Object.entries(
-          birdseyeLayout.payload,
-        )) {
-          const parsedCoords =
-            typeof coords === "string" ? JSON.parse(coords) : coords;
-          if (
-            canvasX >= parsedCoords.x &&
-            canvasX < parsedCoords.x + parsedCoords.width &&
-            canvasY >= parsedCoords.y &&
-            canvasY < parsedCoords.y + parsedCoords.height
-          ) {
-            onSelectCamera?.(cameraName);
-            break;
-          }
+          onSelectCamera?.(cameraName);
+          break;
         }
       }
     },
@@ -284,9 +284,11 @@ export default function LiveBirdseyeView({
               height: "100%",
             }}
           >
-            <div
+            {/* The camera map uses coordinates; the camera buttons provide keyboard access. */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
+            <fieldset
               className={cn(
-                "flex flex-col items-center justify-center",
+                "flex min-w-0 flex-col items-center justify-center",
                 growClassName,
               )}
               style={{
@@ -294,6 +296,20 @@ export default function LiveBirdseyeView({
               }}
               onClick={handleOverlayClick}
             >
+              <div className="sr-only focus-within:not-sr-only">
+                {Object.keys(birdseyeLayout.payload || {}).map((camera) => (
+                  <button
+                    key={camera}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectCamera?.(camera);
+                    }}
+                  >
+                    {camera}
+                  </button>
+                ))}
+              </div>
               <BirdseyeLivePlayer
                 className={`${fullscreen ? "*:rounded-none" : ""}`}
                 birdseyeConfig={config.birdseye}
@@ -302,7 +318,7 @@ export default function LiveBirdseyeView({
                 playerRef={playerRef}
                 pip={pip}
               />
-            </div>
+            </fieldset>
           </TransformComponent>
         </div>
       </div>

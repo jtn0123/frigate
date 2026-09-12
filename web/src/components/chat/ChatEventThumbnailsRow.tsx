@@ -28,7 +28,7 @@ export function ChatEventThumbnailsRow({
   events,
   anchor = null,
   onAttach,
-}: ChatEventThumbnailsRowProps) {
+}: Readonly<ChatEventThumbnailsRowProps>) {
   const apiHost = useApiHost();
   const { t } = useTranslation(["views/chat"]);
 

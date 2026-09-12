@@ -43,7 +43,7 @@ export function ObjectPath({
   imgRef,
   onPointClick,
   visible = true,
-}: ObjectPathProps) {
+}: Readonly<ObjectPathProps>) {
   const { t } = useTranslation(["views/explore"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const getAbsolutePositions = useCallback(() => {

@@ -21,7 +21,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 import { LuExternalLink } from "react-icons/lu";
@@ -112,7 +112,6 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                 <FormControl>
                   <Input
                     className="w-full border border-input bg-background p-2 hover:bg-accent hover:text-accent-foreground dark:[color-scheme:dark]"
-                    autoFocus
                     autoCapitalize="off"
                     autoCorrect="off"
                     spellCheck="false"

@@ -1154,7 +1154,7 @@ async def analyze_record_keyframes(
         proc.kill()
         return classify_keyframe_gaps([], segment_time)
     except OSError as err:
-        logger.error("Keyframe probe failed: %s", err)
+        logger.exception("Keyframe probe failed: %s", err)
         return classify_keyframe_gaps([], segment_time)
 
     keyframe_pts, max_pts = parse_keyframe_packets(stdout.decode("utf-8", "replace"))

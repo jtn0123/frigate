@@ -21,7 +21,7 @@ type GPUInfoDialogProps = {
   setShowGpuInfo: (show: boolean) => void;
 };
 
-function VainfoBody({ vainfo }: { vainfo: Vainfo }) {
+function VainfoBody({ vainfo }: Readonly<{ vainfo: Vainfo }>) {
   const { t } = useTranslation(["views/system"]);
   return (
     <div className="scrollbar-container mb-2 max-h-96 overflow-y-scroll whitespace-pre-line">
@@ -42,7 +42,7 @@ function VainfoBody({ vainfo }: { vainfo: Vainfo }) {
   );
 }
 
-function NvinfoBody({ nvinfo }: { nvinfo: Nvinfo }) {
+function NvinfoBody({ nvinfo }: Readonly<{ nvinfo: Nvinfo }>) {
   const { t } = useTranslation(["views/system"]);
   const gpu = nvinfo["0"];
   return (

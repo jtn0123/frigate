@@ -45,7 +45,7 @@ export default function CameraFeatureToggle({
   onClick,
   disabled = false,
   loading = false,
-}: CameraFeatureToggleProps) {
+}: Readonly<CameraFeatureToggleProps>) {
   const content = (
     <div
       onClick={disabled ? undefined : onClick}

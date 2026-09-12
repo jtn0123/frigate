@@ -7,7 +7,7 @@ type ImageShadowOverlayProps = {
 export function ImageShadowOverlay({
   upperClassName,
   lowerClassName,
-}: ImageShadowOverlayProps) {
+}: Readonly<ImageShadowOverlayProps>) {
   return (
     <>
       <div

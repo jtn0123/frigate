@@ -2,7 +2,7 @@ import { useEmbeddingsReindexProgress } from "@/api/ws";
 import {
   StatusBarMessagesContext,
   StatusMessage,
-} from "@/context/statusbar-provider";
+} from "@/context/statusbar-context";
 import useStats, { useAutoFrigateStats } from "@/hooks/use-stats";
 import { cn } from "@/lib/utils";
 import type { ProfilesApiResponse } from "@/types/profile";

@@ -79,7 +79,7 @@ type CameraWizardDialogProps = {
 export default function CameraWizardDialog({
   open,
   onClose,
-}: CameraWizardDialogProps) {
+}: Readonly<CameraWizardDialogProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { mutate: updateConfig } = useSWR("config");
   const [currentStep, setCurrentStep] = useState(0);

@@ -77,7 +77,7 @@ export default function ClassificationModelEditDialog({
   model,
   onClose,
   onSuccess,
-}: ClassificationModelEditDialogProps) {
+}: Readonly<ClassificationModelEditDialogProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [isSaving, setIsSaving] = useState(false);

@@ -40,7 +40,7 @@ export default function ExportActionGroup({
   currentCaseId,
   mutate,
   deleteExports,
-}: ExportActionGroupProps) {
+}: Readonly<ExportActionGroupProps>) {
   const { t } = useTranslation(["views/exports", "common"]);
   const isAdmin = useIsAdmin();
 
