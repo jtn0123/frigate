@@ -9,9 +9,9 @@ Work branch: `fix/sonar-priority`.
 - Previously observed Sonar findings addressed in source: **415**
 - Current request: **300 additional findings addressed**
 - Sonar findings confirmed closed by a new scan: **0**
-- Latest backend validation: **passed, 1,059 tests in 264.223 seconds** (round 2)
+- Latest backend validation: **passed, 1,063 tests in 284.577 seconds** (PR follow-up)
 - Round 3 frontend validation: passed; subsequent warning cleanup tracked separately
-- Delivery: PR branch `fix/sonar-priority`, targeting `next`; no merge or deployment
+- Delivery: [PR 34](https://github.com/jtn0123/frigate/pull/34), targeting `next`; no merge or deployment
 
 The source count maps to findings observed in the initial Sonar review. It is
 not a reduction measured by Sonar. Multiple warnings can share one fix; extra

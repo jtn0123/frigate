@@ -59,4 +59,11 @@ findings are not added to the 415 pre-existing source findings addressed.
 
 Two ONVIF regression tests check CR/LF camera names and preservation of exception
 and retry data. Two camera-role tests protect shared roles, built-in roles and
-absent auth data. Scan confirmation and final checks are pending.
+absent auth data. The follow-up passed 1,063 backend tests, mypy on 359 files,
+the API-spec drift check, 242 frontend tests and targeted browser checks
+(40 passed, 20 skipped). The Sonar quality gate passed.
+
+Two S6819 advisories concern presentational grid wrappers. Their suggested
+replacement with images is inappropriate for containers that forward grid drag
+gestures and contain interactive children, so those suggestions are not applied.
+See [PR 34](https://github.com/jtn0123/frigate/pull/34) for current scan and CI state.

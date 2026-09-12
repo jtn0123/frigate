@@ -126,7 +126,8 @@ def _remove_camera_roles(data: dict, camera_name: str) -> None:
     if not auth:
         return
     roles = auth.get("roles", {})
-    for role_name, cameras in list(roles.items()):
+    # Deleting empty roles must not invalidate the mapping being iterated.
+    for role_name, cameras in roles.copy().items():
         if isinstance(cameras, list) and camera_name in cameras:
             cameras.remove(camera_name)
             if not cameras and role_name not in ("admin", "viewer"):

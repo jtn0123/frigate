@@ -144,46 +144,48 @@ export default function LiveBirdseyeView({
       }
 
       if (
-        playerRef.current &&
-        clientX &&
-        clientY &&
-        config &&
-        birdseyeLayout?.payload
+        !playerRef.current ||
+        !clientX ||
+        !clientY ||
+        !config ||
+        !birdseyeLayout.payload
       ) {
-        const playerRect = playerRef.current.getBoundingClientRect();
+        return;
+      }
 
-        // Calculate coordinates relative to player div, accounting for offset
-        const rawX = clientX - playerRect.left;
-        const rawY = clientY - playerRect.top;
+      const playerRect = playerRef.current.getBoundingClientRect();
 
-        // Ensure click is within player bounds
+      // Calculate coordinates relative to player div, accounting for offset
+      const rawX = clientX - playerRect.left;
+      const rawY = clientY - playerRect.top;
+
+      // Ensure click is within player bounds
+      if (
+        rawX < 0 ||
+        rawX > playerRect.width ||
+        rawY < 0 ||
+        rawY > playerRect.height
+      ) {
+        return;
+      }
+
+      // Scale click coordinates to birdseye canvas resolution
+      const canvasX = rawX * (config.birdseye.width / playerRect.width);
+      const canvasY = rawY * (config.birdseye.height / playerRect.height);
+
+      for (const [cameraName, coords] of Object.entries(
+        birdseyeLayout.payload,
+      )) {
+        const parsedCoords =
+          typeof coords === "string" ? JSON.parse(coords) : coords;
         if (
-          rawX < 0 ||
-          rawX > playerRect.width ||
-          rawY < 0 ||
-          rawY > playerRect.height
+          canvasX >= parsedCoords.x &&
+          canvasX < parsedCoords.x + parsedCoords.width &&
+          canvasY >= parsedCoords.y &&
+          canvasY < parsedCoords.y + parsedCoords.height
         ) {
-          return;
-        }
-
-        // Scale click coordinates to birdseye canvas resolution
-        const canvasX = rawX * (config.birdseye.width / playerRect.width);
-        const canvasY = rawY * (config.birdseye.height / playerRect.height);
-
-        for (const [cameraName, coords] of Object.entries(
-          birdseyeLayout.payload,
-        )) {
-          const parsedCoords =
-            typeof coords === "string" ? JSON.parse(coords) : coords;
-          if (
-            canvasX >= parsedCoords.x &&
-            canvasX < parsedCoords.x + parsedCoords.width &&
-            canvasY >= parsedCoords.y &&
-            canvasY < parsedCoords.y + parsedCoords.height
-          ) {
-            onSelectCamera?.(cameraName);
-            break;
-          }
+          onSelectCamera?.(cameraName);
+          break;
         }
       }
     },
