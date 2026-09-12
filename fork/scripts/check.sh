@@ -5,7 +5,7 @@
 #   fork/scripts/check.sh           # every gate CI runs (make check)
 #   fork/scripts/check.sh --fast    # changed-only, for the inner loop (make check-fast)
 #
-# --fast compares against the merge base with $FORK_BASE (default origin/main),
+# --fast compares against the merge base with $FORK_BASE (default origin/next),
 # including uncommitted and untracked files: vitest runs only tests affected by
 # the change, e2e runs only changed specs, and the Python gates run only when
 # Python changed. lint and typecheck always cover the whole tree (their caches
@@ -23,7 +23,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 mode=full
 if [[ "${1:-}" == "--fast" ]]; then mode=fast; fi
 
-base_ref="${FORK_BASE:-origin/main}"
+base_ref="${FORK_BASE:-origin/next}"
 base="$(git merge-base HEAD "$base_ref")" || {
   echo "no merge base with $base_ref (set FORK_BASE)" >&2
   exit 1
@@ -41,7 +41,7 @@ touches() { grep -Eq "$1" <<<"$changed"; }
 ruff_version="$(sed -n 's/^ruff *== *//p' docker/main/requirements-dev.txt)"
 if command -v uvx >/dev/null; then ruff=(uvx -q "ruff@${ruff_version}"); else ruff=(ruff); fi
 
-py_files='^(frigate|migrations|docker)/.*\.py$|^[^/]+\.py$'
+py_files='^(frigate|migrations|docker|fork/scripts)/.*\.py$|^[^/]+\.py$'
 py_gates='^(frigate|migrations|docker)/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|scripts/py-checks\.sh)$|^docs/static/frigate-api\.yaml$'
 e2e_args=()
 
@@ -70,9 +70,12 @@ gate_ruff() {
     ((${#files[@]})) || return 0
     "${ruff[@]}" format --check "${files[@]}" && "${ruff[@]}" check "${files[@]}"
   else
-    "${ruff[@]}" format --check frigate migrations docker ./*.py && "${ruff[@]}" check frigate migrations docker ./*.py
+    "${ruff[@]}" format --check frigate migrations docker fork/scripts ./*.py && "${ruff[@]}" check frigate migrations docker fork/scripts ./*.py
   fi
 }
+
+# Unit tests for the fork's own scripts (release notes); plain python3, no image.
+gate_scripts() { python3 -m unittest discover -s fork/scripts -p 'test_*.py'; }
 
 # The e2e bundle, checked against CI's eager-bundle budget (fork/bundle-budget.json).
 gate_build() { (cd web && npx vite build --base=/ && npm run -s bundle:budget); }
@@ -118,6 +121,11 @@ skip() { notes+=("  -  $(printf '%-10s' "$1") not run: $2"); }
 host=(lint typecheck ratchet vitest i18n ruff gitleaks)
 docker_lane=()
 if [[ "$mode" == fast ]]; then
+  if touches '^fork/scripts/.*\.py$'; then
+    host+=(scripts)
+  else
+    skip scripts "no fork/scripts Python changes"
+  fi
   if touches '^web/e2e/'; then
     e2e_args=(--only-changed="$base")
     host+=(build e2e)
@@ -131,7 +139,7 @@ if [[ "$mode" == fast ]]; then
     skip python "no backend changes"
   fi
 else
-  host+=(build e2e)
+  host+=(scripts build e2e)
   docker_lane=(python)
 fi
 

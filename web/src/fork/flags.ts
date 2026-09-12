@@ -36,6 +36,8 @@ export type ForkFlags = {
   unifiedEventDetail: boolean;
   /** Viewport-driven responsive layout instead of user-agent sniffing. */
   viewportLayout: boolean;
+  /** Update button and What's new from the fork's GitHub releases. */
+  updateNotices: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -52,6 +54,7 @@ const defaults: ForkFlags = {
   timelineScrubber: true,
   unifiedEventDetail: true,
   viewportLayout: true,
+  updateNotices: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {

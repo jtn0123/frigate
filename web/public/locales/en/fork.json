@@ -59,7 +59,8 @@
     },
     "actions": {
       "toggleTheme": "Toggle dark / light theme",
-      "markAllReviewed": "Mark all as reviewed"
+      "markAllReviewed": "Mark all as reviewed",
+      "whatsNew": "What's new"
     },
     "toast": {
       "nothingToReview": "Nothing left to review",
@@ -222,5 +223,26 @@
     "expired": "This share link has expired.",
     "noClip": "The clip is no longer available.",
     "play": "Play clip"
+  },
+  "updates": {
+    "button_one": "{{count}} update available",
+    "button_other": "{{count}} updates available",
+    "availableTitle_one": "An update is available",
+    "availableTitle_other": "{{count}} updates are available",
+    "availableDescription": "This server runs {{current}}. The newest release is {{latest}}.",
+    "whatsNewTitle": "What's new",
+    "whatsNewDescription": "Frigate is now on {{version}}.",
+    "developmentDescription": "This build is not a published release. These are the newest release notes.",
+    "noNotes": "No release notes yet.",
+    "viewOnGitHub": "View on GitHub",
+    "howTo": {
+      "title": "How to update",
+      "portainer": "Portainer: open the Frigate stack and choose Pull and redeploy.",
+      "compose": "Docker Compose: run this in the folder with your compose file."
+    },
+    "checkNow": "Check now",
+    "checking": "Checking...",
+    "checkFailed": "Could not check for updates",
+    "close": "Close"
   }
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Creates a section worktree ready to work in: branch section/<name> from
-# origin/main, web/node_modules, and its own e2e port.
+# origin/next (where pull requests land), web/node_modules, and its own e2e port.
 #
 #   fork/scripts/wt.sh <name>    # make wt NAME=<name>
 #
@@ -26,7 +26,7 @@ git -C "$main" fetch -q origin
 if git -C "$main" show-ref -q --verify "refs/heads/$branch"; then
   git -C "$main" worktree add -q "$dir" "$branch"
 else
-  git -C "$main" worktree add -q --no-track -b "$branch" "$dir" origin/main
+  git -C "$main" worktree add -q --no-track -b "$branch" "$dir" origin/next
 fi
 echo "worktree  $dir on $branch"
 

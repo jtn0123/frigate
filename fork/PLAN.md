@@ -3,15 +3,15 @@
 The single source of truth for work on this fork. Read `FORK.md` first for the
 rebase rules. This file says what is next, in order, and how to do it.
 
-> **2026-09-10: the work branch `polish` was renamed `main`.** Rebase section
-> branches onto `origin/main` and open PRs with `--base main`. `polish` no
-> longer exists; pushes to it are rejected by the pre-push hook and a ruleset.
-> New local tooling: `make wt`, `make check-fast`, `make check` (see
-> **Workflow per section**).
->
-> **2026-09-11: follow-up Phase 1 work continues on `polish2`.** `main` stays
-> the published default. Merge `polish2` into `main` when a section is done
-> and Fork - Checks is green.
+> **2026-09-11: pull requests land on `next`; `main` is the release branch.**
+> Branch sections from `origin/next` (`make wt` does) and open PRs with
+> `--base next`. The coordinating agent merges them and re-runs the gates in
+> the `next` worktree (`/Volumes/512Flash/frigate-wt/next`). Only
+> `make promote` moves `main`: it checks that Fork - Checks is green on
+> `next`, previews the release notes, and pushes `next` to `main`, which builds
+> `ghcr.io/jtn0123/frigate:main` (the image the owner's server pulls) and
+> publishes a GitHub Release (I12). Promoting is the owner's call. `polish`
+> and `polish2` are gone; pushes to `polish` are rejected by a ruleset.
 
 ## Start here (new agent)
 
@@ -22,9 +22,9 @@ rebase rules. This file says what is next, in order, and how to do it.
    `make wt NAME=<name>`).
    On another machine, clone `jtn0123/frigate` and set up the local guards in
    **Safety setup** first.
-3. `git fetch origin && git rebase origin/main` in the worktree.
+3. `git fetch origin && git rebase origin/next` in the worktree.
 4. Build, commit per item, run every gate in **Workflow per section**.
-5. Only the coordinating agent merges into `main`, pushes it, and ticks the
+5. Only the coordinating agent merges into `next`, pushes it, and ticks the
    box here, so two agents never race on the same branch.
 
 ## Goal
@@ -37,8 +37,9 @@ the fork healthy and raise quality. Every item carries its ID from
 
 - Base: upstream `v0.18.0-rc2`. Repo `github.com/jtn0123/frigate`, clone at
   `/Volumes/512Flash/frigate`.
-- Work branch `main` (the GitHub default branch). `dev` mirrors upstream and
-  is never committed to.
+- Work branch `next` (the GitHub default branch); release branch `main`,
+  moved only by `make promote`. `dev` mirrors upstream and is never committed
+  to.
 
 ## Hard rules
 
@@ -47,7 +48,7 @@ the fork healthy and raise quality. Every item carries its ID from
   GitHub is allowed.
 - Commits, pushes, PRs and issues go only to `github.com/jtn0123/*`. Never open
   a PR, issue or comment on `blakeblackshear/frigate`. Use
-  `gh pr create --repo jtn0123/frigate --base main`.
+  `gh pr create --repo jtn0123/frigate --base next`.
 - No camera passwords, tokens or credentials in git or docs. Root `.env*` files
   are gitignored; keep secrets there.
 - Small, additive changes: new files over edits; small self-contained hunks
@@ -67,7 +68,7 @@ the fork healthy and raise quality. Every item carries its ID from
 
 ## The queue
 
-Tick a box only after the section is merged into `main`, pushed, and
+Tick a box only after the section is merged into `next`, pushed, and
 "Fork - Checks" is green on that commit. Pairs on the same line can run in
 parallel; each needs its own `E2E_PORT`.
 
@@ -272,10 +273,11 @@ sites under **Follow-ups**.
 
 ### 9. Closing pass
 
-- Rebase `main` onto the newest upstream tag (rc2 or later) and re-run every
+- Rebase `next` onto the newest upstream tag (rc2 or later) and re-run every
   gate.
-- Tag `fork/<version>` and push it; "Fork - Build image" publishes
-  `ghcr.io/jtn0123/frigate`. Do not deploy.
+- Ask the owner before `make promote`; the push to `main` makes "Fork - Build
+  image" publish `ghcr.io/jtn0123/frigate:main` and a GitHub Release. Do not
+  deploy.
 - Regrade `fork/GRADE-REPORT.md`.
 - List the "candidate" ledger rows that would make good upstream PRs, bug
   fixes first. Do not open them; the owner decides.
@@ -315,7 +317,7 @@ set its status in the report.
 
 1. `make wt NAME=<name>` from any checkout: worktree
    `/Volumes/512Flash/frigate-wt/<name>` on `section/<name>` from
-   `origin/main`, with node_modules and its own e2e port in `web/.e2e-port`.
+   `origin/next`, with node_modules and its own e2e port in `web/.e2e-port`.
    Push the section branch to origin as a backup.
 2. Implement and commit per item. `make check-fast` after each commit: lint and
    typecheck on the whole tree (cached), vitest and e2e for what changed, the
@@ -326,19 +328,22 @@ set its status in the report.
    spec + unittest in this worktree's test image, beside the rest). It prints
    one line per gate and the log of any failure; about 3–4 minutes. Individual
    targets are in `fork/README.md`.
-4. Rebase onto `main`. `FORK.md` conflicts on every rebase: keep both sides'
-   rows (rerere is on, so a resolution is replayed next time). Fast-forward
-   `main`, re-run the gates in the main checkout, `git push origin main`.
-5. Confirm CI: `gh run list -R jtn0123/frigate --branch main --limit 3`.
-   Red "Fork - Checks" is a bug to fix before the next section.
+4. Rebase onto `next`. `FORK.md` conflicts on every rebase: keep both sides'
+   rows (rerere is on, so a resolution is replayed next time). Open the PR with
+   `gh pr create --repo jtn0123/frigate --base next`; the coordinating agent
+   merges it and re-runs the gates in the `next` worktree.
+5. Confirm CI: `gh run list -R jtn0123/frigate --branch next --limit 3`.
+   Red "Fork - Checks" is a bug to fix before the next section. Releasing is
+   separate: `make promote` when the owner asks for one.
 
 ## Safety setup (already configured)
 
-GitHub `jtn0123/frigate`: default branch `main`; secret scanning + push
+GitHub `jtn0123/frigate`: default branch `next` (pull requests land there;
+`main` is the release branch); secret scanning + push
 protection; Dependabot alerts + grouped security updates (version updates off);
 CodeQL default setup (Python, JS/TS, Actions); rulesets stop deletion of
-`main`/`dev` and deletion or moving of `fork/*` tags (force-push on `main`
-stays allowed for rebases); upstream workflows CI, On pull request, PR template
+`main`/`next`/`dev` and deletion or moving of `fork/*` tags (force-push on
+`next` and `main` stays allowed for rebases and `make promote`); upstream workflows CI, On pull request, PR template
 check, On release and Stalebot are disabled; Issues enabled for the sync bot;
 "Fork - Checks" runs gitleaks over `origin/dev..HEAD`.
 

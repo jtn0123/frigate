@@ -5,10 +5,12 @@ The backend is kept as close to upstream as possible; every divergence is listed
 here with its reason and, where one exists, the upstream pull request that would
 make the entry go away.
 
-Rules that keep this fork rebasable (see the `main` branch):
+Rules that keep this fork rebasable (see the `next` branch):
 
-- `dev` mirrors upstream and is never committed to. All work lives on `main`,
-  rebased onto `upstream/dev` weekly. One report item = one commit.
+- `dev` mirrors upstream and is never committed to. Pull requests land on
+  `next`, which is rebased onto `upstream/dev` when upstream moves. `main` is
+  the release branch and only moves with `make promote`. One report item = one
+  commit.
 - Add files rather than editing them. When an upstream file must change, keep
   the hunk small and self-contained.
 - Fork-only UI behaviour is gated in `web/src/fork/flags.ts`.
@@ -23,13 +25,16 @@ Rules that keep this fork rebasable (see the `main` branch):
 - Local guards: `gh repo set-default jtn0123/frigate`, `upstream` has its push
   URL set to `no_push`, and `.git/hooks/pre-push` rejects any other URL.
 
-Deployed builds are tagged `fork/<version>-<date>` and published by
-`.github/workflows/fork-build.yml` to `ghcr.io/jtn0123/frigate`.
+Every push to `main` builds `ghcr.io/jtn0123/frigate:main` (what the server
+pulls) and `:<upstream base>-<date>.<run>` with
+`.github/workflows/fork-build.yml`, and publishes a GitHub Release tagged
+`fork/<that version>` with notes from `fork/scripts/release_notes.py`. A
+manually pushed `fork/*` tag builds an image of that tag, without a release.
 
 Daily (and on `workflow_dispatch`), `.github/workflows/fork-upstream-sync.yml`
 fetches `blakeblackshear/frigate` read-only, fast-forwards `origin/dev`, and
-if `main` does not already contain `upstream/dev` it rebases a copy onto
-`sync/upstream` (never `main`) and opens or updates an issue. A new
+if `next` does not already contain `upstream/dev` it rebases a copy onto
+`sync/upstream` (never `next` or `main`) and opens or updates an issue. A new
 upstream `v*` tag after `v0.18.0-rc2` gets its own issue. `GITHUB_TOKEN`
 pushes do not trigger workflows, so the bot dispatches "Fork - Checks" on
 `sync/upstream`.
@@ -93,4 +98,6 @@ pushes do not trigger workflows, so the bot dispatches "Fork - Checks" on
 | UI10 | web: explore/review | `web/src/components/fork/bulk/BulkActionBar.tsx`, `web/src/hooks/fork/use-bulk-selection.ts`, `web/src/lib/fork/bulk-actions.tsx`, `web/e2e/specs/fork/bulk-actions.spec.ts`, keys in `web/public/locales/en/fork.json`; small hunks in `web/src/views/search/SearchView.tsx` (select mode), `web/src/components/filter/ReviewActionGroup.tsx` and `web/src/pages/Events.tsx` (undo toast) | Multi-select in Explore (range, select-all, delete, Frigate+) and an undo toast for Review mark-reviewed. Flag `bulkActions`. | fork-only |
 | UI8 | web: timeline | `web/src/lib/fork/timeline-scrubber.ts`, `web/e2e/specs/fork/timeline-scrubber.spec.ts`, keys in `web/public/locales/en/fork.json`; small hunks in `web/src/components/timeline/{ReviewTimeline,EventReviewTimeline,MotionReviewTimeline}.tsx` | Snap-to-event on handlebar release, Left/Right stepping between events, and larger touch targets. Flag `timelineScrubber`. | fork-only |
 | UI9 | web: explore/review | `web/src/components/fork/EventSummaryHeader.tsx`, `web/src/lib/fork/event-summary.ts`, `web/e2e/specs/fork/event-summary.spec.ts`; small hunks in `SearchDetailDialog.tsx` and `DetailStream.tsx` | Shared camera / label / time / duration / zone row on Explore and Review detail panels. Flag `unifiedEventDetail`. | fork-only |
+| I13 | CI + tooling | `fork/scripts/release_notes.py` (+ `test_release_notes.py`), `fork/scripts/promote.sh`, `.github/workflows/fork-build.yml` (version tag, `release` job), `Makefile` (`promote`, `fork/scripts` in lint/format), `fork/scripts/check.sh` (`scripts` gate), `.github/workflows/fork-checks.yml` + `fork/scripts/ci-changes.sh` (lint and test `fork/scripts`) | Every `main` build is also tagged `:<upstream base>-<date>.<run>` and gets a GitHub Release whose notes come from the fork's own commits: grouped by ledger ID, internal work counted instead of listed, `Release-note:` trailers to override, rebase-proof, ending in a build marker the app matches. `make promote` moves `main` to `next` after Fork - Checks is green | n/a (fork-only) |
+| UI42 | web+backend: updates | `frigate/fork/updates.py`, `frigate/api/fork_updates.py` (+ `frigate/test/test_fork_updates.py`, `frigate/test/http_api/test_http_fork_updates.py`), `web/src/lib/fork/updates.ts` (+ `.test.ts`), `web/src/hooks/fork/use-fork-updates.ts`, `web/src/components/fork/updates/{UpdateNotices,ReleaseNotesDialog}.tsx`, `web/e2e/specs/fork/update-notices.spec.ts`, `web/e2e/fixtures/mock-data/fork-updates.ts`, keys in `web/public/locales/en/fork.json`; hunks in `fastapi_app.py` (router), `auth.py` (admin-default skip), `frigate/stats/util.py` (`latest_version` from the fork's releases, never upstream), `ForkNavItems.tsx`, `CommandPalette.tsx` (What's new action), `web/e2e/helpers/api-mocker.ts` (default mock), `docs/static/frigate-api.yaml` | `GET /api/fork/updates` compares the running build (the SHA `make version` stamps) with `jtn0123/frigate` releases, cached 6 h and honoring `telemetry.version_check`. Admins get an update button with the notes and how to pull; everyone gets What's new once per release this browser has not seen, and from the command palette. Flag `updateNotices`. | fork-only |
 | UI11 | web+backend: share | `frigate/api/fork_share.py`, `ShareLink` + `migrations/036_create_share_link.py`, `web/src/lib/fork/qr.ts`, `web/src/lib/fork/share-path.ts`, `web/src/components/fork/ShareClipButton.tsx`, `web/src/pages/fork/ShareClipPage.tsx`, `web/e2e/specs/fork/clip-sharing.spec.ts`; hunks in `auth.py` (admin-default skip), `nginx.conf` (GET auth_request off), `App.tsx`, `SearchDetailDialog.tsx`, `DetailStream.tsx` | Expiring clip share link with a QR code. Public GET uses `allow_public`; token is the credential. Flag `clipSharing`. | fork-only |

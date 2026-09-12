@@ -1,19 +1,21 @@
 name: Fork - Checks
 
-# Same gates as upstream's pull_request.yml, run on every push to main, with
-# dependency caching and a thin backend test image instead of a full devcontainer
-# build. Web and Python jobs run only when their files changed (docs-only
-# commits run just the secrets scan); "Checks passed" is the single job to
-# require.
+# Same gates as upstream's pull_request.yml, run on pushes to next (where pull
+# requests land) and main (the release branch), with dependency caching and a
+# thin backend test image instead of a full devcontainer build. Web and Python
+# jobs run only when their files changed (docs-only commits run just the
+# secrets scan); "Checks passed" is the single job to require.
 
 on:
   workflow_dispatch:
   push:
     branches:
+      - next
       - main
       - "sync/**"
   pull_request:
     branches:
+      - next
       - main
 
 permissions:
@@ -185,8 +187,9 @@ jobs:
       - run: |
           python3 -m pip install -U pip
           python3 -m pip install -r docker/main/requirements-dev.txt
-      - run: ruff format --check --diff frigate migrations docker ./*.py
-      - run: ruff check frigate migrations docker ./*.py
+      - run: ruff format --check --diff frigate migrations docker fork/scripts ./*.py
+      - run: ruff check frigate migrations docker fork/scripts ./*.py
+      - run: python3 -m unittest discover -s fork/scripts -p "test_*.py"
 
   python_tests:
     name: Python - mypy, API spec, unittest
