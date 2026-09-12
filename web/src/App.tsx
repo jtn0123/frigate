@@ -59,7 +59,9 @@ function App() {
   );
 }
 
-function DefaultAppView({ config }: { config: FrigateConfig | undefined }) {
+function DefaultAppView({
+  config,
+}: Readonly<{ config: FrigateConfig | undefined }>) {
   const location = useLocation();
   const publicShare = isPublicSharePath(location.pathname);
 

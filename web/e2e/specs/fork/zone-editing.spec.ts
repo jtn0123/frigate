@@ -39,18 +39,20 @@ test.describe("Zone editing @high", () => {
     ).toBeDisabled();
   });
 
-  test("Save stays disabled after a name if the polygon is unfinished @mobile", async ({
-    frigateApp,
-  }) => {
-    test.skip(!frigateApp.isMobile, "Mobile validation");
-    await installZoneRoutes(frigateApp.page);
-    await frigateApp.goto("/settings?page=masksAndZones");
-    await frigateApp.page.getByRole("button", { name: "Add Zone" }).click();
-    await expect(
-      frigateApp.page.getByRole("heading", { name: "Add Zone" }),
-    ).toBeVisible();
-    await expect(
-      frigateApp.page.getByRole("button", { name: /^Save$/i }),
-    ).toBeDisabled();
+  test.describe("mobile", () => {
+    test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile validation");
+    test("Save stays disabled after a name if the polygon is unfinished @mobile", async ({
+      frigateApp,
+    }) => {
+      await installZoneRoutes(frigateApp.page);
+      await frigateApp.goto("/settings?page=masksAndZones");
+      await frigateApp.page.getByRole("button", { name: "Add Zone" }).click();
+      await expect(
+        frigateApp.page.getByRole("heading", { name: "Add Zone" }),
+      ).toBeVisible();
+      await expect(
+        frigateApp.page.getByRole("button", { name: /^Save$/i }),
+      ).toBeDisabled();
+    });
   });
 });

@@ -70,54 +70,62 @@ async function openMotionSearch(page: Page, isMobile: boolean) {
 }
 
 test.describe("Motion search @high", () => {
-  test("empty state and Start Search stay disabled until a region is drawn", async ({
-    frigateApp,
-  }) => {
-    test.skip(frigateApp.isMobile, "Desktop actions menu");
-    await mockRecordingApis(frigateApp.page);
-    await frigateApp.goto(`/review?timestamp=front_door_${playbackTime}`);
-    await openMotionSearch(frigateApp.page, false);
-    await expect(
-      frigateApp.page.getByRole("button", { name: /Start Search/i }),
-    ).toBeDisabled();
+  test.describe("desktop", () => {
+    test.skip(
+      ({ frigateApp }) => frigateApp.isMobile,
+      "Desktop actions menu and canvas",
+    );
+    test("empty state and Start Search stay disabled until a region is drawn", async ({
+      frigateApp,
+    }) => {
+      await mockRecordingApis(frigateApp.page);
+      await frigateApp.goto(`/review?timestamp=front_door_${playbackTime}`);
+      await openMotionSearch(frigateApp.page, false);
+      await expect(
+        frigateApp.page.getByRole("button", { name: /Start Search/i }),
+      ).toBeDisabled();
+    });
+
+    test("drawing on the canvas records region points", async ({
+      frigateApp,
+    }) => {
+      await mockRecordingApis(frigateApp.page);
+      await frigateApp.goto(`/review?timestamp=front_door_${playbackTime}`);
+      await openMotionSearch(frigateApp.page, false);
+
+      const canvas = frigateApp.page.locator("canvas").first();
+      await expect(canvas).toBeVisible({ timeout: 10_000 });
+      const box = await canvas.boundingBox();
+      expect(box).toBeTruthy();
+      const size = box as { width: number; height: number };
+      await canvas.click({
+        position: { x: size.width * 0.25, y: size.height * 0.25 },
+      });
+      await canvas.click({
+        position: { x: size.width * 0.75, y: size.height * 0.25 },
+      });
+      await canvas.click({
+        position: { x: size.width * 0.5, y: size.height * 0.75 },
+      });
+
+      await expect(frigateApp.page.getByText(/[3-9] points/)).toBeVisible();
+      await expect(
+        frigateApp.page.getByRole("button", { name: /Start Search/i }),
+      ).toBeDisabled();
+    });
   });
 
-  test("drawing on the canvas records region points", async ({
-    frigateApp,
-  }) => {
-    test.skip(frigateApp.isMobile, "Desktop canvas");
-    await mockRecordingApis(frigateApp.page);
-    await frigateApp.goto(`/review?timestamp=front_door_${playbackTime}`);
-    await openMotionSearch(frigateApp.page, false);
-
-    const canvas = frigateApp.page.locator("canvas").first();
-    await expect(canvas).toBeVisible({ timeout: 10_000 });
-    const box = await canvas.boundingBox();
-    expect(box).toBeTruthy();
-    const size = box as { width: number; height: number };
-    await canvas.click({
-      position: { x: size.width * 0.25, y: size.height * 0.25 },
+  test.describe("mobile", () => {
+    test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile drawer");
+    test("opens from the mobile camera menu @mobile", async ({
+      frigateApp,
+    }) => {
+      await mockRecordingApis(frigateApp.page);
+      await frigateApp.goto(`/review?timestamp=front_door_${playbackTime}`);
+      await openMotionSearch(frigateApp.page, true);
+      await expect(
+        frigateApp.page.getByRole("button", { name: /Start Search/i }),
+      ).toBeDisabled();
     });
-    await canvas.click({
-      position: { x: size.width * 0.75, y: size.height * 0.25 },
-    });
-    await canvas.click({
-      position: { x: size.width * 0.5, y: size.height * 0.75 },
-    });
-
-    await expect(frigateApp.page.getByText(/[3-9] points/)).toBeVisible();
-    await expect(
-      frigateApp.page.getByRole("button", { name: /Start Search/i }),
-    ).toBeDisabled();
-  });
-
-  test("opens from the mobile camera menu @mobile", async ({ frigateApp }) => {
-    test.skip(!frigateApp.isMobile, "Mobile drawer");
-    await mockRecordingApis(frigateApp.page);
-    await frigateApp.goto(`/review?timestamp=front_door_${playbackTime}`);
-    await openMotionSearch(frigateApp.page, true);
-    await expect(
-      frigateApp.page.getByRole("button", { name: /Start Search/i }),
-    ).toBeDisabled();
   });
 });

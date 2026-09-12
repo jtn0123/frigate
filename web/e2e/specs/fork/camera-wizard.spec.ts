@@ -131,13 +131,15 @@ test.describe("Camera wizard @high", () => {
     });
   });
 
-  test("opens from Add New Camera @mobile", async ({ frigateApp }) => {
-    test.skip(!frigateApp.isMobile, "Mobile open path");
-    await installWizardRoutes(frigateApp.page);
-    await frigateApp.goto("/settings?page=cameraManagement");
-    const dialog = await openWizard(frigateApp.page);
-    await expect(
-      dialog.getByRole("button", { name: /^Continue$/i }),
-    ).toBeDisabled();
+  test.describe("mobile", () => {
+    test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile open path");
+    test("opens from Add New Camera @mobile", async ({ frigateApp }) => {
+      await installWizardRoutes(frigateApp.page);
+      await frigateApp.goto("/settings?page=cameraManagement");
+      const dialog = await openWizard(frigateApp.page);
+      await expect(
+        dialog.getByRole("button", { name: /^Continue$/i }),
+      ).toBeDisabled();
+    });
   });
 });
