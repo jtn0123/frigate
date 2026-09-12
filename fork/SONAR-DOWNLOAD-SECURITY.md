@@ -64,7 +64,7 @@ large complexity refactors, and policy-dependent network access restrictions.
 
 ## Validation
 
-Local results: 1,077 backend tests, 245 frontend unit tests, and 420 browser
+Local results: 1,077 backend tests, 245 frontend unit tests, and 422 browser
 tests passed. The 93 existing browser skips are unchanged. Nine fork-script
 tests pass locally, and all four transport tests also pass on Linux.
 Documentation and frontend production builds passed. Generated API and config
@@ -75,6 +75,8 @@ Checks cover:
 - Real curl transport against local HTTP and HTTPS servers: 40 source command
   prefixes, five transport cases each (200 cases), on macOS and Linux.
 - Regression coverage for raw CR/LF in a custom exception repr.
+- Event-ID API fixtures prevent error toasts from blocking mobile controls;
+  requested-ID filtering is tested and the old error allowance is removed.
 - Exact comparison of all 40 download URLs and output destinations; shell syntax.
 - Backend unittest, mypy, API schema consistency, and config translations.
 - Frontend type checking, lint, unit tests, production build, and browser tests.
