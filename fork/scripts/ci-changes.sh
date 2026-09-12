@@ -34,7 +34,7 @@ echo "  ${files//$'\n'/$'\n'  }" >&2
 
 # The workflow and this script affect every job.
 shared='^(\.github/workflows/fork-checks\.yml|\.github/actions/fork-web-setup/|fork/scripts/ci-)'
-web_re="${shared}|^web/"
+web_re="${shared}|^web/|^docs/static/frigate-api\\.yaml$"
 py_re="${shared}|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|scripts/py-checks\.sh)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
 
 has() { grep -Eq "$1" <<<"$files"; }

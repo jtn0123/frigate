@@ -16,16 +16,16 @@ this file says what each item is.
 
 | ID | Category | Baseline | Now | Open items |
 |----|----------|----------|-----|------------|
-| A | Architecture & Design | B− | B− | 5 |
+| A | Architecture & Design | B− | B | 4 |
 | B | Backend Quality | B− | B | 2 |
 | C | Frontend Quality | C | C+ | 6 |
-| D | Testing & Reliability | C+ | B− | 7 |
+| D | Testing & Reliability | C+ | B− | 6 |
 | E | Security | B+ | B+ | 3 |
 | F | Dependencies & Tech Currency | C+ | B− | 2 |
 | G | Performance & Scalability | C+ | B− | 6 |
 | H | Documentation & Onboarding | C | C+ | 3 |
 | I | Developer Experience & Tooling | C+ | B | 6 |
-| **Overall** | | **B−** | **B** | **41** + UX track |
+| **Overall** | | **B−** | **B** | **40** + UX track |
 
 **Top 5 highest-leverage open fixes:** E5, E4, I6, D2, G9
 
@@ -43,16 +43,18 @@ functions are fully annotated, with 147 `type: ignore` and 784 `Any`; only
 
 ---
 
-## A — Architecture & Design — B−
+## A — Architecture & Design — B
 
-Unchanged grade. The process model (ZMQ IPC `frigate/comms/zmq_proxy.py`,
-shared-memory frames `frigate/app.py`) is still the strongest part. The fork
-added its code in isolated folders (`web/src/{components,hooks,lib,views}/fork/`,
-`web/src/fork/flags.ts`) behind runtime flags, which keeps rebases cheap. Still
-held back by god modules (`web/src/pages/Settings.tsx` 2,373 lines, 36
-frontend files over 800 lines, `frigate/api/event.py`), no service layer, UA
-sniffing for layout (205 `isMobile` / 389 `isDesktop` references), and an
-untyped client/server contract.
+Lifted from B− by A5: generated client types and path-typed reads. The
+process model (ZMQ IPC `frigate/comms/zmq_proxy.py`, shared-memory frames
+`frigate/app.py`) is still the strongest part. The fork added its code in
+isolated folders (`web/src/{components,hooks,lib,views}/fork/`,
+`web/src/fork/flags.ts`) behind runtime flags, which keeps rebases cheap.
+Still held back by god modules (`web/src/pages/Settings.tsx` 2,373 lines, 36
+frontend files over 800 lines, `frigate/api/event.py`), no service layer, and
+UA sniffing for layout (205 `isMobile` / 389 `isDesktop` references).
+
+- ~~A5~~ ✓ done 2026-09-11 — generated `api.gen.ts`, `useApi`/`apiGet` for config/review/events/stats
 
 #### A1 — Introduce a viewport hook and retire user-agent layout branching `[fork]` (= UI5)
 - **Where:** `web/src/App.tsx`, `components/navigation/{Sidebar,Bottombar,NavItem}.tsx`, `hooks/use-navigation.ts`; 594 `isMobile`/`isDesktop` references; partial work on `section/features4` (`wip:` commit)
@@ -61,7 +63,7 @@ untyped client/server contract.
 - **Effort:** M (scoped)
 - **Grade lift:** B− → B− (removes the worst layout bug; the full migration stays out of scope)
 
-#### A5 — Generate frontend API types from the OpenAPI spec `[fork, upstreamable]`
+#### ~~A5~~ ✓ done 2026-09-11 — Generate frontend API types from the OpenAPI spec `[fork, upstreamable]`
 - **Where:** `web/src/types/` (29 files, 2,187 lines, hand-written), `docs/static/frigate-api.yaml` (generated and CI-checked by `generate_api_auth_spec.py --check`)
 - **What's wrong:** The one untyped seam in an otherwise typed app. When an upstream rebase changes a response, the UI compiles fine and breaks at runtime.
 - **Fix:** Generate `web/src/types/fork/api.gen.ts` from the spec (`openapi-typescript`, dev dependency only) in a CI-checked script; migrate the most-used SWR keys (`config`, `review`, `events`, `stats`) to generated types first. Coverage grows as B2 adds response models.
@@ -197,6 +199,7 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 
 - ~~D1~~ ✓ done 2026-09-10 — `web/__test__/test-setup.ts`, 147 tests, CI step
 - ~~D5~~ ✓ web half done 2026-09-10 — vitest v8 coverage uploaded by "Fork - Checks" (Python half → D8)
+- ~~D9~~ ✓ done 2026-09-11 — e2e JSON fixtures validated against OpenAPI 200 schemas
 
 #### D8 — Report Python coverage in CI `[BE] [fork, upstreamable]`
 - **Where:** `.github/workflows/fork-checks.yml` "Python - Tests" (plain `unittest` in the thin image), `Makefile` `test-py`
@@ -240,12 +243,9 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** B− → B− (fidelity)
 
-#### D9 — Validate e2e mock fixtures against the API spec `[FE] [fork]`
-- **Where:** `web/e2e/fixtures/` (hand-built JSON payloads), `docs/static/frigate-api.yaml`
-- **What's wrong:** Mocks can drift from the real API after an upstream rebase and the e2e suite keeps passing against a shape the server no longer sends.
-- **Fix:** Validate every fixture against the spec's response schemas in the e2e setup (ships with A5 in `fork/PLAN2.md` PR-01).
-- **Effort:** S
-- **Grade lift:** B− → B− (test fidelity)
+#### ~~D9~~ ✓ done 2026-09-11 — Validate e2e mock fixtures against the API spec `[FE] [fork]`
+- **Where:** `web/e2e/fixtures/mock-data/*.json`, `docs/static/frigate-api.yaml`
+- **Fix shipped:** `web/e2e/scripts/validate-fixtures.mjs` checks each JSON fixture against the matching 200 schema (Ajv 2020). Unmapped files fail. `review-summary.json` skipped (UI day-keyed shape vs spec `{ last24Hours, root }`); `config-schema.json` skipped (editor JSON Schema). Runs in `e2e:lint` and Playwright `globalSetup`.
 
 #### D10 — Fall back to software decoding when hardware decoding keeps killing a camera `[BE] [FE] [fork, upstreamable]`
 - **Where:** `frigate/video/ffmpeg.py` `CameraWatchdog` (restarts the detect ffmpeg with the same command after every crash), `frigate/ffmpeg_presets.py` (VAAPI detect scales on the GPU, then `hwdownload`)

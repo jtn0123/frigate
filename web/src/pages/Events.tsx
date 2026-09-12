@@ -5,7 +5,6 @@ import { useCameraPreviews } from "@/hooks/use-camera-previews";
 import { useTimezone } from "@/hooks/use-date-utils";
 import { useOverlayState, useSearchEffect } from "@/hooks/use-overlay-state";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
-import { FrigateConfig } from "@/types/frigateConfig";
 import { RecordingStartingPoint } from "@/types/record";
 import { wrapAsync } from "@/utils/promise";
 import {
@@ -30,6 +29,7 @@ import EventView from "@/views/events/EventView";
 import MotionSearchView from "@/views/motion-search/MotionSearchView";
 import { RecordingView } from "@/views/recording/RecordingView";
 import { useFrigateReviews } from "@/api/ws";
+import { swrKey, useApi } from "@/api/fork/client";
 import axios from "axios";
 import { markReviewedWithUndo } from "@/lib/fork/bulk-actions";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -41,7 +41,7 @@ import ErrorState from "@/components/fork/ErrorState";
 export default function Events() {
   const { t } = useTranslation(["views/events"]);
 
-  const { data: config } = useSWR<FrigateConfig>("config", {
+  const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
   const timezone = useTimezone(config);
@@ -358,7 +358,7 @@ export default function Events() {
       before: reviewSearchParams["before"] || last24Hours.before,
       after: reviewSearchParams["after"] || last24Hours.after,
     };
-    return ["review", params];
+    return swrKey("/review", params);
   }, [reviewSearchParams, reviewCamerasParam, last24Hours, timezone]);
 
   const {

@@ -7,5 +7,6 @@
     "noImplicitReturns": true,
     "noImplicitOverride": true
   },
-  "include": ["src/**/fork/**/*", "src/fork/**/*", "e2e/specs/fork/**/*"]
+  "include": ["src/**/fork/**/*", "src/fork/**/*", "e2e/specs/fork/**/*"],
+  "exclude": ["src/types/fork/api.gen.ts"]
 }

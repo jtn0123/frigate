@@ -10,7 +10,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import axios from "axios";
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import { toast } from "sonner";
 import { HiTrash } from "react-icons/hi";
 import { LuCheck, LuSquareCheck, LuX } from "react-icons/lu";
@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import type { BulkSelection } from "@/hooks/fork/use-bulk-selection";
-import type { FrigateConfig } from "@/types/frigateConfig";
 import type { SearchResult } from "@/types/search";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +55,7 @@ export default function BulkActionBar({
   className,
 }: BulkActionBarProps) {
   const { t } = useTranslation(["fork", "components/filter", "common"]);
-  const { data: config } = useSWR<FrigateConfig>("config");
+  const { data: config } = useApi("/config");
   const isAdmin = useIsAdmin();
   const [confirm, setConfirm] = useState<"delete" | "plus" | null>(null);
   const [busy, setBusy] = useState(false);

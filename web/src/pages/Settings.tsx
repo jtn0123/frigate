@@ -38,11 +38,12 @@ import {
 import useOptimisticState from "@/hooks/use-optimistic-state";
 import { isMobile } from "react-device-detect";
 import { FaVideo } from "react-icons/fa";
-import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
+import { CameraConfig } from "@/types/frigateConfig";
 import type { ConfigSectionData, JsonObject } from "@/types/configForm";
 import isEqual from "lodash/isEqual";
 import { maskCredentials } from "@/utils/credentialMask";
 import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import FilterSwitch from "@/components/filter/FilterSwitch";
 import { ZoneMaskFilterButton } from "@/components/filter/ZoneMaskFilter";
 import { PolygonType } from "@/types/canvas";
@@ -662,7 +663,7 @@ export default function Settings() {
     });
   }, [pageToggle]);
 
-  const { data: config } = useSWR<FrigateConfig>("config");
+  const { data: config } = useApi("/config");
   const { data: profilesData } = useSWR<ProfilesApiResponse>("profiles");
 
   const [searchParams] = useSearchParams();
