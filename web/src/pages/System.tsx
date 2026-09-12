@@ -4,24 +4,25 @@ import { FrigateStats } from "@/types/stats";
 import { useEffect, useMemo, useRef, useState } from "react";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { isDesktop, isMobile } from "react-device-detect";
+import { isDesktop } from "react-device-detect";
 import GeneralMetrics from "@/views/system/GeneralMetrics";
 import StorageMetrics from "@/views/system/StorageMetrics";
 import { wrapAsync } from "@/utils/promise";
 import {
   LuActivity,
+  LuCpu,
   LuHardDrive,
   LuHeartPulse,
   LuSearchCode,
 } from "react-icons/lu";
 import { FaVideo } from "react-icons/fa";
-import Logo from "@/components/Logo";
 import useOptimisticState from "@/hooks/use-optimistic-state";
 import CameraMetrics from "@/views/system/CameraMetrics";
 import { useHashState } from "@/hooks/use-overlay-state";
 import { Toaster } from "@/components/ui/sonner";
 import { FrigateConfig } from "@/types/frigateConfig";
 import EnrichmentMetrics from "@/views/system/EnrichmentMetrics";
+import AIModelMetrics from "@/views/system/AIModelMetrics";
 import { useTranslation } from "react-i18next";
 import CameraHealthView from "@/views/fork/CameraHealthView";
 import { isForkEnabled } from "@/fork/flags";
@@ -29,6 +30,7 @@ import { isForkEnabled } from "@/fork/flags";
 const allMetrics = [
   "general",
   "enrichments",
+  "models",
   "storage",
   "cameras",
   "health",
@@ -99,10 +101,7 @@ function System() {
   return (
     <div className="flex size-full flex-col p-2">
       <Toaster position="top-center" />
-      <div className="relative flex h-11 w-full items-center justify-between">
-        {isMobile && (
-          <Logo className="absolute inset-x-1/2 h-8 -translate-x-1/2" />
-        )}
+      <div className="relative flex min-h-11 w-full flex-wrap items-center justify-between gap-1">
         <ToggleGroup
           className="*:rounded-md *:px-3 *:py-4"
           type="single"
@@ -119,10 +118,11 @@ function System() {
               key={item}
               className={`flex items-center justify-between gap-2 ${pageToggle == item ? "" : "*:text-muted-foreground"}`}
               value={item}
-              aria-label={`Select ${item}`}
+              aria-label={t("selectTab", { tab: item })}
             >
               {item == "general" && <LuActivity className="size-4" />}
               {item == "enrichments" && <LuSearchCode className="size-4" />}
+              {item == "models" && <LuCpu className="size-4" />}
               {item == "storage" && <LuHardDrive className="size-4" />}
               {item == "cameras" && <FaVideo className="size-4" />}
               {item == "health" && <LuHeartPulse className="size-4" />}
@@ -133,7 +133,7 @@ function System() {
           ))}
         </ToggleGroup>
 
-        <div className="flex h-full items-center">
+        <div className="ml-auto flex items-center">
           {lastUpdated && (
             <div className="h-full content-center text-sm text-muted-foreground">
               {t("lastRefreshed")}
@@ -179,6 +179,14 @@ function System() {
       {visitedTabs.has("storage") && (
         <div className={page == "storage" ? "contents" : "hidden"}>
           <StorageMetrics setLastUpdated={setLastUpdated} />
+        </div>
+      )}
+      {visitedTabs.has("models") && (
+        <div className={page == "models" ? "contents" : "hidden"}>
+          <AIModelMetrics
+            isActive={page == "models"}
+            setLastUpdated={setLastUpdated}
+          />
         </div>
       )}
       {visitedTabs.has("cameras") && (

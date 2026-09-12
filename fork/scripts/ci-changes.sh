@@ -35,7 +35,7 @@ echo "  ${files//$'\n'/$'\n'  }" >&2
 # The workflow and this script affect every job.
 shared='^(\.github/workflows/fork-checks\.yml|\.github/actions/fork-web-setup/|fork/scripts/ci-)'
 web_re="${shared}|^web/"
-py_re="${shared}|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/py-checks\.sh|scripts/dev-lock-check\.py)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
+py_re="${shared}|^fork/audio_trial/|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/py-checks\.sh|scripts/dev-lock-check\.py)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
 
 has() {
   local pattern="$1"

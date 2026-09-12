@@ -190,8 +190,8 @@ jobs:
       # (python_tests) fails if the two disagree.
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-dev.lock
-      - run: ruff format --check --diff frigate migrations docker fork/scripts ./*.py
-      - run: ruff check frigate migrations docker fork/scripts ./*.py
+      - run: ruff format --check --diff frigate migrations docker fork/scripts fork/audio_trial ./*.py
+      - run: ruff check frigate migrations docker fork/scripts fork/audio_trial ./*.py
       - run: python3 -m unittest discover -s fork/scripts -p "test_*.py"
 
   python_tests:
@@ -206,6 +206,8 @@ jobs:
       - run: make version
       - run: docker build -f fork/Dockerfile.test --build-arg BASE="${FORK_TEST_BASE}" -t frigate-fork-test .
       - run: fork/scripts/py-checks.sh
+      - name: Audio companion unit tests
+        run: docker run --rm -v "$PWD/fork/audio_trial:/opt/frigate/fork/audio_trial:ro" frigate-fork-test discover -s fork/audio_trial -v
         env:
           COVERAGE_XML: coverage-py/coverage.xml
       - uses: actions/upload-artifact@v4

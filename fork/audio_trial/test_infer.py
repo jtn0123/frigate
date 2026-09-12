@@ -1,0 +1,79 @@
+"""Test inference routing without loading models or downloading weights."""
+
+import importlib.util
+import sys
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock, patch
+
+
+class InferenceRoutingTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location(
+            "audio_infer_test", Path(__file__).with_name("infer.py")
+        )
+        self.module = importlib.util.module_from_spec(spec)
+        # Model kernels are covered by recorded-clip hardware trials. These fakes
+        # isolate input limits, VAD gating, and transcription/translation routing.
+        dependencies = {
+            name: MagicMock()
+            for name in (
+                "ctranslate2",
+                "numpy",
+                "faster_whisper",
+                "faster_whisper.audio",
+                "faster_whisper.vad",
+            )
+        }
+        with patch.dict(sys.modules, dependencies):
+            spec.loader.exec_module(self.module)
+        self.module.Stage = MagicMock()
+        self.module.decode_audio = Mock(return_value=[0] * 16000)
+        self.module.get_speech_timestamps = Mock(
+            return_value=[{"start": 0, "end": 8000}]
+        )
+        self.module.classify = Mock(
+            return_value=[{"label": "speech", "similarity": 0.2}]
+        )
+        self.model = self.module.WhisperModel.return_value
+
+    def test_silence_skips_whisper_but_still_classifies_sounds(self):
+        self.module.get_speech_timestamps.return_value = []
+        result = self.module.analyze("clip.wav", "medium")
+        self.module.WhisperModel.assert_not_called()
+        self.module.classify.assert_called_once_with("clip.wav")
+        self.assertEqual(result["transcript"], "")
+        self.assertFalse(result["sound_scores_are_probabilities"])
+
+    def test_english_reuses_transcript_without_second_translation(self):
+        self.model.transcribe.return_value = (
+            [SimpleNamespace(text=" hello ")],
+            SimpleNamespace(language="en"),
+        )
+        result = self.module.analyze("clip.wav", "medium")
+        self.assertEqual(result["transcript"], "hello")
+        self.assertEqual(result["translation"], "hello")
+        self.model.transcribe.assert_called_once()
+        self.assertTrue(self.module.WhisperModel.call_args.kwargs["local_files_only"])
+        self.assertEqual(self.module.WhisperModel.call_args.kwargs["device"], "cpu")
+
+    def test_foreign_speech_preserves_original_and_requests_translation(self):
+        self.model.transcribe.side_effect = [
+            ([SimpleNamespace(text="original")], SimpleNamespace(language="ar")),
+            ([SimpleNamespace(text="English")], SimpleNamespace(language="ar")),
+        ]
+        result = self.module.analyze("clip.wav", "large-v3")
+        self.assertEqual(result["transcript"], "original")
+        self.assertEqual(result["translation"], "English")
+        self.assertEqual(self.model.transcribe.call_args.kwargs["task"], "translate")
+        self.assertEqual(self.model.transcribe.call_args.kwargs["language"], "ar")
+        self.module.classify.assert_not_called()
+
+    def test_empty_and_oversized_clips_rejected_before_loading_models(self):
+        for audio in ([], [0] * (35 * 16000 + 1)):
+            self.module.decode_audio.return_value = audio
+            with self.assertRaises(ValueError):
+                self.module.analyze("clip.wav", "medium")
+        self.module.WhisperModel.assert_not_called()
+        self.module.classify.assert_not_called()

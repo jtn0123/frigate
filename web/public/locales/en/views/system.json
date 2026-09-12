@@ -10,7 +10,8 @@
       "nginx": "Nginx Logs - Frigate",
       "websocket": "Messages Logs - Frigate"
     },
-    "health": "Camera Health - Frigate"
+    "health": "Camera Health - Frigate",
+    "models": "AI Models - Frigate"
   },
   "title": "System",
   "metrics": "System metrics",
@@ -269,5 +270,140 @@
   },
   "health": {
     "title": "Health"
+  },
+  "selectTab": "Select {{tab}}",
+  "models": {
+    "title": "AI Models",
+    "description": "See what is running, what is cached on disk, and where analysis needs more resources. Missing measurements are shown explicitly. CPU usage uses 100% per core.",
+    "notMeasured": "Not measured",
+    "queueTitle": "Audio analysis queue",
+    "pending": "Waiting",
+    "completed": "Completed (7 days)",
+    "failed": "Failed (7 days)",
+    "expired": "Expired (7 days)",
+    "oldestWait": "Oldest wait",
+    "available": "Spare worker budget",
+    "empty": "No model measurements are available.",
+    "ram": "Current process RAM",
+    "disk": "Model files on disk",
+    "cpu": "Current process CPU",
+    "vram": "Model GPU allocation",
+    "latency": "Last / average inference",
+    "load": "Last model load",
+    "peak": "Peak process RAM",
+    "lastUsed": "Last inference",
+    "context": "Context tokens",
+    "sharedGpu": "Shared GPU",
+    "sharedGpuDescription": "These readings cover the whole GPU. Video decoding, object detection, and Ollama may share it; utilization cannot reliably be divided by model.",
+    "gpuUtilization": "Utilization",
+    "gpuMemory": "Memory usage",
+    "temperature": "Temperature",
+    "connection": {
+      "connected": "Worker connected",
+      "stale": "Worker readings are stale",
+      "not_connected": "Audio worker not connected",
+      "invalid": "Worker readings unavailable"
+    },
+    "pause": {
+      "memory": "Waiting for spare memory",
+      "detector": "Waiting for object detection to catch up",
+      "frames": "Waiting because cameras are skipping frames",
+      "health": "Waiting for reliable health readings",
+      "poll": "Waiting for the event service"
+    },
+    "states": {
+      "cached": "On disk",
+      "busy": "Processing",
+      "loading": "Loading",
+      "loaded": "Loaded",
+      "missing": "Not found",
+      "unknown": "Unknown",
+      "stale": "Stale",
+      "enabled": "Enabled",
+      "unavailable": "Unavailable"
+    },
+    "roles": {
+      "speech_translation": "Speech and translation",
+      "speech_second_opinion": "Speech second opinion",
+      "sound_recognition": "Sound recognition",
+      "speech_filter": "Speech filter",
+      "object_detection": "Object detection",
+      "semantic_search": "Semantic search",
+      "face_recognition": "Face recognition",
+      "license_plate": "License plate recognition",
+      "sound_detection": "Basic sound detection",
+      "generative_ai": "Generative AI"
+    },
+    "locations": {
+      "audio_worker": "Audio worker",
+      "frigate": "Frigate",
+      "ollama": "Ollama"
+    },
+    "scopes": {
+      "process": "RAM and CPU describe the process running this model, including runtime overhead. Peak RAM is a process high-water mark, not model-only memory.",
+      "shared_process": "This feature shares a process with other features. Do not add its RAM or CPU to other cards from the same process.",
+      "model_allocation": "GPU allocation comes from Ollama. Process RAM and CPU need a collector in its container. Timings come from completed scene-description requests.",
+      "unavailable": "Per-model resource measurements are unavailable."
+    },
+    "graphs": {
+      "title": "Model history",
+      "description": "Up to 30 minutes, sampled every 10 seconds while this tab is open. Gaps stay empty. Latency shows the last completed run until a new result arrives.",
+      "model": "Model",
+      "ram": "Process RAM over time",
+      "cpu": "Process CPU over time",
+      "latency": "Inference time",
+      "vram": "GPU allocation over time",
+      "queue": "Queue depth",
+      "noSamples": "No readings yet. Check the field explanation below.",
+      "waiting": "The first reading is shown now. A trend appears after the next sample."
+    },
+    "missing": {
+      "title": "Why are some readings missing?",
+      "intro": "Zero means a measured zero. These labels explain why a value is unavailable; missing values are never plotted as zero.",
+      "remoteCollector": {
+        "label": "Collector needed",
+        "detail": "Ollama runs in a separate container. Its model inventory API does not expose process RAM or CPU. A collector in that container is needed."
+      },
+      "awaitingRequest": {
+        "label": "Waiting for a request",
+        "detail": "Timing is saved after a completed scene-description request. It will appear after the updated Frigate service processes one."
+      },
+      "awaitingRun": {
+        "label": "Waiting for a run",
+        "detail": "This measurement has not been recorded since tracking started. A model stored on disk can have no run history yet."
+      },
+      "sharedGpu": {
+        "label": "Shared GPU",
+        "detail": "The device reports overall usage. It does not reliably split this measurement between models and video decoding."
+      },
+      "notInstrumented": {
+        "label": "Tracking not added",
+        "detail": "This feature does not yet publish this measurement. Enabled does not prove that a model is currently loaded."
+      },
+      "fileInventory": {
+        "label": "Files not mapped",
+        "detail": "This feature’s model files have not been mapped into the inventory yet."
+      },
+      "stale": {
+        "label": "Readings expired",
+        "detail": "The collector has not refreshed recently. Old live usage is hidden until it reconnects."
+      },
+      "sourceOffline": {
+        "label": "Source unavailable",
+        "detail": "The model service could not be reached. This is not a zero-usage reading."
+      },
+      "modelMissing": {
+        "label": "Model not found",
+        "detail": "The configured model was not found in the model inventory."
+      },
+      "cpuOnly": {
+        "label": "CPU only",
+        "detail": "This model does not use GPU memory."
+      },
+      "includedInRun": {
+        "label": "Included in run time",
+        "detail": "This runtime initializes its speech filter as part of the first run. A separate model-load measurement is not available."
+      }
+    }
   }
 }

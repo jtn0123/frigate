@@ -5,6 +5,7 @@ import binascii
 import io
 import json
 import logging
+import time
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -17,6 +18,7 @@ from PIL import Image
 from frigate.config import GenAIProviderEnum
 from frigate.genai import GenAIClient, register_genai_provider
 from frigate.genai.utils import parse_tool_calls_from_message
+from frigate.stats.generation_metrics import record_generation_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +231,7 @@ class OllamaClient(GenAIClient):
                 "format" in ollama_options,
                 {k: v for k, v in ollama_options.items() if k != "format"},
             )
+            started = time.monotonic()
             result = self.provider.generate(
                 self.genai_config.model,
                 prompt,
@@ -245,6 +248,10 @@ class OllamaClient(GenAIClient):
                 len(result.get("response", "") or ""),
             )
             response_text = str(result["response"]).strip()
+            if response_text:
+                record_generation_metrics(
+                    self.genai_config, result, time.monotonic() - started
+                )
             if not response_text:
                 logger.warning(
                     "Ollama returned a blank response for model %s (done_reason=%s, "

@@ -5,8 +5,8 @@ import unittest
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.routing import APIRoute
 
-from frigate.api import app as main_app
 from frigate.api import (
+    ai_models,
     auth,
     camera,
     chat,
@@ -22,6 +22,7 @@ from frigate.api import (
     record,
     review,
 )
+from frigate.api import app as main_app
 from frigate.api.auth import (
     allow_any_authenticated,
     allow_public,
@@ -32,6 +33,7 @@ from frigate.api.auth import (
 )
 
 ALL_ROUTERS = [
+    ai_models.router,
     auth.router,
     camera.router,
     chat.router,

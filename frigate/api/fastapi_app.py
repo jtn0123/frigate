@@ -14,8 +14,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette_context import middleware, plugins
 from starlette_context.plugins import Plugin
 
-from frigate.api import app as main_app
 from frigate.api import (
+    ai_models,
     auth,
     camera,
     chat,
@@ -32,6 +32,7 @@ from frigate.api import (
     record,
     review,
 )
+from frigate.api import app as main_app
 from frigate.api.auth import (
     assert_routes_have_auth_gate,
     get_jwt_secret,
@@ -173,6 +174,7 @@ def create_fastapi_app(
     # Order of include_router matters: https://fastapi.tiangolo.com/tutorial/path-params/#order-matters
     app.include_router(auth.router)
     app.include_router(camera.router)
+    app.include_router(ai_models.router)
     app.include_router(chat.router)
     app.include_router(classification.router)
     app.include_router(review.router)

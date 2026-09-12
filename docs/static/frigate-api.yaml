@@ -10,6 +10,26 @@ servers:
   - url: https://demo.frigate.video/api
   - url: http://localhost:5001/api
 paths:
+  /ai/models:
+    get:
+      tags:
+        - App
+      summary: Ai Models
+      description: |-
+        **Access:** Admin role required.
+
+        Return cached local measurements and bounded read-only provider queries.
+      operationId: ai_models_ai_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIModelsResponse'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /auth/first_time_login:
     get:
       tags:
@@ -7333,6 +7353,109 @@ paths:
       x-required-role: any
 components:
   schemas:
+    AIModelStatus:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        role:
+          type: string
+          title: Role
+        location:
+          type: string
+          title: Location
+        device:
+          type: string
+          title: Device
+        status:
+          type: string
+          title: Status
+        resource_scope:
+          type: string
+          title: Resource Scope
+          default: unavailable
+        disk_bytes:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Disk Bytes
+        ram_bytes:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Ram Bytes
+        peak_ram_bytes:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Peak Ram Bytes
+        cpu_percent:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Cpu Percent
+        gpu_memory_bytes:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Gpu Memory Bytes
+        latency_ms:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Latency Ms
+        load_ms:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Load Ms
+        last_used:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Last Used
+        context_length:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Context Length
+      type: object
+      required:
+        - id
+        - name
+        - role
+        - location
+        - device
+        - status
+      title: AIModelStatus
+      description: Model metrics with explicit attribution and unknown values.
+    AIModelsResponse:
+      properties:
+        updated:
+          type: number
+          title: Updated
+        models:
+          items:
+            $ref: '#/components/schemas/AIModelStatus'
+          type: array
+          title: Models
+        audio:
+          type: object
+          title: Audio
+        shared_gpus:
+          type: object
+          title: Shared Gpus
+      type: object
+      required:
+        - updated
+        - models
+        - audio
+        - shared_gpus
+      title: AIModelsResponse
+      description: Model inventory plus shared device and queue context.
     AppConfigSetBody:
       properties:
         requires_restart:
