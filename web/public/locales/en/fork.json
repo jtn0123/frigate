@@ -146,10 +146,13 @@
       "stalls": "Stalls (1h)",
       "ffmpegCpu": "FFmpeg CPU"
     },
-    "sparklineLabel": "Camera FPS history for {{camera}}",
-    "sparklineCaption_one": "Camera FPS, {{count}} sample",
-    "sparklineCaption_other": "Camera FPS, last {{count}} samples",
-    "lastUpdate": "Updated",
+    "sparklineLabel": "Frame rate history for {{camera}}",
+    "chart": {
+      "caption_one": "Frame rate, last minute",
+      "caption_other": "Frame rate, last {{count}} minutes",
+      "waiting": "Frame-rate history appears after the next update",
+      "target": "target {{fps}} fps"
+    },
     "openLive": "Live view",
     "openSettings": "Settings"
   },

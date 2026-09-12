@@ -282,6 +282,13 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** B− → B− (operability)
 
+#### D15 — Camera Health's frame-rate chart looked broken `[FE] [fork]`
+- **Where:** `web/src/components/fork/Sparkline.tsx`, `web/src/hooks/fork/use-stats-history.ts`, `web/src/views/fork/CameraHealthView.tsx`
+- **What's wrong:** Found on the owner's server 2026-09-11 ("it is broken"): every card showed a stray dash captioned "Camera FPS, 1 sample". The history only collected the live stats messages (one a minute) while the page was open, a single point was drawn as a stretched dot, and a full series was scaled so a steady 5 fps hugged the top edge with no target or scale. The e2e suite never mocked `/api/stats/history` (an allowlisted TODO).
+- **Fix:** Seed the chart from `/stats/history` (15 s points, ~20 minutes) and extend it with live stats; draw from zero with headroom, a dashed target line at the expected fps and time-spaced points; caption "Frame rate, last N minutes" with a target legend, or a waiting message before two points. Drop the per-card "Updated" line and the extra state dot; pin the chart and buttons to the card bottom. Mock `/api/stats/history` in e2e for the chart's keys only: fed the fixture's partial stats, the upstream System graphs crash the page, so their requests stay unmocked (TODO in `error-allowlist.ts`).
+- **Effort:** S
+- **Grade lift:** none (UI polish)
+
 ---
 
 ## E — Security — B+

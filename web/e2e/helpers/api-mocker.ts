@@ -87,6 +87,30 @@ export class ApiMocker {
       route.fulfill({ json: stats }),
     );
 
+    // Stats history for the Camera Health charts (the keys in
+    // web/src/hooks/fork/use-stats-history.ts): 20 snapshots 15 s apart ending
+    // now, trimmed to those keys as the server does. The System graphs ask for
+    // other keys and stay unmocked; see error-allowlist.ts.
+    await this.page.route("**/api/stats/history**", (route) => {
+      const keys = new URL(route.request().url()).searchParams.get("keys");
+      if (keys !== "cameras.camera_fps,service.last_updated") {
+        return route.fallback();
+      }
+      const now = Math.floor(Date.now() / 1000);
+      const cameras = Object.fromEntries(
+        Object.entries(stats.cameras).map(([name, camera]) => [
+          name,
+          { camera_fps: camera.camera_fps },
+        ]),
+      );
+      return route.fulfill({
+        json: Array.from({ length: 20 }, (_, i) => ({
+          service: { last_updated: now - (19 - i) * 15 },
+          cameras,
+        })),
+      });
+    });
+
     // Reviews. The real backend exposes /review (singular) for the main
     // list and /review/summary for the summary — the previous plural glob
     // (**/api/reviews**) never matched either endpoint, so review-dependent
