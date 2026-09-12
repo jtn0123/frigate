@@ -2,34 +2,11 @@
  * D2: Settings save path. Edit a field, unsaved indicator, Save All body,
  * restart-required notice. Navigation coverage is in settings-nav.spec.ts.
  */
-import type { Page } from "@playwright/test";
 import { expect, test } from "../../fixtures/frigate-test";
 import { installSettingsConfigRoutes } from "../../helpers/settings-config-routes";
+import { toggleSemanticSearchAndOpenSaveAll } from "../../helpers/settings-save-flow";
 
 const SEMANTIC_URL = "/settings?page=integrationSemanticSearch";
-
-async function changeSemanticSearchAndOpenSaveAll(page: Page) {
-  const enabled = page.getByRole("switch", {
-    name: "Enable semantic search",
-  });
-  await expect(enabled).toBeVisible();
-  await enabled.click();
-  await expect(
-    page.getByText("You have unsaved changes").first(),
-  ).toBeVisible();
-
-  await page.getByTestId("settings-nav-search").fill("object detection");
-  await page
-    .getByTestId("settings-nav-results")
-    .locator('[data-section-key="globalDetect"]')
-    .click();
-  const saveAll = page.getByRole("button", { name: "Save All", exact: true });
-  await expect(saveAll).toBeVisible();
-  await saveAll.click();
-  const dialog = page.getByTestId("settings-review-dialog");
-  await expect(dialog).toBeVisible();
-  return { saveAll, dialog };
-}
 
 test.describe("Settings save @high", () => {
   test.describe("desktop", () => {
@@ -46,7 +23,7 @@ test.describe("Settings save @high", () => {
       );
       await frigateApp.goto(SEMANTIC_URL);
       const { page } = frigateApp;
-      const { dialog } = await changeSemanticSearchAndOpenSaveAll(page);
+      const { dialog } = await toggleSemanticSearchAndOpenSaveAll(page);
 
       await dialog.getByRole("button", { name: "Save All" }).click();
       await expect(dialog).toBeHidden();

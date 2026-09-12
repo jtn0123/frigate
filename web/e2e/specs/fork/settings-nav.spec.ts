@@ -8,6 +8,7 @@
 
 import { test, expect } from "../../fixtures/frigate-test";
 import { installSettingsConfigRoutes } from "../../helpers/settings-config-routes";
+import { toggleSemanticSearchAndOpenSaveAll } from "../../helpers/settings-save-flow";
 
 const SEMANTIC_URL = "/settings?page=integrationSemanticSearch";
 
@@ -91,28 +92,8 @@ test.describe("Settings navigator @high", () => {
     const { saved } = await installSettingsConfigRoutes(frigateApp.page);
     await frigateApp.goto(SEMANTIC_URL);
     const { page } = frigateApp;
-
-    const enabled = page.getByRole("switch", {
-      name: "Enable semantic search",
-    });
-    await expect(enabled).toBeVisible();
-    await enabled.click();
-    await expect(
-      page.getByText("You have unsaved changes").first(),
-    ).toBeVisible();
-
     // Save All only appears once a pending change lives outside the open page.
-    await page.getByTestId("settings-nav-search").fill("object detection");
-    await page
-      .getByTestId("settings-nav-results")
-      .locator('[data-section-key="globalDetect"]')
-      .click();
-    const saveAll = page.getByRole("button", { name: "Save All", exact: true });
-    await expect(saveAll).toBeVisible();
-    await saveAll.click();
-
-    const dialog = page.getByTestId("settings-review-dialog");
-    await expect(dialog).toBeVisible();
+    const { saveAll, dialog } = await toggleSemanticSearchAndOpenSaveAll(page);
     const change = dialog.getByTestId("settings-review-change");
     await expect(change).toHaveCount(1);
     await expect(change).toContainText("enabled");
