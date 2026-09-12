@@ -24,6 +24,9 @@ runs:
         remove-android: 'true'
         remove-haskell: 'true'
         remove-codeql: 'true'
+        # Fork: the default 1 GB left on the root disk ran out within a
+        # minute of setup and crashed the runner while it wrote its own logs.
+        root-reserve-mb: '8192'
         build-mount-path: '/var/lib/docker'
     - name: Start docker
       run: sudo systemctl start docker
