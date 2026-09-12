@@ -19,13 +19,13 @@ this file says what each item is.
 | A | Architecture & Design | B− | B | 4 |
 | B | Backend Quality | B− | B | 2 |
 | C | Frontend Quality | C | C+ | 6 |
-| D | Testing & Reliability | C+ | B− | 7 |
+| D | Testing & Reliability | C+ | B− | 6 |
 | E | Security | B+ | B+ | 3 |
 | F | Dependencies & Tech Currency | C+ | B− | 2 |
 | G | Performance & Scalability | C+ | B− | 6 |
 | H | Documentation & Onboarding | C | C+ | 3 |
 | I | Developer Experience & Tooling | C+ | B | 6 |
-| **Overall** | | **B−** | **B** | **41** + UX track |
+| **Overall** | | **B−** | **B** | **40** + UX track |
 
 **Top 5 highest-leverage open fixes:** E5, E4, I6, D2, G9
 
@@ -199,6 +199,7 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 
 - ~~D1~~ ✓ done 2026-09-10 — `web/__test__/test-setup.ts`, 147 tests, CI step
 - ~~D5~~ ✓ web half done 2026-09-10 — vitest v8 coverage uploaded by "Fork - Checks" (Python half → D8)
+- ~~D9~~ ✓ done 2026-09-11 — e2e JSON fixtures validated against OpenAPI 200 schemas
 
 #### D8 — Report Python coverage in CI `[BE] [fork, upstreamable]`
 - **Where:** `.github/workflows/fork-checks.yml` "Python - Tests" (plain `unittest` in the thin image), `Makefile` `test-py`
@@ -242,12 +243,9 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** B− → B− (fidelity)
 
-#### D9 — Validate e2e mock fixtures against the API spec `[FE] [fork]`
-- **Where:** `web/e2e/fixtures/` (hand-built JSON payloads), `docs/static/frigate-api.yaml`
-- **What's wrong:** Mocks can drift from the real API after an upstream rebase and the e2e suite keeps passing against a shape the server no longer sends.
-- **Fix:** Validate every fixture against the spec's response schemas in the e2e setup (ships with A5 in `fork/PLAN2.md` PR-01).
-- **Effort:** S
-- **Grade lift:** B− → B− (test fidelity)
+#### ~~D9~~ ✓ done 2026-09-11 — Validate e2e mock fixtures against the API spec `[FE] [fork]`
+- **Where:** `web/e2e/fixtures/mock-data/*.json`, `docs/static/frigate-api.yaml`
+- **Fix shipped:** `web/e2e/scripts/validate-fixtures.mjs` checks each JSON fixture against the matching 200 schema (Ajv 2020). Unmapped files fail. `review-summary.json` skipped (UI day-keyed shape vs spec `{ last24Hours, root }`); `config-schema.json` skipped (editor JSON Schema). Runs in `e2e:lint` and Playwright `globalSetup`.
 
 #### D10 — Fall back to software decoding when hardware decoding keeps killing a camera `[BE] [FE] [fork, upstreamable]`
 - **Where:** `frigate/video/ffmpeg.py` `CameraWatchdog` (restarts the detect ffmpeg with the same command after every crash), `frigate/ffmpeg_presets.py` (VAAPI detect scales on the GPU, then `hwdownload`)
