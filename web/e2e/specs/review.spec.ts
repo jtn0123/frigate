@@ -200,12 +200,10 @@ test.describe("Review — timeline (desktop) @critical", () => {
 
   test("timeline renders time markers", async ({ frigateApp }) => {
     await frigateApp.goto("/review");
-    await expect
-      .poll(
-        async () => (await frigateApp.page.textContent("#pageRoot")) ?? "",
-        { timeout: 10_000 },
-      )
-      .toMatch(/[AP]M|\d+:\d+/);
+    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
+      /[AP]M|\d+:\d+/,
+      { timeout: 10_000 },
+    );
   });
 });
 

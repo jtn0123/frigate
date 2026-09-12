@@ -114,13 +114,16 @@ export default function ModelConfigDropdown({ models }) {
       <div className={styles.panel}>
         <div className={styles.step}>
           <h4 className={styles.stepTitle}>Step 1 — Choose a model</h4>
-          <div
+          <button
+            type="button"
+            disabled={!hasChoices}
+            aria-expanded={hasChoices ? isOpen : undefined}
             className={`${styles.dropdown} ${isOpen ? styles.open : ""} ${
               hasChoices ? "" : styles.static
             }`}
             onClick={hasChoices ? () => setIsOpen(!isOpen) : undefined}
           >
-            <div className={styles.dropdownContent}>
+            <span className={styles.dropdownContent}>
               <span className={styles.modelName}>
                 {selectedModel.label}
                 {selectedModel.recommended && <RecommendedBadge />}
@@ -128,13 +131,15 @@ export default function ModelConfigDropdown({ models }) {
               {hasChoices && (
                 <span className={styles.arrow}>{isOpen ? "▲" : "▼"}</span>
               )}
-            </div>
-          </div>
+            </span>
+          </button>
 
           {isOpen && hasChoices && (
             <div className={styles.menu}>
               {models.map((model, index) => (
-                <div
+                <button
+                  type="button"
+                  aria-pressed={index === selectedModelIndex}
                   key={model.key}
                   className={`${styles.menuItem} ${
                     index === selectedModelIndex ? styles.menuItemActive : ""
@@ -143,7 +148,7 @@ export default function ModelConfigDropdown({ models }) {
                 >
                   {model.label}
                   {model.recommended && <RecommendedBadge />}
-                </div>
+                </button>
               ))}
             </div>
           )}
