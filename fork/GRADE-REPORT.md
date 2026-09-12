@@ -577,3 +577,4 @@ are in `fork/PLAN.md`. "Backlog" items wait for the owner to promote them.
 | UI39 | Timeline hover previews (verify 0.18 first) | M | backlog |
 | UI40 | Server-side camera-offline push (needs HTTPS on the server) | M | backlog |
 | UI41 | Cross-camera stories | L | backlog |
+| UI42 | Update notices and What's new from the fork's releases (owner request 2026-09-11) | M | in review (`section/releases`) |

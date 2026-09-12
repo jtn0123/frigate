@@ -15,6 +15,7 @@ from requests.exceptions import RequestException
 from frigate.config import FrigateConfig
 from frigate.const import CACHE_DIR, CLIPS_DIR, RECORD_DIR
 from frigate.data_processing.types import DataProcessorMetrics
+from frigate.fork.updates import LATEST_RELEASE_URL
 from frigate.object_detection.base import ObjectDetectProcess
 from frigate.types import StatsTrackingTypes
 from frigate.util.services import (
@@ -45,16 +46,14 @@ def get_latest_version(config: FrigateConfig) -> str:
         return "disabled"
 
     try:
-        request = requests.get(
-            "https://api.github.com/repos/blakeblackshear/frigate/releases/latest",
-            timeout=10,
-        )
+        # Fork: only the fork's own releases; upstream is tracked by the sync bot.
+        request = requests.get(LATEST_RELEASE_URL, timeout=10)
         response = request.json()
     except (RequestException, JSONDecodeError):
         return "unknown"
 
     if request.ok and response and "tag_name" in response:
-        return str(response.get("tag_name").replace("v", ""))
+        return str(response.get("tag_name").removeprefix("fork/").replace("v", ""))
     else:
         return "unknown"
 

@@ -14,6 +14,10 @@ import {
   type DeepPartial,
   configFactory,
 } from "../fixtures/mock-data/config";
+import {
+  forkUpdatesFactory,
+  type ForkUpdatesMock,
+} from "../fixtures/mock-data/fork-updates";
 import { adminProfile, type UserProfile } from "../fixtures/mock-data/profile";
 import { BASE_STATS, statsFactory } from "../fixtures/mock-data/stats";
 
@@ -41,6 +45,7 @@ export interface ApiMockOverrides {
   faces?: Record<string, unknown>;
   configRaw?: string;
   configSchema?: Record<string, unknown>;
+  forkUpdates?: ForkUpdatesMock;
 }
 
 export class ApiMocker {
@@ -203,6 +208,11 @@ export class ApiMocker {
     // Debug replay
     await this.page.route("**/api/debug_replay/**", (route) =>
       route.fulfill({ json: {} }),
+    );
+
+    // Fork update notices (UI42): a development build unless overridden.
+    await this.page.route("**/api/fork/updates**", (route) =>
+      route.fulfill({ json: overrides?.forkUpdates ?? forkUpdatesFactory() }),
     );
 
     // Generic mutation catch-all for remaining endpoints.
