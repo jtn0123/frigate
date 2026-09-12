@@ -12,8 +12,8 @@ fi
 
 mkdir -p /rootfs/
 
-wget -qO- "https://github.com/just-containers/s6-overlay/releases/download/v${s6_version}/s6-overlay-noarch.tar.xz" |
+curl --proto '=https' --proto-redir '=https' -fsSL "https://github.com/just-containers/s6-overlay/releases/download/v${s6_version}/s6-overlay-noarch.tar.xz" |
     tar -C /rootfs/ -Jxpf -
 
-wget -qO- "https://github.com/just-containers/s6-overlay/releases/download/v${s6_version}/s6-overlay-${s6_arch}.tar.xz" |
+curl --proto '=https' --proto-redir '=https' -fsSL "https://github.com/just-containers/s6-overlay/releases/download/v${s6_version}/s6-overlay-${s6_arch}.tar.xz" |
     tar -C /rootfs/ -Jxpf -

@@ -226,9 +226,7 @@ class ModelConfig(BaseModel):
             filter(lambda label: label not in self._all_attributes, enabled_labels)
         )
         colors = generate_color_palette(len(enabled_trackable_labels))
-        self._colormap = {
-            label: color for label, color in zip(enabled_trackable_labels, colors)
-        }
+        self._colormap = dict(zip(enabled_trackable_labels, colors))
 
     model_config = ConfigDict(extra="forbid", protected_namespaces=())
 

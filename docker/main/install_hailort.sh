@@ -10,5 +10,5 @@ elif [[ "${TARGETARCH}" == "arm64" ]]; then
     arch="aarch64"
 fi
 
-wget -qO- "https://github.com/frigate-nvr/hailort/releases/download/v${hailo_version}/hailort-debian12-${TARGETARCH}.tar.gz" | tar -C / -xzf -
-wget -P /wheels/ "https://github.com/frigate-nvr/hailort/releases/download/v${hailo_version}/hailort-${hailo_version}-cp311-cp311-linux_${arch}.whl"
+curl --proto '=https' --proto-redir '=https' -fsSL "https://github.com/frigate-nvr/hailort/releases/download/v${hailo_version}/hailort-debian12-${TARGETARCH}.tar.gz" | tar -C / -xzf -
+curl --proto '=https' --proto-redir '=https' -fsSL --create-dirs --output-dir /wheels/ --remote-name "https://github.com/frigate-nvr/hailort/releases/download/v${hailo_version}/hailort-${hailo_version}-cp311-cp311-linux_${arch}.whl"

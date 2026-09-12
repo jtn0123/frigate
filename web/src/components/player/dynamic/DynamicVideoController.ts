@@ -173,10 +173,8 @@ export class DynamicVideoController {
       return false;
     }
 
-    return (
-      this.recordings.find(
-        (segment) => segment.start_time <= time && segment.end_time >= time,
-      ) != undefined
+    return this.recordings.some(
+      (segment) => segment.start_time <= time && segment.end_time >= time,
     );
   }
 }

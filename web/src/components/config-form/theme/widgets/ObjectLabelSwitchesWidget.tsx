@@ -1,7 +1,7 @@
 // Object Label Switches Widget - For selecting objects via switches
 import { WidgetProps } from "@rjsf/utils";
-import { SwitchesWidget } from "./SwitchesWidget";
-import { FormContext } from "./SwitchesWidget";
+import { SwitchesWidget, FormContext } from "./SwitchesWidget";
+
 import i18n, { getTranslatedLabel } from "@/utils/i18n";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { JsonObject } from "@/types/configForm";

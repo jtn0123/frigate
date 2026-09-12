@@ -76,7 +76,7 @@ export function ThresholdBarGraph({
       }
       const times = updateTimesRef.current;
       const ts = times[Math.max(1, dateIndex) - 1] - timeOffset;
-      if (isNaN(ts)) {
+      if (Number.isNaN(ts)) {
         return "";
       }
       return formatUnixTimestampToDateTime(ts, {

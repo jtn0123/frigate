@@ -290,7 +290,7 @@ def update_yaml_file_bulk(file_path: str, updates: dict[str, Any]):
         with open(file_path, "w") as f:
             yaml.dump(data, f)
     except Exception as e:
-        logger.error(f"Unable to write to Frigate config file {file_path}: {e}")
+        logger.exception("Unable to write to Frigate config file %s: %s", file_path, e)
 
 
 def clear_orphaned_comments(collection, parent, parent_key) -> None:

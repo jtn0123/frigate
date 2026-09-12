@@ -45,7 +45,7 @@ const emptyObject = Object.freeze({});
 
 export default function ObjectSettingsView({
   selectedCamera,
-}: ObjectSettingsViewProps) {
+}: Readonly<ObjectSettingsViewProps>) {
   const { t } = useTranslation(["views/settings"]);
 
   const { getLocaleDocUrl } = useDocDomain();
@@ -255,7 +255,7 @@ export default function ObjectSettingsView({
                         key={`${param}-${selectedCamera}`}
                         className="ml-1"
                         id={param}
-                        checked={options && options[param]}
+                        checked={options?.[param]}
                         disabled={
                           param === "paths" &&
                           cameraConfig?.onvif?.autotracking?.enabled_in_config
@@ -385,7 +385,7 @@ function ObjectList({ cameraConfig, objects }: Readonly<ObjectListProps>) {
 
   const getColorForObjectName = useCallback(
     (objectName: string) => {
-      return colormap && colormap[objectName]
+      return colormap?.[objectName]
         ? `rgb(${colormap[objectName][2]}, ${colormap[objectName][1]}, ${colormap[objectName][0]})`
         : "rgb(128, 128, 128)";
     },

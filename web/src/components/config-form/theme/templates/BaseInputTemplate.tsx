@@ -24,8 +24,8 @@ export function BaseInputTemplate(props: WidgetProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (inputType === "number") {
-      const num = parseFloat(val);
-      onChange(val === "" ? undefined : isNaN(num) ? undefined : num);
+      const num = Number.parseFloat(val);
+      onChange(val === "" ? undefined : Number.isNaN(num) ? undefined : num);
     } else {
       onChange(val === "" ? undefined : val);
     }

@@ -89,10 +89,7 @@ class TensorRtDetector(DetectionApi):
 
             ctypes.cdll.LoadLibrary("/usr/local/lib/libyolo_layer.so")
         except OSError as e:
-            logger.error(
-                "ERROR: failed to load libraries. %s",
-                e,
-            )
+            logger.exception("ERROR: failed to load libraries. %s", e)
 
         with open(model_path, "rb") as f, trt.Runtime(self.trt_logger) as runtime:
             return runtime.deserialize_cuda_engine(f.read())
@@ -148,7 +145,6 @@ class TensorRtDetector(DetectionApi):
         inputs = []
         outputs = []
         bindings = []
-        output_idx = 0
         for binding in self.engine:
             binding_dims = self._get_binding_dims(binding)
             if len(binding_dims) == 4:
@@ -184,7 +180,6 @@ class TensorRtDetector(DetectionApi):
                 assert size % 7 == 0, f"output size was {size}"
                 logger.debug(f"Output has Shape {binding_dims}")
                 outputs.append(HostDeviceMem(host_mem, device_mem, nbytes, size))
-                output_idx += 1
         assert len(inputs) == 1, f"inputs len was {len(inputs)}"
         assert len(outputs) == 1, f"output len was {len(outputs)}"
         return inputs, outputs, bindings
@@ -269,7 +264,7 @@ class TensorRtDetector(DetectionApi):
                 self.bindings,
             ) = self._allocate_buffers()
         except Exception as e:
-            logger.error(e)
+            logger.exception("Failed to allocate CUDA resources")
             raise RuntimeError("fail to allocate CUDA resources") from e
 
         logger.debug("TensorRT loaded. Input shape is %s", self.input_shape)

@@ -110,7 +110,7 @@ export default function MotionMaskEditPane({
   }, [polygons]);
 
   const polygonArea = useMemo(() => {
-    if (polygon && polygon.isFinished && scaledWidth && scaledHeight) {
+    if (polygon?.isFinished && scaledWidth && scaledHeight) {
       const points = interpolatePoints(
         polygon.points,
         scaledWidth,

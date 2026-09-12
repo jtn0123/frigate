@@ -240,9 +240,9 @@ def load_tflite(model_path: str) -> tuple[Interpreter, list[dict], list[dict]]:
 
 def load_labelmap(path: str) -> dict[int, str]:
     """Mirror util.builtin.load_labels(prefill=0, indexed=False)."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         lines = [line.strip() for line in f.readlines() if line.strip()]
-    return {idx: line for idx, line in enumerate(lines)}
+    return dict(enumerate(lines))
 
 
 def preprocess_for_inference(image_bgr: np.ndarray) -> np.ndarray:

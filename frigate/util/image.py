@@ -240,10 +240,9 @@ def draw_box_with_label(
             elif y_min - (line_height + 8) >= 0:
                 # Enough space above, keep the label at the top
                 text_offset_y = max(0, y_min - (line_height + 8))
-    elif position in {"bl", "br"}:
-        if text_offset_y + line_height > frame_height:
-            # If there's not enough space below, try above the box
-            text_offset_y = max(0, y_min - (line_height + 8))
+    elif position in {"bl", "br"} and text_offset_y + line_height > frame_height:
+        # If there's not enough space below, try above the box
+        text_offset_y = max(0, y_min - (line_height + 8))
 
     # make the coords of the box with a small padding of two pixels
     textbox_coords = (

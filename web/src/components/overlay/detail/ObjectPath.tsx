@@ -119,7 +119,7 @@ export function ObjectPath({
               fill={getPointColor(color, pos.lifecycle_item?.class_type)}
               stroke="white"
               strokeWidth={width / 2}
-              onClick={() => onPointClick && onPointClick(index)}
+              onClick={() => onPointClick?.(index)}
               style={{ cursor: "pointer" }}
             />
           </TooltipTrigger>

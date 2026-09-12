@@ -17,7 +17,7 @@ type ZoneMaskFilterButtonProps = {
 export function ZoneMaskFilterButton({
   selectedZoneMask,
   updateZoneMaskFilter,
-}: ZoneMaskFilterButtonProps) {
+}: Readonly<ZoneMaskFilterButtonProps>) {
   const { t } = useTranslation(["components/filter"]);
   const trigger = (
     <Button
@@ -78,83 +78,76 @@ export function GeneralFilterContent({
 }: Readonly<GeneralFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
-    <>
-      <div
-        className={cn(
-          "h-auto overflow-y-auto overflow-x-hidden",
-          contentClassName,
-        )}
-      >
-        <div className="my-2.5 flex items-center justify-between">
-          <Label
-            className="mx-2 cursor-pointer text-primary"
-            htmlFor="allLabels"
-          >
-            {t("labels.all.title")}
-          </Label>
-          <Switch
-            className="ml-1"
-            id="allLabels"
-            checked={selectedZoneMask == undefined}
-            onCheckedChange={(isChecked) => {
-              if (isChecked) {
-                updateZoneMaskFilter(undefined);
-              }
-            }}
-          />
-        </div>
-        <DropdownMenuSeparator />
-        <div className="my-2.5 flex flex-col gap-2.5">
-          {["zone", "motion_mask", "object_mask"].map((item) => (
-            <div key={item} className="flex items-center justify-between">
-              <Label
-                className="mx-2 w-full cursor-pointer text-primary smart-capitalize"
-                htmlFor={item}
-              >
-                {t(
-                  "masksAndZones." +
-                    item
-                      .replace(/_([a-z])/g, (letter) => letter.toUpperCase())
-                      .replace("_", "") +
-                    "s.label",
-                  { ns: "views/settings" },
-                )}
-              </Label>
-              <Switch
-                key={item}
-                className="ml-1"
-                id={item}
-                checked={
-                  selectedZoneMask?.includes(item as PolygonType) ?? false
-                }
-                onCheckedChange={(isChecked) => {
-                  if (isChecked) {
-                    const updatedLabels = selectedZoneMask
-                      ? [...selectedZoneMask]
-                      : [];
-
-                    updatedLabels.push(item as PolygonType);
-                    updateZoneMaskFilter(updatedLabels);
-                  } else {
-                    const updatedLabels = selectedZoneMask
-                      ? [...selectedZoneMask]
-                      : [];
-
-                    // can not deselect the last item
-                    if (updatedLabels.length > 1) {
-                      updatedLabels.splice(
-                        updatedLabels.indexOf(item as PolygonType),
-                        1,
-                      );
-                      updateZoneMaskFilter(updatedLabels);
-                    }
-                  }
-                }}
-              />
-            </div>
-          ))}
-        </div>
+    <div
+      className={cn(
+        "h-auto overflow-y-auto overflow-x-hidden",
+        contentClassName,
+      )}
+    >
+      <div className="my-2.5 flex items-center justify-between">
+        <Label className="mx-2 cursor-pointer text-primary" htmlFor="allLabels">
+          {t("labels.all.title")}
+        </Label>
+        <Switch
+          className="ml-1"
+          id="allLabels"
+          checked={selectedZoneMask == undefined}
+          onCheckedChange={(isChecked) => {
+            if (isChecked) {
+              updateZoneMaskFilter(undefined);
+            }
+          }}
+        />
       </div>
-    </>
+      <DropdownMenuSeparator />
+      <div className="my-2.5 flex flex-col gap-2.5">
+        {["zone", "motion_mask", "object_mask"].map((item) => (
+          <div key={item} className="flex items-center justify-between">
+            <Label
+              className="mx-2 w-full cursor-pointer text-primary smart-capitalize"
+              htmlFor={item}
+            >
+              {t(
+                "masksAndZones." +
+                  item
+                    .replace(/_([a-z])/g, (letter) => letter.toUpperCase())
+                    .replace("_", "") +
+                  "s.label",
+                { ns: "views/settings" },
+              )}
+            </Label>
+            <Switch
+              key={item}
+              className="ml-1"
+              id={item}
+              checked={selectedZoneMask?.includes(item as PolygonType) ?? false}
+              onCheckedChange={(isChecked) => {
+                if (isChecked) {
+                  const updatedLabels = selectedZoneMask
+                    ? [...selectedZoneMask]
+                    : [];
+
+                  updatedLabels.push(item as PolygonType);
+                  updateZoneMaskFilter(updatedLabels);
+                } else {
+                  const updatedLabels = selectedZoneMask
+                    ? [...selectedZoneMask]
+                    : [];
+
+                  // can not deselect the last item
+                  if (updatedLabels.length > 1) {
+                    updatedLabels.splice(
+                      updatedLabels.indexOf(item as PolygonType),
+                      1,
+                    );
+                    updateZoneMaskFilter(updatedLabels);
+                  }
+                }
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

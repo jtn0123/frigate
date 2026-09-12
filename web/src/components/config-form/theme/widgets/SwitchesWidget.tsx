@@ -89,8 +89,8 @@ export function SwitchesWidget(props: WidgetProps) {
   // Try to get formContext from direct prop, options, or registry
   const context = useMemo(
     () =>
-      (formContext as FormContext | undefined) ||
-      (props.options?.formContext as FormContext | undefined) ||
+      (formContext as FormContext | undefined) ??
+      (props.options?.formContext as FormContext | undefined) ??
       (registry?.formContext as FormContext | undefined),
     [formContext, props.options, registry],
   );

@@ -43,7 +43,7 @@ export function CombinedStorageGraph({
   graphId,
   cameraStorage,
   totalStorage,
-}: CombinedStorageGraphProps) {
+}: Readonly<CombinedStorageGraphProps>) {
   const { t } = useTranslation(["views/system"]);
 
   const { theme, systemTheme } = useTheme();

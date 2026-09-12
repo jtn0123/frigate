@@ -1,7 +1,6 @@
 """Ollama Provider for Frigate AI."""
 
 import base64
-import binascii
 import io
 import json
 import logging
@@ -81,7 +80,7 @@ def _normalize_multimodal_content(
                 try:
                     encoded = url.split(",", 1)[1]
                     images.append(base64.b64decode(encoded, validate=True))
-                except (ValueError, IndexError, binascii.Error) as e:
+                except (ValueError, IndexError) as e:
                     logger.debug("Failed to decode multimodal image url: %s", e)
 
     return ("\n".join(text_parts) if text_parts else None), (images or None)

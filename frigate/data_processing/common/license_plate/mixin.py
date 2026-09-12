@@ -1825,7 +1825,7 @@ class CTCDecoder:
                 " ",
             ]
 
-        self.char_map = {i: char for i, char in enumerate(self.characters)}
+        self.char_map = dict(enumerate(self.characters))
 
     def __call__(
         self, outputs: list[np.ndarray]

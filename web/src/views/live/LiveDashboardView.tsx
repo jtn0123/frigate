@@ -75,7 +75,7 @@ export default function LiveDashboardView({
   onSelectCamera,
   fullscreen,
   toggleFullscreen,
-}: LiveDashboardViewProps) {
+}: Readonly<LiveDashboardViewProps>) {
   const { t } = useTranslation(["views/live"]);
 
   const { data: config } = useSWR<FrigateConfig>("config");

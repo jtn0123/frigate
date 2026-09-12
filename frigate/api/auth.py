@@ -37,6 +37,10 @@ from frigate.config import AuthConfig, ProxyConfig
 from frigate.const import CONFIG_DIR, JWT_SECRET_ENV_VAR, PASSWORD_HASH_ALGORITHM
 from frigate.models import User
 
+_CONFIG_AUTH = "config/auth"
+_AUTHENTICATION_REQUIRED = "Authentication required"
+_LOGIN_PATH = "/login"
+
 logger = logging.getLogger(__name__)
 
 # In-memory cache to track which clients we've logged for an anonymous access event.
@@ -67,7 +71,7 @@ def require_admin_by_default():
         # Public auth endpoints (allow_public)
         "/auth",
         "/auth/first_time_login",
-        "/login",
+        _LOGIN_PATH,
         "/logout",
         # Authenticated user endpoints (allow_any_authenticated)
         "/profile",
@@ -276,7 +280,7 @@ def allow_any_authenticated():
 
         if role != "admin":
             if username is None or not _is_authenticated(request):
-                raise HTTPException(status_code=401, detail="Authentication required")
+                raise HTTPException(status_code=401, detail=_AUTHENTICATION_REQUIRED)
 
         return
 
@@ -325,7 +329,7 @@ def get_remote_addr(request: Request):
         return direct_addr or "127.0.0.1"
 
     route = list(reversed(forwarded_for.split(",")))
-    logger.debug(f"IP Route: {[r for r in route]}")
+    logger.debug(f"IP Route: {list(route)}")
     trusted_proxies = []
     for proxy in request.app.frigate_config.auth.trusted_proxies:
         try:
@@ -446,7 +450,7 @@ def hash_password(password: str, salt=None, iterations=600000):
 def verify_password(password, password_hash):
     if (password_hash or "").count("$") != 3:
         return False
-    algorithm, iterations, salt, b64_hash = password_hash.split("$", 3)
+    algorithm, iterations, salt, _ = password_hash.split("$", 3)
     iterations = int(iterations)
     assert algorithm == PASSWORD_HASH_ALGORITHM
     compare_hash = hash_password(password, salt, iterations)
@@ -741,7 +745,7 @@ def auth(request: Request):
         return success_response
 
     # now apply authentication
-    fail_response.headers["location"] = "/login"
+    fail_response.headers["location"] = _LOGIN_PATH
 
     JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
     JWT_COOKIE_SECURE = request.app.frigate_config.auth.cookie_secure
@@ -843,7 +847,7 @@ def auth(request: Request):
 
         return success_response
     except Exception as e:
-        logger.error(f"Error parsing jwt: {e}")
+        logger.exception("Error parsing jwt: %s", e)
         return fail_response
 
 
@@ -894,7 +898,7 @@ def profile(request: Request):
 )
 def logout(request: Request):
     auth_config: AuthConfig = request.app.frigate_config.auth
-    response = RedirectResponse("/login", status_code=303)
+    response = RedirectResponse(_LOGIN_PATH, status_code=303)
     response.delete_cookie(auth_config.cookie_name)
     return response
 
@@ -903,7 +907,7 @@ limiter = Limiter(key_func=get_remote_addr)
 
 
 @router.post(
-    "/login",
+    _LOGIN_PATH,
     dependencies=[Depends(allow_public())],
     summary="Login with credentials",
     description='Authenticates a user with username and password. Returns a JWT token as a secure HTTP-only cookie that can be used for subsequent API requests. The JWT token can also be retrieved from the response and used as a Bearer token in the Authorization header.\n\nExample using Bearer token:\n```\ncurl -H "Authorization: Bearer <token_value>" https://frigate_ip:8971/api/profile\n```',
@@ -964,7 +968,7 @@ def get_users():
     exports = (
         User.select(User.username, User.role).order_by(User.username).dicts().iterator()
     )
-    return JSONResponse([e for e in exports])
+    return JSONResponse(list(exports))
 
 
 @router.post(
@@ -1007,7 +1011,7 @@ def create_user(
             User.notification_tokens: [],
         }
     ).execute()
-    request.app.config_publisher.publisher.publish("config/auth", None)
+    request.app.config_publisher.publisher.publish(_CONFIG_AUTH, None)
     return JSONResponse(content={"username": body.username})
 
 
@@ -1025,7 +1029,7 @@ def delete_user(request: Request, username: str):
         )
 
     User.delete_by_id(username)
-    request.app.config_publisher.publisher.publish("config/auth", None)
+    request.app.config_publisher.publisher.publish(_CONFIG_AUTH, None)
     return JSONResponse(content={"success": True})
 
 
@@ -1157,7 +1161,7 @@ async def update_role(
         )
 
     await asyncio.to_thread(User.set_by_id, username, {User.role: body.role})
-    request.app.config_publisher.publisher.publish("config/auth", None)
+    request.app.config_publisher.publisher.publish(_CONFIG_AUTH, None)
     return JSONResponse(content={"success": True})
 
 
@@ -1171,7 +1175,7 @@ async def require_camera_access(
 
     current_user = await get_current_user(request)
     if isinstance(current_user, JSONResponse):
-        detail = "Authentication required"
+        detail = _AUTHENTICATION_REQUIRED
         try:
             error_payload = json.loads(current_user.body)
             detail = (
@@ -1282,7 +1286,7 @@ async def require_go2rtc_stream_access(
 
     current_user = await get_current_user(request)
     if isinstance(current_user, JSONResponse):
-        detail = "Authentication required"
+        detail = _AUTHENTICATION_REQUIRED
         try:
             error_payload = json.loads(current_user.body)
             detail = (

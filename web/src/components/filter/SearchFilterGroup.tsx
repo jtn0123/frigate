@@ -41,7 +41,7 @@ export default function SearchFilterGroup({
   filter,
   filterList,
   onUpdateFilter,
-}: SearchFilterGroupProps) {
+}: Readonly<SearchFilterGroupProps>) {
   const { t } = useTranslation(["components/filter"]);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
@@ -253,7 +253,7 @@ function GeneralFilterButton({
   allLabels,
   selectedLabels,
   updateLabelFilter,
-}: GeneralFilterButtonProps) {
+}: Readonly<GeneralFilterButtonProps>) {
   const { t } = useTranslation(["components/filter"]);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
@@ -371,7 +371,7 @@ export function GeneralFilterContent({
   updateLabelFilter,
   setCurrentLabels,
   onClose,
-}: GeneralFilterContentProps) {
+}: Readonly<GeneralFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,

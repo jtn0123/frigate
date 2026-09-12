@@ -125,12 +125,12 @@ def run_ffmpeg_with_progress(
     if stdin_payload is not None and proc.stdin is not None:
         try:
             proc.stdin.write(stdin_payload)
-        except (BrokenPipeError, OSError):
+        except OSError:
             pass
         finally:
             try:
                 proc.stdin.close()
-            except (BrokenPipeError, OSError):
+            except OSError:
                 pass
 
     captured: list[str] = []

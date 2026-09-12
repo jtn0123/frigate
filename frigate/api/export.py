@@ -78,6 +78,11 @@ from frigate.record.export import (
 from frigate.util.path import sanitize_contained_path
 from frigate.util.time import is_current_hour
 
+_EXPORT_CASE_NOT_FOUND = "Export case not found"
+_EXPORT_QUEUE_FULL_ERROR = (
+    "Export queue is full. Try again once current exports finish."
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.export])
@@ -123,7 +128,7 @@ def _validate_export_case(export_case_id: str | None) -> JSONResponse | None:
         ExportCase.get(ExportCase.id == export_case_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Export case not found"},
+            content={"success": False, "message": _EXPORT_CASE_NOT_FOUND},
             status_code=404,
         )
 
@@ -328,7 +333,7 @@ def get_exports(
         query = query.where(Export.date <= end_date)
 
     exports = query.order_by(Export.date.desc()).dicts().iterator()
-    return JSONResponse(content=[e for e in exports])
+    return JSONResponse(content=list(exports))
 
 
 @router.get(
@@ -368,7 +373,7 @@ def get_export_case(case_id: str):
         return JSONResponse(content=_export_case_to_dict(case))
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Export case not found"},
+            content={"success": False, "message": _EXPORT_CASE_NOT_FOUND},
             status_code=404,
         )
 
@@ -486,7 +491,7 @@ def download_export_case(
         case = ExportCase.get(ExportCase.id == case_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Export case not found"},
+            content={"success": False, "message": _EXPORT_CASE_NOT_FOUND},
             status_code=404,
         )
 
@@ -533,7 +538,7 @@ def update_export_case(case_id: str, body: ExportCaseUpdateBody):
         case = ExportCase.get(ExportCase.id == case_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Export case not found"},
+            content={"success": False, "message": _EXPORT_CASE_NOT_FOUND},
             status_code=404,
         )
 
@@ -563,7 +568,7 @@ def delete_export_case(case_id: str, request: Request, delete_exports: bool = Fa
         case = ExportCase.get(ExportCase.id == case_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Export case not found"},
+            content={"success": False, "message": _EXPORT_CASE_NOT_FOUND},
             status_code=404,
         )
 
@@ -714,7 +719,7 @@ def export_recordings_batch(
         return JSONResponse(
             content={
                 "success": False,
-                "message": "Export queue is full. Try again once current exports finish.",
+                "message": _EXPORT_QUEUE_FULL_ERROR,
             },
             status_code=503,
         )
@@ -887,7 +892,7 @@ def export_recording(
         return JSONResponse(
             content={
                 "success": False,
-                "message": "Export queue is full. Try again once current exports finish.",
+                "message": _EXPORT_QUEUE_FULL_ERROR,
             },
             status_code=503,
         )
@@ -1038,7 +1043,7 @@ def export_recording_custom(
         return JSONResponse(
             content={
                 "success": False,
-                "message": "Export queue is full. Try again once current exports finish.",
+                "message": _EXPORT_QUEUE_FULL_ERROR,
             },
             status_code=503,
         )

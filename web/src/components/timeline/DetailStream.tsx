@@ -123,7 +123,7 @@ export default function DetailStream({
         // Use the detection's actual start timestamp (parsed from its ID)
         // rather than review.start_time, which can be >10ms away from any
         // lifecycle event and would fail the bounding-box TOLERANCE check.
-        const detectTimestamp = parseFloat(detectionId);
+        const detectTimestamp = Number.parseFloat(detectionId);
         pinnedDetectTimestampRef.current = detectTimestamp;
         const recordTime = detectTimestamp + annotationOffset / 1000;
         onSeek(recordTime, false);
@@ -727,93 +727,91 @@ function EventList({
   ]);
 
   return (
-    <>
-      <div
-        className={cn(
-          "rounded-md bg-secondary p-2",
-          isSelected
-            ? "bg-secondary-highlight"
-            : "outline-transparent duration-500",
-        )}
-      >
-        <div className="ml-1.5 flex w-full items-end justify-between">
-          <div className="flex flex-1 items-center gap-2 text-sm font-medium">
-            <div
-              className={cn(
-                "relative rounded-full p-1 text-white",
-                (effectiveTime ?? 0) >= (event.start_time ?? 0) - 0.5 &&
-                  (effectiveTime ?? 0) <=
-                    (event.end_time ?? event.start_time ?? 0) + 0.5
-                  ? "bg-selected"
-                  : "bg-muted-foreground",
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleObjectSelect(event);
-              }}
-              aria-hidden="true"
-            >
-              {getIconForLabel(
-                event.sub_label ? event.label + "-verified" : event.label,
-                event.data.type,
-                "size-3 text-white",
-              )}
-            </div>
-            <div
-              className="flex flex-1 items-center gap-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleObjectSelect(event);
-              }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={onActivateKey((e) => {
-                e.stopPropagation();
-                handleObjectSelect(event);
-              })}
-            >
-              <div className="flex gap-2">
-                <span className="capitalize">{label}</span>
-                {event.data?.recognized_license_plate && (
-                  <>
-                    <span className="text-secondary-foreground">·</span>
-                    <div className="text-sm text-secondary-foreground">
-                      <Link
-                        to={`/explore?recognized_license_plate=${event.data.recognized_license_plate}`}
-                        className="text-sm"
-                      >
-                        {event.data.recognized_license_plate}
-                      </Link>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+    <div
+      className={cn(
+        "rounded-md bg-secondary p-2",
+        isSelected
+          ? "bg-secondary-highlight"
+          : "outline-transparent duration-500",
+      )}
+    >
+      <div className="ml-1.5 flex w-full items-end justify-between">
+        <div className="flex flex-1 items-center gap-2 text-sm font-medium">
+          <div
+            className={cn(
+              "relative rounded-full p-1 text-white",
+              (effectiveTime ?? 0) >= (event.start_time ?? 0) - 0.5 &&
+                (effectiveTime ?? 0) <=
+                  (event.end_time ?? event.start_time ?? 0) + 0.5
+                ? "bg-selected"
+                : "bg-muted-foreground",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleObjectSelect(event);
+            }}
+            aria-hidden="true"
+          >
+            {getIconForLabel(
+              event.sub_label ? event.label + "-verified" : event.label,
+              event.data.type,
+              "size-3 text-white",
+            )}
           </div>
-          <div className="mr-2 flex flex-row justify-end">
-            <EventMenu
-              event={event}
-              config={config}
-              onOpenUpload={(e) => onOpenUpload?.(e)}
-              isSelected={isSelected}
-              onToggleSelection={handleObjectSelect}
-            />
+          <div
+            className="flex flex-1 items-center gap-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleObjectSelect(event);
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={onActivateKey((e) => {
+              e.stopPropagation();
+              handleObjectSelect(event);
+            })}
+          >
+            <div className="flex gap-2">
+              <span className="capitalize">{label}</span>
+              {event.data?.recognized_license_plate && (
+                <>
+                  <span className="text-secondary-foreground">·</span>
+                  <div className="text-sm text-secondary-foreground">
+                    <Link
+                      to={`/explore?recognized_license_plate=${event.data.recognized_license_plate}`}
+                      className="text-sm"
+                    >
+                      {event.data.recognized_license_plate}
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-
-        <div className="mt-2">
-          <ObjectTimeline
-            review={review}
-            eventId={event.id}
-            onSeek={handleTimelineClick}
-            effectiveTime={effectiveTime}
-            annotationOffset={annotationOffset}
-            startTime={event.start_time}
-            endTime={event.end_time}
+        <div className="mr-2 flex flex-row justify-end">
+          <EventMenu
+            event={event}
+            config={config}
+            onOpenUpload={(e) => onOpenUpload?.(e)}
+            isSelected={isSelected}
+            onToggleSelection={handleObjectSelect}
           />
         </div>
       </div>
-    </>
+
+      <div className="mt-2">
+        <ObjectTimeline
+          review={review}
+          eventId={event.id}
+          onSeek={handleTimelineClick}
+          effectiveTime={effectiveTime}
+          annotationOffset={annotationOffset}
+          startTime={event.start_time}
+          endTime={event.end_time}
+        />
+      </div>
+    </div>
   );
 }
 

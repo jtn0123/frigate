@@ -8,7 +8,11 @@ type StorageGraphProps = {
   used: number;
   total: number;
 };
-export function StorageGraph({ graphId, used, total }: StorageGraphProps) {
+export function StorageGraph({
+  graphId,
+  used,
+  total,
+}: Readonly<StorageGraphProps>) {
   const { theme, systemTheme } = useTheme();
 
   const options = useMemo(() => {

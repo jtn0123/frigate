@@ -240,7 +240,7 @@ export default function UiSettingsView() {
                   <Select
                     value={fallbackTimeout?.toString()}
                     onValueChange={(value) =>
-                      setFallbackTimeout(parseInt(value, 10))
+                      setFallbackTimeout(Number.parseInt(value, 10))
                     }
                   >
                     <SelectTrigger
@@ -318,7 +318,9 @@ export default function UiSettingsView() {
               control={
                 <Select
                   value={playbackRate?.toString()}
-                  onValueChange={(value) => setPlaybackRate(parseFloat(value))}
+                  onValueChange={(value) =>
+                    setPlaybackRate(Number.parseFloat(value))
+                  }
                 >
                   <SelectTrigger
                     id="default-playback-rate"
@@ -353,7 +355,7 @@ export default function UiSettingsView() {
                 <Select
                   value={weekStartsOn?.toString()}
                   onValueChange={(value) =>
-                    setWeekStartsOn(parseInt(value, 10))
+                    setWeekStartsOn(Number.parseInt(value, 10))
                   }
                 >
                   <SelectTrigger id="first-weekday" className="w-full md:w-32">

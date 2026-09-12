@@ -102,7 +102,7 @@ export function CalendarRangeFilterButton({
   range,
   defaultText,
   updateSelectedRange,
-}: CalendarRangeFilterButtonProps) {
+}: Readonly<CalendarRangeFilterButtonProps>) {
   const { t } = useTranslation(["components/filter"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const timezone = useTimezone(config);
@@ -134,20 +134,18 @@ export function CalendarRangeFilterButton({
     </Button>
   );
   const content = (
-    <>
-      <DateRangePicker
-        initialDateFrom={range?.from}
-        initialDateTo={range?.to}
-        timezone={timezone}
-        showCompare={false}
-        weekStartsOn={weekStartsOn}
-        onUpdate={(range) => {
-          updateSelectedRange(range.range);
-          setOpen(false);
-        }}
-        onReset={() => updateSelectedRange(undefined)}
-      />
-    </>
+    <DateRangePicker
+      initialDateFrom={range?.from}
+      initialDateTo={range?.to}
+      timezone={timezone}
+      showCompare={false}
+      weekStartsOn={weekStartsOn}
+      onUpdate={(range) => {
+        updateSelectedRange(range.range);
+        setOpen(false);
+      }}
+      onReset={() => updateSelectedRange(undefined)}
+    />
   );
 
   if (isMobile) {

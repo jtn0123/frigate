@@ -1,7 +1,6 @@
 """Gemini Provider for Frigate AI."""
 
 import base64
-import binascii
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -26,7 +25,7 @@ def _decode_thought_signature(value: Any) -> bytes | None:
     if isinstance(value, str):
         try:
             return base64.b64decode(value)
-        except (binascii.Error, ValueError):
+        except ValueError:
             return None
     return None
 
@@ -46,7 +45,7 @@ def _decode_data_uri(url: str) -> tuple[str, bytes] | None:
         header, b64 = url.split(",", 1)
         mime = header[len("data:") :].split(";")[0] or "image/jpeg"
         return mime, base64.b64decode(b64)
-    except (ValueError, binascii.Error):
+    except ValueError:
         return None
 
 

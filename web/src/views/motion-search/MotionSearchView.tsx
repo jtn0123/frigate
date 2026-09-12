@@ -7,7 +7,13 @@ import { baseUrl } from "@/api/baseUrl";
 import Logo from "@/components/Logo";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { TimeRange } from "@/types/timeline";
-import { RecordingsSummary } from "@/types/review";
+import {
+  RecordingsSummary,
+  MotionData,
+  REVIEW_PADDING,
+  ReviewSegment,
+  ZoomLevel,
+} from "@/types/review";
 import { ExportMode } from "@/types/filter";
 import { wrapAsync } from "@/utils/promise";
 import {
@@ -52,12 +58,6 @@ import { useTimelineUtils } from "@/hooks/use-timeline-utils";
 import { useCameraPreviews } from "@/hooks/use-camera-previews";
 import { getChunkedTimeDay } from "@/utils/timelineUtil";
 
-import {
-  MotionData,
-  REVIEW_PADDING,
-  ReviewSegment,
-  ZoomLevel,
-} from "@/types/review";
 import {
   ASPECT_VERTICAL_LAYOUT,
   ASPECT_WIDE_LAYOUT,

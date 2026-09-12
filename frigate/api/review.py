@@ -156,7 +156,7 @@ def review(
         .iterator()
     )
 
-    return JSONResponse(content=[r for r in review_query])
+    return JSONResponse(content=list(review_query))
 
 
 @router.get(

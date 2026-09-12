@@ -81,6 +81,8 @@ from frigate.util.services import (
 from frigate.util.time import get_tz_modifiers
 from frigate.version import VERSION
 
+_TEXT_PLAIN = "text/plain"
+
 logger = logging.getLogger(__name__)
 
 
@@ -517,13 +519,11 @@ def config_raw():
         raw_config = f.read()
         f.close()
 
-        return JSONResponse(
-            content=raw_config, media_type="text/plain", status_code=200
-        )
+        return JSONResponse(content=raw_config, media_type=_TEXT_PLAIN, status_code=200)
 
 
 @router.post("/config/save", dependencies=[Depends(require_role(["admin"]))])
-def config_save(save_option: str, body: Any = Body(media_type="text/plain")):
+def config_save(save_option: str, body: Any = Body(media_type=_TEXT_PLAIN)):
     new_config = body.decode()
     if not new_config:
         return JSONResponse(
@@ -620,7 +620,7 @@ def config_save(save_option: str, body: Any = Body(media_type="text/plain")):
         try:
             restart_frigate()
         except Exception as e:
-            logging.error(f"Error restarting Frigate: {e}")
+            logger.exception("Error restarting Frigate: %s", e)
             return JSONResponse(
                 content=(
                     {
@@ -874,9 +874,7 @@ def config_set(request: Request, body: AppConfigSetBody):
                     with open(config_file, "w") as f:
                         f.write(old_raw_config)
                         f.close()
-                    logger.error(
-                        f"Config Validation Error:\n\n{str(traceback.format_exc())}"
-                    )
+                    logger.exception("Config validation failed")
                     error_messages = []
                     for err in e.errors():
                         msg = err.get("msg", "")
@@ -902,7 +900,7 @@ def config_set(request: Request, body: AppConfigSetBody):
                     with open(config_file, "w") as f:
                         f.write(old_raw_config)
                         f.close()
-                    logger.error(f"\nConfig Error:\n\n{str(traceback.format_exc())}")
+                    logger.exception("Invalid config")
                     return JSONResponse(
                         content=(
                             {
@@ -913,7 +911,7 @@ def config_set(request: Request, body: AppConfigSetBody):
                         status_code=400,
                     )
             except Exception as e:
-                logging.error(f"Error updating config: {e}")
+                logger.exception("Error updating config: %s", e)
                 return JSONResponse(
                     content=({"success": False, "message": "Error updating config"}),
                     status_code=500,
@@ -1055,8 +1053,8 @@ async def logs(
             contents = file.read()
             file.close()
             return JSONResponse(jsonable_encoder(contents))
-        except FileNotFoundError as e:
-            logger.error(e)
+        except FileNotFoundError:
+            logger.exception("Could not read log file")
             return JSONResponse(
                 content={"success": False, "message": "Could not find log file"},
                 status_code=500,
@@ -1100,7 +1098,7 @@ async def logs(
         return download_logs(service_location)
 
     if stream:
-        return StreamingResponse(stream_logs(service_location), media_type="text/plain")
+        return StreamingResponse(stream_logs(service_location), media_type=_TEXT_PLAIN)
 
     # For full logs initially
     try:
@@ -1112,8 +1110,8 @@ async def logs(
             content={"totalLines": total_lines, "lines": log_lines},
             status_code=200,
         )
-    except FileNotFoundError as e:
-        logger.error(e)
+    except FileNotFoundError:
+        logger.exception("Could not read log file")
         return JSONResponse(
             content={"success": False, "message": "Could not find log file"},
             status_code=500,
@@ -1125,7 +1123,7 @@ def restart():
     try:
         restart_frigate()
     except Exception as e:
-        logging.error(f"Error restarting Frigate: {e}")
+        logger.exception("Error restarting Frigate: %s", e)
         return JSONResponse(
             content=(
                 {
@@ -1264,8 +1262,8 @@ def get_labels(
                 .where(Event.camera << allowed_cameras)
                 .distinct()
             )
-    except Exception as e:
-        logger.error(e)
+    except Exception:
+        logger.exception("Failed to get labels")
         return JSONResponse(
             content=({"success": False, "message": "Failed to get labels"}),
             status_code=404,
@@ -1445,7 +1443,7 @@ def timeline(
         .dicts()
     )
 
-    return JSONResponse(content=[t for t in timeline])
+    return JSONResponse(content=list(timeline))
 
 
 @router.get("/timeline/hourly", dependencies=[Depends(allow_any_authenticated())])

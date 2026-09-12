@@ -65,7 +65,7 @@ export function CameraLineGraph({
     (val: unknown) => {
       const times = updateTimesRef.current;
       const ts = times[Math.round(val as number)];
-      if (isNaN(ts)) {
+      if (Number.isNaN(ts)) {
         return "";
       }
       return formatUnixTimestampToDateTime(ts, {
@@ -227,7 +227,7 @@ export function EventsPerSecondsLineGraph({
     (val: unknown) => {
       const times = updateTimesRef.current;
       const ts = times[Math.round(val as number) - 1];
-      if (isNaN(ts)) {
+      if (Number.isNaN(ts)) {
         return "";
       }
       return formatUnixTimestampToDateTime(ts, {

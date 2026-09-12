@@ -2,7 +2,7 @@ type LiveIconProps = {
   layout?: "list" | "grid";
 };
 
-export function LiveGridIcon({ layout }: LiveIconProps) {
+export function LiveGridIcon({ layout }: Readonly<LiveIconProps>) {
   return (
     <div className="flex size-full flex-col gap-0.5 overflow-hidden rounded-md">
       <div
@@ -28,7 +28,7 @@ export function LiveGridIcon({ layout }: LiveIconProps) {
   );
 }
 
-export function LiveListIcon({ layout }: LiveIconProps) {
+export function LiveListIcon({ layout }: Readonly<LiveIconProps>) {
   return (
     <div className="flex size-full flex-col gap-0.5 overflow-hidden rounded-md">
       <div

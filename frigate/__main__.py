@@ -13,6 +13,8 @@ from frigate.config import FrigateConfig
 from frigate.log import setup_logging
 from frigate.util.config import find_config_file
 
+_LOG_SEPARATOR = "*************************************************************"
+
 
 def main() -> None:
     manager = mp.Manager()
@@ -42,13 +44,13 @@ def main() -> None:
     try:
         config = FrigateConfig.load(install=True)
     except ValidationError as e:
-        print("*************************************************************")
-        print("*************************************************************")
+        print(_LOG_SEPARATOR)
+        print(_LOG_SEPARATOR)
         print("***    Your config file is not valid!                     ***")
         print("***    Please check the docs at                           ***")
         print("***    https://docs.frigate.video/configuration/          ***")
-        print("*************************************************************")
-        print("*************************************************************")
+        print(_LOG_SEPARATOR)
+        print(_LOG_SEPARATOR)
         print("***    Config Validation Errors                           ***")
         print("*************************************************************\n")
         # Attempt to get the original config file for line number tracking
@@ -73,9 +75,8 @@ def main() -> None:
 
                     if isinstance(current, ruamel.yaml.comments.CommentedMap):
                         current = current[key]
-                    elif isinstance(current, list):
-                        if isinstance(key, int):
-                            current = current[key]
+                    elif isinstance(current, list) and isinstance(key, int):
+                        current = current[key]
 
                     if hasattr(current, "lc"):
                         last_line_number = current.lc.line
@@ -95,9 +96,9 @@ def main() -> None:
                 print(f"Value   : {error.get('input', '-')}")
             print(f"Message : {error.get('msg', error.get('type', 'Unknown'))}\n")
 
-        print("*************************************************************")
+        print(_LOG_SEPARATOR)
         print("***    End Config Validation Errors                       ***")
-        print("*************************************************************")
+        print(_LOG_SEPARATOR)
 
         # attempt to start Frigate in recovery mode
         try:
@@ -107,9 +108,9 @@ def main() -> None:
             print("Unable to start Frigate in safe mode.")
             sys.exit(1)
     if args.validate_config:
-        print("*************************************************************")
+        print(_LOG_SEPARATOR)
         print("*** Your config file is valid.                            ***")
-        print("*************************************************************")
+        print(_LOG_SEPARATOR)
         sys.exit(0)
 
     # Run the main application.

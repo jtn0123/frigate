@@ -44,6 +44,10 @@ from frigate.util.classification import (
 from frigate.util.file import get_event_snapshot
 from frigate.util.path import safe_join, sanitize_path_component
 
+_FACE_RECOGNITION_IS_NOT_ENABLED = "Face recognition is not enabled."
+_JPEG_EXTENSION = ".jpeg"
+_WEBP_EXTENSION = ".webp"
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.classification])
@@ -82,7 +86,9 @@ def get_faces():
         face_dict[name] = []
 
         for file in filter(
-            lambda f: f.lower().endswith((".webp", ".png", ".jpg", ".jpeg")),
+            lambda f: f.lower().endswith(
+                (_WEBP_EXTENSION, ".png", ".jpg", _JPEG_EXTENSION)
+            ),
             os.listdir(face_dir),
         ):
             face_dict[name].append(file)
@@ -103,7 +109,7 @@ def reclassify_face(request: Request, body: dict = None):
     if not request.app.frigate_config.face_recognition.enabled:
         return JSONResponse(
             status_code=400,
-            content={"message": "Face recognition is not enabled.", "success": False},
+            content={"message": _FACE_RECOGNITION_IS_NOT_ENABLED, "success": False},
         )
 
     json: dict[str, Any] = body or {}
@@ -154,7 +160,7 @@ def train_face(request: Request, name: str, body: dict = None):
     if not request.app.frigate_config.face_recognition.enabled:
         return JSONResponse(
             status_code=400,
-            content={"message": "Face recognition is not enabled.", "success": False},
+            content={"message": _FACE_RECOGNITION_IS_NOT_ENABLED, "success": False},
         )
 
     json: dict[str, Any] = body or {}
@@ -274,7 +280,7 @@ async def create_face(request: Request, name: str):
     if not request.app.frigate_config.face_recognition.enabled:
         return JSONResponse(
             status_code=400,
-            content={"message": "Face recognition is not enabled.", "success": False},
+            content={"message": _FACE_RECOGNITION_IS_NOT_ENABLED, "success": False},
         )
 
     face_folder = safe_join(FACE_DIR, name.replace(" ", "_"))
@@ -303,7 +309,7 @@ def register_face(request: Request, name: str, file: UploadFile):
     if not request.app.frigate_config.face_recognition.enabled:
         return JSONResponse(
             status_code=400,
-            content={"message": "Face recognition is not enabled.", "success": False},
+            content={"message": _FACE_RECOGNITION_IS_NOT_ENABLED, "success": False},
         )
 
     if sanitize_path_component(name) is None:
@@ -340,7 +346,7 @@ def recognize_face(request: Request, file: UploadFile):
     if not request.app.frigate_config.face_recognition.enabled:
         return JSONResponse(
             status_code=400,
-            content={"message": "Face recognition is not enabled.", "success": False},
+            content={"message": _FACE_RECOGNITION_IS_NOT_ENABLED, "success": False},
         )
 
     context: EmbeddingsContext = request.app.embeddings
@@ -375,7 +381,7 @@ def reclassify_face_image(request: Request, name: str, body: dict = None):
     if not request.app.frigate_config.face_recognition.enabled:
         return JSONResponse(
             status_code=400,
-            content={"message": "Face recognition is not enabled.", "success": False},
+            content={"message": _FACE_RECOGNITION_IS_NOT_ENABLED, "success": False},
         )
 
     json: dict[str, Any] = body or {}
@@ -454,7 +460,7 @@ def deregister_faces(request: Request, name: str, body: DeleteFaceImagesBody):
     if not request.app.frigate_config.face_recognition.enabled:
         return JSONResponse(
             status_code=400,
-            content={"message": "Face recognition is not enabled.", "success": False},
+            content={"message": _FACE_RECOGNITION_IS_NOT_ENABLED, "success": False},
         )
 
     sanitized_name = sanitize_path_component(name)
@@ -488,7 +494,7 @@ def rename_face(request: Request, old_name: str, body: RenameFaceBody):
     if not request.app.frigate_config.face_recognition.enabled:
         return JSONResponse(
             status_code=400,
-            content={"message": "Face recognition is not enabled.", "success": False},
+            content={"message": _FACE_RECOGNITION_IS_NOT_ENABLED, "success": False},
         )
 
     context: EmbeddingsContext = request.app.embeddings
@@ -501,8 +507,8 @@ def rename_face(request: Request, old_name: str, body: RenameFaceBody):
             },
             status_code=200,
         )
-    except ValueError as e:
-        logger.error(e)
+    except ValueError:
+        logger.exception("Failed to rename face")
         return JSONResponse(
             status_code=400,
             content={
@@ -703,7 +709,9 @@ def get_classification_dataset(name: str):
         dataset_dict[category_name] = []
 
         for file in filter(
-            lambda f: f.lower().endswith((".webp", ".png", ".jpg", ".jpeg")),
+            lambda f: f.lower().endswith(
+                (_WEBP_EXTENSION, ".png", ".jpg", _JPEG_EXTENSION)
+            ),
             os.listdir(category_dir),
         ):
             dataset_dict[category_name].append(file)
@@ -819,7 +827,9 @@ def get_classification_images(name: str):
         status_code=200,
         content=list(
             filter(
-                lambda f: f.lower().endswith((".webp", ".png", ".jpg", ".jpeg")),
+                lambda f: f.lower().endswith(
+                    (_WEBP_EXTENSION, ".png", ".jpg", _JPEG_EXTENSION)
+                ),
                 os.listdir(train_dir),
             )
         ),
@@ -1329,7 +1339,10 @@ def delete_classification_model(request: Request, name: str):
     if os.path.exists(data_dir):
         try:
             shutil.rmtree(data_dir)
-            logger.info("Deleted classification data directory for %r", name)
+            logger.info(
+                "Deleted classification data directory for %s",
+                repr(name).replace("\r", "_").replace("\n", "_"),
+            )
         except Exception as e:
             logger.debug(f"Failed to delete data directory for {name}: {e}")
 
@@ -1337,7 +1350,10 @@ def delete_classification_model(request: Request, name: str):
     if os.path.exists(model_dir):
         try:
             shutil.rmtree(model_dir)
-            logger.info("Deleted classification model directory for %r", name)
+            logger.info(
+                "Deleted classification model directory for %s",
+                repr(name).replace("\r", "_").replace("\n", "_"),
+            )
         except Exception as e:
             logger.debug(f"Failed to delete model directory for {name}: {e}")
 

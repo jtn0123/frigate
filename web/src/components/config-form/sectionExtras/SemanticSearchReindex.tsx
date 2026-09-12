@@ -54,54 +54,52 @@ export default function SemanticSearchReindex() {
   };
 
   return (
-    <>
-      <div className="flex flex-col space-y-1">
-        <div className="flex">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setIsDialogOpen(true)}
-            disabled={isLoading}
-            aria-label={t("enrichments.semanticSearch.reindexNow.label")}
-          >
-            {t("enrichments.semanticSearch.reindexNow.label")}
-          </Button>
-        </div>
-        <div className="mt-2 text-xs text-muted-foreground">
-          <Trans ns="views/settings">
-            enrichments.semanticSearch.reindexNow.desc
-          </Trans>
-        </div>
-
-        <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("enrichments.semanticSearch.reindexNow.confirmTitle")}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                <Trans ns="views/settings">
-                  enrichments.semanticSearch.reindexNow.confirmDesc
-                </Trans>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setIsDialogOpen(false)}>
-                {t("button.cancel", { ns: "common" })}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                className={buttonVariants({ variant: "select" })}
-                onClick={wrapAsync(async () => {
-                  await onReindex();
-                  setIsDialogOpen(false);
-                })}
-              >
-                {t("enrichments.semanticSearch.reindexNow.confirmButton")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+    <div className="flex flex-col space-y-1">
+      <div className="flex">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => setIsDialogOpen(true)}
+          disabled={isLoading}
+          aria-label={t("enrichments.semanticSearch.reindexNow.label")}
+        >
+          {t("enrichments.semanticSearch.reindexNow.label")}
+        </Button>
       </div>
-    </>
+      <div className="mt-2 text-xs text-muted-foreground">
+        <Trans ns="views/settings">
+          enrichments.semanticSearch.reindexNow.desc
+        </Trans>
+      </div>
+
+      <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("enrichments.semanticSearch.reindexNow.confirmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <Trans ns="views/settings">
+                enrichments.semanticSearch.reindexNow.confirmDesc
+              </Trans>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsDialogOpen(false)}>
+              {t("button.cancel", { ns: "common" })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "select" })}
+              onClick={wrapAsync(async () => {
+                await onReindex();
+                setIsDialogOpen(false);
+              })}
+            >
+              {t("enrichments.semanticSearch.reindexNow.confirmButton")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

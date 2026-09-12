@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Trans } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
+
 import axios from "axios";
 import { toast } from "sonner";
 import { wrapAsync } from "@/utils/promise";

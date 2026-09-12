@@ -157,9 +157,9 @@ export function CustomTimeSelector({
 
                 const start = new Date(startTime * 1000);
                 start.setHours(
-                  parseInt(hour),
-                  parseInt(minute),
-                  parseInt(second ?? 0),
+                  Number.parseInt(hour),
+                  Number.parseInt(minute),
+                  Number.parseInt(second ?? 0),
                   0,
                 );
                 setRange({
@@ -223,9 +223,9 @@ export function CustomTimeSelector({
 
                 const end = new Date(endTime * 1000);
                 end.setHours(
-                  parseInt(hour),
-                  parseInt(minute),
-                  parseInt(second ?? 0),
+                  Number.parseInt(hour),
+                  Number.parseInt(minute),
+                  Number.parseInt(second ?? 0),
                   0,
                 );
                 setRange({

@@ -374,7 +374,7 @@ export default function HlsVideoPlayer({
             if (frameTime && onUploadFrame) {
               const resp = await onUploadFrame(frameTime);
 
-              if (resp && resp.status == 200) {
+              if (resp?.status == 200) {
                 toast.success(t("toast.success.submittedFrigatePlus"), {
                   position: "top-center",
                 });

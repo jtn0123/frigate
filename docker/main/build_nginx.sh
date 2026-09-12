@@ -20,18 +20,18 @@ fi
 apt-get update
 apt-get -yqq build-dep nginx
 
-apt-get -yqq install --no-install-recommends ca-certificates wget
+apt-get -yqq install --no-install-recommends ca-certificates curl wget
 update-ca-certificates -f
 apt install -y ccache
 
 export PATH="/usr/lib/ccache:$PATH"
 
 mkdir /tmp/nginx
-wget -nv https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
 tar -zxf nginx-${NGINX_VERSION}.tar.gz -C /tmp/nginx --strip-components=1
 rm nginx-${NGINX_VERSION}.tar.gz
 mkdir /tmp/nginx-vod-module
-wget -nv https://github.com/kaltura/nginx-vod-module/archive/refs/tags/${VOD_MODULE_VERSION}.tar.gz
+curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://github.com/kaltura/nginx-vod-module/archive/refs/tags/${VOD_MODULE_VERSION}.tar.gz
 tar -zxf ${VOD_MODULE_VERSION}.tar.gz -C /tmp/nginx-vod-module --strip-components=1
 rm ${VOD_MODULE_VERSION}.tar.gz
     # Patch MAX_CLIPS to allow more clips to be added than the default 128
@@ -53,17 +53,17 @@ EOF
 
 
 mkdir /tmp/nginx-secure-token-module
-wget https://github.com/kaltura/nginx-secure-token-module/archive/refs/tags/${SECURE_TOKEN_MODULE_VERSION}.tar.gz
+curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://github.com/kaltura/nginx-secure-token-module/archive/refs/tags/${SECURE_TOKEN_MODULE_VERSION}.tar.gz
 tar -zxf ${SECURE_TOKEN_MODULE_VERSION}.tar.gz -C /tmp/nginx-secure-token-module --strip-components=1
 rm ${SECURE_TOKEN_MODULE_VERSION}.tar.gz
 
 mkdir /tmp/ngx_devel_kit
-wget https://github.com/vision5/ngx_devel_kit/archive/refs/tags/${NGX_DEVEL_KIT_VERSION}.tar.gz
+curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://github.com/vision5/ngx_devel_kit/archive/refs/tags/${NGX_DEVEL_KIT_VERSION}.tar.gz
 tar -zxf ${NGX_DEVEL_KIT_VERSION}.tar.gz -C /tmp/ngx_devel_kit --strip-components=1
 rm ${NGX_DEVEL_KIT_VERSION}.tar.gz
 
 mkdir /tmp/nginx-set-misc-module
-wget https://github.com/openresty/set-misc-nginx-module/archive/refs/tags/${SET_MISC_MODULE_VERSION}.tar.gz
+curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://github.com/openresty/set-misc-nginx-module/archive/refs/tags/${SET_MISC_MODULE_VERSION}.tar.gz
 tar -zxf ${SET_MISC_MODULE_VERSION}.tar.gz -C /tmp/nginx-set-misc-module --strip-components=1
 rm ${SET_MISC_MODULE_VERSION}.tar.gz
 

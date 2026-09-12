@@ -41,8 +41,8 @@ import { ObjectType } from "@/types/ws";
 import { useJobStatus } from "@/api/ws";
 import WsMessageFeed from "@/components/ws/WsMessageFeed";
 
-import { LuExternalLink, LuInfo } from "react-icons/lu";
-import { LuSquare } from "react-icons/lu";
+import { LuExternalLink, LuInfo, LuSquare } from "react-icons/lu";
+
 import { MdReplay } from "react-icons/md";
 import { isDesktop, isMobile } from "react-device-detect";
 import Logo from "@/components/Logo";
@@ -651,7 +651,7 @@ function ObjectList({
 
   const getColorForObjectName = useCallback(
     (objectName: string) => {
-      return colormap && colormap[objectName]
+      return colormap?.[objectName]
         ? `rgb(${colormap[objectName][2]}, ${colormap[objectName][1]}, ${colormap[objectName][0]})`
         : "rgb(128, 128, 128)";
     },

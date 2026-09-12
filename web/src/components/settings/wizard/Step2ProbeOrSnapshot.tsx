@@ -122,8 +122,8 @@ export default function Step2ProbeOrSnapshot({
         }
 
         const fps = videoStream?.avg_frame_rate
-          ? parseFloat(videoStream.avg_frame_rate.split("/")[0]) /
-            parseFloat(videoStream.avg_frame_rate.split("/")[1])
+          ? Number.parseFloat(videoStream.avg_frame_rate.split("/")[0]) /
+            Number.parseFloat(videoStream.avg_frame_rate.split("/")[1])
           : undefined;
 
         let snapshotBase64: string | undefined = undefined;
@@ -154,7 +154,7 @@ export default function Step2ProbeOrSnapshot({
           resolution,
           videoCodec: videoStream?.codec_name,
           audioCodec: audioStream?.codec_name,
-          fps: fps && !isNaN(fps) ? fps : undefined,
+          fps: fps && !Number.isNaN(fps) ? fps : undefined,
         };
 
         return streamTestResult;
@@ -197,7 +197,7 @@ export default function Step2ProbeOrSnapshot({
         timeout: 30000,
       });
 
-      if (response.data && response.data.success) {
+      if (response.data?.success) {
         setProbeResult(response.data);
         // Extract candidate URLs and pass to wizardData
         const candidateUris = (response.data.rtsp_candidates || [])
@@ -373,7 +373,7 @@ export default function Step2ProbeOrSnapshot({
         setTestStatus(t("cameraWizard.step2.testing.probingMetadata"));
         const result = await probeUri(streamUrl, true, setTestStatus);
 
-        if (result && result.success) {
+        if (result?.success) {
           setTestResult(result);
           const streamId = `stream_${Date.now()}`;
           onUpdate({

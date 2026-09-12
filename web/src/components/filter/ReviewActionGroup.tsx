@@ -36,7 +36,7 @@ export default function ReviewActionGroup({
   setSelectedReviews,
   onExport,
   pullLatestData,
-}: ReviewActionGroupProps) {
+}: Readonly<ReviewActionGroupProps>) {
   const { t } = useTranslation(["components/dialog"]);
   const isAdmin = useIsAdmin();
   const onClearSelected = useCallback(() => {

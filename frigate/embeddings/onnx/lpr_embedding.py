@@ -14,6 +14,8 @@ from frigate.util.downloader import ModelDownloader
 
 from .base_embedding import BaseEmbedding
 
+_GITHUB_URL = "https://github.com"
+
 warnings.filterwarnings(
     "ignore",
     category=FutureWarning,
@@ -37,7 +39,7 @@ class PaddleOCRDetection(BaseEmbedding):
             if model_size == "large"
             else "detection_v5-small.onnx"
         )
-        GITHUB_ENDPOINT = os.environ.get("GITHUB_ENDPOINT", "https://github.com")
+        GITHUB_ENDPOINT = os.environ.get("GITHUB_ENDPOINT", _GITHUB_URL)
         super().__init__(
             model_name="paddleocr-onnx",
             model_file=model_file,
@@ -98,7 +100,7 @@ class PaddleOCRClassification(BaseEmbedding):
         requestor: InterProcessRequestor,
         device: str = "AUTO",
     ):
-        GITHUB_ENDPOINT = os.environ.get("GITHUB_ENDPOINT", "https://github.com")
+        GITHUB_ENDPOINT = os.environ.get("GITHUB_ENDPOINT", _GITHUB_URL)
         super().__init__(
             model_name="paddleocr-onnx",
             model_file="classification.onnx",
@@ -159,7 +161,7 @@ class PaddleOCRRecognition(BaseEmbedding):
         requestor: InterProcessRequestor,
         device: str = "AUTO",
     ):
-        GITHUB_ENDPOINT = os.environ.get("GITHUB_ENDPOINT", "https://github.com")
+        GITHUB_ENDPOINT = os.environ.get("GITHUB_ENDPOINT", _GITHUB_URL)
         super().__init__(
             model_name="paddleocr-onnx",
             model_file="recognition_v4.onnx",
@@ -221,7 +223,7 @@ class LicensePlateDetector(BaseEmbedding):
         requestor: InterProcessRequestor,
         device: str = "AUTO",
     ):
-        GITHUB_ENDPOINT = os.environ.get("GITHUB_ENDPOINT", "https://github.com")
+        GITHUB_ENDPOINT = os.environ.get("GITHUB_ENDPOINT", _GITHUB_URL)
         super().__init__(
             model_name="yolov9_license_plate",
             model_file="yolov9-256-license-plates.onnx",

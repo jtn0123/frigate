@@ -6,13 +6,15 @@ from frigate.events.types import EventStateEnum, EventTypeEnum
 
 from .zmq_proxy import Publisher, Subscriber
 
+_EVENT = "event/"
+
 
 class EventUpdatePublisher(
     Publisher[tuple[EventTypeEnum, EventStateEnum, str | None, str, dict[str, Any]]]
 ):
     """Publishes events (objects, audio, manual)."""
 
-    topic_base = "event/"
+    topic_base = _EVENT
 
     def __init__(self) -> None:
         super().__init__("update")
@@ -28,7 +30,7 @@ class EventUpdatePublisher(
 class EventUpdateSubscriber(Subscriber):
     """Receives event updates."""
 
-    topic_base = "event/"
+    topic_base = _EVENT
 
     def __init__(self) -> None:
         super().__init__("update")
@@ -39,7 +41,7 @@ class EventEndPublisher(
 ):
     """Publishes events that have ended."""
 
-    topic_base = "event/"
+    topic_base = _EVENT
 
     def __init__(self) -> None:
         super().__init__("finalized")
@@ -55,7 +57,7 @@ class EventEndPublisher(
 class EventEndSubscriber(Subscriber):
     """Receives events that have ended."""
 
-    topic_base = "event/"
+    topic_base = _EVENT
 
     def __init__(self) -> None:
         super().__init__("finalized")

@@ -15,6 +15,9 @@ from typing import Any, get_args, get_origin
 from frigate.config.config import FrigateConfig
 from frigate.util.schema import get_config_schema
 
+_SCHEMA_DEFS_PREFIX = "#/$defs/"
+_SCHEMA_DEFS_KEY = "$defs"
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -42,7 +45,7 @@ def extract_translations_from_schema(
     and nested fields directly under their parent keys.
     """
     if defs is None:
-        defs = schema.get("$defs", {})
+        defs = schema.get(_SCHEMA_DEFS_KEY, {})
 
     translations = {}
 
@@ -60,7 +63,7 @@ def extract_translations_from_schema(
         # Handle $ref references
         if "$ref" in field_schema:
             ref_path = field_schema["$ref"]
-            if ref_path.startswith("#/$defs/"):
+            if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                 ref_name = ref_path.split("/")[-1]
                 if ref_name in defs:
                     ref_schema = defs[ref_name]
@@ -98,7 +101,7 @@ def extract_translations_from_schema(
             # If additionalProperties contains a $ref, extract nested translations
             if "$ref" in additional_props:
                 ref_path = additional_props["$ref"]
-                if ref_path.startswith("#/$defs/"):
+                if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                     ref_name = ref_path.split("/")[-1]
                     if ref_name in defs:
                         ref_schema = defs[ref_name]
@@ -121,7 +124,7 @@ def extract_translations_from_schema(
             # If items contains a $ref, extract nested translations
             if "$ref" in items:
                 ref_path = items["$ref"]
-                if ref_path.startswith("#/$defs/"):
+                if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                     ref_name = ref_path.split("/")[-1]
                     if ref_name in defs:
                         ref_schema = defs[ref_name]
@@ -157,7 +160,7 @@ def extract_translations_from_schema(
                         nested = extract_translations_from_schema(item, defs=defs)
                     elif "$ref" in item:
                         ref_path = item["$ref"]
-                        if ref_path.startswith("#/$defs/"):
+                        if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                             ref_name = ref_path.split("/")[-1]
                             if ref_name in defs:
                                 nested = extract_translations_from_schema(
@@ -169,7 +172,7 @@ def extract_translations_from_schema(
                         and "$ref" in item["additionalProperties"]
                     ):
                         ref_path = item["additionalProperties"]["$ref"]
-                        if ref_path.startswith("#/$defs/"):
+                        if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                             ref_name = ref_path.split("/")[-1]
                             if ref_name in defs:
                                 nested = extract_translations_from_schema(
@@ -181,7 +184,7 @@ def extract_translations_from_schema(
                         and ("$ref" in item["items"])
                     ):
                         ref_path = item["items"]["$ref"]
-                        if ref_path.startswith("#/$defs/"):
+                        if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                             ref_name = ref_path.split("/")[-1]
                             if ref_name in defs:
                                 nested = extract_translations_from_schema(
@@ -219,7 +222,7 @@ def get_detector_translations(
     Shared fields (identical across all detector types) are returned separately
     to avoid duplication in the output.
     """
-    defs = config_schema.get("$defs", {})
+    defs = config_schema.get(_SCHEMA_DEFS_KEY, {})
     detector_schema = defs.get("DetectorConfig", {})
     discriminator = detector_schema.get("discriminator", {})
     mapping = discriminator.get("mapping", {})
@@ -229,7 +232,7 @@ def get_detector_translations(
     type_meta: dict[str, dict[str, str]] = {}
 
     for detector_type, ref in mapping.items():
-        if not isinstance(ref, str) or not ref.startswith("#/$defs/"):
+        if not isinstance(ref, str) or not ref.startswith(_SCHEMA_DEFS_PREFIX):
             continue
 
         ref_name = ref.split("/")[-1]
@@ -459,7 +462,7 @@ def main():
                 camera_class = getattr(module, class_name)
                 schema = camera_class.model_json_schema()
                 camera_fields = schema.get("properties", {})
-                defs = schema.get("$defs", {})
+                defs = schema.get(_SCHEMA_DEFS_KEY, {})
 
                 for fname in field_names:
                     if fname in camera_fields:
@@ -476,7 +479,7 @@ def main():
                         # Handle direct $ref
                         if "$ref" in field_schema:
                             ref_path = field_schema["$ref"]
-                            if ref_path.startswith("#/$defs/"):
+                            if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                                 ref_name = ref_path.split("/")[-1]
                                 if ref_name in defs:
                                     nested_to_extract = defs[ref_name]
@@ -486,7 +489,7 @@ def main():
                             additional_props = field_schema["additionalProperties"]
                             if "$ref" in additional_props:
                                 ref_path = additional_props["$ref"]
-                                if ref_path.startswith("#/$defs/"):
+                                if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                                     ref_name = ref_path.split("/")[-1]
                                     if ref_name in defs:
                                         nested_to_extract = defs[ref_name]
@@ -496,7 +499,7 @@ def main():
                             items = field_schema["items"]
                             if "$ref" in items:
                                 ref_path = items["$ref"]
-                                if ref_path.startswith("#/$defs/"):
+                                if ref_path.startswith(_SCHEMA_DEFS_PREFIX):
                                     ref_name = ref_path.split("/")[-1]
                                     if ref_name in defs:
                                         nested_to_extract = defs[ref_name]
@@ -576,7 +579,7 @@ def main():
                 f"Added camera-level section to global translations: {config_name}"
             )
         except Exception as e:
-            logger.error(f"Failed to generate {config_name}: {e}")
+            logger.exception("Failed to generate %s: %s", config_name, e)
 
     # Remove top-level 'cameras' field if present so it remains a separate file
     if "cameras" in global_translations:
@@ -642,7 +645,7 @@ def main():
             f.write("\n")
         logger.info(f"Generated cameras.json: {cameras_file}")
     except Exception as e:
-        logger.error(f"Failed to generate cameras.json: {e}")
+        logger.exception("Failed to generate cameras.json: %s", e)
 
     logger.info("Translation generation complete!")
 

@@ -2,7 +2,7 @@
 set -e
 
 # Download the MxAccl for Frigate github release
-wget https://github.com/memryx/mx_accl_frigate/archive/refs/tags/v2.1.0.zip -O /tmp/mxaccl.zip
+curl --proto '=https' --proto-redir '=https' -fsSL https://github.com/memryx/mx_accl_frigate/archive/refs/tags/v2.1.0.zip --output /tmp/mxaccl.zip
 unzip /tmp/mxaccl.zip -d /tmp
 mv /tmp/mx_accl_frigate-2.1.0 /opt/mx_accl_frigate
 rm /tmp/mxaccl.zip

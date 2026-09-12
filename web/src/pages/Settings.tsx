@@ -42,7 +42,7 @@ import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
 import type { ConfigSectionData, JsonObject } from "@/types/configForm";
 import isEqual from "lodash/isEqual";
 import { maskCredentials } from "@/utils/credentialMask";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import FilterSwitch from "@/components/filter/FilterSwitch";
 import { ZoneMaskFilterButton } from "@/components/filter/ZoneMaskFilter";
 import { PolygonType } from "@/types/canvas";
@@ -65,7 +65,7 @@ import {
 } from "@/views/settings/SingleSectionPage";
 import { useSearchEffect } from "@/hooks/use-overlay-state";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useInitialCameraState } from "@/api/ws";
+import { useInitialCameraState, useRestart } from "@/api/ws";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useTranslation } from "react-i18next";
 import { useAllCameraOverrides } from "@/hooks/use-config-override";
@@ -100,7 +100,7 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import axios from "axios";
 import { toast } from "sonner";
-import { mutate } from "swr";
+
 import { RJSFSchema } from "@rjsf/utils";
 import {
   buildConfigDataForPath,
@@ -122,7 +122,7 @@ import RestartDialog from "@/components/overlay/dialog/RestartDialog";
 import SaveAllPreviewPopover, {
   type SaveAllPreviewItem,
 } from "@/components/overlay/detail/SaveAllPreviewPopover";
-import { useRestart } from "@/api/ws";
+
 import {
   Tooltip,
   TooltipContent,

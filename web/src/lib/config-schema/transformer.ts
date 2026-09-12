@@ -121,7 +121,7 @@ function normalizeNullableSchema(schema: RJSFSchema): RJSFSchema {
     const enumBranch = stringBranches.find((item) =>
       Array.isArray((item as Record<string, unknown>).enum),
     );
-    const plainStringBranch = stringBranches.find(
+    const plainStringBranch = stringBranches.some(
       (item) => !Array.isArray((item as Record<string, unknown>).enum),
     );
 

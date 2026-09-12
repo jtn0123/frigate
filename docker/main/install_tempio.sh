@@ -12,5 +12,5 @@ fi
 
 mkdir -p /rootfs/usr/local/tempio/bin
 
-wget -q -O /rootfs/usr/local/tempio/bin/tempio "https://github.com/home-assistant/tempio/releases/download/${tempio_version}/tempio_${arch}"
+curl --proto '=https' --proto-redir '=https' -fsSL --output /rootfs/usr/local/tempio/bin/tempio "https://github.com/home-assistant/tempio/releases/download/${tempio_version}/tempio_${arch}"
 chmod 755 /rootfs/usr/local/tempio/bin/tempio

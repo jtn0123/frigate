@@ -76,7 +76,7 @@ export default function InputWithTags({
   search,
   setSearch,
   allSuggestions,
-}: InputWithTagsProps) {
+}: Readonly<InputWithTagsProps>) {
   const { t, i18n } = useTranslation(["views/search"]);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
@@ -302,7 +302,7 @@ export default function InputWithTags({
             break;
           case "min_score":
           case "max_score":
-            score = parseInt(value);
+            score = Number.parseInt(value);
             if (score >= 0) {
               // Check for conflicts between min_score and max_score
               if (
@@ -336,7 +336,7 @@ export default function InputWithTags({
             break;
           case "min_speed":
           case "max_speed":
-            speed = parseFloat(value);
+            speed = Number.parseFloat(value);
             if (score >= 0) {
               // Check for conflicts between min_speed and max_speed
               if (
@@ -372,7 +372,7 @@ export default function InputWithTags({
             newFilters[type] = value;
             break;
           case "search_type":
-            if (!newFilters.search_type) newFilters.search_type = [];
+            newFilters.search_type ??= [];
             if (
               !(newFilters.search_type as SearchSource[]).includes(
                 value as SearchSource,
@@ -403,7 +403,7 @@ export default function InputWithTags({
             break;
           default:
             // Handle array types (cameras, labels, sub_labels, attributes, zones)
-            if (!newFilters[type]) newFilters[type] = [];
+            newFilters[type] ??= [];
             if (Array.isArray(newFilters[type])) {
               if (!(newFilters[type] as string[]).includes(value)) {
                 (newFilters[type] as string[]).push(value);
@@ -480,11 +480,11 @@ export default function InputWithTags({
             resolvedTimeFormat,
           )) ||
         ((filterType === "min_score" || filterType === "max_score") &&
-          !isNaN(Number(trimmedValue)) &&
+          !Number.isNaN(Number(trimmedValue)) &&
           Number(trimmedValue) >= 50 &&
           Number(trimmedValue) <= 100) ||
         ((filterType === "min_speed" || filterType === "max_speed") &&
-          !isNaN(Number(trimmedValue)) &&
+          !Number.isNaN(Number(trimmedValue)) &&
           Number(trimmedValue) >= 1 &&
           Number(trimmedValue) <= 150)
       ) {
@@ -672,7 +672,7 @@ export default function InputWithTags({
   }, [currentFilterType, inputValue, updateSuggestions]);
 
   useEffect(() => {
-    if (filters?.search_type && filters?.search_type.includes("similarity")) {
+    if (filters?.search_type?.includes("similarity")) {
       setIsSimilaritySearch(true);
       setInputValue("");
     } else {
@@ -833,7 +833,7 @@ export default function InputWithTags({
               </CommandItem>
             </CommandGroup>
           )}
-          {(Object.keys(filters).filter((key) => key !== "query").length > 0 ||
+          {(Object.keys(filters).some((key) => key !== "query") ||
             isSimilaritySearch) && (
             <CommandGroup heading={t("filter.header.activeFilters")}>
               <div className="my-2 flex flex-wrap gap-2 px-2">

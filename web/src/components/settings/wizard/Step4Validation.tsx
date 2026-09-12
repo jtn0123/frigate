@@ -8,7 +8,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useTranslation } from "react-i18next";
-import { LuRotateCcw, LuInfo } from "react-icons/lu";
+import { LuRotateCcw, LuInfo, LuX } from "react-icons/lu";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import axios from "axios";
@@ -16,11 +16,10 @@ import { toast } from "sonner";
 import MSEPlayer from "@/components/player/MsePlayer";
 import { WizardFormData, StreamConfig, TestResult } from "@/types/cameraWizard";
 import { PlayerStatsType, LiveStreamMetadata } from "@/types/live";
-import { detectCameraAudioFeatures } from "@/utils/cameraUtil";
+import { detectCameraAudioFeatures, maskUri } from "@/utils/cameraUtil";
 import { FaCircleCheck, FaTriangleExclamation } from "react-icons/fa6";
-import { LuX } from "react-icons/lu";
+
 import { Card, CardContent } from "../../ui/card";
-import { maskUri } from "@/utils/cameraUtil";
 
 type Step4ValidationProps = {
   wizardData: Partial<WizardFormData>;
@@ -98,8 +97,8 @@ export default function Step4Validation({
             : undefined;
 
           const fps = videoStream?.avg_frame_rate
-            ? parseFloat(videoStream.avg_frame_rate.split("/")[0]) /
-              parseFloat(videoStream.avg_frame_rate.split("/")[1])
+            ? Number.parseFloat(videoStream.avg_frame_rate.split("/")[0]) /
+              Number.parseFloat(videoStream.avg_frame_rate.split("/")[1])
             : undefined;
 
           return {
@@ -107,7 +106,7 @@ export default function Step4Validation({
             resolution,
             videoCodec: videoStream?.codec_name,
             audioCodec: audioStream?.codec_name,
-            fps: fps && !isNaN(fps) ? fps : undefined,
+            fps: fps && !Number.isNaN(fps) ? fps : undefined,
           };
         } else {
           const error = response.data?.[0]?.stderr || "Unknown error";
@@ -197,7 +196,7 @@ export default function Step4Validation({
 
     // Only test streams that haven't been tested or failed
     const streamsToTest = streams.filter(
-      (stream) => !stream.testResult || !stream.testResult.success,
+      (stream) => !stream.testResult?.success,
     );
 
     for (const stream of streamsToTest) {
@@ -331,7 +330,7 @@ export default function Step4Validation({
                             </Badge>
                           ))}
                         </div>
-                        {result && result.success && (
+                        {result?.success && (
                           <div className="mb-2 text-sm text-muted-foreground">
                             {[
                               result.resolution,
@@ -614,7 +613,7 @@ function StreamIssues({
       let probedHeight = 0;
       if (probedResolution) {
         const [w, h] = probedResolution.split("x").map(Number);
-        if (!isNaN(w) && !isNaN(h)) {
+        if (!Number.isNaN(w) && !Number.isNaN(h)) {
           probedWidth = w;
           probedHeight = h;
         }

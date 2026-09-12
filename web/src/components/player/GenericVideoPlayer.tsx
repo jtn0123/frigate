@@ -20,7 +20,7 @@ export function GenericVideoPlayer({
   source,
   onPlaying,
   children,
-}: GenericVideoPlayerProps) {
+}: Readonly<GenericVideoPlayerProps>) {
   const [isLoading, setIsLoading] = useState(true);
   const [sourceExists, setSourceExists] = useState(true);
   const videoRef = useRef<HTMLVideoElement | null>(null);

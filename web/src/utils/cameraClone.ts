@@ -310,20 +310,16 @@ function applyDetectComputedDefaults(
       : typeof result.fps === "number"
         ? result.fps
         : 5;
-  if (result.min_initialized == null) {
-    result.min_initialized = Math.max(Math.floor(fps / 2), 2);
-  }
-  if (result.max_disappeared == null) {
-    result.max_disappeared = fps * 5;
-  }
+  result.min_initialized ??= Math.max(Math.floor(fps / 2), 2);
+  result.max_disappeared ??= fps * 5;
   const threshold = fps * 10;
   const stationary = result.stationary;
   const stat: JsonObject =
     stationary && typeof stationary === "object" && !Array.isArray(stationary)
       ? { ...(stationary as JsonObject) }
       : {};
-  if (stat.threshold == null) stat.threshold = threshold;
-  if (stat.interval == null) stat.interval = threshold;
+  stat.threshold ??= threshold;
+  stat.interval ??= threshold;
   result.stationary = stat as JsonValue;
   return result;
 }

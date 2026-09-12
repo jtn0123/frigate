@@ -21,7 +21,7 @@ export default function CameraImage({
   searchParams = "",
   stretch = false,
   fitAspect,
-}: CameraImageProps) {
+}: Readonly<CameraImageProps>) {
   const { data: config } = useSWR("config");
   const apiHost = useApiHost();
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -80,7 +80,7 @@ export default function CameraImage({
         const ctx = canvasRef.current.getContext("2d");
         ctx?.drawImage(img, 0, 0, scaledWidth, scaledHeight);
       }
-      onload && onload(event);
+      onload?.(event);
     },
     [img, scaledHeight, scaledWidth, setHasLoaded, onload, canvasRef],
   );

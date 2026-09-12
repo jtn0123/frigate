@@ -13,17 +13,17 @@ MEDIA_DRIVER_VERSION="intel-media-25.2.6"
 GMMLIB_VERSION="intel-gmmlib-22.7.2"
 
 apt-get -qq update
-apt-get -qq install -y wget gnupg ca-certificates cmake g++ make pkg-config
+apt-get -qq install -y curl wget gnupg ca-certificates cmake g++ make pkg-config
 
 # Use Intel's jammy repo for newer libva-dev (2.22) which provides the
 # VVC/VVC-decode headers required by media-driver 25.x
-wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+curl --proto '=https' --proto-redir '=https' -fsSL --output - https://repositories.intel.com/gpu/intel-graphics.key | gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" > /etc/apt/sources.list.d/intel-gpu-jammy.list
 apt-get -qq update
 apt-get -qq install -y libva-dev
 
 # Build gmmlib (required by media-driver)
-wget -qO gmmlib.tar.gz "https://github.com/intel/gmmlib/archive/refs/tags/${GMMLIB_VERSION}.tar.gz"
+curl --proto '=https' --proto-redir '=https' -fsSL --output gmmlib.tar.gz "https://github.com/intel/gmmlib/archive/refs/tags/${GMMLIB_VERSION}.tar.gz"
 mkdir /tmp/gmmlib
 tar -xf gmmlib.tar.gz -C /tmp/gmmlib --strip-components 1
 cmake -S /tmp/gmmlib -B /tmp/gmmlib/build -DCMAKE_BUILD_TYPE=Release
@@ -31,7 +31,7 @@ make -C /tmp/gmmlib/build -j"$(nproc)"
 make -C /tmp/gmmlib/build install
 
 # Build intel-media-driver
-wget -qO media-driver.tar.gz "https://github.com/intel/media-driver/archive/refs/tags/${MEDIA_DRIVER_VERSION}.tar.gz"
+curl --proto '=https' --proto-redir '=https' -fsSL --output media-driver.tar.gz "https://github.com/intel/media-driver/archive/refs/tags/${MEDIA_DRIVER_VERSION}.tar.gz"
 mkdir /tmp/media-driver
 tar -xf media-driver.tar.gz -C /tmp/media-driver --strip-components 1
 cmake -S /tmp/media-driver -B /tmp/media-driver/build \

@@ -27,7 +27,7 @@ type LogInfoDialogProps = {
 export default function LogInfoDialog({
   logLine,
   setLogLine,
-}: LogInfoDialogProps) {
+}: Readonly<LogInfoDialogProps>) {
   const { t } = useTranslation(["views/system"]);
   const Overlay = isDesktop ? Sheet : Drawer;
   const Content = isDesktop ? SheetContent : DrawerContent;

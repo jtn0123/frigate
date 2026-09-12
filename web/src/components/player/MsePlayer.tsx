@@ -312,7 +312,7 @@ function MSEPlayer({
     return new Promise<void>((resolve, reject) => {
       // Don't start timeout if WS isn't connected - this can happen when
       // sourceopen fires from a previous connection after we've already disconnected
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
         // Reject so caller knows this didn't work
         reject(new Error("WebSocket not connected"));
         return;
@@ -470,7 +470,7 @@ function MSEPlayer({
             const data = buf.slice(0, bufLen);
             bufLen = 0;
             sb.appendBuffer(data);
-          } else if (sb.buffered && sb.buffered.length) {
+          } else if (sb.buffered?.length) {
             const end = sb.buffered.end(sb.buffered.length - 1) - 15;
             const start = sb.buffered.start(0);
             if (end > start) {
@@ -604,12 +604,11 @@ function MSEPlayer({
       ) {
         // Jump to live on Safari/iOS due to a change of playback rate causing re-buffering
         jumpToLive();
-      } else {
+      } else
         // increase/decrease playback rate to compensate - non Safari/iOS only
         if (videoRef.current.playbackRate !== playbackRate) {
           videoRef.current.playbackRate = playbackRate;
         }
-      }
     }
 
     if (onError != undefined) {

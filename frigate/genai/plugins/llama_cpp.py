@@ -16,6 +16,10 @@ from frigate.config import GenAIProviderEnum
 from frigate.genai import GenAIClient, register_genai_provider
 from frigate.genai.utils import parse_tool_calls_from_message
 
+_PROVIDER_NOT_INITIALIZED_ERROR = (
+    "llama.cpp provider has not been initialized. Check your llama.cpp configuration."
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -666,9 +670,7 @@ class LlamaCppClient(GenAIClient):
         --embeddings and --mmproj for multimodal support.
         """
         if self.provider is None:
-            logger.warning(
-                "llama.cpp provider has not been initialized. Check your llama.cpp configuration."
-            )
+            logger.warning(_PROVIDER_NOT_INITIALIZED_ERROR)
             return []
 
         texts = texts or []
@@ -791,9 +793,7 @@ class LlamaCppClient(GenAIClient):
         parameters (like slot_id, temperature, etc.) via provider_options.
         """
         if self.provider is None:
-            logger.warning(
-                "llama.cpp provider has not been initialized. Check your llama.cpp configuration."
-            )
+            logger.warning(_PROVIDER_NOT_INITIALIZED_ERROR)
             return {
                 "content": None,
                 "tool_calls": None,
@@ -860,9 +860,7 @@ class LlamaCppClient(GenAIClient):
     ) -> AsyncGenerator[tuple[str, Any], None]:
         """Stream chat with tools via OpenAI-compatible streaming API."""
         if self.provider is None:
-            logger.warning(
-                "llama.cpp provider has not been initialized. Check your llama.cpp configuration."
-            )
+            logger.warning(_PROVIDER_NOT_INITIALIZED_ERROR)
             yield (
                 "message",
                 {

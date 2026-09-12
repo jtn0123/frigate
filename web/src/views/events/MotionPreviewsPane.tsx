@@ -11,7 +11,7 @@ import {
 import { isCurrentHour } from "@/utils/dateUtil";
 import { isFirefox, isMobile, isSafari } from "react-device-detect";
 import { useTranslation } from "react-i18next";
-import { CameraConfig } from "@/types/frigateConfig";
+import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
 import useSWR from "swr";
 import { baseUrl } from "@/api/baseUrl";
 import { Recording } from "@/types/record";
@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { useFormattedTimestamp, use24HourTime } from "@/hooks/use-date-utils";
-import { FrigateConfig } from "@/types/frigateConfig";
+
 import { onActivate } from "@/utils/fork/a11y";
 
 const MOTION_HEATMAP_GRID_SIZE = 16;
@@ -806,7 +806,7 @@ export default function MotionPreviewsPane({
     return previewFrames
       .map((frame) => {
         const timestampPart = frame.split("-").at(-1)?.replace(".webp", "");
-        return timestampPart ? Number(timestampPart) : NaN;
+        return timestampPart ? Number(timestampPart) : Number.NaN;
       })
       .filter((value) => Number.isFinite(value))
       .sort((a, b) => a - b);

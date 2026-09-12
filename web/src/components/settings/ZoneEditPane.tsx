@@ -141,7 +141,7 @@ export default function ZoneEditPane({
     const distances = profileZone?.distances ?? baseZone?.distances;
 
     return Array.isArray(distances)
-      ? distances.map((value) => parseFloat(value) || 0)
+      ? distances.map((value) => Number.parseFloat(value) || 0)
       : [undefined, undefined, undefined, undefined];
   }, [polygon, config, editingProfile]);
 
@@ -510,19 +510,15 @@ export default function ZoneEditPane({
       const distances = [lineA, lineB, lineC, lineD].filter(Boolean).join(",");
       if (speedEstimation) {
         distancesQuery = `&${pathPrefix}.distances=${distances}`;
-      } else {
-        if (distances != "") {
-          distancesQuery = `&${pathPrefix}.distances`;
-        }
+      } else if (distances != "") {
+        distancesQuery = `&${pathPrefix}.distances`;
       }
 
       let speedThresholdQuery = "";
       if (speed_threshold >= 0 && speedEstimation) {
         speedThresholdQuery = `&${pathPrefix}.speed_threshold=${speed_threshold}`;
-      } else {
-        if (resolvedZoneData?.speed_threshold) {
-          speedThresholdQuery = `&${pathPrefix}.speed_threshold`;
-        }
+      } else if (resolvedZoneData?.speed_threshold) {
+        speedThresholdQuery = `&${pathPrefix}.speed_threshold`;
       }
 
       let friendlyNameQuery = "";
@@ -1044,7 +1040,7 @@ export function ZoneObjectSelector({
   zoneName,
   selectedLabels,
   updateLabelFilter,
-}: ZoneObjectSelectorProps) {
+}: Readonly<ZoneObjectSelectorProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { data: config } = useSWR<FrigateConfig>("config");
 
@@ -1099,63 +1095,57 @@ export function ZoneObjectSelector({
   }, [currentLabels]);
 
   return (
-    <>
-      <div className="scrollbar-container h-auto overflow-y-auto overflow-x-hidden">
-        <div className="my-2.5 flex items-center justify-between">
-          <Label className="cursor-pointer text-primary" htmlFor="allLabels">
-            {t("masksAndZones.zones.allObjects")}
-          </Label>
-          <Switch
-            className="ml-1"
-            id="allLabels"
-            checked={!currentLabels?.length}
-            onCheckedChange={(isChecked) => {
-              if (isChecked) {
-                setCurrentLabels([]);
-              }
-            }}
-          />
-        </div>
-        <Separator />
-        <div className="my-2.5 flex flex-col gap-2.5">
-          {allLabels.map((item) => (
-            <div key={item} className="flex items-center justify-between">
-              <Label
-                className="w-full cursor-pointer text-primary smart-capitalize"
-                htmlFor={item}
-              >
-                {getTranslatedLabel(item)}
-              </Label>
-              <Switch
-                key={item}
-                className="ml-1"
-                id={item}
-                checked={currentLabels?.includes(item) ?? false}
-                onCheckedChange={(isChecked) => {
-                  if (isChecked) {
-                    const updatedLabels = currentLabels
-                      ? [...currentLabels]
-                      : [];
-
-                    updatedLabels.push(item);
-                    setCurrentLabels(updatedLabels);
-                  } else {
-                    const updatedLabels = currentLabels
-                      ? [...currentLabels]
-                      : [];
-
-                    // can not deselect the last item
-                    if (updatedLabels.length > 1) {
-                      updatedLabels.splice(updatedLabels.indexOf(item), 1);
-                      setCurrentLabels(updatedLabels);
-                    }
-                  }
-                }}
-              />
-            </div>
-          ))}
-        </div>
+    <div className="scrollbar-container h-auto overflow-y-auto overflow-x-hidden">
+      <div className="my-2.5 flex items-center justify-between">
+        <Label className="cursor-pointer text-primary" htmlFor="allLabels">
+          {t("masksAndZones.zones.allObjects")}
+        </Label>
+        <Switch
+          className="ml-1"
+          id="allLabels"
+          checked={!currentLabels?.length}
+          onCheckedChange={(isChecked) => {
+            if (isChecked) {
+              setCurrentLabels([]);
+            }
+          }}
+        />
       </div>
-    </>
+      <Separator />
+      <div className="my-2.5 flex flex-col gap-2.5">
+        {allLabels.map((item) => (
+          <div key={item} className="flex items-center justify-between">
+            <Label
+              className="w-full cursor-pointer text-primary smart-capitalize"
+              htmlFor={item}
+            >
+              {getTranslatedLabel(item)}
+            </Label>
+            <Switch
+              key={item}
+              className="ml-1"
+              id={item}
+              checked={currentLabels?.includes(item) ?? false}
+              onCheckedChange={(isChecked) => {
+                if (isChecked) {
+                  const updatedLabels = currentLabels ? [...currentLabels] : [];
+
+                  updatedLabels.push(item);
+                  setCurrentLabels(updatedLabels);
+                } else {
+                  const updatedLabels = currentLabels ? [...currentLabels] : [];
+
+                  // can not deselect the last item
+                  if (updatedLabels.length > 1) {
+                    updatedLabels.splice(updatedLabels.indexOf(item), 1);
+                    setCurrentLabels(updatedLabels);
+                  }
+                }
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

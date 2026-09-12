@@ -39,10 +39,14 @@ import {
   FaMicrophone,
   FaCheck,
   FaTimes,
+  FaPencilAlt,
 } from "react-icons/fa";
 import { TrackingDetails } from "./TrackingDetails";
 import { AnnotationSettingsPane } from "./AnnotationSettingsPane";
-import { DetailStreamProvider } from "@/context/detail-stream-context";
+import {
+  DetailStreamProvider,
+  useDetailStream,
+} from "@/context/detail-stream-context";
 import {
   MobilePage,
   MobilePageContent,
@@ -82,7 +86,7 @@ import {
 } from "@/components/ui/drawer";
 import { LuInfo } from "react-icons/lu";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
-import { FaPencilAlt } from "react-icons/fa";
+
 import TextEntryDialog from "@/components/overlay/dialog/TextEntryDialog";
 import AttributeSelectDialog from "@/components/overlay/dialog/AttributeSelectDialog";
 import { Trans, useTranslation } from "react-i18next";
@@ -93,7 +97,7 @@ import EventSummaryHeader from "@/components/fork/EventSummaryHeader";
 import ShareClipButton from "@/components/fork/ShareClipButton";
 import { summaryFromSearchResult } from "@/lib/fork/event-summary";
 import { DialogPortal } from "@radix-ui/react-dialog";
-import { useDetailStream } from "@/context/detail-stream-context";
+
 import { PiSlidersHorizontalBold } from "react-icons/pi";
 import { HiSparkles } from "react-icons/hi";
 import { useAudioTranscriptionProcessState } from "@/api/ws";
@@ -842,7 +846,7 @@ function ObjectDetailsTab({
   }, [search]);
 
   const averageEstimatedSpeed = useMemo(() => {
-    if (!search || !search.data?.average_estimated_speed) {
+    if (!search?.data?.average_estimated_speed) {
       return undefined;
     }
 
@@ -854,7 +858,7 @@ function ObjectDetailsTab({
   }, [search]);
 
   const velocityAngle = useMemo(() => {
-    if (!search || !search.data?.velocity_angle) {
+    if (!search?.data?.velocity_angle) {
       return undefined;
     }
 
@@ -1897,7 +1901,7 @@ type VideoTabProps = {
   search: SearchResult;
 };
 
-export function VideoTab({ search }: VideoTabProps) {
+export function VideoTab({ search }: Readonly<VideoTabProps>) {
   const clipTimeRange = useMemo(() => {
     const startTime = search.start_time - REVIEW_PADDING;
     const endTime = (search.end_time ?? Date.now() / 1000) + REVIEW_PADDING;

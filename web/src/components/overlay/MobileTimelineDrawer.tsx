@@ -18,7 +18,7 @@ type MobileTimelineDrawerProps = {
 export default function MobileTimelineDrawer({
   selected,
   onSelect,
-}: MobileTimelineDrawerProps) {
+}: Readonly<MobileTimelineDrawerProps>) {
   const { t } = useTranslation(["views/events"]);
   const [drawer, setDrawer] = useState(false);
 

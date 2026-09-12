@@ -70,8 +70,8 @@ export const parseCoordinates = (coordinatesString: string) => {
   const points = [];
 
   for (let i = 0; i < coordinates.length; i += 2) {
-    const x = parseFloat(coordinates[i]);
-    const y = parseFloat(coordinates[i + 1]);
+    const x = Number.parseFloat(coordinates[i]);
+    const y = Number.parseFloat(coordinates[i + 1]);
     points.push([x, y]);
   }
 

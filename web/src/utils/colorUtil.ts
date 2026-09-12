@@ -27,7 +27,7 @@ export const generateColors = (numColors: number) => {
 };
 
 const adjustColorBrightness = (color: string, factor: number) => {
-  const rgb = parseInt(color.slice(1), 16);
+  const rgb = Number.parseInt(color.slice(1), 16);
   const r = Math.min(255, Math.floor(((rgb >> 16) & 0xff) * factor));
   const g = Math.min(255, Math.floor(((rgb >> 8) & 0xff) * factor));
   const b = Math.min(255, Math.floor((rgb & 0xff) * factor));

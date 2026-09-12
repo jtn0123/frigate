@@ -37,7 +37,7 @@ type StorageMetricsProps = {
 };
 export default function StorageMetrics({
   setLastUpdated,
-}: StorageMetricsProps) {
+}: Readonly<StorageMetricsProps>) {
   const { data: cameraStorage } = useSWR<CameraStorage>("recordings/storage");
   const { data: stats } = useSWR<FrigateStats>("stats");
   const { data: config } = useSWR<FrigateConfig>("config", {

@@ -491,21 +491,19 @@ export default function GeneralSettings({
                 </MenuItem>
               </Link>
               {isAdmin && (
-                <>
-                  <Link to="/config">
-                    <MenuItem
-                      className={
-                        isDesktop
-                          ? "cursor-pointer"
-                          : "flex w-full items-center p-2 text-sm"
-                      }
-                      aria-label={t("menu.configurationEditor")}
-                    >
-                      <LuSquarePen className="mr-2 size-4" />
-                      <span>{t("menu.configurationEditor")}</span>
-                    </MenuItem>
-                  </Link>
-                </>
+                <Link to="/config">
+                  <MenuItem
+                    className={
+                      isDesktop
+                        ? "cursor-pointer"
+                        : "flex w-full items-center p-2 text-sm"
+                    }
+                    aria-label={t("menu.configurationEditor")}
+                  >
+                    <LuSquarePen className="mr-2 size-4" />
+                    <span>{t("menu.configurationEditor")}</span>
+                  </MenuItem>
+                </Link>
               )}
             </DropdownMenuGroup>
             {isMobile && isAdmin && (

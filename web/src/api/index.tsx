@@ -20,7 +20,7 @@ type ApiProviderType = {
   options?: Record<string, unknown>;
 };
 
-export function ApiProvider({ children, options }: ApiProviderType) {
+export function ApiProvider({ children, options }: Readonly<ApiProviderType>) {
   return (
     <SWRConfig
       value={{

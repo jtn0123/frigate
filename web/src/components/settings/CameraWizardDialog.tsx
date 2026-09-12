@@ -135,12 +135,11 @@ export default function CameraWizardDialog({
       if (data) {
         // Atomic update and navigate
         dispatch({ type: "UPDATE_AND_NEXT", payload: data });
-      } else {
+      } else
         // Just navigate
         if (currentStep < STEPS.length - 1 && canProceedToNext()) {
           setCurrentStep((s) => s + 1);
         }
-      }
     },
     [currentStep, canProceedToNext],
   );

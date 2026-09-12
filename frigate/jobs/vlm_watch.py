@@ -203,7 +203,7 @@ class VLMWatchRunner(threading.Thread):
             )
             reasoning = str(parsed.get("reasoning", ""))
             notification_message = str(parsed.get("notification_message", ""))
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
+        except (ValueError, TypeError) as e:
             logger.warning(
                 "VLM watch job %s: failed to parse VLM response: %s", self.job.id, e
             )
