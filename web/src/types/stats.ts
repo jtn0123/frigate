@@ -30,6 +30,8 @@ export type CameraStats = {
   stalls_last_hour: number;
   /** Fork (D10): detect decodes in software after hwaccel kept crashing it. */
   hwaccel_fallback?: boolean;
+  /** Fork (D14): when it switched (epoch seconds); the switch survives restarts. */
+  hwaccel_fallback_since?: number | null;
   /** Fork (D11): ffmpeg restarts in the last 24 h, by kind, and the last 10. */
   restarts_24h?: number;
   restart_kinds_24h?: Partial<Record<CameraRestartKind, number>>;

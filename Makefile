@@ -81,16 +81,16 @@ check-py: fork-test-image
 	FORK_TEST_IMAGE=$(FORK_TEST_IMAGE) fork/scripts/py-checks.sh
 
 lint:
-	$(RUFF) format --check frigate migrations docker *.py
-	$(RUFF) check frigate migrations docker *.py
+	$(RUFF) format --check frigate migrations docker fork/scripts *.py
+	$(RUFF) check frigate migrations docker fork/scripts *.py
 	cd web && npm run lint
 
 typecheck:
 	cd web && npm run typecheck
 
 format:
-	$(RUFF) format frigate migrations docker *.py
-	$(RUFF) check --fix frigate migrations docker *.py
+	$(RUFF) format frigate migrations docker fork/scripts *.py
+	$(RUFF) check --fix frigate migrations docker fork/scripts *.py
 	cd web && npm run lint:fix
 
 test-web:
@@ -111,6 +111,9 @@ check-fast:
 wt:
 	fork/scripts/wt.sh $(NAME)
 
+promote:
+	fork/scripts/promote.sh
+
 demo-up:
 	fork/demo/prepare-build.sh
 	docker compose -f fork/demo/compose.yml up -d --build
@@ -121,4 +124,4 @@ demo-down:
 demo-logs:
 	docker compose -f fork/demo/compose.yml logs -f --tail=200
 
-.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast wt demo-up demo-down demo-logs
+.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast wt promote demo-up demo-down demo-logs

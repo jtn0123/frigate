@@ -7295,6 +7295,42 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
       security: []
       x-required-role: public
+  /fork/updates:
+    get:
+      tags:
+        - App
+      summary: Fork Updates
+      description: |-
+        **Access:** Any authenticated user.
+
+        Compare the running build with the fork's releases.
+
+        Honors `telemetry.version_check: false` by never contacting GitHub. Only
+        admins can force a refetch with `refresh=true`.
+      operationId: fork_updates_fork_updates_get
+      parameters:
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+            title: Refresh
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
 components:
   schemas:
     AppConfigSetBody:

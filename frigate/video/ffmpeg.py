@@ -31,7 +31,7 @@ from frigate.util.image import (
     SharedMemoryFrameManager,
 )
 from frigate.util.process import FrigateProcess
-from frigate.video.hwaccel_fallback import HwaccelFallback
+from frigate.video.hwaccel_fallback import HwaccelFallback, fallback_state_path
 from frigate.video.restart_log import RestartLog
 
 logger = logging.getLogger(__name__)
@@ -126,6 +126,7 @@ class CameraWatchdog(threading.Thread):
         stop_event,
         hwaccel_fallback=None,
         restart_events=None,
+        hwaccel_fallback_since=None,
     ):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(f"watchdog.{config.name}")
@@ -149,11 +150,23 @@ class CameraWatchdog(threading.Thread):
         self.stalls = stalls
         self.reconnects = reconnects
         self.detection_frame = detection_frame
-        # Fork (D10): software-decoding fallback for a crashing hwaccel path.
-        self.hwaccel_fallback = HwaccelFallback(config)
+        # Fork (D10): software-decoding fallback for a crashing hwaccel path,
+        # remembered across restarts (D14).
+        self.hwaccel_fallback = HwaccelFallback(
+            config, state_path=fallback_state_path(config.name)
+        )
         self.hwaccel_fallback_flag = hwaccel_fallback
-        if self.hwaccel_fallback_flag is not None:
-            self.hwaccel_fallback_flag.value = 0
+        self.hwaccel_fallback_since = hwaccel_fallback_since
+        self._publish_hwaccel_fallback()
+        since, expires = self.hwaccel_fallback.since, self.hwaccel_fallback.expires
+        if since is not None and expires is not None:
+            self.logger.info(
+                f"{config.name}: detect decodes in software, as it has since "
+                f"{datetime.fromtimestamp(since):%Y-%m-%d %H:%M}, when hardware "
+                "decoding kept crashing it. Hardware decoding is tried again after "
+                f"{datetime.fromtimestamp(expires):%Y-%m-%d %H:%M}, or as soon as "
+                "this camera's ffmpeg settings change."
+            )
         # Fork (D11): restart history for Camera Health, throttled ffmpeg dumps.
         self.restart_log = RestartLog(config.name, self.logger, restart_events)
         self._crash_logged: threading.Thread | None = None
@@ -220,12 +233,19 @@ class CameraWatchdog(threading.Thread):
             f"{self.config.name}: hardware-accelerated decoding ended the detect stream "
             f"{self.hwaccel_fallback.threshold} times in "
             f"{self.hwaccel_fallback.window / 60:.0f} minutes, so it is now decoded in "
-            "software until Frigate restarts or this camera's ffmpeg settings change. "
+            f"software for the next {self.hwaccel_fallback.remember / 86400:.0f} days, "
+            "also across restarts, or until this camera's ffmpeg settings change. "
             "To keep using the GPU, try a different hwaccel_args preset for this "
             f"camera. Last error: {self.hwaccel_fallback.reason}"
         )
+        self._publish_hwaccel_fallback()
+
+    def _publish_hwaccel_fallback(self) -> None:
+        """Fork (D10, D14): mirror the fallback state into the camera stats."""
         if self.hwaccel_fallback_flag is not None:
-            self.hwaccel_fallback_flag.value = 1
+            self.hwaccel_fallback_flag.value = int(self.hwaccel_fallback.active)
+        if self.hwaccel_fallback_since is not None:
+            self.hwaccel_fallback_since.value = self.hwaccel_fallback.since or 0.0
 
     def _check_config_updates(self) -> dict[str, list[str]]:
         """Check for config updates and return the update dict."""
@@ -303,8 +323,7 @@ class CameraWatchdog(threading.Thread):
                     self.config.name,
                 )
                 self.hwaccel_fallback.reset()
-                if self.hwaccel_fallback_flag is not None:
-                    self.hwaccel_fallback_flag.value = 0
+                self._publish_hwaccel_fallback()
                 self.stop_all_ffmpeg()
                 self.start_all_ffmpeg()
                 self.latest_valid_segment_time = 0
@@ -708,6 +727,7 @@ class CameraCapture(FrigateProcess):
             self.stop_event,
             self.camera_metrics.hwaccel_fallback,
             self.camera_metrics.restart_events,
+            hwaccel_fallback_since=self.camera_metrics.hwaccel_fallback_since,
         )
         camera_watchdog.start()
         camera_watchdog.join()

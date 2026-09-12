@@ -1,8 +1,13 @@
 name: Fork - Build image
 
-# Builds an amd64 image from the main branch (and any fork/* tag) and pushes it
-# to ghcr.io/<owner>/frigate. Pulls layer cache from upstream's public build cache
-# so a rebuild is usually well under the 40 minutes a cold build takes.
+# Builds an amd64 image and pushes it to ghcr.io/<owner>/frigate. main is the
+# release branch (`make promote` moves it to next): every main build is tagged
+# :main and :<upstream base>-<date>.<run>, and publishes a GitHub Release
+# tagged fork/<that version> with notes from fork/scripts/release_notes.py. The
+# running app finds its own release through the notes' build marker
+# (frigate/fork/updates.py). A pushed fork/* tag builds an image of that tag
+# only. Pulls layer cache from upstream's public build cache so a rebuild is
+# usually well under the 40 minutes a cold build takes.
 
 on:
   workflow_dispatch:
@@ -12,7 +17,8 @@ on:
     tags:
       - "fork/*"
     # Files that never reach the image: a push touching only these keeps the
-    # previous :main image, which is byte-for-byte what it would rebuild.
+    # previous :main image, which is byte-for-byte what it would rebuild. The
+    # next build's release notes still cover them.
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -30,31 +36,51 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   amd64:
     runs-on: ubuntu-22.04
     name: AMD64 fork build
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.tags.outputs.version }}
+      image: ${{ steps.tags.outputs.image }}
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Fetch the upstream mirror
+        run: git fetch --no-tags origin dev:refs/remotes/origin/dev
       - name: Set up QEMU and Buildx
         id: setup
         uses: ./.github/actions/setup
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Compute tags
+      - name: Compute version and tags
         id: tags
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           SHORT_SHA="${GITHUB_SHA::7}"
-          TAGS="${IMAGE}:${SHORT_SHA}-amd64,${IMAGE}:main"
           if [[ "${GITHUB_REF}" == refs/tags/fork/* ]]; then
-            TAGS="${TAGS},${IMAGE}:${GITHUB_REF#refs/tags/fork/}"
+            VERSION="${GITHUB_REF#refs/tags/fork/}"
+          else
+            # The upstream tag this build sits on, e.g. 0.18.0-rc2-20260911.42
+            BASE_TAG="$(git describe --tags --match 'v*' --abbrev=0 "$(git merge-base HEAD origin/dev)")"
+            VERSION="${BASE_TAG#v}-$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
           fi
-          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          TAGS="${IMAGE}:${SHORT_SHA}-amd64,${IMAGE}:${VERSION}"
+          # Only main moves :main, the tag the server pulls.
+          if [[ "${GITHUB_REF}" == refs/heads/main ]]; then
+            TAGS="${TAGS},${IMAGE}:main"
+          fi
+          {
+            echo "version=${VERSION}"
+            echo "image=${IMAGE}:${VERSION}"
+            echo "tags=${TAGS}"
+          } >> "$GITHUB_OUTPUT"
       - name: Build and push amd64
         uses: docker/build-push-action@v7
         with:
@@ -68,3 +94,38 @@ jobs:
             type=registry,ref=${{ steps.setup.outputs.cache-name }}-amd64
             type=registry,ref=ghcr.io/blakeblackshear/frigate:cache-amd64
           cache-to: type=registry,ref=${{ steps.setup.outputs.cache-name }}-amd64,mode=max
+
+  release:
+    name: Publish release
+    needs: amd64
+    # Releases describe what the server pulls, so only main builds get one.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fetch the upstream mirror
+        run: git fetch --no-tags origin dev:refs/remotes/origin/dev
+      - name: Write release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ needs.amd64.outputs.image }}
+        run: |
+          PREVIOUS="$(gh release list -R "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
+            --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          python3 fork/scripts/release_notes.py --ref "$GITHUB_SHA" --upstream origin/dev \
+            --image "$IMAGE" ${PREVIOUS:+--previous "$PREVIOUS"} > notes.md
+          cat notes.md
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.amd64.outputs.version }}
+        run: |
+          # Creates fork/<version> at this commit. Tags created with
+          # GITHUB_TOKEN do not trigger workflows, so this never rebuilds.
+          gh release create "fork/${VERSION}" -R "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "$VERSION" --notes-file notes.md --latest

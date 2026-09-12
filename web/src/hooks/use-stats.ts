@@ -105,9 +105,12 @@ export default function useStats(stats: FrigateStats | undefined) {
       }
     });
 
-    // fork (D10): cameras that fell back to software decoding
+    // fork (D10, D14): cameras that switched to software decoding in the last day
     if (isForkEnabled("cameraHealth")) {
-      softwareDecodingCameras(memoizedStats).forEach((name) => {
+      softwareDecodingCameras(
+        memoizedStats,
+        memoizedStats.service.last_updated,
+      ).forEach((name) => {
         const cameraName = config?.cameras?.[name]?.friendly_name ?? name;
         problems.push({
           text: t("cameraHealth.softwareDecodingProblem", {

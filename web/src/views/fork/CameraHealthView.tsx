@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { useApi } from "@/api/fork/client";
 import { LuSettings } from "react-icons/lu";
 import { FaVideo } from "react-icons/fa";
-import { MdCircle } from "react-icons/md";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,10 +12,9 @@ import { ConnectionQualityIndicator } from "@/components/camera/ConnectionQualit
 import { useEnabledState } from "@/api/ws";
 import Sparkline from "@/components/fork/Sparkline";
 import { useAutoFrigateStats } from "@/hooks/use-stats";
-import { useStatsHistory } from "@/hooks/fork/use-stats-history";
+import { useFpsHistory } from "@/hooks/fork/use-stats-history";
 import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 import { isReplayCamera } from "@/utils/cameraUtil";
-import { cn } from "@/lib/utils";
 import {
   cameraFpsSeries,
   computeCameraHealth,
@@ -25,6 +23,7 @@ import {
   enabledFromWs,
   newestRestarts,
   restartKindCounts,
+  seriesMinutes,
   type CameraHealthState,
 } from "@/lib/fork/camera-health";
 import { CameraStats, FrigateStats } from "@/types/stats";
@@ -34,6 +33,7 @@ const STATE_DOT: Record<CameraHealthState, string> = {
   degraded: "text-orange-400",
   offline: "text-danger",
   disabled: "text-muted-foreground",
+  starting: "text-selected",
 };
 
 const STATE_BADGE: Record<CameraHealthState, string> = {
@@ -41,6 +41,7 @@ const STATE_BADGE: Record<CameraHealthState, string> = {
   degraded: "border-orange-400/40 bg-orange-400/15 text-orange-400",
   offline: "border-danger/40 bg-danger/15 text-danger",
   disabled: "border-transparent bg-secondary text-muted-foreground",
+  starting: "border-transparent bg-secondary text-selected",
 };
 
 function formatFps(value: number | undefined) {
@@ -58,7 +59,7 @@ export default function CameraHealthView() {
     revalidateOnFocus: false,
   });
   const stats = useAutoFrigateStats();
-  const history = useStatsHistory(stats);
+  const history = useFpsHistory(stats);
 
   const cameras = useMemo(
     () =>
@@ -159,7 +160,7 @@ type CameraHealthCardProps = {
   label: string;
   enabled: boolean;
   stats: FrigateStats | undefined;
-  fpsSeries: number[];
+  fpsSeries: { times: number[]; values: number[] };
 };
 
 function CameraHealthCard({
@@ -174,7 +175,11 @@ function CameraHealthCard({
   const isEnabled = enabledFromWs(enabledState, enabled);
   const cameraStats = stats?.cameras[cameraName];
   const quality = connectionQualityProps(cameraStats);
-  const health = computeCameraHealth({ enabled: isEnabled }, cameraStats);
+  const health = computeCameraHealth(
+    { enabled: isEnabled },
+    cameraStats,
+    stats?.service.uptime,
+  );
   const share = detectorShare(stats, cameraName);
 
   const ffmpegCpu =
@@ -214,12 +219,9 @@ function CameraHealthCard({
       data-state={health.state}
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <MdCircle
-            className={cn("size-2 shrink-0", STATE_DOT[health.state])}
-          />
-          <span className="truncate font-medium smart-capitalize">{label}</span>
-        </div>
+        <span className="min-w-0 truncate font-medium smart-capitalize">
+          {label}
+        </span>
         <div className="flex shrink-0 items-center gap-2">
           {quality && <ConnectionQualityIndicator {...quality} />}
           <Badge variant="outline" className={STATE_BADGE[health.state]}>
@@ -237,6 +239,28 @@ function CameraHealthCard({
             .join(", ")}
         </div>
       )}
+      {health.notes.length > 0 && (
+        <div
+          className="text-xs text-muted-foreground"
+          data-testid="camera-health-note"
+        >
+          {health.notes.map((note) => (
+            <span key={note}>
+              {t(`cameraHealth.note.${note}`)}
+              {/* softwareDecoding is the only note, and the one with a time */}
+              {!!cameraStats?.hwaccel_fallback_since && (
+                <>
+                  {" · "}
+                  <TimeAgo
+                    time={cameraStats.hwaccel_fallback_since * 1000}
+                    dense
+                  />
+                </>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
         {metrics.map((metric) => (
           <div key={metric.key} className="flex flex-col">
@@ -248,39 +272,56 @@ function CameraHealthCard({
         ))}
       </dl>
       <CameraRestarts cameraStats={cameraStats} />
-      <div className="flex flex-col gap-1">
-        <Sparkline
-          values={fpsSeries}
-          label={t("cameraHealth.sparklineLabel", { camera: label })}
-          strokeClassName={STATE_DOT[health.state]}
-          className="text-selected"
-        />
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {t("cameraHealth.sparklineCaption", { count: fpsSeries.length })}
-          </span>
-          {stats?.service.last_updated && (
-            <span>
-              {t("cameraHealth.lastUpdate")}{" "}
-              <TimeAgo time={stats.service.last_updated * 1000} dense />
+      {/* Pinned to the bottom so charts and buttons line up across a row. */}
+      <div className="mt-auto flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <Sparkline
+            values={fpsSeries.values}
+            times={fpsSeries.times}
+            reference={cameraStats?.expected_fps}
+            label={t("cameraHealth.sparklineLabel", { camera: label })}
+            strokeClassName={STATE_DOT[health.state]}
+          />
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span data-testid="camera-health-chart-caption">
+              {fpsSeries.values.length > 1
+                ? t("cameraHealth.chart.caption", {
+                    count: seriesMinutes(fpsSeries.times),
+                  })
+                : t("cameraHealth.chart.waiting")}
             </span>
-          )}
+            {!!cameraStats?.expected_fps && (
+              <span className="flex shrink-0 items-center gap-1.5">
+                <span className="w-3 border-t border-dashed border-muted-foreground" />
+                {t("cameraHealth.chart.target", {
+                  fps: cameraStats.expected_fps,
+                })}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button asChild size="sm" variant="outline">
-          <Link to={`/#${cameraName}`}>
-            <FaVideo className="mr-2 size-3.5" />
-            {t("cameraHealth.openLive")}
-          </Link>
-        </Button>
-        <Button asChild size="sm" variant="ghost">
-          <Link to={`/settings?page=cameraFfmpeg&camera=${cameraName}`}>
-            <LuSettings className="mr-2 size-3.5" />
-            {t("cameraHealth.openSettings")}
-          </Link>
-        </Button>
+        <CameraLinks cameraName={cameraName} />
       </div>
     </Card>
+  );
+}
+
+function CameraLinks({ cameraName }: Readonly<{ cameraName: string }>) {
+  const { t } = useTranslation(["fork"]);
+  return (
+    <div className="flex items-center gap-2">
+      <Button asChild size="sm" variant="outline">
+        <Link to={`/#${cameraName}`}>
+          <FaVideo className="mr-2 size-3.5" />
+          {t("cameraHealth.openLive")}
+        </Link>
+      </Button>
+      <Button asChild size="sm" variant="ghost">
+        <Link to={`/settings?page=cameraFfmpeg&camera=${cameraName}`}>
+          <LuSettings className="mr-2 size-3.5" />
+          {t("cameraHealth.openSettings")}
+        </Link>
+      </Button>
+    </div>
   );
 }

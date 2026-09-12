@@ -59,7 +59,8 @@
     },
     "actions": {
       "toggleTheme": "Toggle dark / light theme",
-      "markAllReviewed": "Mark all as reviewed"
+      "markAllReviewed": "Mark all as reviewed",
+      "whatsNew": "What's new"
     },
     "toast": {
       "nothingToReview": "Nothing left to review",
@@ -109,17 +110,19 @@
       "ok": "OK",
       "degraded": "Degraded",
       "offline": "Offline",
-      "disabled": "Disabled"
+      "disabled": "Disabled",
+      "starting": "Starting"
     },
     "reason": {
       "noStats": "No stats reported",
       "noFrames": "No frames received",
       "lowFps": "Frame rate below half of expected",
-      "skippedFrames": "Frames are being skipped",
+      "skippedFrames": "Detection skips half of the frames or more",
       "poorConnection": "Poor connection quality",
-      "reconnects": "FFmpeg reconnected in the last hour",
-      "stalls": "Stream stalled in the last hour",
-      "softwareDecoding": "Hardware decoding kept failing, so detection decodes in software"
+      "stalls": "Stream stalled 5 or more times in the last hour"
+    },
+    "note": {
+      "softwareDecoding": "Decodes in software because hardware decoding kept failing"
     },
     "softwareDecodingProblem": "{{camera}}: hardware decoding kept failing, now decoding in software",
     "restarts": {
@@ -143,10 +146,13 @@
       "stalls": "Stalls (1h)",
       "ffmpegCpu": "FFmpeg CPU"
     },
-    "sparklineLabel": "Camera FPS history for {{camera}}",
-    "sparklineCaption_one": "Camera FPS, {{count}} sample",
-    "sparklineCaption_other": "Camera FPS, last {{count}} samples",
-    "lastUpdate": "Updated",
+    "sparklineLabel": "Frame rate history for {{camera}}",
+    "chart": {
+      "caption_one": "Frame rate, last minute",
+      "caption_other": "Frame rate, last {{count}} minutes",
+      "waiting": "Frame-rate history appears after the next update",
+      "target": "target {{fps}} fps"
+    },
     "openLive": "Live view",
     "openSettings": "Settings"
   },
@@ -220,5 +226,26 @@
     "expired": "This share link has expired.",
     "noClip": "The clip is no longer available.",
     "play": "Play clip"
+  },
+  "updates": {
+    "button_one": "{{count}} update available",
+    "button_other": "{{count}} updates available",
+    "availableTitle_one": "An update is available",
+    "availableTitle_other": "{{count}} updates are available",
+    "availableDescription": "This server runs {{current}}. The newest release is {{latest}}.",
+    "whatsNewTitle": "What's new",
+    "whatsNewDescription": "Frigate is now on {{version}}.",
+    "developmentDescription": "This build is not a published release. These are the newest release notes.",
+    "noNotes": "No release notes yet.",
+    "viewOnGitHub": "View on GitHub",
+    "howTo": {
+      "title": "How to update",
+      "portainer": "Portainer: open the Frigate stack and choose Pull and redeploy.",
+      "compose": "Docker Compose: run this in the folder with your compose file."
+    },
+    "checkNow": "Check now",
+    "checking": "Checking...",
+    "checkFailed": "Could not check for updates",
+    "close": "Close"
   }
 }

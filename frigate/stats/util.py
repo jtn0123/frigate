@@ -15,6 +15,7 @@ from requests.exceptions import RequestException
 from frigate.config import FrigateConfig
 from frigate.const import CACHE_DIR, CLIPS_DIR, RECORD_DIR
 from frigate.data_processing.types import DataProcessorMetrics
+from frigate.fork.updates import LATEST_RELEASE_URL
 from frigate.object_detection.base import ObjectDetectProcess
 from frigate.types import StatsTrackingTypes
 from frigate.util.services import (
@@ -45,16 +46,14 @@ def get_latest_version(config: FrigateConfig) -> str:
         return "disabled"
 
     try:
-        request = requests.get(
-            "https://api.github.com/repos/blakeblackshear/frigate/releases/latest",
-            timeout=10,
-        )
+        # Fork: only the fork's own releases; upstream is tracked by the sync bot.
+        request = requests.get(LATEST_RELEASE_URL, timeout=10)
         response = request.json()
     except (RequestException, JSONDecodeError):
         return "unknown"
 
     if request.ok and response and "tag_name" in response:
-        return str(response.get("tag_name").replace("v", ""))
+        return str(response.get("tag_name").removeprefix("fork/").replace("v", ""))
     else:
         return "unknown"
 
@@ -413,6 +412,8 @@ def stats_snapshot(
             "audio_rms": round(camera_stats.audio_rms.value, 4),
             "audio_dBFS": round(camera_stats.audio_dBFS.value, 4),
             "hwaccel_fallback": bool(camera_stats.hwaccel_fallback.value),  # fork (D10)
+            # fork (D14): when detect switched to software, kept across restarts
+            "hwaccel_fallback_since": camera_stats.hwaccel_fallback_since.value or None,
             "restarts_24h": len(restarts),  # fork (D11)
             "restart_kinds_24h": restart_kinds,  # fork (D11)
             "recent_restarts": restarts[-10:],  # fork (D11)
