@@ -34,7 +34,7 @@ type ShareClipButtonProps = {
 export default function ShareClipButton({
   eventId,
   hasClip = true,
-}: ShareClipButtonProps) {
+}: Readonly<ShareClipButtonProps>) {
   const { t } = useTranslation(["fork"]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -107,11 +107,12 @@ export default function ShareClipButton({
             <DialogTitle>{t("clipShare.title")}</DialogTitle>
             <DialogDescription>{t("clipShare.description")}</DialogDescription>
           </DialogHeader>
-          {loading && !share ? (
+          {loading && !share && (
             <p className="text-sm text-muted-foreground">
               {t("clipShare.creating")}
             </p>
-          ) : share ? (
+          )}
+          {share && (
             <div className="flex flex-col gap-3">
               <div
                 className="mx-auto size-44 rounded-md bg-white p-2"
@@ -136,7 +137,7 @@ export default function ShareClipButton({
                 </Button>
               </div>
             </div>
-          ) : null}
+          )}
         </DialogContent>
       </Dialog>
     </>

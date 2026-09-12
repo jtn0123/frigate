@@ -34,7 +34,11 @@ changed="$({
   git diff --name-only --no-renames "$base"
   git ls-files --others --exclude-standard
 } | sort -u)"
-touches() { grep -Eq "$1" <<<"$changed"; }
+touches() {
+  local pattern="$1"
+  grep -Eq "$pattern" <<<"$changed"
+  return $?
+}
 
 # CI pins ruff in requirements-dev.txt; a different local version can format
 # differently, so run the pinned one through uvx when it is available.
@@ -42,23 +46,26 @@ ruff_version="$(sed -n 's/^ruff *== *//p' docker/main/requirements-dev.txt)"
 if command -v uvx >/dev/null; then ruff=(uvx -q "ruff@${ruff_version}"); else ruff=(ruff); fi
 
 py_files='^(frigate|migrations|docker|fork/scripts)/.*\.py$|^[^/]+\.py$'
-py_gates='^(frigate|migrations|docker)/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|scripts/py-checks\.sh)$|^docs/static/frigate-api\.yaml$'
+py_gates='^(frigate|migrations|docker)/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/py-checks\.sh|scripts/dev-lock-check\.py)$|^docs/static/frigate-api\.yaml$'
 e2e_args=()
 
 # ---- gates: gate_<name> runs one check; its output goes to the gate's log ----
+# Node tools run from web/node_modules/.bin rather than through npx, which
+# could fetch a missing package from the registry.
 
-gate_lint() { (cd web && npm run -s lint); }
-gate_typecheck() { (cd web && npm run -s typecheck); }
-gate_ratchet() { (cd web && npm run -s type-ratchet); }
-gate_i18n() { (cd web && npm run -s i18n:extract:ci); }
-gate_gitleaks() { gitleaks git --no-banner --redact --log-opts="origin/dev..HEAD" .; }
+gate_lint() { (cd web && npm run -s lint); return $?; }
+gate_typecheck() { (cd web && npm run -s typecheck); return $?; }
+gate_ratchet() { (cd web && npm run -s type-ratchet); return $?; }
+gate_i18n() { (cd web && npm run -s i18n:extract:ci); return $?; }
+gate_gitleaks() { gitleaks git --no-banner --redact --log-opts="origin/dev..HEAD" .; return $?; }
 
 gate_vitest() {
   if [[ "$mode" == fast ]]; then
-    (cd web && npx vitest run --changed "$base" --passWithNoTests)
+    (cd web && node_modules/.bin/vitest run --changed "$base" --passWithNoTests)
   else
-    (cd web && npx vitest run)
+    (cd web && node_modules/.bin/vitest run)
   fi
+  return $?
 }
 
 gate_ruff() {
@@ -78,10 +85,11 @@ gate_ruff() {
 gate_scripts() { python3 -m unittest discover -s fork/scripts -p 'test_*.py'; }
 
 # The e2e bundle, checked against CI's eager-bundle budget (fork/bundle-budget.json).
-gate_build() { (cd web && npx vite build --base=/ && npm run -s bundle:budget); }
+gate_build() { (cd web && node_modules/.bin/vite build --base=/ && npm run -s bundle:budget); return $?; }
 
 gate_e2e() {
-  (cd web && npx playwright test -c e2e/playwright.config.ts "${e2e_args[@]+"${e2e_args[@]}"}")
+  (cd web && node_modules/.bin/playwright test -c e2e/playwright.config.ts "${e2e_args[@]+"${e2e_args[@]}"}")
+  return $?
 }
 
 gate_python() {
@@ -113,10 +121,15 @@ lane() {
       echo "$rc" >"$logs/$name.rc"
     done
   ) &
+  return 0
 }
 
 # skip <name> <reason>: a gate --fast leaves out, reported so it is never silent.
-skip() { notes+=("  -  $(printf '%-10s' "$1") not run: $2"); }
+skip() {
+  local name="$1" reason="$2"
+  notes+=("  -  $(printf '%-10s' "$name") not run: $reason")
+  return 0
+}
 
 host=(lint typecheck ratchet vitest i18n ruff gitleaks)
 docker_lane=()

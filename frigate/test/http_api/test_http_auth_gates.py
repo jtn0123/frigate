@@ -111,8 +111,9 @@ class TestRouteAuthGates(unittest.TestCase):
         def ungated():
             return {}
 
+        app = _app_with(router)
         with self.assertRaises(RuntimeError) as ctx:
-            assert_routes_have_auth_gate(_app_with(router))
+            assert_routes_have_auth_gate(app)
         assert "GET /ungated" in str(ctx.exception)
 
     def test_duplicate_gates_fail_startup(self):
@@ -128,5 +129,6 @@ class TestRouteAuthGates(unittest.TestCase):
         def double():
             return {}
 
+        app = _app_with(router)
         with self.assertRaises(RuntimeError):
-            assert_routes_have_auth_gate(_app_with(router))
+            assert_routes_have_auth_gate(app)

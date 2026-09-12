@@ -61,14 +61,17 @@ import { FrigateConfig } from "@/types/frigateConfig";
 
 type InboxBellProps = {
   variant: ForkNavVariant;
-  large?: boolean | undefined;
+  large?: boolean;
 };
 
 /**
  * Bell with unread badge that opens the notification inbox panel. Also hosts
  * the WebSocket collector so items are gathered on every page.
  */
-export default function InboxBell({ variant, large }: InboxBellProps) {
+export default function InboxBell({
+  variant,
+  large = false,
+}: Readonly<InboxBellProps>) {
   const { t } = useTranslation(["fork"]);
   const [open, setOpen] = useState(false);
   const unread = useInboxUnreadCount();
@@ -140,7 +143,7 @@ type InboxPanelBodyProps = {
   onNavigate: () => void;
 };
 
-function InboxPanelBody({ onNavigate }: InboxPanelBodyProps) {
+function InboxPanelBody({ onNavigate }: Readonly<InboxPanelBodyProps>) {
   const { t } = useTranslation(["fork"]);
   const navigate = useNavigate();
   const { data: config } = useSWR<FrigateConfig>("config", {

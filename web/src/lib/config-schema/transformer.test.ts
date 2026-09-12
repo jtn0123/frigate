@@ -203,7 +203,7 @@ describe("transformSchema nullable normalisation", () => {
     });
     const value = ((schema as S).properties as S).value as S;
     expect(Array.isArray(value.anyOf)).toBe(true);
-    expect((value.anyOf as unknown[]).length).toBe(3);
+    expect(value.anyOf as unknown[]).toHaveLength(3);
   });
 });
 

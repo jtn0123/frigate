@@ -238,20 +238,21 @@ test.describe("Notification inbox @high", () => {
     await expect(frigateApp.page.getByTestId("inbox-unread")).toHaveCount(0);
   });
 
-  test("bell in the bottombar opens the inbox drawer @mobile", async ({
-    frigateApp,
-  }) => {
-    test.skip(!frigateApp.isMobile, "Mobile bottombar flow");
-    await frigateApp.goto("/");
-    await sendReviewAndWait(
-      frigateApp,
-      { id: "inbox-mobile", camera: "garage", objects: ["dog"] },
-      1,
-    );
-    await openInbox(frigateApp);
-    const item = frigateApp.page.getByTestId("inbox-item");
-    await expect(item).toHaveCount(1);
-    await expect(item.getByText("Garage")).toBeVisible();
-    await expect(item.getByText("Dog")).toBeVisible();
-  });
+  test(
+    "bell in the bottombar opens the inbox drawer @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.goto("/");
+      await sendReviewAndWait(
+        frigateApp,
+        { id: "inbox-mobile", camera: "garage", objects: ["dog"] },
+        1,
+      );
+      await openInbox(frigateApp);
+      const item = frigateApp.page.getByTestId("inbox-item");
+      await expect(item).toHaveCount(1);
+      await expect(item.getByText("Garage")).toBeVisible();
+      await expect(item.getByText("Dog")).toBeVisible();
+    },
+  );
 });

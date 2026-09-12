@@ -32,39 +32,41 @@ async function openRecordingWithHandlebar(frigateApp: FrigateApp) {
 }
 
 test.describe("Timeline scrubber @high", () => {
-  test("handlebar is focusable and arrow keys step between events", async ({
-    frigateApp,
-  }) => {
-    test.skip(frigateApp.isMobile, "Desktop keyboard flow");
-    const handle = await openRecordingWithHandlebar(frigateApp);
-    await expect(handle).toHaveAttribute("data-touch-target", "large");
-    await handle.focus();
-    await expect(handle).toBeFocused();
+  test(
+    "handlebar is focusable and arrow keys step between events",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const handle = await openRecordingWithHandlebar(frigateApp);
+      await expect(handle).toHaveAttribute("data-touch-target", "large");
+      await handle.focus();
+      await expect(handle).toBeFocused();
 
-    const before = await handle.getAttribute("data-handlebar-time");
-    expect(before).toBeTruthy();
+      const before = await handle.getAttribute("data-handlebar-time");
+      expect(before).toBeTruthy();
 
-    await frigateApp.page.keyboard.press("ArrowRight");
-    const afterRight = await handle.getAttribute("data-handlebar-time");
-    expect(afterRight).toBeTruthy();
+      await frigateApp.page.keyboard.press("ArrowRight");
+      const afterRight = await handle.getAttribute("data-handlebar-time");
+      expect(afterRight).toBeTruthy();
 
-    await frigateApp.page.keyboard.press("ArrowLeft");
-    const afterLeft = await handle.getAttribute("data-handlebar-time");
-    expect(afterLeft).toBeTruthy();
+      await frigateApp.page.keyboard.press("ArrowLeft");
+      const afterLeft = await handle.getAttribute("data-handlebar-time");
+      expect(afterLeft).toBeTruthy();
 
-    // Two front_door reviews exist in the mock data, so a step should
-    // land on a different event than the one we started on.
-    expect(new Set([before, afterRight, afterLeft]).size).toBeGreaterThan(1);
-  });
+      // Two front_door reviews exist in the mock data, so a step should
+      // land on a different event than the one we started on.
+      expect(new Set([before, afterRight, afterLeft]).size).toBeGreaterThan(1);
+    },
+  );
 
-  test("handlebar keeps a larger touch target on a phone @mobile", async ({
-    frigateApp,
-  }) => {
-    test.skip(!frigateApp.isMobile, "Mobile touch target");
-    const handle = await openRecordingWithHandlebar(frigateApp);
-    await expect(handle).toHaveAttribute("data-touch-target", "large");
-    const box = await handle.locator(":scope > div").first().boundingBox();
-    expect(box).toBeTruthy();
-    expect(box!.height).toBeGreaterThanOrEqual(40);
-  });
+  test(
+    "handlebar keeps a larger touch target on a phone @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      const handle = await openRecordingWithHandlebar(frigateApp);
+      await expect(handle).toHaveAttribute("data-touch-target", "large");
+      const box = await handle.locator(":scope > div").first().boundingBox();
+      expect(box).toBeTruthy();
+      expect(box!.height).toBeGreaterThanOrEqual(40);
+    },
+  );
 });

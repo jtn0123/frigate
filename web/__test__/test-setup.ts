@@ -63,7 +63,7 @@ if (typeof window.matchMedia !== "function") {
 }
 
 // jsdom has no ResizeObserver; layout hooks construct one on mount.
-if (typeof globalThis.ResizeObserver === "undefined") {
+if (!("ResizeObserver" in globalThis)) {
   class ResizeObserverStub {
     observe = vi.fn();
     unobserve = vi.fn();

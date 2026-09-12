@@ -56,9 +56,12 @@ export function walkTs(dir, out = []) {
 export function countHatches(source) {
   const tsExpectError = (source.match(/@ts-expect-error/g) ?? []).length;
   const asUnknownAs = (source.match(/\bas unknown as\b/g) ?? []).length;
+  // Same matches as `(?:\s+[^\n]*)?` after the directive, but the whitespace
+  // run must end before the first non-space character, so a long run of
+  // spaces cannot be split between the two quantifiers in every possible way.
   const noExplicitAnyDisable = (
     source.match(
-      /eslint-disable(?:-next-line)?(?:\s+[^\n]*)?@typescript-eslint\/no-explicit-any/g,
+      /eslint-disable(?:-next-line)?(?:\s+(?:\S[^\n]*)?)?@typescript-eslint\/no-explicit-any/g,
     ) ?? []
   ).length;
   // Type-position `any`, not the English word in comments. Matches `: any`,
@@ -158,8 +161,12 @@ function printTable(title, current, baseline) {
   for (const key of Object.keys(baseline)) {
     const now = current[key] ?? 0;
     const was = baseline[key] ?? 0;
-    const delta =
-      now === was ? "" : now > was ? `  UP from ${was}` : `  down from ${was}`;
+    let delta = "";
+    if (now > was) {
+      delta = `  UP from ${was}`;
+    } else if (now < was) {
+      delta = `  down from ${was}`;
+    }
     console.log(`  ${key}: ${now}${delta}`);
   }
 }

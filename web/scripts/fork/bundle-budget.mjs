@@ -47,7 +47,7 @@ function resolveAsset(href) {
 
 const rows = [];
 let total = 0;
-for (const href of [...hrefs].sort()) {
+for (const href of [...hrefs].sort((a, b) => a.localeCompare(b))) {
   if (!/\.(js|css)$/i.test(href.split("?")[0])) {
     continue;
   }

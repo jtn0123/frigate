@@ -180,18 +180,19 @@ test.describe("Update notices @high", () => {
     );
   });
 
-  test("the update button sits in the bottombar on a phone @mobile", async ({
-    frigateApp,
-  }) => {
-    test.skip(!frigateApp.isMobile, "Mobile bottombar flow");
-    await rememberSeen(frigateApp, RUNNING.tag);
-    await frigateApp.installDefaults({ forkUpdates: BEHIND });
-    await frigateApp.goto("/");
+  test(
+    "the update button sits in the bottombar on a phone @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await rememberSeen(frigateApp, RUNNING.tag);
+      await frigateApp.installDefaults({ forkUpdates: BEHIND });
+      await frigateApp.goto("/");
 
-    await frigateApp.page.getByTestId("fork-update-button").click();
+      await frigateApp.page.getByTestId("fork-update-button").click();
 
-    const dialog = frigateApp.page.getByTestId("fork-release-notes");
-    await expect(dialog.getByTestId("fork-release")).toHaveCount(2);
-    await expect(dialog.getByTestId("fork-update-howto")).toBeVisible();
-  });
+      const dialog = frigateApp.page.getByTestId("fork-release-notes");
+      await expect(dialog.getByTestId("fork-release")).toHaveCount(2);
+      await expect(dialog.getByTestId("fork-update-howto")).toBeVisible();
+    },
+  );
 });

@@ -52,7 +52,12 @@ type OptionRowProps = {
   onSelect: () => void;
 };
 
-function OptionRow({ selected, label, testId, onSelect }: OptionRowProps) {
+function OptionRow({
+  selected,
+  label,
+  testId,
+  onSelect,
+}: Readonly<OptionRowProps>) {
   const MenuItem = isDesktop ? DropdownMenuItem : DialogClose;
   return (
     <MenuItem

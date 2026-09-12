@@ -208,7 +208,8 @@ describe("getUTCOffset", () => {
   it("computes the offset of a named zone", () => {
     expect(getUTCOffset(date, "America/New_York")).toBe(-300);
     expect(getUTCOffset(date, "Asia/Kolkata")).toBe(330);
-    expect(getUTCOffset(date, "UTC") === 0).toBe(true);
+    // The UTC offset comes back as -0; toBe(0) compares with Object.is.
+    expect(getUTCOffset(date, "UTC")).toBeCloseTo(0);
   });
 
   it("honours DST for the given date", () => {

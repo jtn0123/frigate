@@ -84,7 +84,9 @@ function applyToDocument(state: AppearanceState) {
   root.classList.toggle("oled", state.oled);
 }
 
-export function AppearanceProvider({ children }: { children: ReactNode }) {
+export function AppearanceProvider({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   const enabled = isForkEnabled("themeControls");
   const [state, setState] = useState<AppearanceState>(() =>
     enabled ? readStored() : defaults,

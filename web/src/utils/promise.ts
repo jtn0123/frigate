@@ -11,7 +11,7 @@
  * Run `fn` and ignore the returned promise. `fn` must handle its own errors.
  */
 export function wrapAsync<A extends unknown[]>(
-  fn: (...args: A) => Promise<unknown> | unknown,
+  fn: (...args: A) => unknown,
 ): (...args: A) => void {
   return (...args: A) => {
     void Promise.resolve(fn(...args));

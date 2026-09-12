@@ -36,7 +36,9 @@ if [[ -d "$main/web/node_modules" ]] && cmp -s "$main/web/package-lock.json" "$d
   echo "deps      cloned from $main/web/node_modules in $((SECONDS - start))s"
 else
   rm -rf "$dir/web/node_modules"
-  (cd "$dir/web" && npm ci --no-audit --no-fund)
+  # Same install as CI (.github/actions/fork-web-setup): no dependency
+  # lifecycle scripts, then the app's own patch-package postinstall.
+  (cd "$dir/web" && npm ci --ignore-scripts --no-audit --no-fund && npm run -s postinstall)
   echo "deps      npm ci in $((SECONDS - start))s"
 fi
 

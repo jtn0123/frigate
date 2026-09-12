@@ -97,7 +97,7 @@ export function releaseVersion(tag: string | null | undefined): string {
 }
 
 // The heading the backend turns the folded "Under the hood" block into.
-const UNDER_THE_HOOD = /^### (Under the hood.*)$/m;
+const UNDER_THE_HOOD = /^### Under the hood.*$/m;
 
 /** Split notes into the main list and the tooling list the dialog folds. */
 export function splitUnderTheHood(notes: string): {
@@ -111,7 +111,7 @@ export function splitUnderTheHood(notes: string): {
   return {
     main: notes.slice(0, match.index).trim(),
     hood: {
-      title: match[1] ?? "",
+      title: match[0].replace(/^### /, ""),
       body: notes.slice(match.index + match[0].length).trim(),
     },
   };
