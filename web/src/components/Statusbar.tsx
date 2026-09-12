@@ -34,7 +34,7 @@ export default function Statusbar() {
       return null;
     }
 
-    return parseInt(systemCpu);
+    return Number.parseInt(systemCpu);
   }, [stats]);
 
   const { potentialProblems } = useStats(stats);
@@ -129,9 +129,9 @@ export default function Statusbar() {
               break;
           }
 
-          const gpu = parseInt(stats.gpu);
+          const gpu = Number.parseInt(stats.gpu);
 
-          if (isNaN(gpu)) {
+          if (Number.isNaN(gpu)) {
             return;
           }
 

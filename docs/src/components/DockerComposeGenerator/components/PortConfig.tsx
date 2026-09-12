@@ -12,11 +12,11 @@ function PortItem({
   port,
   enabled,
   onToggle,
-}: {
+}: Readonly<{
   port: typeof ports[number];
   enabled: boolean;
   onToggle: () => void;
-}) {
+}>) {
   const showWarning = port.warningContent && (
     port.warningWhen === "checked" ? enabled :
     port.warningWhen === "unchecked" ? !enabled : enabled
@@ -52,7 +52,7 @@ function PortItem({
 export default function PortConfigSection({
   portEnabled,
   onTogglePort,
-}: Props) {
+}: Readonly<Props>) {
   return (
     <div className={styles.formSection}>
       <h4>Port Configuration</h4>

@@ -51,6 +51,9 @@ from frigate.jobs.vlm_watch import (
 )
 from frigate.models import Event
 
+_NO_ACTIVE_WATCH_JOB_TO_CANCEL = "No active watch job to cancel."
+_REQUEST_PROCESSING_ERROR = "An error occurred while processing your request."
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.chat])
@@ -838,7 +841,7 @@ def _execute_stop_camera_watch() -> dict[str, Any]:
     cancelled = stop_vlm_watch_job()
     if cancelled:
         return {"success": True, "message": "Watch job cancelled."}
-    return {"success": False, "message": "No active watch job to cancel."}
+    return {"success": False, "message": _NO_ACTIVE_WATCH_JOB_TO_CANCEL}
 
 
 def _execute_get_profile_status(request: Request) -> dict[str, Any]:
@@ -1259,7 +1262,7 @@ async def chat_completion(
                                 json.dumps(
                                     {
                                         "type": "error",
-                                        "error": "An error occurred while processing your request.",
+                                        "error": _REQUEST_PROCESSING_ERROR,
                                     }
                                 ).encode("utf-8")
                                 + b"\n"
@@ -1331,7 +1334,7 @@ async def chat_completion(
                 logger.error("GenAI client returned an error")
                 return JSONResponse(
                     content={
-                        "error": "An error occurred while processing your request.",
+                        "error": _REQUEST_PROCESSING_ERROR,
                     },
                     status_code=500,
                 )
@@ -1437,7 +1440,7 @@ async def chat_completion(
         logger.exception(f"Error in chat completion: {e}")
         return JSONResponse(
             content={
-                "error": "An error occurred while processing your request.",
+                "error": _REQUEST_PROCESSING_ERROR,
             },
             status_code=500,
         )
@@ -1544,7 +1547,7 @@ async def cancel_vlm_monitor(request: Request) -> JSONResponse:
     job = get_vlm_watch_job()
     if job is None:
         return JSONResponse(
-            content={"success": False, "message": "No active watch job to cancel."},
+            content={"success": False, "message": _NO_ACTIVE_WATCH_JOB_TO_CANCEL},
             status_code=404,
         )
 
@@ -1564,7 +1567,7 @@ async def cancel_vlm_monitor(request: Request) -> JSONResponse:
     cancelled = stop_vlm_watch_job()
     if not cancelled:
         return JSONResponse(
-            content={"success": False, "message": "No active watch job to cancel."},
+            content={"success": False, "message": _NO_ACTIVE_WATCH_JOB_TO_CANCEL},
             status_code=404,
         )
     return JSONResponse(content={"success": True}, status_code=200)

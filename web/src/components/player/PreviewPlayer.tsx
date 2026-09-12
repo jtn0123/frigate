@@ -468,7 +468,7 @@ function PreviewFramesPlayer({
   setCurrentHourFrame,
   onControllerReady,
   onClick,
-}: PreviewFramesPlayerProps) {
+}: Readonly<PreviewFramesPlayerProps>) {
   const { t } = useTranslation(["components/player"]);
 
   const cameraName = useCameraFriendlyName(camera);
@@ -487,7 +487,7 @@ function PreviewFramesPlayer({
 
     return previewFrames.map((frame) =>
       // @ts-expect-error we know this item will exist
-      parseFloat(frame.split("-").at(-1).slice(undefined, -5)),
+      Number.parseFloat(frame.split("-").at(-1).slice(undefined, -5)),
     );
   }, [previewFrames]);
 
@@ -513,7 +513,7 @@ function PreviewFramesPlayer({
   const [firstLoad, setFirstLoad] = useState(true);
 
   useEffect(() => {
-    if (previewFrames != undefined && previewFrames.length == 0) {
+    if (previewFrames?.length == 0) {
       setFirstLoad(false);
     }
   }, [previewFrames]);

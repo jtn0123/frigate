@@ -271,16 +271,14 @@ export default function SearchResultActions({
           <ContextMenuContent>{menuItems}</ContextMenuContent>
         </ContextMenu>
       ) : (
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <BlurredIconButton aria-label={t("itemMenu.more.aria")}>
-                <FiMoreVertical className="size-5" />
-              </BlurredIconButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">{menuItems}</DropdownMenuContent>
-          </DropdownMenu>
-        </>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <BlurredIconButton aria-label={t("itemMenu.more.aria")}>
+              <FiMoreVertical className="size-5" />
+            </BlurredIconButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">{menuItems}</DropdownMenuContent>
+        </DropdownMenu>
       )}
     </>
   );

@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { baseUrl } from "@/api/baseUrl";
 import { useFormattedTimestamp, use24HourTime } from "@/hooks/use-date-utils";
 import { FrigateConfig } from "@/types/frigateConfig";
@@ -229,18 +230,19 @@ function ReviewCard({
           </TooltipTrigger>
           <TooltipContent className="smart-capitalize">
             {formatList(
-              [
-                ...new Set([
-                  ...(event.data.objects || []),
-                  ...(event.data.sub_labels || []),
-                  ...(event.data.audio || []),
-                ]),
-              ]
-                .filter(
-                  (item) => item !== undefined && !item.includes("-verified"),
-                )
-                .map((text) => getTranslatedLabel(text, getEventType(text)))
-                .sort(),
+              sortedStrings(
+                [
+                  ...new Set([
+                    ...(event.data.objects || []),
+                    ...(event.data.sub_labels || []),
+                    ...(event.data.audio || []),
+                  ]),
+                ]
+                  .filter(
+                    (item) => item !== undefined && !item.includes("-verified"),
+                  )
+                  .map((text) => getTranslatedLabel(text, getEventType(text))),
+              ),
             )}
           </TooltipContent>
         </Tooltip>

@@ -11,7 +11,11 @@ function getTimezoneList(): string[] {
     };
     const supported = intl.supportedValuesOf?.("timeZone");
     if (supported && supported.length > 0) {
-      return [...supported].sort();
+      return [...supported].sort((left, right) => {
+        if (left < right) return -1;
+        if (left > right) return 1;
+        return 0;
+      });
     }
   }
 
@@ -37,7 +41,7 @@ export default function OtherOptions({
   onRtspPasswordChange,
   onTimezoneChange,
   onShmSizeChange,
-}: Props) {
+}: Readonly<Props>) {
   const timezones = useMemo(() => getTimezoneList(), []);
   const systemTimezone =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "Etc/UTC";
@@ -57,7 +61,7 @@ export default function OtherOptions({
             value={selectedValue}
             onChange={(e) =>
               onTimezoneChange(
-                e.target.value === AUTO_TIMEZONE_VALUE ? "" : e.target.value
+                e.target.value === AUTO_TIMEZONE_VALUE ? "" : e.target.value,
               )
             }
           >
@@ -85,7 +89,8 @@ export default function OtherOptions({
           />
           {shmSizeError ? (
             <p className={styles.helpText}>
-              ⚠️ Invalid format. Use a number followed by a unit (e.g. 512mb, 1gb)
+              ⚠️ Invalid format. Use a number followed by a unit (e.g. 512mb,
+              1gb)
             </p>
           ) : (
             <p className={styles.helpText}>
@@ -111,9 +116,9 @@ export default function OtherOptions({
           />
           <p className={styles.helpText}>
             Optional. You can specify{" "}
-            <CodeInline>{"{FRIGATE_RTSP_PASSWORD}"}</CodeInline>{" "}
-            in the config file to reference camera stream passwords. This is NOT
-            the Frigate login password.
+            <CodeInline>{"{FRIGATE_RTSP_PASSWORD}"}</CodeInline> in the config
+            file to reference camera stream passwords. This is NOT the Frigate
+            login password.
           </p>
         </div>
       </div>

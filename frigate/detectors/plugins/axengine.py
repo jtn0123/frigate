@@ -49,9 +49,6 @@ class Axengine(DetectionApi):
         model_props = self.parse_model_input(model_path)
         self.session = axe.InferenceSession(model_props["path"])
 
-    def __del__(self):
-        pass
-
     def parse_model_input(self, model_path):
         model_props = {}
         model_props["preset"] = True

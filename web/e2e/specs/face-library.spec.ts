@@ -110,12 +110,35 @@ async function openLibraryDropdown(app: FrigateApp): Promise<Locator> {
 test.describe("Face Library — collection selector @high", () => {
   test("selector shows named face collections", async ({ frigateApp }) => {
     await frigateApp.installDefaults({ faces: basicFacesMock() });
+    const eventLookup = frigateApp.page.waitForResponse(
+      (response) => new URL(response.url()).pathname === "/api/event_ids",
+    );
     await frigateApp.goto("/faces");
+    const response = await eventLookup;
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toEqual([]);
     // Named collections appear in the LibrarySelector dropdown.
     const menu = await openLibraryDropdown(frigateApp);
     await expect(menu.getByText(/alice/i).first()).toBeVisible({
       timeout: 5_000,
     });
+  });
+
+  test("event lookup returns only requested fixture records", async ({
+    frigateApp,
+  }) => {
+    const events = [
+      { id: "known", label: "person" },
+      { id: "unrequested", label: "car" },
+    ];
+    await frigateApp.installDefaults({ faces: emptyFacesMock(), events });
+    await frigateApp.goto("/faces");
+    const result = await frigateApp.page.evaluate(async () => {
+      const response = await fetch("/api/event_ids?ids=known,missing");
+      return { status: response.status, body: await response.json() };
+    });
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual([events[0]]);
   });
 
   test("empty state renders when no faces exist", async ({ frigateApp }) => {

@@ -13,6 +13,8 @@ from requests.models import Response
 
 from frigate.const import PLUS_API_HOST, PLUS_ENV_VAR
 
+_SECRETS_DIR = "/run/secrets"
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +28,7 @@ def get_jpg_bytes(image: ndarray, max_dim: int, quality: int) -> bytes:
 
     original = cv2.resize(image, dsize=(width, height), interpolation=cv2.INTER_AREA)
 
-    ret, jpg = cv2.imencode(".jpg", original, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    _, jpg = cv2.imencode(".jpg", original, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
     jpg_bytes = jpg.tobytes()
     return jpg_bytes if isinstance(jpg_bytes, bytes) else b""
 
@@ -38,12 +40,12 @@ class PlusApi:
         if PLUS_ENV_VAR in os.environ:
             self.key = os.environ.get(PLUS_ENV_VAR)
         elif (
-            os.path.isdir("/run/secrets")
-            and os.access("/run/secrets", os.R_OK)
-            and PLUS_ENV_VAR in os.listdir("/run/secrets")
+            os.path.isdir(_SECRETS_DIR)
+            and os.access(_SECRETS_DIR, os.R_OK)
+            and PLUS_ENV_VAR in os.listdir(_SECRETS_DIR)
         ):
             self.key = (
-                Path(os.path.join("/run/secrets", PLUS_ENV_VAR)).read_text().strip()
+                Path(os.path.join(_SECRETS_DIR, PLUS_ENV_VAR)).read_text().strip()
             )
         # check for the add-on options file
         elif os.path.isfile("/data/options.json"):

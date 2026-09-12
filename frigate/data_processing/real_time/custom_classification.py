@@ -376,6 +376,7 @@ class CustomStateClassificationProcessor(DeferredRealtimeProcessorApi):
             return None
 
     def expire_object(self, object_id: str, camera: str) -> None:
+        # This processor retains no per-object resources that need expiration.
         pass
 
 
@@ -740,5 +741,5 @@ def write_classification_attempt(
 
         if len(files) > max_files:
             os.unlink(os.path.join(folder, files[-1]))
-    except (FileNotFoundError, OSError):
+    except OSError:
         pass

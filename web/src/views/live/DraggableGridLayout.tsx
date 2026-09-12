@@ -186,7 +186,7 @@ export default function DraggableGridLayout({
         : [];
 
       cameraNames.forEach((cameraName, index) => {
-        const existingLayout = optionsMap.find(
+        const existingLayout = optionsMap.some(
           (layout) => layout.i === cameraName,
         );
 
@@ -314,7 +314,7 @@ export default function DraggableGridLayout({
     const calculateRemValue = () => {
       const htmlElement = document.documentElement;
       const fontSize = window.getComputedStyle(htmlElement).fontSize;
-      setMarginValue(parseFloat(fontSize));
+      setMarginValue(Number.parseFloat(fontSize));
     };
 
     calculateRemValue();

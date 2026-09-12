@@ -127,8 +127,8 @@ export function PolygonCanvas({
       e.evt.button === 2 &&
       intersection?.getClassName() == "Circle"
     ) {
-      const pointIndex = parseInt(intersection.name()?.split("-")[1]);
-      if (!isNaN(pointIndex)) {
+      const pointIndex = Number.parseInt(intersection.name()?.split("-")[1]);
+      if (!Number.isNaN(pointIndex)) {
         const updatedPoints = activePolygon.points.filter(
           (_, index) => index !== pointIndex,
         );
@@ -155,38 +155,36 @@ export function PolygonCanvas({
         isFinished: true,
       };
       setPolygons(updatedPolygons);
-    } else {
-      if (
-        (!activePolygon.isFinished &&
-          intersection?.getClassName() !== "Circle") ||
-        (activePolygon.isFinished && intersection?.name() == "unfilled-line")
-      ) {
-        let newPoint = [mousePos.x, mousePos.y];
+    } else if (
+      (!activePolygon.isFinished &&
+        intersection?.getClassName() !== "Circle") ||
+      (activePolygon.isFinished && intersection?.name() == "unfilled-line")
+    ) {
+      let newPoint = [mousePos.x, mousePos.y];
 
-        if (snapPoints) {
-          // Snap to other polygons' edges
-          const otherPolygons = polygons.filter(
-            (_, i) => i !== activePolygonIndex,
-          );
-          const snappedPos = snapPointToLines(newPoint, otherPolygons, 10);
-
-          if (snappedPos) {
-            newPoint = snappedPos;
-          }
-        }
-
-        const { updatedPoints, updatedPointsOrder } = addPointToPolygon(
-          activePolygon,
-          newPoint,
+      if (snapPoints) {
+        // Snap to other polygons' edges
+        const otherPolygons = polygons.filter(
+          (_, i) => i !== activePolygonIndex,
         );
+        const snappedPos = snapPointToLines(newPoint, otherPolygons, 10);
 
-        updatedPolygons[activePolygonIndex] = {
-          ...activePolygon,
-          points: updatedPoints,
-          pointsOrder: updatedPointsOrder,
-        };
-        setPolygons(updatedPolygons);
+        if (snappedPos) {
+          newPoint = snappedPos;
+        }
       }
+
+      const { updatedPoints, updatedPointsOrder } = addPointToPolygon(
+        activePolygon,
+        newPoint,
+      );
+
+      updatedPolygons[activePolygonIndex] = {
+        ...activePolygon,
+        points: updatedPoints,
+        pointsOrder: updatedPointsOrder,
+      };
+      setPolygons(updatedPolygons);
     }
   };
 
@@ -239,7 +237,7 @@ export function PolygonCanvas({
       const updatedPolygons = [...polygons];
       const activePolygon = updatedPolygons[activePolygonIndex];
       const result: number[][] = [];
-      activePolygon.points.map((point: number[]) =>
+      activePolygon.points.forEach((point: number[]) =>
         result.push([point[0] + e.target.x(), point[1] + e.target.y()]),
       );
       e.target.position({ x: 0, y: 0 });

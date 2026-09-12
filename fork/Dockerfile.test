@@ -7,11 +7,19 @@ WORKDIR /opt/frigate
 # Dev tools before the sources, so editing Python reuses this layer instead of
 # re-running pip on every build. They come from the hash-pinned lock as wheels
 # only; the check fails the build when requirements-dev.txt moved on without it.
+COPY fork/requirements-sonar.txt /tmp/requirements-sonar.txt
 COPY docker/main/requirements-dev.txt fork/requirements-dev.lock fork/scripts/dev-lock-check.py /tmp/dev/
 RUN pip3 install --break-system-packages -q --require-hashes --only-binary :all: -r /tmp/dev/requirements-dev.lock \
+  && pip3 install --break-system-packages -q --require-hashes --only-binary :all: -r /tmp/requirements-sonar.txt \
   && python3 /tmp/dev/dev-lock-check.py
+COPY fork/scripts /opt/frigate/fork/scripts
+COPY .coveragerc /opt/frigate/.coveragerc
+COPY testing-scripts /opt/frigate/testing-scripts
 COPY frigate /opt/frigate/frigate
 COPY migrations /opt/frigate/migrations
 COPY generate_api_auth_spec.py /opt/frigate/generate_api_auth_spec.py
 COPY docs/static/frigate-api.yaml /opt/frigate/docs/static/frigate-api.yaml
+RUN mkdir -p /config /media/frigate \
+  && chown -R 1000:1000 /opt/frigate /config /media/frigate
+USER 1000:1000
 ENTRYPOINT ["python3", "-u", "-m", "unittest"]

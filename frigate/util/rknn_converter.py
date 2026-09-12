@@ -10,6 +10,8 @@ from pathlib import Path
 from frigate.const import SUPPORTED_RK_SOCS
 from frigate.util.file import FileLock
 
+_ONNX_EXTENSION = ".onnx"
+
 logger = logging.getLogger(__name__)
 
 MODEL_TYPE_CONFIGS = {
@@ -41,7 +43,7 @@ MODEL_TYPE_CONFIGS = {
 }
 
 
-def get_rknn_model_type(model_path: str) -> str | None:
+def get_rknn_model_type(model_path: str | Path) -> str | None:
     if all(keyword in str(model_path) for keyword in ["jina-clip-v1", "vision"]):
         return "jina-clip-v1-vision"
 
@@ -201,7 +203,7 @@ def convert_onnx_to_rknn(
     temp_onnx_path = None
     onnx_model_path = onnx_path
 
-    if not onnx_path.endswith(".onnx"):
+    if not onnx_path.endswith(_ONNX_EXTENSION):
         import shutil
 
         temp_onnx_path = f"{onnx_path}.onnx"
@@ -321,13 +323,12 @@ def wait_for_conversion_completion(
 
                     # Get the original model path from rknn_path
                     base_path = rknn_path.parent / rknn_path.stem
-                    onnx_path = base_path.with_suffix(".onnx")
+                    onnx_path = base_path.with_suffix(_ONNX_EXTENSION)
 
-                    if onnx_path.exists():
-                        if convert_onnx_to_rknn(
-                            str(onnx_path), str(rknn_path), model_type, False
-                        ):
-                            return True
+                    if onnx_path.exists() and convert_onnx_to_rknn(
+                        str(onnx_path), str(rknn_path), model_type, False
+                    ):
+                        return True
 
                     logger.error("Failed to convert model after stale lock cleanup")
                     return False
@@ -361,7 +362,7 @@ def auto_convert_model(
 
     # Check if equivalent .rknn file exists
     base_path = Path(model_path)
-    if base_path.suffix.lower() in [".onnx", ""]:
+    if base_path.suffix.lower() in [_ONNX_EXTENSION, ""]:
         base_name = base_path.stem if base_path.suffix else base_path.name
         rknn_path = base_path.parent / f"{base_name}.rknn"
 

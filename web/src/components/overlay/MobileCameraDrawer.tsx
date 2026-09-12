@@ -20,7 +20,7 @@ export default function MobileCameraDrawer({
   allCameras,
   selected,
   onSelectCamera,
-}: MobileCameraDrawerProps) {
+}: Readonly<MobileCameraDrawerProps>) {
   const { t } = useTranslation(["common"]);
   const [cameraDrawer, setCameraDrawer] = useState(false);
 

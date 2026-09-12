@@ -353,7 +353,7 @@ class EventCleanup(threading.Thread):
                 .where(Event.has_clip == False, Event.has_snapshot == False)
                 .iterator()
             )
-            events_to_delete: list[Event] = [e for e in events]
+            events_to_delete: list[Event] = list(events)
 
             for e in events_to_delete:
                 delete_event_thumbnail(e)

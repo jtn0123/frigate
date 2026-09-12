@@ -384,7 +384,9 @@ class Dispatcher:
                         self._on_camera_notification_suspend(camera_name, payload)
             except IndexError:
                 logger.error(
-                    "Received invalid %r command: %r", topic.split("/")[-1], topic
+                    "Received invalid %s command: %s",
+                    repr(topic.split("/")[-1]).replace("\r", "_").replace("\n", "_"),
+                    repr(topic).replace("\r", "_").replace("\n", "_"),
                 )
             return None
         elif topic in topic_handlers:
@@ -556,10 +558,9 @@ class Dispatcher:
                         motion_settings,
                     )
                     self.publish(f"{camera_name}/motion/state", payload, retain=True)
-        elif payload == "OFF":
-            if detect_settings.enabled:
-                logger.info(f"Turning off detection for {camera_name}")
-                detect_settings.enabled = False
+        elif payload == "OFF" and detect_settings.enabled:
+            logger.info(f"Turning off detection for {camera_name}")
+            detect_settings.enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.detect, camera_name),
@@ -581,10 +582,9 @@ class Dispatcher:
             if not camera_settings.enabled:
                 logger.info(f"Turning on camera {camera_name}")
                 camera_settings.enabled = True
-        elif payload == "OFF":
-            if camera_settings.enabled:
-                logger.info(f"Turning off camera {camera_name}")
-                camera_settings.enabled = False
+        elif payload == "OFF" and camera_settings.enabled:
+            logger.info(f"Turning off camera {camera_name}")
+            camera_settings.enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.enabled, camera_name),
@@ -629,10 +629,9 @@ class Dispatcher:
             if not motion_settings.improve_contrast:
                 logger.info(f"Turning on improve contrast for {camera_name}")
                 motion_settings.improve_contrast = True
-        elif payload == "OFF":
-            if motion_settings.improve_contrast:
-                logger.info(f"Turning off improve contrast for {camera_name}")
-                motion_settings.improve_contrast = False
+        elif payload == "OFF" and motion_settings.improve_contrast:
+            logger.info(f"Turning off improve contrast for {camera_name}")
+            motion_settings.improve_contrast = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.motion, camera_name),
@@ -748,10 +747,9 @@ class Dispatcher:
             if not audio_settings.enabled:
                 logger.info(f"Turning on audio detection for {camera_name}")
                 audio_settings.enabled = True
-        elif payload == "OFF":
-            if audio_settings.enabled:
-                logger.info(f"Turning off audio detection for {camera_name}")
-                audio_settings.enabled = False
+        elif payload == "OFF" and audio_settings.enabled:
+            logger.info(f"Turning off audio detection for {camera_name}")
+            audio_settings.enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.audio, camera_name),
@@ -778,10 +776,9 @@ class Dispatcher:
             if not audio_transcription_settings.live_enabled:
                 logger.info(f"Turning on live audio transcription for {camera_name}")
                 audio_transcription_settings.live_enabled = True
-        elif payload == "OFF":
-            if audio_transcription_settings.live_enabled:
-                logger.info(f"Turning off live audio transcription for {camera_name}")
-                audio_transcription_settings.live_enabled = False
+        elif payload == "OFF" and audio_transcription_settings.live_enabled:
+            logger.info(f"Turning off live audio transcription for {camera_name}")
+            audio_transcription_settings.live_enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(
@@ -805,10 +802,9 @@ class Dispatcher:
             if not record_settings.enabled:
                 logger.info(f"Turning on recordings for {camera_name}")
                 record_settings.enabled = True
-        elif payload == "OFF":
-            if record_settings.enabled:
-                logger.info(f"Turning off recordings for {camera_name}")
-                record_settings.enabled = False
+        elif payload == "OFF" and record_settings.enabled:
+            logger.info(f"Turning off recordings for {camera_name}")
+            record_settings.enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.record, camera_name),
@@ -825,10 +821,9 @@ class Dispatcher:
             if not snapshots_settings.enabled:
                 logger.info(f"Turning on snapshots for {camera_name}")
                 snapshots_settings.enabled = True
-        elif payload == "OFF":
-            if snapshots_settings.enabled:
-                logger.info(f"Turning off snapshots for {camera_name}")
-                snapshots_settings.enabled = False
+        elif payload == "OFF" and snapshots_settings.enabled:
+            logger.info(f"Turning off snapshots for {camera_name}")
+            snapshots_settings.enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.snapshots, camera_name),
@@ -868,10 +863,9 @@ class Dispatcher:
                 logger.info(f"Turning on birdseye for {camera_name}")
                 birdseye_settings.enabled = True
 
-        elif payload == "OFF":
-            if birdseye_settings.enabled:
-                logger.info(f"Turning off birdseye for {camera_name}")
-                birdseye_settings.enabled = False
+        elif payload == "OFF" and birdseye_settings.enabled:
+            logger.info(f"Turning off birdseye for {camera_name}")
+            birdseye_settings.enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.birdseye, camera_name),
@@ -986,10 +980,9 @@ class Dispatcher:
             if not review_settings.alerts.enabled:
                 logger.info(f"Turning on alerts for {camera_name}")
                 review_settings.alerts.enabled = True
-        elif payload == "OFF":
-            if review_settings.alerts.enabled:
-                logger.info(f"Turning off alerts for {camera_name}")
-                review_settings.alerts.enabled = False
+        elif payload == "OFF" and review_settings.alerts.enabled:
+            logger.info(f"Turning off alerts for {camera_name}")
+            review_settings.alerts.enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.review, camera_name),
@@ -1011,10 +1004,9 @@ class Dispatcher:
             if not review_settings.detections.enabled:
                 logger.info(f"Turning on detections for {camera_name}")
                 review_settings.detections.enabled = True
-        elif payload == "OFF":
-            if review_settings.detections.enabled:
-                logger.info(f"Turning off detections for {camera_name}")
-                review_settings.detections.enabled = False
+        elif payload == "OFF" and review_settings.detections.enabled:
+            logger.info(f"Turning off detections for {camera_name}")
+            review_settings.detections.enabled = False
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.review, camera_name),

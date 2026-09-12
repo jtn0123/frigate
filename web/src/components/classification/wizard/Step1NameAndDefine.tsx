@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { Button } from "@/components/ui/button";
 import { wrapAsync } from "@/utils/promise";
 import {
@@ -79,7 +80,7 @@ export default function Step1NameAndDefine({
       });
     });
 
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config]);
 
   const step1FormData = z

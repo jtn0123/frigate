@@ -242,4 +242,4 @@ class JinaV2Embedding(BaseEmbedding):
                 raise ValueError("Invalid embedding type")
 
             embeddings = self._postprocess_outputs(embeddings)
-            return [embedding for embedding in embeddings]
+            return list(embeddings)

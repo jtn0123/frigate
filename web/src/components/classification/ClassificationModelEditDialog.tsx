@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { Button } from "@/components/ui/button";
 import { wrapAsync } from "@/utils/promise";
 import {
@@ -106,7 +107,7 @@ export default function ClassificationModelEditDialog({
       });
     });
 
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config]);
 
   // Define form schema based on model type

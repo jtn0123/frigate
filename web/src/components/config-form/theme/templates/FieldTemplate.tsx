@@ -1,12 +1,15 @@
 // Field Template - wraps each form field with label and description
-import { FieldTemplateProps, StrictRJSFSchema, UiSchema } from "@rjsf/utils";
 import {
+  FieldTemplateProps,
+  StrictRJSFSchema,
+  UiSchema,
   getTemplate,
   getUiOptions,
   ADDITIONAL_PROPERTY_FLAG,
 } from "@rjsf/utils";
-import { ComponentType, ReactNode, useContext } from "react";
-import { isValidElement } from "react";
+
+import { ComponentType, ReactNode, useContext, isValidElement } from "react";
+
 import { FieldMessagesContext } from "../../FieldMessagesContext";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";

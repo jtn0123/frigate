@@ -91,12 +91,10 @@ export default function LiveBirdseyeView({
     if (isMobile) {
       if (isPortrait) {
         return "absolute left-2 right-2 top-[50%] -translate-y-[50%]";
+      } else if (cameraAspectRatio > containerAspectRatio) {
+        return "absolute left-0 top-[50%] -translate-y-[50%]";
       } else {
-        if (cameraAspectRatio > containerAspectRatio) {
-          return "absolute left-0 top-[50%] -translate-y-[50%]";
-        } else {
-          return "absolute top-2 bottom-2 left-[50%] -translate-x-[50%]";
-        }
+        return "absolute top-2 bottom-2 left-[50%] -translate-x-[50%]";
       }
     }
 
@@ -112,7 +110,7 @@ export default function LiveBirdseyeView({
   }, [cameraAspectRatio, containerAspectRatio, fullscreen, isPortrait]);
 
   const preferredLiveMode = useMemo(() => {
-    if (!config || !config.birdseye.restream) {
+    if (!config?.birdseye.restream) {
       return "jsmpeg";
     }
 

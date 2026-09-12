@@ -265,11 +265,7 @@ export function ExportCard({
                 className="mt-3"
                 type="search"
                 placeholder={editName?.original}
-                value={
-                  editName?.update == undefined
-                    ? editName?.original
-                    : editName?.update
-                }
+                value={editName?.update ?? editName?.original}
                 onChange={(e) =>
                   setEditName({
                     original: editName.original ?? "",

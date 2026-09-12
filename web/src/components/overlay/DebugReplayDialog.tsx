@@ -180,7 +180,7 @@ export default function DebugReplayDialog({
         return;
       }
 
-      const minutes = parseInt(option, 10);
+      const minutes = Number.parseInt(option, 10);
       const end = latestTime;
       setRange({ after: end - minutes * 60, before: end });
     },

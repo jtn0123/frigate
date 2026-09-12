@@ -10,7 +10,7 @@ type StatusBarMessagesProviderProps = {
 
 export function StatusBarMessagesProvider({
   children,
-}: StatusBarMessagesProviderProps) {
+}: Readonly<StatusBarMessagesProviderProps>) {
   const [messagesState, setMessagesState] = useState<StatusMessagesState>({});
 
   const messages = useMemo(() => messagesState, [messagesState]);

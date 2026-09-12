@@ -95,7 +95,7 @@ export default function ChatPage() {
     async (messagesToSend: ChatMessage[]) => {
       if (isLoading) return;
       const last = messagesToSend[messagesToSend.length - 1];
-      if (!last || last.role !== "user" || !hasText(last.content)) return;
+      if (last?.role !== "user" || !hasText(last.content)) return;
 
       setError(null);
       setMessages(messagesToSend);
@@ -234,8 +234,7 @@ export default function ChatPage() {
 
   // While streaming, the backend's in-flight chain is the source of truth;
   // otherwise the committed conversation is.
-  const renderList =
-    streaming && streaming.chain.length ? streaming.chain : messages;
+  const renderList = streaming?.chain.length ? streaming.chain : messages;
   const responses = toolResponsesById(renderList);
   const renderTail = renderList[renderList.length - 1];
   const finalShown =

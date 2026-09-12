@@ -16,10 +16,16 @@ import {
   useMemo,
   useRef,
   useState,
+  Suspense,
+  lazy,
 } from "react";
-import { Suspense, lazy } from "react";
+
 import { AnimatePresence, motion } from "framer-motion";
-import { HiDotsHorizontal } from "react-icons/hi";
+import {
+  HiDotsHorizontal,
+  HiOutlineDotsVertical,
+  HiTrash,
+} from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { LuPencil, LuPlus, LuSettings } from "react-icons/lu";
@@ -60,7 +66,7 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import axios from "axios";
-import { HiOutlineDotsVertical, HiTrash } from "react-icons/hi";
+
 import IconWrapper from "../ui/icon-wrapper";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -99,7 +105,9 @@ type CameraGroupSelectorProps = {
   className?: string;
 };
 
-export function CameraGroupSelector({ className }: CameraGroupSelectorProps) {
+export function CameraGroupSelector({
+  className,
+}: Readonly<CameraGroupSelectorProps>) {
   const { t } = useTranslation(["components/camera"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const allowedCameras = useAllowedCameras();
@@ -695,7 +703,7 @@ export function EditGroupDialog({
   setOpen,
   currentGroups,
   activeGroup,
-}: EditGroupDialogProps) {
+}: Readonly<EditGroupDialogProps>) {
   const { t } = useTranslation(["components/camera"]);
   const Overlay = isDesktop ? Dialog : MobilePage;
   const Content = isDesktop ? DialogContent : MobilePageContent;
@@ -776,99 +784,95 @@ export function CameraGroupRow({
   }
 
   return (
-    <>
-      <div
-        key={group[0]}
-        className="transition-background flex flex-row items-center justify-between rounded-lg duration-100 md:p-1"
+    <div
+      key={group[0]}
+      className="transition-background flex flex-row items-center justify-between rounded-lg duration-100 md:p-1"
+    >
+      <div className={`flex items-center`}>
+        <p className="cursor-default">{group[0]}</p>
+      </div>
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={() => setDeleteDialogOpen(!deleteDialogOpen)}
       >
-        <div className={`flex items-center`}>
-          <p className="cursor-default">{group[0]}</p>
-        </div>
-        <AlertDialog
-          open={deleteDialogOpen}
-          onOpenChange={() => setDeleteDialogOpen(!deleteDialogOpen)}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("group.delete.confirm.title")}
-              </AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogDescription>
-              <Trans ns="components/camera" values={{ name: group[0] }}>
-                group.delete.confirm.desc
-              </Trans>
-            </AlertDialogDescription>
-            <AlertDialogFooter>
-              <AlertDialogCancel>
-                {t("button.cancel", { ns: "common" })}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                className={buttonVariants({ variant: "destructive" })}
-                onClick={onDeleteGroup}
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("group.delete.confirm.title")}
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogDescription>
+            <Trans ns="components/camera" values={{ name: group[0] }}>
+              group.delete.confirm.desc
+            </Trans>
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("button.cancel", { ns: "common" })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "destructive" })}
+              onClick={onDeleteGroup}
+            >
+              {t("button.delete", { ns: "common" })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {isMobile && !isReadOnly && (
+        <DropdownMenu>
+          <DropdownMenuTrigger>
+            <HiOutlineDotsVertical className="size-5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                aria-label={t("group.edit")}
+                onClick={onEditGroup}
+              >
+                {t("button.edit", { ns: "common" })}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                aria-label={t("group.delete.label")}
+                onClick={() => setDeleteDialogOpen(true)}
               >
                 {t("button.delete", { ns: "common" })}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenuPortal>
+        </DropdownMenu>
+      )}
+      {!isMobile && !isReadOnly && (
+        <div className="flex flex-row items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <IconWrapper
+                icon={LuPencil}
+                className={`size-[15px] cursor-pointer`}
+                onClick={onEditGroup}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              {t("button.edit", { ns: "common" })}
+            </TooltipContent>
+          </Tooltip>
 
-        {isMobile && !isReadOnly && (
-          <>
-            <DropdownMenu>
-              <DropdownMenuTrigger>
-                <HiOutlineDotsVertical className="size-5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuContent>
-                  <DropdownMenuItem
-                    aria-label={t("group.edit")}
-                    onClick={onEditGroup}
-                  >
-                    {t("button.edit", { ns: "common" })}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    aria-label={t("group.delete.label")}
-                    onClick={() => setDeleteDialogOpen(true)}
-                  >
-                    {t("button.delete", { ns: "common" })}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenuPortal>
-            </DropdownMenu>
-          </>
-        )}
-        {!isMobile && !isReadOnly && (
-          <div className="flex flex-row items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <IconWrapper
-                  icon={LuPencil}
-                  className={`size-[15px] cursor-pointer`}
-                  onClick={onEditGroup}
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                {t("button.edit", { ns: "common" })}
-              </TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <IconWrapper
-                  icon={HiTrash}
-                  className={`size-[15px] cursor-pointer`}
-                  onClick={() => setDeleteDialogOpen(true)}
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                {t("button.delete", { ns: "common" })}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
-      </div>
-    </>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <IconWrapper
+                icon={HiTrash}
+                className={`size-[15px] cursor-pointer`}
+                onClick={() => setDeleteDialogOpen(true)}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              {t("button.delete", { ns: "common" })}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -888,7 +892,7 @@ export function CameraGroupEdit({
   setIsLoading,
   onSave,
   onCancel,
-}: CameraGroupEditProps) {
+}: Readonly<CameraGroupEditProps>) {
   const { t } = useTranslation(["components/camera"]);
   const { data: config, mutate: updateConfig } =
     useSWR<FrigateConfig>("config");
@@ -1052,9 +1056,9 @@ export function CameraGroupEdit({
     resolver: zodResolver(formSchema),
     mode: "onSubmit",
     defaultValues: {
-      name: (editingGroup && editingGroup[0]) ?? "",
+      name: editingGroup?.[0] ?? "",
       icon: editingGroup && (editingGroup[1].icon as IconName),
-      cameras: editingGroup && editingGroup[1].cameras,
+      cameras: editingGroup?.[1].cameras,
     },
   });
 

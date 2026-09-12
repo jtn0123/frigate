@@ -12,10 +12,8 @@ function getStringifiedArgs(filter: FilterType) {
       } else {
         search[key] = value.join(",");
       }
-    } else {
-      if (value != undefined) {
-        search[key] = `${value}`;
-      }
+    } else if (value != undefined) {
+      search[key] = `${value}`;
     }
   });
 
@@ -81,13 +79,11 @@ export function useApiFilterArgs<F extends FilterType>(
           !isValidEventID
         ) {
           filter[key] = value.includes(",") ? value.split(",") : [value];
-        } else {
-          if (value != undefined) {
-            try {
-              filter[key] = JSON.parse(value);
-            } catch {
-              filter[key] = `${value}`;
-            }
+        } else if (value != undefined) {
+          try {
+            filter[key] = JSON.parse(value);
+          } catch {
+            filter[key] = `${value}`;
           }
         }
       }

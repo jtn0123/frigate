@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import Heading from "../ui/heading";
 import { Separator } from "../ui/separator";
 import { Button } from "@/components/ui/button";
@@ -490,7 +491,9 @@ type ZoneObjectSelectorProps = {
   camera: string;
 };
 
-export function ZoneObjectSelector({ camera }: ZoneObjectSelectorProps) {
+export function ZoneObjectSelector({
+  camera,
+}: Readonly<ZoneObjectSelectorProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { data: config } = useSWR<FrigateConfig>("config");
 
@@ -517,22 +520,20 @@ export function ZoneObjectSelector({ camera }: ZoneObjectSelectorProps) {
       labels.add(label);
     });
 
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config, cameraConfig]);
 
   return (
-    <>
-      <SelectGroup>
-        <SelectItem value="all_labels">
-          {t("masksAndZones.objectMasks.objects.allObjectTypes")}
+    <SelectGroup>
+      <SelectItem value="all_labels">
+        {t("masksAndZones.objectMasks.objects.allObjectTypes")}
+      </SelectItem>
+      <SelectSeparator className="bg-secondary" />
+      {allLabels.map((item) => (
+        <SelectItem key={item} value={item}>
+          {getTranslatedLabel(item)}
         </SelectItem>
-        <SelectSeparator className="bg-secondary" />
-        {allLabels.map((item) => (
-          <SelectItem key={item} value={item}>
-            {getTranslatedLabel(item)}
-          </SelectItem>
-        ))}
-      </SelectGroup>
-    </>
+      ))}
+    </SelectGroup>
   );
 }

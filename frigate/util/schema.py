@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, TypeAdapter
 
+_SCHEMA_DEFS_KEY = "$defs"
+
 
 def get_config_schema(config_class: type[BaseModel]) -> dict[str, Any]:
     """
@@ -25,17 +27,19 @@ def get_config_schema(config_class: type[BaseModel]) -> dict[str, Any]:
     detector_schema = detector_adapter.json_schema()
 
     # Ensure $defs exists in FrigateConfig schema
-    if "$defs" not in schema:
-        schema["$defs"] = {}
+    if _SCHEMA_DEFS_KEY not in schema:
+        schema[_SCHEMA_DEFS_KEY] = {}
 
     # Merge $defs from DetectorConfig into FrigateConfig schema
     # This includes the specific schemas for each detector plugin (OvDetectorConfig, etc.)
-    if "$defs" in detector_schema:
-        schema["$defs"].update(detector_schema["$defs"])
+    if _SCHEMA_DEFS_KEY in detector_schema:
+        schema[_SCHEMA_DEFS_KEY].update(detector_schema[_SCHEMA_DEFS_KEY])
 
     # Extract the union schema (oneOf/discriminator) and add it as a definition
-    detector_union_schema = {k: v for k, v in detector_schema.items() if k != "$defs"}
-    schema["$defs"]["DetectorConfig"] = detector_union_schema
+    detector_union_schema = {
+        k: v for k, v in detector_schema.items() if k != _SCHEMA_DEFS_KEY
+    }
+    schema[_SCHEMA_DEFS_KEY]["DetectorConfig"] = detector_union_schema
 
     # Update the 'detectors' property to use the polymorphic DetectorConfig definition
     if "detectors" in schema.get("properties", {}):

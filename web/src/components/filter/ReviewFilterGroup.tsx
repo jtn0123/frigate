@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { Button } from "../ui/button";
 import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
@@ -111,7 +112,7 @@ export default function ReviewFilterGroup({
       }
     });
 
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config, filterList, filter, allowedCameras]);
 
   const allZones = useMemo<string[]>(() => {
@@ -141,7 +142,7 @@ export default function ReviewFilterGroup({
       });
     });
 
-    return [...zones].sort();
+    return sortedStrings(zones);
   }, [config, filterList, filter, allowedCameras]);
 
   const filterValues = useMemo(
@@ -279,7 +280,7 @@ type ShowReviewedFilterProps = {
 function ShowReviewFilter({
   showReviewed,
   setShowReviewed,
-}: ShowReviewedFilterProps) {
+}: Readonly<ShowReviewedFilterProps>) {
   const { t } = useTranslation(["components/filter"]);
   const [showReviewedSwitch, setShowReviewedSwitch] = useOptimisticState(
     showReviewed,
@@ -478,7 +479,7 @@ export function GeneralFilterContent({
         });
       }
     });
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config]);
   return (
     <>
@@ -643,7 +644,7 @@ type ShowMotionOnlyButtonProps = {
 function ShowMotionOnlyButton({
   motionOnly,
   setMotionOnly,
-}: ShowMotionOnlyButtonProps) {
+}: Readonly<ShowMotionOnlyButtonProps>) {
   const { t } = useTranslation(["views/events", "components/filter"]);
   const [motionOnlyButton, setMotionOnlyButton] = useOptimisticState(
     motionOnly,

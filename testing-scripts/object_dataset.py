@@ -209,6 +209,7 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass
+from urllib.parse import quote
 
 import cv2
 import numpy as np
@@ -240,9 +241,9 @@ def load_tflite(model_path: str) -> tuple[Interpreter, list[dict], list[dict]]:
 
 def load_labelmap(path: str) -> dict[int, str]:
     """Mirror util.builtin.load_labels(prefill=0, indexed=False)."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         lines = [line.strip() for line in f.readlines() if line.strip()]
-    return {idx: line for idx, line in enumerate(lines)}
+    return dict(enumerate(lines))
 
 
 def preprocess_for_inference(image_bgr: np.ndarray) -> np.ndarray:
@@ -836,7 +837,11 @@ def save_misclassified(samples: list[ImageSample], out_dir: str) -> None:
     for s in samples:
         if s.true_label is None or s.pred_label == s.true_label:
             continue
-        bucket = os.path.join(out_dir, f"{s.true_label}__as__{s.pred_label}")
+        # Model labels are data, never relative paths within the export tree.
+        bucket_name = (
+            f"{quote(s.true_label, safe='')}__as__{quote(s.pred_label, safe='')}"
+        )
+        bucket = os.path.join(out_dir, bucket_name)
         os.makedirs(bucket, exist_ok=True)
         score_tag = f"{int(round(s.pred_score * 100)):03d}"
         dest = os.path.join(bucket, f"{score_tag}_{os.path.basename(s.path)}")

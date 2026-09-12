@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 // Zone Switches Widget - For selecting zones via switches
 import type { WidgetProps } from "@rjsf/utils";
 import { SwitchesWidget } from "./SwitchesWidget";
@@ -8,7 +9,7 @@ function getZoneNames(context: FormContext): string[] {
     const zones = context.fullCameraConfig.zones;
     if (typeof zones === "object" && zones !== null) {
       // zones is a dict/object, get the keys
-      return Object.keys(zones).sort();
+      return sortedStrings(Object.keys(zones));
     }
   }
   return [];

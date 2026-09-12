@@ -231,7 +231,6 @@ class FaceNetRecognizer(FaceRecognizer):
 
         def build_model() -> None:
             face_embeddings_map: dict[str, list[np.ndarray]] = {}
-            idx = 0
 
             dir = FACE_DIR
             for name in os.listdir(dir):
@@ -253,8 +252,6 @@ class FaceNetRecognizer(FaceRecognizer):
                     img = self.align_face(img, img.shape[1], img.shape[0])
                     emb = self.face_embedder([img])[0].squeeze()
                     face_embeddings_map[name].append(emb)
-
-                idx += 1
 
             assert self.model_builder_queue is not None
             self.model_builder_queue.put(face_embeddings_map)
@@ -342,7 +339,6 @@ class ArcFaceRecognizer(FaceRecognizer):
 
         def build_model() -> None:
             face_embeddings_map: dict[str, list[np.ndarray]] = {}
-            idx = 0
 
             dir = FACE_DIR
             for name in os.listdir(dir):
@@ -364,8 +360,6 @@ class ArcFaceRecognizer(FaceRecognizer):
                     img = self.align_face(img, img.shape[1], img.shape[0])
                     emb = self.face_embedder([img])[0].squeeze()  # type: ignore[arg-type]
                     face_embeddings_map[name].append(emb)
-
-                idx += 1
 
             assert self.model_builder_queue is not None
             self.model_builder_queue.put(face_embeddings_map)

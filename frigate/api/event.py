@@ -6,8 +6,6 @@ import datetime
 import json
 import logging
 import os
-import random
-import string
 from functools import reduce
 from pathlib import Path
 from urllib.parse import unquote
@@ -60,8 +58,14 @@ from frigate.embeddings import EmbeddingsContext
 from frigate.models import Event, ReviewSegment, Timeline, Trigger
 from frigate.track.object_processing import TrackedObject
 from frigate.util.file import get_event_thumbnail_bytes, load_event_snapshot_image
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.path import get_trigger_thumbnail_path, safe_join
 from frigate.util.time import get_dst_transitions, get_tz_modifiers
+
+_EVENT_NOT_FOUND = "Event not found"
+_SEMANTIC_SEARCH_IS_NOT_ENABLED = "Semantic search is not enabled"
+_EVENT_MESSAGE_PREFIX = "Event "
+_NOT_FOUND_SUFFIX = " not found"
 
 logger = logging.getLogger(__name__)
 
@@ -559,7 +563,7 @@ def events_search(
             content=(
                 {
                     "success": False,
-                    "message": "Semantic search is not enabled",
+                    "message": _SEMANTIC_SEARCH_IS_NOT_ENABLED,
                 }
             ),
             status_code=400,
@@ -745,7 +749,7 @@ def events_search(
             return JSONResponse(
                 content={
                     "success": False,
-                    "message": "Event not found",
+                    "message": _EVENT_NOT_FOUND,
                 },
                 status_code=404,
             )
@@ -754,7 +758,7 @@ def events_search(
             return JSONResponse(
                 content={
                     "success": False,
-                    "message": "Event not found",
+                    "message": _EVENT_NOT_FOUND,
                 },
                 status_code=404,
             )
@@ -1057,7 +1061,7 @@ async def event(event_id: str, request: Request):
         await require_camera_access(event.camera, request=request)
         return model_to_dict(event)
     except DoesNotExist:
-        return JSONResponse(content="Event not found", status_code=404)
+        return JSONResponse(content=_EVENT_NOT_FOUND, status_code=404)
 
 
 @router.post(
@@ -1075,7 +1079,12 @@ def set_retain(event_id: str):
         event = Event.get(Event.id == event_id)
     except DoesNotExist:
         return JSONResponse(
-            content=({"success": False, "message": "Event " + event_id + " not found"}),
+            content=(
+                {
+                    "success": False,
+                    "message": _EVENT_MESSAGE_PREFIX + event_id + _NOT_FOUND_SUFFIX,
+                }
+            ),
             status_code=404,
         )
 
@@ -1083,7 +1092,9 @@ def set_retain(event_id: str):
     event.save()
 
     return JSONResponse(
-        content=({"success": True, "message": "Event " + event_id + " retained"}),
+        content=(
+            {"success": True, "message": _EVENT_MESSAGE_PREFIX + event_id + " retained"}
+        ),
         status_code=200,
     )
 
@@ -1328,7 +1339,12 @@ async def delete_retain(event_id: str, request: Request):
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
-            content=({"success": False, "message": "Event " + event_id + " not found"}),
+            content=(
+                {
+                    "success": False,
+                    "message": _EVENT_MESSAGE_PREFIX + event_id + _NOT_FOUND_SUFFIX,
+                }
+            ),
             status_code=404,
         )
 
@@ -1336,7 +1352,12 @@ async def delete_retain(event_id: str, request: Request):
     await asyncio.to_thread(event.save)
 
     return JSONResponse(
-        content=({"success": True, "message": "Event " + event_id + " un-retained"}),
+        content=(
+            {
+                "success": True,
+                "message": _EVENT_MESSAGE_PREFIX + event_id + " un-retained",
+            }
+        ),
         status_code=200,
     )
 
@@ -1375,7 +1396,10 @@ async def set_sub_label(
     if not event and not tracked_obj:
         return JSONResponse(
             content=(
-                {"success": False, "message": "Event " + event_id + " not found."}
+                {
+                    "success": False,
+                    "message": _EVENT_MESSAGE_PREFIX + event_id + " not found.",
+                }
             ),
             status_code=404,
         )
@@ -1434,7 +1458,10 @@ async def set_plate(
     if not event and not tracked_obj:
         return JSONResponse(
             content=(
-                {"success": False, "message": "Event " + event_id + " not found."}
+                {
+                    "success": False,
+                    "message": _EVENT_MESSAGE_PREFIX + event_id + " not found.",
+                }
             ),
             status_code=404,
         )
@@ -1580,7 +1607,12 @@ async def set_description(
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
-            content=({"success": False, "message": "Event " + event_id + " not found"}),
+            content=(
+                {
+                    "success": False,
+                    "message": _EVENT_MESSAGE_PREFIX + event_id + _NOT_FOUND_SUFFIX,
+                }
+            ),
             status_code=404,
         )
 
@@ -1637,7 +1669,12 @@ async def regenerate_description(
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
-            content=({"success": False, "message": "Event " + event_id + " not found"}),
+            content=(
+                {
+                    "success": False,
+                    "message": _EVENT_MESSAGE_PREFIX + event_id + _NOT_FOUND_SUFFIX,
+                }
+            ),
             status_code=404,
         )
 
@@ -1653,7 +1690,7 @@ async def regenerate_description(
             content=(
                 {
                     "success": True,
-                    "message": "Event "
+                    "message": _EVENT_MESSAGE_PREFIX
                     + event_id
                     + " description regeneration has been requested using "
                     + params.source,
@@ -1826,7 +1863,7 @@ def create_event(
         )
 
     now = datetime.datetime.now().timestamp()
-    rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    rand_id = generate_id(6)
     event_id = f"{now}-{rand_id}"
 
     request.app.event_metadata_updater.publish(
@@ -1927,7 +1964,7 @@ def create_trigger_embedding(
             return JSONResponse(
                 content={
                     "success": False,
-                    "message": "Semantic search is not enabled",
+                    "message": _SEMANTIC_SEARCH_IS_NOT_ENABLED,
                 },
                 status_code=400,
             )
@@ -2080,7 +2117,7 @@ def update_trigger_embedding(
             return JSONResponse(
                 content={
                     "success": False,
-                    "message": "Semantic search is not enabled",
+                    "message": _SEMANTIC_SEARCH_IS_NOT_ENABLED,
                 },
                 status_code=400,
             )

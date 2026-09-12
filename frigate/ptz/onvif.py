@@ -147,7 +147,10 @@ class OnvifController:
             bool: True if initialization succeeded, False otherwise
         """
         if cam_name not in self.camera_configs:
-            logger.error("No configuration found for camera %r", cam_name)
+            logger.error(
+                "No configuration found for camera %s",
+                repr(cam_name).replace("\r", "_").replace("\n", "_"),
+            )
             return False
 
         cam = self.camera_configs[cam_name]
@@ -202,7 +205,9 @@ class OnvifController:
             logger.debug(f"Onvif capabilities for {camera_name}: {capabilities}")
         except (Fault, ONVIFError, TransportError, Exception) as e:
             logger.error(
-                "Unable to get Onvif capabilities for camera: %r: %r", camera_name, e
+                "Unable to get Onvif capabilities for camera: %s: %s",
+                repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                repr(e).replace("\r", "_").replace("\n", "_"),
             )
             return False
 
@@ -211,7 +216,9 @@ class OnvifController:
             logger.debug(f"Onvif profiles for {camera_name}: {profiles}")
         except (Fault, ONVIFError, TransportError, Exception) as e:
             logger.error(
-                "Unable to get Onvif media profiles for camera: %r: %r", camera_name, e
+                "Unable to get Onvif media profiles for camera: %s: %s",
+                repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                repr(e).replace("\r", "_").replace("\n", "_"),
             )
             return False
 
@@ -260,10 +267,10 @@ class OnvifController:
                     for p in valid_profiles
                 ]
                 logger.error(
-                    "Onvif profile %r not found for camera %r. Available profiles: %r",
-                    configured_profile,
-                    camera_name,
-                    available,
+                    "Onvif profile %s not found for camera %s. Available profiles: %s",
+                    repr(configured_profile).replace("\r", "_").replace("\n", "_"),
+                    repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                    repr(available).replace("\r", "_").replace("\n", "_"),
                 )
                 return False
         else:
@@ -272,7 +279,8 @@ class OnvifController:
 
         if profile is None:
             logger.error(
-                "No appropriate Onvif profiles found for camera: %r", camera_name
+                "No appropriate Onvif profiles found for camera: %s",
+                repr(camera_name).replace("\r", "_").replace("\n", "_"),
             )
             return False
 
@@ -286,7 +294,9 @@ class OnvifController:
             )
         except Exception as e:
             logger.error(
-                "Invalid Onvif PTZ configuration for camera: %r: %r", camera_name, e
+                "Invalid Onvif PTZ configuration for camera: %s: %s",
+                repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                repr(e).replace("\r", "_").replace("\n", "_"),
             )
             return False
 
@@ -375,7 +385,9 @@ class OnvifController:
                 logger.debug(f"Onvif status for {camera_name}: {status}")
             except Exception as e:
                 logger.warning(
-                    "Unable to get status from camera %r: %r", camera_name, e
+                    "Unable to get status from camera %s: %s",
+                    repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                    repr(e).replace("\r", "_").replace("\n", "_"),
                 )
 
             rel_move_request = ptz.create_type("RelativeMove")
@@ -420,9 +432,9 @@ class OnvifController:
                 except Exception as e:
                     autotracking_config.zooming = ZoomingModeEnum.disabled
                     logger.warning(
-                        "Disabling autotracking zooming for %r: Relative zoom not supported. Exception: %r",
-                        camera_name,
-                        e,
+                        "Disabling autotracking zooming for %s: Relative zoom not supported. Exception: %s",
+                        repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                        repr(e).replace("\r", "_").replace("\n", "_"),
                     )
             else:
                 # remove zoom fields from relative move request
@@ -497,9 +509,9 @@ class OnvifController:
                     if autotracking_config.zooming == ZoomingModeEnum.relative:
                         autotracking_config.zooming = ZoomingModeEnum.disabled
                         logger.warning(
-                            "Disabling autotracking zooming for %r: Relative zoom not supported. Exception: %r",
-                            camera_name,
-                            e,
+                            "Disabling autotracking zooming for %s: Relative zoom not supported. Exception: %s",
+                            repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                            repr(e).replace("\r", "_").replace("\n", "_"),
                         )
 
         if configs.DefaultAbsoluteZoomPositionSpace:
@@ -514,9 +526,9 @@ class OnvifController:
                     if autotracking_config.zooming != ZoomingModeEnum.disabled:
                         autotracking_config.zooming = ZoomingModeEnum.disabled
                         logger.warning(
-                            "Disabling autotracking zooming for %r: Absolute zoom not supported. Exception: %r",
-                            camera_name,
-                            e,
+                            "Disabling autotracking zooming for %s: Absolute zoom not supported. Exception: %s",
+                            repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                            repr(e).replace("\r", "_").replace("\n", "_"),
                         )
 
         # disable autotracking zoom if required ranges are unavailable
@@ -525,15 +537,15 @@ class OnvifController:
                 if "relative_zoom_range" not in self.cams[camera_name]:
                     autotracking_config.zooming = ZoomingModeEnum.disabled
                     logger.warning(
-                        "Disabling autotracking zooming for %r: Relative zoom range unavailable",
-                        camera_name,
+                        "Disabling autotracking zooming for %s: Relative zoom range unavailable",
+                        repr(camera_name).replace("\r", "_").replace("\n", "_"),
                     )
             if autotracking_config.zooming == ZoomingModeEnum.absolute:
                 if "absolute_zoom_range" not in self.cams[camera_name]:
                     autotracking_config.zooming = ZoomingModeEnum.disabled
                     logger.warning(
-                        "Disabling autotracking zooming for %r: Absolute zoom range unavailable",
-                        camera_name,
+                        "Disabling autotracking zooming for %s: Absolute zoom range unavailable",
+                        repr(camera_name).replace("\r", "_").replace("\n", "_"),
                     )
 
         if (
@@ -932,10 +944,10 @@ class OnvifController:
         # Attempt initialization/reconnection
         if attempts < self.max_retries:
             logger.info(
-                "Attempting ONVIF initialization for %r (retry %r/%r)",
-                camera_name,
-                attempts + 1,
-                self.max_retries,
+                "Attempting ONVIF initialization for %s (retry %s/%s)",
+                repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                repr(attempts + 1).replace("\r", "_").replace("\n", "_"),
+                repr(self.max_retries).replace("\r", "_").replace("\n", "_"),
             )
             try:
                 if await self._init_onvif(camera_name):
@@ -971,9 +983,9 @@ class OnvifController:
                 0, int((self.reset_timeout - (time.time() - last_attempt)) / 60)
             )
             logger.error(
-                "Too many ONVIF initialization attempts for %r, retry in %r minute%s",
-                camera_name,
-                remaining_time,
+                "Too many ONVIF initialization attempts for %s, retry in %s minute%s",
+                repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                repr(remaining_time).replace("\r", "_").replace("\n", "_"),
                 "s" if remaining_time != 1 else "",
             )
 

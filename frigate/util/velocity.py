@@ -101,7 +101,7 @@ def calculate_real_world_speed(
 
     # find the indices that would sort the original zone_contour to match ordered_zone_contour
     sort_indices = [
-        np.where((zone_contour == point).all(axis=1))[0][0]
+        np.nonzero((zone_contour == point).all(axis=1))[0][0]
         for point in ordered_zone_contour
     ]
 

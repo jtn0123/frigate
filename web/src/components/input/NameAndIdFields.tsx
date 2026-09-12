@@ -1,4 +1,10 @@
-import { Control, FieldValues, Path, PathValue } from "react-hook-form";
+import {
+  Control,
+  FieldValues,
+  Path,
+  PathValue,
+  useFormContext,
+} from "react-hook-form";
 import {
   FormField,
   FormItem,
@@ -9,7 +15,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useRef } from "react";
-import { useFormContext } from "react-hook-form";
+
 import { generateFixedHash, isValidId } from "@/utils/stringUtil";
 import { useTranslation } from "react-i18next";
 

@@ -141,63 +141,61 @@ export function ClassFilterContent({
 }: Readonly<ClassFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
-    <>
-      <div className="overflow-x-hidden">
-        <DropdownMenuSeparator className="mb-3" />
-        <div className="text-lg">{t("classes.label")}</div>
-        {allClasses && (
-          <>
-            <div className="mb-5 mt-2.5 flex items-center justify-between">
-              <Label
-                className="mx-2 cursor-pointer text-primary"
-                htmlFor="allClasses"
-              >
-                {t("classes.all.title")}
-              </Label>
-              <Switch
-                className="ml-1"
-                id="allClasses"
-                checked={classes == undefined}
+    <div className="overflow-x-hidden">
+      <DropdownMenuSeparator className="mb-3" />
+      <div className="text-lg">{t("classes.label")}</div>
+      {allClasses && (
+        <>
+          <div className="mb-5 mt-2.5 flex items-center justify-between">
+            <Label
+              className="mx-2 cursor-pointer text-primary"
+              htmlFor="allClasses"
+            >
+              {t("classes.all.title")}
+            </Label>
+            <Switch
+              className="ml-1"
+              id="allClasses"
+              checked={classes == undefined}
+              onCheckedChange={(isChecked) => {
+                if (isChecked) {
+                  updateClasses(undefined);
+                }
+              }}
+            />
+          </div>
+          <div className="mt-2.5 flex flex-col gap-2.5">
+            {allClasses.map((item) => (
+              <FilterSwitch
+                key={item}
+                label={
+                  item === "none"
+                    ? t("details.none", { ns: "views/classificationModel" })
+                    : item.replaceAll("_", " ")
+                }
+                isChecked={classes?.includes(item) ?? false}
                 onCheckedChange={(isChecked) => {
                   if (isChecked) {
-                    updateClasses(undefined);
+                    const updatedClasses = classes ? [...classes] : [];
+
+                    updatedClasses.push(item);
+                    updateClasses(updatedClasses);
+                  } else {
+                    const updatedClasses = classes ? [...classes] : [];
+
+                    // can not deselect the last item
+                    if (updatedClasses.length > 1) {
+                      updatedClasses.splice(updatedClasses.indexOf(item), 1);
+                      updateClasses(updatedClasses);
+                    }
                   }
                 }}
               />
-            </div>
-            <div className="mt-2.5 flex flex-col gap-2.5">
-              {allClasses.map((item) => (
-                <FilterSwitch
-                  key={item}
-                  label={
-                    item === "none"
-                      ? t("details.none", { ns: "views/classificationModel" })
-                      : item.replaceAll("_", " ")
-                  }
-                  isChecked={classes?.includes(item) ?? false}
-                  onCheckedChange={(isChecked) => {
-                    if (isChecked) {
-                      const updatedClasses = classes ? [...classes] : [];
-
-                      updatedClasses.push(item);
-                      updateClasses(updatedClasses);
-                    } else {
-                      const updatedClasses = classes ? [...classes] : [];
-
-                      // can not deselect the last item
-                      if (updatedClasses.length > 1) {
-                        updatedClasses.splice(updatedClasses.indexOf(item), 1);
-                        updateClasses(updatedClasses);
-                      }
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -225,7 +223,7 @@ export function ScoreFilterContent({
             const value = e.target.value;
 
             if (value) {
-              setScoreRange(parseInt(value) / 100.0, maxScore ?? 1.0);
+              setScoreRange(Number.parseInt(value) / 100.0, maxScore ?? 1.0);
             }
           }}
         />
@@ -245,7 +243,7 @@ export function ScoreFilterContent({
             const value = e.target.value;
 
             if (value) {
-              setScoreRange(minScore ?? 0.5, parseInt(value) / 100.0);
+              setScoreRange(minScore ?? 0.5, Number.parseInt(value) / 100.0);
             }
           }}
         />

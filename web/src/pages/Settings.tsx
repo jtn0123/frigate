@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { wrapAsync } from "@/utils/promise";
 import {
   DropdownMenu,
@@ -42,7 +43,7 @@ import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
 import type { ConfigSectionData, JsonObject } from "@/types/configForm";
 import isEqual from "lodash/isEqual";
 import { maskCredentials } from "@/utils/credentialMask";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import FilterSwitch from "@/components/filter/FilterSwitch";
 import { ZoneMaskFilterButton } from "@/components/filter/ZoneMaskFilter";
 import { PolygonType } from "@/types/canvas";
@@ -65,7 +66,7 @@ import {
 } from "@/views/settings/SingleSectionPage";
 import { useSearchEffect } from "@/hooks/use-overlay-state";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useInitialCameraState } from "@/api/ws";
+import { useInitialCameraState, useRestart } from "@/api/ws";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useTranslation } from "react-i18next";
 import { useAllCameraOverrides } from "@/hooks/use-config-override";
@@ -100,7 +101,7 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import axios from "axios";
 import { toast } from "sonner";
-import { mutate } from "swr";
+
 import { RJSFSchema } from "@rjsf/utils";
 import {
   buildConfigDataForPath,
@@ -122,7 +123,7 @@ import RestartDialog from "@/components/overlay/dialog/RestartDialog";
 import SaveAllPreviewPopover, {
   type SaveAllPreviewItem,
 } from "@/components/overlay/detail/SaveAllPreviewPopover";
-import { useRestart } from "@/api/ws";
+
 import {
   Tooltip,
   TooltipContent,
@@ -696,7 +697,7 @@ export default function Settings() {
 
   const allProfileNames = useMemo(() => {
     if (!config?.profiles) return [];
-    return Object.keys(config.profiles).sort();
+    return sortedStrings(Object.keys(config.profiles));
   }, [config]);
 
   const profileFriendlyNames = useMemo(() => {
@@ -953,10 +954,12 @@ export default function Settings() {
         // or add/remove), OR the model save flips between Plus and Custom modes
         let detectorKeysChanged = false;
         if (sanitizedDetectors && typeof sanitizedDetectors === "object") {
-          const pendingKeySet = Object.keys(
-            sanitizedDetectors as JsonObject,
-          ).sort();
-          const savedKeySet = Object.keys(config.detectors ?? {}).sort();
+          const pendingKeySet = sortedStrings(
+            Object.keys(sanitizedDetectors as JsonObject),
+          );
+          const savedKeySet = sortedStrings(
+            Object.keys(config.detectors ?? {}),
+          );
           detectorKeysChanged =
             JSON.stringify(pendingKeySet) !== JSON.stringify(savedKeySet);
         }

@@ -1,0 +1,6 @@
+issue_key,rule,file
+AaCOHx5K9tFduPng09wF,javascript:S1082,docs/src/components/ModelConfigDropdown/index.jsx
+AaCOHx5K9tFduPng09wH,javascript:S1082,docs/src/components/ModelConfigDropdown/index.jsx
+AaCOH0PK9tFduPng0-Zt,pythonsecurity:S8707,testing-scripts/object_dataset.py
+AaCOHzzA9tFduPng0-T1,typescript:S2699,web/e2e/specs/review.spec.ts
+AaCOHzXU9tFduPng0-JF,typescript:S2999,web/src/components/player/MsePlayer.tsx

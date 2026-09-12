@@ -141,6 +141,7 @@ class AudioTranscriptionRealTimeProcessor(RealTimeProcessorApi):
             return None
 
     def process_frame(self, obj_data: dict[str, Any], frame: np.ndarray) -> None:
+        # This processor consumes audio samples only, not video frames.
         pass
 
     def process_audio(self, obj_data: dict[str, Any], audio: np.ndarray) -> bool | None:
@@ -276,4 +277,5 @@ class AudioTranscriptionRealTimeProcessor(RealTimeProcessorApi):
         return None
 
     def expire_object(self, object_id: str, camera: str) -> None:
+        # This processor retains no per-object resources that need expiration.
         pass

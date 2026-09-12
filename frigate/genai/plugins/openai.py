@@ -424,7 +424,7 @@ class OpenAIClient(GenAIClient):
                     try:
                         # Parse accumulated arguments as JSON
                         parsed_args = json.loads(tc["arguments"] or "{}")
-                    except (json.JSONDecodeError, ValueError):
+                    except ValueError:
                         logger.warning(
                             "Failed to parse streamed tool call arguments for %s",
                             tc["name"],

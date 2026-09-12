@@ -41,7 +41,7 @@ import {
 type CreateRoleOverlayProps = {
   show: boolean;
   config: FrigateConfig;
-  onCreate: (role: string, cameras: string[]) => void;
+  onCreate: (role: string, cameras: string[]) => void | Promise<void>;
   onCancel: () => void;
 };
 

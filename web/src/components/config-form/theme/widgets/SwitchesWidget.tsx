@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 // Generic Switches Widget - Reusable component for selecting from any list of entities
 import { WidgetProps } from "@rjsf/utils";
 import { useCallback, useMemo, useState } from "react";
@@ -89,8 +90,8 @@ export function SwitchesWidget(props: WidgetProps) {
   // Try to get formContext from direct prop, options, or registry
   const context = useMemo(
     () =>
-      (formContext as FormContext | undefined) ||
-      (props.options?.formContext as FormContext | undefined) ||
+      (formContext as FormContext | undefined) ??
+      (props.options?.formContext as FormContext | undefined) ??
       (registry?.formContext as FormContext | undefined),
     [formContext, props.options, registry],
   );
@@ -139,7 +140,7 @@ export function SwitchesWidget(props: WidgetProps) {
       return availableEntities;
     }
     const merged = new Set([...availableEntities, ...customEntries]);
-    return [...merged].sort();
+    return sortedStrings(merged);
   }, [availableEntities, customEntries]);
 
   const filteredEntities = useMemo(() => {

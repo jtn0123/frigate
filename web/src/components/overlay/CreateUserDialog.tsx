@@ -54,7 +54,11 @@ import {
 
 type CreateUserOverlayProps = {
   show: boolean;
-  onCreate: (user: string, password: string, role: string) => void;
+  onCreate: (
+    user: string,
+    password: string,
+    role: string,
+  ) => void | Promise<void>;
   onCancel: () => void;
 };
 
@@ -62,7 +66,7 @@ export default function CreateUserDialog({
   show,
   onCreate,
   onCancel,
-}: CreateUserOverlayProps) {
+}: Readonly<CreateUserOverlayProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const { t } = useTranslation(["views/settings"]);
   const [isLoading, setIsLoading] = useState<boolean>(false);

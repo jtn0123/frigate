@@ -23,7 +23,7 @@ for _, name, _ in _included_modules:
         # on an arm device with 64 KiB page size.
         plugin_modules.append(importlib.import_module(name))
     except ImportError as e:
-        logger.error(f"Error importing detector runtime: {e}")
+        logger.exception("Error importing detector runtime: %s", e)
 
 
 api_types = {det.type_key: det for det in DetectionApi.__subclasses__()}

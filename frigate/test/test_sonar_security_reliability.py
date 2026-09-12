@@ -66,6 +66,23 @@ class TestOnvifLogInjection(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("\n", logs.records[0].getMessage())
         self.assertIn("remote", logs.records[0].getMessage())
 
+    async def test_custom_error_representation_cannot_forge_log_lines(self):
+        class RemoteError(RuntimeError):
+            def __repr__(self):
+                return "remote\r\nforged"
+
+        controller = object.__new__(OnvifController)
+        onvif = MagicMock()
+        onvif.update_xaddrs = AsyncMock()
+        onvif.create_media_service = AsyncMock()
+        onvif.get_definition.side_effect = RemoteError()
+        controller.cams = {"front": {"onvif": onvif}}
+        with self.assertLogs("frigate.ptz.onvif", "ERROR") as logs:
+            result = await controller._init_onvif("front")
+        self.assertFalse(result)
+        self.assertNotIn("\r", logs.records[0].getMessage())
+        self.assertNotIn("\n", logs.records[0].getMessage())
+
 
 class TestGpuShutdown(unittest.TestCase):
     def test_gpu_helpers_do_not_swallow_shutdown(self):

@@ -1,9 +1,10 @@
+import { sortedStrings } from "@/utils/stringSort";
 import TimeAgo from "../dynamic/TimeAgo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
-import { REVIEW_PADDING, ReviewSegment } from "@/types/review";
+import { REVIEW_PADDING, ReviewSegment, ThreatLevel } from "@/types/review";
 import { useNavigate } from "react-router-dom";
 import { RecordingStartingPoint } from "@/types/record";
 import axios from "axios";
@@ -19,7 +20,7 @@ import { Button } from "../ui/button";
 import { FaCircleCheck } from "react-icons/fa6";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { MdOutlinePersonSearch } from "react-icons/md";
-import { ThreatLevel } from "@/types/review";
+
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { getTranslatedLabel } from "@/utils/i18n";
@@ -36,7 +37,7 @@ export function AnimatedEventCard({
   event,
   selectedGroup,
   updateEvents,
-}: AnimatedEventCardProps) {
+}: Readonly<AnimatedEventCardProps>) {
   const { t } = useTranslation(["views/events"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const apiHost = useApiHost();
@@ -73,16 +74,17 @@ export function AnimatedEventCard({
 
     return (
       `${formatList(
-        [
-          ...new Set([
-            ...(event.data.objects || []),
-            ...(event.data.sub_labels || []),
-            ...(event.data.audio || []),
-          ]),
-        ]
-          .filter((item) => item !== undefined && !item.includes("-verified"))
-          .map((text) => getTranslatedLabel(text, getEventType(text)))
-          .sort(),
+        sortedStrings(
+          [
+            ...new Set([
+              ...(event.data.objects || []),
+              ...(event.data.sub_labels || []),
+              ...(event.data.audio || []),
+            ]),
+          ]
+            .filter((item) => item !== undefined && !item.includes("-verified"))
+            .map((text) => getTranslatedLabel(text, getEventType(text))),
+        ),
       )} ` + t("detected")
     );
   }, [event, getEventType, t]);

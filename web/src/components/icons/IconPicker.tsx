@@ -32,7 +32,7 @@ type IconPickerProps = {
 export default function IconPicker({
   selectedIcon,
   setSelectedIcon,
-}: IconPickerProps) {
+}: Readonly<IconPickerProps>) {
   const { t } = useTranslation(["components/icons"]);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -168,7 +168,11 @@ type IconRendererProps = {
   className?: string;
 };
 
-export function IconRenderer({ icon, size, className }: IconRendererProps) {
+export function IconRenderer({
+  icon,
+  size,
+  className,
+}: Readonly<IconRendererProps>) {
   if (!icon) {
     return null;
   }

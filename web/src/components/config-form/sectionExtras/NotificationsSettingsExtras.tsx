@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,8 +110,7 @@ export default function NotificationsSettingsExtras({
         (conf) =>
           conf.enabled_in_config &&
           !isReplayCamera(conf.name) &&
-          conf.notifications &&
-          conf.notifications.enabled_in_config,
+          conf.notifications?.enabled_in_config,
       )
       .sort((aConf, bConf) => aConf.ui.order - bConf.ui.order);
   }, [config]);
@@ -288,7 +288,10 @@ export default function NotificationsSettingsExtras({
 
   const cameraSelectionDirty = useMemo(() => {
     const current = Array.isArray(watchCameras) ? watchCameras : [];
-    return !isEqual([...current].sort(), [...baselineCameraSelection].sort());
+    return !isEqual(
+      sortedStrings(current),
+      sortedStrings(baselineCameraSelection),
+    );
   }, [watchCameras, baselineCameraSelection]);
 
   useEffect(() => {
@@ -363,8 +366,7 @@ export default function NotificationsSettingsExtras({
         (c) =>
           c.enabled_in_config &&
           !isReplayCamera(c.name) &&
-          c.notifications &&
-          c.notifications.enabled_in_config,
+          c.notifications?.enabled_in_config,
       ),
     [config],
   );
@@ -695,7 +697,7 @@ export default function NotificationsSettingsExtras({
                     ? t("notification.unregisterDevice")
                     : t("notification.registerDevice")}
                 </Button>
-                {isAdmin && registration != null && registration.active && (
+                {isAdmin && registration?.active && (
                   <Button
                     className="w-full md:w-auto"
                     aria-label={t("notification.sendTestNotification")}
@@ -755,7 +757,7 @@ export function CameraNotificationSwitch({
     if (duration == "off") {
       sendNotification("OFF");
     } else {
-      sendNotificationSuspend(parseInt(duration));
+      sendNotificationSuspend(Number.parseInt(duration));
     }
   };
 
@@ -770,7 +772,7 @@ export function CameraNotificationSwitch({
   const formatSuspendedUntil = (timestamp: string) => {
     if (timestamp === "0") return t("time.untilForRestart", { ns: "common" });
 
-    const time = formatUnixTimestampToDateTime(parseInt(timestamp), {
+    const time = formatUnixTimestampToDateTime(Number.parseInt(timestamp), {
       time_style: "medium",
       date_style: "medium",
       timezone: config?.ui.timezone,

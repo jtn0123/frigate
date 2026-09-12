@@ -36,7 +36,9 @@ type AccountSettingsProps = {
   className?: string;
 };
 
-export default function AccountSettings({ className }: AccountSettingsProps) {
+export default function AccountSettings({
+  className,
+}: Readonly<AccountSettingsProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { data: profile } = useSWR("profile");
   const { data: config } = useSWR("config");
@@ -125,7 +127,7 @@ export default function AccountSettings({ className }: AccountSettingsProps) {
             </div>
           </DropdownMenuLabel>
 
-          <DropdownMenuSeparator className={isDesktop ? "my-2" : "my-2"} />
+          <DropdownMenuSeparator className="my-2" />
 
           {config?.auth?.enabled !== false &&
             profile?.username &&

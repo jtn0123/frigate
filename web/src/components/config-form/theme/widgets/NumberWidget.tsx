@@ -21,8 +21,10 @@ export function NumberWidget(props: WidgetProps) {
       onChange(undefined);
     } else {
       const num =
-        schema.type === "integer" ? parseInt(val, 10) : parseFloat(val);
-      onChange(isNaN(num) ? undefined : num);
+        schema.type === "integer"
+          ? Number.parseInt(val, 10)
+          : Number.parseFloat(val);
+      onChange(Number.isNaN(num) ? undefined : num);
     }
   };
 

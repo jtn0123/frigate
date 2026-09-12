@@ -12,7 +12,10 @@ import mergeWith from "lodash/mergeWith";
 import set from "lodash/set";
 import { isJsonObject } from "@/lib/utils";
 import { REDACTED_CREDENTIAL_SENTINEL } from "@/lib/const";
-import { applySchemaDefaults } from "@/lib/config-schema";
+import {
+  applySchemaDefaults,
+  resolveAndCleanSchema,
+} from "@/lib/config-schema";
 import { normalizeConfigValue } from "@/hooks/use-config-override";
 import {
   modifySchemaForSection,
@@ -492,8 +495,6 @@ export interface SectionSavePayload {
 // extractSectionSchema — resolve a section schema from the full config schema
 // ---------------------------------------------------------------------------
 
-import { resolveAndCleanSchema } from "@/lib/config-schema";
-
 type SchemaWithDefinitions = RJSFSchema & {
   $defs?: Record<string, RJSFSchema>;
   definitions?: Record<string, RJSFSchema>;
@@ -532,18 +533,16 @@ function extractSectionSchema(
         }
       }
     }
-  } else {
-    if (schemaObj.properties) {
-      const sectionProp = schemaObj.properties[sectionPath];
-      if (sectionProp && typeof sectionProp === "object") {
-        if ("$ref" in sectionProp && typeof sectionProp.$ref === "string") {
-          const refPath = sectionProp.$ref
-            .replace(/^#\/\$defs\//, "")
-            .replace(/^#\/definitions\//, "");
-          sectionDef = defs[refPath] || null;
-        } else {
-          sectionDef = sectionProp;
-        }
+  } else if (schemaObj.properties) {
+    const sectionProp = schemaObj.properties[sectionPath];
+    if (sectionProp && typeof sectionProp === "object") {
+      if ("$ref" in sectionProp && typeof sectionProp.$ref === "string") {
+        const refPath = sectionProp.$ref
+          .replace(/^#\/\$defs\//, "")
+          .replace(/^#\/definitions\//, "");
+        sectionDef = defs[refPath] || null;
+      } else {
+        sectionDef = sectionProp;
       }
     }
   }
@@ -653,10 +652,7 @@ export function prepareSectionSavePayload(opts: {
   } else {
     rawSectionValue = get(config, sectionPath);
   }
-  const rawFormData =
-    rawSectionValue === undefined || rawSectionValue === null
-      ? {}
-      : rawSectionValue;
+  const rawFormData = rawSectionValue ?? {};
 
   // For profile sections, also hide restart-required fields to match
   // effectiveHiddenFields in BaseSection (prevents spurious deletion markers

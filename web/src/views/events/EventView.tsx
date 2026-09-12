@@ -188,9 +188,7 @@ export default function EventView({
   const emptyCardData: EmptyCardData = useMemo(() => {
     if (
       !config ||
-      Object.values(config.cameras).find(
-        (cam) => cam.record.enabled_in_config,
-      ) != undefined
+      Object.values(config.cameras).some((cam) => cam.record.enabled_in_config)
     ) {
       return {
         title: t("empty." + severity.replace(/_/g, " ")),
@@ -707,8 +705,8 @@ function DetectionReview({
     const list = minimap.sort();
 
     if (list.length > 0) {
-      data.end = parseFloat(list.at(-1) || "0");
-      data.start = parseFloat(list[0]);
+      data.end = Number.parseFloat(list.at(-1) || "0");
+      data.start = Number.parseFloat(list[0]);
     }
 
     return data;
@@ -751,7 +749,7 @@ function DetectionReview({
   }, [contentRef.current?.scrollHeight, minimapBounds]);
 
   const visibleTimestamps = useMemo(
-    () => minimap.map((str) => parseFloat(str)),
+    () => minimap.map((str) => Number.parseFloat(str)),
     [minimap],
   );
 

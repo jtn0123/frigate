@@ -194,59 +194,57 @@ export default function EnrichmentMetrics({
   }, [statsHistory, t, getThreshold]);
 
   return (
-    <>
-      <div className="scrollbar-container mt-4 flex size-full flex-col overflow-y-auto">
-        <div className="text-sm font-medium text-muted-foreground">
-          {t("enrichments.title")}
-        </div>
-        <div
-          className={cn(
-            "mt-4 grid w-full grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4",
-          )}
-        >
-          {statsHistory.length != 0 ? (
-            <>
-              {groupedEnrichmentMetrics.map((group) => (
-                <div
-                  key={group.categoryName}
-                  className="rounded-lg bg-background_alt p-2.5 md:rounded-2xl"
-                >
-                  <div className="mb-5 smart-capitalize">
-                    {group.categoryName}
-                  </div>
-                  <div className="space-y-4">
-                    {group.speedSeries && (
-                      <ThresholdBarGraph
-                        key={`${group.categoryName}-speed`}
-                        graphId={`${group.categoryName}-inference`}
-                        name={t("enrichments.averageInf")}
-                        unit={group.unit}
-                        threshold={group.speedSeries.metrics}
-                        updateTimes={updateTimes}
-                        data={[group.speedSeries]}
-                        isActive={isActive}
-                      />
-                    )}
-                    {group.eventsSeries && (
-                      <EventsPerSecondsLineGraph
-                        key={`${group.categoryName}-events`}
-                        graphId={`${group.categoryName}-fps`}
-                        unit=""
-                        name={t("enrichments.infPerSecond")}
-                        updateTimes={updateTimes}
-                        data={[group.eventsSeries]}
-                        isActive={isActive}
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : (
-            <Skeleton className="aspect-video w-full rounded-lg md:rounded-2xl" />
-          )}
-        </div>
+    <div className="scrollbar-container mt-4 flex size-full flex-col overflow-y-auto">
+      <div className="text-sm font-medium text-muted-foreground">
+        {t("enrichments.title")}
       </div>
-    </>
+      <div
+        className={cn(
+          "mt-4 grid w-full grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4",
+        )}
+      >
+        {statsHistory.length != 0 ? (
+          <>
+            {groupedEnrichmentMetrics.map((group) => (
+              <div
+                key={group.categoryName}
+                className="rounded-lg bg-background_alt p-2.5 md:rounded-2xl"
+              >
+                <div className="mb-5 smart-capitalize">
+                  {group.categoryName}
+                </div>
+                <div className="space-y-4">
+                  {group.speedSeries && (
+                    <ThresholdBarGraph
+                      key={`${group.categoryName}-speed`}
+                      graphId={`${group.categoryName}-inference`}
+                      name={t("enrichments.averageInf")}
+                      unit={group.unit}
+                      threshold={group.speedSeries.metrics}
+                      updateTimes={updateTimes}
+                      data={[group.speedSeries]}
+                      isActive={isActive}
+                    />
+                  )}
+                  {group.eventsSeries && (
+                    <EventsPerSecondsLineGraph
+                      key={`${group.categoryName}-events`}
+                      graphId={`${group.categoryName}-fps`}
+                      unit=""
+                      name={t("enrichments.infPerSecond")}
+                      updateTimes={updateTimes}
+                      data={[group.eventsSeries]}
+                      isActive={isActive}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          <Skeleton className="aspect-video w-full rounded-lg md:rounded-2xl" />
+        )}
+      </div>
+    </div>
   );
 }

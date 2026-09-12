@@ -46,7 +46,7 @@ const getDateAdjustedForTimezone = (
 ): Date => {
   if (typeof dateInput === "string") {
     // Split the date string to get year, month, and day parts
-    const parts = dateInput.split("-").map((part) => parseInt(part, 10));
+    const parts = dateInput.split("-").map((part) => Number.parseInt(part, 10));
     // Create a new Date object using the local timezone
     // Note: Month is 0-indexed, so subtract 1 from the month part
     const date = new TZDate(parts[0], parts[1] - 1, parts[2], timezone);

@@ -29,6 +29,8 @@ from frigate.const import (
 )
 from frigate.util.builtin import clean_camera_user_pass, escape_special_characters
 
+_SECRETS_DIR = "/run/secrets"
+
 logger = logging.getLogger(__name__)
 
 
@@ -371,14 +373,14 @@ def _read_intel_drm_fdinfo(target_pdev: str | None) -> dict | None:
         fdinfo_dir = f"/proc/{entry}/fdinfo"
         try:
             fds = os.listdir(fdinfo_dir)
-        except (FileNotFoundError, PermissionError, NotADirectoryError, OSError):
+        except OSError:
             continue
 
         for fd in fds:
             try:
                 with open(f"{fdinfo_dir}/{fd}") as f:
                     content = f.read()
-            except (FileNotFoundError, PermissionError, OSError):
+            except OSError:
                 continue
 
             if "drm-driver" not in content:
@@ -726,7 +728,7 @@ def get_rockchip_gpu_stats() -> dict[str, str | float] | None:
         with open("/sys/class/thermal/thermal_zone5/temp") as f:
             line = f.readline().strip()
             stats["temp"] = round(int(line) / 1000, 1)
-    except (FileNotFoundError, OSError, ValueError):
+    except (OSError, ValueError):
         pass
 
     return stats
@@ -758,7 +760,7 @@ def get_rockchip_npu_stats() -> dict[str, float | str] | None:
         with open("/sys/class/thermal/thermal_zone6/temp") as f:
             line = f.readline().strip()
             stats["temp"] = round(int(line) / 1000, 1)
-    except (FileNotFoundError, OSError, ValueError):
+    except (OSError, ValueError):
         pass
 
     return stats
@@ -956,9 +958,9 @@ def is_go2rtc_arbitrary_exec_allowed() -> bool:
     if "GO2RTC_ALLOW_ARBITRARY_EXEC" in os.environ:
         raw = os.environ.get("GO2RTC_ALLOW_ARBITRARY_EXEC")
     elif (
-        os.path.isdir("/run/secrets")
-        and os.access("/run/secrets", os.R_OK)
-        and "GO2RTC_ALLOW_ARBITRARY_EXEC" in os.listdir("/run/secrets")
+        os.path.isdir(_SECRETS_DIR)
+        and os.access(_SECRETS_DIR, os.R_OK)
+        and "GO2RTC_ALLOW_ARBITRARY_EXEC" in os.listdir(_SECRETS_DIR)
     ):
         try:
             with open("/run/secrets/GO2RTC_ALLOW_ARBITRARY_EXEC") as f:
@@ -1306,7 +1308,7 @@ async def get_video_properties(
             duration = float(duration_str) if duration_str else -1.0
 
             return True, width, height, codec, duration
-        except (json.JSONDecodeError, ValueError, KeyError, sp.SubprocessError):
+        except (ValueError, KeyError, sp.SubprocessError):
             return False, 0, 0, None, -1
 
     def probe_with_cv2(url: str) -> tuple[bool, int, int, str | None, float]:
@@ -1464,7 +1466,7 @@ def get_fs_type(path: str) -> str:
 def calculate_shm_requirements(config) -> dict:
     try:
         storage_stats = shutil.disk_usage("/dev/shm")
-    except (FileNotFoundError, OSError):
+    except OSError:
         return {}
 
     total_mb = round(storage_stats.total / pow(2, 20), 1)

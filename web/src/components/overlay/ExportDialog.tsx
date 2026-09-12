@@ -932,12 +932,12 @@ export function ExportContent({
                   className="cursor-pointer smart-capitalize"
                   htmlFor={opt}
                 >
-                  {isNaN(parseInt(opt))
+                  {Number.isNaN(Number.parseInt(opt))
                     ? opt == "timeline"
                       ? t("export.time.fromTimeline")
                       : t(`export.time.${opt}`)
                     : t("export.time.lastHour", {
-                        count: parseInt(opt),
+                        count: Number.parseInt(opt),
                       })}
                 </Label>
               </div>
@@ -1368,7 +1368,7 @@ export function ExportPreviewDialog({
   range,
   showPreview,
   setShowPreview,
-}: ExportPreviewDialogProps) {
+}: Readonly<ExportPreviewDialogProps>) {
   const { t } = useTranslation(["components/dialog"]);
   if (!range) {
     return null;

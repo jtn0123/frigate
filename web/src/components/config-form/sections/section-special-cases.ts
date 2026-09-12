@@ -120,8 +120,9 @@ function buildAttributeFilterSchema(
         .properties
     : undefined;
 
-  const minScoreSchema =
-    props && props.min_score ? props.min_score : { type: "number" };
+  const minScoreSchema = props?.min_score
+    ? props.min_score
+    : { type: "number" };
 
   const flattenToNumber = (src: RJSFSchema | undefined): RJSFSchema => {
     if (!src) return { type: "number" };
@@ -137,8 +138,8 @@ function buildAttributeFilterSchema(
     title: attributeLabel,
     properties: {
       min_score: minScoreSchema,
-      min_area: flattenToNumber(props && props.min_area),
-      max_area: flattenToNumber(props && props.max_area),
+      min_area: flattenToNumber(props?.min_area),
+      max_area: flattenToNumber(props?.max_area),
     },
     additionalProperties: false,
   } as RJSFSchema;
@@ -191,10 +192,9 @@ function modifyObjectsSchema(
   )
     ? (schema as { properties: Record<string, RJSFSchema> }).properties
     : undefined;
-  const filtersSchema =
-    schemaProperties && schemaProperties.filters
-      ? schemaProperties.filters
-      : undefined;
+  const filtersSchema = schemaProperties?.filters
+    ? schemaProperties.filters
+    : undefined;
   if (!filtersSchema) return schema;
 
   const filterEntrySchema = isJsonObject(

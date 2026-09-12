@@ -1200,9 +1200,7 @@ function Timeline({
           : cn(
               timelineType == "timeline"
                 ? "portrait:flex-grow landscape:w-[100px] landscape:flex-shrink-0"
-                : timelineType == "detail"
-                  ? "portrait:flex-grow landscape:w-[19rem] landscape:flex-shrink-0"
-                  : "portrait:flex-grow landscape:w-[19rem] landscape:flex-shrink-0",
+                : "portrait:flex-grow landscape:w-[19rem] landscape:flex-shrink-0",
             ),
       )}
     >

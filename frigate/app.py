@@ -89,6 +89,8 @@ from frigate.util.services import set_file_limit
 from frigate.version import VERSION
 from frigate.watchdog import FrigateWatchdog
 
+_LOG_SEPARATOR = "********************************************************"
+
 logger = logging.getLogger(__name__)
 
 
@@ -531,14 +533,14 @@ class FrigateApp:
 
                 self.config.auth.admin_first_time_login = True
 
-                logger.info("********************************************************")
-                logger.info("********************************************************")
+                logger.info(_LOG_SEPARATOR)
+                logger.info(_LOG_SEPARATOR)
                 logger.info("***    Auth is enabled, but no users exist.          ***")
                 logger.info("***    Created a default user:                       ***")
                 logger.info("***    User: admin                                   ***")
                 logger.info(f"***    Password: {password}   ***")
-                logger.info("********************************************************")
-                logger.info("********************************************************")
+                logger.info(_LOG_SEPARATOR)
+                logger.info(_LOG_SEPARATOR)
             elif self.config.auth.reset_admin_password:
                 password = secrets.token_hex(16)
                 password_hash = hash_password(
@@ -551,12 +553,12 @@ class FrigateApp:
                     notification_tokens=[],
                 ).execute()
 
-                logger.info("********************************************************")
-                logger.info("********************************************************")
+                logger.info(_LOG_SEPARATOR)
+                logger.info(_LOG_SEPARATOR)
                 logger.info("***    Reset admin password set in the config.       ***")
                 logger.info(f"***    Password: {password}   ***")
-                logger.info("********************************************************")
-                logger.info("********************************************************")
+                logger.info(_LOG_SEPARATOR)
+                logger.info(_LOG_SEPARATOR)
 
     def start(self) -> None:
         logger.info(f"Starting Frigate ({VERSION})")

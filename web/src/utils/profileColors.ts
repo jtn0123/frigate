@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import type { ProfileColor } from "@/types/profile";
 
 const PROFILE_COLORS: ProfileColor[] = [
@@ -118,7 +119,7 @@ export function getProfileColor(
   profileName: string,
   allProfileNames: string[],
 ): ProfileColor {
-  const sorted = [...allProfileNames].sort();
+  const sorted = sortedStrings(allProfileNames);
   const index = sorted.indexOf(profileName);
   return PROFILE_COLORS[(index >= 0 ? index : 0) % PROFILE_COLORS.length];
 }

@@ -259,13 +259,17 @@ def delete_event_snapshot(event: Event) -> bool:
 
 
 def delete_event_thumbnail(event: Event) -> bool:
+    """Delete an external thumbnail, returning whether cleanup succeeded."""
     if event.thumbnail:
         return True
-    else:
+
+    try:
         Path(os.path.join(THUMB_DIR, event.camera, f"{event.id}.webp")).unlink(
             missing_ok=True
         )
-        return True
+    except OSError:
+        return False
+    return True
 
 
 ### File Locking

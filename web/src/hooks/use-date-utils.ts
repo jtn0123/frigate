@@ -108,7 +108,7 @@ export function useFormattedHour(
     }
 
     const [hour, minute] = time.includes(":") ? time.split(":") : [time, "00"];
-    const hourNum = parseInt(hour);
+    const hourNum = Number.parseInt(hour);
 
     const adjustedHour = hourNum % 12 || 12;
     const period = hourNum < 12 ? "AM" : "PM";

@@ -455,7 +455,7 @@ class PtzAutoTracker:
         ):
             logger.info(f"Calibration for {camera} in progress: 0% complete")
 
-            for i in range(2):
+            for _ in range(2):
                 # absolute move to 0 - fully zoomed out
                 await self.onvif._zoom_absolute(
                     camera,
@@ -1512,19 +1512,18 @@ class PtzAutoTracker:
                 return
 
     def end_object(self, camera, obj):
-        if self.config.cameras[camera].onvif.autotracking.enabled:
-            if (
-                self.tracked_object[camera] is not None
-                and obj.obj_data["id"] == self.tracked_object[camera].obj_data["id"]
-            ):
-                logger.debug(
-                    f"{camera}: End object: {obj.obj_data['id']} {obj.obj_data['box']}"
-                )
-                self.tracked_object[camera] = None
-                self.tracked_object_metrics[camera] = {
-                    "max_target_box": AUTOTRACKING_MAX_AREA_RATIO
-                    ** (1 / self.zoom_factor[camera])
-                }
+        if self.config.cameras[camera].onvif.autotracking.enabled and (
+            self.tracked_object[camera] is not None
+            and obj.obj_data["id"] == self.tracked_object[camera].obj_data["id"]
+        ):
+            logger.debug(
+                f"{camera}: End object: {obj.obj_data['id']} {obj.obj_data['box']}"
+            )
+            self.tracked_object[camera] = None
+            self.tracked_object_metrics[camera] = {
+                "max_target_box": AUTOTRACKING_MAX_AREA_RATIO
+                ** (1 / self.zoom_factor[camera])
+            }
 
     async def camera_maintenance(self, camera):
         # bail and don't check anything if we're not set up yet, calibrating, or

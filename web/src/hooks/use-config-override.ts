@@ -563,7 +563,7 @@ export function useAllCameraOverrides(
         : collapsedCamera;
 
       if (
-        compareFields && compareFields.length === 0
+        compareFields?.length === 0
           ? false
           : !isEqual(comparisonGlobal, comparisonCamera)
       ) {

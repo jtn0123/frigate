@@ -22,7 +22,7 @@ export function DeleteSearchDialog({
   onClose,
   onConfirm,
   searchName,
-}: DeleteSearchDialogProps) {
+}: Readonly<DeleteSearchDialogProps>) {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>

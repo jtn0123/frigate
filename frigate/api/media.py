@@ -56,6 +56,16 @@ from frigate.util.media import get_keyframe_before
 from frigate.util.object import create_empty_regions_grid
 from frigate.util.path import safe_join
 
+_PRIVATE_YEAR_CACHE_CONTROL = "private, max-age=31536000"
+_PREVIEW_NOT_FOUND = "Preview not found"
+_CAMERA_NOT_FOUND = "Camera not found"
+_IMAGE_WEBP = "image/webp"
+_IMAGE_JPEG = "image/jpeg"
+_EVENT_NOT_FOUND = "Event not found"
+_VIDEO_MP4 = "video/mp4"
+_UNABLE_TO_CREATE_PREVIEW_GIF = "Unable to create preview gif"
+_PIPE_FILE = "pipe,file"
+
 logger = logging.getLogger(__name__)
 
 
@@ -103,7 +113,7 @@ async def mjpeg_feed(
         )
     else:
         return JSONResponse(
-            content={"success": False, "message": "Camera not found"},
+            content={"success": False, "message": _CAMERA_NOT_FOUND},
             status_code=404,
         )
 
@@ -125,7 +135,7 @@ def imagestream(
         width = int(height * frame.shape[1] / frame.shape[0])
         frame = cv2.resize(frame, dsize=(width, height), interpolation=cv2.INTER_LINEAR)
 
-        ret, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+        _, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n\r\n" + bytearray(jpg.tobytes()) + b"\r\n\r\n"
@@ -161,7 +171,7 @@ async def camera_ptz_info(request: Request, camera_name: str):
         return JSONResponse(content=result)
     else:
         return JSONResponse(
-            content={"success": False, "message": "Camera not found"},
+            content={"success": False, "message": _CAMERA_NOT_FOUND},
             status_code=404,
         )
 
@@ -286,7 +296,7 @@ async def latest_frame(
         )
     else:
         return JSONResponse(
-            content={"success": False, "message": "Camera not found"},
+            content={"success": False, "message": _CAMERA_NOT_FOUND},
             status_code=404,
         )
 
@@ -304,7 +314,7 @@ def get_snapshot_from_recording(
 ):
     if camera_name not in request.app.frigate_config.cameras:
         return JSONResponse(
-            content={"success": False, "message": "Camera not found"},
+            content={"success": False, "message": _CAMERA_NOT_FOUND},
             status_code=404,
         )
     recording: Recordings | None = None
@@ -385,7 +395,7 @@ async def submit_recording_snapshot_to_plus(
 ):
     if camera_name not in request.app.frigate_config.cameras:
         return JSONResponse(
-            content={"success": False, "message": "Camera not found"},
+            content={"success": False, "message": _CAMERA_NOT_FOUND},
             status_code=404,
         )
 
@@ -532,7 +542,7 @@ def recording_clip(
         "-hide_banner",
         "-y",
         "-protocol_whitelist",
-        "pipe,file",
+        _PIPE_FILE,
         "-f",
         "concat",
         "-safe",
@@ -550,7 +560,7 @@ def recording_clip(
 
     return StreamingResponse(
         run_download(ffmpeg_cmd, file_path),
-        media_type="video/mp4",
+        media_type=_VIDEO_MP4,
     )
 
 
@@ -866,8 +876,8 @@ async def event_snapshot(
         )
 
     headers = {
-        "Content-Type": "image/jpeg",
-        "Cache-Control": "private, max-age=31536000" if event_complete else "no-store",
+        "Content-Type": _IMAGE_JPEG,
+        "Cache-Control": _PRIVATE_YEAR_CACHE_CONTROL if event_complete else "no-store",
         "X-Frame-Time": str(frame_time),
     }
 
@@ -876,7 +886,7 @@ async def event_snapshot(
 
     return Response(
         jpg_bytes,
-        media_type="image/jpeg",
+        media_type=_IMAGE_JPEG,
         headers=headers,
     )
 
@@ -918,13 +928,13 @@ async def event_thumbnail(
                         thumbnail_bytes = tracked_obj.get_thumbnail(extension.value)
         except Exception:
             return JSONResponse(
-                content={"success": False, "message": "Event not found"},
+                content={"success": False, "message": _EVENT_NOT_FOUND},
                 status_code=404,
             )
 
     if thumbnail_bytes is None:
         return JSONResponse(
-            content={"success": False, "message": "Event not found"},
+            content={"success": False, "message": _EVENT_NOT_FOUND},
             status_code=404,
         )
 
@@ -1070,16 +1080,16 @@ def grid_snapshot(
                     thickness=2,
                 )
 
-        ret, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+        _, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
 
         return Response(
             jpg.tobytes(),
-            media_type="image/jpeg",
+            media_type=_IMAGE_JPEG,
             headers={"Cache-Control": "no-store"},
         )
     else:
         return JSONResponse(
-            content={"success": False, "message": "Camera not found"},
+            content={"success": False, "message": _CAMERA_NOT_FOUND},
             status_code=404,
         )
 
@@ -1091,7 +1101,7 @@ def clear_region_grid(request: Request, camera_name: str):
     """Clear the region grid for a camera."""
     if camera_name not in request.app.frigate_config.cameras:
         return JSONResponse(
-            content={"success": False, "message": "Camera not found"},
+            content={"success": False, "message": _CAMERA_NOT_FOUND},
             status_code=404,
         )
 
@@ -1149,7 +1159,7 @@ async def event_snapshot_clean(request: Request, event_id: str, download: bool =
                             break
             except Exception:
                 return JSONResponse(
-                    content={"success": False, "message": "Event not found"},
+                    content={"success": False, "message": _EVENT_NOT_FOUND},
                     status_code=404,
                 )
         elif not event.has_snapshot:
@@ -1159,7 +1169,7 @@ async def event_snapshot_clean(request: Request, event_id: str, download: bool =
             )
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Event not found"}, status_code=404
+            content={"success": False, "message": _EVENT_NOT_FOUND}, status_code=404
         )
     if webp_bytes is None:
         try:
@@ -1212,8 +1222,8 @@ async def event_snapshot_clean(request: Request, event_id: str, download: bool =
             )
 
     headers = {
-        "Content-Type": "image/webp",
-        "Cache-Control": "private, max-age=31536000" if event_complete else "no-cache",
+        "Content-Type": _IMAGE_WEBP,
+        "Cache-Control": _PRIVATE_YEAR_CACHE_CONTROL if event_complete else "no-cache",
     }
 
     if download:
@@ -1223,7 +1233,7 @@ async def event_snapshot_clean(request: Request, event_id: str, download: bool =
 
     return Response(
         webp_bytes,
-        media_type="image/webp",
+        media_type=_IMAGE_WEBP,
         headers=headers,
     )
 
@@ -1241,7 +1251,7 @@ async def event_clip(
         event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Event not found"}, status_code=404
+            content={"success": False, "message": _EVENT_NOT_FOUND}, status_code=404
         )
 
     await require_camera_access(event.camera, request=request)
@@ -1300,7 +1310,7 @@ async def event_preview(request: Request, event_id: str):
         event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Event not found"}, status_code=404
+            content={"success": False, "message": _EVENT_NOT_FOUND}, status_code=404
         )
 
     await require_camera_access(event.camera, request=request)
@@ -1347,7 +1357,7 @@ async def preview_gif(
             preview: Previews = await asyncio.to_thread(preview_query.get)
         except DoesNotExist:
             return JSONResponse(
-                content={"success": False, "message": "Preview not found"},
+                content={"success": False, "message": _PREVIEW_NOT_FOUND},
                 status_code=404,
             )
 
@@ -1388,7 +1398,7 @@ async def preview_gif(
         if process.returncode != 0:
             logger.error(process.stderr)
             return JSONResponse(
-                content={"success": False, "message": "Unable to create preview gif"},
+                content={"success": False, "message": _UNABLE_TO_CREATE_PREVIEW_GIF},
                 status_code=500,
             )
 
@@ -1399,7 +1409,7 @@ async def preview_gif(
 
         if not os.path.isdir(preview_dir):
             return JSONResponse(
-                content={"success": False, "message": "Preview not found"},
+                content={"success": False, "message": _PREVIEW_NOT_FOUND},
                 status_code=404,
             )
 
@@ -1428,7 +1438,7 @@ async def preview_gif(
 
         if not selected_previews:
             return JSONResponse(
-                content={"success": False, "message": "Preview not found"},
+                content={"success": False, "message": _PREVIEW_NOT_FOUND},
                 status_code=404,
             )
 
@@ -1445,7 +1455,7 @@ async def preview_gif(
             "concat",
             "-y",
             "-protocol_whitelist",
-            "pipe,file",
+            _PIPE_FILE,
             "-safe",
             "0",
             "-i",
@@ -1469,7 +1479,7 @@ async def preview_gif(
         if process.returncode != 0:
             logger.error(process.stderr)
             return JSONResponse(
-                content={"success": False, "message": "Unable to create preview gif"},
+                content={"success": False, "message": _UNABLE_TO_CREATE_PREVIEW_GIF},
                 status_code=500,
             )
 
@@ -1538,7 +1548,7 @@ async def preview_mp4(
 
         if not preview:
             return JSONResponse(
-                content={"success": False, "message": "Preview not found"},
+                content={"success": False, "message": _PREVIEW_NOT_FOUND},
                 status_code=404,
             )
 
@@ -1578,7 +1588,7 @@ async def preview_mp4(
         if process.returncode != 0:
             logger.error(process.stderr)
             return JSONResponse(
-                content={"success": False, "message": "Unable to create preview gif"},
+                content={"success": False, "message": _UNABLE_TO_CREATE_PREVIEW_GIF},
                 status_code=500,
             )
 
@@ -1588,7 +1598,7 @@ async def preview_mp4(
 
         if not os.path.isdir(preview_dir):
             return JSONResponse(
-                content={"success": False, "message": "Preview not found"},
+                content={"success": False, "message": _PREVIEW_NOT_FOUND},
                 status_code=404,
             )
 
@@ -1617,7 +1627,7 @@ async def preview_mp4(
 
         if not selected_previews:
             return JSONResponse(
-                content={"success": False, "message": "Preview not found"},
+                content={"success": False, "message": _PREVIEW_NOT_FOUND},
                 status_code=404,
             )
 
@@ -1634,7 +1644,7 @@ async def preview_mp4(
             "concat",
             "-y",
             "-protocol_whitelist",
-            "pipe,file",
+            _PIPE_FILE,
             "-safe",
             "0",
             "-i",
@@ -1656,14 +1666,14 @@ async def preview_mp4(
         if process.returncode != 0:
             logger.error(process.stderr)
             return JSONResponse(
-                content={"success": False, "message": "Unable to create preview gif"},
+                content={"success": False, "message": _UNABLE_TO_CREATE_PREVIEW_GIF},
                 status_code=500,
             )
 
     headers = {
         "Content-Description": "File Transfer",
         "Cache-Control": f"private, max-age={_resolve_cache_age(max_cache_age)}",
-        "Content-Type": "video/mp4",
+        "Content-Type": _VIDEO_MP4,
         "Content-Length": str(os.path.getsize(path)),
         # nginx: https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_ignore_headers
         "X-Accel-Redirect": f"/cache/{file_name}",
@@ -1671,7 +1681,7 @@ async def preview_mp4(
 
     return FileResponse(
         path,
-        media_type="video/mp4",
+        media_type=_VIDEO_MP4,
         filename=file_name,
         headers=headers,
     )
@@ -1757,10 +1767,10 @@ async def preview_thumbnail(request: Request, file_name: str):
 
     return Response(
         jpg_bytes,
-        media_type="image/webp",
+        media_type=_IMAGE_WEBP,
         headers={
-            "Content-Type": "image/webp",
-            "Cache-Control": "private, max-age=31536000",
+            "Content-Type": _IMAGE_WEBP,
+            "Cache-Control": _PRIVATE_YEAR_CACHE_CONTROL,
         },
     )
 
@@ -1787,11 +1797,11 @@ async def label_thumbnail(request: Request, camera_name: str, label: str):
         return await event_thumbnail(request, event_id, Extension.jpg, 60)
     except DoesNotExist:
         frame = np.zeros((175, 175, 3), np.uint8)
-        ret, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+        _, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
 
         return Response(
             jpg.tobytes(),
-            media_type="image/jpeg",
+            media_type=_IMAGE_JPEG,
             headers={"Cache-Control": "no-store"},
         )
 
@@ -1813,7 +1823,7 @@ async def label_clip(request: Request, camera_name: str, label: str):
         return await event_clip(request, event.id, 0)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Event not found"}, status_code=404
+            content={"success": False, "message": _EVENT_NOT_FOUND}, status_code=404
         )
 
 
@@ -1848,5 +1858,5 @@ async def label_snapshot(request: Request, camera_name: str, label: str):
 
         return Response(
             jpg.tobytes(),
-            media_type="image/jpeg",
+            media_type=_IMAGE_JPEG,
         )

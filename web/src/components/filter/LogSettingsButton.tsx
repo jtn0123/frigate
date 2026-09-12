@@ -99,71 +99,66 @@ type GeneralFilterContentProps = {
 export function GeneralFilterContent({
   selectedLabels,
   updateLabelFilter,
-}: GeneralFilterContentProps) {
+}: Readonly<GeneralFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
-    <>
-      <div className="scrollbar-container h-auto overflow-y-auto overflow-x-hidden">
-        <div className="mb-5 flex items-center justify-between">
-          <Label
-            className="mx-2 cursor-pointer text-primary"
-            htmlFor="allLabels"
-          >
-            {t("logSettings.allLogs")}
-          </Label>
-          <Switch
-            className="ml-1"
-            id="allLabels"
-            checked={selectedLabels == undefined}
-            onCheckedChange={(isChecked) => {
-              if (isChecked) {
-                updateLabelFilter(undefined);
-              }
-            }}
-          />
-        </div>
-        <div className="my-2.5 flex flex-col gap-2.5">
-          {["debug", "info", "warning", "error"].map((item) => (
-            <div className="flex items-center justify-between" key={item}>
-              <Label
-                className="mx-2 w-full cursor-pointer text-primary smart-capitalize"
-                htmlFor={item}
-              >
-                {t(`logger.logLevel.${item}`, { ns: "views/settings" })}
-              </Label>
-              <Switch
-                key={item}
-                className="ml-1"
-                id={item}
-                checked={selectedLabels?.includes(item as LogSeverity) ?? false}
-                onCheckedChange={(isChecked) => {
-                  if (isChecked) {
-                    const updatedLabels = selectedLabels
-                      ? [...selectedLabels]
-                      : [];
-
-                    updatedLabels.push(item as LogSeverity);
-                    updateLabelFilter(updatedLabels);
-                  } else {
-                    const updatedLabels = selectedLabels
-                      ? [...selectedLabels]
-                      : [];
-
-                    // can not deselect the last item
-                    if (updatedLabels.length > 1) {
-                      updatedLabels.splice(
-                        updatedLabels.indexOf(item as LogSeverity),
-                        1,
-                      );
-                      updateLabelFilter(updatedLabels);
-                    }
-                  }
-                }}
-              />
-            </div>
-          ))}
-        </div>
+    <div className="scrollbar-container h-auto overflow-y-auto overflow-x-hidden">
+      <div className="mb-5 flex items-center justify-between">
+        <Label className="mx-2 cursor-pointer text-primary" htmlFor="allLabels">
+          {t("logSettings.allLogs")}
+        </Label>
+        <Switch
+          className="ml-1"
+          id="allLabels"
+          checked={selectedLabels == undefined}
+          onCheckedChange={(isChecked) => {
+            if (isChecked) {
+              updateLabelFilter(undefined);
+            }
+          }}
+        />
       </div>
-    </>
+      <div className="my-2.5 flex flex-col gap-2.5">
+        {["debug", "info", "warning", "error"].map((item) => (
+          <div className="flex items-center justify-between" key={item}>
+            <Label
+              className="mx-2 w-full cursor-pointer text-primary smart-capitalize"
+              htmlFor={item}
+            >
+              {t(`logger.logLevel.${item}`, { ns: "views/settings" })}
+            </Label>
+            <Switch
+              key={item}
+              className="ml-1"
+              id={item}
+              checked={selectedLabels?.includes(item as LogSeverity) ?? false}
+              onCheckedChange={(isChecked) => {
+                if (isChecked) {
+                  const updatedLabels = selectedLabels
+                    ? [...selectedLabels]
+                    : [];
+
+                  updatedLabels.push(item as LogSeverity);
+                  updateLabelFilter(updatedLabels);
+                } else {
+                  const updatedLabels = selectedLabels
+                    ? [...selectedLabels]
+                    : [];
+
+                  // can not deselect the last item
+                  if (updatedLabels.length > 1) {
+                    updatedLabels.splice(
+                      updatedLabels.indexOf(item as LogSeverity),
+                      1,
+                    );
+                    updateLabelFilter(updatedLabels);
+                  }
+                }
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

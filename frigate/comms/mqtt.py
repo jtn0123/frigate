@@ -358,5 +358,5 @@ class MqttClient(Communicator):
             self.client.connect_async(self.mqtt_config.host, self.mqtt_config.port, 60)
             self.client.loop_start()
         except Exception as e:
-            logger.error(f"Unable to connect to MQTT server: {e}")
+            logger.exception("Unable to connect to MQTT server: %s", e)
             return

@@ -24,7 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { useState, useCallback, useMemo } from "react";
-import { LuEye, LuEyeOff } from "react-icons/lu";
+import { LuEye, LuEyeOff, LuInfo } from "react-icons/lu";
 import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
 import {
@@ -38,7 +38,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { LuInfo } from "react-icons/lu";
 
 type Step1NameCameraProps = {
   wizardData: Partial<WizardFormData>;
@@ -131,8 +130,8 @@ export default function Step1NameCamera({
   const watchedHost = form.watch("host");
   const watchedCustomUrl = form.watch("customUrl");
 
-  const hostPresent = !!(watchedHost && watchedHost.trim());
-  const customPresent = !!(watchedCustomUrl && watchedCustomUrl.trim());
+  const hostPresent = !!watchedHost?.trim();
+  const customPresent = !!watchedCustomUrl?.trim();
   const cameraNamePresent = !!(form.getValues().cameraName || "").trim();
 
   const isContinueButtonEnabled =

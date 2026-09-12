@@ -246,7 +246,7 @@ export default function LiveContextMenu({
     // Some languages require a change in word order
     if (timestamp === "0") return t("time.untilForRestart", { ns: "common" });
 
-    const time = formatUnixTimestampToDateTime(parseInt(timestamp), {
+    const time = formatUnixTimestampToDateTime(Number.parseInt(timestamp), {
       time_style: "medium",
       date_style: "medium",
       timezone: config?.ui.timezone,

@@ -603,7 +603,7 @@ export default function MobileReviewSettingsDrawer({
         return;
       }
 
-      const minutes = parseInt(option, 10);
+      const minutes = Number.parseInt(option, 10);
       const end = latestTime;
       setDebugReplayRange({ after: end - minutes * 60, before: end });
     };

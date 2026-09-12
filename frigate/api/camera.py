@@ -38,6 +38,10 @@ from frigate.util.services import (
     is_restricted_go2rtc_source,
 )
 
+_ERROR_FETCHING_STREAM_DATA = "Error fetching stream data"
+_GO2RTC_STREAMS_URL = "http://127.0.0.1:1984/api/streams"
+_RTSP_SCHEME = "rtsp://"
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.camera])
@@ -68,11 +72,11 @@ def _is_valid_host(host: str) -> bool:
 
 @router.get("/go2rtc/streams", dependencies=[Depends(allow_any_authenticated())])
 async def go2rtc_streams(request: Request):
-    r = await asyncio.to_thread(requests.get, "http://127.0.0.1:1984/api/streams")
+    r = await asyncio.to_thread(requests.get, _GO2RTC_STREAMS_URL)
     if not r.ok:
         logger.error("Failed to fetch streams from go2rtc")
         return JSONResponse(
-            content=({"success": False, "message": "Error fetching stream data"}),
+            content=({"success": False, "message": _ERROR_FETCHING_STREAM_DATA}),
             status_code=500,
         )
     stream_data = r.json()
@@ -107,7 +111,7 @@ async def go2rtc_streams(request: Request):
 def go2rtc_camera_stream(request: Request, stream_name: str):
     try:
         r = requests.get(
-            "http://127.0.0.1:1984/api/streams",
+            _GO2RTC_STREAMS_URL,
             params={
                 "src": stream_name,
                 "video": "all",
@@ -118,7 +122,7 @@ def go2rtc_camera_stream(request: Request, stream_name: str):
     except requests.RequestException as e:
         logger.exception("Error communicating with go2rtc: %s", e)
         return JSONResponse(
-            content=({"success": False, "message": "Error fetching stream data"}),
+            content=({"success": False, "message": _ERROR_FETCHING_STREAM_DATA}),
             status_code=500,
         )
     if not r.ok:
@@ -134,7 +138,7 @@ def go2rtc_camera_stream(request: Request, stream_name: str):
             logger.error("Failed to fetch streams from go2rtc")
 
         return JSONResponse(
-            content=({"success": False, "message": "Error fetching stream data"}),
+            content=({"success": False, "message": _ERROR_FETCHING_STREAM_DATA}),
             status_code=500,
         )
     stream_data = r.json()
@@ -150,8 +154,8 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
     """Add or update a go2rtc stream configuration."""
     if src and is_restricted_go2rtc_source(src):
         logger.warning(
-            "Rejected go2rtc stream %r with restricted source type (echo/expr/exec)",
-            stream_name,
+            "Rejected go2rtc stream %s with restricted source type (echo/expr/exec)",
+            repr(stream_name).replace("\r", "_").replace("\n", "_"),
         )
         return JSONResponse(
             content={
@@ -171,8 +175,8 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
 
             if is_restricted_go2rtc_source(resolved_src):
                 logger.warning(
-                    "Rejected go2rtc stream %r with restricted source type (echo/expr/exec)",
-                    stream_name,
+                    "Rejected go2rtc stream %s with restricted source type (echo/expr/exec)",
+                    repr(stream_name).replace("\r", "_").replace("\n", "_"),
                 )
                 return JSONResponse(
                     content={
@@ -185,7 +189,7 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
             params["src"] = resolved_src
 
         r = requests.put(
-            "http://127.0.0.1:1984/api/streams",
+            _GO2RTC_STREAMS_URL,
             params=params,
             timeout=10,
         )
@@ -224,7 +228,7 @@ def go2rtc_delete_stream(stream_name: str):
     """Delete a go2rtc stream."""
     try:
         r = requests.delete(
-            "http://127.0.0.1:1984/api/streams",
+            _GO2RTC_STREAMS_URL,
             params={"src": stream_name},
             timeout=10,
         )
@@ -1011,14 +1015,16 @@ async def onvif_probe(
                             )
                             # If credentials were provided, do NOT add the unauthenticated URI.
                             try:
-                                if isinstance(uri, str) and uri.startswith("rtsp://"):
+                                if isinstance(uri, str) and uri.startswith(
+                                    _RTSP_SCHEME
+                                ):
                                     if username and password and "@" not in uri:
                                         # Inject raw credentials and add only the
                                         # authenticated version. The credentials will be encoded
                                         # later by ffprobe_stream or the config system.
                                         cred = f"{username}:{password}@"
                                         injected = uri.replace(
-                                            "rtsp://", f"rtsp://{cred}", 1
+                                            _RTSP_SCHEME, f"rtsp://{cred}", 1
                                         )
                                         rtsp_candidates.append(
                                             {
@@ -1089,11 +1095,11 @@ async def onvif_probe(
                         username
                         and password
                         and isinstance(uri, str)
-                        and uri.startswith("rtsp://")
+                        and uri.startswith(_RTSP_SCHEME)
                         and "@" not in uri
                     ):
                         cred = f"{username}:{password}@"
-                        cred_uri = uri.replace("rtsp://", f"rtsp://{cred}", 1)
+                        cred_uri = uri.replace(_RTSP_SCHEME, f"rtsp://{cred}", 1)
                         if cred_uri not in to_test:
                             to_test.append(cred_uri)
                 except Exception:
@@ -1212,7 +1218,7 @@ async def delete_camera(
     try:
         await asyncio.to_thread(
             requests.delete,
-            "http://127.0.0.1:1984/api/streams",
+            _GO2RTC_STREAMS_URL,
             params={"src": camera_name},
             timeout=5,
         )

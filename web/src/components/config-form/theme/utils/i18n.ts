@@ -237,6 +237,6 @@ export function humanizeKey(value: string): string {
  * getDomainFromNamespace("common") => ""
  */
 export function getDomainFromNamespace(ns?: string): string {
-  if (!ns || !ns.startsWith("config/")) return "";
+  if (!ns?.startsWith("config/")) return "";
   return ns.replace("config/", "");
 }

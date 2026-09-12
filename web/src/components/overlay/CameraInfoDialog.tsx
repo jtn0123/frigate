@@ -29,7 +29,7 @@ export default function CameraInfoDialog({
   camera,
   showCameraInfoDialog,
   setShowCameraInfoDialog,
-}: CameraInfoDialogProps) {
+}: Readonly<CameraInfoDialogProps>) {
   const { t } = useTranslation(["views/system"]);
   const [ffprobeInfo, setFfprobeInfo] = useState<Ffprobe[]>();
   const [keyframeInfo, setKeyframeInfo] = useState<KeyframeAnalysis>();

@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 // Audio Label Switches Widget - For selecting audio labels via switches
 import type { WidgetProps } from "@rjsf/utils";
 import { useCallback, useMemo } from "react";
@@ -35,7 +36,7 @@ function getEnabledAudioLabels(context: FormContext): string[] {
   }
 
   const sourceLabels = cameraLabels.length > 0 ? cameraLabels : globalLabels;
-  return [...new Set([...sourceLabels, ...formDataLabels])].sort();
+  return sortedStrings(new Set([...sourceLabels, ...formDataLabels]));
 }
 
 function getAudioLabelDisplayName(label: string): string {
@@ -61,7 +62,7 @@ export function AudioLabelSwitchesWidget(props: WidgetProps) {
       }
     });
 
-    return [...labelSet].sort();
+    return sortedStrings(labelSet);
   }, [audioLabels]);
 
   const getEntities = useCallback(
@@ -73,7 +74,7 @@ export function AudioLabelSwitchesWidget(props: WidgetProps) {
       }
 
       const combinedLabels = new Set([...allLabels, ...enabledLabels]);
-      return [...combinedLabels].sort();
+      return sortedStrings(combinedLabels);
     },
     [allLabels],
   );

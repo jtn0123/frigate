@@ -3,8 +3,6 @@
 import datetime
 import json
 import logging
-import random
-import string
 from collections import Counter
 from collections.abc import Callable
 from typing import Any
@@ -18,6 +16,7 @@ from frigate.config.camera.updater import (
     CameraConfigUpdateEnum,
     CameraConfigUpdateSubscriber,
 )
+from frigate.util.identifiers import random_id as generate_id
 
 logger = logging.getLogger(__name__)
 
@@ -270,9 +269,7 @@ class AudioActivityManager:
                 current[label]["last_detection"] = now
                 current[label]["score"] = score
             else:
-                rand_id = "".join(
-                    random.choices(string.ascii_lowercase + string.digits, k=6)
-                )
+                rand_id = generate_id(6)
                 event_id = f"{now}-{rand_id}"
                 self.publish(f"{camera}/audio/{label}", "ON")
 

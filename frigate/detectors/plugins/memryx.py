@@ -750,7 +750,7 @@ class MemryXDetector(DetectionApi):
         class_ids = np.argmax(classes, axis=1)  # Index of the best class
 
         # Filter out detections with scores below the confidence threshold
-        valid_indices = np.where(max_scores >= confidence_thres)[0]
+        valid_indices = np.nonzero(max_scores >= confidence_thres)[0]
         if len(valid_indices) == 0:
             # Return empty detections array
             final_detections = np.zeros((20, 6), np.float32)

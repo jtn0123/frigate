@@ -37,7 +37,7 @@ export function VideoPreview({
   isPlayingBack,
   onTimeUpdate,
   windowVisible,
-}: VideoPreviewProps) {
+}: Readonly<VideoPreviewProps>) {
   const playerRef = useRef<HTMLVideoElement | null>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
 
@@ -312,7 +312,7 @@ export function InProgressPreview({
   isPlayingBack,
   onTimeUpdate,
   windowVisible,
-}: InProgressPreviewProps) {
+}: Readonly<InProgressPreviewProps>) {
   const { t } = useTranslation(["common"]);
   const apiHost = useApiHost();
   const sliderRef = useRef<HTMLDivElement | null>(null);

@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useApiHost } from "@/api";
 import { isCurrentHour } from "@/utils/dateUtil";
@@ -49,7 +50,7 @@ export default function PreviewThumbnailPlayer({
   setReviewed,
   onClick,
   onTimeUpdate,
-}: PreviewPlayerProps) {
+}: Readonly<PreviewPlayerProps>) {
   const { t } = useTranslation(["components/player", "views/events"]);
   const apiHost = useApiHost();
   const { data: config } = useSWR<FrigateConfig>("config");
@@ -273,30 +274,26 @@ export default function PreviewThumbnailPlayer({
                 <div className="ml-3 pb-1 text-sm text-white">
                   {(review.severity == "alert" ||
                     review.severity == "detection") && (
-                    <>
-                      <Chip
-                        className={`flex items-start justify-between space-x-1 ${playingBack ? "hidden" : ""} bg-gradient-to-br ${review.has_been_reviewed ? "bg-green-600 from-green-600 to-green-700" : "bg-gray-500 from-gray-400 to-gray-500"} z-0`}
-                        onClick={() => onClick(review, false, true)}
-                      >
-                        {review.data.objects
-                          .sort()
-                          .map((object, idx) =>
-                            getIconForLabel(
-                              object,
-                              "object",
-                              "size-3 text-white",
-                              `${object}-${idx}`,
-                            ),
-                          )}
-                        {review.data.audio.map((audio) => {
-                          return getIconForLabel(
-                            audio,
-                            "audio",
-                            "size-3 text-white",
-                          );
-                        })}
-                      </Chip>
-                    </>
+                    <Chip
+                      className={`flex items-start justify-between space-x-1 ${playingBack ? "hidden" : ""} bg-gradient-to-br ${review.has_been_reviewed ? "bg-green-600 from-green-600 to-green-700" : "bg-gray-500 from-gray-400 to-gray-500"} z-0`}
+                      onClick={() => onClick(review, false, true)}
+                    >
+                      {sortedStrings(review.data.objects).map((object, idx) =>
+                        getIconForLabel(
+                          object,
+                          "object",
+                          "size-3 text-white",
+                          `${object}-${idx}`,
+                        ),
+                      )}
+                      {review.data.audio.map((audio) => {
+                        return getIconForLabel(
+                          audio,
+                          "audio",
+                          "size-3 text-white",
+                        );
+                      })}
+                    </Chip>
                   )}
                 </div>
               </TooltipTrigger>
@@ -305,21 +302,22 @@ export default function PreviewThumbnailPlayer({
               {review.data.metadata
                 ? review.data.metadata.title
                 : formatList(
-                    [
-                      ...new Set([
-                        ...(review.data.objects || []),
-                        ...(review.data.sub_labels || []),
-                        ...(review.data.audio || []),
-                      ]),
-                    ]
-                      .filter(
-                        (item) =>
-                          item !== undefined && !item.includes("-verified"),
-                      )
-                      .map((text) =>
-                        getTranslatedLabel(text, getEventType(text)),
-                      )
-                      .sort(),
+                    sortedStrings(
+                      [
+                        ...new Set([
+                          ...(review.data.objects || []),
+                          ...(review.data.sub_labels || []),
+                          ...(review.data.audio || []),
+                        ]),
+                      ]
+                        .filter(
+                          (item) =>
+                            item !== undefined && !item.includes("-verified"),
+                        )
+                        .map((text) =>
+                          getTranslatedLabel(text, getEventType(text)),
+                        ),
+                    ),
                   )}
             </TooltipContent>
           </Tooltip>
@@ -337,18 +335,16 @@ export default function PreviewThumbnailPlayer({
                   <div className="pb-1 text-sm text-white">
                     {(review.severity == "alert" ||
                       review.severity == "detection") && (
-                      <>
-                        <Chip
-                          className={`flex items-start justify-between space-x-1 ${playingBack ? "hidden" : ""} z-0 bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500`}
-                          onClick={() => onClick(review, false, true)}
-                        >
-                          {review.data.metadata.potential_threat_level == 1 ? (
-                            <MdOutlinePersonSearch className="size-3" />
-                          ) : (
-                            <FaExclamationTriangle className="size-3" />
-                          )}
-                        </Chip>
-                      </>
+                      <Chip
+                        className={`flex items-start justify-between space-x-1 ${playingBack ? "hidden" : ""} z-0 bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500`}
+                        onClick={() => onClick(review, false, true)}
+                      >
+                        {review.data.metadata.potential_threat_level == 1 ? (
+                          <MdOutlinePersonSearch className="size-3" />
+                        ) : (
+                          <FaExclamationTriangle className="size-3" />
+                        )}
+                      </Chip>
                     )}
                   </div>
                 </TooltipTrigger>
@@ -416,7 +412,7 @@ function PreviewContent({
   setIgnoreClick,
   isPlayingBack,
   onTimeUpdate,
-}: PreviewContentProps) {
+}: Readonly<PreviewContentProps>) {
   // preview
 
   if (relevantPreview) {

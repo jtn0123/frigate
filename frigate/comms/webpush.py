@@ -26,6 +26,8 @@ from frigate.config.camera.updater import (
 from frigate.const import BASE_DIR, CONFIG_DIR
 from frigate.models import User
 
+_NO_CAMERA_ACCESS_LOG = "Skipping notification for user %s - no access to camera %s"
+
 logger = logging.getLogger(__name__)
 
 
@@ -496,7 +498,7 @@ class WebPushClient(Communicator):
         for user in self.web_pushers:
             if not self._user_has_camera_access(user, camera):
                 logger.debug(
-                    "Skipping notification for user %s - no access to camera %s",
+                    _NO_CAMERA_ACCESS_LOG,
                     user,
                     camera,
                 )
@@ -551,7 +553,7 @@ class WebPushClient(Communicator):
         for user in self.web_pushers:
             if not self._user_has_camera_access(user, camera):
                 logger.debug(
-                    "Skipping notification for user %s - no access to camera %s",
+                    _NO_CAMERA_ACCESS_LOG,
                     user,
                     camera,
                 )
@@ -586,7 +588,7 @@ class WebPushClient(Communicator):
         for user in self.web_pushers:
             if not self._user_has_camera_access(user, camera):
                 logger.debug(
-                    "Skipping notification for user %s - no access to camera %s",
+                    _NO_CAMERA_ACCESS_LOG,
                     user,
                     camera,
                 )

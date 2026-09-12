@@ -4,8 +4,6 @@ import asyncio
 import datetime
 import logging
 import os
-import random
-import string
 import threading
 import time
 from collections import defaultdict
@@ -38,6 +36,7 @@ from frigate.const import (
 from frigate.models import Recordings, ReviewSegment
 from frigate.record.cache_tracker import CacheFileTracker
 from frigate.review.types import SeverityEnum
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.services import get_video_properties
 
 logger = logging.getLogger(__name__)
@@ -546,7 +545,6 @@ class RecordingMaintainer(threading.Thread):
     def segment_stats(
         self, camera: str, start_time: datetime.datetime, end_time: datetime.datetime
     ) -> SegmentInfo:
-        video_frame_count = 0
         active_count = 0
         region_count = 0
         motion_count = 0
@@ -560,7 +558,6 @@ class RecordingMaintainer(threading.Thread):
             if frame[0] < start_time.timestamp():
                 continue
 
-            video_frame_count += 1
             active_count += len(
                 [
                     o
@@ -667,9 +664,7 @@ class RecordingMaintainer(threading.Thread):
 
                 os.remove(cache_path)
 
-                rand_id = "".join(
-                    random.choices(string.ascii_lowercase + string.digits, k=6)
-                )
+                rand_id = generate_id(6)
 
                 return {
                     Recordings.id.name: f"{start_time.timestamp()}-{rand_id}",
@@ -686,10 +681,10 @@ class RecordingMaintainer(threading.Thread):
                     Recordings.segment_size.name: segment_size,
                     Recordings.motion_heatmap.name: segment_info.motion_heatmap,
                 }
-        except Exception as e:
+        except Exception:
             logger.error(f"Unable to store recording segment {cache_path}")
             Path(cache_path).unlink(missing_ok=True)
-            logger.error(e)
+            logger.exception("Failed to synchronize recordings")
 
         # clear end_time cache
         self.end_time_cache.pop(cache_path, None)
@@ -774,11 +769,11 @@ class RecordingMaintainer(threading.Thread):
 
             try:
                 asyncio.run(self.move_files())
-            except Exception as e:
+            except Exception:
                 logger.error(
                     "Error occurred when attempting to maintain recording cache"
                 )
-                logger.error(e)
+                logger.exception("Failed to maintain recordings")
             duration = datetime.datetime.now().timestamp() - run_start
             wait_time = max(0, 5 - duration)
 

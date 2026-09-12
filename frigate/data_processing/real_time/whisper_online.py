@@ -11,6 +11,8 @@ import librosa
 import numpy as np
 import soundfile as sf
 
+_ABSTRACT_METHOD_ERROR = "must be implemented in the child class"
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,13 +56,13 @@ class ASRBase:
         self.model = self.load_model(modelsize, cache_dir, model_dir, device)
 
     def load_model(self, modelsize=None, cache_dir=None, model_dir=None, device="cpu"):
-        raise NotImplementedError("must be implemented in the child class")
+        raise NotImplementedError(_ABSTRACT_METHOD_ERROR)
 
     def transcribe(self, audio, init_prompt=""):
-        raise NotImplementedError("must be implemented in the child class")
+        raise NotImplementedError(_ABSTRACT_METHOD_ERROR)
 
     def use_vad(self):
-        raise NotImplementedError("must be implemented in the child class")
+        raise NotImplementedError(_ABSTRACT_METHOD_ERROR)
 
 
 class WhisperTimestampedASR(ASRBase):
@@ -145,7 +147,7 @@ class FasterWhisperASR(ASRBase):
 
         # tested: beam_size=5 is faster and better than 1 (on one 200 second document from En ESIC, min chunk 0.01)
         batched_model = BatchedInferencePipeline(model=self.model)
-        segments, info = batched_model.transcribe(
+        segments, _ = batched_model.transcribe(
             audio,
             language=self.original_language,
             initial_prompt=init_prompt,
@@ -416,26 +418,23 @@ class HypothesisBuffer:
         self.new = [(a, b, t) for a, b, t in new if a > self.last_commited_time - 0.1]
 
         if len(self.new) >= 1:
-            a, b, t = self.new[0]
-            if abs(a - self.last_commited_time) < 1:
-                if self.commited_in_buffer:
-                    # it's going to search for 1, 2, ..., 5 consecutive words (n-grams) that are identical in commited and new. If they are, they're dropped.
-                    cn = len(self.commited_in_buffer)
-                    nn = len(self.new)
-                    for i in range(1, min(min(cn, nn), 5) + 1):  # 5 is the maximum
-                        c = " ".join(
-                            [self.commited_in_buffer[-j][2] for j in range(1, i + 1)][
-                                ::-1
-                            ]
-                        )
-                        tail = " ".join(self.new[j - 1][2] for j in range(1, i + 1))
-                        if c == tail:
-                            words = []
-                            for j in range(i):
-                                words.append(repr(self.new.pop(0)))
-                            words_msg = " ".join(words)
-                            logger.debug(f"removing last {i} words: {words_msg}")
-                            break
+            a, _, _ = self.new[0]
+            if abs(a - self.last_commited_time) < 1 and self.commited_in_buffer:
+                # it's going to search for 1, 2, ..., 5 consecutive words (n-grams) that are identical in commited and new. If they are, they're dropped.
+                cn = len(self.commited_in_buffer)
+                nn = len(self.new)
+                for i in range(1, min(min(cn, nn), 5) + 1):  # 5 is the maximum
+                    c = " ".join(
+                        [self.commited_in_buffer[-j][2] for j in range(1, i + 1)][::-1]
+                    )
+                    tail = " ".join(self.new[j - 1][2] for j in range(1, i + 1))
+                    if c == tail:
+                        words = []
+                        for _ in range(i):
+                            words.append(repr(self.new.pop(0)))
+                        words_msg = " ".join(words)
+                        logger.debug(f"removing last {i} words: {words_msg}")
+                        break
 
     def flush(self):
         # returns commited chunk = the longest common prefix of 2 last inserts.
@@ -628,7 +627,7 @@ class OnlineASRProcessor:
         Returns: [(beg,end,"sentence 1"),...]
         """
 
-        cwords = [w for w in words]
+        cwords = list(words)
         t = " ".join(o[2] for o in cwords)
         s = self.tokenizer.split(t)
         out = []

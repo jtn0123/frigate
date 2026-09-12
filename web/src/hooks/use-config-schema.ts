@@ -66,7 +66,7 @@ export function extractSectionSchema(
         }
       }
     }
-  } else {
+  } else
     // For global level, get from root properties
     if (schemaObj.properties) {
       const props = schemaObj.properties;
@@ -83,7 +83,6 @@ export function extractSectionSchema(
         }
       }
     }
-  }
 
   if (!sectionDef) return null;
 

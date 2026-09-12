@@ -18,7 +18,7 @@ export default function NewReviewData({
   reviewItems,
   itemsToReview,
   pullLatestData,
-}: NewReviewDataProps) {
+}: Readonly<NewReviewDataProps>) {
   const { t } = useTranslation(["views/events"]);
   const hasUpdate = useMemo(() => {
     if (!reviewItems || !itemsToReview) {

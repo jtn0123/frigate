@@ -56,11 +56,6 @@ export const GLOBAL_ALLOWLIST: RegExp[] = [
   // Fix: add route handlers for /api/review and /api/review/** in api-mocker.ts.
   /500 Internal Server Error.*\/api\/review(\?|\/|$)/,
 
-  // TODO(real-bug): /api/event_ids is not mocked; the explore/search page
-  // fetches it to resolve event IDs for display.
-  // Fix: add route handler for /api/event_ids in api-mocker.ts.
-  /500 Internal Server Error.*\/api\/event_ids/,
-
   // TODO(real-bug): /api/sub_labels?split_joined=1 returns 500; the mock
   // registers "**/api/sub_labels" which may not match when a query string is
   // present, or route registration order causes the catch-all to win first.
