@@ -19,7 +19,7 @@ const LAST_SEEN_KEY = "frigateFork.lastSeenRelease";
 
 const LATEST = forkRelease(
   "0.18.0-rc2-20260913.3",
-  "### New\n\n- Kiosk mode for wall displays",
+  "### New\n\n- Kiosk mode for wall displays\n\n### Under the hood (1)\n\n- Ratchet the type checks",
   "c".repeat(40),
 );
 const MIDDLE = forkRelease(
@@ -85,6 +85,12 @@ test.describe("Update notices @high", () => {
     await expect(dialog.getByTestId("fork-update-howto")).toContainText(
       "docker compose pull",
     );
+
+    // Tooling-only lines start folded under "Under the hood".
+    const hood = dialog.getByTestId("fork-release-hood");
+    await expect(hood.getByText("Ratchet the type checks")).toBeHidden();
+    await hood.getByText("Under the hood (1)").click();
+    await expect(hood.getByText("Ratchet the type checks")).toBeVisible();
   });
 
   test("What's new shows once for each release the server moves to", async ({

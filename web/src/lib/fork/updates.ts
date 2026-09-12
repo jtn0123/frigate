@@ -96,6 +96,27 @@ export function releaseVersion(tag: string | null | undefined): string {
   return (tag ?? "").replace(/^fork\//, "");
 }
 
+// The heading the backend turns the folded "Under the hood" block into.
+const UNDER_THE_HOOD = /^### (Under the hood.*)$/m;
+
+/** Split notes into the main list and the tooling list the dialog folds. */
+export function splitUnderTheHood(notes: string): {
+  main: string;
+  hood: { title: string; body: string } | null;
+} {
+  const match = UNDER_THE_HOOD.exec(notes);
+  if (!match) {
+    return { main: notes, hood: null };
+  }
+  return {
+    main: notes.slice(0, match.index).trim(),
+    hood: {
+      title: match[1] ?? "",
+      body: notes.slice(match.index + match[0].length).trim(),
+    },
+  };
+}
+
 export function readLastSeen(): string | null {
   try {
     return globalThis.localStorage.getItem(LAST_SEEN_KEY);
