@@ -66,6 +66,7 @@ export class WsMocker {
           detectors: {},
           cpu_usages: {},
           gpu_usages: {},
+          processes: {},
           camera_fps: 15,
           process_fps: 15,
           skipped_fps: 0,

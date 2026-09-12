@@ -6,43 +6,18 @@
  * dialog that Save All opens.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import type { Page } from "@playwright/test";
 import { test, expect } from "../../fixtures/frigate-test";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const CONFIG_SCHEMA = JSON.parse(
-  readFileSync(
-    resolve(__dirname, "../../fixtures/mock-data/config-schema.json"),
-    "utf-8",
-  ),
-);
+import { installSettingsConfigRoutes } from "../../helpers/settings-config-routes";
+import { toggleSemanticSearchAndOpenSaveAll } from "../../helpers/settings-save-flow";
 
 const SEMANTIC_URL = "/settings?page=integrationSemanticSearch";
-
-async function installRoutes(page: Page) {
-  const saved: unknown[] = [];
-  await page.route("**/api/config/schema.json", (route) =>
-    route.fulfill({ json: CONFIG_SCHEMA }),
-  );
-  await page.route("**/api/config/set", async (route) => {
-    saved.push(route.request().postDataJSON());
-    await route.fulfill({ json: { success: true, require_restart: false } });
-  });
-  await page.route("**/api/config/raw_paths", (route) =>
-    route.fulfill({ json: {} }),
-  );
-  return { saved };
-}
 
 test.describe("Settings navigator @high", () => {
   test("search finds a section by title and jumps to it", async ({
     frigateApp,
   }) => {
     test.skip(frigateApp.isMobile, "Desktop search flow");
-    await installRoutes(frigateApp.page);
+    await installSettingsConfigRoutes(frigateApp.page);
     await frigateApp.goto(SEMANTIC_URL);
     const { page } = frigateApp;
 
@@ -69,7 +44,7 @@ test.describe("Settings navigator @high", () => {
     frigateApp,
   }) => {
     test.skip(frigateApp.isMobile, "Desktop search flow");
-    await installRoutes(frigateApp.page);
+    await installSettingsConfigRoutes(frigateApp.page);
     await frigateApp.goto(SEMANTIC_URL);
     const { page } = frigateApp;
 
@@ -88,7 +63,7 @@ test.describe("Settings navigator @high", () => {
     frigateApp,
   }) => {
     test.skip(frigateApp.isMobile, "Desktop rail only");
-    await installRoutes(frigateApp.page);
+    await installSettingsConfigRoutes(frigateApp.page);
     await frigateApp.goto("/settings?page=globalDetect");
     const { page } = frigateApp;
 
@@ -114,31 +89,11 @@ test.describe("Settings navigator @high", () => {
     frigateApp,
   }) => {
     test.skip(frigateApp.isMobile, "Desktop Save All header flow");
-    const { saved } = await installRoutes(frigateApp.page);
+    const { saved } = await installSettingsConfigRoutes(frigateApp.page);
     await frigateApp.goto(SEMANTIC_URL);
     const { page } = frigateApp;
-
-    const enabled = page.getByRole("switch", {
-      name: "Enable semantic search",
-    });
-    await expect(enabled).toBeVisible();
-    await enabled.click();
-    await expect(
-      page.getByText("You have unsaved changes").first(),
-    ).toBeVisible();
-
     // Save All only appears once a pending change lives outside the open page.
-    await page.getByTestId("settings-nav-search").fill("object detection");
-    await page
-      .getByTestId("settings-nav-results")
-      .locator('[data-section-key="globalDetect"]')
-      .click();
-    const saveAll = page.getByRole("button", { name: "Save All", exact: true });
-    await expect(saveAll).toBeVisible();
-    await saveAll.click();
-
-    const dialog = page.getByTestId("settings-review-dialog");
-    await expect(dialog).toBeVisible();
+    const { saveAll, dialog } = await toggleSemanticSearchAndOpenSaveAll(page);
     const change = dialog.getByTestId("settings-review-change");
     await expect(change).toHaveCount(1);
     await expect(change).toContainText("enabled");
@@ -163,7 +118,7 @@ test.describe("Settings navigator @high", () => {
     frigateApp,
   }) => {
     test.skip(!frigateApp.isMobile, "Mobile select only");
-    await installRoutes(frigateApp.page);
+    await installSettingsConfigRoutes(frigateApp.page);
     await frigateApp.goto(SEMANTIC_URL);
     const { page } = frigateApp;
 

@@ -56,14 +56,6 @@ export const GLOBAL_ALLOWLIST: RegExp[] = [
   // Fix: add route handlers for /api/review and /api/review/** in api-mocker.ts.
   /500 Internal Server Error.*\/api\/review(\?|\/|$)/,
 
-  // TODO(real-bug): /api/stats/history is mocked only for the Camera Health
-  // charts (keys=cameras.camera_fps,service.last_updated). The System General
-  // and Cameras graphs ask for other keys; fed the fixture's partial stats they
-  // crash the page ("Cannot convert undefined or null to object"), so those
-  // requests still 500.
-  // Fix: make the history mock keys-aware with complete fixture fields.
-  /500 Internal Server Error.*\/api\/stats\/history/,
-
   // TODO(real-bug): /api/event_ids is not mocked; the explore/search page
   // fetches it to resolve event IDs for display.
   // Fix: add route handler for /api/event_ids in api-mocker.ts.
