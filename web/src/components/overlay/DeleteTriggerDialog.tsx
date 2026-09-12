@@ -25,7 +25,7 @@ export default function DeleteTriggerDialog({
   isLoading,
   onCancel,
   onDelete,
-}: DeleteTriggerDialogProps) {
+}: Readonly<DeleteTriggerDialogProps>) {
   const { t } = useTranslation("views/settings");
 
   return (

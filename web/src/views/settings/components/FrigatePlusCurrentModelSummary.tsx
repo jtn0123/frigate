@@ -14,7 +14,7 @@ type FrigatePlusCurrentModelSummaryProps = {
 export default function FrigatePlusCurrentModelSummary({
   plusModel,
   action,
-}: FrigatePlusCurrentModelSummaryProps) {
+}: Readonly<FrigatePlusCurrentModelSummaryProps>) {
   const { t } = useTranslation("views/settings");
 
   const title = action ? (

@@ -80,4 +80,4 @@ class AudioTranscriptionModelRunner:
             file_name = os.path.basename(path)
             ModelDownloader.download_from_url(self.model_files[file_name], path)
         except Exception as e:
-            logger.error(f"Failed to download {path}: {e}")
+            logger.exception(f"Failed to download {path}: {e}")

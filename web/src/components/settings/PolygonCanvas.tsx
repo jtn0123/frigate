@@ -35,7 +35,7 @@ export function PolygonCanvas({
   selectedZoneMask,
   activeLine,
   snapPoints,
-}: PolygonCanvasProps) {
+}: Readonly<PolygonCanvasProps>) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [image, setImage] = useState<HTMLImageElement | undefined>();
   const imageRef = useRef<Konva.Image | null>(null);

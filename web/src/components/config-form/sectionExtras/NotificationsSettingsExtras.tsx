@@ -10,7 +10,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { StatusBarMessagesContext } from "@/context/statusbar-provider";
+import { StatusBarMessagesContext } from "@/context/statusbar-context";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
@@ -70,7 +70,7 @@ import {
 
 export default function NotificationsSettingsExtras({
   formContext,
-}: SectionRendererProps) {
+}: Readonly<SectionRendererProps>) {
   const { t } = useTranslation([
     "views/settings",
     "common",
@@ -742,7 +742,7 @@ type CameraNotificationSwitchProps = {
 export function CameraNotificationSwitch({
   config,
   camera,
-}: CameraNotificationSwitchProps) {
+}: Readonly<CameraNotificationSwitchProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { payload: notificationState, send: sendNotification } =
     useNotifications(camera);

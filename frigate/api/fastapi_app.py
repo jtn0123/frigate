@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+from contextlib import suppress
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -143,11 +144,20 @@ def create_fastapi_app(
     @app.on_event("startup")
     async def startup():
         logger.info("FastAPI started")
-        asyncio.create_task(
+        app.state.replay_watchdog_task = asyncio.create_task(
             debug_replay_auto_stop_watchdog(
                 replay_manager, frigate_config, config_publisher
             )
         )
+
+    @app.on_event("shutdown")
+    async def shutdown():
+        task = getattr(app.state, "replay_watchdog_task", None)
+        if task is not None:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            app.state.replay_watchdog_task = None
 
     # Rate limiter (used for login endpoint)
     if frigate_config.auth.failed_login_rate_limit is None:

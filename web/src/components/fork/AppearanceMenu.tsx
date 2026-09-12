@@ -126,7 +126,6 @@ export default function AppearanceMenu() {
               </DialogDescription>
             </>
           )}
-          <span tabIndex={0} className="sr-only" />
           <SectionLabel className="text-xs text-muted-foreground">
             {t("appearance.density.label")}
           </SectionLabel>

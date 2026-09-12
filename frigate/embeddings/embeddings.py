@@ -605,7 +605,7 @@ class Embeddings:
                 f"Writing thumbnail for trigger with data {event_id} in {camera}."
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Failed to write thumbnail for trigger with data {event_id} in {camera}: {e}"
             )
 
@@ -617,7 +617,7 @@ class Embeddings:
                 f"Deleted thumbnail for trigger with data {event_id} in {camera}."
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Failed to delete thumbnail for trigger with data {event_id} in {camera}: {e}"
             )
 
@@ -652,7 +652,7 @@ class Embeddings:
                     ) as f:
                         thumbnail = f.read()
                 except Exception as e:
-                    logger.error(
+                    logger.exception(
                         f"Failed to read thumbnail for trigger {trigger_name} with ID {trigger.data}: {e}"
                     )
                     return b""

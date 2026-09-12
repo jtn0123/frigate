@@ -35,7 +35,7 @@ export default function TextEntry({
   regexErrorMessage = "Input does not match the required format",
   forbiddenPattern,
   forbiddenErrorMessage = "Input contains invalid characters",
-}: TextEntryProps) {
+}: Readonly<TextEntryProps>) {
   const formSchema = z.object({
     text: z
       .string()

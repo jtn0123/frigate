@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useContext, useRef } from "react";
 import { get as getData, set as setData, del as delData } from "idb-keyval";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 
 type useUserPersistenceReturn<S> = [
   value: S | undefined,

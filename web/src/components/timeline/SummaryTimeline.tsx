@@ -1,4 +1,7 @@
+import { timelineKeyValue } from "@/utils/timelineKeys";
+import { useTranslation } from "react-i18next";
 import React, {
+  useId,
   useRef,
   useState,
   useMemo,
@@ -30,6 +33,11 @@ export function SummaryTimeline({
   events,
   severityType,
 }: SummaryTimelineProps) {
+  const { t } = useTranslation("fork");
+  const generatedTimelineId = useId();
+  const [controlledTimelineId, setControlledTimelineId] =
+    useState(generatedTimelineId);
+  const [scrollPercent, setScrollPercent] = useState(0);
   const summaryTimelineRef = useRef<HTMLDivElement>(null);
   const visibleSectionRef = useRef<HTMLDivElement>(null);
 
@@ -129,6 +137,18 @@ export function SummaryTimeline({
     segmentDuration,
   ]);
 
+  useEffect(() => {
+    const content = reviewTimelineRef.current;
+    if (!content) return;
+    const assigned = !content.id;
+    if (assigned) content.id = generatedTimelineId;
+    setControlledTimelineId(content.id);
+    return () => {
+      if (assigned && content.id === generatedTimelineId)
+        content.removeAttribute("id");
+    };
+  }, [reviewTimelineRef, generatedTimelineId]);
+
   const setVisibleSectionStyles = useCallback(() => {
     if (
       reviewTimelineRef.current &&
@@ -144,6 +164,10 @@ export function SummaryTimeline({
       } = content;
       const { clientHeight: summaryTimelineVisibleHeight } = summary;
 
+      const maxScroll = reviewTimelineFullHeight - reviewTimelineVisibleHeight;
+      setScrollPercent(
+        maxScroll > 0 ? Math.round((scrolled / maxScroll) * 100) : 0,
+      );
       visibleSectionRef.current.style.top = `${
         summaryTimelineVisibleHeight * (scrolled / reviewTimelineFullHeight)
       }px`;
@@ -188,6 +212,7 @@ export function SummaryTimeline({
     (
       e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
     ) => {
+      if (visibleSectionRef.current?.contains(e.target as Node)) return;
       // prevent default only for mouse events
       // to avoid chrome/android issues
       if (e.nativeEvent instanceof MouseEvent) {
@@ -197,12 +222,12 @@ export function SummaryTimeline({
 
       let clientY;
       if ("TouchEvent" in window && e.nativeEvent instanceof TouchEvent) {
-        clientY = e.nativeEvent.touches[0].clientY;
+        clientY = e.nativeEvent.changedTouches.item(0)?.clientY;
       } else if (e.nativeEvent instanceof MouseEvent) {
         clientY = e.nativeEvent.clientY;
       }
       if (
-        clientY &&
+        clientY !== undefined &&
         reviewTimelineRef.current &&
         summaryTimelineRef.current &&
         visibleSectionRef.current
@@ -346,16 +371,55 @@ export function SummaryTimeline({
     };
   }, [handleMouseMove, handleMouseUp, isDragging]);
 
+  const handleScrollKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const content = reviewTimelineRef.current;
+    if (!content || event.target !== event.currentTarget) return;
+    // Scrolling down moves toward the older footage displayed at the bottom.
+    const scrollKeys: Record<string, string> = {
+      ArrowDown: "ArrowRight",
+      ArrowUp: "ArrowLeft",
+      PageDown: "PageUp",
+      PageUp: "PageDown",
+    };
+    const key = scrollKeys[event.key] ?? event.key;
+    const next = timelineKeyValue(
+      key,
+      content.scrollTop,
+      0,
+      Math.max(0, content.scrollHeight - content.clientHeight),
+      40,
+    );
+    if (next === undefined) return;
+    event.preventDefault();
+    content.scrollTo({ top: next });
+  };
+
   return (
     <div
       className={`no-scrollbar relative h-full select-none overflow-hidden border-l-[1px] border-neutral-700 bg-secondary`}
       role="scrollbar"
+      aria-controls={controlledTimelineId}
+      aria-label={t("timelineAccessibility.overview")}
+      aria-orientation="vertical"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={scrollPercent}
+      tabIndex={0}
+      onKeyDown={handleScrollKey}
+      onClick={timelineClick}
+      onTouchEnd={timelineClick}
+      onMouseDown={(event) => {
+        if (visibleSectionRef.current?.contains(event.target as Node))
+          handleMouseDown(event);
+      }}
+      onTouchStart={(event) => {
+        if (visibleSectionRef.current?.contains(event.target as Node))
+          handleMouseDown(event);
+      }}
     >
       <div
         ref={summaryTimelineRef}
         className="relative z-10 flex h-full flex-col-reverse"
-        onClick={timelineClick}
-        onTouchEnd={timelineClick}
       >
         {consolidatedSegments.map((segment, index) => (
           <SummarySegment
@@ -367,8 +431,6 @@ export function SummaryTimeline({
       </div>
       <div
         ref={visibleSectionRef}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleMouseDown}
         className={`absolute z-20 w-full touch-none bg-primary/30 ${
           isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}

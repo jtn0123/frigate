@@ -29,7 +29,9 @@ export type ScrollFollowRenderProps = {
 
 const SCROLL_BUFFER = 5;
 
-export default function EnhancedScrollFollow(props: ScrollFollowProps) {
+export default function EnhancedScrollFollow(
+  props: Readonly<ScrollFollowProps>,
+) {
   const followRef = useRef(props.startFollowing || false);
   const prevScrollTopRef = useRef<number | undefined>(undefined);
 

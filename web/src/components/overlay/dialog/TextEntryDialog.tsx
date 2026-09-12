@@ -41,7 +41,7 @@ export default function TextEntryDialog({
   regexErrorMessage,
   forbiddenPattern,
   forbiddenErrorMessage,
-}: TextEntryDialogProps) {
+}: Readonly<TextEntryDialogProps>) {
   const { t } = useTranslation("common");
 
   return (

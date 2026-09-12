@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import math
 import os
 import re
 import resource
@@ -876,8 +877,7 @@ def get_nvidia_gpu_stats() -> dict[int, dict]:
             }
     except Exception:
         logger.debug("Unable to read NVIDIA GPU stats", exc_info=True)
-    finally:
-        return results
+    return results
 
 
 def get_jetson_stats() -> dict[int, dict] | None:
@@ -1059,6 +1059,8 @@ def parse_keyframe_packets(output: str) -> tuple[list[float], float | None]:
             pts = float(parts[0])
         except ValueError:
             continue
+        if not math.isfinite(pts):
+            continue
         if max_pts is None or pts > max_pts:
             max_pts = pts
         if "K" in parts[1]:
@@ -1142,6 +1144,7 @@ async def analyze_record_keyframes(
         clean_url,
     ]
 
+    proc: asyncio.subprocess.Process | None = None
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -1151,10 +1154,21 @@ async def analyze_record_keyframes(
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=window + 15)
     except TimeoutError:
         logger.warning("Keyframe probe timed out for record stream")
-        proc.kill()
         return classify_keyframe_gaps([], segment_time)
     except OSError as err:
-        logger.error("Keyframe probe failed: %s", err)
+        logger.exception("Keyframe probe failed: %s", err)
+        return classify_keyframe_gaps([], segment_time)
+    finally:
+        # Cancellation and timeout must not leave the camera probe running.
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass  # The child exited between the status check and kill.
+            await proc.communicate()
+
+    if proc.returncode != 0:
+        logger.warning("Keyframe probe exited unsuccessfully")
         return classify_keyframe_gaps([], segment_time)
 
     keyframe_pts, max_pts = parse_keyframe_packets(stdout.decode("utf-8", "replace"))
@@ -1199,8 +1213,7 @@ def get_nvidia_driver_info() -> dict[str, Any]:
             }
     except Exception:
         logger.debug("Unable to read NVIDIA driver info", exc_info=True)
-    finally:
-        return results
+    return results
 
 
 def auto_detect_hwaccel() -> str:

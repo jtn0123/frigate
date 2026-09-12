@@ -36,7 +36,7 @@ export default function Step4Validation({
   onSave,
   onBack,
   isLoading = false,
-}: Step4ValidationProps) {
+}: Readonly<Step4ValidationProps>) {
   const { t } = useTranslation(["views/settings"]);
   const [isValidating, setIsValidating] = useState(false);
   const [testingStreams, setTestingStreams] = useState<Set<string>>(new Set());
@@ -524,7 +524,7 @@ function StreamIssues({
   stream,
   measuredBandwidth,
   wizardData,
-}: StreamIssuesProps) {
+}: Readonly<StreamIssuesProps>) {
   const { t } = useTranslation(["views/settings"]);
 
   const issues = useMemo(() => {
@@ -719,7 +719,7 @@ type BandwidthDisplayProps = {
 function BandwidthDisplay({
   streamId,
   measuredBandwidth,
-}: BandwidthDisplayProps) {
+}: Readonly<BandwidthDisplayProps>) {
   const { t } = useTranslation(["views/settings"]);
   const streamBandwidth = measuredBandwidth.get(streamId);
 
@@ -757,7 +757,7 @@ function StreamPreview({
   stream,
   onBandwidthUpdate,
   onStreamRegistered,
-}: StreamPreviewProps) {
+}: Readonly<StreamPreviewProps>) {
   const { t } = useTranslation(["views/settings"]);
   const [streamId, setStreamId] = useState(`wizard_${stream.id}_${Date.now()}`);
   const [registered, setRegistered] = useState(false);

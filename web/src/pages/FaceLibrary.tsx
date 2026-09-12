@@ -516,7 +516,7 @@ function LibrarySelector({
   setPageToggle,
   onDelete,
   onRename,
-}: LibrarySelectorProps) {
+}: Readonly<LibrarySelectorProps>) {
   const { t } = useTranslation(["views/faceLibrary"]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [renameFace, setRenameFace] = useState<string | null>(null);
@@ -717,7 +717,7 @@ function TrainingGrid({
   onClickFaces,
   onAddFace,
   onRefresh,
-}: TrainingGridProps) {
+}: Readonly<TrainingGridProps>) {
   const { t } = useTranslation(["views/faceLibrary"]);
 
   // face data
@@ -848,7 +848,7 @@ function FaceAttemptGroup({
   selectedFaces,
   onClickFaces,
   onRefresh,
-}: FaceAttemptGroupProps) {
+}: Readonly<FaceAttemptGroupProps>) {
   const { t } = useTranslation(["views/faceLibrary", "views/explore"]);
 
   // data
@@ -1055,7 +1055,7 @@ function FaceGrid({
   onClickFaces,
   onDelete,
   onReclassify,
-}: FaceGridProps) {
+}: Readonly<FaceGridProps>) {
   const { t } = useTranslation(["views/faceLibrary"]);
 
   const sortedFaces = useMemo(

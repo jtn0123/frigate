@@ -608,7 +608,7 @@ export function SpeedFilterContent({
   minSpeed,
   maxSpeed,
   setSpeedRange,
-}: SpeedFilterContentProps) {
+}: Readonly<SpeedFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
     <div className="overflow-x-hidden">
@@ -678,7 +678,7 @@ export function SnapshotClipFilterContent({
   hasClip,
   submittedToFrigatePlus,
   setSnapshotClip,
-}: SnapshotClipContentProps) {
+}: Readonly<SnapshotClipContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   const [isSnapshotFilterActive, setIsSnapshotFilterActive] = useState(
     hasSnapshot !== undefined,
@@ -912,7 +912,7 @@ export function RecognizedLicensePlatesFilterContent({
   allRecognizedLicensePlates,
   recognizedLicensePlates,
   setRecognizedLicensePlates,
-}: RecognizedLicensePlatesFilterContentProps) {
+}: Readonly<RecognizedLicensePlatesFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
 
   const [selectedRecognizedLicensePlates, setSelectedRecognizedLicensePlates] =
@@ -1116,7 +1116,7 @@ export function AttributeFilterContent({
   allAttributes,
   attributes,
   setAttributes,
-}: AttributeFilterContentProps) {
+}: Readonly<AttributeFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   const sortedAttributes = useMemo(
     () =>

@@ -216,7 +216,7 @@ export function GroupedClassificationCard({
   noClassificationLabel = "details.none",
   onClick,
   children,
-}: GroupedClassificationCardProps) {
+}: Readonly<GroupedClassificationCardProps>) {
   const navigate = useNavigate();
   const { t } = useTranslation(["views/explore", i18nLibrary]);
   const [detailOpen, setDetailOpen] = useState(false);

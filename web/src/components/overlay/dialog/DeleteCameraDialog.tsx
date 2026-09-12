@@ -36,7 +36,7 @@ export default function DeleteCameraDialog({
   cameras,
   onClose,
   onDeleted,
-}: DeleteCameraDialogProps) {
+}: Readonly<DeleteCameraDialogProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const [phase, setPhase] = useState<"select" | "confirm">("select");
   const [selectedCamera, setSelectedCamera] = useState<string>("");

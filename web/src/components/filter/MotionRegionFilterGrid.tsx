@@ -17,7 +17,7 @@ export default function MotionRegionFilterGrid({
   camera,
   selectedCells,
   onCellsChange,
-}: MotionRegionFilterGridProps) {
+}: Readonly<MotionRegionFilterGridProps>) {
   const paintingRef = useRef<{ active: boolean; adding: boolean }>({
     active: false,
     adding: true,

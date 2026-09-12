@@ -32,7 +32,7 @@ export default function RestartDialog({
   isOpen,
   onClose,
   onRestart,
-}: RestartDialogProps) {
+}: Readonly<RestartDialogProps>) {
   const { t } = useTranslation("components/dialog");
   const [restartDialogOpen, setRestartDialogOpen] = useState(isOpen);
   const [restartingSheetOpen, setRestartingSheetOpen] = useState(false);

@@ -51,7 +51,7 @@ export default function Step3ChooseExamples({
   initialData,
   onClose,
   onBack,
-}: Step3ChooseExamplesProps) {
+}: Readonly<Step3ChooseExamplesProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(

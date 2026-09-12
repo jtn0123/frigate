@@ -11,7 +11,10 @@ type SettingsGroupCardProps = {
   children: ReactNode;
 };
 
-export function SettingsGroupCard({ title, children }: SettingsGroupCardProps) {
+export function SettingsGroupCard({
+  title,
+  children,
+}: Readonly<SettingsGroupCardProps>) {
   return (
     <div className="space-y-4 rounded-lg border border-border/70 bg-card/30 p-4">
       <div className="border-b border-border/60 pb-4 font-semibold text-primary-variant">
@@ -32,7 +35,7 @@ export function SplitCardRow({
   label,
   description,
   content,
-}: SplitCardRowProps) {
+}: Readonly<SplitCardRowProps>) {
   return (
     <div className={SPLIT_ROW_CLASS_NAME}>
       <div className="space-y-1.5">

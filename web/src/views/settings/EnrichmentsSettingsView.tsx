@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Link } from "react-router-dom";
 import { LuExternalLink } from "react-icons/lu";
-import { StatusBarMessagesContext } from "@/context/statusbar-provider";
+import { StatusBarMessagesContext } from "@/context/statusbar-context";
 import { wrapAsync } from "@/utils/promise";
 import {
   Select,
@@ -57,7 +57,7 @@ type EnrichmentsSettingsViewProps = {
 };
 export default function EnrichmentsSettingsView({
   setUnsavedChanges,
-}: EnrichmentsSettingsViewProps) {
+}: Readonly<EnrichmentsSettingsViewProps>) {
   const { t } = useTranslation("views/settings");
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config, mutate: updateConfig } =

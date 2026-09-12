@@ -104,7 +104,7 @@ export default function MotionSearchView({
   timeRange,
   timezone,
   onBack,
-}: MotionSearchViewProps) {
+}: Readonly<MotionSearchViewProps>) {
   const { t } = useTranslation([
     "views/motionSearch",
     "common",
@@ -1615,7 +1615,7 @@ function SearchResultItem({
   timezone,
   timestampFormat,
   onClick,
-}: SearchResultItemProps) {
+}: Readonly<SearchResultItemProps>) {
   const { t } = useTranslation(["views/motionSearch"]);
   const formattedTime = useFormattedTimestamp(
     result.timestamp,

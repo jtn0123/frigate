@@ -36,7 +36,7 @@ export default function Step2ConfigureData({
   selectedCamera,
   onNext,
   onBack,
-}: Step2ConfigureDataProps) {
+}: Readonly<Step2ConfigureDataProps>) {
   const { t } = useTranslation("views/settings");
 
   const formSchema = z.object({

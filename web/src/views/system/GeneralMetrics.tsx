@@ -33,7 +33,7 @@ export default function GeneralMetrics({
   lastUpdated,
   setLastUpdated,
   isActive,
-}: GeneralMetricsProps) {
+}: Readonly<GeneralMetricsProps>) {
   // extra info
   const { t } = useTranslation(["views/system"]);
   const [showVainfo, setShowVainfo] = useState(false);

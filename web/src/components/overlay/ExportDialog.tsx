@@ -107,7 +107,7 @@ export default function ExportDialog({
   setRange,
   setMode,
   setShowPreview,
-}: ExportDialogProps) {
+}: Readonly<ExportDialogProps>) {
   const { t } = useTranslation(["components/dialog"]);
   const [name, setName] = useState("");
   const [selectedCaseId, setSelectedCaseId] = useState<string | undefined>();
@@ -423,7 +423,7 @@ export function ExportContent({
   setMode,
   onSelectFromTimeline,
   onCancel,
-}: ExportContentProps) {
+}: Readonly<ExportContentProps>) {
   const { t } = useTranslation(["components/dialog"]);
   const isAdmin = useIsAdmin();
   const [selectedOption, setSelectedOption] = useState<ExportOption>("1");

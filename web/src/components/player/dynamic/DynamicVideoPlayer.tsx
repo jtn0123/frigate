@@ -75,7 +75,7 @@ export default function DynamicVideoPlayer({
   toggleFullscreen,
   containerRef,
   transformedOverlay,
-}: DynamicVideoPlayerProps) {
+}: Readonly<DynamicVideoPlayerProps>) {
   const { t } = useTranslation(["components/player", "views/live"]);
   const apiHost = useApiHost();
   const { data: config } = useSWR<FrigateConfig>("config");

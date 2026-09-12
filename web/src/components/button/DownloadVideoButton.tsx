@@ -22,7 +22,7 @@ export function DownloadVideoButton({
   camera,
   startTime,
   className,
-}: DownloadVideoButtonProps) {
+}: Readonly<DownloadVideoButtonProps>) {
   const { t } = useTranslation(["components/input"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const locale = useDateLocale();

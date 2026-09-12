@@ -16,7 +16,9 @@ interface AudioLevelGraphProps {
   cameraName: string;
 }
 
-export function AudioLevelGraph({ cameraName }: AudioLevelGraphProps) {
+export function AudioLevelGraph({
+  cameraName,
+}: Readonly<AudioLevelGraphProps>) {
   const [audioData, setAudioData] = useState<
     { timestamp: number; rms: number; dBFS: number }[]
   >([]);

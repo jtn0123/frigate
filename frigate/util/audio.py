@@ -106,7 +106,7 @@ def get_audio_from_recording(
             logger.error(f"Failed to extract audio: {process.stderr.decode()}")
             return None
     except Exception as e:
-        logger.error(f"Error extracting audio from recordings: {e}")
+        logger.exception(f"Error extracting audio from recordings: {e}")
         return None
     finally:
         try:

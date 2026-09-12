@@ -44,7 +44,7 @@ export default function EditRoleCamerasDialog({
   currentCameras,
   onSave,
   onCancel,
-}: EditRoleCamerasOverlayProps) {
+}: Readonly<EditRoleCamerasOverlayProps>) {
   const { t } = useTranslation(["views/settings"]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 

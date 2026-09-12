@@ -28,7 +28,7 @@ export default function JSMpegPlayer({
   useWebGL = false,
   setStats,
   onPlaying,
-}: JSMpegPlayerProps) {
+}: Readonly<JSMpegPlayerProps>) {
   const url = `${baseUrl.replace(/^http/, "ws")}live/jsmpeg/${camera}`;
   const videoRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

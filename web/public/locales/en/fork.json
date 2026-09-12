@@ -247,5 +247,10 @@
     "checking": "Checking...",
     "checkFailed": "Could not check for updates",
     "close": "Close"
+  },
+  "timelineAccessibility": {
+    "exportStart": "Export start time",
+    "exportEnd": "Export end time",
+    "overview": "Timeline overview"
   }
 }

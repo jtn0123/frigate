@@ -70,7 +70,7 @@ def detect_hailo_arch():
         logger.error("Inference error: Could not determine Hailo architecture.")
         return None
     except Exception as e:
-        logger.error(f"Inference error: {e}")
+        logger.exception(f"Inference error: {e}")
         return None
 
 
@@ -261,7 +261,7 @@ class HailoDetector(DetectionApi):
             )
             self.inference_thread.start()
         except Exception as e:
-            logger.error(f"[INIT] Failed to initialize HailoAsyncInference: {e}")
+            logger.exception(f"[INIT] Failed to initialize HailoAsyncInference: {e}")
             raise
 
     def set_path_and_url(self, path: str = None):
@@ -399,7 +399,7 @@ class HailoDetector(DetectionApi):
                     self.inference_engine.target.release()
                 logger.debug("Hailo VDevice released successfully")
         except Exception as e:
-            logger.error(f"Failed to close Hailo device: {e}")
+            logger.exception(f"Failed to close Hailo device: {e}")
             raise
 
     def __del__(self):

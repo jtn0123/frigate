@@ -12,9 +12,7 @@ import httpx
 import requests
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
-from filelock import FileLock, Timeout
 from onvif import ONVIFCamera, ONVIFError
-from ruamel.yaml import YAML
 from zeep.exceptions import Fault, TransportError
 from zeep.transports import AsyncTransport
 
@@ -25,19 +23,14 @@ from frigate.api.auth import (
     require_go2rtc_stream_access,
     require_role,
 )
-from frigate.api.config_util import swap_runtime_config
+from frigate.api.camera_config import remove_camera_from_config
 from frigate.api.defs.request.app_body import CameraSetBody
 from frigate.api.defs.tags import Tags
 from frigate.config import FrigateConfig
-from frigate.config.camera.updater import (
-    CameraConfigUpdateEnum,
-    CameraConfigUpdateTopic,
-)
 from frigate.config.env import substitute_frigate_vars
 from frigate.models import User
 from frigate.util.builtin import clean_camera_user_pass, get_record_segment_time
 from frigate.util.camera_cleanup import cleanup_camera_db, cleanup_camera_files
-from frigate.util.config import find_config_file
 from frigate.util.image import run_ffmpeg_snapshot
 from frigate.util.services import (
     analyze_record_keyframes,
@@ -123,7 +116,7 @@ def go2rtc_camera_stream(request: Request, stream_name: str):
             },
         )
     except requests.RequestException as e:
-        logger.error("Error communicating with go2rtc: %s", e)
+        logger.exception("Error communicating with go2rtc: %s", e)
         return JSONResponse(
             content=({"success": False, "message": "Error fetching stream data"}),
             status_code=500,
@@ -157,7 +150,7 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
     """Add or update a go2rtc stream configuration."""
     if src and is_restricted_go2rtc_source(src):
         logger.warning(
-            "Rejected go2rtc stream '%s' with restricted source type (echo/expr/exec)",
+            "Rejected go2rtc stream %r with restricted source type (echo/expr/exec)",
             stream_name,
         )
         return JSONResponse(
@@ -178,7 +171,7 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
 
             if is_restricted_go2rtc_source(resolved_src):
                 logger.warning(
-                    "Rejected go2rtc stream '%s' with restricted source type (echo/expr/exec)",
+                    "Rejected go2rtc stream %r with restricted source type (echo/expr/exec)",
                     stream_name,
                 )
                 return JSONResponse(
@@ -197,7 +190,11 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
             timeout=10,
         )
         if not r.ok:
-            logger.error(f"Failed to add go2rtc stream {stream_name}: {r.text}")
+            logger.error(
+                "Failed to add go2rtc stream %s: %s",
+                repr(stream_name).replace("\r", "_").replace("\n", "_"),
+                repr(r.text).replace("\r", "_").replace("\n", "_"),
+            )
             return JSONResponse(
                 content=(
                     {"success": False, "message": f"Failed to add stream: {r.text}"}
@@ -208,7 +205,7 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
             content={"success": True, "message": "Stream added successfully"}
         )
     except requests.RequestException as e:
-        logger.error(f"Error communicating with go2rtc: {e}")
+        logger.exception(f"Error communicating with go2rtc: {e}")
         return JSONResponse(
             content=(
                 {
@@ -232,7 +229,11 @@ def go2rtc_delete_stream(stream_name: str):
             timeout=10,
         )
         if not r.ok:
-            logger.error(f"Failed to delete go2rtc stream {stream_name}: {r.text}")
+            logger.error(
+                "Failed to delete go2rtc stream %s: %s",
+                repr(stream_name).replace("\r", "_").replace("\n", "_"),
+                repr(r.text).replace("\r", "_").replace("\n", "_"),
+            )
             return JSONResponse(
                 content=(
                     {"success": False, "message": f"Failed to delete stream: {r.text}"}
@@ -243,7 +244,7 @@ def go2rtc_delete_stream(stream_name: str):
             content={"success": True, "message": "Stream deleted successfully"}
         )
     except requests.RequestException as e:
-        logger.error(f"Error communicating with go2rtc: {e}")
+        logger.exception(f"Error communicating with go2rtc: {e}")
         return JSONResponse(
             content=(
                 {
@@ -1131,19 +1132,34 @@ async def onvif_probe(
         return JSONResponse(content=result)
 
     except ONVIFError as e:
-        logger.warning(f"ONVIF error probing {host}:{port}: {e}")
+        logger.warning(
+            "ONVIF error probing %s:%s: %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "ONVIF error"},
             status_code=400,
         )
     except (Fault, TransportError) as e:
-        logger.warning(f"Connection error probing {host}:{port}: {e}")
+        logger.warning(
+            "Connection error probing %s:%s: %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "Connection error"},
             status_code=503,
         )
     except Exception as e:
-        logger.warning(f"Error probing ONVIF device at {host}:{port}, {e}")
+        logger.warning(
+            "Error probing ONVIF device at %s:%s, %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "Probe failed"},
             status_code=500,
@@ -1178,113 +1194,9 @@ async def delete_camera(
         camera_name: Name of the camera to delete
         delete_exports: Whether to also delete exports for this camera
     """
-    frigate_config: FrigateConfig = request.app.frigate_config
-
-    if camera_name not in frigate_config.cameras:
-        return JSONResponse(
-            content={
-                "success": False,
-                "message": f"Camera {camera_name} not found",
-            },
-            status_code=404,
-        )
-
-    old_camera_config = frigate_config.cameras[camera_name]
-    config_file = find_config_file()
-    lock = FileLock(f"{config_file}.lock", timeout=5)
-
-    try:
-        with lock:
-            with open(config_file) as f:
-                old_raw_config = f.read()
-
-            try:
-                yaml = YAML()
-                yaml.indent(mapping=2, sequence=4, offset=2)
-
-                with open(config_file) as f:
-                    data = yaml.load(f)
-
-                # Remove camera from config
-                if "cameras" in data and camera_name in data["cameras"]:
-                    del data["cameras"][camera_name]
-
-                # Remove camera from auth roles
-                auth = data.get("auth", {})
-                if auth and "roles" in auth:
-                    empty_roles = []
-                    for role_name, cameras_list in auth["roles"].items():
-                        if (
-                            isinstance(cameras_list, list)
-                            and camera_name in cameras_list
-                        ):
-                            cameras_list.remove(camera_name)
-                            # Custom roles can't be empty; mark for removal
-                            if not cameras_list and role_name not in (
-                                "admin",
-                                "viewer",
-                            ):
-                                empty_roles.append(role_name)
-                    for role_name in empty_roles:
-                        del auth["roles"][role_name]
-
-                with open(config_file, "w") as f:
-                    yaml.dump(data, f)
-
-                with open(config_file) as f:
-                    new_raw_config = f.read()
-
-                try:
-                    config = FrigateConfig.parse(new_raw_config)
-                except Exception:
-                    with open(config_file, "w") as f:
-                        f.write(old_raw_config)
-                    logger.exception(
-                        "Config error after removing camera %s",
-                        camera_name,
-                    )
-                    return JSONResponse(
-                        content={
-                            "success": False,
-                            "message": "Error parsing config after camera removal",
-                        },
-                        status_code=400,
-                    )
-            except Exception as e:
-                logger.error(
-                    "Error updating config to remove camera %s: %s", camera_name, e
-                )
-                return JSONResponse(
-                    content={
-                        "success": False,
-                        "message": "Error updating config",
-                    },
-                    status_code=500,
-                )
-
-            # rebind every collaborator to the new config and re-layer runtime
-            # toggles for the surviving cameras, same as /api/config/set
-            swap_runtime_config(request.app, config)
-
-            # drop the deleted camera's persisted overrides so a camera later
-            # added under the same name doesn't inherit them
-            if request.app.dispatcher is not None:
-                request.app.dispatcher.clear_runtime_state_for_camera(camera_name)
-
-            # Publish removal to stop ffmpeg processes and clean up runtime state
-            request.app.config_publisher.publish_update(
-                CameraConfigUpdateTopic(CameraConfigUpdateEnum.remove, camera_name),
-                old_camera_config,
-            )
-
-    except Timeout:
-        return JSONResponse(
-            content={
-                "success": False,
-                "message": "Another process is currently updating the config",
-            },
-            status_code=409,
-        )
+    error = await asyncio.to_thread(remove_camera_from_config, request.app, camera_name)
+    if error is not None:
+        return error
 
     # Clean up database entries
     counts, export_paths = await asyncio.to_thread(

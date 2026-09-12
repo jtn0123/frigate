@@ -41,13 +41,13 @@ export default function PtzControlPanel({
   enabled,
   clickOverlay,
   setClickOverlay,
-}: {
+}: Readonly<{
   className?: string;
   camera: string;
   enabled: boolean;
   clickOverlay: boolean;
   setClickOverlay: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
+}>) {
   const { t } = useTranslation(["views/live"]);
   const { data: ptz } = useSWR<CameraPtzInfo>(
     enabled ? `${camera}/ptz/info` : null,

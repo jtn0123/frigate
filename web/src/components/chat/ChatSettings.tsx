@@ -29,7 +29,7 @@ export default function ChatSettings({
   setShowStats,
   autoScroll,
   setAutoScroll,
-}: ChatSettingsProps) {
+}: Readonly<ChatSettingsProps>) {
   const { t } = useTranslation(["views/chat"]);
   const [open, setOpen] = useState(false);
 

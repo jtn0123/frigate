@@ -95,7 +95,7 @@ export function DateRangePicker({
   onReset,
   showCompare = true,
   weekStartsOn = 0,
-}: DateRangePickerProps) {
+}: Readonly<DateRangePickerProps>) {
   const [isOpen, setIsOpen] = useState(false);
 
   const [range, setRange] = useState<DateRange>({

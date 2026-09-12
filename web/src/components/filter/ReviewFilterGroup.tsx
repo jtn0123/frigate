@@ -73,7 +73,7 @@ export default function ReviewFilterGroup({
   setShowReviewed,
   onUpdateFilter,
   setMotionOnly,
-}: ReviewFilterGroupProps) {
+}: Readonly<ReviewFilterGroupProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const allowedCameras = useAllowedCameras();
 
@@ -337,7 +337,7 @@ function GeneralFilterButton({
   allZones,
   selectedZones,
   onUpdateFilter,
-}: GeneralFilterButtonProps) {
+}: Readonly<GeneralFilterButtonProps>) {
   const { t } = useTranslation(["components/filter"]);
   const [open, setOpen] = useState(false);
   const [currentFilter, setCurrentFilter] = useState<GeneralFilter>({
@@ -460,7 +460,7 @@ export function GeneralFilterContent({
   onReset,
   onClose,
   contentClassName,
-}: GeneralFilterContentProps) {
+}: Readonly<GeneralFilterContentProps>) {
   const { t } = useTranslation(["components/filter", "views/events"]);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,

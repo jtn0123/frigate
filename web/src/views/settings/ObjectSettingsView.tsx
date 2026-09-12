@@ -371,7 +371,7 @@ type ObjectListProps = {
   objects?: ObjectType[];
 };
 
-function ObjectList({ cameraConfig, objects }: ObjectListProps) {
+function ObjectList({ cameraConfig, objects }: Readonly<ObjectListProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { data: config } = useSWR<FrigateConfig>("config");
 
@@ -481,7 +481,10 @@ type AudioListProps = {
   audioDetections?: AudioDetection[];
 };
 
-function AudioList({ cameraConfig, audioDetections }: AudioListProps) {
+function AudioList({
+  cameraConfig,
+  audioDetections,
+}: Readonly<AudioListProps>) {
   const { t } = useTranslation(["views/settings"]);
 
   // Get audio levels directly from ws hooks

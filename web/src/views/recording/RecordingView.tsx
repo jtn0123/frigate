@@ -110,7 +110,7 @@ export function RecordingView({
   updateFilter,
   refreshData,
   onMotionSearch,
-}: RecordingViewProps) {
+}: Readonly<RecordingViewProps>) {
   const { t } = useTranslation(["views/events", "components/dialog"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const isAdmin = useIsAdmin();
@@ -1058,7 +1058,7 @@ function Timeline({
   setScrubbing,
   setExportRange,
   onAnalysisOpen,
-}: TimelineProps) {
+}: Readonly<TimelineProps>) {
   const { t } = useTranslation(["views/events"]);
   const internalTimelineRef = useRef<HTMLDivElement>(null);
   const selectedTimelineRef = timelineRef || internalTimelineRef;

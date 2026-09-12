@@ -51,7 +51,7 @@ export default function ReviewActivityCalendar({
   recordingsSummary,
   selectedDay,
   onSelect,
-}: ReviewActivityCalendarProps) {
+}: Readonly<ReviewActivityCalendarProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const timezone = useTimezone(config);
   const [weekStartsOn] = useUserPersistence("weekStartsOn", 0);
@@ -185,7 +185,7 @@ export function TimezoneAwareCalendar({
   selectedDay,
   onSelect,
   recordingsSummary,
-}: TimezoneAwareCalendarProps) {
+}: Readonly<TimezoneAwareCalendarProps>) {
   const [weekStartsOn] = useUserPersistence("weekStartsOn", 0);
 
   // When a recordings summary is supplied, underline days that have footage

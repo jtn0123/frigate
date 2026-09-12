@@ -41,7 +41,7 @@ export function AddPropertyButton({
   formData,
   disabled,
   readonly,
-}: AddPropertyButtonProps) {
+}: Readonly<AddPropertyButtonProps>) {
   const { t } = useTranslation(["common"]);
 
   const canAdd =
@@ -106,7 +106,7 @@ export function MapKeyInput({
   className,
   onCommit,
   isKeyTaken,
-}: MapKeyInputProps) {
+}: Readonly<MapKeyInputProps>) {
   const [draft, setDraft] = useState(value);
 
   useEffect(() => {
@@ -160,7 +160,7 @@ export function AdvancedCollapsible({
   children,
   isRoot = false,
   buttonSize,
-}: AdvancedCollapsibleProps) {
+}: Readonly<AdvancedCollapsibleProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
 
   if (count === 0) {

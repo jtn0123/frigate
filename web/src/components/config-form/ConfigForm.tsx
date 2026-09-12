@@ -240,7 +240,7 @@ export function ConfigForm({
   i18nNamespace,
   customValidate,
   onValidationChange,
-}: ConfigFormProps) {
+}: Readonly<ConfigFormProps>) {
   const { t, i18n } = useTranslation([
     i18nNamespace || "common",
     "views/settings",

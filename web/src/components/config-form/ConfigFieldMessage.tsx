@@ -19,7 +19,7 @@ const severityVariantMap: Record<
   error: "destructive",
 };
 
-function SeverityIcon({ severity }: { severity: string }) {
+function SeverityIcon({ severity }: Readonly<{ severity: string }>) {
   switch (severity) {
     case "info":
       return <LuInfo className="size-4 shrink-0" />;
@@ -44,7 +44,7 @@ export function ConfigFieldMessage({
   severity,
   values,
   docLink,
-}: ConfigFieldMessageProps) {
+}: Readonly<ConfigFieldMessageProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { getLocaleDocUrl } = useDocDomain();
 

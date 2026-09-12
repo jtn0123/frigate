@@ -43,7 +43,7 @@ function MSEPlayer({
   onPlaying,
   setFullResolution,
   onError,
-}: MSEPlayerProps) {
+}: Readonly<MSEPlayerProps>) {
   const RECONNECT_TIMEOUT: number = 10000;
   const BUFFERING_COOLDOWN_TIMEOUT: number = 5000;
 
@@ -803,6 +803,8 @@ function MSEPlayer({
   }, [setStats, getStats]);
 
   return (
+    // Camera media has no caption track supplied by the recording or stream.
+    // eslint-disable-next-line jsx-a11y/media-has-caption
     <video
       ref={videoRef}
       className={className}

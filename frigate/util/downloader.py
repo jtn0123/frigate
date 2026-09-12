@@ -92,7 +92,7 @@ class ModelDownloader:
 
             temporary_filename.rename(save_path)
         except Exception as e:
-            logger.error(f"Error downloading model: {str(e)}")
+            logger.exception(f"Error downloading model: {str(e)}")
             raise
 
         if not silent:

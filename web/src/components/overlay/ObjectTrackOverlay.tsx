@@ -53,7 +53,7 @@ export default function ObjectTrackOverlay({
   videoHeight,
   className,
   onSeekToTime,
-}: ObjectTrackOverlayProps) {
+}: Readonly<ObjectTrackOverlayProps>) {
   const { t } = useTranslation("views/events");
   const { data: config } = useSWR<FrigateConfig>("config");
   const { annotationOffset, selectedObjectIds } = useDetailStream();

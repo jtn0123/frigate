@@ -122,7 +122,7 @@ def ensure_torch_dependencies() -> bool:
             logger.info("PyTorch installed successfully")
             return True
         except (subprocess.CalledProcessError, ImportError) as e:
-            logger.error(f"Failed to install PyTorch: {e}")
+            logger.exception(f"Failed to install PyTorch: {e}")
             return False
 
 
@@ -134,7 +134,7 @@ def ensure_rknn_toolkit() -> bool:
         logger.debug("RKNN toolkit is already available")
         return True
     except ImportError as e:
-        logger.error(f"RKNN toolkit not found. Please ensure it's installed. {e}")
+        logger.exception(f"RKNN toolkit not found. Please ensure it's installed. {e}")
         return False
 
 
@@ -210,7 +210,7 @@ def convert_onnx_to_rknn(
             shutil.copy2(onnx_path, temp_onnx_path)
             onnx_model_path = temp_onnx_path
         except Exception as e:
-            logger.error(f"Failed to create temporary ONNX copy: {e}")
+            logger.exception(f"Failed to create temporary ONNX copy: {e}")
             return False
 
     try:
@@ -251,7 +251,7 @@ def convert_onnx_to_rknn(
         return True
 
     except Exception as e:
-        logger.error(f"Error during RKNN conversion: {e}")
+        logger.exception(f"Error during RKNN conversion: {e}")
         return False
     finally:
         # Clean up temporary file if created

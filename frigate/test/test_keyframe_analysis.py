@@ -1,5 +1,6 @@
 """Tests for keyframe-spacing analysis used to detect smart/+ codecs."""
 
+import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -70,7 +71,7 @@ class TestParseKeyframePackets(unittest.TestCase):
 class TestAnalyzeRecordKeyframes(unittest.IsolatedAsyncioTestCase):
     async def test_merges_duration_and_classification(self):
         csv = b"0.0,K__\n1.0,___\n6.0,K__\n7.0,___\n"
-        proc = MagicMock()
+        proc = MagicMock(returncode=0)
         proc.communicate = AsyncMock(return_value=(csv, b""))
         ffmpeg = MagicMock()
         ffmpeg.ffprobe_path = "/usr/bin/ffprobe"
@@ -88,8 +89,8 @@ class TestAnalyzeRecordKeyframes(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["duration_observed"], 7.0)
 
     async def test_timeout_returns_unknown(self):
-        proc = MagicMock()
-        proc.communicate = AsyncMock(side_effect=TimeoutError())
+        proc = MagicMock(returncode=None)
+        proc.communicate = AsyncMock(side_effect=[TimeoutError(), (b"", b"")])
         proc.kill = MagicMock()
         ffmpeg = MagicMock()
         ffmpeg.ffprobe_path = "/usr/bin/ffprobe"
@@ -104,6 +105,49 @@ class TestAnalyzeRecordKeyframes(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["severity"], "unknown")
         proc.kill.assert_called_once()
+        self.assertEqual(proc.communicate.await_count, 2)
+
+    async def test_failed_probe_does_not_classify_partial_output_as_ok(self):
+        proc = MagicMock(returncode=1)
+        proc.communicate = AsyncMock(return_value=(b"0,K__\n1,K__\n", b"failed"))
+        with patch(
+            "frigate.util.services.asyncio.create_subprocess_exec", return_value=proc
+        ):
+            result = await analyze_record_keyframes(MagicMock(), "rtsp://cam", 10)
+        self.assertEqual(result["severity"], "unknown")
+        self.assertEqual(result["keyframe_count"], 0)
+
+    async def test_cancelled_probe_is_killed_and_reaped(self):
+        proc = MagicMock(returncode=None)
+        proc.communicate = AsyncMock(side_effect=[asyncio.CancelledError(), (b"", b"")])
+        with patch(
+            "frigate.util.services.asyncio.create_subprocess_exec", return_value=proc
+        ):
+            ffmpeg = MagicMock()
+            with self.assertRaises(asyncio.CancelledError):
+                await analyze_record_keyframes(ffmpeg, "rtsp://cam", 10)
+        proc.kill.assert_called_once_with()
+        self.assertEqual(proc.communicate.await_count, 2)
+
+    async def test_exited_process_race_still_drains_output(self):
+        proc = MagicMock(returncode=None)
+        proc.kill.side_effect = ProcessLookupError
+        proc.communicate = AsyncMock(side_effect=[TimeoutError(), (b"", b"")])
+        with patch(
+            "frigate.util.services.asyncio.create_subprocess_exec", return_value=proc
+        ):
+            result = await analyze_record_keyframes(MagicMock(), "rtsp://cam", 10)
+        self.assertEqual(result["severity"], "unknown")
+        self.assertEqual(proc.communicate.await_count, 2)
+
+
+class TestFiniteKeyframeTimestamps(unittest.TestCase):
+    def test_ignores_nonfinite_packet_timestamps(self):
+        pts, maximum = parse_keyframe_packets(
+            "nan,K__\ninf,K__\n-inf,___\n0,K__\n1,K__\n"
+        )
+        self.assertEqual(pts, [0.0, 1.0])
+        self.assertEqual(maximum, 1.0)
 
 
 if __name__ == "__main__":

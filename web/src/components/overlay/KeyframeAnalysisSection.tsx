@@ -16,7 +16,7 @@ type KeyframeAnalysisSectionProps = {
 export default function KeyframeAnalysisSection({
   cameraName,
   onResult,
-}: KeyframeAnalysisSectionProps) {
+}: Readonly<KeyframeAnalysisSectionProps>) {
   const { t } = useTranslation(["views/system"]);
   const [analysis, setAnalysis] = useState<KeyframeAnalysis>();
   const [failed, setFailed] = useState(false);
@@ -172,7 +172,7 @@ type RowProps = {
   children: React.ReactNode;
 };
 
-function Row({ icon, children }: RowProps) {
+function Row({ icon, children }: Readonly<RowProps>) {
   return (
     <div className="flex items-start gap-2">
       {icon === "ok" && (

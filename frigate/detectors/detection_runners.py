@@ -459,7 +459,7 @@ class OpenVINOModelRunner(BaseModelRunner):
                 try:
                     self.infer_request.infer()
                 except Exception as e:
-                    logger.error(f"Error during OpenVINO inference: {e}")
+                    logger.exception(f"Error during OpenVINO inference: {e}")
                     return []
 
             # Get all output tensors
@@ -501,7 +501,7 @@ class RKNNModelRunner(BaseModelRunner):
             logger.error("RKNN Lite not available")
             raise ImportError("RKNN Lite not available") from None
         except Exception as e:
-            logger.error(f"Error loading RKNN model: {e}")
+            logger.exception(f"Error loading RKNN model: {e}")
             raise
 
     def get_input_names(self) -> list[str]:
@@ -572,7 +572,7 @@ class RKNNModelRunner(BaseModelRunner):
             return outputs
 
         except Exception as e:
-            logger.error(f"Error during RKNN inference: {e}")
+            logger.exception(f"Error during RKNN inference: {e}")
             raise
 
     def __del__(self):

@@ -33,7 +33,7 @@ const markdownComponents: Components = {
 };
 
 /** One release's notes, with the tooling-only "Under the hood" list folded. */
-function ReleaseNotesBody({ notes }: { notes: string }) {
+function ReleaseNotesBody({ notes }: Readonly<{ notes: string }>) {
   const { main, hood } = splitUnderTheHood(notes);
   return (
     <>
@@ -75,7 +75,7 @@ export default function ReleaseNotesDialog({
   releases,
   onClose,
   onCheckNow,
-}: ReleaseNotesDialogProps) {
+}: Readonly<ReleaseNotesDialogProps>) {
   const { t, i18n } = useTranslation(["fork"]);
   const [checking, setChecking] = useState(false);
 

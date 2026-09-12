@@ -592,13 +592,13 @@ function MobileMenuItem({
   onClose,
   className,
   label,
-}: {
+}: Readonly<{
   item: { key: string };
   onSelect: (key: string) => void;
   onClose?: () => void;
   className?: string;
   label?: ReactNode;
-}) {
+}>) {
   const { t } = useTranslation(["views/settings"]);
 
   return (
@@ -2249,7 +2249,7 @@ function CameraSelectButton({
   setSelectedCamera,
   cameraEnabledStates,
   currentPage,
-}: CameraSelectButtonProps) {
+}: Readonly<CameraSelectButtonProps>) {
   const { t } = useTranslation(["views/settings"]);
 
   const [open, setOpen] = useState(false);

@@ -62,6 +62,31 @@ export default tseslint.config(
     },
     rules: {
       ...jsxA11yWarnings,
+      // The deprecated rule requires both nesting and htmlFor. Either is
+      // sufficient; recognize the labelable Radix controls used by our forms.
+      "jsx-a11y/label-has-for": "off",
+      "jsx-a11y/label-has-associated-control": [
+        "warn",
+        {
+          controlComponents: [
+            "Input",
+            "Textarea",
+            "Checkbox",
+            "Switch",
+            "RadioGroupItem",
+          ],
+          depth: 4,
+        },
+      ],
+      "jsx-a11y/control-has-associated-label": [
+        "warn",
+        {
+          ...jsxA11y.flatConfigs.recommended.rules[
+            "jsx-a11y/control-has-associated-label"
+          ][1],
+          depth: 6,
+        },
+      ],
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
       "react-refresh/only-export-components": [

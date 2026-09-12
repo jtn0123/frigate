@@ -259,7 +259,7 @@ function highlightJson(value: unknown): string {
   );
 }
 
-function CopyJsonButton({ payload }: { payload: unknown }) {
+function CopyJsonButton({ payload }: Readonly<{ payload: unknown }>) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(

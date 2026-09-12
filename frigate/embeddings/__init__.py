@@ -89,7 +89,7 @@ class EmbeddingsContext:
                 with open(stats_file, "w") as f:
                     f.write("")
             except OSError as e:
-                logger.error(f"Failed to clear corrupted stats file: {e}")
+                logger.exception(f"Failed to clear corrupted stats file: {e}")
 
     def stop(self):
         """Write the stats to disk as JSON on exit."""

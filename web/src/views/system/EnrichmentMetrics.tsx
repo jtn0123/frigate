@@ -25,7 +25,7 @@ export default function EnrichmentMetrics({
   lastUpdated,
   setLastUpdated,
   isActive,
-}: EnrichmentMetricsProps) {
+}: Readonly<EnrichmentMetricsProps>) {
   // stats
   const { t } = useTranslation(["views/system"]);
 

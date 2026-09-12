@@ -29,7 +29,7 @@ export function ChatAttachmentChip({
   eventId,
   mode,
   onRemove,
-}: ChatAttachmentChipProps) {
+}: Readonly<ChatAttachmentChipProps>) {
   const apiHost = useApiHost();
   const { t } = useTranslation(["views/chat"]);
 

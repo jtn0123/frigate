@@ -26,7 +26,7 @@ export function CustomTimeSelector({
   setRange,
   startLabel,
   endLabel,
-}: CustomTimeSelectorProps) {
+}: Readonly<CustomTimeSelectorProps>) {
   const { t } = useTranslation(["common"]);
   const { data: config } = useSWR<FrigateConfig>("config");
 

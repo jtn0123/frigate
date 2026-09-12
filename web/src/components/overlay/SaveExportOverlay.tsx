@@ -23,7 +23,7 @@ export default function SaveExportOverlay({
   onPreview,
   onSave,
   onCancel,
-}: SaveExportOverlayProps) {
+}: Readonly<SaveExportOverlayProps>) {
   const { t } = useTranslation("components/dialog");
   return (
     <div className={className}>

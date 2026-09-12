@@ -5,6 +5,7 @@ import {
   useState,
   useCallback,
   useRef,
+  useMemo,
 } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,7 +34,7 @@ export function MobilePage({
   open: controlledOpen,
   onOpenChange,
   enableHistoryBack = true,
-}: MobilePageProps) {
+}: Readonly<MobilePageProps>) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
 
   const open = controlledOpen ?? uncontrolledOpen;
@@ -55,11 +56,12 @@ export function MobilePage({
     onClose: () => setOpen(false),
   });
 
-  return (
-    <MobilePageContext value={{ open, onOpenChange: setOpen }}>
-      {children}
-    </MobilePageContext>
+  const value = useMemo(
+    () => ({ open, onOpenChange: setOpen }),
+    [open, setOpen],
   );
+
+  return <MobilePageContext value={value}>{children}</MobilePageContext>;
 }
 
 type MobilePageTriggerProps = React.HTMLAttributes<HTMLDivElement>;
@@ -116,7 +118,7 @@ export function MobilePageContent({
   children,
   className,
   scrollerRef,
-}: MobilePageContentProps) {
+}: Readonly<MobilePageContentProps>) {
   const context = useContext(MobilePageContext);
   if (!context)
     throw new Error("MobilePageContent must be used within MobilePage");
@@ -183,7 +185,7 @@ export function MobilePageHeader({
   onClose,
   actions,
   ...props
-}: MobilePageHeaderProps) {
+}: Readonly<MobilePageHeaderProps>) {
   const { t } = useTranslation(["common"]);
   const context = useContext(MobilePageContext);
   if (!context)
@@ -225,8 +227,16 @@ export function MobilePageHeader({
 
 type MobilePageTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
 
-export function MobilePageTitle({ className, ...props }: MobilePageTitleProps) {
-  return <h2 className={cn("text-lg", className)} {...props} />;
+export function MobilePageTitle({
+  className,
+  children,
+  ...props
+}: MobilePageTitleProps) {
+  return (
+    <h2 className={cn("text-lg", className)} {...props}>
+      {children}
+    </h2>
+  );
 }
 
 type MobilePageDescriptionProps = React.HTMLAttributes<HTMLParagraphElement>;

@@ -142,19 +142,28 @@ export function ThemeProvider({
     root.classList.add(theme);
   }, [theme, colorScheme, systemTheme]);
 
-  const value = {
-    theme,
-    systemTheme,
-    colorScheme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, JSON.stringify({ theme, colorScheme }));
-      setTheme(theme);
-    },
-    setColorScheme: (colorScheme: ColorScheme) => {
-      localStorage.setItem(storageKey, JSON.stringify({ theme, colorScheme }));
-      setColorScheme(colorScheme);
-    },
-  };
+  const value = useMemo(
+    () => ({
+      theme,
+      systemTheme,
+      colorScheme,
+      setTheme: (theme: Theme) => {
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({ theme, colorScheme }),
+        );
+        setTheme(theme);
+      },
+      setColorScheme: (colorScheme: ColorScheme) => {
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({ theme, colorScheme }),
+        );
+        setColorScheme(colorScheme);
+      },
+    }),
+    [theme, systemTheme, colorScheme, storageKey],
+  );
 
   return (
     <ThemeProviderContext {...props} value={value}>

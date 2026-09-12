@@ -53,7 +53,7 @@ export function DebugReplayContent({
   onCancel,
   setRange,
   setMode,
-}: DebugReplayContentProps) {
+}: Readonly<DebugReplayContentProps>) {
   const { t } = useTranslation(["views/replay"]);
 
   return (
@@ -165,7 +165,7 @@ export default function DebugReplayDialog({
   mode,
   setRange,
   setMode,
-}: DebugReplayDialogProps) {
+}: Readonly<DebugReplayDialogProps>) {
   const { t } = useTranslation(["views/replay"]);
   const navigate = useNavigate();
 
@@ -330,7 +330,7 @@ export function SaveDebugReplayOverlay({
   isStarting,
   onSave,
   onCancel,
-}: SaveDebugReplayOverlayProps) {
+}: Readonly<SaveDebugReplayOverlayProps>) {
   const { t } = useTranslation(["views/replay"]);
 
   return (

@@ -163,7 +163,7 @@ class GenAIClient:
                 try:
                     raw = json.loads(clean_json)
                 except json.JSONDecodeError as je:
-                    logger.error("Failed to parse review description JSON: %s", je)
+                    logger.exception("Failed to parse review description JSON: %s", je)
                     return None
 
                 # model_construct skips validation, so non-finite numbers that
@@ -180,7 +180,7 @@ class GenAIClient:
                 raw.setdefault("confidence", 0.0)
                 metadata = ReviewMetadata.model_construct(**raw)
             except Exception as e:
-                logger.error(
+                logger.exception(
                     f"Failed to parse review description as the response did not match expected format. {e}"
                 )
                 return None
@@ -198,7 +198,7 @@ class GenAIClient:
                 metadata.time = review_data["start"]
                 return metadata
             except Exception as e:
-                logger.error(f"Failed to post-process review metadata: {e}")
+                logger.exception(f"Failed to post-process review metadata: {e}")
                 return None
         else:
             logger.debug(
@@ -251,7 +251,7 @@ class GenAIClient:
         try:
             prompt = build_object_description_prompt(camera_config, event)
         except KeyError as e:
-            logger.error(f"Invalid key in GenAI prompt: {e}")
+            logger.exception(f"Invalid key in GenAI prompt: {e}")
             return None
 
         logger.debug(f"Sending images to genai provider with prompt: {prompt}")

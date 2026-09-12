@@ -34,7 +34,7 @@ export default function ImagePicker({
   limit = 100,
   direct = false,
   className,
-}: ImagePickerProps) {
+}: Readonly<ImagePickerProps>) {
   const { t } = useTranslation(["components/dialog", "views/settings"]);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -233,7 +233,6 @@ export default function ImagePicker({
                 ns: "views/settings",
               })}
             </div>
-            <span tabIndex={0} className="sr-only" />
           </div>
           {renderSearchInput()}
           <div className="scrollbar-container flex h-full flex-col overflow-y-auto">

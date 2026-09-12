@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { useRestart } from "@/api/ws";
 import RestartDialog from "@/components/overlay/dialog/RestartDialog";
 import { useDocDomain } from "@/hooks/use-doc-domain";
-import { StatusBarMessagesContext } from "@/context/statusbar-provider";
+import { StatusBarMessagesContext } from "@/context/statusbar-context";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import Heading from "@/components/ui/heading";
 import { Badge } from "@/components/ui/badge";
@@ -163,7 +163,7 @@ export default function DetectorsAndModelSettingsView({
   onSectionStatusChange,
   isSavingAll,
   onSectionSavingChange,
-}: SettingsPageProps) {
+}: Readonly<SettingsPageProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config } = useSWR<FrigateConfig>("config");

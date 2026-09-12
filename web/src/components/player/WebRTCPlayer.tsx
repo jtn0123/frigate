@@ -31,7 +31,7 @@ export default function WebRtcPlayer({
   setStats,
   onPlaying,
   onError,
-}: WebRtcPlayerProps) {
+}: Readonly<WebRtcPlayerProps>) {
   // metadata
 
   const wsURL = useMemo(() => {
@@ -327,6 +327,8 @@ export default function WebRtcPlayer({
   }, [pcRef, pcRef.current, getStats]);
 
   return (
+    // Camera media has no caption track supplied by the recording or stream.
+    // eslint-disable-next-line jsx-a11y/media-has-caption
     <video
       ref={videoRef}
       className={className}

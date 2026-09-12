@@ -48,7 +48,7 @@ export function CaseCard({
   exportCase,
   exports,
   onSelect,
-}: CaseCardProps) {
+}: Readonly<CaseCardProps>) {
   const { t } = useTranslation(["views/exports"]);
   const firstExport = useMemo(
     () => exports.find((exp) => exp.thumb_path && exp.thumb_path.length > 0),
@@ -130,7 +130,7 @@ export function ExportCard({
   onDelete,
   onAssignToCase,
   onRemoveFromCase,
-}: ExportCardProps) {
+}: Readonly<ExportCardProps>) {
   const { t } = useTranslation(["views/exports", "views/replay"]);
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
@@ -479,7 +479,7 @@ type ActiveExportJobCardProps = {
 export function ActiveExportJobCard({
   className = "",
   job,
-}: ActiveExportJobCardProps) {
+}: Readonly<ActiveExportJobCardProps>) {
   const { t } = useTranslation(["views/exports", "common"]);
   const cameraName = useCameraFriendlyName(job.camera);
   const displayName = useMemo(() => {

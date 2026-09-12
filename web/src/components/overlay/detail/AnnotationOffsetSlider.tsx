@@ -36,7 +36,7 @@ type Props = {
 export default function AnnotationOffsetSlider({
   className,
   onApplyOffset,
-}: Props) {
+}: Readonly<Props>) {
   const { annotationOffset, setAnnotationOffset, camera } = useDetailStream();
   const isAdmin = useIsAdmin();
   const { getLocaleDocUrl } = useDocDomain();

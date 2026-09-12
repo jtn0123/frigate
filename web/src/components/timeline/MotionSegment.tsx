@@ -46,7 +46,7 @@ export function MotionSegment({
   scrollToSegment,
   dense,
   alwaysShowMotionLine = false,
-}: MotionSegmentProps) {
+}: Readonly<MotionSegmentProps>) {
   const severityType = "all";
   const { getSeverity, getReviewed, displaySeverityType } =
     useEventSegmentUtils(segmentDuration, events, severityType);
@@ -182,9 +182,11 @@ export function MotionSegment({
         motionOnly &&
         severity[0] < 2) ||
         !motionOnly) && (
-        <div
+        <button
+          type="button"
           key={segmentKey}
           data-segment-id={segmentTime}
+          aria-label={timestamp.toLocaleString()}
           className={cn(
             "segment",
             {
@@ -279,7 +281,7 @@ export function MotionSegment({
               </div>
             </div>
           )}
-        </div>
+        </button>
       )}
     </>
   );

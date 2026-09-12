@@ -35,7 +35,7 @@ export default function DetailActionsMenu({
   config,
   setSearch,
   setSimilarity,
-}: Props) {
+}: Readonly<Props>) {
   const { t } = useTranslation([
     "views/explore",
     "views/faceLibrary",

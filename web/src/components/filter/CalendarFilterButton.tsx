@@ -31,7 +31,7 @@ export default function CalendarFilterButton({
   recordingsSummary,
   day,
   updateSelectedDay,
-}: CalendarFilterButtonProps) {
+}: Readonly<CalendarFilterButtonProps>) {
   const { t } = useTranslation(["components/filter", "views/events"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [open, setOpen] = useState(false);

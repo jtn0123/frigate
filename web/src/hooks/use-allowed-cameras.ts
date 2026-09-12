@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { isReplayCamera } from "@/utils/cameraUtil";

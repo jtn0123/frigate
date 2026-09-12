@@ -21,7 +21,7 @@ export default function AutoUpdatingCameraImage({
   cameraClasses,
   reloadInterval = MIN_LOAD_TIMEOUT_MS,
   periodicCache = false,
-}: AutoUpdatingCameraImageProps) {
+}: Readonly<AutoUpdatingCameraImageProps>) {
   const [key, setKey] = useState(Date.now());
   const [fps, setFps] = useState<string>("0");
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);

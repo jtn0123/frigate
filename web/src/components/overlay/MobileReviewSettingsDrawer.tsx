@@ -117,7 +117,7 @@ export default function MobileReviewSettingsDrawer({
   setRange,
   setMode,
   setShowExportPreview,
-}: MobileReviewSettingsDrawerProps) {
+}: Readonly<MobileReviewSettingsDrawerProps>) {
   const { t } = useTranslation([
     "views/recording",
     "components/dialog",

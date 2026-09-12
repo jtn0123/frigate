@@ -181,7 +181,7 @@ def sync_recordings(
                 )
                 result.orphans_deleted += int(deleted)
             except DatabaseError as e:
-                logger.error(f"Database error during recordings db cleanup: {e}")
+                logger.exception(f"Database error during recordings db cleanup: {e}")
                 result.error = str(e)
                 result.aborted = True
                 return result
@@ -246,12 +246,12 @@ def sync_recordings(
                 os.unlink(file)
                 result.orphans_deleted += 1
             except OSError as e:
-                logger.error(f"Failed to delete {file}: {e}")
+                logger.exception(f"Failed to delete {file}: {e}")
 
         logger.debug("End sync recordings.")
 
     except Exception as e:
-        logger.error(f"Error syncing recordings: {e}")
+        logger.exception(f"Error syncing recordings: {e}")
         result.error = str(e)
 
     return result
@@ -336,10 +336,10 @@ def sync_event_snapshots(dry_run: bool = False, force: bool = False) -> SyncResu
                 os.unlink(file_path)
                 result.orphans_deleted += 1
             except OSError as e:
-                logger.error(f"Failed to delete {file_path}: {e}")
+                logger.exception(f"Failed to delete {file_path}: {e}")
 
     except Exception as e:
-        logger.error(f"Error syncing event snapshots: {e}")
+        logger.exception(f"Error syncing event snapshots: {e}")
         result.error = str(e)
 
     return result
@@ -432,10 +432,10 @@ def sync_event_thumbnails(dry_run: bool = False, force: bool = False) -> SyncRes
                 os.unlink(file_path)
                 result.orphans_deleted += 1
             except OSError as e:
-                logger.error(f"Failed to delete {file_path}: {e}")
+                logger.exception(f"Failed to delete {file_path}: {e}")
 
     except Exception as e:
-        logger.error(f"Error syncing event thumbnails: {e}")
+        logger.exception(f"Error syncing event thumbnails: {e}")
         result.error = str(e)
 
     return result
@@ -512,10 +512,10 @@ def sync_review_thumbnails(dry_run: bool = False, force: bool = False) -> SyncRe
                 os.unlink(file_path)
                 result.orphans_deleted += 1
             except OSError as e:
-                logger.error(f"Failed to delete {file_path}: {e}")
+                logger.exception(f"Failed to delete {file_path}: {e}")
 
     except Exception as e:
-        logger.error(f"Error syncing review thumbnails: {e}")
+        logger.exception(f"Error syncing review thumbnails: {e}")
         result.error = str(e)
 
     return result
@@ -590,10 +590,10 @@ def sync_previews(dry_run: bool = False, force: bool = False) -> SyncResult:
                 os.unlink(file_path)
                 result.orphans_deleted += 1
             except OSError as e:
-                logger.error(f"Failed to delete {file_path}: {e}")
+                logger.exception(f"Failed to delete {file_path}: {e}")
 
     except Exception as e:
-        logger.error(f"Error syncing previews: {e}")
+        logger.exception(f"Error syncing previews: {e}")
         result.error = str(e)
 
     return result
@@ -682,10 +682,10 @@ def sync_exports(dry_run: bool = False, force: bool = False) -> SyncResult:
                 os.unlink(file_path)
                 result.orphans_deleted += 1
             except OSError as e:
-                logger.error(f"Failed to delete {file_path}: {e}")
+                logger.exception(f"Failed to delete {file_path}: {e}")
 
     except Exception as e:
-        logger.error(f"Error syncing exports: {e}")
+        logger.exception(f"Error syncing exports: {e}")
         result.error = str(e)
 
     return result
@@ -826,7 +826,7 @@ def write_orphan_report(
 
         logger.debug("Wrote verbose orphan report to %s", path)
     except OSError as e:
-        logger.error("Failed to write orphan report to %s: %s", path, e)
+        logger.exception("Failed to write orphan report to %s: %s", path, e)
 
 
 def sync_all_media(

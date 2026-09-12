@@ -66,7 +66,9 @@ class AudioTranscriptionPostProcessor(PostProcessorApi):
             )
             logger.debug("Audio transcription (recordings) initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize recordings audio transcription: {e}")
+            logger.exception(
+                f"Failed to initialize recordings audio transcription: {e}"
+            )
             self.recognizer = None
 
     def process_data(
@@ -140,7 +142,7 @@ class AudioTranscriptionPostProcessor(PostProcessorApi):
             logger.debug("No recording found for audio transcription post-processing")
             return
         except Exception as e:
-            logger.error(f"Error in audio transcription post-processing: {e}")
+            logger.exception(f"Error in audio transcription post-processing: {e}")
 
     def __transcribe_audio(self, audio_data: bytes) -> str | None:
         """Transcribe WAV audio data using faster-whisper."""
@@ -175,7 +177,7 @@ class AudioTranscriptionPostProcessor(PostProcessorApi):
 
             return text
         except Exception as e:
-            logger.error(f"Error transcribing audio: {e}")
+            logger.exception(f"Error transcribing audio: {e}")
             return None
 
     def _transcription_wrapper(self, event: dict[str, Any]) -> None:

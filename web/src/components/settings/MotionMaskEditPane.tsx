@@ -60,7 +60,7 @@ export default function MotionMaskEditPane({
   snapPoints,
   setSnapPoints,
   editingProfile,
-}: MotionMaskEditPaneProps) {
+}: Readonly<MotionMaskEditPaneProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config, mutate: updateConfig } =

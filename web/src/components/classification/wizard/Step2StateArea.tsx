@@ -39,7 +39,7 @@ export default function Step2StateArea({
   initialData,
   onNext,
   onBack,
-}: Step2StateAreaProps) {
+}: Readonly<Step2StateAreaProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const apiHost = useApiHost();

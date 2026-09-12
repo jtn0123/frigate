@@ -1,3 +1,4 @@
+import { timelineKeyValue } from "@/utils/timelineKeys";
 import useDraggableElement from "@/hooks/use-draggable-element";
 import { useTimelineUtils } from "@/hooks/use-timeline-utils";
 import { cn } from "@/lib/utils";
@@ -80,7 +81,7 @@ export function ReviewTimeline({
   currentZoomLevel,
   eventTimes,
   children,
-}: ReviewTimelineProps) {
+}: Readonly<ReviewTimelineProps>) {
   const { t } = useTranslation(["views/events", "fork"]);
   const scrubberEnabled = isForkEnabled("timelineScrubber");
   const [isDraggingHandlebar, setIsDraggingHandlebar] = useState(false);
@@ -374,22 +375,50 @@ export function ReviewTimeline({
     wasDraggingHandlebar.current = isDraggingHandlebar;
   }, [eventTimes, isDraggingHandlebar, scrubberEnabled, setHandlebarTime]);
 
-  const handleHandlebarKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!scrubberEnabled || !setHandlebarTime || !eventTimes?.length) {
-        return;
-      }
-      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
-        return;
-      }
+  const minTime = timelineStartAligned - timelineDuration;
+  const maxTime = timelineStartAligned;
+
+  const handleTimeKey = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+    current: number | undefined,
+    setTime: React.Dispatch<React.SetStateAction<number>> | undefined,
+    min = minTime,
+    max = maxTime,
+  ) => {
+    if (!setTime || event.target !== event.currentTarget) return;
+    const next = timelineKeyValue(
+      event.key,
+      current ?? min,
+      min,
+      max,
+      segmentDuration,
+    );
+    if (next === undefined) return;
+    event.preventDefault();
+    setTime(next);
+  };
+
+  const handleHandlebarKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (event.target !== event.currentTarget || !setHandlebarTime) return;
+    if (
+      scrubberEnabled &&
+      eventTimes?.length &&
+      (event.key === "ArrowLeft" || event.key === "ArrowRight")
+    ) {
       event.preventDefault();
       const direction = event.key === "ArrowRight" ? 1 : -1;
       setHandlebarTime((current) =>
-        stepToEvent(current, eventTimes, direction),
+        Math.min(
+          maxTime,
+          Math.max(minTime, stepToEvent(current, eventTimes, direction)),
+        ),
       );
-    },
-    [eventTimes, scrubberEnabled, setHandlebarTime],
-  );
+      return;
+    }
+    handleTimeKey(event, handlebarTime, setHandlebarTime);
+  };
 
   const isHandlebarInNoRecordingPeriod = useMemo(() => {
     if (!getRecordingAvailability || handlebarTime === undefined) return false;
@@ -433,10 +462,19 @@ export function ReviewTimeline({
             {showHandlebar && (
               <div
                 className={`absolute left-0 top-0 ${isDraggingHandlebar && isIOS ? "" : "z-20"} w-full`}
-                role="scrollbar"
+                role="slider"
                 aria-orientation="vertical"
                 aria-label={t("timelineScrubber.handlebar", { ns: "fork" })}
-                tabIndex={scrubberEnabled ? 0 : undefined}
+                tabIndex={0}
+                aria-disabled={!setHandlebarTime}
+                aria-valuemin={minTime}
+                aria-valuemax={maxTime}
+                aria-valuenow={handlebarTime ?? minTime}
+                aria-valuetext={new Date(
+                  (handlebarTime ?? minTime) * 1000,
+                ).toLocaleString()}
+                onMouseDown={handleHandlebar}
+                onTouchStart={handleHandlebar}
                 data-testid="timeline-handlebar"
                 data-handlebar-time={handlebarTime}
                 data-touch-target={scrubberEnabled ? "large" : undefined}
@@ -448,8 +486,6 @@ export function ReviewTimeline({
                     "flex touch-none select-none items-center justify-center",
                     scrubberEnabled && "min-h-10 py-2",
                   )}
-                  onMouseDown={handleHandlebar}
-                  onTouchStart={handleHandlebar}
                 >
                   <div
                     className={`relative w-full ${
@@ -494,14 +530,33 @@ export function ReviewTimeline({
               <>
                 <div
                   className={`export-end absolute left-0 top-0 ${isDraggingExportEnd && isIOS ? "" : "z-20"} w-full`}
-                  role="scrollbar"
+                  role="slider"
+                  aria-orientation="vertical"
+                  aria-label={t("timelineAccessibility.exportEnd", {
+                    ns: "fork",
+                  })}
+                  aria-valuemin={exportStartTime ?? minTime}
+                  aria-valuemax={maxTime}
+                  aria-valuenow={exportEndTime ?? exportStartTime ?? minTime}
+                  aria-valuetext={new Date(
+                    (exportEndTime ?? minTime) * 1000,
+                  ).toLocaleString()}
+                  aria-disabled={!setExportEndTime}
+                  tabIndex={0}
+                  onKeyDown={(event) =>
+                    handleTimeKey(
+                      event,
+                      exportEndTime,
+                      setExportEndTime,
+                      exportStartTime ?? minTime,
+                      maxTime,
+                    )
+                  }
+                  onMouseDown={handleExportEnd}
+                  onTouchStart={handleExportEnd}
                   ref={exportEndRef}
                 >
-                  <div
-                    className="flex touch-none select-none items-center justify-center"
-                    onMouseDown={handleExportEnd}
-                    onTouchStart={handleExportEnd}
-                  >
+                  <div className="flex touch-none select-none items-center justify-center">
                     <div
                       className={`relative mt-[6.5px] w-full ${
                         isDraggingExportEnd ? "cursor-grabbing" : "cursor-grab"
@@ -533,14 +588,33 @@ export function ReviewTimeline({
                 ></div>
                 <div
                   className={`export-start absolute left-0 top-0 ${isDraggingExportStart && isIOS ? "" : "z-20"} w-full`}
-                  role="scrollbar"
+                  role="slider"
+                  aria-orientation="vertical"
+                  aria-label={t("timelineAccessibility.exportStart", {
+                    ns: "fork",
+                  })}
+                  aria-valuemin={minTime}
+                  aria-valuemax={exportEndTime ?? maxTime}
+                  aria-valuenow={exportStartTime ?? minTime}
+                  aria-valuetext={new Date(
+                    (exportStartTime ?? minTime) * 1000,
+                  ).toLocaleString()}
+                  aria-disabled={!setExportStartTime}
+                  tabIndex={0}
+                  onKeyDown={(event) =>
+                    handleTimeKey(
+                      event,
+                      exportStartTime,
+                      setExportStartTime,
+                      minTime,
+                      exportEndTime ?? maxTime,
+                    )
+                  }
+                  onMouseDown={handleExportStart}
+                  onTouchStart={handleExportStart}
                   ref={exportStartRef}
                 >
-                  <div
-                    className="flex touch-none select-none items-center justify-center"
-                    onMouseDown={handleExportStart}
-                    onTouchStart={handleExportStart}
-                  >
+                  <div className="flex touch-none select-none items-center justify-center">
                     <div
                       className={`relative -mt-[6.5px] w-full ${
                         isDragging ? "cursor-grabbing" : "cursor-grab"

@@ -84,7 +84,7 @@ class OnvifController:
         try:
             self.loop.run_forever()
         except Exception as e:
-            logger.error(f"Onvif event loop terminated unexpectedly: {e}")
+            logger.exception(f"Onvif event loop terminated unexpectedly: {e}")
 
     async def _init_cameras(self) -> None:
         """Initialize all configured cameras."""
@@ -147,7 +147,7 @@ class OnvifController:
             bool: True if initialization succeeded, False otherwise
         """
         if cam_name not in self.camera_configs:
-            logger.error(f"No configuration found for camera {cam_name}")
+            logger.error("No configuration found for camera %r", cam_name)
             return False
 
         cam = self.camera_configs[cam_name]
@@ -170,7 +170,9 @@ class OnvifController:
             }
             return True
         except (Fault, ONVIFError, TransportError, Exception) as e:
-            logger.error(f"Failed to create ONVIF camera instance for {cam_name}: {e}")
+            logger.exception(
+                f"Failed to create ONVIF camera instance for {cam_name}: {e}"
+            )
             # track initial failures
             self.failed_cams[cam_name] = {
                 "retry_attempts": 0,
@@ -183,8 +185,11 @@ class OnvifController:
         onvif: ONVIFCamera = self.cams[camera_name]["onvif"]
         try:
             await onvif.update_xaddrs()
-        except Exception as e:
-            logger.error(f"Onvif connection failed for {camera_name}: {e}")
+        except Exception:
+            logger.exception(
+                "Onvif connection failed for %s",
+                camera_name.replace("\r", "_").replace("\n", "_"),
+            )
             return False
 
         # create init services
@@ -197,7 +202,7 @@ class OnvifController:
             logger.debug(f"Onvif capabilities for {camera_name}: {capabilities}")
         except (Fault, ONVIFError, TransportError, Exception) as e:
             logger.error(
-                f"Unable to get Onvif capabilities for camera: {camera_name}: {e}"
+                "Unable to get Onvif capabilities for camera: %r: %r", camera_name, e
             )
             return False
 
@@ -206,7 +211,7 @@ class OnvifController:
             logger.debug(f"Onvif profiles for {camera_name}: {profiles}")
         except (Fault, ONVIFError, TransportError, Exception) as e:
             logger.error(
-                f"Unable to get Onvif media profiles for camera: {camera_name}: {e}"
+                "Unable to get Onvif media profiles for camera: %r: %r", camera_name, e
             )
             return False
 
@@ -255,7 +260,7 @@ class OnvifController:
                     for p in valid_profiles
                 ]
                 logger.error(
-                    "Onvif profile '%s' not found for camera %s. Available profiles: %s",
+                    "Onvif profile %r not found for camera %r. Available profiles: %r",
                     configured_profile,
                     camera_name,
                     available,
@@ -267,7 +272,7 @@ class OnvifController:
 
         if profile is None:
             logger.error(
-                f"No appropriate Onvif profiles found for camera: {camera_name}."
+                "No appropriate Onvif profiles found for camera: %r", camera_name
             )
             return False
 
@@ -281,7 +286,7 @@ class OnvifController:
             )
         except Exception as e:
             logger.error(
-                f"Invalid Onvif PTZ configuration for camera: {camera_name}: {e}"
+                "Invalid Onvif PTZ configuration for camera: %r: %r", camera_name, e
             )
             return False
 
@@ -369,7 +374,9 @@ class OnvifController:
                 status = await ptz.GetStatus(one_off_status_request)
                 logger.debug(f"Onvif status for {camera_name}: {status}")
             except Exception as e:
-                logger.warning(f"Unable to get status from camera {camera_name}: {e}")
+                logger.warning(
+                    "Unable to get status from camera %r: %r", camera_name, e
+                )
 
             rel_move_request = ptz.create_type("RelativeMove")
             rel_move_request.ProfileToken = profile.token
@@ -413,7 +420,9 @@ class OnvifController:
                 except Exception as e:
                     autotracking_config.zooming = ZoomingModeEnum.disabled
                     logger.warning(
-                        f"Disabling autotracking zooming for {camera_name}: Relative zoom not supported. Exception: {e}"
+                        "Disabling autotracking zooming for %r: Relative zoom not supported. Exception: %r",
+                        camera_name,
+                        e,
                     )
             else:
                 # remove zoom fields from relative move request
@@ -447,7 +456,11 @@ class OnvifController:
         try:
             presets: list[dict] = await ptz.GetPresets({"ProfileToken": profile.token})
         except (Fault, ONVIFError, TransportError, Exception) as e:
-            logger.warning(f"Unable to get presets from camera: {camera_name}: {e}")
+            logger.warning(
+                "Unable to get presets from camera: %s: %s",
+                repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                repr(e).replace("\r", "_").replace("\n", "_"),
+            )
             presets = []
 
         for preset in presets:
@@ -484,7 +497,9 @@ class OnvifController:
                     if autotracking_config.zooming == ZoomingModeEnum.relative:
                         autotracking_config.zooming = ZoomingModeEnum.disabled
                         logger.warning(
-                            f"Disabling autotracking zooming for {camera_name}: Relative zoom not supported. Exception: {e}"
+                            "Disabling autotracking zooming for %r: Relative zoom not supported. Exception: %r",
+                            camera_name,
+                            e,
                         )
 
         if configs.DefaultAbsoluteZoomPositionSpace:
@@ -499,7 +514,9 @@ class OnvifController:
                     if autotracking_config.zooming != ZoomingModeEnum.disabled:
                         autotracking_config.zooming = ZoomingModeEnum.disabled
                         logger.warning(
-                            f"Disabling autotracking zooming for {camera_name}: Absolute zoom not supported. Exception: {e}"
+                            "Disabling autotracking zooming for %r: Absolute zoom not supported. Exception: %r",
+                            camera_name,
+                            e,
                         )
 
         # disable autotracking zoom if required ranges are unavailable
@@ -508,13 +525,15 @@ class OnvifController:
                 if "relative_zoom_range" not in self.cams[camera_name]:
                     autotracking_config.zooming = ZoomingModeEnum.disabled
                     logger.warning(
-                        f"Disabling autotracking zooming for {camera_name}: Relative zoom range unavailable"
+                        "Disabling autotracking zooming for %r: Relative zoom range unavailable",
+                        camera_name,
                     )
             if autotracking_config.zooming == ZoomingModeEnum.absolute:
                 if "absolute_zoom_range" not in self.cams[camera_name]:
                     autotracking_config.zooming = ZoomingModeEnum.disabled
                     logger.warning(
-                        f"Disabling autotracking zooming for {camera_name}: Absolute zoom range unavailable"
+                        "Disabling autotracking zooming for %r: Absolute zoom range unavailable",
+                        camera_name,
                     )
 
         if (
@@ -864,7 +883,7 @@ class OnvifController:
         except TimeoutError:
             logger.error(f"Command {command} timed out for camera {camera_name}")
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Error executing command {command} for camera {camera_name}: {e}"
             )
 
@@ -913,7 +932,10 @@ class OnvifController:
         # Attempt initialization/reconnection
         if attempts < self.max_retries:
             logger.info(
-                f"Attempting ONVIF initialization for {camera_name} (retry {attempts + 1}/{self.max_retries})"
+                "Attempting ONVIF initialization for %r (retry %r/%r)",
+                camera_name,
+                attempts + 1,
+                self.max_retries,
             )
             try:
                 if await self._init_onvif(camera_name):
@@ -925,10 +947,14 @@ class OnvifController:
                         "presets": list(self.cams[camera_name]["presets"].keys()),
                     }
                 else:
-                    logger.warning(f"ONVIF initialization failed for {camera_name}")
+                    logger.warning(
+                        "ONVIF initialization failed for %s",
+                        repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                    )
             except Exception as e:
-                logger.error(
-                    f"Error during ONVIF initialization for {camera_name}: {e}"
+                logger.exception(
+                    "Error during ONVIF initialization for %s",
+                    camera_name.replace("\r", "_").replace("\n", "_"),
                 )
                 if camera_name not in self.failed_cams:
                     self.failed_cams[camera_name] = {"retry_attempts": 0}
@@ -945,7 +971,10 @@ class OnvifController:
                 0, int((self.reset_timeout - (time.time() - last_attempt)) / 60)
             )
             logger.error(
-                f"Too many ONVIF initialization attempts for {camera_name}, retry in {remaining_time} minute{'s' if remaining_time != 1 else ''}"
+                "Too many ONVIF initialization attempts for %r, retry in %r minute%s",
+                camera_name,
+                remaining_time,
+                "s" if remaining_time != 1 else "",
             )
 
         logger.debug(f"Could not initialize ONVIF for {camera_name}")
@@ -1097,7 +1126,7 @@ class OnvifController:
             try:
                 self.loop.stop()
             except Exception as e:
-                logger.error(f"Error during loop cleanup: {e}")
+                logger.exception(f"Error during loop cleanup: {e}")
 
         # Schedule stop and cleanup in the loop thread
         self.loop.call_soon_threadsafe(stop_and_cleanup)

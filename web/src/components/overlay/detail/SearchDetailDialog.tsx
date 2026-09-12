@@ -125,7 +125,7 @@ function TabsWithActions({
   isPopoverOpen,
   setIsPopoverOpen,
   dialogContainer,
-}: TabsWithActionsProps) {
+}: Readonly<TabsWithActionsProps>) {
   const { t } = useTranslation(["views/explore", "views/faceLibrary"]);
 
   useEffect(() => {
@@ -202,7 +202,7 @@ function AnnotationSettings({
   open,
   setIsOpen,
   container,
-}: AnnotationSettingsProps) {
+}: Readonly<AnnotationSettingsProps>) {
   const { t } = useTranslation(["views/explore"]);
   const { annotationOffset, setAnnotationOffset } = useDetailStream();
 
@@ -319,7 +319,7 @@ function DialogContentComponent({
   setIsPopoverOpen,
   dialogContainer,
   setShowNavigationButtons,
-}: DialogContentComponentProps) {
+}: Readonly<DialogContentComponentProps>) {
   const { t } = useTranslation(["common"]);
   if (page === "tracking_details") {
     return (
@@ -453,7 +453,7 @@ export default function SearchDetailDialog({
   setInputFocused,
   onPrevious,
   onNext,
-}: SearchDetailDialogProps) {
+}: Readonly<SearchDetailDialogProps>) {
   const { t } = useTranslation(["views/explore", "views/faceLibrary"]);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
@@ -648,7 +648,6 @@ export default function SearchDetailDialog({
             </div>
             <Description className="sr-only">
               {t("trackedObjectDetails")}
-              <span className="sr-only" tabIndex={0} />
             </Description>
           </Header>
 
@@ -705,7 +704,7 @@ function ObjectDetailsTab({
   setSearch,
   setInputFocused,
   setShowNavigationButtons,
-}: ObjectDetailsTabProps) {
+}: Readonly<ObjectDetailsTabProps>) {
   const { t, i18n } = useTranslation([
     "views/explore",
     "views/faceLibrary",
@@ -1749,7 +1748,6 @@ function ObjectDetailsTab({
               onChange={(e) => setDesc(e.target.value)}
               onFocus={handleDescriptionFocus}
               onBlur={handleDescriptionBlur}
-              autoFocus
             />
             <div className="mb-10 flex flex-row justify-end gap-5">
               <Tooltip>
@@ -1845,7 +1843,7 @@ type ObjectSnapshotTabProps = {
 export function ObjectSnapshotTab({
   search,
   className,
-}: ObjectSnapshotTabProps) {
+}: Readonly<ObjectSnapshotTabProps>) {
   const [imgRef, imgLoaded, onImgLoad] = useImageLoaded();
 
   return (
@@ -1908,10 +1906,5 @@ export function VideoTab({ search }: VideoTabProps) {
 
   const source = `${baseUrl}vod/${search.camera}/${clipTimeRange}/index.m3u8`;
 
-  return (
-    <>
-      <span tabIndex={0} className="sr-only" />
-      <GenericVideoPlayer source={source} />
-    </>
-  );
+  return <GenericVideoPlayer source={source} />;
 }
