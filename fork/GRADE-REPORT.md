@@ -520,6 +520,13 @@ nothing tracks upstream automatically.
 - **Effort:** S (trial) / M (adopt)
 - **Grade lift:** B → B (speed only)
 
+#### I13 — Releases from `main` with generated notes `[fork]` — in review (`section/releases`)
+- **Where:** `.github/workflows/fork-build.yml`, `fork/scripts/{release_notes.py,promote.sh}`, `Makefile`
+- **What's wrong:** Images were published without releases or notes, and GitHub's generated notes for this fork are a flat list of ledger IDs, housekeeping and "New Contributors", missing everything pushed to `main` before PRs.
+- **Fix:** Pull requests land on `next`; `make promote` moves `main` to it once Fork - Checks is green. Every `main` build publishes a GitHub Release with notes built from the fork's own commits (grouped by ledger ID, internal work counted, `Release-note:` trailers, rebase-proof).
+- **Effort:** M
+- **Grade lift:** B → B (release hygiene)
+
 ---
 
 ## UX feature track

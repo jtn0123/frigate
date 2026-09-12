@@ -1,8 +1,9 @@
 name: Fork - Upstream sync
 
 # Read-only fetch of blakeblackshear/frigate. Fast-forwards origin/dev.
-# Never pushes main or tags. A clean rebase of main onto upstream/dev
-# is force-pushed to sync/upstream only; conflicts open or update an issue.
+# Never pushes next, main or tags. A clean rebase of next (where pull requests
+# land) onto upstream/dev is force-pushed to sync/upstream only; conflicts open
+# or update an issue. main follows next through `make promote`.
 
 on:
   schedule:
@@ -27,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-          ref: main
+          ref: next
 
       - name: Fetch upstream (read-only)
         run: |
@@ -35,7 +36,7 @@ jobs:
           git fetch --no-tags upstream dev
           git fetch --tags --force upstream
           git fetch origin dev:refs/remotes/origin/dev || true
-          git fetch origin main:refs/remotes/origin/main
+          git fetch origin next:refs/remotes/origin/next
 
       - name: Fast-forward origin/dev
         run: |
@@ -43,28 +44,28 @@ jobs:
           git merge --ff-only upstream/dev
           git push origin dev
 
-      - name: Rebase main onto upstream/dev or open an issue
+      - name: Rebase next onto upstream/dev or open an issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           UPSTREAM=$(git rev-parse upstream/dev)
-          MAIN=$(git rev-parse origin/main)
-          if git merge-base --is-ancestor "$UPSTREAM" "$MAIN"; then
-            echo "main already contains upstream/dev ($UPSTREAM)"
+          NEXT=$(git rev-parse origin/next)
+          if git merge-base --is-ancestor "$UPSTREAM" "$NEXT"; then
+            echo "next already contains upstream/dev ($UPSTREAM)"
             exit 0
           fi
 
-          COMMITS=$(git log --oneline "$MAIN..$UPSTREAM")
+          COMMITS=$(git log --oneline "$NEXT..$UPSTREAM")
           N=$(echo "$COMMITS" | grep -c . || true)
           ISSUE_TITLE="Upstream moved ${N} commits"
 
-          git checkout -B sync/upstream origin/main
+          git checkout -B sync/upstream origin/next
           if git rebase upstream/dev; then
             git push --force-with-lease origin sync/upstream
             gh workflow run "Fork - Checks" --ref sync/upstream
-            BODY=$(printf 'upstream/dev moved %s commit(s) that are not in main.\n\n%s\n\nA rebase is on sync/upstream. Fork - Checks was dispatched on that ref.\nThis bot never pushes main or tags.\n' "$N" "$COMMITS")
+            BODY=$(printf 'upstream/dev moved %s commit(s) that are not in next.\n\n%s\n\nA rebase of next is on sync/upstream. Fork - Checks was dispatched on that ref.\nThis bot never pushes next, main or tags.\n' "$N" "$COMMITS")
             EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
             if [ -n "$EXISTING" ]; then
               gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
@@ -74,7 +75,7 @@ jobs:
           else
             CONFLICTS=$(git diff --name-only --diff-filter=U || true)
             git rebase --abort || true
-            BODY=$(printf 'Could not rebase main onto upstream/dev (%s).\n\nConflicted files:\n%s\n\nUpstream commits not in main:\n%s\n' "$UPSTREAM" "$CONFLICTS" "$COMMITS")
+            BODY=$(printf 'Could not rebase next onto upstream/dev (%s).\n\nConflicted files:\n%s\n\nUpstream commits not in next:\n%s\n' "$UPSTREAM" "$CONFLICTS" "$COMMITS")
             EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
             if [ -n "$EXISTING" ]; then
               gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
@@ -101,5 +102,5 @@ jobs:
             if gh issue list --search "${TITLE} in:title" --state all --json number --jq '.[0].number // empty' | grep -q .; then
               continue
             fi
-            gh issue create --title "$TITLE" --body "Upstream published \`${TAG}\`. This bot does not push tags. Rebase main when ready and tag \`fork/<version>\` yourself."
+            gh issue create --title "$TITLE" --body "Upstream published \`${TAG}\`. This bot does not push branches or tags. Rebase next onto it when ready, then \`make promote\` to build and release it."
           done

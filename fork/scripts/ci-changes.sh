@@ -4,11 +4,11 @@
 # Writes web=true|false and python=true|false to $GITHUB_OUTPUT (stdout when
 # run by hand). Anything it cannot diff runs everything.
 #
-#   fork/scripts/ci-changes.sh [base-sha]    # default base: origin/main
+#   fork/scripts/ci-changes.sh [base-sha]    # default base: origin/next
 set -euo pipefail
 
 out="${GITHUB_OUTPUT:-/dev/stdout}"
-base="${1:-${BASE_SHA:-origin/main}}"
+base="${1:-${BASE_SHA:-origin/next}}"
 
 emit() {
   echo "web=$1" >>"$out"
@@ -35,7 +35,7 @@ echo "  ${files//$'\n'/$'\n'  }" >&2
 # The workflow and this script affect every job.
 shared='^(\.github/workflows/fork-checks\.yml|\.github/actions/fork-web-setup/|fork/scripts/ci-)'
 web_re="${shared}|^web/"
-py_re="${shared}|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|scripts/py-checks\.sh)$|^docs/static/frigate-api\.yaml$"
+py_re="${shared}|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|scripts/py-checks\.sh)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
 
 has() { grep -Eq "$1" <<<"$files"; }
 emit "$(has "$web_re" && echo true || echo false)" "$(has "$py_re" && echo true || echo false)"
