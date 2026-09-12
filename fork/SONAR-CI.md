@@ -11,10 +11,14 @@ separately. Generated declarations and version metadata are excluded from
 coverage. Untested production code remains visible. Frontend coverage comes
 from Vitest; Playwright browser tests do not contribute to this report.
 
+The Free plan scans `next` and same-repository PRs targeting `next`. Release
+branch `main` and `sync/**` pushes retain their other checks without attempting
+unsupported Sonar branch analysis.
+
 Fork pull requests do not receive the Sonar secret and skip the scanner.
 Their tests still run. Never change this to `pull_request_target` with untrusted
 source checkout. A trusted branch or post-merge scan is needed for their Sonar
-results. Require `Checks passed` in the GitHub branch rules for merge enforcement.
+results. `next` now requires `Checks passed` through an active GitHub ruleset.
 
 ## Activation
 
@@ -49,3 +53,13 @@ thresholds. The first computed branch gate may fail on recent coverage debt.
 
 These are local tool percentages, not a confirmed Sonar combined percentage.
 Server import and CI gate enforcement still require activation and a live run.
+
+## Activation verification
+
+PR 39 CI scan at cb0e3ab30 imported both reports successfully and passed the
+quality gate with 82.9% new-code coverage, 0% new duplication, and A ratings.
+No coverage conditions were ignored. The scanner validated 312 Python and
+508 frontend report entries. The test image now runs as UID/GID 1000.
+The Sonar token was stored in GitHub Actions on September 12 and expires
+October 11, 2026 (as displayed by Sonar). Rotate it before that date.
+Automatic Analysis is off; ongoing next scans start once this workflow merges.

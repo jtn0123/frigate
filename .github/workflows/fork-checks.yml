@@ -224,7 +224,11 @@ jobs:
     name: Sonar - Coverage + quality gate
     needs: [web_unit, python_tests]
     # Fork PRs have no secret. Never use pull_request_target to scan their code.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # The Free plan supports next (Sonar's main branch) and PRs targeting it.
+    if: >-
+      (github.event_name != 'pull_request' && github.ref == 'refs/heads/next') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'next' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
