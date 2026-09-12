@@ -9,6 +9,8 @@
 /* --- Dropdown button --- */
 
 .dropdown {
+  padding: 0;
+  font: inherit;
   display: inline-block;
   width: 360px;
   max-width: 100%;
@@ -99,6 +101,11 @@
 }
 
 .menuItem {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  background: transparent;
   display: flex;
   align-items: center;
   gap: 0.5rem;

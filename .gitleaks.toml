@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+# Public Sonar project identifier, visible in the dashboard URL, not a token.
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+condition = "AND"
+paths = ['''^sonar-project\.properties$''']
+regexTarget = "line"
+regexes = ['''^sonar\.projectKey=jtn0123_frigate$''']

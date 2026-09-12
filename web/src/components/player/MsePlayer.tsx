@@ -1,3 +1,4 @@
+import { getManagedMediaSourceConstructor } from "@/utils/mediaSource";
 import { baseUrl } from "@/api/baseUrl";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
 import {
@@ -267,8 +268,7 @@ function MSEPlayer({
     // Create a fresh MediaSource for this connection to avoid stale sourceopen events
     // from previous connections interfering with this one
     const MediaSourceConstructor =
-      "ManagedMediaSource" in window ? window.ManagedMediaSource : MediaSource;
-    // @ts-expect-error for typing
+      getManagedMediaSourceConstructor() ?? MediaSource;
     msRef.current = new MediaSourceConstructor();
 
     onMse();
@@ -371,18 +371,15 @@ function MSEPlayer({
   };
 
   const onMse = () => {
-    if ("ManagedMediaSource" in window) {
-      // safari
-      const MediaSource = window.ManagedMediaSource;
-
+    const ManagedMediaSource = getManagedMediaSourceConstructor();
+    if (ManagedMediaSource) {
       msRef.current?.addEventListener(
         "sourceopen",
         () => {
           sendWithTimeout(
             {
               type: "mse",
-              // @ts-expect-error for typing
-              value: codecs(MediaSource.isTypeSupported),
+              value: codecs(ManagedMediaSource.isTypeSupported),
             },
             (fallbackTimeout ?? 3) * 1000,
           ).catch(() => {
