@@ -36,6 +36,8 @@ MIN_REFRESH_SECONDS = 60
 
 BUILD_MARKER = re.compile(r"<!--\s*fork-build:\s*([0-9a-f]{7,40})\s*-->")
 VERSION_SHA = re.compile(r"-([0-9a-f]{7,40})$")
+FOLD_SUMMARY = re.compile(r"<summary>(.*?)</summary>")
+FOLD_TAGS = re.compile(r"^\s*</?details>\s*$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,15 @@ class ForkRelease:
     published_at: str
     url: str
     notes: str
+
+
+def clean_notes(body: str) -> str:
+    """Release notes as plain markdown for the web UI: no build marker, and the
+    folded "Under the hood" block as a heading, which the dialog folds."""
+    body = BUILD_MARKER.sub("", body)
+    body = FOLD_TAGS.sub("", body)
+    body = FOLD_SUMMARY.sub(r"### \1", body)
+    return re.sub(r"\n{3,}", "\n\n", body).strip()
 
 
 def parse_release(raw: dict[str, Any]) -> ForkRelease | None:
@@ -64,7 +75,7 @@ def parse_release(raw: dict[str, Any]) -> ForkRelease | None:
         sha=marker.group(1),
         published_at=str(raw.get("published_at") or ""),
         url=str(raw.get("html_url") or ""),
-        notes=BUILD_MARKER.sub("", body).strip(),
+        notes=clean_notes(body),
     )
 
 

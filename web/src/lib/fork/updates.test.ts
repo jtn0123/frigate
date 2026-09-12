@@ -5,6 +5,7 @@ import {
   newerReleases,
   readLastSeen,
   releaseVersion,
+  splitUnderTheHood,
   unseenReleases,
   writeLastSeen,
   type ForkRelease,
@@ -110,5 +111,25 @@ describe("helpers", () => {
     vi.stubGlobal("localStorage", undefined);
     expect(readLastSeen()).toBeNull();
     expect(() => writeLastSeen("fork/x")).not.toThrow();
+  });
+});
+
+describe("splitUnderTheHood", () => {
+  it("separates the tooling list from the main notes", () => {
+    const { main, hood } = splitUnderTheHood(
+      "### New\n\n- Kiosk mode\n\n### Under the hood (2)\n\n- Ratchet\n- Lint",
+    );
+    expect(main).toBe("### New\n\n- Kiosk mode");
+    expect(hood).toEqual({
+      title: "Under the hood (2)",
+      body: "- Ratchet\n- Lint",
+    });
+  });
+
+  it("leaves notes without the section alone", () => {
+    expect(splitUnderTheHood("- Only this")).toEqual({
+      main: "- Only this",
+      hood: null,
+    });
   });
 });

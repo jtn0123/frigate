@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   releaseVersion,
+  splitUnderTheHood,
   type ForkRelease,
   type ForkUpdateState,
   type ReleaseNotesMode,
@@ -30,6 +31,34 @@ const markdownComponents: Components = {
     </a>
   ),
 };
+
+/** One release's notes, with the tooling-only "Under the hood" list folded. */
+function ReleaseNotesBody({ notes }: { notes: string }) {
+  const { main, hood } = splitUnderTheHood(notes);
+  return (
+    <>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={markdownComponents}
+      >
+        {main}
+      </ReactMarkdown>
+      {hood && (
+        <details className="mt-3" data-testid="fork-release-hood">
+          <summary className="cursor-pointer text-muted-foreground">
+            {hood.title}
+          </summary>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
+            {hood.body}
+          </ReactMarkdown>
+        </details>
+      )}
+    </>
+  );
+}
 
 type ReleaseNotesDialogProps = {
   mode: ReleaseNotesMode;
@@ -120,12 +149,7 @@ export default function ReleaseNotesDialog({
                   )}
                 </div>
                 <div className="text-sm leading-relaxed [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_em]:text-muted-foreground [&_h4]:mb-1 [&_h4]:mt-3 [&_h4]:font-medium [&_li]:my-0.5 [&_ul]:list-disc [&_ul]:pl-5">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {release.notes}
-                  </ReactMarkdown>
+                  <ReleaseNotesBody notes={release.notes} />
                 </div>
                 <a
                   href={release.url}

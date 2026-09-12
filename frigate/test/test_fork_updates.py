@@ -84,6 +84,21 @@ class TestForkUpdates(unittest.TestCase):
         self.assertEqual(parsed.name, "3")
         self.assertNotIn("fork-build", parsed.notes)
 
+    def test_parse_release_turns_the_folded_block_into_a_heading(self) -> None:
+        body = (
+            "### New\n\n- Kiosk mode\n\n<details>\n"
+            "<summary>Under the hood (1)</summary>\n\n- Ratchet\n\n</details>\n\n"
+            f"<!-- fork-build: {SHA_NEW} -->"
+        )
+
+        parsed = parse_release({**release("fork/4", SHA_NEW), "body": body})
+
+        assert parsed is not None
+        self.assertEqual(
+            parsed.notes,
+            "### New\n\n- Kiosk mode\n\n### Under the hood (1)\n\n- Ratchet",
+        )
+
     def test_older_build_reports_newer_releases(self) -> None:
         checker, _, _ = self.checker(f"0.18.0-{SHA_OLD[:9]}")
 
