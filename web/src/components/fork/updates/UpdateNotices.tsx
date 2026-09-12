@@ -33,10 +33,10 @@ const ReleaseNotesDialog = lazy(
   () => import("@/components/fork/updates/ReleaseNotesDialog"),
 );
 
-type UpdateNoticesProps = {
+type UpdateNoticesProps = Readonly<{
   variant: ForkNavVariant;
-  large?: boolean | undefined;
-};
+  large?: boolean;
+}>;
 
 /**
  * The update button (admins, when the fork has newer releases) and What's new
@@ -44,7 +44,10 @@ type UpdateNoticesProps = {
  * from ForkNavItems, which renders once: Sidebar on desktop, Bottombar on
  * mobile.
  */
-export default function UpdateNotices({ variant, large }: UpdateNoticesProps) {
+export default function UpdateNotices({
+  variant,
+  large = false,
+}: UpdateNoticesProps) {
   const { t } = useTranslation(["fork"]);
   const isAdmin = useIsAdmin();
   const { data: state, mutate } = useForkUpdates();
