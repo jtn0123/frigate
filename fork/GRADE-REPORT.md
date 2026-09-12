@@ -16,7 +16,7 @@ this file says what each item is.
 
 | ID | Category | Baseline | Now | Open items |
 |----|----------|----------|-----|------------|
-| A | Architecture & Design | B− | B− | 5 |
+| A | Architecture & Design | B− | B− | 4 |
 | B | Backend Quality | B− | B | 2 |
 | C | Frontend Quality | C | C+ | 6 |
 | D | Testing & Reliability | C+ | B− | 7 |
@@ -25,7 +25,7 @@ this file says what each item is.
 | G | Performance & Scalability | C+ | B− | 6 |
 | H | Documentation & Onboarding | C | C+ | 3 |
 | I | Developer Experience & Tooling | C+ | B | 6 |
-| **Overall** | | **B−** | **B** | **41** + UX track |
+| **Overall** | | **B−** | **B** | **40** + UX track |
 
 **Top 5 highest-leverage open fixes:** E5, E4, I6, D2, G9
 
@@ -82,12 +82,9 @@ untyped client/server contract.
 - **Effort:** L
 - **Grade lift:** B− → B
 
-#### A4 — Retire the duplicated `useSWR("config")` and dead wrappers in the app shell `[fork]` — backlog
-- **Where:** `web/src/App.tsx`, `web/src/api/index.tsx` (`WsWithConfig`)
-- **What's wrong:** Noise in the file every fork change touches.
-- **Fix:** Fetch config once; delete `WsWithConfig`; drop stray text nodes.
-- **Effort:** S
-- **Grade lift:** B− → B− (hygiene)
+#### ~~A4~~ ✓ done 2026-09-11 — Retire the duplicated `useSWR("config")` in the app shell `[fork]`
+- **Where:** `web/src/App.tsx` (`WsWithConfig` was already removed in C8)
+- **Fix shipped:** `App` fetches config once and passes it to `DefaultAppView`. Public share still does not consume config.
 
 ---
 

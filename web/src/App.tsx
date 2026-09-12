@@ -48,22 +48,20 @@ function App() {
     <Providers>
       <BrowserRouter basename={window.baseUrl}>
         <Wrapper>
-          {config?.safe_mode ? <SafeAppView /> : <DefaultAppView />}
+          {config?.safe_mode ? (
+            <SafeAppView />
+          ) : (
+            <DefaultAppView config={config} />
+          )}
         </Wrapper>
       </BrowserRouter>
     </Providers>
   );
 }
 
-function DefaultAppView() {
+function DefaultAppView({ config }: { config: FrigateConfig | undefined }) {
   const location = useLocation();
   const publicShare = isPublicSharePath(location.pathname);
-  const { data: config } = useSWR<FrigateConfig>(
-    publicShare ? null : "config",
-    {
-      revalidateOnFocus: false,
-    },
-  );
 
   if (publicShare) {
     return (
