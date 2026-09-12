@@ -84,6 +84,29 @@ class QueueTests(unittest.TestCase):
         )
         self.assertEqual(self.queue.claim(1070)["camera"], "street")
 
+    def test_all_cameras_get_service_under_sustained_slow_overload(self):
+        cameras = ["doorbell"] + [f"street_{i}" for i in range(8)]
+        served = set()
+        next_free = 1000
+        with patch("queue_store.publish"):
+            for now in range(1000, 2800, 15):
+                reviews = (
+                    [
+                        event(f"{camera}-{now}", camera, now - 50, now - 30)
+                        for camera in cameras
+                    ]
+                    if (now - 1000) % 60 == 0
+                    else []
+                )
+                self.queue.enqueue(reviews, now, cameras)
+                if now >= next_free:
+                    job = self.queue.claim(now)
+                    if job:
+                        served.add(job["camera"])
+                        self.queue.finish(job, now, {"transcript": "fixture"})
+                        next_free = now + 75
+        self.assertEqual(served, set(cameras))
+
     def test_failure_retries_once_and_old_work_expires(self):
         self.queue.enqueue([event()], 1000, ["doorbell"])
         for _ in range(2):

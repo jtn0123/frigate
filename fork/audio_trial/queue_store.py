@@ -24,6 +24,10 @@ class Queue:
             "created REAL, priority INTEGER, state TEXT, attempts INTEGER DEFAULT 0, "
             "result TEXT, reason TEXT, updated REAL)"
         )
+        self.db.execute(
+            "CREATE INDEX IF NOT EXISTS jobs_camera_served "
+            "ON jobs(camera,updated) WHERE attempts > 0"
+        )
         had_publications = self.db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='publications'"
         ).fetchone()
@@ -110,10 +114,13 @@ class Queue:
             result["large_status"] = "expired: second opinion age limit"
             self.finish(dict(old), now, result)
         row = self.db.execute(
-            "SELECT * FROM jobs WHERE state='pending' OR "
+            "SELECT * FROM jobs AS candidate WHERE state='pending' OR "
             "(state='second_opinion' AND updated < ?) "
             "ORDER BY CASE state WHEN 'pending' THEN 0 ELSE 1 END, "
-            "MAX(0,priority-CAST((?-created)/60 AS INTEGER)),start LIMIT 1",
+            "MAX(0,MIN(1,priority)-CAST((?-created)/60 AS INTEGER)), "
+            "COALESCE((SELECT MAX(served.updated) FROM jobs AS served "
+            "WHERE served.camera=candidate.camera AND served.attempts > 0),0), "
+            "start LIMIT 1",
             (now - 60, now),
         ).fetchone()
         if row is None:
