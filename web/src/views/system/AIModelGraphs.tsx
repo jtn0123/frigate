@@ -122,7 +122,10 @@ export default function AIModelGraphs({
     ["gpu", "mem"].map((field) => ({
       name: `${name}: ${t(field === "gpu" ? "models.gpuUtilization" : "models.gpuMemory")}`,
       data: graphPoints(history, (point) => {
-        const raw = Object.hasOwn(point.shared_gpus, name)
+        const raw = Object.prototype.hasOwnProperty.call(
+          point.shared_gpus,
+          name,
+        )
           ? point.shared_gpus[name][field as "gpu" | "mem"]
           : null;
         return raw == null ? null : Number.parseFloat(raw);

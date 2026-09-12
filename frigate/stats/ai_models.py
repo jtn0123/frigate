@@ -137,7 +137,7 @@ def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict]
         )
     # Enrichments share processes; report those resources as shared, not additive.
     process = stats.get("processes", {}).get("embeddings", {})
-    for enabled, key, role, name, path in (
+    for enabled, key, role, feature_name, feature_path in (
         (
             config.semantic_search.enabled,
             "image_embedding_speed",
@@ -179,13 +179,13 @@ def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict]
         models.append(
             {
                 "id": "feature:" + role,
-                "name": name,
+                "name": feature_name,
                 "role": role,
                 "location": "frigate",
                 "device": "CPU" if role == "sound_detection" else "configured",
                 "status": "enabled",
                 "resource_scope": "shared_process",
-                "disk_bytes": disk_size(path),
+                "disk_bytes": disk_size(feature_path),
                 "ram_bytes": process_memory(shared.get("pid")),
                 "cpu_percent": number(shared.get("cpu")),
                 "latency_ms": number(stats.get("embeddings", {}).get(key)),
