@@ -13,8 +13,8 @@ class TestIdentifiers(TestCase):
             with self.subTest(length=length):
                 result = random_id(length)
                 self.assertEqual(len(result), length)
-                self.assertTrue(
-                    set(result) <= set(string.ascii_lowercase + string.digits)
+                self.assertLessEqual(
+                    set(result), set(string.ascii_lowercase + string.digits)
                 )
 
     def test_each_character_uses_secure_choice(self):

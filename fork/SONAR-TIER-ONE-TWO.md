@@ -56,7 +56,7 @@ character generation; existing replay tests cover the existence-query change.
 
 ## Triage notes
 
-- Debug replay uses ModelSelect.exists() because validation needs only presence,
+- Debug replay uses ModelSelect.get_or_none() because validation needs only presence,
   not a count of all matching recordings.
 - Timeline processing already rejects updates without previous event data in its
   queue loop. The reported nullable access is guarded at the caller.

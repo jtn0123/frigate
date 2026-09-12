@@ -190,7 +190,10 @@ class RecordingDebugReplaySource(DebugReplaySource):
         if self._end_ts <= self._start_ts:
             raise ValueError("End time must be after start time")
 
-        if not query_recordings(self._camera, self._start_ts, self._end_ts).exists():
+        if (
+            query_recordings(self._camera, self._start_ts, self._end_ts).get_or_none()
+            is None
+        ):
             raise NoRecordingsError(
                 f"No recordings found for camera '{self._camera}' in the specified time range"
             )
