@@ -33,7 +33,7 @@ type EditRoleCamerasOverlayProps = {
   config: FrigateConfig;
   role: string;
   currentCameras: string[];
-  onSave: (cameras: string[]) => void;
+  onSave: (cameras: string[]) => void | Promise<void>;
   onCancel: () => void;
 };
 

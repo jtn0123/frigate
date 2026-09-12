@@ -54,7 +54,11 @@ import {
 
 type CreateUserOverlayProps = {
   show: boolean;
-  onCreate: (user: string, password: string, role: string) => void;
+  onCreate: (
+    user: string,
+    password: string,
+    role: string,
+  ) => void | Promise<void>;
   onCancel: () => void;
 };
 

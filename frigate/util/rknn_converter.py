@@ -43,7 +43,7 @@ MODEL_TYPE_CONFIGS = {
 }
 
 
-def get_rknn_model_type(model_path: str) -> str | None:
+def get_rknn_model_type(model_path: str | Path) -> str | None:
     if all(keyword in str(model_path) for keyword in ["jina-clip-v1", "vision"]):
         return "jina-clip-v1-vision"
 

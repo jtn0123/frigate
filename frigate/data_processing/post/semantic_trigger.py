@@ -272,4 +272,5 @@ class SemanticTriggerProcessor(PostProcessorApi):
         return None
 
     def expire_object(self, object_id: str, camera: str) -> None:
+        # This processor retains no per-object resources that need expiration.
         pass

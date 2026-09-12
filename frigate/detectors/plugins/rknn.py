@@ -278,7 +278,7 @@ class Rknn(DetectionApi):
         box_confidences = scores.reshape(-1)
         class_max_score = np.max(classes_conf, axis=-1)
         classes = np.argmax(classes_conf, axis=-1)
-        _class_pos = np.where(class_max_score * box_confidences >= 0.4)
+        _class_pos = np.nonzero(class_max_score * box_confidences >= 0.4)
         scores = (class_max_score * box_confidences)[_class_pos]
         boxes = boxes[_class_pos]
         classes = classes[_class_pos]

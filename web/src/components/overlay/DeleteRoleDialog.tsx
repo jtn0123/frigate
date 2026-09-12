@@ -17,7 +17,7 @@ type DeleteRoleDialogProps = {
   show: boolean;
   role: string;
   onCancel: () => void;
-  onDelete: () => void;
+  onDelete: () => void | Promise<void>;
 };
 
 export default function DeleteRoleDialog({

@@ -259,7 +259,7 @@ class ImprovedMotionDetector(MotionDetector):
             dsize=(self.motion_frame_size[1], self.motion_frame_size[0]),
             interpolation=cv2.INTER_AREA,
         )
-        self.mask = np.where(resized_mask == [0])
+        self.mask = np.nonzero(resized_mask == [0])
 
         # Reset motion detection state when mask changes
         # so motion detection can quickly recalibrate with the new mask

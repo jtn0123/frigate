@@ -1,5 +1,3 @@
-import random
-import string
 from collections import defaultdict
 from typing import Any
 
@@ -8,6 +6,7 @@ from scipy.spatial import distance as dist
 
 from frigate.config import DetectConfig
 from frigate.track import ObjectTracker
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.image import intersection_over_union
 
 
@@ -21,7 +20,7 @@ class CentroidTracker(ObjectTracker):
         self.detect_config = config
 
     def register(self, obj: dict[str, Any]) -> None:
-        rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        rand_id = generate_id(6)
         id = f"{obj['frame_time']}-{rand_id}"
         obj["id"] = id
         obj["start_time"] = obj["frame_time"]

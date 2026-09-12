@@ -179,7 +179,7 @@ export default function SearchView({
         return;
       }
 
-      Object.entries(cameraConfig.zones).map(([name, _]) => {
+      Object.entries(cameraConfig.zones).forEach(([name, _]) => {
         zones.add(name);
       });
     });

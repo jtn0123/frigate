@@ -5,8 +5,6 @@ import datetime
 import json
 import logging
 import os
-import random
-import string
 import sys
 import threading
 from multiprocessing.synchronize import Event as MpEvent
@@ -32,6 +30,7 @@ from frigate.const import (
 from frigate.models import ReviewSegment
 from frigate.review.types import SeverityEnum
 from frigate.track.object_processing import ManualEventState
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.image import SharedMemoryFrameManager, calculate_16_9_crop
 
 logger = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ class PendingReviewSegment:
         zones: list[str],
         audio: set[str],
     ):
-        rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        rand_id = generate_id(6)
         self.id = f"{frame_time}-{rand_id}"
         self.camera = camera
         self.start_time = frame_time

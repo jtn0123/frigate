@@ -41,9 +41,11 @@ class BaseProcess(mp.Process):
         self.after_start()
 
     def before_start(self) -> None:
+        # Optional lifecycle hook; subclasses override it when setup or cleanup is needed.
         pass
 
     def after_start(self) -> None:
+        # Optional lifecycle hook; subclasses override it when setup or cleanup is needed.
         pass
 
 

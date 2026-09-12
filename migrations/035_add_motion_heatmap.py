@@ -31,4 +31,5 @@ def migrate(migrator, database, fake=False, **kwargs):
 
 
 def rollback(migrator, database, fake=False, **kwargs):
+    # Rollback is intentionally unsupported; preserve existing data and schema.
     pass

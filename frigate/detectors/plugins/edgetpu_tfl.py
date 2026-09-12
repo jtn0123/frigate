@@ -92,10 +92,10 @@ class EdgeTpuTfl(DetectionApi):
             logger.debug("Using YOLO preprocessing/postprocessing")
 
             if len(self.tensor_output_details) not in [2, 3]:
-                logger.error(
-                    f"Invalid count of output tensors in YOLO model. Found {len(self.tensor_output_details)}, expecting 2 or 3."
+                raise ValueError(
+                    "YOLO model must have 2 or 3 output tensors, "
+                    f"found {len(self.tensor_output_details)}"
                 )
-                raise
 
             self.reg_max = 16  # = 64 dfl_channels // 4 # YOLO standard
             self.min_logit_value = np.log(

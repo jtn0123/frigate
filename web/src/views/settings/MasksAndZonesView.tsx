@@ -303,7 +303,7 @@ export default function MasksAndZonesView({
         } else {
           mergedZones.set(name, {
             data: zoneData,
-            source: currentEditingProfile ? "base" : "base",
+            source: "base",
           });
         }
       }
@@ -368,7 +368,7 @@ export default function MasksAndZonesView({
         } else {
           mergedMotionMasks.set(maskId, {
             data: maskData,
-            source: currentEditingProfile ? "base" : "base",
+            source: "base",
           });
         }
       }
@@ -433,7 +433,7 @@ export default function MasksAndZonesView({
         } else {
           mergedGlobalObjectMasks.set(maskId, {
             data: maskData,
-            source: currentEditingProfile ? "base" : "base",
+            source: "base",
           });
         }
       }

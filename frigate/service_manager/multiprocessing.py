@@ -93,15 +93,19 @@ class BaseServiceProcess(Service, ABC):
         self.after_run()
 
     def before_start(self) -> None:
+        # Optional lifecycle hook; subclasses override it when setup or cleanup is needed.
         pass
 
     def after_start(self) -> None:
+        # Optional lifecycle hook; subclasses override it when setup or cleanup is needed.
         pass
 
     def before_run(self) -> None:
+        # Optional lifecycle hook; subclasses override it when setup or cleanup is needed.
         pass
 
     def after_run(self) -> None:
+        # Optional lifecycle hook; subclasses override it when setup or cleanup is needed.
         pass
 
     @abstractmethod

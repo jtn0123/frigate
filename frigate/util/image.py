@@ -1022,7 +1022,8 @@ class UntrackedSharedMemory(_mpshm.SharedMemory):
 
         # if tracking, normal init will suffice
         if track:
-            return super().__init__(name=name, create=create, size=size)
+            super().__init__(name=name, create=create, size=size)
+            return
 
         # lock so that other threads don't attempt to use the
         # register function during this time

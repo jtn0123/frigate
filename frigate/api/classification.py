@@ -3,9 +3,7 @@
 import datetime
 import logging
 import os
-import random
 import shutil
-import string
 from typing import Any
 
 import cv2
@@ -42,6 +40,7 @@ from frigate.util.classification import (
     write_training_metadata,
 )
 from frigate.util.file import get_event_snapshot
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.path import safe_join, sanitize_path_component
 
 _FACE_RECOGNITION_IS_NOT_ENABLED = "Face recognition is not enabled."
@@ -995,7 +994,7 @@ def reclassify_classification_image(
             status_code=404,
         )
 
-    random_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    random_id = generate_id(6)
     timestamp = datetime.datetime.now().timestamp()
     new_name = f"{new_category}-{timestamp}-{random_id}.png"
 
@@ -1165,7 +1164,7 @@ def categorize_classification_image(request: Request, name: str, body: dict = No
             status_code=404,
         )
 
-    random_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    random_id = generate_id(6)
     timestamp = datetime.datetime.now().timestamp()
     new_name = f"{category}-{timestamp}-{random_id}.png"
     new_file_folder = safe_join(CLIPS_DIR, name, "dataset", category)

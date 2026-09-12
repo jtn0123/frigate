@@ -6,8 +6,6 @@ import datetime
 import json
 import logging
 import os
-import random
-import string
 from functools import reduce
 from pathlib import Path
 from urllib.parse import unquote
@@ -60,6 +58,7 @@ from frigate.embeddings import EmbeddingsContext
 from frigate.models import Event, ReviewSegment, Timeline, Trigger
 from frigate.track.object_processing import TrackedObject
 from frigate.util.file import get_event_thumbnail_bytes, load_event_snapshot_image
+from frigate.util.identifiers import random_id as generate_id
 from frigate.util.path import get_trigger_thumbnail_path, safe_join
 from frigate.util.time import get_dst_transitions, get_tz_modifiers
 
@@ -1864,7 +1863,7 @@ def create_event(
         )
 
     now = datetime.datetime.now().timestamp()
-    rand_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    rand_id = generate_id(6)
     event_id = f"{now}-{rand_id}"
 
     request.app.event_metadata_updater.publish(

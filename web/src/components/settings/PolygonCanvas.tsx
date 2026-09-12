@@ -237,7 +237,7 @@ export function PolygonCanvas({
       const updatedPolygons = [...polygons];
       const activePolygon = updatedPolygons[activePolygonIndex];
       const result: number[][] = [];
-      activePolygon.points.map((point: number[]) =>
+      activePolygon.points.forEach((point: number[]) =>
         result.push([point[0] + e.target.x(), point[1] + e.target.y()]),
       );
       e.target.position({ x: 0, y: 0 });
