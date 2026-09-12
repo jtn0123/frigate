@@ -35,7 +35,11 @@ echo "  ${files//$'\n'/$'\n'  }" >&2
 # The workflow and this script affect every job.
 shared='^(\.github/workflows/fork-checks\.yml|\.github/actions/fork-web-setup/|fork/scripts/ci-)'
 web_re="${shared}|^web/"
-py_re="${shared}|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|scripts/py-checks\.sh)$|^docs/static/frigate-api\.yaml$"
+py_re="${shared}|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/py-checks\.sh|scripts/dev-lock-check\.py)$|^docs/static/frigate-api\.yaml$"
 
-has() { grep -Eq "$1" <<<"$files"; }
+has() {
+  local pattern="$1"
+  grep -Eq "$pattern" <<<"$files"
+  return $?
+}
 emit "$(has "$web_re" && echo true || echo false)" "$(has "$py_re" && echo true || echo false)"

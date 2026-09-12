@@ -44,7 +44,7 @@ jobs:
       - run: git fetch --no-tags origin dev:refs/remotes/origin/dev
       - name: Install gitleaks
         run: |
-          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --proto '=https' -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks
       - name: Scan fork commits
@@ -93,6 +93,8 @@ jobs:
       - run: npm run i18n:extract:ci
         working-directory: ./web
 
+  # Tools run straight from node_modules/.bin (the lockfile's versions), not
+  # through npx, which could fetch a missing package from the registry.
   web_unit:
     name: Web - Unit tests + production build
     needs: changes
@@ -103,10 +105,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/fork-web-setup
-      - run: npx vitest run --coverage
+      - run: node_modules/.bin/vitest run --coverage
         working-directory: ./web
       # Typechecking is web_lint's job; this is `npm run build` without tsc.
-      - run: npx vite build --base=/BASE_PATH/
+      - run: node_modules/.bin/vite build --base=/BASE_PATH/
         working-directory: ./web
       - run: npm run bundle:budget
         working-directory: ./web
@@ -128,7 +130,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/fork-web-setup
       # `npm run e2e:build` without tsc; built once and shared by every shard.
-      - run: npx vite build --base=/
+      - run: node_modules/.bin/vite build --base=/
         working-directory: ./web
       - uses: actions/upload-artifact@v4
         with:
@@ -155,7 +157,7 @@ jobs:
           path: web/dist
       # Headless runs use only the headless shell, a smaller download than the
       # full browser.
-      - run: npx playwright install chromium --only-shell --with-deps
+      - run: node_modules/.bin/playwright install chromium --only-shell --with-deps
         working-directory: ./web
       - run: npm run e2e -- --shard=${{ matrix.shard }}/3
         working-directory: ./web
@@ -181,10 +183,11 @@ jobs:
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
           cache: pip
-          cache-dependency-path: docker/main/requirements-dev.txt
+          cache-dependency-path: fork/requirements-dev.lock
+      # docker/main/requirements-dev.txt, hash-pinned; the test image build
+      # (python_tests) fails if the two disagree.
       - run: |
-          python3 -m pip install -U pip
-          python3 -m pip install -r docker/main/requirements-dev.txt
+          python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-dev.lock
       - run: ruff format --check --diff frigate migrations docker ./*.py
       - run: ruff check frigate migrations docker ./*.py
 

@@ -14,7 +14,12 @@ runs:
       with:
         path: web/node_modules
         key: web-node-modules-${{ runner.os }}-node22-${{ hashFiles('web/package-lock.json', 'web/patches/**') }}
+    # No dependency lifecycle scripts: the ones in the tree (esbuild, @swc/core,
+    # msw) only verify or copy files their packages already ship. The app's own
+    # postinstall (patch-package) is the one install step that is needed.
     - if: steps.node-modules.outputs.cache-hit != 'true'
-      run: npm ci
+      run: |
+        npm ci --ignore-scripts
+        npm run postinstall
       shell: bash
       working-directory: ./web

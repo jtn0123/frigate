@@ -494,6 +494,13 @@ nothing tracks upstream automatically.
 - **Effort:** S
 - **Grade lift:** none (CI hygiene)
 
+#### I14 — Clear SonarCloud findings in the fork's scripts, CI and backend files `[fork]`
+- **Where:** `.github/workflows/fork-{checks,build}.yml`, `.github/actions/fork-web-setup/`, `fork/Dockerfile.test`, `fork/scripts/*.sh`, `fork/demo/fetch-samples.sh`, `web/scripts/fork/*.mjs`, `frigate/api/fork_share.py`, `frigate/record/cache_tracker.py`, `frigate/test/http_api/test_http_auth_gates.py`, `migrations/036_create_share_link.py`
+- **What's wrong:** About 40 SonarCloud findings on 2026-09-11. Supply-chain hotspots: `npx` could install packages on demand, npm lifecycle scripts ran during CI installs, pip installs were unlocked, an action was pinned by tag, and curl followed redirects to HTTP. Also a regex with super-linear backtracking in the type ratchet, shell functions without explicit returns, an empty migration rollback, and a few Python and JS smells.
+- **Fix:** Run tools from `node_modules/.bin`; `npm ci --ignore-scripts` followed by `postinstall` (patch-package); a hash-pinned `fork/requirements-dev.lock` installed with `--require-hashes --only-binary :all:` and guarded by `dev-lock-check.py`; the action pinned to a commit SHA; `curl --proto '=https'`; a linear regex, with tests; explicit returns and locals in the shell scripts; the share-link migration's rollback drops its table (tested up and down). Upstream's `pull_request.yml` has similar findings (lines 27, 48, 54, 69) and is left alone.
+- **Effort:** S
+- **Grade lift:** none (supply-chain hygiene)
+
 #### ~~I7~~ ✓ done 2026-09-10 — Local demo stack `[fork]`
 - **Where:** `fork/` (no way to run the fork's UI against a real backend except pointing `make dev-web` at a live server)
 - **What's wrong:** Features are validated only against mocks; dogfooding, CSP tuning (E6), profiling (G11) and web-vitals (G12) have nowhere to run.

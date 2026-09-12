@@ -20,6 +20,7 @@ for name in "${files[@]}"; do
     continue
   fi
   echo "fetch ${name}"
-  curl -fsSL -o "${dest}/${name}.part" "${base}/${name}"
+  # HTTPS only, redirects included (GitHub redirects raw/ to its CDN).
+  curl --proto '=https' -fsSL -o "${dest}/${name}.part" "${base}/${name}"
   mv "${dest}/${name}.part" "${dest}/${name}"
 done

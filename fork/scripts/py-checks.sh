@@ -18,6 +18,7 @@ start() {
   local name="$1"
   shift
   ("$@" >"$logs/$name.log" 2>&1; echo $? >"$logs/$name.rc") &
+  return 0
 }
 
 # unittest under coverage in a named container, so the report can be copied out.
@@ -54,7 +55,7 @@ for name in mypy api-spec unittest; do
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then echo "::endgroup::"; fi
   if [[ "$rc" != 0 ]]; then
     failed=1
-    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then echo "::error title=$name::$name failed (exit $rc)"; fi
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then echo "::error title=$name::$name failed (exit $rc)" >&2; fi
   fi
 done
 exit "$failed"
