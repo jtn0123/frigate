@@ -64,7 +64,7 @@ large complexity refactors, and policy-dependent network access restrictions.
 
 ## Validation
 
-Local results: 1,077 backend tests, 245 frontend unit tests, and 422 browser
+Local results: 1,077 backend tests, 249 frontend unit tests, and 422 browser
 tests passed. The 93 existing browser skips are unchanged. Nine fork-script
 tests pass locally, and all four transport tests also pass on Linux.
 Documentation and frontend production builds passed. Generated API and config
@@ -87,3 +87,14 @@ Full platform Docker images and physical camera/GPU behavior are not tested
 by this batch.
 
 Transport option reference: https://curl.se/docs/manpage.html#--proto-redir
+
+## Chart duplication follow-up
+
+Camera FPS, event-rate, and threshold system graphs now share a typed options
+builder. It creates independent nested objects for each chart so chart-library
+mutations cannot affect another graph. Timestamp indexing, threshold colors,
+percentage limits, and visibility animations remain in their existing callers.
+This removes 67 net production source lines across the three chart components
+and their shared helper. Four tests cover responsive settings, caller-specific
+formatters and limits, and isolation between chart options. Sonar duplication
+counts require the updated scan and are separate from the 545 issue-ID ledger.

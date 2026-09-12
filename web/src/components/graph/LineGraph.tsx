@@ -1,3 +1,4 @@
+import { createMetricChartOptions } from "./metricChartOptions";
 import { useTheme } from "@/context/theme-provider";
 import { useDateLocale } from "@/hooks/use-date-locale";
 import { FrigateConfig } from "@/types/frigateConfig";
@@ -79,64 +80,14 @@ export function CameraLineGraph({
 
   const options = useMemo(() => {
     return {
-      chart: {
-        id: graphId,
-        selection: {
-          enabled: false,
-        },
-        toolbar: {
-          show: false,
-        },
-        zoom: {
-          enabled: false,
-        },
-      },
-      colors: GRAPH_COLORS,
-      grid: {
-        show: false,
-      },
-      legend: {
-        show: false,
-      },
-      dataLabels: {
-        enabled: false,
-      },
-      stroke: {
-        width: 1,
-      },
-      tooltip: {
+      ...createMetricChartOptions({
+        graphId,
         theme: systemTheme || theme,
-      },
-      markers: {
-        size: 0,
-      },
-      xaxis: {
-        tickAmount: isMobileOnly ? 2 : 3,
-        tickPlacement: "on",
-        labels: {
-          rotate: 0,
-          formatter: formatTime,
-          style: {
-            colors: "#6B6B6B",
-          },
-        },
-        axisBorder: {
-          show: false,
-        },
-        axisTicks: {
-          show: false,
-        },
-      },
-      yaxis: {
-        show: true,
-        labels: {
-          formatter: (val: number) => Math.ceil(val).toString(),
-          style: {
-            colors: "#6B6B6B",
-          },
-        },
-        min: 0,
-      },
+        mobile: isMobileOnly,
+        formatTime,
+      }),
+      colors: GRAPH_COLORS,
+      stroke: { width: 1 },
     } as ApexCharts.ApexOptions;
   }, [graphId, systemTheme, theme, formatTime]);
 
@@ -241,64 +192,14 @@ export function EventsPerSecondsLineGraph({
 
   const options = useMemo(() => {
     return {
-      chart: {
-        id: graphId,
-        selection: {
-          enabled: false,
-        },
-        toolbar: {
-          show: false,
-        },
-        zoom: {
-          enabled: false,
-        },
-      },
-      colors: GRAPH_COLORS,
-      grid: {
-        show: false,
-      },
-      legend: {
-        show: false,
-      },
-      dataLabels: {
-        enabled: false,
-      },
-      stroke: {
-        width: 1,
-      },
-      tooltip: {
+      ...createMetricChartOptions({
+        graphId,
         theme: systemTheme || theme,
-      },
-      markers: {
-        size: 0,
-      },
-      xaxis: {
-        tickAmount: isMobileOnly ? 2 : 3,
-        tickPlacement: "on",
-        labels: {
-          rotate: 0,
-          formatter: formatTime,
-          style: {
-            colors: "#6B6B6B",
-          },
-        },
-        axisBorder: {
-          show: false,
-        },
-        axisTicks: {
-          show: false,
-        },
-      },
-      yaxis: {
-        show: true,
-        labels: {
-          formatter: (val: number) => Math.ceil(val).toString(),
-          style: {
-            colors: "#6B6B6B",
-          },
-        },
-        min: 0,
-      },
+        mobile: isMobileOnly,
+        formatTime,
+      }),
+      colors: GRAPH_COLORS,
+      stroke: { width: 1 },
     } as ApexCharts.ApexOptions;
   }, [graphId, systemTheme, theme, formatTime]);
 
