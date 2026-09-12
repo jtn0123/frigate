@@ -1,6 +1,15 @@
 #!/bin/bash
-
 set -euxo pipefail
+
+# Keep transport restrictions consistent for every download in this stage.
+download_https() {
+    curl --proto '=https' --proto-redir '=https' -fsSL "$@"
+}
+
+apt-get update
+apt-get install -y --no-install-recommends ca-certificates curl
+rm -rf /var/lib/apt/lists/*
+
 
 SQLITE3_VERSION="3.46.1"
 PYSQLITE3_VERSION="0.5.3"
@@ -20,7 +29,7 @@ if [[ ! -d "sqlite" ]]; then
   # For SQLite 3.46.1, the amalgamation version is 3460100
   SQLITE_AMALGAMATION_VERSION="3460100"
 
-  curl --proto '=https' --proto-redir '=https' -fsSL https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE_AMALGAMATION_VERSION}.zip --output sqlite-amalgamation.zip
+  download_https https://www.sqlite.org/2024/sqlite-amalgamation-${SQLITE_AMALGAMATION_VERSION}.zip --output sqlite-amalgamation.zip
   unzip sqlite-amalgamation.zip
   mv sqlite-amalgamation-${SQLITE_AMALGAMATION_VERSION}/* .
   rmdir sqlite-amalgamation-${SQLITE_AMALGAMATION_VERSION}

@@ -1,3 +1,4 @@
+import { TimeInput } from "@/components/input/TimeInput";
 import { useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -7,7 +8,7 @@ import { useFormattedTimestamp, use24HourTime } from "@/hooks/use-date-utils";
 import { getUTCOffset } from "@/utils/dateUtil";
 import { TimezoneAwareCalendar } from "./ReviewActivityCalendar";
 import { FaArrowRight, FaCalendarAlt } from "react-icons/fa";
-import { isDesktop, isIOS } from "react-device-detect";
+import { isDesktop } from "react-device-detect";
 import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { useTranslation } from "react-i18next";
@@ -143,30 +144,12 @@ export function CustomTimeSelector({
               }}
             />
             <SelectSeparator className="bg-secondary" />
-            <input
-              className="mx-4 w-full border border-input bg-background p-1 text-secondary-foreground hover:bg-accent hover:text-accent-foreground dark:[color-scheme:dark]"
+            <TimeInput
               id="startTime"
-              type="time"
+              label={startLabel}
               value={startClock}
-              step={isIOS ? "60" : "1"}
-              onChange={(e) => {
-                const clock = e.target.value;
-                const [hour, minute, second] = isIOS
-                  ? [...clock.split(":"), "00"]
-                  : clock.split(":");
-
-                const start = new Date(startTime * 1000);
-                start.setHours(
-                  Number.parseInt(hour),
-                  Number.parseInt(minute),
-                  Number.parseInt(second ?? 0),
-                  0,
-                );
-                setRange({
-                  before: endTime,
-                  after: start.getTime() / 1000,
-                });
-              }}
+              timestamp={startTime}
+              onChange={(after) => setRange({ before: endTime, after })}
             />
           </PopoverContent>
         </Popover>
@@ -209,30 +192,12 @@ export function CustomTimeSelector({
               }}
             />
             <SelectSeparator className="bg-secondary" />
-            <input
-              className="mx-4 w-full border border-input bg-background p-1 text-secondary-foreground hover:bg-accent hover:text-accent-foreground dark:[color-scheme:dark]"
+            <TimeInput
               id="endTime"
-              type="time"
+              label={endLabel}
               value={endClock}
-              step={isIOS ? "60" : "1"}
-              onChange={(e) => {
-                const clock = e.target.value;
-                const [hour, minute, second] = isIOS
-                  ? [...clock.split(":"), "00"]
-                  : clock.split(":");
-
-                const end = new Date(endTime * 1000);
-                end.setHours(
-                  Number.parseInt(hour),
-                  Number.parseInt(minute),
-                  Number.parseInt(second ?? 0),
-                  0,
-                );
-                setRange({
-                  before: end.getTime() / 1000,
-                  after: startTime,
-                });
-              }}
+              timestamp={endTime}
+              onChange={(before) => setRange({ after: startTime, before })}
             />
           </PopoverContent>
         </Popover>

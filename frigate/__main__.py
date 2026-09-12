@@ -75,8 +75,9 @@ def main() -> None:
 
                     if isinstance(current, ruamel.yaml.comments.CommentedMap):
                         current = current[key]
-                    elif isinstance(current, list) and isinstance(key, int):
-                        current = current[key]
+                    elif isinstance(current, list):
+                        if isinstance(key, int):
+                            current = current[key]
 
                     if hasattr(current, "lc"):
                         last_line_number = current.lc.line

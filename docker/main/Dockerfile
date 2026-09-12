@@ -30,7 +30,7 @@ RUN sh -c "$BASE_HOOK"
 FROM slim-base AS wget
 ARG DEBIAN_FRONTEND
 RUN apt-get update \
-    && apt-get install -y ca-certificates curl wget xz-utils \
+    && apt-get install -y wget xz-utils \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /rootfs
 
@@ -169,7 +169,7 @@ ARG DEBUG=false
 # Use a separate container to build wheels to prevent build dependencies in final image
 RUN apt-get -qq update \
     && apt-get -qq install -y \
-    apt-transport-https ca-certificates curl wget unzip \
+    apt-transport-https wget unzip \
     && apt-get -qq update \
     && apt-get -qq install -y \
     python3.11 \
@@ -324,7 +324,7 @@ RUN mkdir -p /opt/frigate \
     && ln -svf /workspace/frigate/frigate /opt/frigate/frigate
 
 # Install Node 20
-RUN curl --proto '=https' --proto-redir '=https' -fsSLO https://deb.nodesource.com/nsolid_setup_deb.sh && \
+RUN curl -SLO https://deb.nodesource.com/nsolid_setup_deb.sh && \
     chmod 500 nsolid_setup_deb.sh && \
     ./nsolid_setup_deb.sh 20 && \
     apt-get install nodejs -y \

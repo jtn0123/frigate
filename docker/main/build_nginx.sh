@@ -1,6 +1,11 @@
 #!/bin/bash
-
 set -euxo pipefail
+
+# Keep transport restrictions consistent for every download in this stage.
+download_https() {
+    curl --proto '=https' --proto-redir '=https' -fsSL "$@"
+}
+
 
 NGINX_VERSION="1.27.4"
 VOD_MODULE_VERSION="1.31"
@@ -27,11 +32,11 @@ apt install -y ccache
 export PATH="/usr/lib/ccache:$PATH"
 
 mkdir /tmp/nginx
-curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+download_https --remote-name https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
 tar -zxf nginx-${NGINX_VERSION}.tar.gz -C /tmp/nginx --strip-components=1
 rm nginx-${NGINX_VERSION}.tar.gz
 mkdir /tmp/nginx-vod-module
-curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://github.com/kaltura/nginx-vod-module/archive/refs/tags/${VOD_MODULE_VERSION}.tar.gz
+download_https --remote-name https://github.com/kaltura/nginx-vod-module/archive/refs/tags/${VOD_MODULE_VERSION}.tar.gz
 tar -zxf ${VOD_MODULE_VERSION}.tar.gz -C /tmp/nginx-vod-module --strip-components=1
 rm ${VOD_MODULE_VERSION}.tar.gz
     # Patch MAX_CLIPS to allow more clips to be added than the default 128
@@ -53,17 +58,17 @@ EOF
 
 
 mkdir /tmp/nginx-secure-token-module
-curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://github.com/kaltura/nginx-secure-token-module/archive/refs/tags/${SECURE_TOKEN_MODULE_VERSION}.tar.gz
+download_https --remote-name https://github.com/kaltura/nginx-secure-token-module/archive/refs/tags/${SECURE_TOKEN_MODULE_VERSION}.tar.gz
 tar -zxf ${SECURE_TOKEN_MODULE_VERSION}.tar.gz -C /tmp/nginx-secure-token-module --strip-components=1
 rm ${SECURE_TOKEN_MODULE_VERSION}.tar.gz
 
 mkdir /tmp/ngx_devel_kit
-curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://github.com/vision5/ngx_devel_kit/archive/refs/tags/${NGX_DEVEL_KIT_VERSION}.tar.gz
+download_https --remote-name https://github.com/vision5/ngx_devel_kit/archive/refs/tags/${NGX_DEVEL_KIT_VERSION}.tar.gz
 tar -zxf ${NGX_DEVEL_KIT_VERSION}.tar.gz -C /tmp/ngx_devel_kit --strip-components=1
 rm ${NGX_DEVEL_KIT_VERSION}.tar.gz
 
 mkdir /tmp/nginx-set-misc-module
-curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://github.com/openresty/set-misc-nginx-module/archive/refs/tags/${SET_MISC_MODULE_VERSION}.tar.gz
+download_https --remote-name https://github.com/openresty/set-misc-nginx-module/archive/refs/tags/${SET_MISC_MODULE_VERSION}.tar.gz
 tar -zxf ${SET_MISC_MODULE_VERSION}.tar.gz -C /tmp/nginx-set-misc-module --strip-components=1
 rm ${SET_MISC_MODULE_VERSION}.tar.gz
 

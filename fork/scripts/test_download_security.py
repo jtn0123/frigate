@@ -24,22 +24,36 @@ def download_options():
         "docker/main/install_tempio.sh",
         "docker/main/install_hailort.sh",
         "docker/main/install_memryx.sh",
-        "docker/main/Dockerfile",
         ".devcontainer/post_create.sh",
     ]
     commands = []
     for path in paths:
         source = (ROOT / path).read_text().replace("\\\n", " ")
-        for line in source.splitlines():
-            if path.endswith("Dockerfile") and "nsolid_setup_deb.sh" not in line:
-                continue
-            if line.lstrip().startswith(("wget ", "RUN wget ")):
+        lines = source.splitlines()
+        policy = next(
+            (
+                line.split("curl ", 1)[1].removesuffix(' "$@"')
+                for line in lines
+                if line.strip().startswith("curl ") and line.endswith(' "$@"')
+            ),
+            None,
+        )
+        for line in lines:
+            command = line.strip()
+            if command.startswith("wget "):
                 raise AssertionError(
                     f"Download bypasses the curl transport policy: {path}"
                 )
-            if not line.lstrip().startswith(("curl ", "RUN curl ")):
+            if command.startswith("download_https "):
+                if policy is None:
+                    raise AssertionError(f"Missing HTTPS download policy: {path}")
+                tokens = shlex.split(
+                    policy + " " + command.removeprefix("download_https ")
+                )
+            elif command.startswith("curl ") and not command.endswith(' "$@"'):
+                tokens = shlex.split(command.removeprefix("curl "))
+            else:
                 continue
-            tokens = shlex.split(line.split("curl ", 1)[1])
             options = []
             for token in tokens:
                 if token in (
@@ -49,11 +63,7 @@ def download_options():
                 ) or token.startswith("https://"):
                     break
                 # Save test responses to stdout instead of the build's filesystem.
-                options.append(
-                    token.replace("O", "")
-                    if token.startswith("-") and not token.startswith("--")
-                    else token
-                )
+                options.append(token)
             commands.append((path, options))
     return commands
 
@@ -118,6 +128,7 @@ class TestDownloadSecurity(unittest.TestCase):
         cls.http = http.server.ThreadingHTTPServer(("127.0.0.1", 0), DownloadHandler)
         cls.https = http.server.ThreadingHTTPServer(("127.0.0.1", 0), DownloadHandler)
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.load_cert_chain(cls.cert, key)
         cls.https.socket = context.wrap_socket(cls.https.socket, server_side=True)
         cls.http_url = f"http://localhost:{cls.http.server_port}"

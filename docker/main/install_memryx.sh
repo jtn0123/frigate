@@ -1,8 +1,13 @@
 #!/bin/bash
 set -e
 
+# Keep transport restrictions consistent for every download in this stage.
+download_https() {
+    curl --proto '=https' --proto-redir '=https' -fsSL "$@"
+}
+
 # Download the MxAccl for Frigate github release
-curl --proto '=https' --proto-redir '=https' -fsSL https://github.com/memryx/mx_accl_frigate/archive/refs/tags/v2.1.0.zip --output /tmp/mxaccl.zip
+download_https https://github.com/memryx/mx_accl_frigate/archive/refs/tags/v2.1.0.zip --output /tmp/mxaccl.zip
 unzip /tmp/mxaccl.zip -d /tmp
 mv /tmp/mx_accl_frigate-2.1.0 /opt/mx_accl_frigate
 rm /tmp/mxaccl.zip

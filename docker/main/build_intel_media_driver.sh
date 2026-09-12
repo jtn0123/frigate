@@ -1,6 +1,11 @@
 #!/bin/bash
-
 set -euxo pipefail
+
+# Keep transport restrictions consistent for every download in this stage.
+download_https() {
+    curl --proto '=https' --proto-redir '=https' -fsSL "$@"
+}
+
 
 # Intel media driver is x86_64-only. Create empty rootfs on other arches so
 # the downstream COPY --from has a valid source.
@@ -17,13 +22,13 @@ apt-get -qq install -y curl wget gnupg ca-certificates cmake g++ make pkg-config
 
 # Use Intel's jammy repo for newer libva-dev (2.22) which provides the
 # VVC/VVC-decode headers required by media-driver 25.x
-curl --proto '=https' --proto-redir '=https' -fsSL --output - https://repositories.intel.com/gpu/intel-graphics.key | gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+download_https --output - https://repositories.intel.com/gpu/intel-graphics.key | gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" > /etc/apt/sources.list.d/intel-gpu-jammy.list
 apt-get -qq update
 apt-get -qq install -y libva-dev
 
 # Build gmmlib (required by media-driver)
-curl --proto '=https' --proto-redir '=https' -fsSL --output gmmlib.tar.gz "https://github.com/intel/gmmlib/archive/refs/tags/${GMMLIB_VERSION}.tar.gz"
+download_https --output gmmlib.tar.gz "https://github.com/intel/gmmlib/archive/refs/tags/${GMMLIB_VERSION}.tar.gz"
 mkdir /tmp/gmmlib
 tar -xf gmmlib.tar.gz -C /tmp/gmmlib --strip-components 1
 cmake -S /tmp/gmmlib -B /tmp/gmmlib/build -DCMAKE_BUILD_TYPE=Release
@@ -31,7 +36,7 @@ make -C /tmp/gmmlib/build -j"$(nproc)"
 make -C /tmp/gmmlib/build install
 
 # Build intel-media-driver
-curl --proto '=https' --proto-redir '=https' -fsSL --output media-driver.tar.gz "https://github.com/intel/media-driver/archive/refs/tags/${MEDIA_DRIVER_VERSION}.tar.gz"
+download_https --output media-driver.tar.gz "https://github.com/intel/media-driver/archive/refs/tags/${MEDIA_DRIVER_VERSION}.tar.gz"
 mkdir /tmp/media-driver
 tar -xf media-driver.tar.gz -C /tmp/media-driver --strip-components 1
 cmake -S /tmp/media-driver -B /tmp/media-driver/build \

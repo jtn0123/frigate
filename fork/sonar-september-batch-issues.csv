@@ -1,6 +1,4 @@
 issue_key,rule,file,baseline_line,work
-AaCOHz9p9tFduPng0-W6,docker:S6506,docker/main/Dockerfile,327,new
-AaCOHy429tFduPng09-q,python:S1066,frigate/__main__.py,77,new
 AaCOHyth9tFduPng097Z,python:S1066,frigate/comms/dispatcher.py,560,new
 AaCOHyth9tFduPng097a,python:S1066,frigate/comms/dispatcher.py,585,new
 AaCOHyth9tFduPng097b,python:S1066,frigate/comms/dispatcher.py,633,new
@@ -271,6 +269,7 @@ AaCOHzEb9tFduPng0-Cd,typescript:S6582,web/src/components/config-form/sections/se
 AaCOHzEb9tFduPng0-Ce,typescript:S6582,web/src/components/config-form/sections/section-special-cases.ts,141,new
 AaCOHzEb9tFduPng0-Cg,typescript:S6582,web/src/components/config-form/sections/section-special-cases.ts,195,new
 AaCOHzAA9tFduPng0-Bl,typescript:S6582,web/src/components/config-form/theme/utils/i18n.ts,240,new
+AaCOHzVA9tFduPng0-H3,typescript:S6582,web/src/components/filter/CameraGroupSelector.tsx,1055,new
 AaCOHzVA9tFduPng0-H4,typescript:S6582,web/src/components/filter/CameraGroupSelector.tsx,1057,new
 AaCOHy5U9tFduPng09_A,typescript:S6582,web/src/components/input/InputWithTags.tsx,675,new
 AaCOHzJE9tFduPng0-D4,typescript:S6582,web/src/components/overlay/detail/ObjectPath.tsx,122,new

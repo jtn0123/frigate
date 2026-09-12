@@ -1056,7 +1056,7 @@ export function CameraGroupEdit({
     resolver: zodResolver(formSchema),
     mode: "onSubmit",
     defaultValues: {
-      name: (editingGroup && editingGroup[0]) ?? "",
+      name: editingGroup?.[0] ?? "",
       icon: editingGroup && (editingGroup[1].icon as IconName),
       cameras: editingGroup?.[1].cameras,
     },
