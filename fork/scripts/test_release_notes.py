@@ -127,6 +127,36 @@ class ReleaseNotesTest(unittest.TestCase):
         )
         self.assertTrue(markdown.endswith(f"<!-- fork-build: {head} -->"))
 
+    def test_tooling_lines_fold_under_the_hood(self) -> None:
+        self.commit("C1: faster camera wall.", "web/src/wall.tsx")
+        self.commit("C2: ratchet TypeScript hatches", "web/src/types.ts")
+        self.commit("F3: Playwright 1.63 and Prettier 3.9", "web/package.json")
+        self.commit(
+            "C4: treat floating promises as errors\n\n"
+            "Release-note: Fewer silent failures",
+            "web/src/api.ts",
+        )
+
+        notes = self.build()
+        markdown = release_notes.to_markdown(notes)
+
+        self.assertEqual(
+            notes.sections["Fixes and improvements"],
+            ["Faster camera wall", "Fewer silent failures"],
+        )
+        self.assertEqual(
+            notes.sections["Under the hood"],
+            ["Ratchet TypeScript hatches", "Playwright 1.63 and Prettier 3.9"],
+        )
+        self.assertNotIn("Dependencies", notes.sections)
+        self.assertIn(
+            "<summary>Under the hood (2)</summary>\n\n- Ratchet TypeScript hatches",
+            markdown,
+        )
+        self.assertLess(
+            markdown.index("### Fixes and improvements"), markdown.index("<details>")
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,8 @@ release match commit subjects rather than SHAs, which survives those rebases.
 Each subject's ledger ID (`UI6: ...`) picks the section and is then dropped.
 Commits that only touch files the image never ships (tests, CI, docs, fork
 tooling), and the grade-report categories that never change what a user sees,
-are counted but not listed. A commit can override its line with a
+are counted but not listed. Lines about tooling (tests, lint, type checks, CI)
+go last, folded under "Under the hood". A commit can override its line with a
 `Release-note: <text>` trailer, or hide itself with `Release-note: none`.
 
     fork/scripts/release_notes.py [--ref HEAD] [--previous <tag>] [--image <ref>]
@@ -50,6 +51,15 @@ INTERNAL_PATTERNS = (
 INTERNAL_IDS = {"A", "H", "I", "S"}
 
 SECTIONS = ("New", "Fixes and improvements", "Security", "Dependencies")
+
+# Lines about how the fork is built and tested rather than what it does. They
+# go last, folded, under this heading.
+UNDER_THE_HOOD = "Under the hood"
+TOOLING_RE = re.compile(
+    r"\b(ratchet|typecheck|lint|eslint|prettier|playwright|vitest|jsdom|coverage"
+    r"|sonar|ci|unit tests?|e2e|mypy|ruff|tailwind|promises?|node \d+)\b",
+    re.IGNORECASE,
+)
 
 ID_RE = re.compile(
     r"^(?P<ids>[A-Z]{1,2}\d+(?:\s*\+\s*[A-Z]{1,2}\d+)*)\s*:\s*(?P<text>.+)$"
@@ -166,8 +176,12 @@ def build(
             notes.internal += 1
             continue
         line = commit.trailer or text
-        line = line[0].upper() + line[1:]
-        items = notes.sections.setdefault(section_for(prefix), [])
+        line = line[0].upper() + line[1:].rstrip(".")
+        section = section_for(prefix)
+        # A Release-note: trailer is written for users, so it is never folded.
+        if not commit.trailer and TOOLING_RE.search(line):
+            section = UNDER_THE_HOOD
+        items = notes.sections.setdefault(section, [])
         if line not in items:
             items.append(line)
     return notes
@@ -189,7 +203,7 @@ def to_markdown(notes: Notes, image: str | None = None) -> str:
         if items:
             out.append(f"\n### {name}\n")
             out.extend(f"- {item}" for item in items)
-    if not notes.sections:
+    if not any(notes.sections.get(name) for name in SECTIONS):
         out.append("\nNo user-facing changes.")
     if notes.internal:
         plural = "change" if notes.internal == 1 else "changes"
@@ -199,6 +213,13 @@ def to_markdown(notes: Notes, image: str | None = None) -> str:
         )
     if image:
         out.append(f"\nImage: `{image}`")
+    hood = notes.sections.get(UNDER_THE_HOOD)
+    if hood:
+        # <details> folds the list on GitHub; the app turns the summary into a
+        # heading and folds it itself (frigate/fork/updates.py).
+        out.append(f"\n<details>\n<summary>{UNDER_THE_HOOD} ({len(hood)})</summary>\n")
+        out.extend(f"- {item}" for item in hood)
+        out.append("\n</details>")
     out.append(f"\n<!-- fork-build: {notes.sha} -->")
     return "\n".join(out)
 
