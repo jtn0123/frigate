@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import Heading from "../ui/heading";
 import { Separator } from "../ui/separator";
 import { Button } from "@/components/ui/button";
@@ -519,7 +520,7 @@ export function ZoneObjectSelector({
       labels.add(label);
     });
 
-    return [...labels].sort();
+    return sortedStrings(labels);
   }, [config, cameraConfig]);
 
   return (

@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useApiHost } from "@/api";
 import { isCurrentHour } from "@/utils/dateUtil";
@@ -277,16 +278,14 @@ export default function PreviewThumbnailPlayer({
                       className={`flex items-start justify-between space-x-1 ${playingBack ? "hidden" : ""} bg-gradient-to-br ${review.has_been_reviewed ? "bg-green-600 from-green-600 to-green-700" : "bg-gray-500 from-gray-400 to-gray-500"} z-0`}
                       onClick={() => onClick(review, false, true)}
                     >
-                      {review.data.objects
-                        .sort()
-                        .map((object, idx) =>
-                          getIconForLabel(
-                            object,
-                            "object",
-                            "size-3 text-white",
-                            `${object}-${idx}`,
-                          ),
-                        )}
+                      {sortedStrings(review.data.objects).map((object, idx) =>
+                        getIconForLabel(
+                          object,
+                          "object",
+                          "size-3 text-white",
+                          `${object}-${idx}`,
+                        ),
+                      )}
                       {review.data.audio.map((audio) => {
                         return getIconForLabel(
                           audio,
@@ -303,21 +302,22 @@ export default function PreviewThumbnailPlayer({
               {review.data.metadata
                 ? review.data.metadata.title
                 : formatList(
-                    [
-                      ...new Set([
-                        ...(review.data.objects || []),
-                        ...(review.data.sub_labels || []),
-                        ...(review.data.audio || []),
-                      ]),
-                    ]
-                      .filter(
-                        (item) =>
-                          item !== undefined && !item.includes("-verified"),
-                      )
-                      .map((text) =>
-                        getTranslatedLabel(text, getEventType(text)),
-                      )
-                      .sort(),
+                    sortedStrings(
+                      [
+                        ...new Set([
+                          ...(review.data.objects || []),
+                          ...(review.data.sub_labels || []),
+                          ...(review.data.audio || []),
+                        ]),
+                      ]
+                        .filter(
+                          (item) =>
+                            item !== undefined && !item.includes("-verified"),
+                        )
+                        .map((text) =>
+                          getTranslatedLabel(text, getEventType(text)),
+                        ),
+                    ),
                   )}
             </TooltipContent>
           </Tooltip>

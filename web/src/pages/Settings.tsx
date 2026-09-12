@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { wrapAsync } from "@/utils/promise";
 import {
   DropdownMenu,
@@ -696,7 +697,7 @@ export default function Settings() {
 
   const allProfileNames = useMemo(() => {
     if (!config?.profiles) return [];
-    return Object.keys(config.profiles).sort();
+    return sortedStrings(Object.keys(config.profiles));
   }, [config]);
 
   const profileFriendlyNames = useMemo(() => {
@@ -953,10 +954,12 @@ export default function Settings() {
         // or add/remove), OR the model save flips between Plus and Custom modes
         let detectorKeysChanged = false;
         if (sanitizedDetectors && typeof sanitizedDetectors === "object") {
-          const pendingKeySet = Object.keys(
-            sanitizedDetectors as JsonObject,
-          ).sort();
-          const savedKeySet = Object.keys(config.detectors ?? {}).sort();
+          const pendingKeySet = sortedStrings(
+            Object.keys(sanitizedDetectors as JsonObject),
+          );
+          const savedKeySet = sortedStrings(
+            Object.keys(config.detectors ?? {}),
+          );
           detectorKeysChanged =
             JSON.stringify(pendingKeySet) !== JSON.stringify(savedKeySet);
         }

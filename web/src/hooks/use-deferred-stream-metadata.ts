@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import { baseUrl } from "@/api/baseUrl";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import useSWR from "swr";
@@ -31,7 +32,7 @@ export default function useDeferredStreamMetadata(streamNames: string[]) {
   const swrKey = useMemo(() => {
     if (!fetchEnabled || streamNames.length === 0) return null;
     // Use spread to avoid mutating the original array
-    return `deferred-streams:${[...streamNames].sort().join(",")}`;
+    return `deferred-streams:${sortedStrings(streamNames).join(",")}`;
   }, [fetchEnabled, streamNames]);
 
   const fetcher = useCallback(async (key: string) => {
