@@ -4,12 +4,12 @@ Baseline: next at 22223af07, after PR 38.
 
 Five findings are addressed in source, awaiting scan confirmation:
 
-| Rule | Count | Change |
-| --- | ---: | --- |
-| javascript:S1082 | 2 | Native buttons make documentation model selection keyboard-operable. |
-| typescript:S2999 | 1 | Type and validate the optional ManagedMediaSource constructor. |
-| pythonsecurity:S8707 | 1 | Encode model labels as single export-folder components. |
-| typescript:S2699 | 1 | Use a direct auto-retrying locator assertion for timeline markers. |
+| Rule                 | Count | Change                                                               |
+| -------------------- | ----: | -------------------------------------------------------------------- |
+| javascript:S1082     |     2 | Native buttons make documentation model selection keyboard-operable. |
+| typescript:S2999     |     1 | Type and validate the optional ManagedMediaSource constructor.       |
+| pythonsecurity:S8707 |     1 | Encode model labels as single export-folder components.              |
+| typescript:S2699     |     1 | Use a direct auto-retrying locator assertion for timeline markers.   |
 
 The dataset regression test demonstrates that a ../escaped label previously
 wrote outside the selected export directory. Percent-encoding label components
@@ -35,6 +35,7 @@ No findings were suppressed or marked false positive in Sonar.
 
 - 1,097 backend unittest tests passed; mypy passed for 369 source files.
 - 258 frontend unit tests, TypeScript, lint, and both production builds passed.
+- 428 browser tests passed, with 93 existing skips.
 - Keyboard-only documentation check: Space opens the model picker; Tab and Enter
   select SSDLite MobileNet v2, update the selected label, and close the picker.
 - The dataset traversal test fails on the original implementation and passes

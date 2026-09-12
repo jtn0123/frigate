@@ -42,3 +42,8 @@ web/.e2e-port
 fork/demo/.env
 fork/demo/.data/
 fork/demo/.build/
+
+# Local Sonar and backend coverage artifacts
+.scannerwork/
+coverage-py/
+.coverage

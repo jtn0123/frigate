@@ -27,8 +27,8 @@ unittest_with_coverage() {
   docker run --name "$container" --entrypoint python3 "$image" -c "
 import subprocess, sys
 r = subprocess.call([sys.executable, '-m', 'coverage', 'run', '-m', 'unittest'])
-subprocess.call([sys.executable, '-m', 'coverage', 'report', '-i'])
-subprocess.check_call([sys.executable, '-m', 'coverage', 'xml', '-i', '-o', '/tmp/coverage.xml'])
+subprocess.call([sys.executable, '-m', 'coverage', 'report'])
+subprocess.check_call([sys.executable, '-m', 'coverage', 'xml', '-o', '/tmp/coverage.xml'])
 sys.exit(r)
 "
   rc=$?

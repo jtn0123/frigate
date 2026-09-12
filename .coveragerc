@@ -1,0 +1,13 @@
+[run]
+branch = True
+relative_files = True
+source =
+    frigate
+    migrations
+    testing-scripts
+omit =
+    frigate/test/*
+    frigate/version.py
+
+[report]
+show_missing = True

@@ -3,8 +3,9 @@ name: Fork - Checks
 # Same gates as upstream's pull_request.yml, run on pushes to next (where pull
 # requests land) and main (the release branch), with dependency caching and a
 # thin backend test image instead of a full devcontainer build. Web and Python
-# jobs run only when their files changed (docs-only commits run just the
-# secrets scan); "Checks passed" is the single job to require.
+# lint and E2E jobs run only when their files changed. Both coverage suites run
+# on every revision so Sonar never mixes reports from different commits.
+# "Checks passed" includes the Sonar quality gate for trusted revisions.
 
 on:
   workflow_dispatch:
@@ -100,7 +101,6 @@ jobs:
   web_unit:
     name: Web - Unit tests + production build
     needs: changes
-    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -118,6 +118,7 @@ jobs:
         if: always()
         with:
           name: web-coverage
+          if-no-files-found: error
           path: web/coverage
           retention-days: 7
 
@@ -192,12 +193,13 @@ jobs:
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-dev.lock
       - run: ruff format --check --diff frigate migrations docker fork/scripts fork/audio_trial ./*.py
       - run: ruff check frigate migrations docker fork/scripts fork/audio_trial ./*.py
+      - run: |
+          python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
       - run: python3 -m unittest discover -s fork/scripts -p "test_*.py"
 
   python_tests:
     name: Python - mypy, API spec, unittest
     needs: changes
-    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -206,22 +208,77 @@ jobs:
       - run: make version
       - run: docker build -f fork/Dockerfile.test --build-arg BASE="${FORK_TEST_BASE}" -t frigate-fork-test .
       - run: fork/scripts/py-checks.sh
-      - name: Audio companion unit tests
-        run: docker run --rm -v "$PWD/fork/audio_trial:/opt/frigate/fork/audio_trial:ro" frigate-fork-test discover -s fork/audio_trial -v
         env:
           COVERAGE_XML: coverage-py/coverage.xml
+      - name: Audio companion unit tests
+        run: docker run --rm -v "$PWD/fork/audio_trial:/opt/frigate/fork/audio_trial:ro" frigate-fork-test discover -s fork/audio_trial -v
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: python-coverage
+          if-no-files-found: error
           path: coverage-py/coverage.xml
           retention-days: 7
+
+  sonar:
+    name: Sonar - Coverage + quality gate
+    needs: [web_unit, python_tests]
+    # Fork PRs have no secret. Never use pull_request_target to scan their code.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-coverage
+          path: web/coverage
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-coverage
+          path: coverage-py
+      - uses: actions/setup-python@v5.4.0
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - run: |
+          python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
+      - name: Verify coverage reports
+        run: python3 fork/scripts/sonar-coverage-check.py
+      - name: Check Sonar authentication
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [[ -z "$SONAR_TOKEN" ]]; then
+            echo "::error::Add the SONAR_TOKEN repository secret before enabling CI analysis"
+            exit 1
+          fi
+      - name: Scan and wait for the quality gate
+        uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >-
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=600
 
   checks_passed:
     name: Checks passed
     if: always()
     needs:
-      [secrets_scan, changes, web_lint, web_unit, web_build, web_e2e, python_checks, python_tests]
+      [
+        secrets_scan,
+        changes,
+        web_lint,
+        web_unit,
+        web_build,
+        web_e2e,
+        python_checks,
+        python_tests,
+        sonar,
+      ]
     runs-on: ubuntu-latest
     steps:
       # Skipped jobs are fine (their files did not change); failed or
