@@ -17,7 +17,6 @@ import type {
 import { FaCircleCheck } from "react-icons/fa6";
 import { cn } from "@/lib/utils";
 import { maskUri } from "@/utils/cameraUtil";
-import { onActivate } from "@/utils/fork/a11y";
 
 type OnvifProbeResultsProps = {
   isLoading: boolean;
@@ -41,7 +40,7 @@ export default function OnvifProbeResults({
   testCandidate,
   candidateTests,
   testingCandidates,
-}: OnvifProbeResultsProps) {
+}: Readonly<OnvifProbeResultsProps>) {
   const { t } = useTranslation(["views/settings"]);
   const [copiedUri, setCopiedUri] = useState<string | null>(null);
 
@@ -256,7 +255,7 @@ function CandidateItem({
   testCandidate,
   candidateTest,
   isTesting,
-}: CandidateItemProps) {
+}: Readonly<CandidateItemProps>) {
   const { t } = useTranslation(["views/settings"]);
   const [showFull, setShowFull] = useState(false);
 
@@ -316,16 +315,14 @@ function CandidateItem({
           </div>
 
           <div className="mt-1 flex items-start gap-2">
-            <p
+            <button
+              type="button"
               className="flex-1 cursor-pointer break-all text-sm text-primary-variant hover:underline"
               onClick={() => setShowFull((s) => !s)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={onActivate(() => setShowFull((s) => !s))}
               title={t("cameraWizard.step2.toggleUriView")}
             >
               {showFull ? candidate.uri : maskUri(candidate.uri)}
-            </p>
+            </button>
 
             <div className="flex items-center gap-2">
               <Button

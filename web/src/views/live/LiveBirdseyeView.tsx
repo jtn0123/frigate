@@ -36,7 +36,7 @@ export default function LiveBirdseyeView({
   fullscreen,
   toggleFullscreen,
   onSelectCamera,
-}: LiveBirdseyeViewProps) {
+}: Readonly<LiveBirdseyeViewProps>) {
   const { t } = useTranslation(["views/live"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const navigate = useNavigate();
@@ -284,6 +284,8 @@ export default function LiveBirdseyeView({
               height: "100%",
             }}
           >
+            {/* The camera map uses coordinates; the camera buttons provide keyboard access. */}
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
             <div
               className={cn(
                 "flex flex-col items-center justify-center",
@@ -292,8 +294,23 @@ export default function LiveBirdseyeView({
               style={{
                 aspectRatio: constrainedAspectRatio,
               }}
+              role="group"
               onClick={handleOverlayClick}
             >
+              <div className="sr-only focus-within:not-sr-only">
+                {Object.keys(birdseyeLayout.payload || {}).map((camera) => (
+                  <button
+                    key={camera}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectCamera?.(camera);
+                    }}
+                  >
+                    {camera}
+                  </button>
+                ))}
+              </div>
               <BirdseyeLivePlayer
                 className={`${fullscreen ? "*:rounded-none" : ""}`}
                 birdseyeConfig={config.birdseye}

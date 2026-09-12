@@ -310,7 +310,7 @@ class AsyncDetectorRunner(FrigateProcess):
 
             self._publisher.stop()
         except Exception as e:
-            logger.error(f"Error during async detector shutdown: {e}")
+            logger.exception(f"Error during async detector shutdown: {e}")
         finally:
             logger.info("Exited Async detection process...")
 

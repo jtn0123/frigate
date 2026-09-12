@@ -480,7 +480,7 @@ function NewGroupDialog({
   setGroup,
   deleteGroup,
   isAdmin,
-}: NewGroupDialogProps) {
+}: Readonly<NewGroupDialogProps>) {
   const { t } = useTranslation(["components/camera"]);
   const { mutate: updateConfig } = useSWR<FrigateConfig>("config");
 
@@ -767,7 +767,7 @@ export function CameraGroupRow({
   onDeleteGroup,
   onEditGroup,
   isReadOnly,
-}: CameraGroupRowProps) {
+}: Readonly<CameraGroupRowProps>) {
   const { t } = useTranslation(["components/camera"]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 

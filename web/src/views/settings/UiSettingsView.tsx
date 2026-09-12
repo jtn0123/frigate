@@ -19,7 +19,7 @@ import {
   SelectTrigger,
 } from "../../components/ui/select";
 import { useTranslation } from "react-i18next";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 import {
   SettingsGroupCard,
   SPLIT_ROW_CLASS_NAME,
@@ -44,7 +44,7 @@ function SwitchSettingRow({
   description,
   checked,
   onCheckedChange,
-}: SwitchSettingRowProps) {
+}: Readonly<SwitchSettingRowProps>) {
   return (
     <div className={SPLIT_ROW_CLASS_NAME}>
       <div className="space-y-1.5">
@@ -85,7 +85,7 @@ function ValueSettingRow({
   label,
   description,
   control,
-}: ValueSettingRowProps) {
+}: Readonly<ValueSettingRowProps>) {
   return (
     <div className={SPLIT_ROW_CLASS_NAME}>
       <div className="space-y-1.5">

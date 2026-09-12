@@ -19,7 +19,7 @@ import {
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { cn } from "@/lib/utils";
 import { isMobile } from "react-device-detect";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useId, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type Option = {
@@ -53,8 +53,10 @@ export default function OptionAndInputDialog({
   setOpen,
   onSave,
   onCreateNew,
-}: OptionAndInputDialogProps) {
+}: Readonly<OptionAndInputDialogProps>) {
   const { t } = useTranslation("common");
+  const nameId = useId();
+  const descriptionId = useId();
   const firstOption = useMemo(() => options[0]?.value, [options]);
 
   const [selectedValue, setSelectedValue] = useState<string | undefined>(
@@ -141,16 +143,27 @@ export default function OptionAndInputDialog({
         {isNew && (
           <div className="space-y-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-secondary-foreground">
+              <label
+                htmlFor={nameId}
+                className="text-sm font-medium text-secondary-foreground"
+              >
                 {nameLabel}
               </label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                id={nameId}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-secondary-foreground">
+              <label
+                htmlFor={descriptionId}
+                className="text-sm font-medium text-secondary-foreground"
+              >
                 {descriptionLabel}
               </label>
               <Textarea
+                id={descriptionId}
                 value={descriptionValue}
                 onChange={(e) => setDescriptionValue(e.target.value)}
                 rows={2}

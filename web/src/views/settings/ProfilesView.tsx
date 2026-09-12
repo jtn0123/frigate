@@ -73,7 +73,7 @@ export default function ProfilesView({
   profileState,
   profilesUIEnabled,
   setProfilesUIEnabled,
-}: ProfilesViewProps) {
+}: Readonly<ProfilesViewProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config, mutate: updateConfig } =

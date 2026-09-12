@@ -239,7 +239,7 @@ function MotionPreviewClip({
   aspectRatio,
   isVisible,
   onSeek,
-}: MotionPreviewClipProps) {
+}: Readonly<MotionPreviewClipProps>) {
   const { t } = useTranslation(["views/events", "common"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -730,7 +730,7 @@ export default function MotionPreviewsPane({
   motionFilterCells,
   cropToFilter = true,
   onSeek,
-}: MotionPreviewsPaneProps) {
+}: Readonly<MotionPreviewsPaneProps>) {
   const { t } = useTranslation(["views/events"]);
   const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(
     null,

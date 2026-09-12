@@ -95,7 +95,7 @@ export default function ClassificationModelWizardDialog({
   open,
   onClose,
   defaultModelType,
-}: ClassificationModelWizardDialogProps) {
+}: Readonly<ClassificationModelWizardDialogProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
 
   const [wizardState, dispatch] = useReducer(wizardReducer, initialState);

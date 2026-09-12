@@ -59,7 +59,7 @@ import {
 import type { ProfileState } from "@/types/profile";
 import { getProfileColor } from "@/utils/profileColors";
 import { isReplayCamera } from "@/utils/cameraUtil";
-import { StatusBarMessagesContext } from "@/context/statusbar-provider";
+import { StatusBarMessagesContext } from "@/context/statusbar-context";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -91,7 +91,7 @@ type CameraManagementViewProps = {
 
 export default function CameraManagementView({
   profileState,
-}: CameraManagementViewProps) {
+}: Readonly<CameraManagementViewProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
 
   const { data: config, mutate: updateConfig } =
@@ -415,7 +415,7 @@ type ReorderSaveStatusIndicatorProps = {
 
 function ReorderSaveStatusIndicator({
   status,
-}: ReorderSaveStatusIndicatorProps) {
+}: Readonly<ReorderSaveStatusIndicatorProps>) {
   const { t } = useTranslation(["views/settings"]);
   return (
     <div
@@ -452,7 +452,7 @@ function ActiveCameraRow({
   onConfigChanged,
   onDragEnd,
   setRestartDialogOpen,
-}: ActiveCameraRowProps) {
+}: Readonly<ActiveCameraRowProps>) {
   const { t } = useTranslation(["views/settings"]);
   const controls = useDragControls();
 
@@ -500,7 +500,7 @@ function DisabledCameraRow({
   camera,
   onConfigChanged,
   setRestartDialogOpen,
-}: DisabledCameraRowProps) {
+}: Readonly<DisabledCameraRowProps>) {
   return (
     <div className="flex flex-row items-center justify-between">
       <div className="flex items-center gap-1">
@@ -534,7 +534,7 @@ function CameraStatusSelect({
   isDisabledInConfig,
   onConfigChanged,
   setRestartDialogOpen,
-}: CameraStatusSelectProps) {
+}: Readonly<CameraStatusSelectProps>) {
   const { t } = useTranslation([
     "views/settings",
     "components/dialog",
@@ -721,7 +721,7 @@ type CameraDetailsFormValues = {
 function CameraDetailsEditor({
   cameraName,
   onConfigChanged,
-}: CameraDetailsEditorProps) {
+}: Readonly<CameraDetailsEditorProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [open, setOpen] = useState(false);
@@ -919,7 +919,6 @@ function CameraDetailsEditor({
                         {...field}
                         placeholder={cameraName}
                         disabled={isSaving}
-                        autoFocus
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground">
@@ -1050,7 +1049,7 @@ function CameraTypeSection({
   config,
   onConfigChanged,
   setRestartDialogOpen,
-}: CameraTypeSectionProps) {
+}: Readonly<CameraTypeSectionProps>) {
   const { t } = useTranslation([
     "views/settings",
     "common",
@@ -1240,7 +1239,7 @@ function ProfileCameraEnableSection({
   cameras,
   config,
   onConfigChanged,
-}: ProfileCameraEnableSectionProps) {
+}: Readonly<ProfileCameraEnableSectionProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const [selectedProfile, setSelectedProfile] = useState<string>(
     profileState.allProfileNames[0] ?? "",

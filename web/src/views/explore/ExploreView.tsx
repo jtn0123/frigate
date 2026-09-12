@@ -25,7 +25,6 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { useTranslation } from "react-i18next";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { LuSearchX } from "react-icons/lu";
-import { onActivate } from "@/utils/fork/a11y";
 
 type ExploreViewProps = {
   setSearchDetail: (search: SearchResult | undefined) => void;
@@ -45,7 +44,7 @@ export default function ExploreView({
   onSelectSearch,
   selectedIds,
   onThumbnailClick,
-}: ExploreViewProps) {
+}: Readonly<ExploreViewProps>) {
   const { t } = useTranslation(["views/explore"]);
   // title
 
@@ -167,7 +166,7 @@ function ThumbnailRow({
   onSelectSearch,
   selectedIds,
   onThumbnailClick,
-}: ThumbnailRowType) {
+}: Readonly<ThumbnailRowType>) {
   const { t } = useTranslation(["views/explore"]);
   const navigate = useNavigate();
 
@@ -209,12 +208,10 @@ function ThumbnailRow({
             />
           </div>
         ))}
-        <div
-          className="flex cursor-pointer items-center justify-center"
-          onClick={() => handleSearch(label)}
-        >
+        <div className="flex cursor-pointer items-center justify-center">
           <Tooltip>
             <TooltipTrigger
+              onClick={() => handleSearch(label)}
               aria-label={t("exploreMore", {
                 label: getTranslatedLabel(label, labelType),
               })}
@@ -259,7 +256,7 @@ function ExploreThumbnailImage({
   onSelectSearch,
   selected = false,
   onThumbnailClick,
-}: ExploreThumbnailImageProps) {
+}: Readonly<ExploreThumbnailImageProps>) {
   const apiHost = useApiHost();
   const { data: config } = useSWR<FrigateConfig>("config");
   const [imgRef, imgLoaded, onImgLoad] = useImageLoaded();
@@ -307,38 +304,40 @@ function ExploreThumbnailImage({
           className="absolute inset-0"
           imgLoaded={imgLoaded}
         />
-        <img
-          ref={imgRef}
-          className={cn(
-            "absolute size-full cursor-pointer rounded-lg object-cover transition-all duration-300 ease-in-out lg:rounded-2xl",
-            !imgLoaded && "invisible",
-            selected &&
-              "shadow-selected outline outline-[3px] -outline-offset-[2.8px] outline-selected",
-          )}
-          style={
-            isIOS
-              ? {
-                  WebkitUserSelect: "none",
-                  WebkitTouchCallout: "none",
-                }
-              : undefined
-          }
-          loading={isSafari ? "eager" : "lazy"}
-          draggable={false}
-          src={`${apiHost}api/events/${event.id}/thumbnail.webp`}
+        <button
+          type="button"
+          className="absolute size-full rounded-lg lg:rounded-2xl"
           onClick={(e) => {
             const ctrl = e.metaKey || e.ctrlKey;
             handleClick(ctrl, !ctrl);
           }}
-          role="button"
-          tabIndex={0}
-          onKeyDown={onActivate(() => handleClick(false, true))}
-          onLoad={onImgLoad}
-          alt={t("image.thumbnailOf", {
-            ns: "common",
-            label: getTranslatedLabel(event.label, event.data.type),
-          })}
-        />
+        >
+          <img
+            ref={imgRef}
+            className={cn(
+              "absolute size-full cursor-pointer rounded-lg object-cover transition-all duration-300 ease-in-out lg:rounded-2xl",
+              !imgLoaded && "invisible",
+              selected &&
+                "shadow-selected outline outline-[3px] -outline-offset-[2.8px] outline-selected",
+            )}
+            style={
+              isIOS
+                ? {
+                    WebkitUserSelect: "none",
+                    WebkitTouchCallout: "none",
+                  }
+                : undefined
+            }
+            loading={isSafari ? "eager" : "lazy"}
+            draggable={false}
+            src={`${apiHost}api/events/${event.id}/thumbnail.webp`}
+            onLoad={onImgLoad}
+            alt={t("image.thumbnailOf", {
+              ns: "common",
+              label: getTranslatedLabel(event.label, event.data.type),
+            })}
+          />
+        </button>
         {isDesktop && (
           <div className="absolute bottom-1 right-1 z-10 rounded-lg bg-black/50 px-2 py-1 text-xs text-white">
             {event.end_time ? (

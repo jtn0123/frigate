@@ -39,7 +39,7 @@ export function OverrideDeltaPopover({
   noDeltasMessage,
   borderColorClass,
   className,
-}: Props) {
+}: Readonly<Props>) {
   const fieldLabel = useOverrideFieldLabel(sectionPath);
   const count = deltas.length;
 

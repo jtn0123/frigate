@@ -15,7 +15,7 @@ type DebugReplayConfigSheetProps = {
 
 export function DebugReplayConfigSheet({
   replayCamera,
-}: DebugReplayConfigSheetProps) {
+}: Readonly<DebugReplayConfigSheetProps>) {
   const { t } = useTranslation(["views/replay"]);
   const configSchema = useConfigSchema();
   const { data: config } = useSWR<FrigateConfig>("config", {

@@ -52,7 +52,7 @@ type ModelSelectionViewProps = {
 };
 export default function ModelSelectionView({
   onClick,
-}: ModelSelectionViewProps) {
+}: Readonly<ModelSelectionViewProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
   const [page, setPage] = useOverlayState<ModelType>("objects", "objects");
   const [pageToggle, setPageToggle] = useOptimisticState(
@@ -181,10 +181,10 @@ export default function ModelSelectionView({
 function NoModelsView({
   onCreateModel,
   modelType,
-}: {
+}: Readonly<{
   onCreateModel: () => void;
   modelType: ModelType;
-}) {
+}>) {
   const { t } = useTranslation(["views/classificationModel"]);
   const typeKey = modelType === "objects" ? "object" : "state";
 
@@ -210,7 +210,12 @@ type ModelCardProps = {
   onUpdate: () => void;
   onDelete: () => void;
 };
-function ModelCard({ config, onClick, onUpdate, onDelete }: ModelCardProps) {
+function ModelCard({
+  config,
+  onClick,
+  onUpdate,
+  onDelete,
+}: Readonly<ModelCardProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
 
   const { data: dataset } = useSWR<ClassificationDatasetResponse>(

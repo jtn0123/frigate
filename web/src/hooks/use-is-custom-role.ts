@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 
 export function useIsCustomRole() {
   const { auth } = useContext(AuthContext);

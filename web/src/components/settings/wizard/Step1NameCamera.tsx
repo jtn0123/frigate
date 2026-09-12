@@ -53,7 +53,7 @@ export default function Step1NameCamera({
   onUpdate,
   onNext,
   onCancel,
-}: Step1NameCameraProps) {
+}: Readonly<Step1NameCameraProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [showPassword, setShowPassword] = useState(false);

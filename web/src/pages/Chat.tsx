@@ -249,7 +249,7 @@ export default function ChatPage() {
       return (
         <div key={i} className="flex flex-col gap-2">
           <MessageBubble
-            role="user"
+            messageRole="user"
             content={msg.content}
             messageIndex={i}
             onEditSubmit={handleEditSubmit}
@@ -276,7 +276,7 @@ export default function ChatPage() {
         )}
         {contentText && (
           <MessageBubble
-            role="assistant"
+            messageRole="assistant"
             content={contentText}
             messageIndex={i}
             isComplete
@@ -350,7 +350,7 @@ export default function ChatPage() {
                       )}
                       {streaming.content && (
                         <MessageBubble
-                          role="assistant"
+                          messageRole="assistant"
                           content={streaming.content}
                           messageIndex={-1}
                           isComplete={false}

@@ -108,7 +108,7 @@ def get_most_recent_preview_frame(
 
         return None
     except Exception as e:
-        logger.error(f"Error searching for most recent preview frame: {e}")
+        logger.exception(f"Error searching for most recent preview frame: {e}")
         return None
 
 

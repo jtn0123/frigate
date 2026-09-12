@@ -71,7 +71,7 @@ class AudioTranscriptionRealTimeProcessor(RealTimeProcessorApi):
                 f"Audio transcription (live) initialized for {self.camera_config.name}"
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Failed to initialize live streaming audio transcription: {e}"
             )
 
@@ -137,7 +137,7 @@ class AudioTranscriptionRealTimeProcessor(RealTimeProcessorApi):
 
             return text, is_endpoint
         except Exception as e:
-            logger.error(f"Error processing audio stream: {e}")
+            logger.exception(f"Error processing audio stream: {e}")
             return None
 
     def process_frame(self, obj_data: dict[str, Any], frame: np.ndarray) -> None:
@@ -188,7 +188,7 @@ class AudioTranscriptionRealTimeProcessor(RealTimeProcessorApi):
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"Error processing audio in thread: {e}")
+                logger.exception(f"Error processing audio in thread: {e}")
                 self.audio_queue.task_done()
 
         logger.debug(

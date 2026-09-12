@@ -19,7 +19,7 @@ export default function DeleteUserDialog({
   username,
   onDelete,
   onCancel,
-}: DeleteUserDialogProps) {
+}: Readonly<DeleteUserDialogProps>) {
   const { t } = useTranslation(["views/settings"]);
   return (
     <Dialog open={show} onOpenChange={onCancel}>

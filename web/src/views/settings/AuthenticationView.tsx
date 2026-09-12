@@ -44,7 +44,7 @@ type AuthenticationViewProps = {
 
 export default function AuthenticationView({
   section,
-}: AuthenticationViewProps) {
+}: Readonly<AuthenticationViewProps>) {
   const { t } = useTranslation("views/settings");
   const { data: config, mutate: updateConfig } =
     useSWR<FrigateConfig>("config");

@@ -37,7 +37,7 @@ export default function CreateFaceWizardDialog({
   open,
   setOpen,
   onFinish,
-}: CreateFaceWizardDialogProps) {
+}: Readonly<CreateFaceWizardDialogProps>) {
   const { t } = useTranslation("views/faceLibrary");
   const { getLocaleDocUrl } = useDocDomain();
   // wizard

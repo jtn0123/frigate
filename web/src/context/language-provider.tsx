@@ -20,11 +20,11 @@ export function LanguageProvider({
   defaultLanguage = "en",
   storageKey = "frigate-ui-language",
   ...props
-}: {
+}: Readonly<{
   children: React.ReactNode;
   defaultLanguage?: string;
   storageKey?: string;
-}) {
+}>) {
   const systemLanguage = useMemo<string>(() => {
     if (typeof window === "undefined") return defaultLanguage;
 
@@ -67,14 +67,17 @@ export function LanguageProvider({
     void i18next.changeLanguage(language);
   }, [language, systemLanguage]);
 
-  const value = {
-    language,
-    setLanguage: (language: string) => {
-      localStorage.setItem(storageKey, language);
-      setLanguage(language);
-      window.location.reload();
-    },
-  };
+  const value = useMemo(
+    () => ({
+      language,
+      setLanguage: (language: string) => {
+        localStorage.setItem(storageKey, language);
+        setLanguage(language);
+        window.location.reload();
+      },
+    }),
+    [language, storageKey],
+  );
 
   return (
     <LanguageProviderContext {...props} value={value}>

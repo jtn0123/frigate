@@ -27,7 +27,7 @@ export default function TooltipButton({
   children,
   className,
   ...props
-}: TooltipButtonProps) {
+}: Readonly<TooltipButtonProps>) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>

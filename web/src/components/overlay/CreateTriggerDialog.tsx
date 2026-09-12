@@ -76,7 +76,7 @@ export default function CreateTriggerDialog({
   onCreate,
   onEdit,
   onCancel,
-}: CreateTriggerDialogProps) {
+}: Readonly<CreateTriggerDialogProps>) {
   const { t } = useTranslation("views/settings");
   const { data: config } = useSWR<FrigateConfig>("config");
 

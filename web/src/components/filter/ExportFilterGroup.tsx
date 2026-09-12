@@ -21,7 +21,7 @@ export default function ExportFilterGroup({
   filter,
   filters = DEFAULT_EXPORT_FILTERS,
   onUpdateFilter,
-}: ExportFilterGroupProps) {
+}: Readonly<ExportFilterGroupProps>) {
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
   });

@@ -1,3 +1,4 @@
+import { onActivate } from "@/utils/fork/a11y";
 import { useTimelineUtils } from "@/hooks/use-timeline-utils";
 import { useEventSegmentUtils } from "@/hooks/use-event-segment-utils";
 import { ReviewSegment, ReviewSeverity } from "@/types/review";
@@ -47,7 +48,7 @@ export function EventSegment({
   setHandlebarTime,
   scrollToSegment,
   dense,
-}: EventSegmentProps) {
+}: Readonly<EventSegmentProps>) {
   const {
     getSeverity,
     getReviewed,
@@ -199,6 +200,10 @@ export function EventSegment({
     <div
       key={segmentKey}
       data-segment-id={segmentTime}
+      role="button"
+      tabIndex={0}
+      aria-label={timestamp.toLocaleString()}
+      onKeyDown={onActivate(segmentClick)}
       className={`segment ${segmentClasses}`}
       onClick={segmentClick}
       onTouchEnd={(event) => handleTouchStart(event, segmentClick)}

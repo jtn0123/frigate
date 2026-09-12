@@ -336,7 +336,7 @@ class WebPushClient(Communicator):
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"Error processing notification: {str(e)}")
+                logger.exception(f"Error processing notification: {str(e)}")
 
     def _refresh_user_cameras(self) -> None:
         """Rebuild the user-to-cameras access cache from the database."""

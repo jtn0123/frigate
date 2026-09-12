@@ -46,7 +46,7 @@ export default function Step1NameAndType({
   selectedCamera,
   onNext,
   onCancel,
-}: Step1NameAndTypeProps) {
+}: Readonly<Step1NameAndTypeProps>) {
   const { t } = useTranslation("views/settings");
   const { data: config } = useSWR<FrigateConfig>("config");
 

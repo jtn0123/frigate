@@ -31,7 +31,7 @@ export default function SaveAllPreviewPopover({
   align = "end",
   side = "bottom",
   disablePortal = false,
-}: SaveAllPreviewPopoverProps) {
+}: Readonly<SaveAllPreviewPopoverProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const [open, setOpen] = useState(false);
   const resetLabel = t("saveAllPreview.value.reset", {

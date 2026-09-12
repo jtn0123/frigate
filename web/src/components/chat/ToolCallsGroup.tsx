@@ -20,7 +20,7 @@ function normalizeName(name: string): string {
     .join(" ");
 }
 
-export function ToolCallsGroup({ toolCalls }: ToolCallsGroupProps) {
+export function ToolCallsGroup({ toolCalls }: Readonly<ToolCallsGroupProps>) {
   const grouped = useMemo(() => {
     const map = new Map<string, ToolCall[]>();
     for (const tc of toolCalls) {
@@ -50,7 +50,7 @@ type ToolCallRowProps = {
   calls: ToolCall[];
 };
 
-function ToolCallRow({ name, calls }: ToolCallRowProps) {
+function ToolCallRow({ name, calls }: Readonly<ToolCallRowProps>) {
   const { t } = useTranslation(["views/chat"]);
   const [open, setOpen] = useState(false);
   const displayName = normalizeName(name);

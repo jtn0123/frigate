@@ -1,3 +1,4 @@
+import { onActivate } from "@/utils/fork/a11y";
 import { useTimelineUtils } from "@/hooks/use-timeline-utils";
 import { useEventSegmentUtils } from "@/hooks/use-event-segment-utils";
 import { ReviewSegment } from "@/types/review";
@@ -46,7 +47,7 @@ export function MotionSegment({
   scrollToSegment,
   dense,
   alwaysShowMotionLine = false,
-}: MotionSegmentProps) {
+}: Readonly<MotionSegmentProps>) {
   const severityType = "all";
   const { getSeverity, getReviewed, displaySeverityType } =
     useEventSegmentUtils(segmentDuration, events, severityType);
@@ -185,6 +186,10 @@ export function MotionSegment({
         <div
           key={segmentKey}
           data-segment-id={segmentTime}
+          role="button"
+          tabIndex={0}
+          aria-label={timestamp.toLocaleString()}
+          onKeyDown={onActivate(segmentClick)}
           className={cn(
             "segment",
             {

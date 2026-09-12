@@ -60,7 +60,7 @@ export default function Step3StreamConfig({
   onBack,
   onNext,
   canProceed,
-}: Step3StreamConfigProps) {
+}: Readonly<Step3StreamConfigProps>) {
   const { t } = useTranslation(["views/settings", "components/dialog"]);
   const { getLocaleDocUrl } = useDocDomain();
   const [testingStreams, setTestingStreams] = useState<Set<string>>(new Set());
@@ -386,7 +386,10 @@ export default function Step3StreamConfig({
 
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-primary-variant">
+                  <label
+                    htmlFor={`stream-url-${stream.id}`}
+                    className="text-sm font-medium text-primary-variant"
+                  >
                     {t("cameraWizard.step3.url")}
                   </label>
                   <div className="flex flex-row items-center gap-2">
@@ -403,6 +406,7 @@ export default function Step3StreamConfig({
                             <div className="min-w-0 flex-1">
                               <Button
                                 variant="outline"
+                                id={`stream-url-${stream.id}`}
                                 role="combobox"
                                 aria-expanded={openCombobox === stream.id}
                                 className="h-8 w-full justify-between overflow-hidden text-left"
@@ -479,6 +483,7 @@ export default function Step3StreamConfig({
                             <div className="min-w-0 flex-1">
                               <Button
                                 variant="outline"
+                                id={`stream-url-${stream.id}`}
                                 role="combobox"
                                 aria-expanded={openCombobox === stream.id}
                                 className="h-8 w-full justify-between overflow-hidden text-left"
@@ -549,6 +554,7 @@ export default function Step3StreamConfig({
                       )
                     ) : (
                       <Input
+                        id={`stream-url-${stream.id}`}
                         value={stream.url}
                         onChange={(e) =>
                           updateStream(stream.id, {

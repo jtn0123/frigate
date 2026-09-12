@@ -77,7 +77,7 @@ export function EventReviewTimeline({
   onZoomChange,
   possibleZoomLevels,
   currentZoomLevel,
-}: EventReviewTimelineProps) {
+}: Readonly<EventReviewTimelineProps>) {
   const internalTimelineRef = useRef<HTMLDivElement>(null);
   const selectedTimelineRef = timelineRef || internalTimelineRef;
   const virtualizedSegmentsRef = useRef<VirtualizedEventSegmentsRef>(null);

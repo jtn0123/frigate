@@ -115,7 +115,6 @@ export default function IconPicker({
         >
           <div className="mb-3 flex flex-row items-center justify-between">
             <Heading as="h4">{t("iconPicker.selectIcon")}</Heading>
-            <span tabIndex={0} className="sr-only" />
             <IoClose
               size={15}
               className="hover:cursor-pointer"

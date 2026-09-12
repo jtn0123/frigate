@@ -67,7 +67,7 @@ export default function ObjectMaskEditPane({
   snapPoints,
   setSnapPoints,
   editingProfile,
-}: ObjectMaskEditPaneProps) {
+}: Readonly<ObjectMaskEditPaneProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { data: config, mutate: updateConfig } =
     useSWR<FrigateConfig>("config");

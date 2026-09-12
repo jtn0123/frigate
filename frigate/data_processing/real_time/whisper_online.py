@@ -53,7 +53,7 @@ class ASRBase:
 
         self.model = self.load_model(modelsize, cache_dir, model_dir, device)
 
-    def load_model(self, modelsize, cache_dir):
+    def load_model(self, modelsize=None, cache_dir=None, model_dir=None, device="cpu"):
         raise NotImplementedError("must be implemented in the child class")
 
     def transcribe(self, audio, init_prompt=""):
@@ -70,14 +70,14 @@ class WhisperTimestampedASR(ASRBase):
 
     sep = " "
 
-    def load_model(self, modelsize=None, cache_dir=None, model_dir=None):
+    def load_model(self, modelsize=None, cache_dir=None, model_dir=None, device="cpu"):
         import whisper
         from whisper_timestamped import transcribe_timestamped
 
         self.transcribe_timestamped = transcribe_timestamped
         if model_dir is not None:
             logger.debug("ignoring model_dir, not implemented")
-        return whisper.load_model(modelsize, download_root=cache_dir)
+        return whisper.load_model(modelsize, download_root=cache_dir, device=device)
 
     def transcribe(self, audio, init_prompt=""):
         result = self.transcribe_timestamped(
@@ -189,7 +189,7 @@ class MLXWhisper(ASRBase):
 
     sep = " "
 
-    def load_model(self, modelsize=None, cache_dir=None, model_dir=None):
+    def load_model(self, modelsize=None, cache_dir=None, model_dir=None, device="cpu"):
         """
         Loads the MLX-compatible Whisper model.
 
@@ -201,6 +201,8 @@ class MLXWhisper(ASRBase):
                 **Note**: This is not supported by MLX Whisper and will be ignored.
             model_dir (str, optional): Direct path to a custom model directory.
                 If specified, it overrides the `modelsize` parameter.
+            device (str, optional): Accepted for the shared backend interface.
+                MLX manages its own device selection and ignores this argument.
         """
         import mlx.core as mx  # Is installed with mlx-whisper
         from mlx_whisper.transcribe import ModelHolder, transcribe
@@ -1099,7 +1101,7 @@ if __name__ == "__main__":
         try:
             o = online.process_iter()
         except AssertionError as e:
-            logger.error(f"assertion error: {repr(e)}")
+            logger.exception(f"assertion error: {repr(e)}")
         else:
             output_transcript(o)
         now = None
@@ -1111,7 +1113,7 @@ if __name__ == "__main__":
             try:
                 o = online.process_iter()
             except AssertionError as e:
-                logger.error(f"assertion error: {repr(e)}")
+                logger.exception(f"assertion error: {repr(e)}")
                 pass
             else:
                 output_transcript(o, now=end)
@@ -1143,7 +1145,7 @@ if __name__ == "__main__":
             try:
                 o = online.process_iter()
             except AssertionError as e:
-                logger.error(f"assertion error: {e}")
+                logger.exception(f"assertion error: {e}")
                 pass
             else:
                 output_transcript(o)

@@ -95,7 +95,7 @@ export default function DraggableGridLayout({
   isRestreamedStates,
   supportsAudioOutputStates,
   streamMetadata,
-}: DraggableGridLayoutProps) {
+}: Readonly<DraggableGridLayoutProps>) {
   const { t } = useTranslation(["views/live"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const birdseyeConfig = useMemo(() => config?.birdseye, [config]);
@@ -839,7 +839,10 @@ const BirdseyeLivePlayerGridItem = React.forwardRef<
     ref,
   ) => {
     return (
+      // The grid library attaches drag gestures to the item wrapper, not an activation control.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
       <div
+        role="group"
         style={{ ...style }}
         ref={ref}
         onMouseDown={onMouseDown}
@@ -920,7 +923,10 @@ const GridLiveContextMenu = React.forwardRef<
     ref,
   ) => {
     return (
+      // The grid library attaches drag gestures to the item wrapper, not an activation control.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
       <div
+        role="group"
         style={{ ...style }}
         ref={ref}
         onMouseDown={onMouseDown}

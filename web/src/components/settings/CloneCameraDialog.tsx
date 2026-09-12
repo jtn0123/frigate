@@ -66,7 +66,7 @@ import {
 import { buildConfigDataForPath } from "@/utils/configUtil";
 import { useConfigSchema } from "@/hooks/use-config-schema";
 import { useRestart } from "@/api/ws";
-import { StatusBarMessagesContext } from "@/context/statusbar-provider";
+import { StatusBarMessagesContext } from "@/context/statusbar-context";
 import RestartDialog from "@/components/overlay/dialog/RestartDialog";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import SaveAllPreviewPopover from "@/components/overlay/detail/SaveAllPreviewPopover";
@@ -87,7 +87,7 @@ type CloneFormValues = {
 export default function CloneCameraDialog({
   open,
   onClose,
-}: CloneCameraDialogProps) {
+}: Readonly<CloneCameraDialogProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const { data: rawPaths } = useSWR<RawCameraPaths>("config/raw_paths");
@@ -668,7 +668,6 @@ export default function CloneCameraDialog({
                                       "cameraManagement.clone.target.newNamePlaceholder",
                                     )}
                                     disabled={isSubmitting}
-                                    autoFocus
                                   />
                                 </FormControl>
                                 {form.formState.errors.newName?.message && (

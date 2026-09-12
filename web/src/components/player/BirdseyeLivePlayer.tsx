@@ -25,7 +25,7 @@ export default function BirdseyeLivePlayer({
   containerRef,
   playerRef,
   onClick,
-}: LivePlayerProps) {
+}: Readonly<LivePlayerProps>) {
   let player;
   if (liveMode == "webrtc") {
     player = (

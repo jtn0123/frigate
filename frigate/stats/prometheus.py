@@ -514,7 +514,7 @@ def update_metrics(stats: dict[str, Any], event_counts: list[dict[str, Any]]) ->
 
         # No need to call collect() here - it will be called by get_metrics()
     except Exception as e:
-        logging.error(f"Error updating metrics: {e}")
+        logging.exception(f"Error updating metrics: {e}")
 
 
 def get_metrics() -> tuple[bytes, str]:

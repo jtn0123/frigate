@@ -1,6 +1,6 @@
 import { useContext, useEffect } from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { AuthContext } from "@/context/auth-context";
+import { AuthContext } from "@/context/auth-state";
 import ActivityIndicator from "../indicators/activity-indicator";
 import {
   isRedirectingToLogin,
@@ -10,9 +10,9 @@ import { baseUrl } from "@/api/baseUrl";
 
 export default function ProtectedRoute({
   requiredRoles,
-}: {
+}: Readonly<{
   requiredRoles?: string[];
-}) {
+}>) {
   const { auth } = useContext(AuthContext);
 
   // Redirect to login page when not authenticated

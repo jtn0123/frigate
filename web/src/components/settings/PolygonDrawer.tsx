@@ -47,7 +47,7 @@ export default function PolygonDrawer({
   activeLine,
   snapToLines,
   snapPoints,
-}: PolygonDrawerProps) {
+}: Readonly<PolygonDrawerProps>) {
   const vertexRadius = 6;
   const flattenedPoints = useMemo(() => flattenPoints(points), [points]);
   const [minMaxX, setMinMaxX] = useState([0, 0]);

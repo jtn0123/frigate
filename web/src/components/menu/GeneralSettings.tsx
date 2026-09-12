@@ -90,7 +90,7 @@ type GeneralSettingsProps = {
 export default function GeneralSettings({
   className,
   large,
-}: GeneralSettingsProps) {
+}: Readonly<GeneralSettingsProps>) {
   const { t } = useTranslation(["common", "views/settings"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: profile } = useSWR("profile");
@@ -382,7 +382,6 @@ export default function GeneralSettings({
                               </DialogDescription>
                             </>
                           )}
-                          <span tabIndex={0} className="sr-only" />
                           <MenuItem
                             className={
                               isDesktop
@@ -581,7 +580,6 @@ export default function GeneralSettings({
                       </DialogDescription>
                     </>
                   )}
-                  <span tabIndex={0} className="sr-only" />
                   {languages.map(({ code, label }) => (
                     <MenuItem
                       key={code}
@@ -631,7 +629,6 @@ export default function GeneralSettings({
                       </DialogDescription>
                     </>
                   )}
-                  <span tabIndex={0} className="sr-only" />
                   <MenuItem
                     className={
                       isDesktop
@@ -718,7 +715,6 @@ export default function GeneralSettings({
                       </DialogDescription>
                     </>
                   )}
-                  <span tabIndex={0} className="sr-only" />
                   {colorSchemes.map((scheme) => (
                     <MenuItem
                       key={scheme}

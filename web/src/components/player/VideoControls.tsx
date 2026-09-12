@@ -104,7 +104,7 @@ export default function VideoControls({
   snapshotLoading = false,
   toggleFullscreen,
   containerRef,
-}: VideoControlsProps) {
+}: Readonly<VideoControlsProps>) {
   const { t } = useTranslation(["components/player"]);
 
   // layout
@@ -388,7 +388,7 @@ function FrigatePlusUploadButton({
   getSnapshotUrl,
   containerRef,
   fullscreen,
-}: FrigatePlusUploadButtonProps) {
+}: Readonly<FrigatePlusUploadButtonProps>) {
   const { t } = useTranslation(["components/player"]);
 
   const [previewUrl, setPreviewUrl] = useState<string>();

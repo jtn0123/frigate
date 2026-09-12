@@ -28,7 +28,7 @@ export default function ImageEntry({
   children,
   maxSize = 20 * 1024 * 1024, // 20MB default
   accept = { "image/*": [".jpeg", ".jpg", ".png", ".gif", ".webp"] },
-}: ImageEntryProps) {
+}: Readonly<ImageEntryProps>) {
   const { t } = useTranslation(["views/faceLibrary"]);
   const [preview, setPreview] = useState<string | null>(null);
   const dropzoneRef = useRef<HTMLDivElement>(null);
@@ -133,6 +133,9 @@ export default function ImageEntry({
                 <div
                   className="w-full"
                   onPaste={handlePaste}
+                  role="group"
+                  // Clipboard paste needs a focusable target containing the upload controls.
+                  // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
                   tabIndex={0}
                   ref={dropzoneRef}
                 >

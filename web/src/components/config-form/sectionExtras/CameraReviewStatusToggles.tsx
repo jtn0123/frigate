@@ -18,7 +18,7 @@ import CameraReviewClassification from "./CameraReviewClassification";
 export default function CameraReviewStatusToggles({
   selectedCamera,
   formContext,
-}: SectionRendererProps) {
+}: Readonly<SectionRendererProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const cameraId = selectedCamera ?? "";
 

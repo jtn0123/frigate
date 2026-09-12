@@ -112,7 +112,7 @@ export default function MotionSearchDialog({
   canStartSearch,
   onStartSearch,
   timezone,
-}: MotionSearchDialogProps) {
+}: Readonly<MotionSearchDialogProps>) {
   const { t } = useTranslation(["views/motionSearch", "common"]);
   const apiHost = useApiHost();
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -523,7 +523,7 @@ function SearchRangeSelector({
   defaultRange,
   timezone,
   recordingsSummary,
-}: SearchRangeSelectorProps) {
+}: Readonly<SearchRangeSelectorProps>) {
   const { t } = useTranslation(["views/motionSearch", "common"]);
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);

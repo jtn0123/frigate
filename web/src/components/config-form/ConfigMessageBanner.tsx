@@ -15,7 +15,7 @@ const severityVariantMap: Record<
   error: "destructive",
 };
 
-function SeverityIcon({ severity }: { severity: MessageSeverity }) {
+function SeverityIcon({ severity }: Readonly<{ severity: MessageSeverity }>) {
   switch (severity) {
     case "info":
       return <LuInfo className="size-4 shrink-0" />;
@@ -30,7 +30,9 @@ type ConfigMessageBannerProps = {
   messages: ConditionalMessage[];
 };
 
-export function ConfigMessageBanner({ messages }: ConfigMessageBannerProps) {
+export function ConfigMessageBanner({
+  messages,
+}: Readonly<ConfigMessageBannerProps>) {
   const { t } = useTranslation("views/settings");
 
   if (messages.length === 0) return null;

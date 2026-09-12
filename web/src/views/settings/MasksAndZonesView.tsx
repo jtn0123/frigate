@@ -47,7 +47,7 @@ export default function MasksAndZonesView({
   selectedZoneMask,
   setUnsavedChanges,
   profileState,
-}: MasksAndZoneViewProps) {
+}: Readonly<MasksAndZoneViewProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config } = useSWR<FrigateConfig>("config");

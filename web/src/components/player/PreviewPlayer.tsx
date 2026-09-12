@@ -48,7 +48,7 @@ export default function PreviewPlayer({
   isVisible = true,
   onControllerReady,
   onClick,
-}: PreviewPlayerProps) {
+}: Readonly<PreviewPlayerProps>) {
   const { t } = useTranslation(["components/player"]);
   const [currentHourFrame, setCurrentHourFrame] = useState<string>();
   const currentPreview = usePreviewForTimeRange(
@@ -146,7 +146,7 @@ function PreviewVideoPlayer({
   onControllerReady,
   onClick,
   setCurrentHourFrame,
-}: PreviewVideoPlayerProps) {
+}: Readonly<PreviewVideoPlayerProps>) {
   const { t } = useTranslation(["components/player"]);
   const { data: config } = useSWR<FrigateConfig>("config");
 

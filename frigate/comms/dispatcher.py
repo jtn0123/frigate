@@ -857,7 +857,7 @@ class Dispatcher:
             self.onvif.handle_command(camera_name, command, param)
             logger.info(f"Setting ptz command to {command} for {camera_name}")
         except KeyError as k:
-            logger.error(f"Invalid PTZ command {preset}: {k}")
+            logger.exception(f"Invalid PTZ command {preset}: {k}")
 
     def _on_birdseye_command(self, camera_name: str, payload: str) -> None:
         """Callback for birdseye topic."""

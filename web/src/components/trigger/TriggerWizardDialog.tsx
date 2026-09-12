@@ -112,7 +112,7 @@ export default function TriggerWizardDialog({
   onCreate,
   onEdit,
   isLoading,
-}: TriggerWizardDialogProps) {
+}: Readonly<TriggerWizardDialogProps>) {
   const { t } = useTranslation(["views/settings"]);
 
   const [wizardState, dispatch] = useReducer(wizardReducer, initialState);

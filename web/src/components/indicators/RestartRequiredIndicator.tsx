@@ -12,7 +12,7 @@ type RestartRequiredIndicatorProps = {
 export default function RestartRequiredIndicator({
   className,
   iconClassName,
-}: RestartRequiredIndicatorProps) {
+}: Readonly<RestartRequiredIndicatorProps>) {
   const { t } = useTranslation(["views/settings"]);
   const restartRequiredLabel = t("configForm.restartRequiredField", {
     ns: "views/settings",

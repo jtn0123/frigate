@@ -42,7 +42,7 @@ function StreamValueCombobox({
   disabled,
   readonly,
   onChange,
-}: StreamValueComboboxProps) {
+}: Readonly<StreamValueComboboxProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");

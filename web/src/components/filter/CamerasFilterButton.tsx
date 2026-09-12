@@ -30,7 +30,7 @@ export function CamerasFilterButton({
   hideText = isMobile,
   mainCamera,
   updateCameraFilter,
-}: CameraFilterButtonProps) {
+}: Readonly<CameraFilterButtonProps>) {
   const { t } = useTranslation(["components/filter"]);
   const [open, setOpen] = useState(false);
   const [currentCameras, setCurrentCameras] = useState<string[] | undefined>(
@@ -166,7 +166,7 @@ export function CamerasFilterContent({
   setCurrentCameras,
   setOpen,
   updateCameraFilter,
-}: CamerasFilterContentProps) {
+}: Readonly<CamerasFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
     <>

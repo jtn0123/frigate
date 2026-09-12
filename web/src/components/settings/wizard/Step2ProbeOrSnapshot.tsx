@@ -36,7 +36,7 @@ export default function Step2ProbeOrSnapshot({
   onNext,
   onBack,
   probeMode,
-}: Step2ProbeOrSnapshotProps) {
+}: Readonly<Step2ProbeOrSnapshotProps>) {
   const { t } = useTranslation(["views/settings"]);
   const [isTesting, setIsTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<string>("");
@@ -569,7 +569,7 @@ export default function Step2ProbeOrSnapshot({
   );
 }
 
-function StreamDetails({ testResult }: { testResult: TestResult }) {
+function StreamDetails({ testResult }: Readonly<{ testResult: TestResult }>) {
   const { t } = useTranslation(["views/settings"]);
 
   return (
@@ -636,7 +636,7 @@ function ProbeFooterButtons({
   manualTestSuccess,
   onContinue,
   onManualTest,
-}: ProbeFooterProps) {
+}: Readonly<ProbeFooterProps>) {
   const { t } = useTranslation(["views/settings"]);
 
   // Loading footer

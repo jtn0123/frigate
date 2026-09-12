@@ -24,7 +24,7 @@ export default function SearchThumbnailFooter({
   refreshResults,
   showTrackingDetails,
   addTrigger,
-}: SearchThumbnailProps) {
+}: Readonly<SearchThumbnailProps>) {
   const { t } = useTranslation(["views/search"]);
   const { data: config } = useSWR<FrigateConfig>("config");
 

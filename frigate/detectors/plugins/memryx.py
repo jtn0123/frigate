@@ -187,7 +187,7 @@ class MemryXDetector(DetectionApi):
             )
 
         except Exception as e:
-            logger.error(f"Failed to initialize MemryX model: {e}")
+            logger.exception(f"Failed to initialize MemryX model: {e}")
             raise
 
     def check_and_prepare_model(self):
@@ -872,7 +872,7 @@ class MemryXDetector(DetectionApi):
                 self.accl.shutdown()
                 logger.info("MemryX accelerator shutdown complete")
         except Exception as e:
-            logger.error(f"Error during MemryX shutdown: {e}")
+            logger.exception(f"Error during MemryX shutdown: {e}")
 
     def detect_raw(self, tensor_input: np.ndarray):
         """Removed synchronous detect_raw() function so that we only use async"""

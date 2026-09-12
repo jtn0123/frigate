@@ -87,7 +87,7 @@ export function MotionReviewTimeline({
   onZoomChange,
   possibleZoomLevels,
   currentZoomLevel,
-}: MotionReviewTimelineProps) {
+}: Readonly<MotionReviewTimelineProps>) {
   const internalTimelineRef = useRef<HTMLDivElement>(null);
   const selectedTimelineRef = timelineRef || internalTimelineRef;
   const virtualizedSegmentsRef = useRef<VirtualizedMotionSegmentsRef>(null);

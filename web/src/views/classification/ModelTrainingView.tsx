@@ -80,7 +80,9 @@ import { capitalizeFirstLetter } from "@/utils/stringUtil";
 type ModelTrainingViewProps = {
   model: CustomClassificationModelConfig;
 };
-export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
+export default function ModelTrainingView({
+  model,
+}: Readonly<ModelTrainingViewProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
   const navigate = useNavigate();
   const [page, setPage] = useState<string>("train");
@@ -595,7 +597,7 @@ function LibrarySelector({
   setPageToggle,
   onDelete,
   onRename,
-}: LibrarySelectorProps) {
+}: Readonly<LibrarySelectorProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
 
   // data
@@ -827,7 +829,7 @@ function DatasetGrid({
   onClickImages,
   onDelete,
   onReclassify,
-}: DatasetGridProps) {
+}: Readonly<DatasetGridProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
 
   const classData = useMemo(
@@ -909,7 +911,7 @@ function TrainGrid({
   onClickImages,
   onRefresh,
   onDelete,
-}: TrainGridProps) {
+}: Readonly<TrainGridProps>) {
   const trainData = useMemo<ClassificationItemData[]>(
     () =>
       trainImages
@@ -1000,7 +1002,7 @@ function StateTrainGrid({
   selectedImages,
   onClickImages,
   onRefresh,
-}: StateTrainGridProps) {
+}: Readonly<StateTrainGridProps>) {
   const threshold = useMemo(() => {
     return {
       recognition: model.threshold,
@@ -1060,7 +1062,7 @@ function ObjectTrainGrid({
   selectedImages,
   onClickImages,
   onRefresh,
-}: ObjectTrainGridProps) {
+}: Readonly<ObjectTrainGridProps>) {
   // item data
 
   const groups = useMemo(() => {

@@ -32,7 +32,7 @@ export default function SearchActionGroup({
   pullLatestData,
   onSelectAllObjects,
   totalItems,
-}: SearchActionGroupProps) {
+}: Readonly<SearchActionGroupProps>) {
   const { t } = useTranslation(["components/filter"]);
   const isAdmin = useIsAdmin();
   const onClearSelected = useCallback(() => {

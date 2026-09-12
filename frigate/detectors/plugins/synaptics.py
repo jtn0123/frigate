@@ -55,10 +55,10 @@ class SynapDetector(DetectionApi):
             synap_network = Network(detector_config.model.path)
             logger.info(f"Synap NPU loaded model: {detector_config.model.path}")
         except ValueError as ve:
-            logger.error(f"Synap1680 setup has failed: {ve}")
+            logger.exception(f"Synap1680 setup has failed: {ve}")
             raise
         except Exception as e:
-            logger.error(f"Failed to init Synap NPU: {e}")
+            logger.exception(f"Failed to init Synap NPU: {e}")
             raise
 
         self.width = detector_config.model.width

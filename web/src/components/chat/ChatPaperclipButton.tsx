@@ -27,7 +27,7 @@ export function ChatPaperclipButton({
   recentEventIds,
   onAttach,
   disabled = false,
-}: ChatPaperclipButtonProps) {
+}: Readonly<ChatPaperclipButtonProps>) {
   const apiHost = useApiHost();
   const { t } = useTranslation(["views/chat"]);
   const [open, setOpen] = useState(false);

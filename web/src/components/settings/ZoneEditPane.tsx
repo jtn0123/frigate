@@ -67,7 +67,7 @@ export default function ZoneEditPane({
   snapPoints,
   setSnapPoints,
   editingProfile,
-}: ZoneEditPaneProps) {
+}: Readonly<ZoneEditPaneProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config, mutate: updateConfig } =

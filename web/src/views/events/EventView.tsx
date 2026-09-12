@@ -147,7 +147,7 @@ export default function EventView({
   setMotionSearchCamera,
   pullLatestData,
   updateFilter,
-}: EventViewProps) {
+}: Readonly<EventViewProps>) {
   const { t } = useTranslation(["views/events"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -593,7 +593,7 @@ function DetectionReview({
   onSelectAllReviews,
   setSelectedReviews,
   pullLatestData,
-}: DetectionReviewProps) {
+}: Readonly<DetectionReviewProps>) {
   const { t } = useTranslation(["views/events"]);
 
   const reviewTimelineRef = useRef<HTMLDivElement>(null);
@@ -1007,7 +1007,7 @@ function MotionReview({
   setMotionSearchCamera,
   emptyCardData,
   onOpenRecording,
-}: MotionReviewProps) {
+}: Readonly<MotionReviewProps>) {
   const { t } = useTranslation(["views/events", "common"]);
   const segmentDuration = 30;
   const { data: config } = useSWR<FrigateConfig>("config");

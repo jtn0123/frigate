@@ -1,8 +1,11 @@
 """Tests for the camera delete endpoint's runtime config handling."""
 
+import asyncio
 import os
 import tempfile
+import threading
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 import ruamel.yaml
@@ -90,7 +93,7 @@ class TestDeleteCameraRuntimeConfig(BaseTestHttp):
     @patch("frigate.api.camera.requests.delete")
     @patch("frigate.api.camera.cleanup_camera_files")
     @patch("frigate.api.camera.cleanup_camera_db")
-    @patch("frigate.api.camera.find_config_file")
+    @patch("frigate.api.camera_config.find_config_file")
     def test_delete_syncs_dispatcher_and_prunes_runtime_state(
         self, mock_find_config, mock_cleanup_db, mock_cleanup_files, mock_go2rtc_delete
     ):
@@ -126,6 +129,124 @@ class TestDeleteCameraRuntimeConfig(BaseTestHttp):
                 )
         finally:
             os.unlink(config_path)
+
+    def test_delete_keeps_event_loop_responsive_during_config_io(self):
+        """A stalled config read must not stall unrelated async work."""
+        from frigate.api.camera import delete_camera
+
+        config_path = self._write_config_file()
+        self.addCleanup(os.unlink, config_path)
+        app, _ = self._create_app_with_dispatcher(None)
+        release_io = threading.Event()
+        loop_progressed = []
+
+        def find_config():
+            loop_progressed.append(release_io.wait(timeout=1))
+            return config_path
+
+        async def exercise():
+            task = asyncio.create_task(
+                delete_camera(SimpleNamespace(app=app), "front_door", False)
+            )
+            # Let deletion reach its first await. The config worker may now
+            # wait, but the event loop must be free to release it.
+            await asyncio.sleep(0)
+            release_io.set()
+            return await task
+
+        with (
+            patch(
+                "frigate.api.camera_config.find_config_file", side_effect=find_config
+            ),
+            patch("frigate.api.camera.cleanup_camera_db", return_value=({}, [])),
+            patch("frigate.api.camera.cleanup_camera_files"),
+            patch("frigate.api.camera.requests.delete"),
+        ):
+            response = asyncio.run(exercise())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(loop_progressed, [True])
+
+    def test_concurrent_duplicate_deletion_cleans_up_once(self):
+        """The locked config check must reject a second removal of the camera."""
+        from frigate.api.camera import delete_camera
+
+        config_path = self._write_config_file()
+        self.addCleanup(os.unlink, config_path)
+        app, publisher = self._create_app_with_dispatcher(None)
+
+        async def exercise():
+            return await asyncio.gather(
+                delete_camera(SimpleNamespace(app=app), "front_door", False),
+                delete_camera(SimpleNamespace(app=app), "front_door", False),
+            )
+
+        with (
+            patch(
+                "frigate.api.camera_config.find_config_file", return_value=config_path
+            ),
+            patch(
+                "frigate.api.camera.cleanup_camera_db", return_value=({}, [])
+            ) as cleanup,
+            patch("frigate.api.camera.cleanup_camera_files"),
+            patch("frigate.api.camera.requests.delete"),
+        ):
+            responses = asyncio.run(exercise())
+
+        self.assertEqual(
+            sorted(response.status_code for response in responses), [200, 404]
+        )
+        cleanup.assert_called_once_with("front_door", False)
+        publisher.publish_update.assert_called_once()
+
+    def test_invalid_config_restores_file_without_removing_runtime_camera(self):
+        """Validation failure must leave the file and live camera intact."""
+        config_path = self._write_config_file()
+        self.addCleanup(os.unlink, config_path)
+        with open(config_path) as config_file:
+            original = config_file.read()
+        app, publisher = self._create_app_with_dispatcher(None)
+
+        with (
+            patch(
+                "frigate.api.camera_config.find_config_file", return_value=config_path
+            ),
+            patch(
+                "frigate.api.camera_config.FrigateConfig.parse", side_effect=ValueError
+            ),
+            patch("frigate.api.camera.cleanup_camera_db") as cleanup,
+            AuthTestClient(app) as client,
+        ):
+            response = client.delete("/cameras/front_door")
+
+        self.assertEqual(response.status_code, 400)
+        with open(config_path) as config_file:
+            self.assertEqual(config_file.read(), original)
+        self.assertIn("front_door", app.frigate_config.cameras)
+        publisher.publish_update.assert_not_called()
+        cleanup.assert_not_called()
+
+    def test_config_lock_timeout_does_not_remove_camera(self):
+        """A competing config writer must produce a conflict, not deletion."""
+        from filelock import Timeout
+
+        app, publisher = self._create_app_with_dispatcher(None)
+        with (
+            patch(
+                "frigate.api.camera_config.find_config_file",
+                return_value="/config/test",
+            ),
+            patch("frigate.api.camera_config.FileLock") as lock,
+            patch("frigate.api.camera.cleanup_camera_db") as cleanup,
+            AuthTestClient(app) as client,
+        ):
+            lock.return_value.__enter__.side_effect = Timeout("/config/test.lock")
+            response = client.delete("/cameras/front_door")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("front_door", app.frigate_config.cameras)
+        publisher.publish_update.assert_not_called()
+        cleanup.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ export function SaveSearchDialog({
   isOpen,
   onClose,
   onSave,
-}: SaveSearchDialogProps) {
+}: Readonly<SaveSearchDialogProps>) {
   const { t } = useTranslation(["components/dialog"]);
 
   const [searchName, setSearchName] = useState("");

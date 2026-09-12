@@ -9,7 +9,7 @@ type SummarySegmentProps = {
 export function SummarySegment({
   segmentData,
   totalDuration,
-}: SummarySegmentProps) {
+}: Readonly<SummarySegmentProps>) {
   const { startTime, endTime, severity, reviewed } = segmentData;
 
   const severityColors: { [key: string]: string } = {

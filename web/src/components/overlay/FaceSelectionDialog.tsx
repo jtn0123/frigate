@@ -44,7 +44,7 @@ export default function FaceSelectionDialog({
   tooltipLabel,
   onTrainAttempt,
   children,
-}: FaceSelectionDialogProps) {
+}: Readonly<FaceSelectionDialogProps>) {
   const { t } = useTranslation(["views/faceLibrary"]);
 
   const filteredNames = useMemo(

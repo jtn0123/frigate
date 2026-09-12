@@ -85,7 +85,7 @@ type TriggerViewProps = {
 export default function TriggerView({
   selectedCamera,
   setUnsavedChanges,
-}: TriggerViewProps) {
+}: Readonly<TriggerViewProps>) {
   const { t } = useTranslation("views/settings");
   const { data: config, mutate: updateConfig } =
     useSWR<FrigateConfig>("config");

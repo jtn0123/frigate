@@ -483,7 +483,7 @@ function SortTypeButton({
   defaultSortType,
   selectedSortType,
   updateSortType,
-}: SortTypeButtonProps) {
+}: Readonly<SortTypeButtonProps>) {
   const { t } = useTranslation(["components/filter"]);
   const [open, setOpen] = useState(false);
   const [currentSortType, setCurrentSortType] = useState<
@@ -567,7 +567,7 @@ export function SortTypeContent({
   updateSortType,
   setCurrentSortType,
   onClose,
-}: SortTypeContentProps) {
+}: Readonly<SortTypeContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   const sortLabels = {
     date_asc: t("sort.dateAsc"),

@@ -63,7 +63,7 @@ def write_training_metadata(model_name: str, image_count: int) -> None:
             json.dump(metadata, f, indent=2)
         logger.info(f"Wrote training metadata for {model_name}: {image_count} images")
     except Exception as e:
-        logger.error(f"Failed to write training metadata for {model_name}: {e}")
+        logger.exception(f"Failed to write training metadata for {model_name}: {e}")
 
 
 def read_training_metadata(model_name: str) -> dict[str, any] | None:
@@ -88,7 +88,7 @@ def read_training_metadata(model_name: str) -> dict[str, any] | None:
             metadata = json.load(f)
         return metadata
     except Exception as e:
-        logger.error(f"Failed to read training metadata for {model_name}: {e}")
+        logger.exception(f"Failed to read training metadata for {model_name}: {e}")
         return None
 
 
@@ -122,7 +122,7 @@ def get_dataset_image_count(model_name: str) -> int:
             ]
             total_count += len(image_files)
     except Exception as e:
-        logger.error(f"Failed to count dataset images for {model_name}: {e}")
+        logger.exception(f"Failed to count dataset images for {model_name}: {e}")
         return 0
 
     return total_count
@@ -416,7 +416,7 @@ def collect_state_classification_examples(
                 cv2.imwrite(dest_path, img)
                 saved_count += 1
         except Exception as e:
-            logger.error(f"Failed to save image {image_path}: {e}")
+            logger.exception(f"Failed to save image {image_path}: {e}")
 
     try:
         shutil.rmtree(temp_dir)
@@ -769,7 +769,7 @@ def collect_object_classification_examples(
                 cv2.imwrite(dest_path, img)
                 saved_count += 1
         except Exception as e:
-            logger.error(f"Failed to save image {image_path}: {e}")
+            logger.exception(f"Failed to save image {image_path}: {e}")
 
     try:
         shutil.rmtree(temp_dir)

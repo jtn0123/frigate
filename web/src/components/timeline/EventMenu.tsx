@@ -36,7 +36,7 @@ export default function EventMenu({
   onOpenSimilarity,
   isSelected = false,
   onToggleSelection,
-}: EventMenuProps) {
+}: Readonly<EventMenuProps>) {
   const apiHost = useApiHost();
   const navigate = useNavigate();
   const { t } = useTranslation(["views/explore", "views/replay"]);
@@ -114,7 +114,6 @@ export default function EventMenu({
 
   return (
     <>
-      <span tabIndex={0} className="sr-only" />
       <DropdownMenu modal={false} open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger>
           <div className="rounded p-1 pr-2" role="button">

@@ -800,7 +800,7 @@ def _config_set_in_memory(request: Request, body: AppConfigSetBody) -> JSONRespo
             status_code=200,
         )
     except Exception as e:
-        logger.error(f"Error applying config in-memory: {e}")
+        logger.exception(f"Error applying config in-memory: {e}")
         return JSONResponse(
             content={"success": False, "message": "Error applying config"},
             status_code=500,

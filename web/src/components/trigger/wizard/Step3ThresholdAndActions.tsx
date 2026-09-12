@@ -42,7 +42,7 @@ export default function Step3ThresholdAndActions({
   onNext,
   onBack,
   isLoading = false,
-}: Step3ThresholdAndActionsProps) {
+}: Readonly<Step3ThresholdAndActionsProps>) {
   const { t } = useTranslation("views/settings");
   const { data: config } = useSWR<FrigateConfig>("config");
 

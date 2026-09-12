@@ -31,7 +31,7 @@ export default function MultiSelectDialog({
   selectedItems = [],
   availableItems = [],
   allowEmpty = false,
-}: MultiSelectDialogProps) {
+}: Readonly<MultiSelectDialogProps>) {
   const { t } = useTranslation("common");
   const [internalSelection, setInternalSelection] =
     useState<string[]>(selectedItems);

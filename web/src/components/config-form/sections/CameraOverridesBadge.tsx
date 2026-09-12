@@ -110,7 +110,11 @@ function groupDeltasBySource(deltas: FieldDelta[]): SourceGroup[] {
   return groups;
 }
 
-function CameraEntry({ sectionPath, entry, cameraPage }: CameraEntryProps) {
+function CameraEntry({
+  sectionPath,
+  entry,
+  cameraPage,
+}: Readonly<CameraEntryProps>) {
   const { t } = useTranslation(["views/settings"]);
   const fieldLabel = useOverrideFieldLabel(sectionPath);
   const friendlyName = useCameraFriendlyName(entry.camera);
@@ -179,7 +183,10 @@ type Props = {
   className?: string;
 };
 
-export function CameraOverridesBadge({ sectionPath, className }: Props) {
+export function CameraOverridesBadge({
+  sectionPath,
+  className,
+}: Readonly<Props>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const { t } = useTranslation(["views/settings"]);
   const rawEntries = useCamerasOverridingSection(config, sectionPath);
