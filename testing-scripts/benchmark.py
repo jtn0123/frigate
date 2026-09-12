@@ -52,7 +52,7 @@ def start(id, num_detections, detection_queue, event):
     start = datetime.datetime.now().timestamp()
 
     frame_times = []
-    for x in range(0, num_detections):
+    for _ in range(0, num_detections):
         start_frame = datetime.datetime.now().timestamp()
         object_detector.detect(my_frame)
         frame_times.append(datetime.datetime.now().timestamp() - start_frame)

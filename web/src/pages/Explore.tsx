@@ -271,7 +271,7 @@ export default function Explore() {
   const { payload: wsUpdate } = useTrackedObjectUpdate();
 
   useEffect(() => {
-    if (wsUpdate && wsUpdate.type == "description") {
+    if (wsUpdate?.type == "description") {
       void mutate();
     }
   }, [wsUpdate, mutate]);

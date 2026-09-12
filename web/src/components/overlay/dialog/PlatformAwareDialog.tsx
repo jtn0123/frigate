@@ -40,7 +40,7 @@ export default function PlatformAwareDialog({
   contentClassName = "",
   open,
   onOpenChange,
-}: PlatformAwareDialogProps) {
+}: Readonly<PlatformAwareDialogProps>) {
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
@@ -81,7 +81,7 @@ export function PlatformAwareSheet({
   contentClassName = "",
   open,
   onOpenChange,
-}: PlatformAwareSheetProps) {
+}: Readonly<PlatformAwareSheetProps>) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   if (isMobile) {

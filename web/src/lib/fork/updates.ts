@@ -44,7 +44,7 @@ export const WHATS_NEW_EVENT = "frigate-fork:whats-new";
 export function newerReleases(
   state: ForkUpdateState | undefined,
 ): ForkRelease[] {
-  if (!state || state.status !== "available") {
+  if (state?.status !== "available") {
     return [];
   }
   return state.releases.slice(0, state.newer_count);

@@ -16,7 +16,7 @@ export default function AnimatedCircularProgressBar({
   gaugePrimaryColor,
   gaugeSecondaryColor,
   className,
-}: Props) {
+}: Readonly<Props>) {
   const circumference = 2 * Math.PI * 45;
   const percentPx = circumference / 100;
   const currentPercent = Math.floor(((value - min) / (max - min)) * 100);

@@ -12,8 +12,8 @@ import { Link } from "react-router-dom";
 import { LuExternalLink, LuFilter } from "react-icons/lu";
 import { toast } from "sonner";
 import axios from "axios";
-import useSWR from "swr";
-import { useSWRConfig } from "swr";
+import useSWR, { useSWRConfig } from "swr";
+
 import { cn } from "@/lib/utils";
 import { useRestart } from "@/api/ws";
 import RestartDialog from "@/components/overlay/dialog/RestartDialog";

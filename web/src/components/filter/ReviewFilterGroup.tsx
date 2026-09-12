@@ -279,7 +279,7 @@ type ShowReviewedFilterProps = {
 function ShowReviewFilter({
   showReviewed,
   setShowReviewed,
-}: ShowReviewedFilterProps) {
+}: Readonly<ShowReviewedFilterProps>) {
   const { t } = useTranslation(["components/filter"]);
   const [showReviewedSwitch, setShowReviewedSwitch] = useOptimisticState(
     showReviewed,
@@ -643,7 +643,7 @@ type ShowMotionOnlyButtonProps = {
 function ShowMotionOnlyButton({
   motionOnly,
   setMotionOnly,
-}: ShowMotionOnlyButtonProps) {
+}: Readonly<ShowMotionOnlyButtonProps>) {
   const { t } = useTranslation(["views/events", "components/filter"]);
   const [motionOnlyButton, setMotionOnlyButton] = useOptimisticState(
     motionOnly,

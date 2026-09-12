@@ -173,20 +173,17 @@ export function detectCameraAudioFeatures(
 
   const twoWayAudio =
     (!requireSecureContext || window.isSecureContext) &&
-    metadata.producers.find(
+    metadata.producers.some(
       (prod) =>
         prod.medias &&
-        prod.medias.find((media) => media.includes("audio, sendonly")) !=
-          undefined,
-    ) != undefined;
+        prod.medias.some((media) => media.includes("audio, sendonly")),
+    );
 
-  const audioOutput =
-    metadata.producers.find(
-      (prod) =>
-        prod.medias &&
-        prod.medias.find((media) => media.includes("audio, recvonly")) !=
-          undefined,
-    ) != undefined;
+  const audioOutput = metadata.producers.some(
+    (prod) =>
+      prod.medias &&
+      prod.medias.some((media) => media.includes("audio, recvonly")),
+  );
 
   return {
     twoWayAudio: !!twoWayAudio,

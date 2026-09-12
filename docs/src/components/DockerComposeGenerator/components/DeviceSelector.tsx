@@ -49,7 +49,7 @@ function toCssVars(style: React.CSSProperties | undefined, prefix: string): Reac
   return vars as React.CSSProperties;
 }
 
-function DeviceIcon({ device }: { device: DeviceConfig }) {
+function DeviceIcon({ device }: Readonly<{ device: DeviceConfig }>) {
   const { isDarkTheme } = useColorMode();
   const iconStr = isDarkTheme && device.iconDark ? device.iconDark : device.icon;
   const iconStyle = (isDarkTheme && device.iconDarkStyle
@@ -106,11 +106,11 @@ function DeviceCard({
   device,
   active,
   onClick,
-}: {
+}: Readonly<{
   device: DeviceConfig;
   active: boolean;
   onClick: () => void;
-}) {
+}>) {
   return (
     <div
       className={`${styles.deviceCard} ${active ? styles.deviceCardActive : ""}`}
@@ -128,7 +128,7 @@ function DeviceCard({
   );
 }
 
-export default function DeviceSelector({ selectedId, onSelect }: Props) {
+export default function DeviceSelector({ selectedId, onSelect }: Readonly<Props>) {
   return (
     <div className={styles.formSection}>
       <h4>Device Type</h4>

@@ -341,7 +341,7 @@ export default function MasksAndZonesView({
           ),
           distances:
             zoneData.distances?.map((distance: string) =>
-              parseFloat(distance),
+              Number.parseFloat(distance),
             ) ?? [],
           isFinished: true,
           color: isBase ? dimColor(baseColor) : baseColor,
@@ -681,7 +681,7 @@ export default function MasksAndZonesView({
       return false;
     }
     // convert box points string to points array
-    const points = coordinates.split(",").map((p) => parseFloat(p));
+    const points = coordinates.split(",").map((p) => Number.parseFloat(p));
 
     const [x1, y1, w, h] = points;
 

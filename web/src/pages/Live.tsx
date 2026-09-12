@@ -1,7 +1,11 @@
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import useKeyboardListener from "@/hooks/use-keyboard-listener";
-import { useHashState, useSearchEffect } from "@/hooks/use-overlay-state";
-import { useUserPersistedOverlayState } from "@/hooks/use-overlay-state";
+import {
+  useHashState,
+  useSearchEffect,
+  useUserPersistedOverlayState,
+} from "@/hooks/use-overlay-state";
+
 import { FrigateConfig } from "@/types/frigateConfig";
 import LiveBirdseyeView from "@/views/live/LiveBirdseyeView";
 import LiveCameraView from "@/views/live/LiveCameraView";

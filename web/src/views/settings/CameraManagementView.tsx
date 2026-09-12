@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
 import CameraWizardDialog from "@/components/settings/CameraWizardDialog";
 import DeleteCameraDialog from "@/components/overlay/dialog/DeleteCameraDialog";
 import {
@@ -35,7 +35,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
-import { Trans } from "react-i18next";
+
 import { useEnabledState, useRestart } from "@/api/ws";
 import { Label } from "@/components/ui/label";
 import axios from "axios";
@@ -1310,7 +1310,7 @@ function ProfileCameraEnableSection({
 
       const profileData =
         config?.cameras?.[camera]?.profiles?.[selectedProfile];
-      if (!profileData || profileData.enabled === undefined) return "inherit";
+      if (profileData?.enabled === undefined) return "inherit";
       return profileData.enabled ? "enabled" : "disabled";
     },
     [config, selectedProfile, localOverrides],

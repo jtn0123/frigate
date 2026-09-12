@@ -60,7 +60,7 @@ export default function SearchFilterDialog({
   filter,
   filterValues,
   onUpdateFilter,
-}: SearchFilterDialogProps) {
+}: Readonly<SearchFilterDialogProps>) {
   // data
   const { t } = useTranslation(["components/filter"]);
   const [currentFilter, setCurrentFilter] = useState(filter ?? {});
@@ -276,7 +276,7 @@ function TimeRangeFilterContent({
   config,
   timeRange,
   updateTimeRange,
-}: TimeRangeFilterContentProps) {
+}: Readonly<TimeRangeFilterContentProps>) {
   const { t } = useTranslation(["components/filter", "components/dialog"]);
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
@@ -418,63 +418,61 @@ export function ZoneFilterContent({
   allZones,
   zones,
   updateZones,
-}: ZoneFilterContentProps) {
+}: Readonly<ZoneFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
-    <>
-      <div className="overflow-x-hidden">
-        <DropdownMenuSeparator className="mb-3" />
-        <div className="text-lg">{t("zones.label")}</div>
-        {allZones && (
-          <>
-            <div className="mb-5 mt-2.5 flex items-center justify-between">
-              <Label
-                className="mx-2 cursor-pointer text-primary"
-                htmlFor="allZones"
-              >
-                {t("zones.all.title")}
-              </Label>
-              <Switch
-                className="ml-1"
-                id="allZones"
-                checked={zones == undefined}
+    <div className="overflow-x-hidden">
+      <DropdownMenuSeparator className="mb-3" />
+      <div className="text-lg">{t("zones.label")}</div>
+      {allZones && (
+        <>
+          <div className="mb-5 mt-2.5 flex items-center justify-between">
+            <Label
+              className="mx-2 cursor-pointer text-primary"
+              htmlFor="allZones"
+            >
+              {t("zones.all.title")}
+            </Label>
+            <Switch
+              className="ml-1"
+              id="allZones"
+              checked={zones == undefined}
+              onCheckedChange={(isChecked) => {
+                if (isChecked) {
+                  updateZones(undefined);
+                }
+              }}
+            />
+          </div>
+          <div className="mt-2.5 flex flex-col gap-2.5">
+            {allZones.map((item) => (
+              <FilterSwitch
+                key={item}
+                label={item}
+                type={"zone"}
+                isChecked={zones?.includes(item) ?? false}
                 onCheckedChange={(isChecked) => {
                   if (isChecked) {
-                    updateZones(undefined);
+                    const updatedZones = zones ? [...zones] : [];
+
+                    updatedZones.push(item);
+                    updateZones(updatedZones);
+                  } else {
+                    const updatedZones = zones ? [...zones] : [];
+
+                    // can not deselect the last item
+                    if (updatedZones.length > 1) {
+                      updatedZones.splice(updatedZones.indexOf(item), 1);
+                      updateZones(updatedZones);
+                    }
                   }
                 }}
               />
-            </div>
-            <div className="mt-2.5 flex flex-col gap-2.5">
-              {allZones.map((item) => (
-                <FilterSwitch
-                  key={item}
-                  label={item}
-                  type={"zone"}
-                  isChecked={zones?.includes(item) ?? false}
-                  onCheckedChange={(isChecked) => {
-                    if (isChecked) {
-                      const updatedZones = zones ? [...zones] : [];
-
-                      updatedZones.push(item);
-                      updateZones(updatedZones);
-                    } else {
-                      const updatedZones = zones ? [...zones] : [];
-
-                      // can not deselect the last item
-                      if (updatedZones.length > 1) {
-                        updatedZones.splice(updatedZones.indexOf(item), 1);
-                        updateZones(updatedZones);
-                      }
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -487,7 +485,7 @@ export function SubFilterContent({
   allSubLabels,
   subLabels,
   setSubLabels,
-}: SubFilterContentProps) {
+}: Readonly<SubFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   const sortedSubLabels = useMemo(
     () =>
@@ -553,7 +551,7 @@ export function ScoreFilterContent({
   minScore,
   maxScore,
   setScoreRange,
-}: ScoreFilterContentProps) {
+}: Readonly<ScoreFilterContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
     <div className="overflow-x-hidden">
@@ -568,7 +566,7 @@ export function ScoreFilterContent({
             const value = e.target.value;
 
             if (value) {
-              setScoreRange(parseInt(value) / 100.0, maxScore ?? 1.0);
+              setScoreRange(Number.parseInt(value) / 100.0, maxScore ?? 1.0);
             }
           }}
         />
@@ -588,7 +586,7 @@ export function ScoreFilterContent({
             const value = e.target.value;
 
             if (value) {
-              setScoreRange(minScore ?? 0.5, parseInt(value) / 100.0);
+              setScoreRange(minScore ?? 0.5, Number.parseInt(value) / 100.0);
             }
           }}
         />
@@ -631,7 +629,7 @@ export function SpeedFilterContent({
             const value = e.target.value;
 
             if (value) {
-              setSpeedRange(parseInt(value), maxSpeed ?? 1.0);
+              setSpeedRange(Number.parseInt(value), maxSpeed ?? 1.0);
             }
           }}
         />
@@ -651,7 +649,7 @@ export function SpeedFilterContent({
             const value = e.target.value;
 
             if (value) {
-              setSpeedRange(minSpeed ?? 1, parseInt(value));
+              setSpeedRange(minSpeed ?? 1, Number.parseInt(value));
             }
           }}
         />
@@ -1006,7 +1004,7 @@ export function RecognizedLicensePlatesFilterContent({
     setRecognizedLicensePlates(undefined);
   };
 
-  if (allRecognizedLicensePlates && allRecognizedLicensePlates.length === 0) {
+  if (allRecognizedLicensePlates?.length === 0) {
     return null;
   }
 

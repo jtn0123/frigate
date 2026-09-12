@@ -33,7 +33,7 @@ export function MinimapBounds({
   alignedMinimapEndTime,
   firstMinimapSegmentRef,
   dense,
-}: MinimapSegmentProps) {
+}: Readonly<MinimapSegmentProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const { t } = useTranslation(["common"]);
   const timeFormat = useTimeFormat(config);
@@ -74,7 +74,10 @@ export function MinimapBounds({
   );
 }
 
-export function Tick({ timestamp, timestampSpread }: TickSegmentProps) {
+export function Tick({
+  timestamp,
+  timestampSpread,
+}: Readonly<TickSegmentProps>) {
   return (
     <div className="absolute">
       <div className="flex h-[8px] w-[12px] content-end items-end">
@@ -100,7 +103,7 @@ export function Timestamp({
   timestamp,
   timestampSpread,
   segmentKey,
-}: TimestampSegmentProps) {
+}: Readonly<TimestampSegmentProps>) {
   const { t } = useTranslation(["common"]);
   const { data: config } = useSWR<FrigateConfig>("config");
 

@@ -523,7 +523,7 @@ export function TrackingDetails({
     let eventEnd = event.end_time;
     if (eventEnd == null && eventSequence && eventSequence.length > 0) {
       const last = eventSequence[eventSequence.length - 1];
-      if (last && last.timestamp !== undefined) {
+      if (last?.timestamp !== undefined) {
         eventEnd = last.timestamp;
       }
     }

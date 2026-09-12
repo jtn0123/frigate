@@ -263,9 +263,7 @@ export function useCameraMotionNextTimestamp(
       );
 
       if (!segmentMotion || overlappingReviewItems) {
-        if (currentSegmentStart === null) {
-          currentSegmentStart = motionStart;
-        }
+        currentSegmentStart ??= motionStart;
         currentSegmentEnd = motionEnd;
       } else if (currentSegmentStart !== null && currentSegmentEnd !== null) {
         ranges.push([currentSegmentStart, currentSegmentEnd]);

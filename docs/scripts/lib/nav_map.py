@@ -1,5 +1,8 @@
 """Map config section keys to Settings UI navigation paths."""
 
+_GLOBAL_CONFIGURATION = "Global configuration"
+_CAMERA_CONFIGURATION = "Camera configuration"
+
 # Derived from web/src/pages/Settings.tsx section mappings
 # and web/public/locales/en/views/settings.json menu labels.
 #
@@ -7,38 +10,38 @@
 # Navigation path: "Settings > {group_label} > {page_label}"
 
 GLOBAL_NAV: dict[str, tuple[str, str]] = {
-    "detect": ("Global configuration", "Object detection"),
-    "ffmpeg": ("Global configuration", "FFmpeg"),
-    "record": ("Global configuration", "Recording"),
-    "snapshots": ("Global configuration", "Snapshots"),
-    "motion": ("Global configuration", "Motion detection"),
-    "objects": ("Global configuration", "Objects"),
-    "review": ("Global configuration", "Review"),
-    "audio": ("Global configuration", "Audio events"),
-    "live": ("Global configuration", "Live playback"),
-    "timestamp_style": ("Global configuration", "Timestamp style"),
+    "detect": (_GLOBAL_CONFIGURATION, "Object detection"),
+    "ffmpeg": (_GLOBAL_CONFIGURATION, "FFmpeg"),
+    "record": (_GLOBAL_CONFIGURATION, "Recording"),
+    "snapshots": (_GLOBAL_CONFIGURATION, "Snapshots"),
+    "motion": (_GLOBAL_CONFIGURATION, "Motion detection"),
+    "objects": (_GLOBAL_CONFIGURATION, "Objects"),
+    "review": (_GLOBAL_CONFIGURATION, "Review"),
+    "audio": (_GLOBAL_CONFIGURATION, "Audio events"),
+    "live": (_GLOBAL_CONFIGURATION, "Live playback"),
+    "timestamp_style": (_GLOBAL_CONFIGURATION, "Timestamp style"),
     "notifications": ("Notifications", "Notifications"),
 }
 
 CAMERA_NAV: dict[str, tuple[str, str]] = {
-    "detect": ("Camera configuration", "Object detection"),
-    "ffmpeg": ("Camera configuration", "FFmpeg"),
-    "record": ("Camera configuration", "Recording"),
-    "snapshots": ("Camera configuration", "Snapshots"),
-    "motion": ("Camera configuration", "Motion detection"),
-    "objects": ("Camera configuration", "Objects"),
-    "review": ("Camera configuration", "Review"),
-    "audio": ("Camera configuration", "Audio events"),
-    "audio_transcription": ("Camera configuration", "Audio transcription"),
-    "notifications": ("Camera configuration", "Notifications"),
-    "live": ("Camera configuration", "Live playback"),
-    "birdseye": ("Camera configuration", "Birdseye"),
-    "face_recognition": ("Camera configuration", "Face recognition"),
-    "lpr": ("Camera configuration", "License plate recognition"),
-    "mqtt": ("Camera configuration", "MQTT"),
-    "onvif": ("Camera configuration", "ONVIF"),
-    "ui": ("Camera configuration", "Camera UI"),
-    "timestamp_style": ("Camera configuration", "Timestamp style"),
+    "detect": (_CAMERA_CONFIGURATION, "Object detection"),
+    "ffmpeg": (_CAMERA_CONFIGURATION, "FFmpeg"),
+    "record": (_CAMERA_CONFIGURATION, "Recording"),
+    "snapshots": (_CAMERA_CONFIGURATION, "Snapshots"),
+    "motion": (_CAMERA_CONFIGURATION, "Motion detection"),
+    "objects": (_CAMERA_CONFIGURATION, "Objects"),
+    "review": (_CAMERA_CONFIGURATION, "Review"),
+    "audio": (_CAMERA_CONFIGURATION, "Audio events"),
+    "audio_transcription": (_CAMERA_CONFIGURATION, "Audio transcription"),
+    "notifications": (_CAMERA_CONFIGURATION, "Notifications"),
+    "live": (_CAMERA_CONFIGURATION, "Live playback"),
+    "birdseye": (_CAMERA_CONFIGURATION, "Birdseye"),
+    "face_recognition": (_CAMERA_CONFIGURATION, "Face recognition"),
+    "lpr": (_CAMERA_CONFIGURATION, "License plate recognition"),
+    "mqtt": (_CAMERA_CONFIGURATION, "MQTT"),
+    "onvif": (_CAMERA_CONFIGURATION, "ONVIF"),
+    "ui": (_CAMERA_CONFIGURATION, "Camera UI"),
+    "timestamp_style": (_CAMERA_CONFIGURATION, "Timestamp style"),
 }
 
 ENRICHMENT_NAV: dict[str, tuple[str, str]] = {

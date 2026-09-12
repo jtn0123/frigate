@@ -17,7 +17,7 @@ export default function GeneratedOutput({
   mediaPath,
   hasAnyHardware,
   deviceId,
-}: Props) {
+}: Readonly<Props>) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {

@@ -100,4 +100,4 @@ class BaseEmbedding(ABC):
         outputs = self.runner.run(onnx_inputs)[0]
         embeddings = self._postprocess_outputs(outputs)
 
-        return [embedding for embedding in embeddings]
+        return list(embeddings)

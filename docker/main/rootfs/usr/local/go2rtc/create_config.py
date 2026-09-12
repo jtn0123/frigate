@@ -21,17 +21,19 @@ from frigate.util.services import (
     is_restricted_go2rtc_source,
 )
 
+_SECRETS_DIR = "/run/secrets"
+
 sys.path.remove("/opt/frigate")
 
 yaml = YAML()
 
 FRIGATE_ENV_VARS = {k: v for k, v in os.environ.items() if k.startswith("FRIGATE_")}
 # read docker secret files as env vars too
-if os.path.isdir("/run/secrets"):
-    for secret_file in os.listdir("/run/secrets"):
+if os.path.isdir(_SECRETS_DIR):
+    for secret_file in os.listdir(_SECRETS_DIR):
         if secret_file.startswith("FRIGATE_"):
             FRIGATE_ENV_VARS[secret_file] = (
-                Path(os.path.join("/run/secrets", secret_file)).read_text().strip()
+                Path(os.path.join(_SECRETS_DIR, secret_file)).read_text().strip()
             )
 
 config_file = find_config_file()

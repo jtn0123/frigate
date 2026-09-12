@@ -18,7 +18,7 @@ export default function useCameraLiveMode(
 
     const streamNames = new Set<string>();
     cameras.forEach((camera) => {
-      if (activeStreams && activeStreams[camera.name]) {
+      if (activeStreams?.[camera.name]) {
         const selectedStreamName = activeStreams[camera.name];
         const isRestreamed = Object.keys(config.go2rtc.streams || {}).includes(
           selectedStreamName,

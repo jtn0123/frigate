@@ -54,7 +54,7 @@ def get_frame_shape(source):
 
     # fallback to using opencv if ffprobe didn't succeed
     video = cv2.VideoCapture(source)
-    ret, frame = video.read()
+    _, frame = video.read()
     frame_shape = frame.shape
     video.release()
     return frame_shape

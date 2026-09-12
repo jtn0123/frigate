@@ -125,8 +125,8 @@ export default function Step3ThresholdAndActions({
                   className="h-10"
                   {...field}
                   onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    field.onChange(isNaN(value) ? 0 : value);
+                    const value = Number.parseFloat(e.target.value);
+                    field.onChange(Number.isNaN(value) ? 0 : value);
                   }}
                 />
               </FormControl>

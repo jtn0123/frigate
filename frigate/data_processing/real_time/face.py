@@ -121,7 +121,7 @@ class FaceRealTimeProcessor(RealTimeProcessorApi):
 
             ModelDownloader.download_from_url(self.model_files[file_name], path)
         except Exception as e:
-            logger.error(f"Failed to download {path}: {e}")
+            logger.exception("Failed to download %s: %s", path, e)
 
     def __build_detector(self) -> None:
         self.face_detector = cv2.FaceDetectorYN.create(

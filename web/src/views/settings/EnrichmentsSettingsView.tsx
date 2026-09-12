@@ -5,7 +5,7 @@ import axios from "axios";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { useCallback, useContext, useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { buttonVariants } from "@/components/ui/button";
+
 import { useDocDomain } from "@/hooks/use-doc-domain";
 
 type EnrichmentsSettings = {

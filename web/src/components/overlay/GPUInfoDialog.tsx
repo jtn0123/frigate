@@ -81,7 +81,7 @@ export default function GPUInfoDialog({
   showGpuInfo,
   gpuType,
   setShowGpuInfo,
-}: GPUInfoDialogProps) {
+}: Readonly<GPUInfoDialogProps>) {
   const { t } = useTranslation(["views/system"]);
 
   const { data: vainfo } = useSWR<Vainfo>(

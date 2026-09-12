@@ -35,7 +35,7 @@ export function FrigatePlusDialog({
   dialog = true,
   onClose,
   onEventUploaded,
-}: FrigatePlusDialogProps) {
+}: Readonly<FrigatePlusDialogProps>) {
   const { t, i18n } = useTranslation(["components/dialog"]);
 
   type SubmissionState = "reviewing" | "uploading" | "submitted";

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { LuFolderX } from "react-icons/lu";
+import { LuFolderX, LuPause, LuPlay } from "react-icons/lu";
 import { isMobileOnly, isSafari } from "react-device-detect";
-import { LuPause, LuPlay } from "react-icons/lu";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -298,7 +298,9 @@ export default function VideoControls({
             }}
           >
             <DropdownMenuRadioGroup
-              onValueChange={(rate) => onSetPlaybackRate(parseFloat(rate))}
+              onValueChange={(rate) =>
+                onSetPlaybackRate(Number.parseFloat(rate))
+              }
             >
               {playbackRates.map((rate) => (
                 <DropdownMenuRadioItem

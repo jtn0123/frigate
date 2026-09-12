@@ -1,3 +1,4 @@
+import { createMetricChartOptions } from "./metricChartOptions";
 import { useTheme } from "@/context/theme-provider";
 import { useDateLocale } from "@/hooks/use-date-locale";
 import { FrigateConfig } from "@/types/frigateConfig";
@@ -76,7 +77,7 @@ export function ThresholdBarGraph({
       }
       const times = updateTimesRef.current;
       const ts = times[Math.max(1, dateIndex) - 1] - timeOffset;
-      if (isNaN(ts)) {
+      if (Number.isNaN(ts)) {
         return "";
       }
       return formatUnixTimestampToDateTime(ts, {
@@ -90,18 +91,13 @@ export function ThresholdBarGraph({
 
   const options = useMemo(() => {
     return {
-      chart: {
-        id: graphId,
-        selection: {
-          enabled: false,
-        },
-        toolbar: {
-          show: false,
-        },
-        zoom: {
-          enabled: false,
-        },
-      },
+      ...createMetricChartOptions({
+        graphId,
+        theme: systemTheme || theme,
+        mobile: isMobileOnly,
+        formatTime,
+        yMax,
+      }),
       colors: [
         ({ value }: { value: number }) => {
           if (value >= threshold.error) {
@@ -113,15 +109,6 @@ export function ThresholdBarGraph({
           }
         },
       ],
-      grid: {
-        show: false,
-      },
-      legend: {
-        show: false,
-      },
-      dataLabels: {
-        enabled: false,
-      },
       plotOptions: {
         bar: {
           distributed: true,
@@ -139,37 +126,6 @@ export function ThresholdBarGraph({
         y: {
           formatter: (val) => `${val}${unit}`,
         },
-      },
-      markers: {
-        size: 0,
-      },
-      xaxis: {
-        tickAmount: isMobileOnly ? 2 : 3,
-        tickPlacement: "on",
-        labels: {
-          rotate: 0,
-          formatter: formatTime,
-          style: {
-            colors: "#6B6B6B",
-          },
-        },
-        axisBorder: {
-          show: false,
-        },
-        axisTicks: {
-          show: false,
-        },
-      },
-      yaxis: {
-        show: true,
-        labels: {
-          formatter: (val: number) => Math.ceil(val).toString(),
-          style: {
-            colors: "#6B6B6B",
-          },
-        },
-        min: 0,
-        max: yMax,
       },
     } as ApexCharts.ApexOptions;
   }, [graphId, threshold, unit, yMax, systemTheme, theme, formatTime]);

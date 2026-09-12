@@ -406,7 +406,6 @@ def collect_state_classification_examples(
         shutil.rmtree(train_dir)
     os.makedirs(train_dir, exist_ok=True)
 
-    saved_count = 0
     for idx, image_path in enumerate(distinct_images):
         dest_path = os.path.join(train_dir, f"example_{idx:03d}.jpg")
         try:
@@ -414,7 +413,6 @@ def collect_state_classification_examples(
 
             if img is not None:
                 cv2.imwrite(dest_path, img)
-                saved_count += 1
         except Exception as e:
             logger.exception(f"Failed to save image {image_path}: {e}")
 

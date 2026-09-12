@@ -39,7 +39,7 @@ type MotionSettings = {
 export default function MotionTunerView({
   selectedCamera,
   setUnsavedChanges,
-}: MotionTunerViewProps) {
+}: Readonly<MotionTunerViewProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config, mutate: updateConfig } =

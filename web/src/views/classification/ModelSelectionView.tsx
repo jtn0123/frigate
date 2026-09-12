@@ -270,7 +270,7 @@ function ModelCard({
   }, []);
 
   const coverImage = useMemo(() => {
-    if (!dataset || !dataset.categories) {
+    if (!dataset?.categories) {
       return undefined;
     }
 

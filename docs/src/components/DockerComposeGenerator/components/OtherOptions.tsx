@@ -37,7 +37,7 @@ export default function OtherOptions({
   onRtspPasswordChange,
   onTimezoneChange,
   onShmSizeChange,
-}: Props) {
+}: Readonly<Props>) {
   const timezones = useMemo(() => getTimezoneList(), []);
   const systemTimezone =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "Etc/UTC";

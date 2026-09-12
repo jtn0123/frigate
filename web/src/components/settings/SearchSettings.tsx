@@ -154,54 +154,48 @@ export function SearchTypeContent({
 }: Readonly<SearchTypeContentProps>) {
   const { t } = useTranslation(["components/filter"]);
   return (
-    <>
-      <div className="overflow-x-hidden">
-        <DropdownMenuSeparator className="mb-3" />
-        <div className="space-y-0.5">
-          <div>{t("explore.settings.searchSource.label")}</div>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            {t("explore.settings.searchSource.desc")}
-          </div>
-        </div>
-        <div className="mt-2.5 flex flex-col gap-2.5">
-          <FilterSwitch
-            label={t("explore.settings.searchSource.options.thumbnailImage")}
-            isChecked={searchSources?.includes("thumbnail") ?? false}
-            onCheckedChange={(isChecked) => {
-              const updatedSources = searchSources ? [...searchSources] : [];
-
-              if (isChecked) {
-                updatedSources.push("thumbnail");
-                setSearchSources(updatedSources);
-              } else {
-                if (updatedSources.length > 1) {
-                  const index = updatedSources.indexOf("thumbnail");
-                  if (index !== -1) updatedSources.splice(index, 1);
-                  setSearchSources(updatedSources);
-                }
-              }
-            }}
-          />
-          <FilterSwitch
-            label={t("explore.settings.searchSource.options.description")}
-            isChecked={searchSources?.includes("description") ?? false}
-            onCheckedChange={(isChecked) => {
-              const updatedSources = searchSources ? [...searchSources] : [];
-
-              if (isChecked) {
-                updatedSources.push("description");
-                setSearchSources(updatedSources);
-              } else {
-                if (updatedSources.length > 1) {
-                  const index = updatedSources.indexOf("description");
-                  if (index !== -1) updatedSources.splice(index, 1);
-                  setSearchSources(updatedSources);
-                }
-              }
-            }}
-          />
+    <div className="overflow-x-hidden">
+      <DropdownMenuSeparator className="mb-3" />
+      <div className="space-y-0.5">
+        <div>{t("explore.settings.searchSource.label")}</div>
+        <div className="space-y-1 text-xs text-muted-foreground">
+          {t("explore.settings.searchSource.desc")}
         </div>
       </div>
-    </>
+      <div className="mt-2.5 flex flex-col gap-2.5">
+        <FilterSwitch
+          label={t("explore.settings.searchSource.options.thumbnailImage")}
+          isChecked={searchSources?.includes("thumbnail") ?? false}
+          onCheckedChange={(isChecked) => {
+            const updatedSources = searchSources ? [...searchSources] : [];
+
+            if (isChecked) {
+              updatedSources.push("thumbnail");
+              setSearchSources(updatedSources);
+            } else if (updatedSources.length > 1) {
+              const index = updatedSources.indexOf("thumbnail");
+              if (index !== -1) updatedSources.splice(index, 1);
+              setSearchSources(updatedSources);
+            }
+          }}
+        />
+        <FilterSwitch
+          label={t("explore.settings.searchSource.options.description")}
+          isChecked={searchSources?.includes("description") ?? false}
+          onCheckedChange={(isChecked) => {
+            const updatedSources = searchSources ? [...searchSources] : [];
+
+            if (isChecked) {
+              updatedSources.push("description");
+              setSearchSources(updatedSources);
+            } else if (updatedSources.length > 1) {
+              const index = updatedSources.indexOf("description");
+              if (index !== -1) updatedSources.splice(index, 1);
+              setSearchSources(updatedSources);
+            }
+          }}
+        />
+      </div>
+    </div>
   );
 }

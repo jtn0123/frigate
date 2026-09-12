@@ -4,6 +4,9 @@ from pydantic import ConfigDict, Field, field_validator
 
 from .base import FrigateBaseModel
 
+_MODEL_SIZE = "Model size"
+_DEVICE_OVERRIDE_DESCRIPTION = "This is an override, to target a specific device. See https://onnxruntime.ai/docs/execution-providers/ for more information"
+
 __all__ = [
     "CameraFaceRecognitionConfig",
     "CameraLicensePlateRecognitionConfig",
@@ -64,7 +67,7 @@ class AudioTranscriptionConfig(FrigateBaseModel):
     )
     model_size: ModelSizeEnum = Field(
         default=ModelSizeEnum.small,
-        title="Model size",
+        title=_MODEL_SIZE,
         description="Model size to use for offline audio event transcription.",
     )
     live_enabled: bool | None = Field(
@@ -195,13 +198,13 @@ class SemanticSearchConfig(FrigateBaseModel):
 
     model_size: ModelSizeEnum = Field(
         default=ModelSizeEnum.small,
-        title="Model size",
+        title=_MODEL_SIZE,
         description="Select model size; 'small' runs on CPU and 'large' typically requires GPU.",
     )
     device: str | None = Field(
         default=None,
         title="Device",
-        description="This is an override, to target a specific device. See https://onnxruntime.ai/docs/execution-providers/ for more information",
+        description=_DEVICE_OVERRIDE_DESCRIPTION,
     )
 
 
@@ -259,7 +262,7 @@ class FaceRecognitionConfig(FrigateBaseModel):
     )
     model_size: ModelSizeEnum = Field(
         default=ModelSizeEnum.small,
-        title="Model size",
+        title=_MODEL_SIZE,
         description="Model size to use for face embeddings (small/large); larger may require GPU.",
     )
     unknown_score: float = Field(
@@ -309,7 +312,7 @@ class FaceRecognitionConfig(FrigateBaseModel):
     device: str | None = Field(
         default=None,
         title="Device",
-        description="This is an override, to target a specific device. See https://onnxruntime.ai/docs/execution-providers/ for more information",
+        description=_DEVICE_OVERRIDE_DESCRIPTION,
     )
 
 
@@ -341,7 +344,7 @@ class LicensePlateRecognitionConfig(FrigateBaseModel):
     )
     model_size: ModelSizeEnum = Field(
         default=ModelSizeEnum.small,
-        title="Model size",
+        title=_MODEL_SIZE,
         description="Model size used for text detection/recognition. Most users should use 'small'.",
     )
     detection_threshold: float = Field(
@@ -399,7 +402,7 @@ class LicensePlateRecognitionConfig(FrigateBaseModel):
     device: str | None = Field(
         default=None,
         title="Device",
-        description="This is an override, to target a specific device. See https://onnxruntime.ai/docs/execution-providers/ for more information",
+        description=_DEVICE_OVERRIDE_DESCRIPTION,
     )
     replace_rules: list[ReplaceRule] = Field(
         default_factory=list,

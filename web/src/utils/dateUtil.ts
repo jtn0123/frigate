@@ -150,7 +150,7 @@ export const formatUnixTimestampToDateTime = (
     localeCode = window.navigator?.language || "en-US";
   }
 
-  if (isNaN(unixTimestamp)) {
+  if (Number.isNaN(unixTimestamp)) {
     return "Invalid time";
   }
 
@@ -243,12 +243,12 @@ export const getDurationFromTimestamps = (
   end_time: number | null,
   abbreviated: boolean = false,
 ): string => {
-  if (isNaN(start_time)) {
+  if (Number.isNaN(start_time)) {
     return i18n.t("time.invalidStartTime", { ns: "common" });
   }
   let duration = i18n.t("time.inProgress", { ns: "common" });
   if (end_time !== null) {
-    if (isNaN(end_time)) {
+    if (Number.isNaN(end_time)) {
       return i18n.t("time.invalidEndTime", { ns: "common" });
     }
     const start = fromUnixTime(start_time);
@@ -300,7 +300,7 @@ export const formatSecondsToDuration = (
   seconds: number,
   locale?: Locale,
 ): string => {
-  if (isNaN(seconds) || seconds < 0) {
+  if (Number.isNaN(seconds) || seconds < 0) {
     return "Invalid duration";
   }
 
@@ -325,8 +325,8 @@ export const getUTCOffset = (date: Date, timezone?: string | null): number => {
   // If timezone is in UTC±HH:MM format, parse it to get offset
   const utcOffsetMatch = resolvedTimezone.match(/^UTC([+-])(\d{2}):(\d{2})$/);
   if (utcOffsetMatch) {
-    const hours = parseInt(utcOffsetMatch[2], 10);
-    const minutes = parseInt(utcOffsetMatch[3], 10);
+    const hours = Number.parseInt(utcOffsetMatch[2], 10);
+    const minutes = Number.parseInt(utcOffsetMatch[3], 10);
     return (utcOffsetMatch[1] === "+" ? 1 : -1) * (hours * 60 + minutes);
   }
 
@@ -340,7 +340,7 @@ export const getUTCOffset = (date: Date, timezone?: string | null): number => {
   let target = new Date(`${iso}Z`);
 
   // safari doesn't like the default format
-  if (isNaN(target.getTime())) {
+  if (Number.isNaN(target.getTime())) {
     iso = iso.replace("T", " ").split(".")[0];
     target = new Date(`${iso}+000`);
   }
@@ -435,7 +435,7 @@ export const convertLocalDateToTimestamp = (dateString: string): number => {
   const localDate = new Date(`${year}-${month}-${day}T00:00:00`);
 
   // Check if the date is valid
-  if (isNaN(localDate.getTime())) {
+  if (Number.isNaN(localDate.getTime())) {
     return 0;
   }
 
@@ -528,7 +528,7 @@ export function isValidTimeRange(
 
 export function convertTo12Hour(time: string) {
   const [hours, minutes] = time.split(":");
-  const hour = parseInt(hours, 10);
+  const hour = Number.parseInt(hours, 10);
   const ampm = hour >= 12 ? "PM" : "AM";
   const hour12 = hour % 12 || 12;
   return `${hour12}:${minutes} ${ampm}`;

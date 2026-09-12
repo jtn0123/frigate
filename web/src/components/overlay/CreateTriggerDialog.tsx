@@ -327,15 +327,13 @@ export default function CreateTriggerDialog({
                     {t("triggers.dialog.form.content.title")}
                   </FormLabel>
                   {form.watch("type") === "thumbnail" ? (
-                    <>
-                      <FormControl>
-                        <ImagePicker
-                          selectedImageId={field.value}
-                          setSelectedImageId={field.onChange}
-                          camera={selectedCamera}
-                        />
-                      </FormControl>
-                    </>
+                    <FormControl>
+                      <ImagePicker
+                        selectedImageId={field.value}
+                        setSelectedImageId={field.onChange}
+                        camera={selectedCamera}
+                      />
+                    </FormControl>
                   ) : (
                     <>
                       <FormControl>
@@ -375,8 +373,8 @@ export default function CreateTriggerDialog({
                       className="h-10"
                       {...field}
                       onChange={(e) => {
-                        const value = parseFloat(e.target.value);
-                        field.onChange(isNaN(value) ? 0 : value);
+                        const value = Number.parseFloat(e.target.value);
+                        field.onChange(Number.isNaN(value) ? 0 : value);
                       }}
                     />
                   </FormControl>

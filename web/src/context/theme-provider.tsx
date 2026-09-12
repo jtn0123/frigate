@@ -84,7 +84,7 @@ export function ThemeProvider({
   defaultColorScheme = "theme-default",
   storageKey = "frigate-ui-theme",
   ...props
-}: ThemeProviderProps) {
+}: Readonly<ThemeProviderProps>) {
   const [theme, setTheme] = useState<Theme>(() => {
     try {
       const storedData = JSON.parse(localStorage.getItem(storageKey) || "{}");

@@ -161,6 +161,24 @@ export class ApiMocker {
       route.fulfill({ json: events }),
     );
 
+    // Resolve only requested IDs, including an empty result for an empty list.
+    // Without this route, face-library lookups reach the preview server and
+    // produce an error toast that can cover controls on mobile.
+    await this.page.route(/\/api\/event_ids(\?|$)/, (route) => {
+      const query = new URL(route.request().url()).searchParams.get("ids");
+      const ids = new Set(query?.split(",") ?? []);
+      return route.fulfill({
+        json: events.filter(
+          (event) =>
+            typeof event === "object" &&
+            event !== null &&
+            "id" in event &&
+            typeof event.id === "string" &&
+            ids.has(event.id),
+        ),
+      });
+    });
+
     // Exports
     await this.page.route("**/api/export**", (route) =>
       route.fulfill({ json: exports }),

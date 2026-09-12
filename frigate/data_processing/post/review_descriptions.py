@@ -608,7 +608,7 @@ def run_analysis(
         UPDATE_REVIEW_DESCRIPTION,
         {
             "type": "genai",
-            "before": {k: v for k, v in prev_data.items()},
-            "after": {k: v for k, v in final_data.items()},
+            "before": dict(prev_data.items()),
+            "after": dict(final_data.items()),
         },
     )

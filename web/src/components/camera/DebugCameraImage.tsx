@@ -21,7 +21,7 @@ type DebugCameraImageProps = {
 export default function DebugCameraImage({
   className,
   cameraConfig,
-}: DebugCameraImageProps) {
+}: Readonly<DebugCameraImageProps>) {
   const { t } = useTranslation(["components/camera"]);
   const [showSettings, setShowSettings] = useState(false);
   const [options, setOptions] = useUserPersistence<Options>(
@@ -94,7 +94,10 @@ type DebugSettingsProps = {
   options: Options;
 };
 
-function DebugSettings({ handleSetOption, options }: DebugSettingsProps) {
+function DebugSettings({
+  handleSetOption,
+  options,
+}: Readonly<DebugSettingsProps>) {
   const { t } = useTranslation(["components/camera"]);
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">

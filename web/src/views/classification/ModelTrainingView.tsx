@@ -930,7 +930,11 @@ function TrainGrid({
         .filter((data) => {
           // Ignore images that don't match the expected format (event-camera-timestamp-state-score.webp)
           // Expected format has 5 parts when split by "-", and score should be a valid number
-          if (data.score === undefined || isNaN(data.score) || !data.name) {
+          if (
+            data.score === undefined ||
+            Number.isNaN(data.score) ||
+            !data.name
+          ) {
             return false;
           }
 
@@ -1139,9 +1143,9 @@ function ObjectTrainGrid({
       if (event && selectedImages.length == 0 && !meta) {
         setSelectedEvent(event);
       } else {
-        const anySelected =
-          group.find((item) => selectedImages.includes(item.filename)) !=
-          undefined;
+        const anySelected = group.some((item) =>
+          selectedImages.includes(item.filename),
+        );
 
         if (anySelected) {
           // deselect all
@@ -1206,18 +1210,16 @@ function ObjectTrainGrid({
                 }}
               >
                 {(data) => (
-                  <>
-                    <ClassificationSelectionDialog
-                      classes={classes}
-                      modelName={model.name}
-                      image={data.filename}
-                      onRefresh={onRefresh}
-                    >
-                      <BlurredIconButton>
-                        <TbCategoryPlus className="size-5" />
-                      </BlurredIconButton>
-                    </ClassificationSelectionDialog>
-                  </>
+                  <ClassificationSelectionDialog
+                    classes={classes}
+                    modelName={model.name}
+                    image={data.filename}
+                    onRefresh={onRefresh}
+                  >
+                    <BlurredIconButton>
+                      <TbCategoryPlus className="size-5" />
+                    </BlurredIconButton>
+                  </ClassificationSelectionDialog>
                 )}
               </GroupedClassificationCard>
             </div>

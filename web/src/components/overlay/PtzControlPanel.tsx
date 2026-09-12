@@ -87,7 +87,7 @@ export default function PtzControlPanel({
       }
 
       if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(key)) {
-        const presetNumber = parseInt(key);
+        const presetNumber = Number.parseInt(key);
         if (
           ptz &&
           (ptz.presets?.length ?? 0) > 0 &&

@@ -308,7 +308,7 @@ class ReviewSegmentMaintainer(threading.Thread):
         """New segment."""
         new_data = segment.get_data(ended=False)
         self.requestor.send_data(UPSERT_REVIEW_SEGMENT, new_data)
-        start_data = {k: v for k, v in new_data.items()}
+        start_data = dict(new_data.items())
         review_update = {
             "type": "new",
             "before": start_data,
@@ -339,8 +339,8 @@ class ReviewSegmentMaintainer(threading.Thread):
         self.requestor.send_data(UPSERT_REVIEW_SEGMENT, new_data)
         review_update = {
             "type": "update",
-            "before": {k: v for k, v in prev_data.items()},
-            "after": {k: v for k, v in new_data.items()},
+            "before": dict(prev_data.items()),
+            "after": dict(new_data.items()),
         }
         self.requestor.send_data(
             "reviews",
@@ -362,8 +362,8 @@ class ReviewSegmentMaintainer(threading.Thread):
         self.requestor.send_data(UPSERT_REVIEW_SEGMENT, final_data)
         review_update = {
             "type": "end",
-            "before": {k: v for k, v in prev_data.items()},
-            "after": {k: v for k, v in final_data.items()},
+            "before": dict(prev_data.items()),
+            "after": dict(final_data.items()),
         }
         self.requestor.send_data(
             "reviews",
@@ -453,12 +453,11 @@ class ReviewSegmentMaintainer(threading.Thread):
                     should_update_state = True
                     should_update_image = True
 
-            if activity.has_activity_category(SeverityEnum.detection):
-                if (
-                    segment.last_detection_time is None
-                    or frame_time > segment.last_detection_time
-                ):
-                    segment.last_detection_time = frame_time
+            if activity.has_activity_category(SeverityEnum.detection) and (
+                segment.last_detection_time is None
+                or frame_time > segment.last_detection_time
+            ):
+                segment.last_detection_time = frame_time
 
             for object in activity.get_all_objects():
                 # Alert-level objects should always be added (they extend/upgrade the segment)

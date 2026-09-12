@@ -867,9 +867,9 @@ function FaceAttemptGroup({
       if (!meta) {
         return;
       } else {
-        const anySelected =
-          group.find((face) => selectedFaces.includes(face.filename)) !=
-          undefined;
+        const anySelected = group.some((face) =>
+          selectedFaces.includes(face.filename),
+        );
 
         if (anySelected) {
           // deselect all

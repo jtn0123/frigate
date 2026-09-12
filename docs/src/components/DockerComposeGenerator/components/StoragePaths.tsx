@@ -17,7 +17,7 @@ export default function StoragePaths({
   mediaPathError,
   onConfigPathChange,
   onMediaPathChange,
-}: Props) {
+}: Readonly<Props>) {
   return (
     <div className={styles.formSection}>
       <h4>Storage Paths</h4>

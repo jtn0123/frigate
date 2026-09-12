@@ -15,7 +15,7 @@ export default function NvidiaGpuConfig({
   gpuDeviceIdError,
   onGpuCountChange,
   onGpuDeviceIdChange,
-}: Props) {
+}: Readonly<Props>) {
   const showDeviceId = gpuCount !== "";
 
   return (

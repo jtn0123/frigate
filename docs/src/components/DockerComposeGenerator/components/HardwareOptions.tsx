@@ -23,9 +23,9 @@ function renderDescription(text: string): React.ReactNode {
 
 function HardwareCheckbox({
   hw, disabled, checked, onToggle,
-}: {
+}: Readonly<{
   hw: HardwareOption; disabled: boolean; checked: boolean; onToggle: () => void;
-}) {
+}>) {
   return (
     <div className={styles.hardwareItem}>
       <label className={`${styles.checkboxLabel} ${disabled ? styles.checkboxDisabled : ""}`}>
@@ -39,7 +39,7 @@ function HardwareCheckbox({
   );
 }
 
-export default function HardwareOptions({ deviceId, hardwareEnabled, onToggle, isDisabled }: Props) {
+export default function HardwareOptions({ deviceId, hardwareEnabled, onToggle, isDisabled }: Readonly<Props>) {
   return (
     <div className={styles.formSection}>
       <h4>Generic Hardware Devices</h4>

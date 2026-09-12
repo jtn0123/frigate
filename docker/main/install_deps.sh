@@ -1,6 +1,11 @@
 #!/bin/bash
-
 set -euxo pipefail
+
+# Keep transport restrictions consistent for every download in this stage.
+download_https() {
+    curl --proto '=https' --proto-redir '=https' -fsSL "$@"
+}
+
 
 apt-get -qq update
 
@@ -28,7 +33,7 @@ update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 mkdir -p -m 600 /root/.gnupg
 
 # install coral runtime
-wget -q -O /tmp/libedgetpu1-max.deb "https://github.com/feranick/libedgetpu/releases/download/16.0TF2.17.1-1/libedgetpu1-max_16.0tf2.17.1-1.bookworm_${TARGETARCH}.deb"
+download_https --output /tmp/libedgetpu1-max.deb "https://github.com/feranick/libedgetpu/releases/download/16.0TF2.17.1-1/libedgetpu1-max_16.0tf2.17.1-1.bookworm_${TARGETARCH}.deb"
 unset DEBIAN_FRONTEND
 yes | dpkg -i /tmp/libedgetpu1-max.deb && export DEBIAN_FRONTEND=noninteractive
 rm /tmp/libedgetpu1-max.deb
@@ -48,17 +53,17 @@ fi
 # ffmpeg -> amd64 (each tarball is verified against its release checksum)
 if [[ "${TARGETARCH}" == "amd64" ]]; then
     mkdir -p /usr/lib/ffmpeg/5.0
-    wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n5.1-2-g915ef932a3-linux64-gpl-5.1.tar.xz"
+    download_https --output ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n5.1-2-g915ef932a3-linux64-gpl-5.1.tar.xz"
     echo "377abec133f9d9e8014dee1b91c9684ac8bb0b5b7d80100a57116ff837c4c0d4  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/5.0 --strip-components 1 amd64/bin/ffmpeg amd64/bin/ffprobe
     rm -rf ffmpeg.tar.xz
     mkdir -p /usr/lib/ffmpeg/7.0
-    wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2024-09-19-12-51/ffmpeg-n7.0.2-18-g3e6cec1286-linux64-gpl-7.0.tar.xz"
+    download_https --output ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2024-09-19-12-51/ffmpeg-n7.0.2-18-g3e6cec1286-linux64-gpl-7.0.tar.xz"
     echo "e13860eb90409c8218319c928067834ce450128e86f24cfed5cfe91ce6e31037  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/7.0 --strip-components 1 amd64/bin/ffmpeg amd64/bin/ffprobe
     rm -rf ffmpeg.tar.xz
     mkdir -p /usr/lib/ffmpeg/8.0
-    wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2026-06-02-14-20/ffmpeg-n8.1.1-9-g58d4114d36-linux64-gpl-8.1.tar.xz"
+    download_https --output ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2026-06-02-14-20/ffmpeg-n8.1.1-9-g58d4114d36-linux64-gpl-8.1.tar.xz"
     echo "9bac85054d351cdc89c0a4f45c8ea5c44df94009aabd964b719bbadd56aedae9  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/8.0 --strip-components 1 amd64/bin/ffmpeg amd64/bin/ffprobe
     rm -rf ffmpeg.tar.xz
@@ -67,17 +72,17 @@ fi
 # ffmpeg -> arm64
 if [[ "${TARGETARCH}" == "arm64" ]]; then
     mkdir -p /usr/lib/ffmpeg/5.0
-    wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n5.1-2-g915ef932a3-linuxarm64-gpl-5.1.tar.xz"
+    download_https --output ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2022-07-31-12-37/ffmpeg-n5.1-2-g915ef932a3-linuxarm64-gpl-5.1.tar.xz"
     echo "57ee475407bad49910ba9b946428396e30cf075ea28a7912fbe1aa2578085af0  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/5.0 --strip-components 1 arm64/bin/ffmpeg arm64/bin/ffprobe
     rm -f ffmpeg.tar.xz
     mkdir -p /usr/lib/ffmpeg/7.0
-    wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2024-09-19-12-51/ffmpeg-n7.0.2-18-g3e6cec1286-linuxarm64-gpl-7.0.tar.xz"
+    download_https --output ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2024-09-19-12-51/ffmpeg-n7.0.2-18-g3e6cec1286-linuxarm64-gpl-7.0.tar.xz"
     echo "16c8b04e9d0ea9c769ad964c4c453fcf05121a1947237329d2e9d8a5e43e2a3c  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/7.0 --strip-components 1 arm64/bin/ffmpeg arm64/bin/ffprobe
     rm -f ffmpeg.tar.xz
     mkdir -p /usr/lib/ffmpeg/8.0
-    wget -qO ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2026-06-02-14-20/ffmpeg-n8.1.1-9-g58d4114d36-linuxarm64-gpl-8.1.tar.xz"
+    download_https --output ffmpeg.tar.xz "https://github.com/NickM-27/FFmpeg-Builds/releases/download/autobuild-2026-06-02-14-20/ffmpeg-n8.1.1-9-g58d4114d36-linuxarm64-gpl-8.1.tar.xz"
     echo "cd91948468d0f11ce795a2cdaa0c69911bd1db313b49bb19c22512beb88cde69  ffmpeg.tar.xz" | sha256sum -c -
     tar -xf ffmpeg.tar.xz -C /usr/lib/ffmpeg/8.0 --strip-components 1 arm64/bin/ffmpeg arm64/bin/ffprobe
     rm -f ffmpeg.tar.xz
@@ -102,7 +107,7 @@ if [[ "${TARGETARCH}" == "amd64" ]]; then
     apt-get install -y dpkg
 
     # use intel apt repo for libmfx1 (legacy QSV, pre-Gen12)
-    wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+    download_https --output - https://repositories.intel.com/gpu/intel-graphics.key | gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | tee /etc/apt/sources.list.d/intel-gpu-jammy.list
     apt-get -qq update
 
@@ -128,25 +133,25 @@ if [[ "${TARGETARCH}" == "amd64" ]]; then
     # install legacy and standard intel compute packages
     # see https://github.com/intel/compute-runtime/blob/master/LEGACY_PLATFORMS.md for more info
     # needed core package
-    wget https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/libigdgmm12_22.9.0_amd64.deb
+    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/libigdgmm12_22.9.0_amd64.deb
     dpkg -i libigdgmm12_22.9.0_amd64.deb
     rm libigdgmm12_22.9.0_amd64.deb
 
     # legacy compute-runtime packages
-    wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb
-    wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-level-zero-gpu-legacy1_1.5.30872.36_amd64.deb
-    wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-opencl_1.0.17537.24_amd64.deb
-    wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-core_1.0.17537.24_amd64.deb
+    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb
+    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-level-zero-gpu-legacy1_1.5.30872.36_amd64.deb
+    download_https --remote-name https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-opencl_1.0.17537.24_amd64.deb
+    download_https --remote-name https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-core_1.0.17537.24_amd64.deb
     # standard compute-runtime packages
-    wget https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/intel-opencl-icd_26.14.37833.4-0_amd64.deb
-    wget https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/libze-intel-gpu1_26.14.37833.4-0_amd64.deb
-    wget https://github.com/intel/intel-graphics-compiler/releases/download/v2.32.7/intel-igc-opencl-2_2.32.7+21184_amd64.deb
-    wget https://github.com/intel/intel-graphics-compiler/releases/download/v2.32.7/intel-igc-core-2_2.32.7+21184_amd64.deb
+    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/intel-opencl-icd_26.14.37833.4-0_amd64.deb
+    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/libze-intel-gpu1_26.14.37833.4-0_amd64.deb
+    download_https --remote-name https://github.com/intel/intel-graphics-compiler/releases/download/v2.32.7/intel-igc-opencl-2_2.32.7+21184_amd64.deb
+    download_https --remote-name https://github.com/intel/intel-graphics-compiler/releases/download/v2.32.7/intel-igc-core-2_2.32.7+21184_amd64.deb
     # npu packages
-    wget https://github.com/oneapi-src/level-zero/releases/download/v1.28.2/level-zero_1.28.2+u22.04_amd64.deb
-    wget https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-driver-compiler-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
-    wget https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-fw-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
-    wget https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-level-zero-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
+    download_https --remote-name https://github.com/oneapi-src/level-zero/releases/download/v1.28.2/level-zero_1.28.2+u22.04_amd64.deb
+    download_https --remote-name https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-driver-compiler-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
+    download_https --remote-name https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-fw-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
+    download_https --remote-name https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-level-zero-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
 
     dpkg -i *.deb
     rm *.deb
@@ -172,7 +177,7 @@ apt-get autoremove --purge -y
 rm -rf /var/lib/apt/lists/*
 
 # Install yq, for frigate-prepare and go2rtc echo source
-curl -fsSL \
+download_https \
     "https://github.com/mikefarah/yq/releases/download/v4.48.2/yq_linux_$(dpkg --print-architecture)" \
     --output /usr/local/bin/yq
 chmod +x /usr/local/bin/yq

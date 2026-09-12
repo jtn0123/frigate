@@ -32,7 +32,7 @@ export function SummaryTimeline({
   segmentDuration,
   events,
   severityType,
-}: SummaryTimelineProps) {
+}: Readonly<SummaryTimelineProps>) {
   const { t } = useTranslation("fork");
   const generatedTimelineId = useId();
   const [controlledTimelineId, setControlledTimelineId] =

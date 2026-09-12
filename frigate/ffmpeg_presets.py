@@ -17,6 +17,9 @@ from frigate.const import (
 from frigate.util.services import vainfo_hwaccel
 from frigate.version import VERSION
 
+_SOFTWARE_SCALE_FILTER = "-r {0} -vf fps={0},scale={1}:{2}"
+_TIMESTAMP_INPUT_FLAGS = "+genpts+discardcorrupt"
+
 logger = logging.getLogger(__name__)
 
 
@@ -118,8 +121,8 @@ PRESETS_HW_ACCEL_DECODE["preset-rk-h265"] = PRESETS_HW_ACCEL_DECODE[
 # Presets for FFMPEG Stream Scaling (detect role)
 
 PRESETS_HW_ACCEL_SCALE = {
-    "preset-rpi-64-h264": "-r {0} -vf fps={0},scale={1}:{2}",
-    "preset-rpi-64-h265": "-r {0} -vf fps={0},scale={1}:{2}",
+    "preset-rpi-64-h264": _SOFTWARE_SCALE_FILTER,
+    "preset-rpi-64-h265": _SOFTWARE_SCALE_FILTER,
     FFMPEG_HWACCEL_VAAPI: "-r {0} -vf fps={0},scale_vaapi=w={1}:h={2},hwdownload,format=nv12",
     "preset-intel-qsv-h264": "-r {0} -vf vpp_qsv=w={1}:h={2}:format=nv12,hwdownload,format=nv12,fps={0},format=yuv420p",
     "preset-intel-qsv-h265": "-r {0} -vf vpp_qsv=w={1}:h={2}:format=nv12,hwdownload,format=nv12,fps={0},format=yuv420p",
@@ -127,7 +130,7 @@ PRESETS_HW_ACCEL_SCALE = {
     "preset-jetson-h264": "-r {0}",  # scaled in decoder
     "preset-jetson-h265": "-r {0}",  # scaled in decoder
     FFMPEG_HWACCEL_RKMPP: "-r {0} -vf scale_rkrga=w={1}:h={2}:format=yuv420p:force_original_aspect_ratio=0,hwmap=mode=read,format=yuv420p",
-    "default": "-r {0} -vf fps={0},scale={1}:{2}",
+    "default": _SOFTWARE_SCALE_FILTER,
     # experimental presets
     FFMPEG_HWACCEL_VULKAN: "-r {0} -vf fps={0},hwupload,scale_vulkan=w={1}:h={2},hwdownload",
     FFMPEG_HWACCEL_AMF: "-r {0} -vf fps={0},hwupload,scale_amf=w={1}:h={2},hwdownload",
@@ -304,7 +307,7 @@ PRESETS_INPUT = {
         "-strict",
         "experimental",
         "-fflags",
-        "+genpts+discardcorrupt",
+        _TIMESTAMP_INPUT_FLAGS,
         "-use_wallclock_as_timestamps",
         "1",
     ],
@@ -319,7 +322,7 @@ PRESETS_INPUT = {
         "-strict",
         "experimental",
         "-fflags",
-        "+genpts+discardcorrupt",
+        _TIMESTAMP_INPUT_FLAGS,
         "-use_wallclock_as_timestamps",
         "1",
     ],
@@ -328,7 +331,7 @@ PRESETS_INPUT = {
         "-avoid_negative_ts",
         "make_zero",
         "-fflags",
-        "+genpts+discardcorrupt",
+        _TIMESTAMP_INPUT_FLAGS,
         "-flags",
         "low_delay",
         "-strict",
@@ -350,7 +353,7 @@ PRESETS_INPUT = {
         "-strict",
         "experimental",
         "-fflags",
-        "+genpts+discardcorrupt",
+        _TIMESTAMP_INPUT_FLAGS,
         "-rw_timeout",
         "10000000",
         "-use_wallclock_as_timestamps",
@@ -363,7 +366,7 @@ PRESETS_INPUT = {
         "-avoid_negative_ts",
         "make_zero",
         "-fflags",
-        "+genpts+discardcorrupt",
+        _TIMESTAMP_INPUT_FLAGS,
         "-rtsp_transport",
         "tcp",
         TIMEOUT_PARAM,
@@ -394,7 +397,7 @@ PRESETS_INPUT = {
         "-avoid_negative_ts",
         "make_zero",
         "-fflags",
-        "+genpts+discardcorrupt",
+        _TIMESTAMP_INPUT_FLAGS,
         "-rtsp_transport",
         "udp",
         TIMEOUT_PARAM,
@@ -413,7 +416,7 @@ PRESETS_INPUT = {
         "-strict",
         "experimental",
         "-fflags",
-        "+genpts+discardcorrupt",
+        _TIMESTAMP_INPUT_FLAGS,
         "-rtsp_transport",
         "tcp",
         TIMEOUT_PARAM,

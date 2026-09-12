@@ -20,7 +20,7 @@ export default function CameraImage({
   camera,
   onload,
   searchParams = "",
-}: CameraImageProps) {
+}: Readonly<CameraImageProps>) {
   const { data: config } = useSWR("config");
   const apiHost = useApiHost();
   const [imageLoaded, setImageLoaded] = useState(false);

@@ -1,6 +1,7 @@
+import { TimeInput } from "@/components/input/TimeInput";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isDesktop, isIOS, isMobile } from "react-device-detect";
+import { isDesktop, isMobile } from "react-device-detect";
 import { FaArrowRight, FaCalendarAlt, FaCheckCircle } from "react-icons/fa";
 import { MdOutlineRestartAlt, MdUndo } from "react-icons/md";
 import { LuHand, LuPencil } from "react-icons/lu";
@@ -28,13 +29,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectSeparator,
 } from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { SelectSeparator } from "@/components/ui/select";
+
 import {
   Tooltip,
   TooltipContent,
@@ -641,30 +643,12 @@ function SearchRangeSelector({
                 }}
               />
               <SelectSeparator className="bg-secondary" />
-              <input
-                className="mx-4 w-full border border-input bg-background p-1 text-secondary-foreground hover:bg-accent hover:text-accent-foreground dark:[color-scheme:dark]"
+              <TimeInput
                 id="startTime"
-                type="time"
+                label={t("timeRange.start")}
                 value={startClock}
-                step={isIOS ? "60" : "1"}
-                onChange={(e) => {
-                  const clock = e.target.value;
-                  const [hour, minute, second] = isIOS
-                    ? [...clock.split(":"), "00"]
-                    : clock.split(":");
-
-                  const start = new Date(startTime * 1000);
-                  start.setHours(
-                    parseInt(hour),
-                    parseInt(minute),
-                    parseInt(second ?? 0),
-                    0,
-                  );
-                  setRange({
-                    before: endTime,
-                    after: start.getTime() / 1000,
-                  });
-                }}
+                timestamp={startTime}
+                onChange={(after) => setRange({ before: endTime, after })}
               />
             </PopoverContent>
           </Popover>
@@ -708,30 +692,12 @@ function SearchRangeSelector({
                 }}
               />
               <SelectSeparator className="bg-secondary" />
-              <input
-                className="mx-4 w-full border border-input bg-background p-1 text-secondary-foreground hover:bg-accent hover:text-accent-foreground dark:[color-scheme:dark]"
+              <TimeInput
                 id="endTime"
-                type="time"
+                label={t("timeRange.end")}
                 value={endClock}
-                step={isIOS ? "60" : "1"}
-                onChange={(e) => {
-                  const clock = e.target.value;
-                  const [hour, minute, second] = isIOS
-                    ? [...clock.split(":"), "00"]
-                    : clock.split(":");
-
-                  const end = new Date(endTime * 1000);
-                  end.setHours(
-                    parseInt(hour),
-                    parseInt(minute),
-                    parseInt(second ?? 0),
-                    0,
-                  );
-                  setRange({
-                    before: end.getTime() / 1000,
-                    after: startTime,
-                  });
-                }}
+                timestamp={endTime}
+                onChange={(before) => setRange({ after: startTime, before })}
               />
             </PopoverContent>
           </Popover>

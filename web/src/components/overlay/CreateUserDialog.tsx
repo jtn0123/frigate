@@ -62,7 +62,7 @@ export default function CreateUserDialog({
   show,
   onCreate,
   onCancel,
-}: CreateUserOverlayProps) {
+}: Readonly<CreateUserOverlayProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
   const { t } = useTranslation(["views/settings"]);
   const [isLoading, setIsLoading] = useState<boolean>(false);

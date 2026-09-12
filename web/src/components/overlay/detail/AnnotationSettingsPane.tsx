@@ -33,7 +33,7 @@ export function AnnotationSettingsPane({
   event,
   annotationOffset,
   setAnnotationOffset,
-}: AnnotationSettingsPaneProps) {
+}: Readonly<AnnotationSettingsPaneProps>) {
   const { t } = useTranslation(["views/explore"]);
   const isAdmin = useIsAdmin();
   const { getLocaleDocUrl } = useDocDomain();

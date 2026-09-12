@@ -75,7 +75,7 @@ class DeepStack(DetectionApi):
                 timeout=self.api_timeout,
             )
         except requests.exceptions.RequestException as ex:
-            logger.error("Error calling deepstack API: %s", ex)
+            logger.exception("Error calling deepstack API: %s", ex)
             return np.zeros((20, 6), np.float32)
 
         response_json = response.json()

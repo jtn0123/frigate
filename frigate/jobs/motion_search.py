@@ -940,7 +940,10 @@ def cancel_motion_search_job(job_id: str) -> bool:
         cancel_event.set()
         job.status = JobStatusTypesEnum.cancelled
         job_payload = job.to_dict()
-        logger.info("Cancelled motion search job %r", job_id)
+        logger.info(
+            "Cancelled motion search job %s",
+            repr(job_id).replace("\r", "_").replace("\n", "_"),
+        )
 
     requestor: InterProcessRequestor | None = None
     try:
@@ -948,7 +951,9 @@ def cancel_motion_search_job(job_id: str) -> bool:
         requestor.send_data(UPDATE_JOB_STATE, job_payload)
     except Exception as e:
         logger.warning(
-            "Failed to broadcast cancelled motion search job %r: %r", job_id, e
+            "Failed to broadcast cancelled motion search job %s: %s",
+            repr(job_id).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
         )
     finally:
         if requestor:

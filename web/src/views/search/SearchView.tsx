@@ -657,97 +657,95 @@ export default function SearchView({
 
         {uniqueResults && (
           <div className={gridClassName}>
-            {uniqueResults &&
-              uniqueResults.map((value, index) => {
-                const selected = selectedObjects.includes(value.id);
+            {uniqueResults?.map((value, index) => {
+              const selected = selectedObjects.includes(value.id);
 
-                return (
+              return (
+                <div
+                  key={value.id}
+                  ref={(item) => {
+                    itemRefs.current[index] = item;
+                  }}
+                  data-start={value.start_time}
+                  className="relative flex flex-col rounded-lg"
+                >
                   <div
-                    key={value.id}
-                    ref={(item) => {
-                      itemRefs.current[index] = item;
-                    }}
-                    data-start={value.start_time}
-                    className="relative flex flex-col rounded-lg"
+                    className={cn(
+                      "relative aspect-square w-full overflow-hidden rounded-lg",
+                    )}
                   >
-                    <div
-                      className={cn(
-                        "relative aspect-square w-full overflow-hidden rounded-lg",
-                      )}
-                    >
-                      <SearchThumbnail
-                        searchResult={value}
-                        onClick={onThumbnailClick}
-                      />
-                      {(searchTerm ||
-                        searchFilter?.search_type?.includes("similarity")) && (
-                        <div className={cn("absolute right-2 top-2 z-40")}>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Chip
-                                className={`flex select-none items-center justify-between space-x-1 bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500 text-xs text-white smart-capitalize`}
-                              >
-                                {value.search_source == "thumbnail" ? (
-                                  <LuImage className="size-3" />
-                                ) : (
-                                  <LuText className="size-3" />
-                                )}
-                              </Chip>
-                            </TooltipTrigger>
-                            <TooltipPortal>
-                              <TooltipContent>
-                                <Trans
-                                  ns="views/explore"
-                                  values={{
-                                    type: t(
-                                      "filter.searchType." +
-                                        value.search_source,
-                                      { ns: "views/search" },
-                                    ),
-                                    confidence: zScoreToConfidence(
-                                      value.search_distance,
-                                    ),
-                                  }}
-                                >
-                                  searchResult.tooltip
-                                </Trans>
-                              </TooltipContent>
-                            </TooltipPortal>
-                          </Tooltip>
-                        </div>
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/70 to-transparent p-2">
-                        <SearchThumbnailFooter
-                          searchResult={value}
-                          columns={columns}
-                          findSimilar={() => {
-                            if (config?.semantic_search.enabled) {
-                              setSimilaritySearch(value);
-                            }
-                          }}
-                          refreshResults={refresh}
-                          showTrackingDetails={() =>
-                            onSelectSearch(value, false, "tracking_details")
-                          }
-                          addTrigger={() => {
-                            if (
-                              config?.semantic_search.enabled &&
-                              value.data.type == "object"
-                            ) {
-                              navigate(
-                                `/settings?page=triggers&camera=${value.camera}&event_id=${value.id}`,
-                              );
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div
-                      className={`review-item-ring pointer-events-none absolute inset-0 z-30 size-full rounded-lg outline outline-[3px] -outline-offset-[2.8px] ${selected ? `shadow-selected outline-selected` : "outline-transparent duration-500"}`}
+                    <SearchThumbnail
+                      searchResult={value}
+                      onClick={onThumbnailClick}
                     />
+                    {(searchTerm ||
+                      searchFilter?.search_type?.includes("similarity")) && (
+                      <div className={cn("absolute right-2 top-2 z-40")}>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Chip
+                              className={`flex select-none items-center justify-between space-x-1 bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500 text-xs text-white smart-capitalize`}
+                            >
+                              {value.search_source == "thumbnail" ? (
+                                <LuImage className="size-3" />
+                              ) : (
+                                <LuText className="size-3" />
+                              )}
+                            </Chip>
+                          </TooltipTrigger>
+                          <TooltipPortal>
+                            <TooltipContent>
+                              <Trans
+                                ns="views/explore"
+                                values={{
+                                  type: t(
+                                    "filter.searchType." + value.search_source,
+                                    { ns: "views/search" },
+                                  ),
+                                  confidence: zScoreToConfidence(
+                                    value.search_distance,
+                                  ),
+                                }}
+                              >
+                                searchResult.tooltip
+                              </Trans>
+                            </TooltipContent>
+                          </TooltipPortal>
+                        </Tooltip>
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/70 to-transparent p-2">
+                      <SearchThumbnailFooter
+                        searchResult={value}
+                        columns={columns}
+                        findSimilar={() => {
+                          if (config?.semantic_search.enabled) {
+                            setSimilaritySearch(value);
+                          }
+                        }}
+                        refreshResults={refresh}
+                        showTrackingDetails={() =>
+                          onSelectSearch(value, false, "tracking_details")
+                        }
+                        addTrigger={() => {
+                          if (
+                            config?.semantic_search.enabled &&
+                            value.data.type == "object"
+                          ) {
+                            navigate(
+                              `/settings?page=triggers&camera=${value.camera}&event_id=${value.id}`,
+                            );
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
-                );
-              })}
+                  <div
+                    className={`review-item-ring pointer-events-none absolute inset-0 z-30 size-full rounded-lg outline outline-[3px] -outline-offset-[2.8px] ${selected ? `shadow-selected outline-selected` : "outline-transparent duration-500"}`}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
         {uniqueResults && uniqueResults.length > 0 && (

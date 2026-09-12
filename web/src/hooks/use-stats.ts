@@ -131,16 +131,19 @@ export default function useStats(stats: FrigateStats | undefined) {
         return;
       }
 
-      const ffmpegAvg = parseFloat(
+      const ffmpegAvg = Number.parseFloat(
         memoizedStats["cpu_usages"][cam["ffmpeg_pid"]]?.cpu_average,
       );
-      const detectAvg = parseFloat(
+      const detectAvg = Number.parseFloat(
         memoizedStats["cpu_usages"][cam["pid"]]?.cpu_average,
       );
 
       const cameraName = config?.cameras?.[name]?.friendly_name ?? name;
 
-      if (!isNaN(ffmpegAvg) && ffmpegAvg >= CameraFfmpegThreshold.error) {
+      if (
+        !Number.isNaN(ffmpegAvg) &&
+        ffmpegAvg >= CameraFfmpegThreshold.error
+      ) {
         problems.push({
           text: t("stats.ffmpegHighCpuUsage", {
             camera: capitalizeFirstLetter(capitalizeAll(cameraName)),
@@ -151,7 +154,10 @@ export default function useStats(stats: FrigateStats | undefined) {
         });
       }
 
-      if (!isNaN(detectAvg) && detectAvg >= CameraDetectThreshold.error) {
+      if (
+        !Number.isNaN(detectAvg) &&
+        detectAvg >= CameraDetectThreshold.error
+      ) {
         problems.push({
           text: t("stats.detectHighCpuUsage", {
             camera: capitalizeFirstLetter(capitalizeAll(cameraName)),

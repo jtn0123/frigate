@@ -8,8 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Trans } from "react-i18next";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
+
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { useState } from "react";
 

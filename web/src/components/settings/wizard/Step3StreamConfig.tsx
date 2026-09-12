@@ -4,7 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "react-i18next";
 import { useState, useCallback, useMemo } from "react";
-import { LuPlus, LuTrash2, LuX } from "react-icons/lu";
+import {
+  LuPlus,
+  LuTrash2,
+  LuX,
+  LuInfo,
+  LuExternalLink,
+  LuCheck,
+  LuChevronsUpDown,
+} from "react-icons/lu";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import axios from "axios";
 import { toast } from "sonner";
@@ -28,12 +36,7 @@ import {
 } from "@/components/ui/popover";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { isMobile } from "react-device-detect";
-import {
-  LuInfo,
-  LuExternalLink,
-  LuCheck,
-  LuChevronsUpDown,
-} from "react-icons/lu";
+
 import { Link } from "react-router-dom";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { cn } from "@/lib/utils";
@@ -257,8 +260,8 @@ export default function Step3StreamConfig({
         }
 
         const fps = videoStream?.avg_frame_rate
-          ? parseFloat(videoStream.avg_frame_rate.split("/")[0]) /
-            parseFloat(videoStream.avg_frame_rate.split("/")[1])
+          ? Number.parseFloat(videoStream.avg_frame_rate.split("/")[0]) /
+            Number.parseFloat(videoStream.avg_frame_rate.split("/")[1])
           : undefined;
 
         const testResult: TestResult = {
@@ -266,7 +269,7 @@ export default function Step3StreamConfig({
           resolution,
           videoCodec: videoStream?.codec_name,
           audioCodec: audioStream?.codec_name,
-          fps: fps && !isNaN(fps) ? fps : undefined,
+          fps: fps && !Number.isNaN(fps) ? fps : undefined,
         };
 
         updateStream(stream.id, { testResult, userTested: true });
@@ -339,7 +342,7 @@ export default function Step3StreamConfig({
                   <h4 className="font-medium">
                     {t("cameraWizard.step3.streamTitle", { number: index + 1 })}
                   </h4>
-                  {stream.testResult && stream.testResult.success && (
+                  {stream.testResult?.success && (
                     <div className="mt-1 text-sm text-muted-foreground">
                       {[
                         stream.testResult.resolution,

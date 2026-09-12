@@ -18,7 +18,7 @@ export default function Chip({
   children,
   in: inProp = true,
   onClick,
-}: ChipProps) {
+}: Readonly<ChipProps>) {
   return (
     <AnimatePresence>
       {inProp && (
@@ -51,7 +51,7 @@ type LogChipProps = {
   severity: LogSeverity;
   onClickSeverity?: () => void;
 };
-export function LogChip({ severity, onClickSeverity }: LogChipProps) {
+export function LogChip({ severity, onClickSeverity }: Readonly<LogChipProps>) {
   const { t } = useTranslation(["views/settings"]);
   const severityClassName = useMemo(() => {
     switch (severity) {
