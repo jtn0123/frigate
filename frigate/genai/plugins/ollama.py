@@ -2,6 +2,7 @@
 
 import base64
 import binascii
+import io
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -11,6 +12,7 @@ from httpx import RemoteProtocolError, TimeoutException
 from ollama import AsyncClient as OllamaAsyncClient
 from ollama import Client as ApiClient
 from ollama import ResponseError
+from PIL import Image
 
 from frigate.config import GenAIProviderEnum
 from frigate.genai import GenAIClient, register_genai_provider
@@ -100,6 +102,8 @@ class OllamaClient(GenAIClient):
     provider: ApiClient | None
     provider_options: dict[str, Any]
     _supports_thinking_cache: bool | None = None
+    _image_token_cache: dict[tuple[int, int], int]
+    _text_baseline_tokens: int | None
 
     @property
     def supports_toggleable_thinking(self) -> bool:
@@ -124,6 +128,8 @@ class OllamaClient(GenAIClient):
 
     def _init_provider(self) -> ApiClient | None:
         """Initialize the client."""
+        self._image_token_cache = {}
+        self._text_baseline_tokens = None
         self.provider_options = {
             **self.LOCAL_OPTIMIZED_OPTIONS,
             **self.genai_config.provider_options,
@@ -287,6 +293,83 @@ class OllamaClient(GenAIClient):
         return int(
             self.genai_config.provider_options.get("options", {}).get("num_ctx", 4096)
         )
+
+    def estimate_image_tokens(self, width: int, height: int) -> float:
+        """Measure the model's image-token cost at the requested dimensions.
+
+        Vision models served by Ollama resize images to their own patch grid, so
+        the base pixel heuristic can be far off: qwen3-vl spends ~1,055 tokens on
+        a 320x180 preview frame where the heuristic predicts 46, and review
+        summaries then overflow the context window. The cost depends only on the
+        dimensions and the loaded model, so it is cached per (width, height).
+        Falls back to the base heuristic if Ollama cannot be reached.
+        """
+        if self.provider is None:
+            return super().estimate_image_tokens(width, height)
+
+        cached = self._image_token_cache.get((width, height))
+        if cached is not None:
+            return cached
+
+        try:
+            baseline = self._probe_baseline_tokens()
+            with_image = self._probe_prompt_tokens(self._probe_image(width, height))
+            tokens = max(1, with_image - baseline)
+        except Exception as e:
+            logger.debug(
+                "Ollama image-token probe failed for %dx%d (%s); using heuristic",
+                width,
+                height,
+                e,
+            )
+            return super().estimate_image_tokens(width, height)
+
+        self._image_token_cache[(width, height)] = tokens
+        logger.debug(
+            "Ollama model '%s' uses ~%d tokens for %dx%d images",
+            self.genai_config.model,
+            tokens,
+            width,
+            height,
+        )
+        return tokens
+
+    def _probe_baseline_tokens(self) -> int:
+        """Return prompt tokens for a minimal text-only request, cached after the first call."""
+        if self._text_baseline_tokens is None:
+            self._text_baseline_tokens = self._probe_prompt_tokens(None)
+        return self._text_baseline_tokens
+
+    @staticmethod
+    def _probe_image(width: int, height: int) -> bytes:
+        """Return a synthetic JPEG of the given dimensions."""
+        img = Image.new("RGB", (width, height), (128, 128, 128))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=60)
+        return buf.getvalue()
+
+    def _probe_prompt_tokens(self, image: bytes | None) -> int:
+        """Generate one token and return Ollama's reported prompt_eval_count.
+
+        Uses the same merged options as _send, so the probe reuses the loaded
+        model (same num_ctx and keep_alive) instead of forcing a reload.
+        """
+        if self.provider is None:
+            raise RuntimeError("Ollama provider is not initialized")
+
+        options = {**self.provider_options, **self.genai_config.runtime_options}
+        options["options"] = {**options.get("options", {}), "num_predict": 1}
+        options.pop("format", None)
+        if self.supports_toggleable_thinking:
+            options["think"] = False
+
+        result = self.provider.generate(
+            self.genai_config.model,
+            ".",
+            images=[image] if image else None,
+            **options,
+        )
+        return int(result["prompt_eval_count"])
 
     def _build_request_params(
         self,
