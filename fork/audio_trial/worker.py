@@ -41,12 +41,12 @@ def memory_available() -> int:
     limit = total if limit == "max" else min(total, int(limit))
     # Count reclaimable file cache, but preserve active allocations and a reserve.
     values = {
-        key: value
+        key: int(value)
         for key, value in (
             line.split() for line in (root / "memory.stat").read_text().splitlines()
         )
     }
-    reclaimable = int(values.get("inactive_file", 0))
+    reclaimable = values.get("inactive_file", 0)
     return max(0, limit - current + reclaimable - 512 * 1024**2)
 
 
@@ -68,6 +68,18 @@ def running_health_reason() -> str:
         return reason
     except (OSError, ValueError, KeyError):
         return "health unavailable"
+
+
+def stop_inference(process: subprocess.Popen) -> None:
+    """Reap an unfinished inference process, escalating after a bounded wait."""
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
 
 
 def infer(audio: Path, output: Path, model: str) -> dict:
@@ -96,13 +108,7 @@ def infer(audio: Path, output: Path, model: str) -> dict:
             if process.returncode:
                 raise RuntimeError(f"inference exited {process.returncode}")
         finally:
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
+            stop_inference(process)
             if METRICS:
                 METRICS.sample()
     return json.loads(output.read_text())
