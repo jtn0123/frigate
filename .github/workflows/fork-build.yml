@@ -1,8 +1,9 @@
 name: Fork - Build image
 
 # Builds an amd64 image from the main branch (and any fork/* tag) and pushes it
-# to ghcr.io/<owner>/frigate. Pulls layer cache from upstream's public build cache
-# so a rebuild is usually well under the 40 minutes a cold build takes.
+# to ghcr.io/<owner>/frigate, plus a ROCm variant (:main-rocm) for AMD GPUs.
+# Pulls layer cache from upstream's public build cache so a rebuild is usually
+# well under the 40 minutes a cold build takes.
 
 on:
   workflow_dispatch:
@@ -68,3 +69,57 @@ jobs:
             type=registry,ref=${{ steps.setup.outputs.cache-name }}-amd64
             type=registry,ref=ghcr.io/blakeblackshear/frigate:cache-amd64
           cache-to: type=registry,ref=${{ steps.setup.outputs.cache-name }}-amd64,mode=max
+
+  # Same build as upstream's "AMD/ROCm general build" (docker/rocm/rocm.hcl),
+  # for AMD discrete GPUs: ONNX detector on ROCm, VAAPI decode through radeonsi.
+  rocm:
+    runs-on: ubuntu-22.04
+    name: ROCm fork build
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up QEMU and Buildx
+        id: setup
+        uses: ./.github/actions/setup
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # bake --set cannot give one target several cache sources, so the tags
+      # and caches go in an override file layered on top of rocm.hcl.
+      - name: Write bake override
+        env:
+          CACHE: ${{ steps.setup.outputs.cache-name }}
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          UPSTREAM="ghcr.io/blakeblackshear/frigate"
+          FROM="\"type=registry,ref=${CACHE}-rocm\", \"type=registry,ref=${CACHE}-amd64\", \"type=registry,ref=${UPSTREAM}:cache-rocm\", \"type=registry,ref=${UPSTREAM}:cache-amd64\""
+          cat > "${RUNNER_TEMP}/fork-rocm.hcl" <<EOF
+          target "wget" { cache-from = [${FROM}] }
+          target "deps" { cache-from = [${FROM}] }
+          target "rootfs" { cache-from = [${FROM}] }
+          target "rocm" {
+            tags = ["${IMAGE}:main-rocm"]
+            cache-from = [${FROM}]
+            cache-to = ["type=registry,ref=${CACHE}-rocm,mode=max"]
+          }
+          EOF
+          cat "${RUNNER_TEMP}/fork-rocm.hcl"
+      - name: Build and push rocm
+        env:
+          HSA_OVERRIDE: 0
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          push: true
+          targets: rocm
+          files: |
+            docker/rocm/rocm.hcl
+            ${{ runner.temp }}/fork-rocm.hcl
+      - name: Add commit and release tags
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          TAGS=(-t "${IMAGE}:${GITHUB_SHA::7}-rocm")
+          if [[ "${GITHUB_REF}" == refs/tags/fork/* ]]; then
+            TAGS+=(-t "${IMAGE}:${GITHUB_REF#refs/tags/fork/}-rocm")
+          fi
+          docker buildx imagetools create "${TAGS[@]}" "${IMAGE}:main-rocm"
