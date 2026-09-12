@@ -456,7 +456,11 @@ class OnvifController:
         try:
             presets: list[dict] = await ptz.GetPresets({"ProfileToken": profile.token})
         except (Fault, ONVIFError, TransportError, Exception) as e:
-            logger.warning("Unable to get presets from camera: %r: %r", camera_name, e)
+            logger.warning(
+                "Unable to get presets from camera: %s: %s",
+                repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                repr(e).replace("\r", "_").replace("\n", "_"),
+            )
             presets = []
 
         for preset in presets:
@@ -943,7 +947,10 @@ class OnvifController:
                         "presets": list(self.cams[camera_name]["presets"].keys()),
                     }
                 else:
-                    logger.warning("ONVIF initialization failed for %r", camera_name)
+                    logger.warning(
+                        "ONVIF initialization failed for %s",
+                        repr(camera_name).replace("\r", "_").replace("\n", "_"),
+                    )
             except Exception as e:
                 logger.exception(
                     "Error during ONVIF initialization for %s",

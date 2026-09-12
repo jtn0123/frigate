@@ -49,13 +49,21 @@ def _is_valid_host(host: str) -> bool:
     Allows private IPs since cameras are typically on local networks.
     Only blocks obviously malicious input to prevent injection attacks.
     """
-    # Validate the complete authority, including the optional port. Ignoring
-    # text after a colon permits URL credentials, paths, and query injection.
-    match = re.fullmatch(r"[a-zA-Z0-9.-]+(?::([0-9]{1,5}))?", host)
-    if match is None:
+    try:
+        # Remove port if present
+        host_without_port = host.split(":")[0] if ":" in host else host
+
+        # Block whitespace, newlines, and control characters
+        if not host_without_port or re.search(r"[\s\x00-\x1f]", host_without_port):
+            return False
+
+        # Allow standard hostname/IP characters: alphanumeric, dots, hyphens
+        if not re.match(r"^[a-zA-Z0-9.-]+$", host_without_port):
+            return False
+
+        return True
+    except Exception:
         return False
-    port = match.group(1)
-    return port is None or 1 <= int(port) <= 65535
 
 
 @router.get("/go2rtc/streams", dependencies=[Depends(allow_any_authenticated())])
@@ -182,7 +190,11 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
             timeout=10,
         )
         if not r.ok:
-            logger.error("Failed to add go2rtc stream %r: %r", stream_name, r.text)
+            logger.error(
+                "Failed to add go2rtc stream %s: %s",
+                repr(stream_name).replace("\r", "_").replace("\n", "_"),
+                repr(r.text).replace("\r", "_").replace("\n", "_"),
+            )
             return JSONResponse(
                 content=(
                     {"success": False, "message": f"Failed to add stream: {r.text}"}
@@ -217,7 +229,11 @@ def go2rtc_delete_stream(stream_name: str):
             timeout=10,
         )
         if not r.ok:
-            logger.error("Failed to delete go2rtc stream %r: %r", stream_name, r.text)
+            logger.error(
+                "Failed to delete go2rtc stream %s: %s",
+                repr(stream_name).replace("\r", "_").replace("\n", "_"),
+                repr(r.text).replace("\r", "_").replace("\n", "_"),
+            )
             return JSONResponse(
                 content=(
                     {"success": False, "message": f"Failed to delete stream: {r.text}"}
@@ -487,9 +503,9 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
         encoded_password = quote_plus(password)
         api_url = f"http://{host}/api.cgi?cmd=GetEnc&user={encoded_user}&password={encoded_password}"
 
-        response = requests.get(api_url, timeout=5, allow_redirects=False)
+        response = requests.get(api_url, timeout=5)
 
-        if not response.ok or 300 <= response.status_code < 400:
+        if not response.ok:
             return JSONResponse(
                 content={
                     "success": False,
@@ -1116,19 +1132,34 @@ async def onvif_probe(
         return JSONResponse(content=result)
 
     except ONVIFError as e:
-        logger.warning("ONVIF error probing %r:%r: %r", host, port, e)
+        logger.warning(
+            "ONVIF error probing %s:%s: %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "ONVIF error"},
             status_code=400,
         )
     except (Fault, TransportError) as e:
-        logger.warning("Connection error probing %r:%r: %r", host, port, e)
+        logger.warning(
+            "Connection error probing %s:%s: %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "Connection error"},
             status_code=503,
         )
     except Exception as e:
-        logger.warning("Error probing ONVIF device at %r:%r, %r", host, port, e)
+        logger.warning(
+            "Error probing ONVIF device at %s:%s, %s",
+            repr(host).replace("\r", "_").replace("\n", "_"),
+            repr(port).replace("\r", "_").replace("\n", "_"),
+            repr(e).replace("\r", "_").replace("\n", "_"),
+        )
         return JSONResponse(
             content={"success": False, "message": "Probe failed"},
             status_code=500,

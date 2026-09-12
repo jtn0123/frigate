@@ -8,8 +8,9 @@ Branch: `fix/sonar-security-reliability`.
 - 33 fixes in the batch: 30 Sonar findings plus three additional recording-probe defects.
 - 30 existing findings addressed in source: 28 log-injection sites and two
   returns from finally blocks that suppressed shutdown exceptions.
-- One additional security finding partially hardened: Reolink request host
-  validation and redirects. Not counted as fully resolved SSRF.
+- Reolink SSRF remediation is deferred in full. The partial host/redirect
+  change was removed after review confirmed it did not resolve destination
+  trust; there are no endpoint validation or request changes in the final PR.
 - Sonar-confirmed closures: pending a scan of these changes. The published
   baseline remains 2,227 open findings; do not subtract this batch yet.
 
@@ -25,13 +26,10 @@ or traceback in the application.
 The GPU helpers still return empty or partial results on ordinary failures,
 but now propagate KeyboardInterrupt and SystemExit instead of swallowing them.
 
-The camera host validator now checks the entire hostname and optional numeric
-port (1 through 65535), rejecting URL userinfo, paths, queries, fragments, and
-control characters after a colon. Reolink detection rejects redirects before
-parsing the response. Private camera addresses remain supported. The endpoint
-is admin-only and intentionally connects to user-selected hosts; arbitrary
-address reachability and DNS policy require a separate product decision.
-This is not a claim that the general SSRF finding is eliminated.
+The Reolink endpoint intentionally connects to admin-selected hosts, including
+private cameras. A partial host-format and redirect change still left this
+broader SSRF finding unresolved. The final PR defers that entire change until
+an allowed-destinations policy is designed, and does not count it as a fix.
 
 ## Reviewed without counting a fix
 
@@ -94,7 +92,7 @@ shutdown propagation versus ordinary failures. External services are mocked.
 | AaCOHyo89tFduPng096b | python:S1143 | frigate/util/services.py:880 |
 | AaCOHyo89tFduPng096e | python:S1143 | frigate/util/services.py:1203 |
 
-Partially hardened: `AaCOHyZo9tFduPng090b` (`pythonsecurity:S5144`), frigate/api/camera.py:498.
+Deferred without source changes: `AaCOHyZo9tFduPng090b` (`pythonsecurity:S5144`), frigate/api/camera.py:498.
 
 ## Recording diagnostic follow-up
 
@@ -113,3 +111,15 @@ four failures and one error before the follow-up; all now pass. The combined
 focused run passed 27 tests. Final expanded validation: 1,079 backend tests passed, mypy passed on 360
 files, and pinned Ruff checks passed. These results supersede the initial
 1,075-test run above.
+
+## PR 35 review follow-up
+
+Seven logging sites use explicit CR/LF replacement after repr formatting so
+both runtime formatting and the analyzer recognize their single-line boundary.
+The cancellation exception test constructs its mock before assertRaises.
+Three tests specific to the deferred Reolink change were removed with that
+change. Final regression coverage contains 13 new methods plus the strengthened
+timeout test. Focused follow-up: 26 tests passed, including earlier ONVIF logging
+regressions. Expanded backend gates are rerunning on the final source.
+
+PR: https://github.com/jtn0123/frigate/pull/35

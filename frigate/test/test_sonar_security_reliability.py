@@ -10,38 +10,6 @@ from frigate.ptz.onvif import OnvifController
 from frigate.util import services
 
 
-class TestCameraRequestBoundary(unittest.TestCase):
-    def test_rejects_host_suffix_injection_before_network_request(self):
-        hosts = [
-            "camera:80@other.example",
-            "camera:80/path",
-            "camera:80?query=value",
-            "camera:80#fragment",
-            "camera:80\r\nInjected: value",
-            "camera:invalid",
-            "camera:0",
-            "camera:65536",
-        ]
-        for host in hosts:
-            with self.subTest(host=host), patch.object(camera.requests, "get") as get:
-                result = camera.reolink_detect(host, "user", "secret")
-                self.assertEqual(result.status_code, 400)
-                get.assert_not_called()
-
-    def test_allows_camera_hosts_and_valid_ports(self):
-        for host in ["192.168.1.20", "camera.local", "camera-1:80", "camera:65535"]:
-            with self.subTest(host=host):
-                self.assertTrue(camera._is_valid_host(host))
-
-    def test_does_not_follow_camera_redirects(self):
-        response = MagicMock(status_code=302, ok=True)
-        with patch.object(camera.requests, "get", return_value=response) as get:
-            result = camera.reolink_detect("camera.local", "user", "secret")
-        self.assertEqual(result.status_code, 200)
-        self.assertFalse(get.call_args.kwargs.get("allow_redirects", True))
-        response.json.assert_not_called()
-
-
 class TestCameraLogInjection(unittest.TestCase):
     def test_rejected_stream_name_cannot_create_log_lines(self):
         with self.assertLogs(camera.logger, "WARNING") as logs:

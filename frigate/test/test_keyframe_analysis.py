@@ -123,8 +123,9 @@ class TestAnalyzeRecordKeyframes(unittest.IsolatedAsyncioTestCase):
         with patch(
             "frigate.util.services.asyncio.create_subprocess_exec", return_value=proc
         ):
+            ffmpeg = MagicMock()
             with self.assertRaises(asyncio.CancelledError):
-                await analyze_record_keyframes(MagicMock(), "rtsp://cam", 10)
+                await analyze_record_keyframes(ffmpeg, "rtsp://cam", 10)
         proc.kill.assert_called_once_with()
         self.assertEqual(proc.communicate.await_count, 2)
 
