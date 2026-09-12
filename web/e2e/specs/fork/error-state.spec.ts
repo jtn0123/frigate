@@ -66,14 +66,15 @@ test.describe("Read-path errors @high", () => {
     await expect(frigateApp.page.getByText("0.15.0-test")).toBeVisible();
   });
 
-  test("@mobile inline error state renders on mobile", async ({
-    frigateApp,
-  }) => {
-    test.skip(!frigateApp.isMobile, "Mobile-only assertion");
-    await mockError(frigateApp.page, "**/api/stats");
-    await frigateApp.goto("/system#general");
-    await expect(
-      frigateApp.page.getByTestId("fork-error-state").first(),
-    ).toBeVisible({ timeout: 10_000 });
-  });
+  test(
+    "@mobile inline error state renders on mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await mockError(frigateApp.page, "**/api/stats");
+      await frigateApp.goto("/system#general");
+      await expect(
+        frigateApp.page.getByTestId("fork-error-state").first(),
+      ).toBeVisible({ timeout: 10_000 });
+    },
+  );
 });

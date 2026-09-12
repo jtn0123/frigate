@@ -6,14 +6,17 @@ import { isForkEnabled } from "@/fork/flags";
 
 type ForkNavItemsProps = {
   variant: ForkNavVariant;
-  large?: boolean | undefined;
+  large?: boolean;
 };
 
 /**
  * Single mount point for fork navigation entries so the upstream Sidebar and
  * Bottombar each only need a one-line hunk.
  */
-export default function ForkNavItems({ variant, large }: ForkNavItemsProps) {
+export default function ForkNavItems({
+  variant,
+  large = false,
+}: Readonly<ForkNavItemsProps>) {
   return (
     <>
       {isForkEnabled("commandPalette") && (

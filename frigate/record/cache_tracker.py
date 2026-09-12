@@ -75,8 +75,9 @@ class CacheFileTracker:
         """Return (file names, camera names) open by the tracked processes."""
         in_use: set[str] = set()
         cameras: set[str] = set()
+        exited: list[int] = []
 
-        for pid, process in list(self._writers.items()):
+        for pid, process in self._writers.items():
             try:
                 if not process.is_running():
                     raise psutil.NoSuchProcess(pid)
@@ -85,7 +86,7 @@ class CacheFileTracker:
             except psutil.Error:
                 # exited (or the pid was reused): forget it so the next
                 # cycle rediscovers the replacement
-                del self._writers[pid]
+                exited.append(pid)
                 continue
 
             for f in open_files:
@@ -98,5 +99,8 @@ class CacheFileTracker:
                 camera = camera_from_cache_file(name)
                 if camera is not None:
                     cameras.add(camera)
+
+        for pid in exited:
+            del self._writers[pid]
 
         return in_use, cameras

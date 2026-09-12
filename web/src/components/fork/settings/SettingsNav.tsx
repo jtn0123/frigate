@@ -85,7 +85,7 @@ type SettingsNavProps = {
   className?: string;
 };
 
-export default function SettingsNav({ className }: SettingsNavProps) {
+export default function SettingsNav({ className }: Readonly<SettingsNavProps>) {
   const { t } = useTranslation(["fork", "views/settings"]);
   const { published } = useSettingsNavStore();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -151,7 +151,7 @@ export default function SettingsNav({ className }: SettingsNavProps) {
         const label = readLabel(element);
         if (!label) return;
         out.push({
-          key: `${element.getAttribute("data-settings-anchor")}-${index}`,
+          key: `${element.dataset["settingsAnchor"]}-${index}`,
           label,
           element,
         });

@@ -8,13 +8,13 @@ import { setCommandPaletteOpen } from "@/hooks/fork/use-command-palette";
 
 type CommandPaletteHintProps = {
   variant: ForkNavVariant;
-  large?: boolean | undefined;
+  large?: boolean;
 };
 
 export default function CommandPaletteHint({
   variant,
-  large,
-}: CommandPaletteHintProps) {
+  large = false,
+}: Readonly<CommandPaletteHintProps>) {
   const { t } = useTranslation(["fork"]);
   return (
     <ForkNavButton

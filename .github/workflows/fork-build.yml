@@ -1,13 +1,13 @@
 name: Fork - Build image
 
-# Builds an amd64 image and pushes it to ghcr.io/<owner>/frigate. main is the
-# release branch (`make promote` moves it to next): every main build is tagged
-# :main and :<upstream base>-<date>.<run>, and publishes a GitHub Release
-# tagged fork/<that version> with notes from fork/scripts/release_notes.py. The
-# running app finds its own release through the notes' build marker
-# (frigate/fork/updates.py). A pushed fork/* tag builds an image of that tag
-# only. Pulls layer cache from upstream's public build cache so a rebuild is
-# usually well under the 40 minutes a cold build takes.
+# Builds amd64 and ROCm images and pushes them to ghcr.io/<owner>/frigate. main
+# is the release branch (`make promote` moves it to next): every main build is
+# tagged :main and :<upstream base>-<date>.<run> (ROCm: :main-rocm), and
+# publishes a GitHub Release tagged fork/<that version> with notes from
+# fork/scripts/release_notes.py. The running app finds its own release through
+# the notes' build marker (frigate/fork/updates.py). A pushed fork/* tag builds
+# images of that tag only. Pulls layer cache from upstream's public build cache
+# so a rebuild is usually well under the 40 minutes a cold build takes.
 
 on:
   workflow_dispatch:
@@ -82,7 +82,7 @@ jobs:
             echo "tags=${TAGS}"
           } >> "$GITHUB_OUTPUT"
       - name: Build and push amd64
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: docker/main/Dockerfile
@@ -129,3 +129,60 @@ jobs:
           # GITHUB_TOKEN do not trigger workflows, so this never rebuilds.
           gh release create "fork/${VERSION}" -R "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --title "$VERSION" --notes-file notes.md --latest
+
+  # Same build as upstream's "AMD/ROCm general build" (docker/rocm/rocm.hcl),
+  # for AMD discrete GPUs: ONNX detector on ROCm, VAAPI decode through radeonsi.
+  rocm:
+    runs-on: ubuntu-22.04
+    name: ROCm fork build
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up QEMU and Buildx
+        id: setup
+        uses: ./.github/actions/setup
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # bake --set cannot give one target several cache sources, so the tags
+      # and caches go in an override file layered on top of rocm.hcl.
+      - name: Write bake override
+        env:
+          CACHE: ${{ steps.setup.outputs.cache-name }}
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          UPSTREAM="ghcr.io/blakeblackshear/frigate"
+          FROM="\"type=registry,ref=${CACHE}-rocm\", \"type=registry,ref=${CACHE}-amd64\", \"type=registry,ref=${UPSTREAM}:cache-rocm\", \"type=registry,ref=${UPSTREAM}:cache-amd64\""
+          cat > "${RUNNER_TEMP}/fork-rocm.hcl" <<EOF
+          target "wget" { cache-from = [${FROM}] }
+          target "deps" { cache-from = [${FROM}] }
+          target "rootfs" { cache-from = [${FROM}] }
+          target "rocm" {
+            tags = ["${IMAGE}:main-rocm"]
+            cache-from = [${FROM}]
+            cache-to = ["type=registry,ref=${CACHE}-rocm,mode=max"]
+          }
+          EOF
+          cat "${RUNNER_TEMP}/fork-rocm.hcl"
+      - name: Build and push rocm
+        env:
+          HSA_OVERRIDE: 0
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          push: true
+          targets: rocm
+          files: |
+            docker/rocm/rocm.hcl
+            ${{ runner.temp }}/fork-rocm.hcl
+      - name: Add commit and release tags
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          TAGS=(-t "${IMAGE}:${GITHUB_SHA::7}-rocm")
+          if [[ "${GITHUB_REF}" == refs/tags/fork/* ]]; then
+            TAGS+=(-t "${IMAGE}:${GITHUB_REF#refs/tags/fork/}-rocm")
+          fi
+          docker buildx imagetools create "${TAGS[@]}" "${IMAGE}:main-rocm"

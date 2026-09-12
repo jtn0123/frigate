@@ -29,6 +29,7 @@ router = APIRouter(tags=[Tags.share])
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 DEFAULT_EXPIRES_HOURS = 24
 MAX_EXPIRES_HOURS = 168
+EVENT_NOT_FOUND = "Event not found"
 
 
 class ShareCreateBody(BaseModel):
@@ -84,7 +85,7 @@ async def create_share(request: Request, body: ShareCreateBody):
         event: Event = await asyncio.to_thread(Event.get, Event.id == body.event_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Event not found"},
+            content={"success": False, "message": EVENT_NOT_FOUND},
             status_code=404,
         )
 
@@ -152,7 +153,7 @@ async def get_share(token: str):
         event: Event = await asyncio.to_thread(Event.get, Event.id == link.event_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Event not found"},
+            content={"success": False, "message": EVENT_NOT_FOUND},
             status_code=404,
         )
 
@@ -190,7 +191,7 @@ async def get_share_clip(request: Request, token: str):
         event: Event = await asyncio.to_thread(Event.get, Event.id == link.event_id)
     except DoesNotExist:
         return JSONResponse(
-            content={"success": False, "message": "Event not found"},
+            content={"success": False, "message": EVENT_NOT_FOUND},
             status_code=404,
         )
 

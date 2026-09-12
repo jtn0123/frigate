@@ -56,7 +56,7 @@ export default function ErrorState({
   onRetry,
   compact = false,
   className,
-}: ErrorStateProps) {
+}: Readonly<ErrorStateProps>) {
   const { t } = useTranslation(["fork"]);
   const detail = description ?? describeError(error);
 

@@ -180,6 +180,13 @@ untested.
 - **Effort:** M
 - **Grade lift:** C+ → B−
 
+#### C12 — Clear SonarCloud findings in the fork's web code `[FE] [fork]`
+- **Where:** fork-added web files: `web/src/{components,lib,views,context,hooks}/fork/**`, `web/src/components/icons/`, `web/src/utils/promise.ts`, `web/__test__/test-setup.ts` and two unit tests
+- **What's wrong:** SonarCloud listed 46 issues in fork-added web files on 2026-09-11 (main 1b5e601): component props not read-only (18), `?: T | undefined` pairs that Sonar calls redundant but the fork-strict `exactOptionalPropertyTypes` needs (11), a sort without a comparator, a nested ternary, possible `[object Object]` output, cognitive complexity 16 in the command palette's item list, a rule-less `eslint-disable` on a vendored file, and a handful of smaller idioms.
+- **Fix:** `Readonly<Props>` throughout. For the optional-undefined pairs, default the value where it is forwarded (`large = false`) or make the field required with `| undefined` where every builder sets it, which satisfies both Sonar and fork-strict. Explicit `localeCompare`; split the ternary; build the palette's page list in its own memo; name the type instead of printing `[object Object]`; move the vendored QR encoder's lint exemption into the ignores of `eslint.config.js` and the type ratchet's `eslint.ratchet.config.js` (without the second, the ratchet counted the vendored code's untyped lines), and tighten the ratchet baseline for the lower counts. One deliberate exception: the appearance menu's hidden focus sentinel (`tabIndex` on a `span`, S6845), which keeps the first option from being highlighted when the menu opens.
+- **Effort:** S
+- **Grade lift:** C+ → C+ (hygiene)
+
 ---
 
 ## D — Testing & Reliability — B−
@@ -286,6 +293,13 @@ payloads.
 - **Fix:** Seed the chart from `/stats/history` (15 s points, ~20 minutes) and extend it with live stats; draw from zero with headroom, a dashed target line at the expected fps and time-spaced points; caption "Frame rate, last N minutes" with a target legend, or a waiting message before two points. Drop the per-card "Updated" line and the extra state dot; pin the chart and buttons to the card bottom. Mock `/api/stats/history` in e2e for the chart's keys; other keys return a full fixture snapshot (D16).
 - **Effort:** S
 - **Grade lift:** none (UI polish)
+
+#### D19 — Layout-only e2e tests are selected by tag, not skipped at run time `[FE] [fork]` (committed as D16, which #27 also used)
+- **Where:** `web/e2e/specs/fork/*.spec.ts` (29 `test.skip(isMobile …)` calls in 11 specs), `web/e2e/playwright.config.ts`
+- **What's wrong:** SonarCloud flags every conditional skip (S1607, "remove this test or explain why it is ignored"), and every run listed the other layout's tests as skipped, which hides real skips.
+- **Fix:** Tag those tests (or their `describe`) `@desktop-only` / `@mobile-only` with Playwright's `tag` option and give each project a `grepInvert` for the other tag, so they are never collected there. Upstream specs keep their own skips.
+- **Effort:** S
+- **Grade lift:** none (test hygiene)
 
 ---
 
@@ -477,6 +491,13 @@ nothing tracks upstream automatically.
 - **Fix:** Build the issue bodies with `%s` placeholders only; no backticks in the format string.
 - **Effort:** S
 - **Grade lift:** none (CI hygiene)
+
+#### I14 — Clear SonarCloud findings in the fork's scripts, CI and backend files `[fork]`
+- **Where:** `.github/workflows/fork-{checks,build}.yml`, `.github/actions/fork-web-setup/`, `fork/Dockerfile.test`, `fork/scripts/*.sh`, `fork/demo/fetch-samples.sh`, `web/scripts/fork/*.mjs`, `frigate/api/fork_share.py`, `frigate/record/cache_tracker.py`, `frigate/test/http_api/test_http_auth_gates.py`, `migrations/036_create_share_link.py`
+- **What's wrong:** About 40 SonarCloud findings on 2026-09-11. Supply-chain hotspots: `npx` could install packages on demand, npm lifecycle scripts ran during CI installs, pip installs were unlocked, an action was pinned by tag, and curl followed redirects to HTTP. Also a regex with super-linear backtracking in the type ratchet, shell functions without explicit returns, an empty migration rollback, and a few Python and JS smells.
+- **Fix:** Run tools from `node_modules/.bin`; `npm ci --ignore-scripts` followed by `postinstall` (patch-package); a hash-pinned `fork/requirements-dev.lock` installed with `--require-hashes --only-binary :all:` and guarded by `dev-lock-check.py`; the action pinned to a commit SHA; `curl --proto '=https'`; a linear regex, with tests; explicit returns and locals in the shell scripts; the share-link migration's rollback drops its table (tested up and down). Upstream's `pull_request.yml` has similar findings (lines 27, 48, 54, 69) and is left alone.
+- **Effort:** S
+- **Grade lift:** none (supply-chain hygiene)
 
 #### ~~I7~~ ✓ done 2026-09-10 — Local demo stack `[fork]`
 - **Where:** `fork/` (no way to run the fork's UI against a real backend except pointing `make dev-web` at a live server)

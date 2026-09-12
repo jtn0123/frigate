@@ -12,7 +12,7 @@ type LuIconProps = {
  * set into the eager bundle. Renders nothing for unknown names and an empty
  * box of the same size while the set is still loading so layout stays put.
  */
-export function LuIcon({ name, className, size }: LuIconProps) {
+export function LuIcon({ name, className, size }: Readonly<LuIconProps>) {
   const Icon = useLuIcon(name);
 
   if (!isLuIconName(name)) {

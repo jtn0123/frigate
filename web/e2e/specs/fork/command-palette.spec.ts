@@ -25,46 +25,55 @@ function option(frigateApp: FrigateApp, text: string | RegExp) {
 }
 
 test.describe("Command palette @high", () => {
-  test("Ctrl+K opens the palette with the main groups", async ({
-    frigateApp,
-  }) => {
-    test.skip(frigateApp.isMobile, "Keyboard shortcut flow");
-    await frigateApp.goto("/");
-    await frigateApp.page.keyboard.press("Control+k");
-    const palette = frigateApp.page.getByTestId("command-palette");
-    await expect(palette).toBeVisible();
-    await expect(palette.getByText("Pages", { exact: true })).toBeVisible();
-    await expect(palette.getByText("Cameras", { exact: true })).toBeVisible();
-    await expect(
-      palette.getByText("Camera groups", { exact: true }),
-    ).toBeVisible();
-    await expect(palette.getByText("Actions", { exact: true })).toBeVisible();
-    // Ctrl+K again closes it
-    await frigateApp.page.keyboard.press("Control+k");
-    await expect(palette).toBeHidden();
-  });
+  test(
+    "Ctrl+K opens the palette with the main groups",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.goto("/");
+      await frigateApp.page.keyboard.press("Control+k");
+      const palette = frigateApp.page.getByTestId("command-palette");
+      await expect(palette).toBeVisible();
+      await expect(palette.getByText("Pages", { exact: true })).toBeVisible();
+      await expect(palette.getByText("Cameras", { exact: true })).toBeVisible();
+      await expect(
+        palette.getByText("Camera groups", { exact: true }),
+      ).toBeVisible();
+      await expect(palette.getByText("Actions", { exact: true })).toBeVisible();
+      // Ctrl+K again closes it
+      await frigateApp.page.keyboard.press("Control+k");
+      await expect(palette).toBeHidden();
+    },
+  );
 
-  test("slash opens the palette when no input is focused", async ({
-    frigateApp,
-  }) => {
-    test.skip(frigateApp.isMobile, "Keyboard shortcut flow");
-    await frigateApp.goto("/review");
-    await frigateApp.page.keyboard.press("/");
-    await expect(frigateApp.page.getByTestId("command-palette")).toBeVisible();
-    // the search box takes focus so the slash itself is not typed
-    await expect(
-      frigateApp.page.getByPlaceholder(/Search pages, cameras/),
-    ).toHaveValue("");
-  });
+  test(
+    "slash opens the palette when no input is focused",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.goto("/review");
+      await frigateApp.page.keyboard.press("/");
+      await expect(
+        frigateApp.page.getByTestId("command-palette"),
+      ).toBeVisible();
+      // the search box takes focus so the slash itself is not typed
+      await expect(
+        frigateApp.page.getByPlaceholder(/Search pages, cameras/),
+      ).toHaveValue("");
+    },
+  );
 
-  test("sidebar hint button opens the palette", async ({ frigateApp }) => {
-    test.skip(frigateApp.isMobile, "Sidebar is desktop-only");
-    await frigateApp.goto("/");
-    const hint = frigateApp.page.getByTestId("command-palette-hint");
-    await expect(hint).toHaveAttribute("aria-label", "Open command palette");
-    await hint.click();
-    await expect(frigateApp.page.getByTestId("command-palette")).toBeVisible();
-  });
+  test(
+    "sidebar hint button opens the palette",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.goto("/");
+      const hint = frigateApp.page.getByTestId("command-palette-hint");
+      await expect(hint).toHaveAttribute("aria-label", "Open command palette");
+      await hint.click();
+      await expect(
+        frigateApp.page.getByTestId("command-palette"),
+      ).toBeVisible();
+    },
+  );
 
   test("filters cameras and jumps to the live view", async ({ frigateApp }) => {
     await frigateApp.goto("/review");
@@ -186,17 +195,22 @@ test.describe("Command palette @high", () => {
     await expect(option(frigateApp, "UI settings")).toHaveCount(1);
   });
 
-  test("bottombar hint opens the palette on a phone @mobile", async ({
-    frigateApp,
-  }) => {
-    test.skip(!frigateApp.isMobile, "Mobile bottombar flow");
-    await frigateApp.goto("/");
-    const hint = frigateApp.page.getByTestId("command-palette-hint");
-    await expect(hint).toHaveAttribute("aria-label", "Open command palette");
-    await hint.click();
-    await expect(frigateApp.page.getByTestId("command-palette")).toBeVisible();
-    await frigateApp.page.keyboard.type("garage");
-    await option(frigateApp, "Garage").filter({ hasText: "Live view" }).click();
-    await expect(frigateApp.page).toHaveURL(/\/#garage$/);
-  });
+  test(
+    "bottombar hint opens the palette on a phone @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.goto("/");
+      const hint = frigateApp.page.getByTestId("command-palette-hint");
+      await expect(hint).toHaveAttribute("aria-label", "Open command palette");
+      await hint.click();
+      await expect(
+        frigateApp.page.getByTestId("command-palette"),
+      ).toBeVisible();
+      await frigateApp.page.keyboard.type("garage");
+      await option(frigateApp, "Garage")
+        .filter({ hasText: "Live view" })
+        .click();
+      await expect(frigateApp.page).toHaveURL(/\/#garage$/);
+    },
+  );
 });

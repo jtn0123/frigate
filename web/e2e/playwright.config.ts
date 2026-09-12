@@ -37,6 +37,8 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
+      // fork: tests for one layout are tagged instead of skipped at run time
+      grepInvert: /@mobile-only/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1920, height: 1080 },
@@ -45,6 +47,7 @@ export default defineConfig({
     },
     {
       name: "mobile",
+      grepInvert: /@desktop-only/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 844 },

@@ -10,11 +10,12 @@ import { toUnixTime } from "./timeline-scrubber";
 export type EventSummaryData = {
   camera: string;
   label: string;
-  subLabel?: string | null | undefined;
+  // Every builder below sets these; the source fields may be missing.
+  subLabel: string | null | undefined;
   startTime: number;
-  endTime?: number | undefined;
-  type?: EventType | undefined;
-  zones?: string[] | undefined;
+  endTime: number | undefined;
+  type: EventType | undefined;
+  zones: string[] | undefined;
 };
 
 export function summaryFromSearchResult(
