@@ -20,18 +20,22 @@ const typeAwareRules = {
   "@typescript-eslint/switch-exhaustiveness-check": "warn",
 };
 
-export default tseslint.config({
-  files: ["src/**/*.{ts,tsx}"],
-  ignores: ["**/*.d.ts"],
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: {
-      projectService: true,
-      tsconfigRootDir,
+export default tseslint.config(
+  // Vendored QR encoder (uqr), kept byte-for-byte; ignored in eslint.config.js too.
+  { ignores: ["src/lib/fork/qr-encode.ts"] },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["**/*.d.ts"],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir,
+      },
     },
+    plugins: {
+      "@typescript-eslint": tseslint.plugin,
+    },
+    rules: typeAwareRules,
   },
-  plugins: {
-    "@typescript-eslint": tseslint.plugin,
-  },
-  rules: typeAwareRules,
-});
+);

@@ -18,7 +18,8 @@ export type InboxItem = {
   labels: string[];
   zones: string[];
   startTime: number;
-  endTime?: number | undefined;
+  /** Unset until the review segment ends. */
+  endTime: number | undefined;
   thumbPath: string;
   read: boolean;
   /** Epoch ms when the item first arrived in this browser. */
@@ -73,7 +74,7 @@ function sanitizeSettings(value: unknown): InboxSettings {
       : [],
     quietHours: {
       ...DEFAULT_SETTINGS.quietHours,
-      ...(raw.quietHours ?? {}),
+      ...raw.quietHours,
     },
   };
 }

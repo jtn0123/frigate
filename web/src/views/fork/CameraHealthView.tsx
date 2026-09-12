@@ -107,9 +107,9 @@ export default function CameraHealthView() {
  */
 function CameraRestarts({
   cameraStats,
-}: {
+}: Readonly<{
   cameraStats: CameraStats | undefined;
-}) {
+}>) {
   const { t } = useTranslation(["fork"]);
   const count = cameraStats?.restarts_24h ?? 0;
   if (count === 0) {
@@ -170,7 +170,7 @@ function CameraHealthCard({
   enabled,
   stats,
   fpsSeries,
-}: CameraHealthCardProps) {
+}: Readonly<CameraHealthCardProps>) {
   const { t } = useTranslation(["fork"]);
   const { payload: enabledState } = useEnabledState(cameraName);
   const isEnabled = enabledFromWs(enabledState, enabled);

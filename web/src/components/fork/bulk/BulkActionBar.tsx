@@ -54,7 +54,7 @@ export default function BulkActionBar({
   bulk,
   onChanged,
   className,
-}: BulkActionBarProps) {
+}: Readonly<BulkActionBarProps>) {
   const { t } = useTranslation(["fork", "components/filter", "common"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const isAdmin = useIsAdmin();

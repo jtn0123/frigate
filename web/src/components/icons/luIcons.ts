@@ -39,19 +39,17 @@ export function loadLuIcons(): Promise<LuIconSet> {
     return Promise.resolve(icons);
   }
 
-  if (!pending) {
-    pending = import("react-icons-lu-all")
-      .then((mod) => {
-        icons = collect(mod as Record<string, unknown>);
-        listeners.forEach((listener) => listener());
-        return icons;
-      })
-      .catch((error) => {
-        // allow a retry on the next request instead of caching the failure
-        pending = undefined;
-        throw error;
-      });
-  }
+  pending ??= import("react-icons-lu-all")
+    .then((mod) => {
+      icons = collect(mod as Record<string, unknown>);
+      listeners.forEach((listener) => listener());
+      return icons;
+    })
+    .catch((error) => {
+      // allow a retry on the next request instead of caching the failure
+      pending = undefined;
+      throw error;
+    });
 
   return pending;
 }

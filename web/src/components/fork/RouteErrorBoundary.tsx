@@ -45,11 +45,19 @@ export function isChunkLoadError(error: unknown): boolean {
   if (!error) {
     return false;
   }
-  const err = error as { name?: unknown; message?: unknown };
+  const err = error as { name?: unknown };
   return (
-    err.name === "ChunkLoadError" ||
-    CHUNK_LOAD_PATTERN.test(String(err.message ?? error))
+    err.name === "ChunkLoadError" || CHUNK_LOAD_PATTERN.test(errorText(error))
   );
+}
+
+/** The error's message, or the thrown value itself when a string was thrown. */
+function errorText(error: unknown): string {
+  if (typeof error === "string") {
+    return error;
+  }
+  const { message } = error as { message?: unknown };
+  return typeof message === "string" ? message : "";
 }
 
 function errorMessage(error: unknown): string {
@@ -82,7 +90,7 @@ type ErrorPanelProps = {
   variant: Variant;
 };
 
-function ErrorPanel({ error, info, variant }: ErrorPanelProps) {
+function ErrorPanel({ error, info, variant }: Readonly<ErrorPanelProps>) {
   const { t } = useTranslation(["fork"]);
   const [copied, setCopied] = useState(false);
   const chunk = isChunkLoadError(error);
@@ -212,12 +220,12 @@ class Boundary extends Component<BoundaryProps, BoundaryState> {
 }
 
 /** Remounts the boundary on every route change so stale errors clear. */
-function RouteKeyedBoundary(props: BoundaryProps) {
+function RouteKeyedBoundary(props: Readonly<BoundaryProps>) {
   const location = useLocation();
   return <Boundary key={location.pathname} {...props} />;
 }
 
-function KeyedBoundary(props: BoundaryProps) {
+function KeyedBoundary(props: Readonly<BoundaryProps>) {
   const inRouter = useInRouterContext();
   return inRouter ? <RouteKeyedBoundary {...props} /> : <Boundary {...props} />;
 }
@@ -225,7 +233,7 @@ function KeyedBoundary(props: BoundaryProps) {
 export default function RouteErrorBoundary({
   children,
   variant = "page",
-}: RouteErrorBoundaryProps) {
+}: Readonly<RouteErrorBoundaryProps>) {
   if (!isForkEnabled("errorBoundary")) {
     return <>{children}</>;
   }
@@ -242,7 +250,10 @@ type RouteSuspenseProps = {
  * Suspense wrapped in a page-level boundary, so the App.tsx hunk stays a
  * two-tag rename.
  */
-export function RouteSuspense({ children, fallback }: RouteSuspenseProps) {
+export function RouteSuspense({
+  children,
+  fallback,
+}: Readonly<RouteSuspenseProps>) {
   return (
     <RouteErrorBoundary>
       <Suspense fallback={fallback}>{children}</Suspense>

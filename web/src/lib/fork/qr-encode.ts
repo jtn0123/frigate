@@ -1,4 +1,3 @@
-/* eslint-disable */
 // @ts-nocheck
 /* Vendored from uqr 0.1.2 (MIT): https://github.com/unjs/uqr */
 

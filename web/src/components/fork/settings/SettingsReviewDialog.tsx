@@ -43,7 +43,9 @@ export default function SettingsReviewDialog() {
       try {
         return JSON.stringify(value);
       } catch {
-        return String(value);
+        // BigInt and circular values cannot be serialized; name the type
+        // rather than printing "[object Object]".
+        return typeof value === "bigint" ? value.toString() : typeof value;
       }
     },
     [t],

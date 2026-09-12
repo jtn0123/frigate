@@ -31,7 +31,7 @@ export default function Sparkline({
   className,
   label,
   strokeClassName,
-}: SparklineProps) {
+}: Readonly<SparklineProps>) {
   const geometry = useMemo(() => {
     const top = Math.max(...values, reference ?? 0) * HEADROOM || 1;
     const inner = WIDTH - PAD * 2;

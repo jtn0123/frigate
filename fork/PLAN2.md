@@ -475,6 +475,22 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
   `frigate/camera/__init__.py`, `frigate/stats/util.py`,
   `web/src/hooks/use-stats.ts`.
 
+### PR-30 · sonar-fork — C12, D16, I13 — S — **in progress**
+- **Status (2026-09-11):** owner asked to "look at sonar and start whacking
+  down issues". SonarCloud listed 2,794 open issues on main; 119 were in
+  fork-added files, the rest in upstream code. Scope is the fork's own files:
+  fixing upstream smells would cost a conflict on every sync. C12 (web code)
+  and D16 (e2e tags) on `section/sonar-fork`; I13 (scripts, CI, test image,
+  fork backend files) in a parallel worktree, folded into the same PR. The
+  three upstream "blocker bugs" Sonar lists were checked and are false
+  positives or harmless: a peewee query's `.count()` read as `list.count`, an
+  abstract `load_model` whose stale signature is never called, and
+  `return super().__init__()` returning None.
+- **Done when:** SonarCloud shows no open issues in fork-added files beyond
+  the documented exception, and "Fork - Checks" is green.
+  **Conflict:** one-line hunks in `web/eslint.config.js` and
+  `web/e2e/playwright.config.ts`.
+
 ---
 
 ## Agent prompt: type-safety track (PR-01, PR-02, PR-04, PR-14)

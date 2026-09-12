@@ -32,8 +32,10 @@ export type SettingsChange = {
 export type SettingsSectionDiff = {
   pendingKey: string;
   scope: "global" | "camera";
-  cameraName?: string | undefined;
-  profileName?: string | undefined;
+  /** Set for camera-scoped sections. */
+  cameraName: string | undefined;
+  /** Set when the section edits a profile override. */
+  profileName: string | undefined;
   /** Config section this entry writes to, e.g. `detect` or `go2rtc.streams`. */
   section: string;
   needsRestart: boolean;
@@ -70,7 +72,7 @@ export function diffValues(oldValue: unknown, newValue: unknown) {
   const paths = new Set([...oldMap.keys(), ...newMap.keys()]);
   return [...paths]
     .filter((path) => !isEqual(oldMap.get(path), newMap.get(path)))
-    .sort()
+    .sort((left, right) => left.localeCompare(right))
     .map<SettingsChange>((path) => ({
       path,
       oldValue: oldMap.get(path),
@@ -121,6 +123,8 @@ function go2rtcDiff(
   return {
     pendingKey: "go2rtc_streams",
     scope: "global",
+    cameraName: undefined,
+    profileName: undefined,
     section: "go2rtc.streams",
     needsRestart: false,
     changes: diffValues(saved, live),
@@ -198,6 +202,8 @@ export function computeSettingsDiff(
       out.push({
         pendingKey,
         scope: "global",
+        cameraName: undefined,
+        profileName: undefined,
         section: pendingKey,
         needsRestart: true,
         changes: diffValues(getUnknown(config, pendingKey), pendingData),
@@ -239,8 +245,7 @@ export function getSettingsDiff(
   fullSchema: RJSFSchema | undefined,
 ): SettingsSectionDiff[] {
   if (
-    cache &&
-    cache.pending === pending &&
+    cache?.pending === pending &&
     cache.config === config &&
     cache.fullSchema === fullSchema
   ) {

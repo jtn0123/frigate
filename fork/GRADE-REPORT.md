@@ -183,6 +183,13 @@ untested.
 - **Effort:** M
 - **Grade lift:** C+ → B−
 
+#### C12 — Clear SonarCloud findings in the fork's web code `[FE] [fork]`
+- **Where:** fork-added web files: `web/src/{components,lib,views,context,hooks}/fork/**`, `web/src/components/icons/`, `web/src/utils/promise.ts`, `web/__test__/test-setup.ts` and two unit tests
+- **What's wrong:** SonarCloud listed 46 issues in fork-added web files on 2026-09-11 (main 1b5e601): component props not read-only (18), `?: T | undefined` pairs that Sonar calls redundant but the fork-strict `exactOptionalPropertyTypes` needs (11), a sort without a comparator, a nested ternary, possible `[object Object]` output, cognitive complexity 16 in the command palette's item list, a rule-less `eslint-disable` on a vendored file, and a handful of smaller idioms.
+- **Fix:** `Readonly<Props>` throughout. For the optional-undefined pairs, default the value where it is forwarded (`large = false`) or make the field required with `| undefined` where every builder sets it, which satisfies both Sonar and fork-strict. Explicit `localeCompare`; split the ternary; build the palette's page list in its own memo; name the type instead of printing `[object Object]`; move the vendored QR encoder's lint exemption into the ignores of `eslint.config.js` and the type ratchet's `eslint.ratchet.config.js` (without the second, the ratchet counted the vendored code's untyped lines), and tighten the ratchet baseline for the lower counts. One deliberate exception: the appearance menu's hidden focus sentinel (`tabIndex` on a `span`, S6845), which keeps the first option from being highlighted when the menu opens.
+- **Effort:** S
+- **Grade lift:** C+ → C+ (hygiene)
+
 ---
 
 ## D — Testing & Reliability — B−

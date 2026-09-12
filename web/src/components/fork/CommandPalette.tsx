@@ -152,17 +152,17 @@ function CommandPaletteInner() {
     }
   }, [mutate, t]);
 
-  const items = useMemo<PaletteItem[]>(() => {
-    const go = (to: string) => () => navigate(to);
-    const list: PaletteItem[] = [];
-
-    const pages: Array<{
+  // Kept out of the items memo below so that callback stays readable.
+  const pages = useMemo<
+    Array<{
       id: string;
       label: string;
       to: string;
       icon: IconType;
       enabled?: boolean;
-    }> = [
+    }>
+  >(
+    () => [
       {
         id: "page:live",
         label: t("menu.live.title", { ns: "common" }),
@@ -242,7 +242,14 @@ function CommandPaletteInner() {
         icon: LuActivity,
         enabled: ENV !== "production" && isAdmin,
       },
-    ];
+    ],
+    [t, isAdmin, config, hasChatAgent],
+  );
+
+  const items = useMemo<PaletteItem[]>(() => {
+    const go = (to: string) => () => navigate(to);
+    const list: PaletteItem[] = [];
+
     for (const page of pages) {
       if (page.enabled === false) continue;
       list.push({
@@ -259,24 +266,26 @@ function CommandPaletteInner() {
       const camera = config?.cameras[name];
       if (!camera) continue;
       const label = resolveCameraName(config, name);
-      list.push({
-        id: `camera:${name}:live`,
-        group: "cameras",
-        label,
-        hint: t("commandPalette.camera.live"),
-        keywords: [name, "live", "camera"],
-        icon: FaVideo,
-        run: go(`/#${name}`),
-      });
-      list.push({
-        id: `camera:${name}:review`,
-        group: "cameras",
-        label,
-        hint: t("commandPalette.camera.review"),
-        keywords: [name, "review", "camera"],
-        icon: MdVideoLibrary,
-        run: go(`/review?cameras=${encodeURIComponent(name)}`),
-      });
+      list.push(
+        {
+          id: `camera:${name}:live`,
+          group: "cameras",
+          label,
+          hint: t("commandPalette.camera.live"),
+          keywords: [name, "live", "camera"],
+          icon: FaVideo,
+          run: go(`/#${name}`),
+        },
+        {
+          id: `camera:${name}:review`,
+          group: "cameras",
+          label,
+          hint: t("commandPalette.camera.review"),
+          keywords: [name, "review", "camera"],
+          icon: MdVideoLibrary,
+          run: go(`/review?cameras=${encodeURIComponent(name)}`),
+        },
+      );
     }
 
     for (const groupName of Object.keys(config?.camera_groups ?? {})) {
@@ -305,24 +314,26 @@ function CommandPaletteInner() {
       });
     }
 
-    list.push({
-      id: "action:toggleTheme",
-      group: "actions",
-      label: t("commandPalette.actions.toggleTheme"),
-      keywords: ["dark", "light", "theme", "appearance"],
-      icon: LuSunMoon,
-      run: toggleTheme,
-    });
-    list.push({
-      id: "action:markAllReviewed",
-      group: "actions",
-      label: t("commandPalette.actions.markAllReviewed"),
-      keywords: ["review", "reviewed", "alerts", "detections"],
-      icon: LuCheckCheck,
-      run: () => {
-        void markAllReviewed(); // palette run() cannot be async
+    list.push(
+      {
+        id: "action:toggleTheme",
+        group: "actions",
+        label: t("commandPalette.actions.toggleTheme"),
+        keywords: ["dark", "light", "theme", "appearance"],
+        icon: LuSunMoon,
+        run: toggleTheme,
       },
-    });
+      {
+        id: "action:markAllReviewed",
+        group: "actions",
+        label: t("commandPalette.actions.markAllReviewed"),
+        keywords: ["review", "reviewed", "alerts", "detections"],
+        icon: LuCheckCheck,
+        run: () => {
+          void markAllReviewed(); // palette run() cannot be async
+        },
+      },
+    );
     if (isAdmin) {
       list.push({
         id: "action:restart",
@@ -338,10 +349,10 @@ function CommandPaletteInner() {
   }, [
     t,
     navigate,
+    pages,
     isAdmin,
     config,
     allowedCameras,
-    hasChatAgent,
     toggleTheme,
     markAllReviewed,
   ]);
