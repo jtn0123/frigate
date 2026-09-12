@@ -232,6 +232,8 @@ jobs:
           persist-credentials: false
       - name: Build locked runtime
         run: docker build --platform linux/amd64 -t frigate-audio-check fork/audio_trial
+      - name: Recover after forced container termination
+        run: python3 fork/scripts/audio-recovery-check.py frigate-audio-check
       - name: Benchmark scoring regressions
         run: python3 -m unittest discover -s fork/audio_trial/benchmarks -p "test_*.py"
       - name: Runtime dependency and regression checks
