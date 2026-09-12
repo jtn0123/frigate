@@ -384,7 +384,7 @@ class Dispatcher:
                         self._on_camera_notification_suspend(camera_name, payload)
             except IndexError:
                 logger.error(
-                    f"Received invalid {topic.split('/')[-1]} command: {topic}"
+                    "Received invalid %r command: %r", topic.split("/")[-1], topic
                 )
             return None
         elif topic in topic_handlers:
