@@ -384,7 +384,7 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
   folder); the test image copies sources in at build time instead.
 - `vite build --outDir` must stay inside `web/` (see `fork/README.md`).
 
-## Done (merged on `main`)
+## Done (merged)
 
 26 of the 30 plus E4/E5, with e2e 384 passed / 112 skipped, vitest 158, and
 978 backend tests OK at the last full run:
@@ -405,8 +405,15 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 - Extras: I3 mypy ratchet, I4 ruff S rules, E3 safe_join thumbnails, C8 dev
   sandbox out of prod, G2 SWR policy, T1 config editor Cmd/Ctrl+S, S0 fork
   scaffold, CI secret scanning and repo safety setup.
+- Releases (PR #28): I13 pull requests on `next`, `make promote` to `main`,
+  and a GitHub Release with generated notes per `main` build; UI42 update
+  button and What's new from those releases.
 
 ## Follow-ups
+
+- The `release` job in `fork-build.yml` has not run yet; it first runs on the
+  owner's first `make promote`. Check that run (version tag, `gh release
+  create`) and the notes it publishes.
 
 - Owner default confirmed: build UI14 and UI11.
 - Preview thumbnails can 404 for a minute after `make demo-up`, until Frigate
