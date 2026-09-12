@@ -296,6 +296,13 @@ pipeline has no unit tests (D4), and nothing catches visual regressions.
 - **Effort:** S
 - **Grade lift:** none (UI polish)
 
+#### D16 — Layout-only e2e tests are selected by tag, not skipped at run time `[FE] [fork]`
+- **Where:** `web/e2e/specs/fork/*.spec.ts` (29 `test.skip(isMobile …)` calls in 11 specs), `web/e2e/playwright.config.ts`
+- **What's wrong:** SonarCloud flags every conditional skip (S1607, "remove this test or explain why it is ignored"), and every run listed the other layout's tests as skipped, which hides real skips.
+- **Fix:** Tag those tests (or their `describe`) `@desktop-only` / `@mobile-only` with Playwright's `tag` option and give each project a `grepInvert` for the other tag, so they are never collected there. Upstream specs keep their own skips.
+- **Effort:** S
+- **Grade lift:** none (test hygiene)
+
 ---
 
 ## E — Security — B+

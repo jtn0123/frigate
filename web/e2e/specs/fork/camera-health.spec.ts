@@ -322,14 +322,17 @@ test.describe("Camera health cards @high", () => {
     await expect(spark.getByTestId("sparkline-reference")).toHaveCount(1);
   });
 
-  test("health tab is reachable on a phone @mobile", async ({ frigateApp }) => {
-    test.skip(!frigateApp.isMobile, "Mobile layout");
-    await gotoHealth(frigateApp);
-    await expect(
-      frigateApp.page.getByTestId("camera-health-front_door"),
-    ).toBeVisible();
-    await expect(
-      frigateApp.page.getByTestId("camera-health-garage"),
-    ).toBeVisible();
-  });
+  test(
+    "health tab is reachable on a phone @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await gotoHealth(frigateApp);
+      await expect(
+        frigateApp.page.getByTestId("camera-health-front_door"),
+      ).toBeVisible();
+      await expect(
+        frigateApp.page.getByTestId("camera-health-garage"),
+      ).toBeVisible();
+    },
+  );
 });

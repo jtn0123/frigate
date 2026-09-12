@@ -95,23 +95,24 @@ test.describe("Route error boundary @high", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("@mobile recovery panel renders inside the mobile layout", async ({
-    frigateApp,
-  }) => {
-    test.skip(!frigateApp.isMobile, "Mobile-only assertion");
-    await frigateApp.page.route(MALFORMED_EXPORTS, (route) =>
-      route.fulfill({ json: { unexpected: true } }),
-    );
-    await frigateApp.goto("/export");
+  test(
+    "@mobile recovery panel renders inside the mobile layout",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.page.route(MALFORMED_EXPORTS, (route) =>
+        route.fulfill({ json: { unexpected: true } }),
+      );
+      await frigateApp.goto("/export");
 
-    const panel = frigateApp.page.getByTestId("fork-error-boundary");
-    await expect(panel).toBeVisible({ timeout: 10_000 });
-    await expect(panel.getByRole("button", { name: "Reload" })).toBeVisible();
-    // Bottom bar survives the page failure.
-    await expect(
-      frigateApp.page.locator('a[href="/review"]').first(),
-    ).toBeVisible();
-  });
+      const panel = frigateApp.page.getByTestId("fork-error-boundary");
+      await expect(panel).toBeVisible({ timeout: 10_000 });
+      await expect(panel.getByRole("button", { name: "Reload" })).toBeVisible();
+      // Bottom bar survives the page failure.
+      await expect(
+        frigateApp.page.locator('a[href="/review"]').first(),
+      ).toBeVisible();
+    },
+  );
 });
 
 test.describe("Route error boundary - chunk load failure @high", () => {
