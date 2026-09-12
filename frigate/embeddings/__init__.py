@@ -25,6 +25,7 @@ from frigate.util.path import safe_join
 from frigate.util.process import FrigateProcess
 
 from .maintainer import EmbeddingMaintainer
+from .transcription_preload import preload_transcription_runtime
 from .util import ZScoreNormalization
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,8 @@ class EmbeddingProcess(FrigateProcess):
 
     def run(self) -> None:
         self.pre_run_setup(self.config.logger)
+        # Before any onnxruntime session: see transcription_preload.
+        preload_transcription_runtime(self.config)
         maintainer = EmbeddingMaintainer(
             self.config,
             self.metrics,
