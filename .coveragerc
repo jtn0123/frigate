@@ -5,8 +5,10 @@ source =
     frigate
     migrations
     testing-scripts
+    fork/scripts
 omit =
     frigate/test/*
+    fork/scripts/test_*.py
     frigate/version.py
 
 [report]
