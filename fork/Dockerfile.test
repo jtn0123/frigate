@@ -12,6 +12,7 @@ RUN pip3 install --break-system-packages -q --require-hashes --only-binary :all:
   && python3 /tmp/dev/dev-lock-check.py
 COPY frigate /opt/frigate/frigate
 COPY migrations /opt/frigate/migrations
+COPY fork/audio_trial /opt/frigate/fork/audio_trial
 COPY generate_api_auth_spec.py /opt/frigate/generate_api_auth_spec.py
 COPY docs/static/frigate-api.yaml /opt/frigate/docs/static/frigate-api.yaml
 ENTRYPOINT ["python3", "-u", "-m", "unittest"]
