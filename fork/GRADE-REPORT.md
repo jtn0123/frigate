@@ -197,7 +197,7 @@ payloads.
 
 - ~~D1~~ ✓ done 2026-09-10 — `web/__test__/test-setup.ts`, 147 tests, CI step
 - ~~D5~~ ✓ web half done 2026-09-10 — vitest v8 coverage uploaded by "Fork - Checks" (Python half → D8)
-- ~~D15~~ ✓ done 2026-09-11 — mock `/api/stats/history` (System charts; stops the error toast from eating tab clicks)
+- ~~D16~~ ✓ done 2026-09-11 — mock `/api/stats/history` (System charts; stops the error toast from eating tab clicks)
 
 #### D8 — Report Python coverage in CI `[BE] [fork, upstreamable]`
 - **Where:** `.github/workflows/fork-checks.yml` "Python - Tests" (plain `unittest` in the thin image), `Makefile` `test-py`
