@@ -1,8 +1,11 @@
 """Tests for queue safety, resource gates, and failure-based escalation."""
 
+import json
 import tempfile
+import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from queue_store import Queue, health_reason, retry_reasons
 
@@ -22,6 +25,11 @@ class QueueTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = str(Path(self.temp.name) / "queue.sqlite")
+        self.environment = patch.dict(
+            "os.environ", {"TELEMETRY_DIR": str(Path(self.temp.name) / "telemetry")}
+        )
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
         self.queue = Queue(self.path)
 
     def tearDown(self):
@@ -70,6 +78,47 @@ class QueueTests(unittest.TestCase):
         self.queue.enqueue([], 1600, ["doorbell"])
         self.assertIsNone(self.queue.claim(1600))
 
+    def test_upgrade_publishes_retained_legacy_results(self):
+        self.queue.enqueue([event()], 1000, ["doorbell"])
+        job = self.queue.claim(1000)
+        self.queue.finish(job, time.time(), {"transcript": "legacy"})
+        self.queue.db.execute("DROP TABLE publications")
+        self.queue.db.commit()
+        self.queue.db.close()
+        self.queue = Queue(self.path)
+        self.assertEqual(
+            self.queue.db.execute("SELECT COUNT(*) FROM publications").fetchone()[0], 1
+        )
+
+    def test_expired_sibling_chunks_are_republished(self):
+        self.queue.enqueue([event(start=900)], 1000, ["doorbell"])
+        job = self.queue.claim(1000)
+        self.queue.finish(job, 1001, {"transcript": "preserved"})
+        self.queue.enqueue([], 2000, ["doorbell"])
+        self.queue.flush_publications()
+        path = next((Path(self.temp.name) / "telemetry/results").glob("*.json"))
+        states = [chunk["state"] for chunk in json.loads(path.read_text())["chunks"]]
+        self.assertIn("done", states)
+        self.assertIn("expired", states)
+        self.assertNotIn("pending", states)
+
+    def test_one_bad_publication_does_not_block_other_reviews(self):
+        self.queue.enqueue([event("one"), event("two")], 1000, ["doorbell"])
+        for _ in range(2):
+            job = self.queue.claim(1000)
+            with patch("queue_store.publish", side_effect=OSError()):
+                self.queue.finish(job, 1001, {"transcript": "preserved"})
+
+        def publish(_db, job):
+            if job["id"].startswith("one:"):
+                raise ValueError("oversized")
+
+        with patch("queue_store.publish", side_effect=publish) as writer:
+            self.queue.flush_publications()
+            self.assertEqual(writer.call_count, 2)
+        remaining = self.queue.db.execute("SELECT id FROM publications").fetchall()
+        self.assertEqual([row["id"] for row in remaining], ["one:0"])
+
     def test_long_events_have_stable_ids_and_bounded_clip_lengths(self):
         review = event(start=100, end=970)
         self.queue.enqueue([review], 1000, ["doorbell"])
@@ -84,6 +133,7 @@ class QueueTests(unittest.TestCase):
 class PolicyTests(unittest.TestCase):
     def test_load_and_memory_gates(self):
         stats = {
+            "service": {"last_updated": time.time()},
             "detectors": {"rocm": {"inference_speed": 15}},
             "cameras": {"doorbell": {"skipped_fps": 0}},
         }
@@ -95,6 +145,29 @@ class PolicyTests(unittest.TestCase):
         stats["cameras"]["doorbell"]["skipped_fps"] = 0
         stats["detectors"]["rocm"]["inference_speed"] = 31
         self.assertTrue(health_reason(stats, 100 * 1024**3))
+
+    def test_missing_stale_and_nonfinite_health_blocks_work(self):
+        for reading in ({}, {"skipped_fps": float("nan")}, {"skipped_fps": None}):
+            self.assertTrue(
+                health_reason(
+                    {
+                        "service": {"last_updated": time.time()},
+                        "detectors": {"cpu": {"inference_speed": 10}},
+                        "cameras": {"doorbell": reading},
+                    },
+                    10 * 1024**3,
+                )
+            )
+        self.assertTrue(
+            health_reason(
+                {
+                    "service": {"last_updated": 1},
+                    "detectors": {"cpu": {"inference_speed": 10}},
+                    "cameras": {"doorbell": {"skipped_fps": 0}},
+                },
+                10 * 1024**3,
+            )
+        )
 
     def test_no_retry_for_noise_or_an_untrusted_confidence_number(self):
         self.assertFalse(retry_reasons({"speech_seconds": 0, "transcript": ""}))

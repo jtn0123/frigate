@@ -1,19 +1,62 @@
 """Publish transcript-free model measurements for Frigate's admin dashboard."""
 
 import json
+import logging
 import os
 import time
+from functools import wraps
 from importlib.util import find_spec
 from pathlib import Path
 
 import psutil
 
+logger = logging.getLogger(__name__)
+_last_warning = float("-inf")
+
+
+def best_effort(operation):
+    """Keep optional measurements outside the inference failure boundary."""
+
+    @wraps(operation)
+    def wrapped(*args, **kwargs):
+        global _last_warning
+        try:
+            return operation(*args, **kwargs)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, psutil.Error):
+            now = time.monotonic()
+            if now - _last_warning >= 60:
+                logger.warning("Model telemetry unavailable; inference continues")
+                _last_warning = now
+            return None
+
+    return wrapped
+
+
+def read_snapshot(path: Path) -> dict:
+    """Discard malformed optional snapshots instead of trusting their shape."""
+    try:
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict) or not isinstance(data.get("models"), dict):
+            return {"models": {}}
+        data["models"] = {
+            name: values
+            for name, values in data["models"].items()
+            if isinstance(values, dict)
+        }
+        return data
+    except (OSError, ValueError):
+        return {"models": {}}
+
+
 STAGE_FILE = Path("/state/stages.json")
-MODEL_ROOTS = {
-    "medium": Path("/models/whisper/models--Systran--faster-whisper-medium"),
-    "large-v3": Path("/models/whisper/models--Systran--faster-whisper-large-v3"),
-    "clap": Path(os.environ.get("CLAP_MODEL", "/missing")),
-}
+try:
+    _manifest = json.loads(Path(__file__).with_name("models.lock.json").read_text())
+    MODEL_ROOTS = {
+        name: Path(os.environ.get("MODEL_ROOT", "/models")) / entry["path"]
+        for name, entry in _manifest.items()
+    }
+except (OSError, ValueError, KeyError, TypeError):
+    MODEL_ROOTS = {}
 whisper_spec = find_spec("faster_whisper")
 if whisper_spec and whisper_spec.origin:
     MODEL_ROOTS["vad"] = Path(whisper_spec.origin).parent / "assets"
@@ -36,17 +79,18 @@ class Stage:
 
     def __enter__(self):
         self.started = time.monotonic()
-        self.data = (
-            json.loads(STAGE_FILE.read_text())
-            if STAGE_FILE.exists()
-            else {"models": {}}
-        )
+        self.data = read_snapshot(STAGE_FILE)
         self.data.update(
-            {"active": self.model, "status": "loading" if self.loading else "busy"}
+            {
+                "active": self.model,
+                "pid": os.getpid(),
+                "status": "loading" if self.loading else "busy",
+            }
         )
-        atomic_json(STAGE_FILE, self.data)
+        best_effort(atomic_json)(STAGE_FILE, self.data)
         return self
 
+    @best_effort
     def __exit__(self, error_type, *_):
         metrics = self.data["models"].setdefault(self.model, {})
         if error_type is None:
@@ -59,7 +103,7 @@ class Stage:
             metrics.get("peak_ram_bytes", 0), psutil.Process().memory_info().rss
         )
         self.data.update({"active": None, "status": "cached"})
-        atomic_json(STAGE_FILE, self.data)
+        best_effort(atomic_json)(STAGE_FILE, self.data)
 
 
 class Telemetry:
@@ -67,7 +111,7 @@ class Telemetry:
 
     def __init__(self, directory: Path):
         self.path = directory / "models.json"
-        directory.mkdir(parents=True, exist_ok=True)
+        best_effort(directory.mkdir)(parents=True, exist_ok=True)
         self.models = {}
         self.disk_checked = 0
         self.process = None
@@ -77,18 +121,15 @@ class Telemetry:
         self.available = None
         self.pause_reason = ""
         self.oldest_wait = 0
-        if self.path.exists():
-            try:
-                self.models = json.loads(self.path.read_text()).get("models", {})
-            except (OSError, ValueError):
-                pass
+        self.models = read_snapshot(self.path)["models"]
         for entry in self.models.values():
             entry.update({"status": "cached", "ram_bytes": 0, "cpu_percent": 0})
 
+    @best_effort
     def sample(self, pid: int | None = None) -> None:
         """Capture live process CPU/RAM and completed per-stage timings."""
         try:
-            stages = json.loads(STAGE_FILE.read_text())
+            stages = read_snapshot(STAGE_FILE)
             for name, values in stages.get("models", {}).items():
                 entry = self.models.setdefault(name, {})
                 peak = max(
@@ -96,7 +137,9 @@ class Telemetry:
                 )
                 entry.update(values)
                 entry["peak_ram_bytes"] = peak
-            self.active = stages.get("active") if pid else None
+            self.active = (
+                stages.get("active") if pid and stages.get("pid") == pid else None
+            )
             self.state = stages.get("status", "cached")
         except (OSError, ValueError):
             self.active = None
@@ -126,8 +169,14 @@ class Telemetry:
                 self.active = None
         else:
             self.process = None
+        if pid and self.active is None:
+            for entry in self.models.values():
+                entry.update(
+                    {"status": "unknown", "ram_bytes": None, "cpu_percent": None}
+                )
         self.publish()
 
+    @best_effort
     def publish(self) -> None:
         """Write only model metrics and aggregate queue data, never event text."""
         if time.monotonic() - self.disk_checked > 60:

@@ -1,7 +1,9 @@
 """Test inference routing without loading models or downloading weights."""
 
 import importlib.util
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,6 +21,7 @@ class InferenceRoutingTests(unittest.TestCase):
         dependencies = {
             name: MagicMock()
             for name in (
+                "telemetry",
                 "ctranslate2",
                 "numpy",
                 "faster_whisper",
@@ -28,6 +31,7 @@ class InferenceRoutingTests(unittest.TestCase):
         }
         with patch.dict(sys.modules, dependencies):
             spec.loader.exec_module(self.module)
+        self.module.resolve_model = Mock(side_effect=lambda name: name)
         self.module.Stage = MagicMock()
         self.module.decode_audio = Mock(return_value=[0] * 16000)
         self.module.get_speech_timestamps = Mock(
@@ -69,6 +73,49 @@ class InferenceRoutingTests(unittest.TestCase):
         self.assertEqual(self.model.transcribe.call_args.kwargs["task"], "translate")
         self.assertEqual(self.model.transcribe.call_args.kwargs["language"], "ar")
         self.module.classify.assert_not_called()
+
+    def test_completed_transcript_is_checkpointed_before_sound_stage(self):
+        self.model.transcribe.return_value = (
+            [SimpleNamespace(text="preserved")],
+            SimpleNamespace(language="en"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+
+            def interrupted(_):
+                self.assertEqual(
+                    json.loads(path.read_text())["transcript"], "preserved"
+                )
+                raise KeyboardInterrupt()
+
+            self.module.classify.side_effect = interrupted
+            with self.assertRaises(KeyboardInterrupt):
+                self.module.analyze("clip.wav", "medium", str(path))
+            self.assertEqual(json.loads(path.read_text())["transcript"], "preserved")
+
+    def test_sound_failure_preserves_completed_transcript(self):
+        self.model.transcribe.return_value = (
+            [SimpleNamespace(text="hello")],
+            SimpleNamespace(language="en"),
+        )
+        self.module.classify.side_effect = OSError("broken model")
+        result = self.module.analyze("clip.wav", "medium")
+        self.assertEqual(result["transcript"], "hello")
+        self.assertEqual(result["stages"]["sounds"]["status"], "failed")
+        self.model.transcribe.assert_called_once()
+        self.assertEqual(self.module.classify.call_count, 2)
+
+    def test_translation_failure_preserves_original_and_sounds(self):
+        self.model.transcribe.side_effect = [
+            ([SimpleNamespace(text="original")], SimpleNamespace(language="ar")),
+            RuntimeError("translation unavailable"),
+            RuntimeError("unavailable"),
+        ]
+        result = self.module.analyze("clip.wav", "medium")
+        self.assertEqual(result["transcript"], "original")
+        self.assertEqual(result["translation"], "")
+        self.assertEqual(result["stages"]["translation"]["status"], "failed")
+        self.assertEqual(len(result["sounds"]), 1)
 
     def test_empty_and_oversized_clips_rejected_before_loading_models(self):
         for audio in ([], [0] * (35 * 16000 + 1)):

@@ -134,7 +134,7 @@ function System() {
         </ToggleGroup>
 
         <div className="ml-auto flex items-center">
-          {lastUpdated && (
+          {page !== "health" && lastUpdated && (
             <div className="h-full content-center text-sm text-muted-foreground">
               {t("lastRefreshed")}
               <TimeAgo time={lastUpdated * 1000} dense />

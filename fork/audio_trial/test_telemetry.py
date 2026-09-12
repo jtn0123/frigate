@@ -10,6 +10,50 @@ import telemetry
 
 
 class TelemetryTests(unittest.TestCase):
+    def test_unwritable_metrics_do_not_interrupt_inference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            metrics = telemetry.Telemetry(Path(directory))
+            with patch.object(
+                telemetry, "atomic_json", side_effect=OSError("disk full")
+            ):
+                with telemetry.Stage("medium"):
+                    completed = True
+                metrics.sample()
+            self.assertTrue(completed)
+
+    def test_metrics_failure_preserves_original_inference_exception(self):
+        with patch.object(telemetry, "atomic_json", side_effect=PermissionError()):
+            with self.assertRaisesRegex(RuntimeError, "inference failed"):
+                with telemetry.Stage("medium"):
+                    raise RuntimeError("inference failed")
+
+    def test_malformed_stage_snapshot_is_ignored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stage = root / "stages.json"
+            for content in ('{"models": []}', "[]", "{broken"):
+                stage.write_text(content)
+                with patch.object(telemetry, "STAGE_FILE", stage):
+                    metrics = telemetry.Telemetry(root)
+                    with telemetry.Stage("medium"):
+                        metrics.sample()
+
+    def test_old_process_stage_is_not_attributed_to_new_inference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stage = root / "stages.json"
+            stage.write_text(
+                json.dumps({"pid": 11, "active": "medium", "models": {"medium": {}}})
+            )
+            with (
+                patch.object(telemetry, "STAGE_FILE", stage),
+                patch.object(telemetry, "MODEL_ROOTS", {}),
+            ):
+                metrics = telemetry.Telemetry(root)
+                metrics.sample(12)
+                self.assertIsNone(metrics.models["medium"]["ram_bytes"])
+                self.assertEqual(metrics.models["medium"]["status"], "unknown")
+
     def test_stage_and_worker_capture_timings_and_release_current_resources(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -21,6 +65,7 @@ class TelemetryTests(unittest.TestCase):
             process.cpu_percent.return_value = 150
             with (
                 patch.object(telemetry, "STAGE_FILE", stage),
+                patch.object(telemetry.os, "getpid", return_value=12),
                 patch.object(telemetry, "MODEL_ROOTS", {"medium": root}),
                 patch.object(telemetry.psutil, "Process", return_value=process),
             ):

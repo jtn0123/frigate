@@ -233,7 +233,7 @@
   "stats": {
     "ffmpegHighCpuUsage": "{{camera}} has high FFmpeg CPU usage ({{ffmpegAvg}}%)",
     "detectHighCpuUsage": "{{camera}} has high detect CPU usage ({{detectAvg}}%)",
-    "healthy": "System is healthy",
+    "healthy": "No camera or resource warnings",
     "reindexingEmbeddings": "Reindexing embeddings ({{processed}}% complete)",
     "cameraIsOffline": "{{camera}} is offline",
     "detectIsSlow": "{{detect}} is slow ({{speed}} ms)",
@@ -309,7 +309,8 @@
       "detector": "Waiting for object detection to catch up",
       "frames": "Waiting because cameras are skipping frames",
       "health": "Waiting for reliable health readings",
-      "poll": "Waiting for the event service"
+      "poll": "Waiting for the event service",
+      "transcription": "Built-in transcription also owns this camera. Disable it for companion-managed cameras to avoid duplicate analysis."
     },
     "states": {
       "cached": "On disk",
@@ -347,7 +348,7 @@
     },
     "graphs": {
       "title": "Model history",
-      "description": "Up to 30 minutes, sampled every 10 seconds while this tab is open. Gaps stay empty. Latency shows the last completed run until a new result arrives.",
+      "description": "History is collected in the background and retained locally for 24 hours. Gaps indicate missing measurements; inference time refers to the last completed run.",
       "model": "Model",
       "ram": "Process RAM over time",
       "cpu": "Process CPU over time",
@@ -355,7 +356,16 @@
       "vram": "GPU allocation over time",
       "queue": "Queue depth",
       "noSamples": "No readings yet. Check the field explanation below.",
-      "waiting": "The first reading is shown now. A trend appears after the next sample."
+      "waiting": "The first reading is shown now. A trend appears after the next sample.",
+      "table": "View values: {{title}}",
+      "tableDescription": "Newest readings first. Missing or stale readings appear as gaps, never as zero.",
+      "time": "Time",
+      "series": "Series",
+      "value": "Value",
+      "gap": "No reading (gap)",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{current}} of {{total}} ({{readings}} readings)"
     },
     "missing": {
       "title": "Why are some readings missing?",
@@ -382,7 +392,7 @@
       },
       "fileInventory": {
         "label": "Files not mapped",
-        "detail": "This feature’s model files have not been mapped into the inventory yet."
+        "detail": "This feature\u2019s model files have not been mapped into the inventory yet."
       },
       "stale": {
         "label": "Readings expired",
@@ -404,6 +414,36 @@
         "label": "Included in run time",
         "detail": "This runtime initializes its speech filter as part of the first run. A separate model-load measurement is not available."
       }
+    },
+    "readiness": {
+      "attention": "AI or telemetry needs attention",
+      "ready": "AI services available",
+      "scope": "Availability is not a guarantee of transcript accuracy or recording completeness. Cached models load on demand.",
+      "stale": "Camera or detector measurements are missing or stale. Check the stats source.",
+      "unavailable_one": "{{count}} model needs attention.",
+      "unavailable_other": "{{count}} models need attention.",
+      "history": "Background history is unavailable; current readings may still be usable."
+    },
+    "server": {
+      "title": "Host and container resources",
+      "scope": "CPU uses 100% per logical core. Pressure is time stalled waiting for memory. OOM counts are cumulative since boot or container start. Shared resources must not be added together.",
+      "unavailable": "Host collector is missing or stale. Install or check the read-only Proxmox collector to measure both containers.",
+      "scopes": {
+        "host": "Proxmox host",
+        "container": "Container",
+        "ollama": "Ollama service"
+      },
+      "fields": {
+        "ram": "RAM used",
+        "limit": "RAM limit",
+        "cpu": "CPU use",
+        "quota": "Effective CPU cores",
+        "swap": "Swap used",
+        "pressure": "Memory pressure",
+        "oom": "OOM kills",
+        "disk": "Disk free"
+      },
+      "pressureWarning": "Host or container memory pressure is high. Review resource use before adding more AI work."
     }
   }
 }

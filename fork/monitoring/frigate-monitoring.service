@@ -1,0 +1,8 @@
+[Unit]
+Description=Collect Frigate host and container resource measurements
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/frigate-monitoring/collect_proxmox.py --containers 106 108 --frigate 106
+TimeoutStartSec=30
+Nice=10

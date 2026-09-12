@@ -1,7 +1,14 @@
 """Durable, bounded queue for the isolated audio trial."""
 
 import json
+import logging
+import math
 import sqlite3
+import time
+
+from results import publish
+
+logger = logging.getLogger(__name__)
 
 
 class Queue:
@@ -17,7 +24,21 @@ class Queue:
             "created REAL, priority INTEGER, state TEXT, attempts INTEGER DEFAULT 0, "
             "result TEXT, reason TEXT, updated REAL)"
         )
-        self.db.execute("UPDATE jobs SET state='pending' WHERE state='running'")
+        had_publications = self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='publications'"
+        ).fetchone()
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS publications (id TEXT PRIMARY KEY, camera TEXT, attempted REAL DEFAULT 0)"
+        )
+        if not had_publications:
+            # Upgrade the existing trial without hiding its retained results.
+            self.db.execute(
+                "INSERT INTO publications (id,camera) SELECT id,camera FROM jobs WHERE result IS NOT NULL AND updated >= ?",
+                (time.time() - 7 * 86400,),
+            )
+        self.db.execute(
+            "UPDATE jobs SET state=CASE WHEN result IS NULL THEN 'pending' ELSE 'second_opinion' END WHERE state='running'"
+        )
         self.db.commit()
 
     def enqueue(self, reviews: list[dict], now: float, cameras: list[str]) -> None:
@@ -66,13 +87,31 @@ class Queue:
             "ORDER BY priority, end DESC LIMIT -1 OFFSET 20)",
             (now,),
         )
+        self.db.execute(
+            "INSERT OR REPLACE INTO publications (id,camera) SELECT id,camera FROM jobs WHERE state='expired' AND updated=?",
+            (now,),
+        )
         self.db.execute("DELETE FROM jobs WHERE updated < ?", (now - 7 * 86400,))
+        self.db.execute(
+            "DELETE FROM publications WHERE id NOT IN (SELECT id FROM jobs)"
+        )
         self.db.commit()
 
     def claim(self, now: float) -> dict | None:
         """Take one job; this queue has exactly one consumer."""
+        expired = self.db.execute(
+            "SELECT * FROM jobs WHERE state='second_opinion' AND created < ?",
+            (now - 3600,),
+        ).fetchall()
+        for old in expired:
+            result = json.loads(old["result"])
+            result["large_status"] = "expired: second opinion age limit"
+            self.finish(dict(old), now, result)
         row = self.db.execute(
-            "SELECT * FROM jobs WHERE state='pending' ORDER BY priority,start LIMIT 1"
+            "SELECT * FROM jobs WHERE state='pending' OR "
+            "(state='second_opinion' AND updated < ?) "
+            "ORDER BY CASE state WHEN 'pending' THEN 0 ELSE 1 END,priority,start LIMIT 1",
+            (now - 60,),
         ).fetchone()
         if row is None:
             return None
@@ -89,7 +128,13 @@ class Queue:
             "UPDATE jobs SET state='done',result=?,reason=NULL,updated=? WHERE id=?",
             (json.dumps(result, ensure_ascii=False), now, job["id"]),
         )
+        self.db.execute(
+            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            (job["id"], job["camera"]),
+        )
         self.db.commit()
+
+        self.publish(job)
 
     def fail(self, job: dict, now: float, reason: str) -> None:
         """Retry a transient failure once, then keep an explicit failure record."""
@@ -97,7 +142,65 @@ class Queue:
             "UPDATE jobs SET state=?,reason=?,updated=? WHERE id=?",
             ("pending" if job["attempts"] < 1 else "failed", reason, now, job["id"]),
         )
+        self.db.execute(
+            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            (job["id"], job["camera"]),
+        )
         self.db.commit()
+        self.publish(job)
+
+    def checkpoint(self, job: dict, now: float, result: dict) -> None:
+        """Persist Medium while leaving in-flight work recoverable on restart."""
+        self.db.execute(
+            "UPDATE jobs SET result=?,updated=? WHERE id=?",
+            (json.dumps(result, ensure_ascii=False), now, job["id"]),
+        )
+        self.db.execute(
+            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            (job["id"], job["camera"]),
+        )
+        self.db.commit()
+        self.publish(job)
+
+    def defer(self, job: dict, now: float, result: dict) -> None:
+        """Atomically save a durable second opinion without repeating Medium."""
+        self.db.execute(
+            "UPDATE jobs SET state='second_opinion',result=?,updated=? WHERE id=?",
+            (json.dumps(result, ensure_ascii=False), now, job["id"]),
+        )
+        self.db.execute(
+            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            (job["id"], job["camera"]),
+        )
+        self.db.commit()
+        self.publish(job)
+
+    def publish(self, job: dict) -> None:
+        """Retain publication intent until the shared result mount recovers."""
+        self.db.execute(
+            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            (job["id"], job["camera"]),
+        )
+        self.db.commit()
+        self.flush_publications()
+
+    def flush_publications(self) -> None:
+        """Retry a bounded batch of result publications, including completed jobs."""
+        for row in self.db.execute(
+            "SELECT * FROM publications ORDER BY attempted LIMIT 10"
+        ).fetchall():
+            try:
+                publish(self.db, dict(row))
+            except (OSError, ValueError):
+                logger.warning("Review audio publication unavailable")
+                self.db.execute(
+                    "UPDATE publications SET attempted=? WHERE id=?",
+                    (time.time(), row["id"]),
+                )
+                self.db.commit()
+                continue
+            self.db.execute("DELETE FROM publications WHERE id=?", (row["id"],))
+            self.db.commit()
 
     def recent(self) -> list[dict]:
         """Return recent job records for an operator report."""
@@ -123,7 +226,31 @@ def retry_reasons(result: dict) -> list[str]:
 
 def health_reason(stats: dict, available_bytes: int, large: bool = False) -> str:
     """Defer optional analysis when camera processing or memory needs room."""
-    if not stats.get("detectors") or not stats.get("cameras"):
+    if not isinstance(stats, dict):
+        return "camera health unavailable"
+    if any(
+        not isinstance(stats.get(key), dict)
+        or not stats[key]
+        or any(not isinstance(row, dict) for row in stats[key].values())
+        for key in ("detectors", "cameras")
+    ):
+        return "camera health unavailable"
+    try:
+        age = time.time() - float(stats["service"]["last_updated"])
+        values = [
+            available_bytes,
+            age,
+            *(c["skipped_fps"] for c in stats["cameras"].values()),
+            *(d["inference_speed"] for d in stats["detectors"].values()),
+        ]
+        if (
+            not all(
+                math.isfinite(float(value)) and float(value) >= 0 for value in values
+            )
+            or age > 90
+        ):
+            return "camera health unavailable"
+    except (KeyError, TypeError, ValueError):
         return "camera health unavailable"
     if any(float(c.get("skipped_fps", 0)) > 0.5 for c in stats["cameras"].values()):
         return "camera frames being skipped"
