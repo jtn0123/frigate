@@ -19,10 +19,13 @@ type Props = {
   setLastUpdated: (time: number) => void;
 };
 
-export default function AIModelMetrics({ isActive, setLastUpdated }: Props) {
+export default function AIModelMetrics({
+  isActive,
+  setLastUpdated,
+}: Readonly<Props>) {
   const { t, i18n } = useTranslation(["views/system"]);
   const [history, setHistory] = useState<AIModelsResponse[]>([]);
-  const { data, error, mutate } = useSWR<AIModelsResponse>(
+  const { data, error, mutate } = useSWR<AIModelsResponse, Error>(
     isActive ? "ai/models" : null,
     { refreshInterval: 10000, revalidateOnFocus: true },
   );

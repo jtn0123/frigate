@@ -87,7 +87,7 @@ class WorkerTests(unittest.TestCase):
         process.poll.return_value = None
         popen.return_value = process
         with self.assertRaisesRegex(RuntimeError, "priority"):
-            worker.infer(Path("audio.wav"), Path("output.json"), "medium")
+            worker.infer(self.root / "audio.wav", self.root / "output.json", "medium")
         process.terminate.assert_called_once()
         process.wait.assert_called_once()
 

@@ -102,7 +102,9 @@ export default function AIModelGraphs({
   const [selected, setSelected] = useState("");
   const id = data.models.some((model) => model.id === selected)
     ? selected
-    : data.models[0]?.id;
+    : data.models.length
+      ? data.models[0].id
+      : "";
   const model = data.models.find((item) => item.id === id);
   const series = (
     field: "ram_bytes" | "cpu_percent" | "latency_ms" | "gpu_memory_bytes",
@@ -120,7 +122,9 @@ export default function AIModelGraphs({
     ["gpu", "mem"].map((field) => ({
       name: `${name}: ${t(field === "gpu" ? "models.gpuUtilization" : "models.gpuMemory")}`,
       data: graphPoints(history, (point) => {
-        const raw = point.shared_gpus[name]?.[field as "gpu" | "mem"];
+        const raw = Object.hasOwn(point.shared_gpus, name)
+          ? point.shared_gpus[name][field as "gpu" | "mem"]
+          : null;
         return raw == null ? null : Number.parseFloat(raw);
       }),
     })),
@@ -142,7 +146,7 @@ export default function AIModelGraphs({
           <select
             id="ai-history-model"
             className="max-w-56 rounded-md border border-secondary bg-background px-3 py-2"
-            value={id ?? ""}
+            value={id}
             onChange={(event) => setSelected(event.target.value)}
           >
             {data.models.map((item) => (
