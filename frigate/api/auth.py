@@ -102,6 +102,7 @@ def require_admin_by_default():
         "/exports",
         "/jobs/export",
         "/fork/share",
+        "/fork/updates",
     }
 
     # Path prefixes that should be exempt (for paths with parameters)

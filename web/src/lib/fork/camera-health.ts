@@ -224,10 +224,66 @@ export function detectorShare(
   );
 }
 
-/** Camera fps series for the sparkline from a list of stats snapshots. */
+/** One point of the frame-rate chart: when, and each camera's fps then. */
+export type FpsSample = { time: number; fps: Partial<Record<string, number>> };
+
+/** What a stats message, or a `/stats/history` entry trimmed by `keys`, carries. */
+export type FpsSnapshot = {
+  service: { last_updated: number };
+  cameras: Partial<Record<string, { camera_fps?: number }>>;
+};
+
+/** How far back the frame-rate chart looks; Frigate itself keeps ~20 min. */
+export const FPS_HISTORY_SECONDS = 30 * 60;
+
+export function fpsSample(snapshot: FpsSnapshot): FpsSample {
+  const fps: Partial<Record<string, number>> = {};
+  for (const [name, camera] of Object.entries(snapshot.cameras)) {
+    if (typeof camera?.camera_fps === "number") fps[name] = camera.camera_fps;
+  }
+  return { time: snapshot.service.last_updated, fps };
+}
+
+/**
+ * Adds new samples in time order, skips ones already known (the live stats
+ * message repeats one of the history points) and drops what falls out of the
+ * window. Returns `existing` itself when nothing changed, so subscribers do
+ * not re-render.
+ */
+export function mergeFpsSamples(
+  existing: FpsSample[],
+  incoming: FpsSample[],
+  windowSeconds = FPS_HISTORY_SECONDS,
+): FpsSample[] {
+  const known = new Set(existing.map((sample) => sample.time));
+  const fresh = incoming.filter(
+    (sample) => sample.time > 0 && !known.has(sample.time),
+  );
+  if (fresh.length === 0) return existing;
+  const merged = [...existing, ...fresh].sort((a, b) => a.time - b.time);
+  const newest = merged.at(-1)?.time ?? 0;
+  return merged.filter((sample) => sample.time >= newest - windowSeconds);
+}
+
+/** One camera's frame rate over time; samples without the camera are skipped. */
 export function cameraFpsSeries(
-  history: FrigateStats[],
+  history: FpsSample[],
   camera: string,
-): number[] {
-  return history.map((snapshot) => snapshot.cameras[camera]?.camera_fps ?? 0);
+): { times: number[]; values: number[] } {
+  const times: number[] = [];
+  const values: number[] = [];
+  for (const sample of history) {
+    const value = sample.fps[camera];
+    if (value === undefined) continue;
+    times.push(sample.time);
+    values.push(value);
+  }
+  return { times, values };
+}
+
+/** Whole minutes a series covers (at least 1 once it has two points). */
+export function seriesMinutes(times: number[]): number {
+  if (times.length < 2) return 0;
+  const span = (times.at(-1) ?? 0) - (times.at(0) ?? 0);
+  return Math.max(1, Math.round(span / 60));
 }

@@ -14,6 +14,10 @@ import {
   type DeepPartial,
   configFactory,
 } from "../fixtures/mock-data/config";
+import {
+  forkUpdatesFactory,
+  type ForkUpdatesMock,
+} from "../fixtures/mock-data/fork-updates";
 import { adminProfile, type UserProfile } from "../fixtures/mock-data/profile";
 import { BASE_STATS, statsFactory } from "../fixtures/mock-data/stats";
 
@@ -41,6 +45,7 @@ export interface ApiMockOverrides {
   faces?: Record<string, unknown>;
   configRaw?: string;
   configSchema?: Record<string, unknown>;
+  forkUpdates?: ForkUpdatesMock;
 }
 
 export class ApiMocker {
@@ -81,11 +86,29 @@ export class ApiMocker {
     await this.page.route("**/api/stats", (route) =>
       route.fulfill({ json: stats }),
     );
-    // History charts on /system. Without this, GET falls through to the
-    // preview proxy (403/500) and the error toast eats the next tab click.
-    await this.page.route("**/api/stats/history**", (route) =>
-      route.fulfill({ json: [stats] }),
-    );
+    // Stats history. Camera Health asks for cameras.camera_fps +
+    // service.last_updated (D15: 20 snapshots, 15 s apart). Everything else
+    // (System graphs) gets a full fixture snapshot so GeneralMetrics does
+    // not crash on missing processes (D16).
+    await this.page.route("**/api/stats/history**", (route) => {
+      const keys = new URL(route.request().url()).searchParams.get("keys");
+      if (keys === "cameras.camera_fps,service.last_updated") {
+        const now = Math.floor(Date.now() / 1000);
+        const cameras = Object.fromEntries(
+          Object.entries(stats.cameras).map(([name, camera]) => [
+            name,
+            { camera_fps: camera.camera_fps },
+          ]),
+        );
+        return route.fulfill({
+          json: Array.from({ length: 20 }, (_, i) => ({
+            service: { last_updated: now - (19 - i) * 15 },
+            cameras,
+          })),
+        });
+      }
+      return route.fulfill({ json: [stats] });
+    });
 
     // Reviews. The real backend exposes /review (singular) for the main
     // list and /review/summary for the summary — the previous plural glob
@@ -208,6 +231,11 @@ export class ApiMocker {
     // Debug replay
     await this.page.route("**/api/debug_replay/**", (route) =>
       route.fulfill({ json: {} }),
+    );
+
+    // Fork update notices (UI42): a development build unless overridden.
+    await this.page.route("**/api/fork/updates**", (route) =>
+      route.fulfill({ json: overrides?.forkUpdates ?? forkUpdatesFactory() }),
     );
 
     // Generic mutation catch-all for remaining endpoints.

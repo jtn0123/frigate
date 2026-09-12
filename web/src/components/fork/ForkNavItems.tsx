@@ -1,5 +1,6 @@
 import CommandPaletteHint from "@/components/fork/CommandPaletteHint";
 import InboxBell from "@/components/fork/InboxBell";
+import UpdateNotices from "@/components/fork/updates/UpdateNotices";
 import type { ForkNavVariant } from "@/components/fork/ForkNavButton";
 import { isForkEnabled } from "@/fork/flags";
 
@@ -20,6 +21,9 @@ export default function ForkNavItems({ variant, large }: ForkNavItemsProps) {
       )}
       {isForkEnabled("notificationInbox") && (
         <InboxBell variant={variant} large={large} />
+      )}
+      {isForkEnabled("updateNotices") && (
+        <UpdateNotices variant={variant} large={large} />
       )}
     </>
   );

@@ -19,6 +19,7 @@ import {
   LuList,
   LuRotateCw,
   LuSettings,
+  LuSparkles,
   LuSunMoon,
 } from "react-icons/lu";
 import {
@@ -52,6 +53,7 @@ import {
   SETTINGS_SECTIONS,
   VIEWER_SETTINGS_SECTIONS,
 } from "@/lib/fork/command-items";
+import { WHATS_NEW_EVENT } from "@/lib/fork/updates";
 import { isForkEnabled } from "@/fork/flags";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { ReviewSegment } from "@/types/review";
@@ -323,6 +325,16 @@ function CommandPaletteInner() {
         void markAllReviewed(); // palette run() cannot be async
       },
     });
+    if (isForkEnabled("updateNotices")) {
+      list.push({
+        id: "action:whatsNew",
+        group: "actions",
+        label: t("commandPalette.actions.whatsNew"),
+        keywords: ["release", "notes", "changelog", "update", "version"],
+        icon: LuSparkles,
+        run: () => window.dispatchEvent(new Event(WHATS_NEW_EVENT)),
+      });
+    }
     if (isAdmin) {
       list.push({
         id: "action:restart",
