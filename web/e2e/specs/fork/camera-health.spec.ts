@@ -57,7 +57,8 @@ function sendStats(
         garage: camera("garage"),
       },
       service: {
-        last_updated: lastUpdated,
+        // Status updates must not be future-dated: the health view rejects them.
+        last_updated: Math.min(lastUpdated, Date.now() / 1000),
         uptime,
         version: "0.15.0-test",
         latest_version: "0.15.0",
@@ -286,6 +287,9 @@ test.describe("Camera health cards @high", () => {
     const initial = Number(await spark.getAttribute("data-points"));
     const now = Date.now() / 1000;
     sendStats(frigateApp, now + 10, { front_door: { camera_fps: 4 } });
+    await expect
+      .poll(async () => Number(await spark.getAttribute("data-points")))
+      .toBeGreaterThanOrEqual(initial + 1);
     sendStats(frigateApp, now + 20, { front_door: { camera_fps: 6 } });
     await expect
       .poll(async () => Number(await spark.getAttribute("data-points")), {

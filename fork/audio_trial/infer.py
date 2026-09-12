@@ -69,6 +69,15 @@ def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
     }
     result["stages"] = {}
 
+    if checkpoint and Path(checkpoint).exists():
+        previous = json.loads(Path(checkpoint).read_text())
+        if previous.get("model") != size or not isinstance(
+            previous.get("stages"), dict
+        ):
+            raise ValueError("Invalid inference checkpoint")
+        result.update(previous)
+        result.pop("interrupted", None)
+
     def save():
         if checkpoint:
             target = Path(checkpoint)
@@ -77,6 +86,14 @@ def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
             temporary.replace(target)
 
     def run_stage(name, operation):
+        # Runtime allocation must reload, but completed outputs survive a restart.
+        if result["stages"].get(name, {}).get("status") == "complete":
+            if name == "transcription":
+                return result["transcript"], result["language"]
+            if name == "translation":
+                return result["translation"]
+            if name == "sounds":
+                return result["sounds"]
         # Retry only the failed stage, not completed speech or sound analysis.
         for attempt in range(2):
             result["stages"][name] = {"status": "running", "attempts": attempt + 1}

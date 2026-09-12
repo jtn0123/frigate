@@ -72,7 +72,7 @@ export default function AudioReviewResults({
   onSeek,
 }: Readonly<{ reviewId: string; onSeek: (time: number) => void }>) {
   const { t } = useTranslation("views/events");
-  const { data, error, mutate } = useSWR<Results>(
+  const { data, error, mutate } = useSWR<Results, unknown>(
     `review/${encodeURIComponent(reviewId)}/audio`,
     { refreshInterval: 15000 },
   );

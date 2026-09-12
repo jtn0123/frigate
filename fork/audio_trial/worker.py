@@ -1,8 +1,10 @@
 """Run a read-only Frigate audio trial with a single shared CPU queue."""
 
+import hashlib
 import json
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -242,10 +244,12 @@ def process_job(queue: Queue, job: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="audio-") as directory:
         root = Path(directory)
         audio = download_audio(job, root)
+        stages = STATE / "checkpoints" / hashlib.sha256(job["id"].encode()).hexdigest()
+        stages.mkdir(parents=True, exist_ok=True)
         result = (
             json.loads(job["result"])
             if job.get("result")
-            else infer(audio, root / "medium.json", "medium")
+            else infer(audio, stages / "medium.json", "medium")
         )
         if result.get("interrupted"):
             queue.finish(job, time.time(), result)
@@ -278,7 +282,7 @@ def process_job(queue: Queue, job: dict) -> None:
                 budget_temporary.replace(budget_path)
                 try:
                     result["large_second_opinion"] = infer(
-                        audio, root / "large.json", "large-v3"
+                        audio, stages / "large.json", "large-v3"
                     )
                     result["large_status"] = (
                         "second opinion; not independently verified"
@@ -286,6 +290,7 @@ def process_job(queue: Queue, job: dict) -> None:
                 except (OSError, ValueError, RuntimeError) as error:
                     result["large_status"] = "retry failed: " + str(error)
         queue.finish(job, time.time(), result)
+        shutil.rmtree(stages, ignore_errors=True)
 
 
 def main() -> None:
@@ -302,6 +307,12 @@ def main() -> None:
         try:
             queue.flush_publications()
             if time.monotonic() >= next_poll:
+                for stale in (STATE / "checkpoints").glob("*"):
+                    if (
+                        stale.is_dir()
+                        and stale.stat().st_mtime < time.time() - 7 * 86400
+                    ):
+                        shutil.rmtree(stale, ignore_errors=True)
                 params = urllib.parse.urlencode(
                     {
                         "cameras": ",".join(CAMERAS),

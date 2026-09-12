@@ -42,6 +42,33 @@ class InferenceRoutingTests(unittest.TestCase):
         )
         self.model = self.module.WhisperModel.return_value
 
+    def test_restart_reuses_completed_transcript_and_only_translates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / "checkpoint.json"
+            checkpoint.write_text(
+                json.dumps(
+                    {
+                        "model": "medium",
+                        "transcript": "preserved",
+                        "language": "ar",
+                        "stages": {"transcription": {"status": "complete"}},
+                        "translation": "",
+                        "sounds": [],
+                    }
+                )
+            )
+            self.model.transcribe.return_value = (
+                [SimpleNamespace(text="translated")],
+                SimpleNamespace(language="ar"),
+            )
+            result = self.module.analyze("clip.wav", "medium", str(checkpoint))
+            self.assertEqual(result["transcript"], "preserved")
+            self.assertEqual(result["translation"], "translated")
+            self.model.transcribe.assert_called_once()
+            self.assertEqual(
+                self.model.transcribe.call_args.kwargs["task"], "translate"
+            )
+
     def test_silence_skips_whisper_but_still_classifies_sounds(self):
         self.module.get_speech_timestamps.return_value = []
         result = self.module.analyze("clip.wav", "medium")

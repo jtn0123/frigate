@@ -27,7 +27,7 @@ export default function useStats(stats: FrigateStats | undefined) {
     const timer = setInterval(() => setNow(Date.now()), 10000);
     return () => clearInterval(timer);
   }, []);
-  const { data: models, error: modelError } = useSWR<AIModelsResponse>(
+  const { data: models, error: modelError } = useSWR<AIModelsResponse, unknown>(
     isAdmin ? "ai/models" : null,
     { refreshInterval: 10000 },
   );

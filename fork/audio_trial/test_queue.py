@@ -67,6 +67,23 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(self.queue.claim(1000)["camera"], "doorbell")
         self.assertEqual(sum(j["state"] == "pending" for j in self.queue.recent()), 19)
 
+    def test_burst_reserves_a_pending_job_for_each_camera(self):
+        reviews = [event(str(i), camera="doorbell") for i in range(30)]
+        reviews += [event("street", camera="street")]
+        self.queue.enqueue(reviews, 1000, ["doorbell", "street"])
+        pending = [j for j in self.queue.recent() if j["state"] == "pending"]
+        self.assertEqual(len(pending), 20)
+        self.assertEqual({j["camera"] for j in pending}, {"doorbell", "street"})
+
+    def test_waiting_camera_eventually_overtakes_new_doorbell_work(self):
+        self.queue.enqueue(
+            [event("street", camera="street")], 1000, ["doorbell", "street"]
+        )
+        self.queue.enqueue(
+            [event("doorbell", start=1000, end=1030)], 1070, ["doorbell", "street"]
+        )
+        self.assertEqual(self.queue.claim(1070)["camera"], "street")
+
     def test_failure_retries_once_and_old_work_expires(self):
         self.queue.enqueue([event()], 1000, ["doorbell"])
         for _ in range(2):

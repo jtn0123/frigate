@@ -83,8 +83,10 @@ class Queue:
         )
         self.db.execute(
             "UPDATE jobs SET state='expired', reason='queue capacity', updated=? "
-            "WHERE id IN (SELECT id FROM jobs WHERE state='pending' "
-            "ORDER BY priority, end DESC LIMIT -1 OFFSET 20)",
+            "WHERE id IN (SELECT id FROM (SELECT id,priority,end, "
+            "ROW_NUMBER() OVER (PARTITION BY camera ORDER BY created,start) AS camera_rank "
+            "FROM jobs WHERE state='pending') "
+            "ORDER BY CASE camera_rank WHEN 1 THEN 0 ELSE 1 END,priority,end DESC LIMIT -1 OFFSET 20)",
             (now,),
         )
         self.db.execute(
@@ -110,8 +112,9 @@ class Queue:
         row = self.db.execute(
             "SELECT * FROM jobs WHERE state='pending' OR "
             "(state='second_opinion' AND updated < ?) "
-            "ORDER BY CASE state WHEN 'pending' THEN 0 ELSE 1 END,priority,start LIMIT 1",
-            (now - 60,),
+            "ORDER BY CASE state WHEN 'pending' THEN 0 ELSE 1 END, "
+            "MAX(0,priority-CAST((?-created)/60 AS INTEGER)),start LIMIT 1",
+            (now - 60, now),
         ).fetchone()
         if row is None:
             return None
