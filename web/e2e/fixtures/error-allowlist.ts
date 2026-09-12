@@ -56,11 +56,6 @@ export const GLOBAL_ALLOWLIST: RegExp[] = [
   // Fix: add route handlers for /api/review and /api/review/** in api-mocker.ts.
   /500 Internal Server Error.*\/api\/review(\?|\/|$)/,
 
-  // TODO(real-bug): /api/stats/history is not mocked; the system page fetches
-  // it for the detector/process history charts.
-  // Fix: add route handler for /api/stats/history in api-mocker.ts.
-  /500 Internal Server Error.*\/api\/stats\/history/,
-
   // TODO(real-bug): /api/event_ids is not mocked; the explore/search page
   // fetches it to resolve event IDs for display.
   // Fix: add route handler for /api/event_ids in api-mocker.ts.

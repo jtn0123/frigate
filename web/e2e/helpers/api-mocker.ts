@@ -81,6 +81,11 @@ export class ApiMocker {
     await this.page.route("**/api/stats", (route) =>
       route.fulfill({ json: stats }),
     );
+    // History charts on /system. Without this, GET falls through to the
+    // preview proxy (403/500) and the error toast eats the next tab click.
+    await this.page.route("**/api/stats/history**", (route) =>
+      route.fulfill({ json: [stats] }),
+    );
 
     // Reviews. The real backend exposes /review (singular) for the main
     // list and /review/summary for the summary — the previous plural glob
