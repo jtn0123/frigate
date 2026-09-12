@@ -40,9 +40,12 @@ def memory_available() -> int:
     total = int(os.environ["PARENT_MEMORY_LIMIT_BYTES"])
     limit = total if limit == "max" else min(total, int(limit))
     # Count reclaimable file cache, but preserve active allocations and a reserve.
-    values = dict(
-        line.split() for line in (root / "memory.stat").read_text().splitlines()
-    )
+    values = {
+        key: value
+        for key, value in (
+            line.split() for line in (root / "memory.stat").read_text().splitlines()
+        )
+    }
     reclaimable = int(values.get("inactive_file", 0))
     return max(0, limit - current + reclaimable - 512 * 1024**2)
 
@@ -53,6 +56,18 @@ def health(large: bool = False) -> str:
         return health_reason(read_json("/stats"), memory_available(), large)
     except (OSError, ValueError, KeyError, RuntimeError):
         return "health check unavailable"
+
+
+def running_health_reason() -> str:
+    """Check camera pressure and the remaining reserve during inference."""
+    # Model memory is already allocated, so check only camera load and reserve.
+    try:
+        reason = health_reason(read_json("/stats"), 100 * 1024**3)
+        if memory_available() < 512 * 1024**2:
+            return "memory reserve low"
+        return reason
+    except (OSError, ValueError, KeyError):
+        return "health unavailable"
 
 
 def infer(audio: Path, output: Path, model: str) -> dict:
@@ -72,13 +87,7 @@ def infer(audio: Path, output: Path, model: str) -> dict:
                     raise RuntimeError("worker stopping")
                 if METRICS:
                     METRICS.sample(process.pid)
-                # Model memory is already allocated, so only check camera load here.
-                try:
-                    reason = health_reason(read_json("/stats"), 100 * 1024**3)
-                    if memory_available() < 512 * 1024**2:
-                        reason = "memory reserve low"
-                except (OSError, ValueError, KeyError):
-                    reason = "health unavailable"
+                reason = running_health_reason()
                 busy_checks = busy_checks + 1 if reason else 0
                 if busy_checks >= 3:
                     raise RuntimeError("camera processing needs priority")

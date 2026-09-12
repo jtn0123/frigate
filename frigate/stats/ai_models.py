@@ -44,6 +44,39 @@ def process_memory(pid: int | None) -> int | None:
         return None
 
 
+def audio_model(entry: dict, key: str, name: str, role: str, stale: bool) -> dict:
+    """Normalize one audio model and hide expired live measurements."""
+    status = entry.get("status", "unknown")
+    if status not in {"cached", "busy", "loading", "loaded", "missing"}:
+        status = "unknown"
+    row = {
+        "id": "audio:" + key,
+        "name": name,
+        "role": role,
+        "location": "audio_worker",
+        "device": "CPU",
+        "status": "stale" if stale else status,
+        "resource_scope": "process",
+    }
+    for field in (
+        "disk_bytes",
+        "ram_bytes",
+        "peak_ram_bytes",
+        "cpu_percent",
+        "gpu_memory_bytes",
+        "latency_ms",
+        "load_ms",
+        "last_used",
+    ):
+        value = number(entry.get(field))
+        if stale and field in {"ram_bytes", "cpu_percent", "gpu_memory_bytes"}:
+            value = None
+        row[field] = (
+            int(value) if value is not None and field.endswith("bytes") else value
+        )
+    return row
+
+
 def audio_models() -> tuple[list[dict], dict]:
     """Read a bounded, sanitized telemetry file; never expose audio transcripts."""
     try:
@@ -59,38 +92,9 @@ def audio_models() -> tuple[list[dict], dict]:
             ("clap", "CLAP", "sound_recognition"),
             ("vad", "Silero VAD", "speech_filter"),
         ):
-            entry = data.get("models", {}).get(key, {})
-            status = entry.get("status", "unknown")
-            if status not in {"cached", "busy", "loading", "loaded", "missing"}:
-                status = "unknown"
-            row = {
-                "id": "audio:" + key,
-                "name": name,
-                "role": role,
-                "location": "audio_worker",
-                "device": "CPU",
-                "status": "stale" if stale else status,
-                "resource_scope": "process",
-            }
-            for field in (
-                "disk_bytes",
-                "ram_bytes",
-                "peak_ram_bytes",
-                "cpu_percent",
-                "gpu_memory_bytes",
-                "latency_ms",
-                "load_ms",
-                "last_used",
-            ):
-                value = number(entry.get(field))
-                if stale and field in {"ram_bytes", "cpu_percent", "gpu_memory_bytes"}:
-                    value = None
-                row[field] = (
-                    int(value)
-                    if value is not None and field.endswith("bytes")
-                    else value
-                )
-            models.append(row)
+            models.append(
+                audio_model(data.get("models", {}).get(key, {}), key, name, role, stale)
+            )
         # Return explicit fields only. Telemetry shares a cache directory with
         # benchmark files; none of those files or their text belongs in the API.
         queue = data.get("queue", {})
@@ -195,65 +199,69 @@ def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict]
     return models + audio, queue
 
 
+async def collect_ollama_model(name: str, provider: GenAIConfig) -> dict:
+    """Read one configured provider without loading its models."""
+    row = {
+        "id": "genai:" + name,
+        "name": provider.model,
+        "role": "generative_ai",
+        "location": "ollama",
+        "device": "unknown",
+        "status": "unavailable",
+        "resource_scope": "model_allocation",
+    }
+    row.update(await asyncio.to_thread(read_generation_metrics, provider))
+    headers = (
+        {"Authorization": "Bearer " + provider.api_key} if provider.api_key else {}
+    )
+    try:
+        async with httpx.AsyncClient(timeout=3, follow_redirects=False) as client:
+            responses = await asyncio.gather(
+                *(
+                    client.get(
+                        (provider.base_url or "http://localhost:11434").rstrip("/")
+                        + endpoint,
+                        headers=headers,
+                    )
+                    for endpoint in ("/api/ps", "/api/tags")
+                )
+            )
+        for response in responses:
+            response.raise_for_status()
+        loaded, stored = [response.json().get("models", []) for response in responses]
+        expected = (
+            provider.model if ":" in provider.model else provider.model + ":latest"
+        )
+
+        def match(item: dict) -> bool:
+            return item.get("name", item.get("model")) in {provider.model, expected}
+
+        cached = next((m for m in stored if match(m)), None)
+        resident = next((m for m in loaded if match(m)), None)
+        row["status"] = "missing"
+        if cached:
+            row["status"] = "cached"
+        if resident:
+            row["status"] = "loaded"
+        row["disk_bytes"] = cached.get("size") if cached else None
+        if resident:
+            row["gpu_memory_bytes"] = resident.get("size_vram")
+            row["context_length"] = resident.get("context_length")
+            row["device"] = "GPU" if resident.get("size_vram", 0) > 0 else "CPU"
+            # /api/ps size is an allocation estimate, not process RSS.
+            # Do not subtract VRAM from it and label the remainder as RAM.
+        return row
+    except (httpx.HTTPError, ValueError, TypeError, AttributeError):
+        return row
+
+
 async def collect_ollama_models(config: FrigateConfig) -> list[dict]:
     """Query only configured Ollama servers without loading or generating models."""
-
-    async def collect(name: str, provider: GenAIConfig) -> dict:
-        row = {
-            "id": "genai:" + name,
-            "name": provider.model,
-            "role": "generative_ai",
-            "location": "ollama",
-            "device": "unknown",
-            "status": "unavailable",
-            "resource_scope": "model_allocation",
-        }
-        row.update(await asyncio.to_thread(read_generation_metrics, provider))
-        headers = (
-            {"Authorization": "Bearer " + provider.api_key} if provider.api_key else {}
-        )
-        try:
-            async with httpx.AsyncClient(timeout=3, follow_redirects=False) as client:
-                responses = await asyncio.gather(
-                    *(
-                        client.get(
-                            (provider.base_url or "http://localhost:11434").rstrip("/")
-                            + endpoint,
-                            headers=headers,
-                        )
-                        for endpoint in ("/api/ps", "/api/tags")
-                    )
-                )
-            for response in responses:
-                response.raise_for_status()
-            loaded, stored = [
-                response.json().get("models", []) for response in responses
-            ]
-            expected = (
-                provider.model if ":" in provider.model else provider.model + ":latest"
-            )
-
-            def match(item: dict) -> bool:
-                return item.get("name", item.get("model")) in {provider.model, expected}
-
-            cached = next((m for m in stored if match(m)), None)
-            resident = next((m for m in loaded if match(m)), None)
-            row["status"] = "loaded" if resident else "cached" if cached else "missing"
-            row["disk_bytes"] = cached.get("size") if cached else None
-            if resident:
-                row["gpu_memory_bytes"] = resident.get("size_vram")
-                row["context_length"] = resident.get("context_length")
-                row["device"] = "GPU" if resident.get("size_vram", 0) > 0 else "CPU"
-                # /api/ps size is an allocation estimate, not process RSS.
-                # Do not subtract VRAM from it and label the remainder as RAM.
-            return row
-        except (httpx.HTTPError, ValueError, TypeError, AttributeError):
-            return row
 
     return list(
         await asyncio.gather(
             *(
-                collect(name, provider)
+                collect_ollama_model(name, provider)
                 for name, provider in config.genai.items()
                 if provider.provider == "ollama"
             )

@@ -11,13 +11,14 @@ function HistoryChart({
   title,
   series,
   unit,
-}: {
+}: Readonly<{
   title: string;
   series: Series;
   unit: string;
-}) {
+}>) {
   const { t, i18n } = useTranslation(["views/system"]);
   const { theme, systemTheme } = useTheme();
+  const resolvedTheme = theme === "system" ? systemTheme : theme;
   const times = series.flatMap((item) => item.data.map((point) => point.x));
   const first = times.length ? Math.min(...times) : undefined;
   const last = times.length ? Math.max(...times) : undefined;
@@ -33,10 +34,7 @@ function HistoryChart({
         background: "transparent",
       },
       theme: {
-        mode:
-          (theme === "system" ? systemTheme : theme) === "dark"
-            ? "dark"
-            : "light",
+        mode: resolvedTheme === "dark" ? "dark" : "light",
       },
       colors: ["#3b82f6", "#f59e0b", "#10b981"],
       stroke: { width: single ? 0 : 2, curve: "straight" },
@@ -68,7 +66,7 @@ function HistoryChart({
       },
       legend: { show: true, position: "bottom" },
     }),
-    [theme, systemTheme, unit, i18n.language, first, last, single],
+    [resolvedTheme, unit, i18n.language, first, last, single],
   );
   const count = series.reduce(
     (sum, item) => sum + item.data.filter((point) => point.y != null).length,
@@ -94,17 +92,16 @@ function HistoryChart({
 export default function AIModelGraphs({
   history,
   data,
-}: {
+}: Readonly<{
   history: AIModelsResponse[];
   data: AIModelsResponse;
-}) {
+}>) {
   const { t } = useTranslation(["views/system"]);
   const [selected, setSelected] = useState("");
+  const fallbackId = data.models.length ? data.models[0].id : "";
   const id = data.models.some((model) => model.id === selected)
     ? selected
-    : data.models.length
-      ? data.models[0].id
-      : "";
+    : fallbackId;
   const model = data.models.find((item) => item.id === id);
   const series = (
     field: "ram_bytes" | "cpu_percent" | "latency_ms" | "gpu_memory_bytes",

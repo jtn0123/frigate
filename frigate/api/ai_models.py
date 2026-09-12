@@ -44,7 +44,6 @@ class AIModelsResponse(BaseModel):
 
 @router.get(
     "/ai/models",
-    response_model=AIModelsResponse,
     dependencies=[Depends(require_role(["admin"]))],
 )
 async def ai_models(request: Request) -> AIModelsResponse:

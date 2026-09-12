@@ -26,11 +26,15 @@ export function missingReason(
   if (field === "gpu_memory_bytes")
     return model.device === "CPU" ? "cpuOnly" : "sharedGpu";
   if (field === "disk_bytes") return "fileInventory";
-  if (model.location === "audio_worker") {
-    if (model.id === "audio:vad" && field === "load_ms") return "includedInRun";
-    return "awaitingRun";
-  }
+  if (model.location === "audio_worker")
+    return audioMissingReason(model, field);
   return "notInstrumented";
+}
+
+function audioMissingReason(model: AIModelStatus, field: MetricField): string {
+  return model.id === "audio:vad" && field === "load_ms"
+    ? "includedInRun"
+    : "awaitingRun";
 }
 
 export function appendHistory(
