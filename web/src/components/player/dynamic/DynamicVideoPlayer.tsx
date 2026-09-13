@@ -13,7 +13,7 @@ import { Recording } from "@/types/record";
 import { Preview } from "@/types/preview";
 import PreviewPlayer, { PreviewController } from "../PreviewPlayer";
 import { usePreviewForTimeRange } from "@/hooks/use-camera-previews";
-import { isCurrentHour } from "@/utils/dateUtil";
+import { isCurrentOrPreviousHour } from "@/utils/dateUtil";
 import { DynamicVideoController } from "./DynamicVideoController";
 import HlsVideoPlayer, { HlsSource } from "../HlsVideoPlayer";
 import { useDetailStream } from "@/context/detail-stream-context";
@@ -104,8 +104,10 @@ export default function DynamicVideoPlayer({
     camera,
     timeRange,
   );
+  // mirrors PreviewPlayer, which plays frames for the current and the
+  // previous hour (that hour's mp4 is written only after it ends)
   const hasPreview =
-    Boolean(previewForRange) || isCurrentHour(timeRange.before);
+    Boolean(previewForRange) || isCurrentOrPreviousHour(timeRange.before);
   const controller = useMemo(() => {
     if (!config || !playerRef.current || !previewController) {
       return undefined;
