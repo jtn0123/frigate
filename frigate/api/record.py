@@ -226,10 +226,13 @@ def recordings_summary(camera_name: str, timezone: str = "utc"):
 @router.get("/{camera_name}/recordings", dependencies=[Depends(require_camera_access)])
 def recordings(
     camera_name: str,
-    after: float = (datetime.now() - timedelta(hours=1)).timestamp(),
-    before: float = datetime.now().timestamp(),
+    after: float | None = None,
+    before: float | None = None,
 ):
     """Return specific camera recordings between the given 'after'/'end' times. If not provided the last hour will be used"""
+    now = datetime.now()
+    after = after if after is not None else (now - timedelta(hours=1)).timestamp()
+    before = before if before is not None else now.timestamp()
     recordings = (
         Recordings.select(
             Recordings.id,

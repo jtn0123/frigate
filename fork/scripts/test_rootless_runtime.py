@@ -108,6 +108,7 @@ def run(image: str) -> None:
             print("Checking non-root startup and recording", flush=True)
             deadline = time.monotonic() + 150
             recordings = []
+            runtime_ready = False
             while time.monotonic() < deadline:
                 result = execute(
                     "python3",
@@ -124,10 +125,23 @@ print(json.dumps(connection.execute(
                 if result.returncode == 0:
                     recordings = json.loads(result.stdout)
                     if recordings:
-                        break
+                        ready = execute(
+                            "curl",
+                            "--fail",
+                            "--silent",
+                            "--max-time",
+                            "5",
+                            "http://127.0.0.1:5000/api/version",
+                            check=False,
+                        )
+                        if ready.returncode == 0:
+                            runtime_ready = True
+                            break
                 time.sleep(1)
-            if not recordings:
-                raise RuntimeError("Synthetic camera did not produce a recording")
+            if not runtime_ready:
+                raise RuntimeError(
+                    "Non-root recording and API startup did not complete"
+                )
             # Exercise the actual CPU backend deterministically. Motion-based
             # scheduling depends on scene thresholds, not runtime privileges.
             execute(

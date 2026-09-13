@@ -11,9 +11,9 @@
 
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import type { RJSFSchema } from "@rjsf/utils";
 import { isForkEnabled } from "@/fork/flags";
-import type { FrigateConfig } from "@/types/frigateConfig";
 import type { ConfigSectionData } from "@/types/configForm";
 import type { SectionStatus } from "@/views/settings/SingleSectionPage";
 import {
@@ -146,7 +146,7 @@ const EMPTY_PENDING: Record<string, ConfigSectionData> = {};
 export function useSettingsDiff(): SettingsSectionDiff[] {
   const { published } = useSettingsNavStore();
   const enabled = isForkEnabled("settingsNav") && !!published;
-  const { data: config } = useSWR<FrigateConfig>(enabled ? "config" : null);
+  const { data: config } = useApi(enabled ? "/config" : null);
   const { data: fullSchema } = useSWR<RJSFSchema>(
     enabled ? "config/schema.json" : null,
   );

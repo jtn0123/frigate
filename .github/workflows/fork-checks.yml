@@ -29,7 +29,7 @@ concurrency:
 
 env:
   DEFAULT_PYTHON: "3.11"
-  FORK_TEST_BASE: ghcr.io/blakeblackshear/frigate:0.18.0-rc2
+  FORK_TEST_BASE: ghcr.io/blakeblackshear/frigate:0.18.0
 
 jobs:
   secrets_scan:
@@ -223,6 +223,7 @@ jobs:
           COVERAGE_XML: coverage-py/coverage.xml
       - name: Non-root NVR startup, recording, playback, and shutdown
         run: |
+          docker build --target nginx -f docker/main/Dockerfile -t frigate-nginx-check .
           docker build -f fork/Dockerfile.rootless-test --build-arg BASE=frigate-fork-test -t frigate-rootless-check .
           python3 fork/scripts/test_rootless_runtime.py frigate-rootless-check
       - name: Audio companion unit tests

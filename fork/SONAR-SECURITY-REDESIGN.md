@@ -91,13 +91,15 @@ non-root based solely on a CPU test.
 ### Repeatable runtime validation
 
 ```sh
+docker build --target nginx -f docker/main/Dockerfile -t frigate-nginx-check .
 docker build -f fork/Dockerfile.rootless-test \
   --build-arg BASE=frigate-fork-test -t frigate-rootless-check .
 python3 fork/scripts/test_rootless_runtime.py frigate-rootless-check
 ```
 
 CI builds this runtime from the existing dependency test image plus current
-backend and service files. It runs an isolated synthetic camera with networking
+backend and service files. It rebuilds the production nginx target so the
+nginx-vod-module supports the current configuration directives. It runs an isolated synthetic camera with networking
 disabled, all Linux capabilities dropped, and `no-new-privileges`. It checks
 real CPU inference on a deterministic tensor, recording, decoded API clip
 playback, preview, every process UID, private cache

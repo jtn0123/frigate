@@ -227,3 +227,16 @@ response-shape parsing is now extracted into a focused helper. The 1,151-test
 suite and 23 focused tests pass after that cleanup. Final scan confirmation of
 the complexity cleanup is pending; the two PR security blockers are confirmed
 closed by the c0e140c4b scan, not waived.
+
+Integration with next at b9fbec894 (PRs 46 and 47) preserves the new secrets
+handling and go2rtc execution restrictions alongside the private atomic writer.
+The preview-player automatic merge duplicated its fallback-image attribute;
+the duplicate is removed. The runtime check now builds the production nginx
+stage to support the new nginx-vod-module configuration. The previous dependency
+image rejects `vod_hls_version`, so it cannot validate that runtime configuration.
+
+Combined local validation: 1,201 backend tests, 310 frontend tests, mypy across
+390 files, generated API/type checks, frontend lint and production build pass.
+The integrated runtime passes CPU inference, recording, preview, decoded API
+playback, private permissions, and graceful service shutdown with the rebuilt
+nginx. Final PR CI and Sonar confirmation follow the integration commit.
