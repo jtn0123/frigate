@@ -224,7 +224,7 @@ tooling tests only execute on CI's coverage path (D20).
 - ~~D17~~ ✓ 2026-09-11 — ctranslate2 loaded before onnxruntime (ROCm transcription crash loop)
 - ~~D18~~ ✓ 2026-09-11 — Ollama per-image token cost measured, not guessed
 
-- ~~D21~~ ✓ done 2026-09-13 — line coverage compared with `fork/coverage-floor.json` in the Sonar job
+- ~~D21~~ ✓ done 2026-09-13 — line coverage held to `fork/coverage-floor.json` (python 41.39%, web 58.61%, 1 point of tolerance) in the Sonar job
 
 
 #### D6 — Visual regression screenshots `[FE] [fork]`

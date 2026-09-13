@@ -1,6 +1,6 @@
 {
-  "_comment": "Coverage may not fall below these percentages (D21). Set from the Fork - Checks run named in the commit that changed them; lowering one needs a reason in that commit message.",
-  "tolerance_points": 0.5,
-  "python": null,
-  "web": null
+  "_comment": "Coverage may not fall below these percentages (D21). Measured by Fork - Checks run 34769898882 on 2026-09-13: python 41.39%, web 58.61% (vitest merged with the browser coverage the e2e shards measure). Lowering one needs a reason in the commit that does it.",
+  "tolerance_points": 1.0,
+  "python": 41.39,
+  "web": 58.61
 }
