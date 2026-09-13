@@ -53,7 +53,6 @@ class TimelineProcessor(threading.Thread):
     def insert_or_save(
         self,
         entry: dict[Any, Any],
-        prev_event_data: dict[Any, Any] | None,
         event_data: dict[Any, Any],
     ) -> None:
         """Insert into db or cache."""
@@ -131,7 +130,7 @@ class TimelineProcessor(threading.Thread):
         if event_type == EventStateEnum.start:
             timeline_entry = base_entry.copy()
             timeline_entry[Timeline.class_type] = "visible"
-            self.insert_or_save(timeline_entry, prev_event_data, event_data)
+            self.insert_or_save(timeline_entry, event_data)
         elif event_type == EventStateEnum.update and prev_event_data is not None:
             # Check all conditions and create timeline entries for each change
             entries_to_save = []
@@ -182,12 +181,12 @@ class TimelineProcessor(threading.Thread):
 
             # Save all entries
             for entry in entries_to_save:
-                self.insert_or_save(entry, prev_event_data, event_data)
+                self.insert_or_save(entry, event_data)
 
         elif event_type == EventStateEnum.end:
             timeline_entry = base_entry.copy()
             timeline_entry[Timeline.class_type] = "gone"
-            self.insert_or_save(timeline_entry, prev_event_data, event_data)
+            self.insert_or_save(timeline_entry, event_data)
 
     def handle_api_entry(
         self,

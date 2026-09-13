@@ -53,7 +53,7 @@ def _is_valid_host(host: str) -> bool:
     Private addresses are intentional for LAN cameras. Reject URL components
     such as userinfo, paths, queries, and fragments, including after a colon.
     """
-    if re.fullmatch(r"[a-zA-Z0-9.-]+(?::[0-9]{1,5})?", host) is None:
+    if re.fullmatch(r"[a-zA-Z0-9.-]+(?::\d{1,5})?", host, flags=re.ASCII) is None:
         return False
     _, separator, port = host.partition(":")
     return not separator or 1 <= int(port) <= 65535

@@ -21,7 +21,7 @@ class TestCameraRedirects(unittest.TestCase):
         get.return_value = Mock(status_code=302)
         response = reolink_detect("camera.local", "user", "pass&word")
         self.assertFalse(json.loads(response.body)["success"])
-        self.assertEqual(get.call_args.kwargs["allow_redirects"], False)
+        self.assertFalse(get.call_args.kwargs["allow_redirects"])
         get.return_value.json.assert_not_called()
         self.assertIn("password=pass%26word", get.call_args.args[0])
 
@@ -47,6 +47,8 @@ class TestCameraRedirects(unittest.TestCase):
             "camera:65536",
             "camera:invalid",
             "camera:80:90",
+            "camera:٨٠",
+            "camera:８０",
         ):
             with self.subTest(host=host):
                 response = reolink_detect(host, "user", "password")

@@ -129,3 +129,25 @@ CodeQL follow-up: the old camera host validator ignored everything after the
 first colon. Ten malformed host/port variants reproduced the gap. The validator
 now checks the entire authority and limits ports to 1 through 65535. Tests also
 prove viewer and missing-role requests cannot invoke camera discovery.
+
+### PR scan and gate outcome
+
+The c67bd8726 scan reported 89.1% new-code coverage, zero new duplication,
+zero bugs, and four security findings. The two runtime-file findings
+(AaCaK1PY136A9JFWt-nx and AaCaK1Up136A9JFWt-n9) were reviewed against the
+private atomic writer and filesystem tests, and closed as false positives
+on the PR. These PR reviews are separate from the 35 baseline closures.
+
+The PR gate still requires disposition of administrator-selected camera
+requests (AaCaK1LW136A9JFWt-nv) and the existing root-run final image
+(AaCaK1TP136A9JFWt-n8). The latter is a newly reported PR finding on an
+unchanged final FROM stage, additional to the five root-image findings in
+the baseline inventory. CodeQL records the camera request alert as mitigated
+by the verified controls. Sonar remains open pending an explicit decision
+between compatibility-risk acceptance and a validated redesign. No accepted
+risk has been counted as a code fix or silently removed from the gate.
+
+Follow-up cleanup removes the now-unused timeline insertion argument and clip
+retention assignment. Twelve malformed host variants, including non-ASCII
+ports, are rejected. The final focused timeline, retention, and camera tests
+pass after these changes; the combined suite previously passed 1,137 tests.

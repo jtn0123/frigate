@@ -30,7 +30,7 @@ RUN sh -c "$BASE_HOOK"
 FROM slim-base AS wget
 ARG DEBIAN_FRONTEND
 RUN apt-get update \
-    && apt-get install -y wget curl ca-certificates xz-utils \
+    && apt-get install -y ca-certificates curl wget xz-utils \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /rootfs
 

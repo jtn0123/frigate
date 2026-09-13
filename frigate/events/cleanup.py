@@ -239,10 +239,6 @@ class EventCleanup(threading.Thread):
 
         ## Expire events from cameras based on the camera config
         for name, camera in self.config.cameras.items():
-            expire_days = max(
-                camera.record.alerts.retain.days,
-                camera.record.detections.retain.days,
-            )
             alert_expire_date = (
                 now - datetime.timedelta(days=camera.record.alerts.retain.days)
             ).timestamp()
