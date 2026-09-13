@@ -10,6 +10,7 @@ import useSWR from "swr";
 import { useApi } from "@/api/fork/client";
 import useDeepMemo from "./use-deep-memo";
 import { capitalizeAll, capitalizeFirstLetter } from "@/utils/stringUtil";
+import { formatDetectorName } from "@/lib/fork/detector-name";
 import { isReplayCamera } from "@/utils/cameraUtil";
 import { useFrigateStats, useJobStatus } from "@/api/ws";
 import { useIsAdmin } from "./use-is-admin";
@@ -122,7 +123,7 @@ export default function useStats(stats: FrigateStats | undefined) {
       if (det["inference_speed"] > InferenceThreshold.error) {
         problems.push({
           text: t("stats.detectIsVerySlow", {
-            detect: capitalizeFirstLetter(key),
+            detect: formatDetectorName(key),
             speed: det["inference_speed"],
           }),
           color: "text-danger",
@@ -131,7 +132,7 @@ export default function useStats(stats: FrigateStats | undefined) {
       } else if (det["inference_speed"] > InferenceThreshold.warning) {
         problems.push({
           text: t("stats.detectIsSlow", {
-            detect: capitalizeFirstLetter(key),
+            detect: formatDetectorName(key),
             speed: det["inference_speed"],
           }),
           color: "text-orange-400",
