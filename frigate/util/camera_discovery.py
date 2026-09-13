@@ -1,5 +1,6 @@
 """Camera queries with server-configured, IP-pinned destinations."""
 
+import ssl
 from typing import Any
 from urllib.parse import urlencode
 
@@ -27,6 +28,7 @@ def query_reolink(
             server_hostname=server_name,
             assert_hostname=server_name,
             cert_reqs="CERT_REQUIRED",
+            ssl_minimum_version=ssl.TLSVersion.TLSv1_2,
             ca_certs=target.ca_certs,
         )
     else:
