@@ -179,10 +179,17 @@ export function useHashState<S extends string>(): [
   const setHash = useCallback(
     (value: S | undefined) => {
       const loc = locationRef.current;
+      const state: unknown = loc.state;
       if (!value) {
-        void navigate(loc.pathname);
+        void navigate(
+          { pathname: loc.pathname, search: loc.search },
+          { state },
+        );
       } else {
-        void navigate(`${loc.pathname}#${value}`, { state: loc.state });
+        void navigate(
+          { pathname: loc.pathname, search: loc.search, hash: `#${value}` },
+          { state },
+        );
       }
     },
     // locationRef is stable so we don't need it in deps

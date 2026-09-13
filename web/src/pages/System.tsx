@@ -1,11 +1,13 @@
+import { RouteSuspense } from "@/components/fork/RouteErrorBoundary";
+import PageLoading from "@/components/navigation/PageLoading";
+import ShareViewButton from "@/components/navigation/ShareViewButton";
 import { useApi } from "@/api/fork/client";
 import ErrorState from "@/components/fork/ErrorState";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useEffect, useMemo, useState } from "react";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { isDesktop } from "react-device-detect";
-import GeneralMetrics from "@/views/system/GeneralMetrics";
-import StorageMetrics from "@/views/system/StorageMetrics";
+
 import { wrapAsync } from "@/utils/promise";
 import {
   LuActivity,
@@ -15,15 +17,27 @@ import {
   LuSearchCode,
 } from "react-icons/lu";
 import { FaVideo } from "react-icons/fa";
-import useOptimisticState from "@/hooks/use-optimistic-state";
-import CameraMetrics from "@/views/system/CameraMetrics";
+
 import { useHashState } from "@/hooks/use-overlay-state";
 import { Toaster } from "@/components/ui/sonner";
-import EnrichmentMetrics from "@/views/system/EnrichmentMetrics";
-import AIModelMetrics from "@/views/system/AIModelMetrics";
+
 import { useTranslation } from "react-i18next";
-import CameraHealthView from "@/views/fork/CameraHealthView";
+
 import { isForkEnabled } from "@/fork/flags";
+
+const GeneralMetrics = lazy(() => import("@/views/system/GeneralMetrics"));
+
+const StorageMetrics = lazy(() => import("@/views/system/StorageMetrics"));
+
+const CameraMetrics = lazy(() => import("@/views/system/CameraMetrics"));
+
+const EnrichmentMetrics = lazy(
+  () => import("@/views/system/EnrichmentMetrics"),
+);
+
+const AIModelMetrics = lazy(() => import("@/views/system/AIModelMetrics"));
+
+const CameraHealthView = lazy(() => import("@/views/fork/CameraHealthView"));
 
 const allMetrics = [
   "general",
@@ -34,6 +48,9 @@ const allMetrics = [
   "health",
 ] as const;
 type SystemMetric = (typeof allMetrics)[number];
+function isSystemMetric(value: string): value is SystemMetric {
+  return allMetrics.some((metric) => metric === value);
+}
 
 function System() {
   const { t } = useTranslation(["views/system"]);
@@ -62,29 +79,13 @@ function System() {
 
   // stats page
 
-  const [page, setPage] = useHashState<SystemMetric>();
-  const [pageToggle, setPageToggle] = useOptimisticState(
-    page ?? "general",
-    setPage,
-    100,
-  );
-  const [lastUpdated, setLastUpdated] = useState<number>(
-    Math.floor(Date.now() / 1000),
-  );
-
-  // Track which tabs have been visited so we can keep them mounted after first visit.
-  // Using a ref updated during render avoids extra render cycles from state/effects.
-  const visitedTabsRef = useRef(new Set<string>());
-  if (page) {
-    visitedTabsRef.current.add(page);
-  }
-  const visitedTabs = visitedTabsRef.current;
+  const [hashPage, setPage] = useHashState<SystemMetric>();
+  const page = hashPage && metrics.includes(hashPage) ? hashPage : "general";
+  const [lastUpdated, setLastUpdated] = useState<number>(0);
 
   useEffect(() => {
-    if (pageToggle) {
-      document.title = t("documentTitle." + pageToggle);
-    }
-  }, [pageToggle, t]);
+    document.title = t("documentTitle." + page);
+  }, [page, t]);
 
   // stats collection
 
@@ -104,17 +105,17 @@ function System() {
           className="*:rounded-md *:px-3 *:py-4"
           type="single"
           size="sm"
-          value={pageToggle}
-          onValueChange={(value: SystemMetric) => {
-            if (value) {
-              setPageToggle(value);
+          value={page}
+          onValueChange={(value) => {
+            if (isSystemMetric(value)) {
+              setPage(value);
             }
           }} // don't allow the severity to be unselected
         >
           {Object.values(metrics).map((item) => (
             <ToggleGroupItem
               key={item}
-              className={`flex items-center justify-between gap-2 ${pageToggle == item ? "" : "*:text-muted-foreground"}`}
+              className={`flex items-center justify-between gap-2 ${page == item ? "" : "*:text-muted-foreground"}`}
               value={item}
               aria-label={t("selectTab", { tab: item })}
             >
@@ -131,7 +132,8 @@ function System() {
           ))}
         </ToggleGroup>
 
-        <div className="ml-auto flex items-center">
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <ShareViewButton />
           {page !== "health" && Boolean(lastUpdated) && (
             <div className="h-full content-center text-sm text-muted-foreground">
               {t("lastRefreshed")}
@@ -156,51 +158,50 @@ function System() {
           onRetry={wrapAsync(() => refreshStats())}
         />
       )}
-      {visitedTabs.has("general") && (
-        <div className={page == "general" ? "contents" : "hidden"}>
-          <GeneralMetrics
-            lastUpdated={lastUpdated}
-            setLastUpdated={setLastUpdated}
-            isActive={page == "general"}
-          />
-        </div>
-      )}
-      {metrics.includes("enrichments") && visitedTabs.has("enrichments") && (
-        <div className={page == "enrichments" ? "contents" : "hidden"}>
-          <EnrichmentMetrics
-            lastUpdated={lastUpdated}
-            setLastUpdated={setLastUpdated}
-            isActive={page == "enrichments"}
-          />
-        </div>
-      )}
-      {visitedTabs.has("storage") && (
-        <div className={page == "storage" ? "contents" : "hidden"}>
-          <StorageMetrics setLastUpdated={setLastUpdated} />
-        </div>
-      )}
-      {visitedTabs.has("models") && (
-        <div className={page == "models" ? "contents" : "hidden"}>
-          <AIModelMetrics
-            isActive={page == "models"}
-            setLastUpdated={setLastUpdated}
-          />
-        </div>
-      )}
-      {visitedTabs.has("cameras") && (
-        <div className={page == "cameras" ? "contents" : "hidden"}>
-          <CameraMetrics
-            lastUpdated={lastUpdated}
-            setLastUpdated={setLastUpdated}
-            isActive={page == "cameras"}
-          />
-        </div>
-      )}
-      {metrics.includes("health") && visitedTabs.has("health") && (
-        <div className={page == "health" ? "contents" : "hidden"}>
-          <CameraHealthView />
-        </div>
-      )}
+      <RouteSuspense fallback={<PageLoading />}>
+        {page === "general" && (
+          <div className="contents">
+            <GeneralMetrics
+              lastUpdated={lastUpdated}
+              setLastUpdated={setLastUpdated}
+              isActive
+            />
+          </div>
+        )}
+        {metrics.includes("enrichments") && page === "enrichments" && (
+          <div className="contents">
+            <EnrichmentMetrics
+              lastUpdated={lastUpdated}
+              setLastUpdated={setLastUpdated}
+              isActive
+            />
+          </div>
+        )}
+        {page === "storage" && (
+          <div className="contents">
+            <StorageMetrics setLastUpdated={setLastUpdated} />
+          </div>
+        )}
+        {page === "models" && (
+          <div className="contents">
+            <AIModelMetrics isActive setLastUpdated={setLastUpdated} />
+          </div>
+        )}
+        {page === "cameras" && (
+          <div className="contents">
+            <CameraMetrics
+              lastUpdated={lastUpdated}
+              setLastUpdated={setLastUpdated}
+              isActive
+            />
+          </div>
+        )}
+        {metrics.includes("health") && page === "health" && (
+          <div className="contents">
+            <CameraHealthView />
+          </div>
+        )}
+      </RouteSuspense>
     </div>
   );
 }

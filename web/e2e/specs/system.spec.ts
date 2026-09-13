@@ -235,3 +235,15 @@ test.describe("System — mobile @medium @mobile", () => {
     );
   });
 });
+
+test("unknown System tab falls back to General and preserves view parameters @medium @mobile", async ({
+  frigateApp,
+}) => {
+  await frigateApp.goto("/system?camera=front_door#unknown");
+  await expect(frigateApp.page.getByLabel("Select general")).toHaveAttribute(
+    "data-state",
+    "on",
+  );
+  await frigateApp.page.getByLabel("Select cameras").click();
+  await expect(frigateApp.page).toHaveURL(/camera=front_door#cameras/);
+});

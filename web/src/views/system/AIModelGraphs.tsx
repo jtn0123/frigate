@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useViewQuery } from "@/hooks/use-view-query";
+import { useMemo } from "react";
 import Chart from "react-apexcharts";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@/context/theme-provider";
@@ -19,7 +20,7 @@ function HistoryChart({
   series: Series;
   unit: string;
 }>) {
-  const { t, i18n } = useTranslation(["views/system"]);
+  const { t, i18n } = useTranslation(["views/system", "fork"]);
   const { theme, systemTheme } = useTheme();
   const colors = useGraphColors();
   const resolvedTheme = theme === "system" ? systemTheme : theme;
@@ -99,14 +100,25 @@ function HistoryChart({
 }
 
 export default function AIModelGraphs({
-  history,
+  history: allHistory,
   data,
 }: Readonly<{
   history: AIModelsResponse[];
   data: AIModelsResponse;
 }>) {
-  const { t } = useTranslation(["views/system"]);
-  const [selected, setSelected] = useState("");
+  const { t } = useTranslation(["views/system", "fork"]);
+  const [params, updateView] = useViewQuery();
+  const selected = params.get("model") ?? "";
+  const range = ["15", "60", "1440"].includes(params.get("range") ?? "")
+    ? params.get("range")!
+    : "60";
+  const latest = Math.max(
+    data.updated,
+    ...allHistory.map((sample) => sample.updated),
+  );
+  const history = allHistory.filter(
+    (sample) => sample.updated >= latest - Number(range) * 60,
+  );
   const fallbackId = data.models.length ? data.models[0].id : "";
   const id = data.models.some((model) => model.id === selected)
     ? selected
@@ -147,6 +159,25 @@ export default function AIModelGraphs({
             {t("models.graphs.description")}
           </p>
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          {t("navigation.range", { ns: "fork" })}
+          <select
+            aria-label={t("navigation.range", { ns: "fork" })}
+            className="rounded-md border border-secondary bg-background px-3 py-2"
+            value={range}
+            onChange={(event) => updateView({ range: event.target.value })}
+          >
+            <option value="15">
+              {t("navigation.range15", { ns: "fork" })}
+            </option>
+            <option value="60">
+              {t("navigation.range60", { ns: "fork" })}
+            </option>
+            <option value="1440">
+              {t("navigation.range1440", { ns: "fork" })}
+            </option>
+          </select>
+        </label>
         <label
           htmlFor="ai-history-model"
           className="flex items-center gap-2 text-sm"
@@ -156,7 +187,7 @@ export default function AIModelGraphs({
             id="ai-history-model"
             className="max-w-56 rounded-md border border-secondary bg-background px-3 py-2"
             value={id}
-            onChange={(event) => setSelected(event.target.value)}
+            onChange={(event) => updateView({ model: event.target.value })}
           >
             {data.models.map((item) => (
               <option value={item.id} key={item.id}>

@@ -1,3 +1,4 @@
+import { preloadRoute } from "@/utils/routePreload";
 import { NavLink } from "react-router-dom";
 import {
   Tooltip,
@@ -45,6 +46,8 @@ export default function NavItem({
   const content = (
     <NavLink
       to={item.url}
+      onMouseEnter={() => preloadRoute(item.url)}
+      onFocus={() => preloadRoute(item.url)}
       onClick={onClick}
       aria-label={t(item.title)}
       className={({ isActive }) =>

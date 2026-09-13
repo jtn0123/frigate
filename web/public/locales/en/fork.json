@@ -253,5 +253,20 @@
     "exportStart": "Export start time",
     "exportEnd": "Export end time",
     "overview": "Timeline overview"
+  },
+  "navigation": {
+    "unsaved": "You have unsaved changes. Leave this page and discard them?",
+    "camera": "Camera",
+    "allCameras": "All cameras",
+    "range": "History range",
+    "range15": "Last 15 minutes",
+    "range60": "Last hour",
+    "range1440": "Last 24 hours",
+    "loading": "Loading page…",
+    "copyView": "Copy link to this view",
+    "copied": "Link copied",
+    "copyFailed": "Copy this address to share the current view",
+    "refreshing": "Refreshing measurements…",
+    "historyUnavailable": "History could not be loaded. Current measurements are shown below."
   }
 }

@@ -1,3 +1,4 @@
+import { useUnsavedNavigation } from "@/hooks/use-unsaved-navigation";
 import useSWR from "swr";
 import * as monaco from "monaco-editor";
 import { configureMonacoYaml } from "monaco-yaml";
@@ -203,6 +204,7 @@ function ConfigEditor() {
   // monitoring state
 
   const [hasChanges, setHasChanges] = useState(false);
+  useUnsavedNavigation(hasChanges);
 
   useEffect(() => {
     if (!rawConfig || !modelRef.current) {
@@ -224,24 +226,6 @@ function ConfigEditor() {
       setHasChanges(false);
     }
   }, [rawConfig]);
-
-  useEffect(() => {
-    let listener: ((e: BeforeUnloadEvent) => void) | undefined;
-    if (hasChanges) {
-      listener = (e) => {
-        e.preventDefault();
-        e.returnValue = true;
-        return t("confirm");
-      };
-      window.addEventListener("beforeunload", listener);
-    }
-
-    return () => {
-      if (listener) {
-        window.removeEventListener("beforeunload", listener);
-      }
-    };
-  }, [hasChanges, t]);
 
   // layout change handler
 
