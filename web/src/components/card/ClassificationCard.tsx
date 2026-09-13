@@ -417,14 +417,10 @@ export function GroupedClassificationCard({
                           ns: "views/explore",
                         })}
                         onClick={() => {
-                          void navigate(
-                            `/explore?event_id=${classifiedEvent.id}`,
-                          );
+                          navigate(`/explore?event_id=${classifiedEvent.id}`);
                         }}
                         onKeyDown={onActivate(() => {
-                          void navigate(
-                            `/explore?event_id=${classifiedEvent.id}`,
-                          );
+                          navigate(`/explore?event_id=${classifiedEvent.id}`);
                         })}
                       >
                         <LuSearch className="size-4 text-secondary-foreground" />

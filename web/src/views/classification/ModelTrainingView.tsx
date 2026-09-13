@@ -429,7 +429,7 @@ export default function ModelTrainingView({
             <Button
               className="flex items-center gap-2.5 rounded-lg"
               aria-label={t("label.back", { ns: "common" })}
-              onClick={() => void navigate(-1)}
+              onClick={() => navigate(-1)}
             >
               <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
               {isDesktop && (

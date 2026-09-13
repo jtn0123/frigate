@@ -64,7 +64,7 @@ export default function EventMenu({
         })
         .then((response) => {
           if (response.status === 202 || response.status === 200) {
-            void navigate("/replay");
+            navigate("/replay");
           }
         })
         .catch((error) => {
@@ -133,7 +133,7 @@ export default function EventMenu({
           <DropdownMenuItem
             className="cursor-pointer"
             onSelect={() => {
-              void navigate(`/explore?event_id=${event.id}`);
+              navigate(`/explore?event_id=${event.id}`);
             }}
           >
             {t("details.item.button.viewInExplore")}
@@ -173,7 +173,7 @@ export default function EventMenu({
               onSelect={() => {
                 if (onOpenSimilarity) onOpenSimilarity(event);
                 else
-                  void navigate(
+                  navigate(
                     `/explore?search_type=similarity&event_id=${event.id}`,
                   );
               }}

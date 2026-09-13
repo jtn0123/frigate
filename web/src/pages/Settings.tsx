@@ -1929,7 +1929,7 @@ export default function Settings() {
           >
             <MobilePageHeader
               className="top-0 mb-0"
-              onClose={() => void navigate(-1)}
+              onClose={() => navigate(-1)}
               actions={
                 <div className="flex items-center gap-2">
                   {CAMERA_SELECT_BUTTON_PAGES.includes(pageToggle) && (

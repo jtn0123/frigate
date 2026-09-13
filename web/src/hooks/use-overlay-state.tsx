@@ -34,7 +34,7 @@ export function useOverlayState<S>(
 
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      void navigate(loc.pathname + (preserveSearch ? loc.search : ""), {
+      navigate(loc.pathname + (preserveSearch ? loc.search : ""), {
         state: newLocationState,
         replace,
       });
@@ -90,7 +90,7 @@ export function usePersistedOverlayState<S extends string>(
       setPersistedValue(value);
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      void navigate(loc.pathname, { state: newLocationState, replace });
+      navigate(loc.pathname, { state: newLocationState, replace });
     },
     // locationRef is stable so we don't need it in deps
     [key, navigate, setPersistedValue],
@@ -147,7 +147,7 @@ export function useUserPersistedOverlayState<S extends string>(
       setPersistedValue(value);
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      void navigate(loc.pathname, { state: newLocationState, replace });
+      navigate(loc.pathname, { state: newLocationState, replace });
     },
     // locationRef is stable so we don't need it in deps
     [key, navigate, setPersistedValue],
@@ -180,9 +180,9 @@ export function useHashState<S extends string>(): [
     (value: S | undefined) => {
       const loc = locationRef.current;
       if (!value) {
-        void navigate(loc.pathname);
+        navigate(loc.pathname);
       } else {
-        void navigate(`${loc.pathname}#${value}`, { state: loc.state });
+        navigate(`${loc.pathname}#${value}`, { state: loc.state });
       }
     },
     // locationRef is stable so we don't need it in deps
@@ -251,7 +251,7 @@ export function useSearchEffect(
     // than let it widen into the assignment
     const liveState: unknown =
       (window.history.state as { usr?: unknown } | null)?.usr ?? loc.state;
-    void navigate(loc.pathname + loc.hash, {
+    navigate(loc.pathname + loc.hash, {
       state: liveState,
       replace: true,
     });

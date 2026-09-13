@@ -733,7 +733,7 @@ export default function SearchView({
                             config?.semantic_search.enabled &&
                             value.data.type == "object"
                           ) {
-                            void navigate(
+                            navigate(
                               `/settings?page=triggers&camera=${value.camera}&event_id=${value.id}`,
                             );
                           }

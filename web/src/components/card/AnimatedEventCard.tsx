@@ -114,7 +114,7 @@ export function AnimatedEventCard({
       selectedGroup && selectedGroup != "default"
         ? `review?group=${selectedGroup}`
         : "review";
-    void navigate(url, {
+    navigate(url, {
       state: {
         severity: event.severity,
         recording: {

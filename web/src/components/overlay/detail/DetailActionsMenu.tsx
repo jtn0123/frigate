@@ -69,7 +69,7 @@ export default function DetailActionsMenu({
       })
       .then((response) => {
         if (response.status === 202 || response.status === 200) {
-          void navigate("/replay");
+          navigate("/replay");
         }
       })
       .catch((error) => {
@@ -208,7 +208,7 @@ export default function DetailActionsMenu({
               onClick={() => {
                 setIsOpen(false);
                 setTimeout(() => {
-                  void navigate(`/review?id=${reviewItem.id}`);
+                  navigate(`/review?id=${reviewItem.id}`);
                 }, 0);
               }}
             >
@@ -225,7 +225,7 @@ export default function DetailActionsMenu({
                 onClick={() => {
                   setIsOpen(false);
                   setTimeout(() => {
-                    void navigate(
+                    navigate(
                       `/settings?page=triggers&camera=${search.camera}&event_id=${search.id}`,
                     );
                   }, 0);

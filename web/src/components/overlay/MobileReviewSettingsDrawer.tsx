@@ -306,7 +306,7 @@ export default function MobileReviewSettingsDrawer({
         setDebugReplayMode("none");
         setDebugReplayRange(undefined);
         setDrawerMode("none");
-        void navigate("/replay");
+        navigate("/replay");
       }
     } catch (error) {
       const axiosError = error as AxiosError<{

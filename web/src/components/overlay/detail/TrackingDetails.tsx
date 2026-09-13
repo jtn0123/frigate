@@ -1283,7 +1283,7 @@ function LifecycleIconRow({
                         onSelect={() => {
                           setIsOpen(false);
                           setTimeout(() => {
-                            void navigate(
+                            navigate(
                               `/settings?page=masksAndZones&camera=${item.camera}&object_mask=${item.data.box}`,
                             );
                           }, 0);

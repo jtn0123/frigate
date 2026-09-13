@@ -788,7 +788,7 @@ export default function MotionSearchView({
     if (onBack) {
       onBack();
     } else {
-      void navigate(-1);
+      navigate(-1);
     }
   }, [navigate, onBack]);
 

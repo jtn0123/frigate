@@ -152,7 +152,7 @@ export function ExportCard({
       })
       .then((response) => {
         if (response.status === 202 || response.status === 200) {
-          void navigate("/replay");
+          navigate("/replay");
         }
       })
       .catch((error) => {

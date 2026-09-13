@@ -216,7 +216,7 @@ export default function LiveBirdseyeView({
               className={`flex items-center gap-2 rounded-lg ${isMobile ? "ml-2" : "ml-0"}`}
               aria-label={t("label.back", { ns: "common" })}
               size={isMobile ? "icon" : "sm"}
-              onClick={() => void navigate(-1)}
+              onClick={() => navigate(-1)}
             >
               <IoMdArrowBack className="size-5" />
               {isDesktop && (

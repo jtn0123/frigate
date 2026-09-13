@@ -93,7 +93,7 @@ export default function FrigatePlusSettingsView(
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    void navigate("/settings?page=systemDetectorsAndModel")
+                    navigate("/settings?page=systemDetectorsAndModel")
                   }
                 >
                   {t("frigatePlus.changeInDetectorsAndModel")}

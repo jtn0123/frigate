@@ -334,7 +334,7 @@ function UIPlayground() {
             <div>
               <Button
                 onClick={() => {
-                  void navigate("/export", {
+                  navigate("/export", {
                     state: { start: exportStartTime, end: exportEndTime },
                   });
                 }}
