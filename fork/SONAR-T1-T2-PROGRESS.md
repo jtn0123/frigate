@@ -103,6 +103,25 @@ name misidentified as a credential, five read-only storage metrics, three exact
 integer/sentinel checks, eight local CLI input/output choices, and three fixed
 read-only log paths. No rule, quality gate, or scan scope was disabled.
 
+### Reuse prior reviews before investigating
+
+Start each Sonar triage pass by matching issue keys against
+`fork/sonar-t1-t2-progress.csv`. Skip investigation of entries marked
+`reviewed-false-positive-confirmed` when the relevant code and security
+boundary are unchanged. Use the category rationale above and the existing
+Sonar issue review comment instead of repeating the investigation.
+
+For a new issue key on an equivalent finding, compare the rule, file, relevant
+code, and prior review evidence first. Do not automatically close a new finding.
+Reopen investigation when code, data exposure, privileges, analyzer evidence,
+or the assumptions supporting the previous review change. Fetch unresolved
+issues for routine work and keep false-positive dispositions separate from
+source fixes in counts. This avoids repeat agent analysis; it does not disable
+Sonar scanning of the code.
+
+The two PR-only private-file issue keys below are also reviewed false positives;
+they are separate from the baseline CSV inventory.
+
 ### Remaining risks and required evidence
 
 The nine open findings are five root-runtime Docker findings and four HTTP
@@ -143,11 +162,32 @@ requests (AaCaK1LW136A9JFWt-nv) and the existing root-run final image
 (AaCaK1TP136A9JFWt-n8). The latter is a newly reported PR finding on an
 unchanged final FROM stage, additional to the five root-image findings in
 the baseline inventory. CodeQL records the camera request alert as mitigated
-by the verified controls. Sonar remains open pending an explicit decision
-between compatibility-risk acceptance and a validated redesign. No accepted
+by the verified controls. The user chose to keep these Sonar findings open
+for a validated redesign.
+Root-runtime, administrator-selected destinations, and HTTP camera findings
+must not be accepted as compatibility exceptions. No accepted
 risk has been counted as a code fix or silently removed from the gate.
 
 Follow-up cleanup removes the now-unused timeline insertion argument and clip
 retention assignment. Twelve malformed host variants, including non-ASCII
 ports, are rejected. The final focused timeline, retention, and camera tests
 pass after these changes; the combined suite previously passed 1,137 tests.
+
+### Latest verified scan and redesign exit criteria
+
+The b2d8b36c6 scan passes new-code coverage (88.1%, minimum 80%),
+new duplication (0.0%), reliability, and maintainability. All non-Sonar CI
+checks passed, including the three E2E shards. The quality gate fails on
+security rating. Documentation does not resolve that failure or authorize a
+merge. PR #43 remains a draft.
+
+| Open area | Required redesign and validation before closure |
+| --- | --- |
+| Root-run containers | Coordinate s6, nginx, Frigate, go2rtc, writable directories, and device access under a non-root runtime. Prove startup, recording, playback, upgrades, and supported accelerator access without silently restoring root. |
+| Administrator-selected camera destinations | Introduce explicit destination authorization with DNS and connection-time enforcement. Test unauthorized destinations, redirects, DNS changes, and approved LAN cameras. Existing host validation and disabled redirects are mitigations, not complete closure. |
+| HTTP camera support | Add authenticated TLS with certificate validation and a tested migration path for supported cameras. Document cameras requiring HTTP and keep their findings open until the behavior is safely redesigned. |
+
+Keep these findings open in Sonar. Do not accept compatibility exceptions,
+add blanket exclusions, or count documentation as a source fix. Close a finding
+only after implementation, relevant regression and compatibility evidence, and
+review of the resulting scan support closure.
