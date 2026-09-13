@@ -34,7 +34,7 @@ export function useOverlayState<S>(
 
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      navigate(loc.pathname + (preserveSearch ? loc.search : ""), {
+      void navigate(loc.pathname + (preserveSearch ? loc.search : ""), {
         state: newLocationState,
         replace,
       });
@@ -90,7 +90,7 @@ export function usePersistedOverlayState<S extends string>(
       setPersistedValue(value);
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      navigate(loc.pathname, { state: newLocationState, replace });
+      void navigate(loc.pathname, { state: newLocationState, replace });
     },
     // locationRef is stable so we don't need it in deps
     [key, navigate, setPersistedValue],
@@ -147,7 +147,7 @@ export function useUserPersistedOverlayState<S extends string>(
       setPersistedValue(value);
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      navigate(loc.pathname, { state: newLocationState, replace });
+      void navigate(loc.pathname, { state: newLocationState, replace });
     },
     // locationRef is stable so we don't need it in deps
     [key, navigate, setPersistedValue],
@@ -180,9 +180,9 @@ export function useHashState<S extends string>(): [
     (value: S | undefined) => {
       const loc = locationRef.current;
       if (!value) {
-        navigate(loc.pathname);
+        void navigate(loc.pathname);
       } else {
-        navigate(`${loc.pathname}#${value}`, { state: loc.state });
+        void navigate(`${loc.pathname}#${value}`, { state: loc.state });
       }
     },
     // locationRef is stable so we don't need it in deps
@@ -236,7 +236,7 @@ export function useSearchEffect(
     }
 
     setPendingRemoval(false);
-    navigate(location.pathname + location.hash, {
+    void navigate(location.pathname + location.hash, {
       state: location.state,
       replace: true,
     });

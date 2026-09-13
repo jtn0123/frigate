@@ -148,7 +148,7 @@ export function ExportCard({
       })
       .then((response) => {
         if (response.status === 202 || response.status === 200) {
-          navigate("/replay");
+          void navigate("/replay");
         }
       })
       .catch((error) => {

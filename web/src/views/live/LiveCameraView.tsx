@@ -410,7 +410,7 @@ export default function LiveCameraView({
         break;
       case "Escape":
         if (!fullscreen) {
-          navigate(-1);
+          void navigate(-1);
           return true;
         }
         break;
@@ -544,7 +544,7 @@ export default function LiveCameraView({
                 className={`flex items-center gap-2.5 rounded-lg`}
                 aria-label={t("label.back", { ns: "common" })}
                 size="sm"
-                onClick={() => navigate(-1)}
+                onClick={() => void navigate(-1)}
               >
                 <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
                 {isDesktop && (
@@ -558,7 +558,7 @@ export default function LiveCameraView({
                 aria-label={t("history.label")}
                 size="sm"
                 onClick={() => {
-                  navigate("review", {
+                  void navigate("review", {
                     state: {
                       severity: "alert",
                       recording: {
@@ -589,7 +589,7 @@ export default function LiveCameraView({
                 className="bg-gray-500 bg-gradient-to-br from-gray-400 to-gray-500 text-primary"
                 aria-label={t("label.back", { ns: "common" })}
                 size="sm"
-                onClick={() => navigate(-1)}
+                onClick={() => void navigate(-1)}
               >
                 <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
                 {isDesktop && (
