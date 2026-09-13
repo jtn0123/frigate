@@ -1,7 +1,7 @@
 import { sortedStrings } from "@/utils/stringSort";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useApiHost } from "@/api";
-import { isCurrentHour } from "@/utils/dateUtil";
+import { isCurrentOrPreviousHour } from "@/utils/dateUtil";
 import {
   ReviewSegment,
   ThreatLevel,
@@ -141,9 +141,19 @@ export default function PreviewThumbnailPlayer({
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>();
   const [playback, setPlayback] = useState(false);
   const [tooltipHovering, setTooltipHovering] = useState(false);
+
+  const thumbnailUrl = `${apiHost}${review.thumb_path.replace("/media/frigate/", "")}`;
+
+  // not memoized: depends on the wall clock, and a stale value blanks the card
+  // for a whole hour after a rollover
+  const hasPreviewContent =
+    relevantPreview != undefined || isCurrentOrPreviousHour(review.start_time);
+
+  // playback hides the thumbnail below, and only a mounted player calls
+  // isPlayingBack(false), so entering it empty leaves the card black
   const playingBack = useMemo(
-    () => playback && !tooltipHovering,
-    [playback, tooltipHovering],
+    () => playback && !tooltipHovering && hasPreviewContent,
+    [playback, tooltipHovering, hasPreviewContent],
   );
   const [isHovered, setIsHovered] = useState(false);
 
@@ -217,6 +227,7 @@ export default function PreviewThumbnailPlayer({
             review={review}
             relevantPreview={relevantPreview}
             timeRange={timeRange}
+            defaultImageUrl={thumbnailUrl}
             setReviewed={handleSetReviewed}
             setIgnoreClick={setIgnoreClick}
             isPlayingBack={setPlayback}
@@ -244,7 +255,7 @@ export default function PreviewThumbnailPlayer({
               : undefined
           }
           draggable={false}
-          src={`${apiHost}${review.thumb_path.replace("/media/frigate/", "")}`}
+          src={thumbnailUrl}
           loading={isSafari ? "eager" : "lazy"}
           onLoad={() => {
             onImgLoad();
@@ -399,6 +410,7 @@ type PreviewContentProps = {
   review: ReviewSegment;
   relevantPreview: Preview | undefined;
   timeRange: TimeRange;
+  defaultImageUrl: string;
   setReviewed: () => void;
   setIgnoreClick: (ignore: boolean) => void;
   isPlayingBack: (ended: boolean) => void;
@@ -408,6 +420,7 @@ function PreviewContent({
   review,
   relevantPreview,
   timeRange,
+  defaultImageUrl,
   setReviewed,
   setIgnoreClick,
   isPlayingBack,
@@ -428,13 +441,14 @@ function PreviewContent({
         windowVisible={true}
       />
     );
-  } else if (isCurrentHour(review.start_time)) {
+  } else if (isCurrentOrPreviousHour(review.start_time)) {
     return (
       <InProgressPreview
         camera={review.camera}
         startTime={review.start_time}
         endTime={review.end_time}
         timeRange={timeRange}
+        defaultImageUrl={defaultImageUrl}
         setReviewed={setReviewed}
         setIgnoreClick={setIgnoreClick}
         isPlayingBack={isPlayingBack}
@@ -443,4 +457,7 @@ function PreviewContent({
       />
     );
   }
+
+  // unreachable while the caller gates on hasPreviewContent
+  return <img className="size-full" src={defaultImageUrl} alt="" />;
 }
