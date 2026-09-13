@@ -1,0 +1,13 @@
+# Runtime validation using the fork's dependency test image and current sources.
+ARG BASE=frigate-fork-test-sonar-ci
+FROM ${BASE}
+USER root
+COPY frigate /opt/frigate/frigate
+COPY migrations /opt/frigate/migrations
+COPY docker/main/rootfs /
+COPY docker/main/prepare_rootless.sh /tmp/prepare_rootless.sh
+RUN bash /tmp/prepare_rootless.sh
+ENV HOME=/home/frigate S6_READ_ONLY_ROOT=1
+USER 65534:65534
+ENTRYPOINT ["/init"]
+CMD []

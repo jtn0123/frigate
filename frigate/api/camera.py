@@ -6,13 +6,14 @@ import logging
 import re
 from importlib.util import find_spec
 from pathlib import Path
-from urllib.parse import quote_plus
 
 import httpx
 import requests
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 from onvif import ONVIFCamera, ONVIFError
+from urllib3.exceptions import HTTPError
+from urllib3.exceptions import TimeoutError as CameraTimeoutError
 from zeep.exceptions import Fault, TransportError
 from zeep.transports import AsyncTransport
 
@@ -31,6 +32,7 @@ from frigate.config.env import substitute_frigate_vars
 from frigate.models import User
 from frigate.util.builtin import clean_camera_user_pass, get_record_segment_time
 from frigate.util.camera_cleanup import cleanup_camera_db, cleanup_camera_files
+from frigate.util.camera_discovery import query_reolink
 from frigate.util.image import run_ffmpeg_snapshot
 from frigate.util.services import (
     analyze_record_keyframes,
@@ -458,7 +460,9 @@ def ffprobe_snapshot(request: Request, url: str = "", timeout: int = 10):
 
 
 @router.get("/reolink/detect", dependencies=[Depends(require_role(["admin"]))])
-def reolink_detect(host: str = "", username: str = "", password: str = ""):
+def reolink_detect(
+    request: Request, host: str = "", username: str = "", password: str = ""
+):
     """
     Detect Reolink camera capabilities and recommend optimal protocol.
 
@@ -490,25 +494,28 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
             status_code=400,
         )
 
+    target = request.app.frigate_config.networking.reolink_targets.get(host)
+    if target is None:
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Camera discovery target is not authorized",
+            },
+            status_code=403,
+        )
+
     try:
-        # URL-encode credentials to prevent injection
-        encoded_user = quote_plus(username)
-        encoded_password = quote_plus(password)
-        api_url = f"http://{host}/api.cgi?cmd=GetEnc&user={encoded_user}&password={encoded_password}"
-
-        response = requests.get(api_url, timeout=5, allow_redirects=False)
-
-        if not 200 <= response.status_code < 300:
+        status, data = query_reolink(target, username, password)
+        if not 200 <= status < 300:
             return JSONResponse(
                 content={
                     "success": False,
                     "protocol": None,
-                    "message": f"Failed to connect to camera API: HTTP {response.status_code}",
+                    "message": f"Failed to connect to camera API: HTTP {status}",
                 },
                 status_code=200,
             )
 
-        data = response.json()
         enc_data = data[0] if isinstance(data, list) and len(data) > 0 else data
 
         stream_info = None
@@ -552,7 +559,7 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
             }
         )
 
-    except requests.exceptions.Timeout:
+    except CameraTimeoutError:
         return JSONResponse(
             content={
                 "success": False,
@@ -560,7 +567,7 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
                 "message": "Connection timeout - camera did not respond",
             }
         )
-    except requests.exceptions.RequestException:
+    except HTTPError:
         return JSONResponse(
             content={
                 "success": False,
@@ -568,8 +575,8 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
                 "message": "Failed to connect to camera",
             }
         )
-    except Exception:
-        logger.exception(f"Error detecting Reolink camera at {host}")
+    except (ValueError, TypeError, KeyError):
+        logger.warning("Invalid camera discovery response")
         return JSONResponse(
             content={
                 "success": False,

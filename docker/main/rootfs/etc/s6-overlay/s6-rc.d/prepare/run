@@ -138,7 +138,7 @@ function migrate_db_from_media_to_config() {
     fi
 }
 
-# The cache contains camera frames and is shared only by root-run services.
+# The cache contains camera frames and is shared only by services running as the container user.
 PYTHONPATH=/opt/frigate python3 -c 'from pathlib import Path; from frigate.util.atomic import ensure_private_directory; ensure_private_directory(Path("/tmp/cache"))'
 
 # Remove the previous Docker healthcheck shutdown marker.

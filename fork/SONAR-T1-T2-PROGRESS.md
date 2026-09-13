@@ -61,15 +61,15 @@ inventory from 122 to 125. One original finding closed in the upstream scan.
 
 | T1 disposition | Count |
 | --- | ---: |
-| Source addressed, awaiting scan confirmation | 75 |
+| Source addressed, awaiting scan confirmation | 76 |
 | Reviewed false positives, confirmed closed in Sonar | 35 |
-| Hardened, still awaiting security review | 5 |
+| Hardened, still awaiting security review | 4 |
 | Open architectural risks | 9 |
 | Closed by the upstream scan | 1 |
 
-The source count includes the prior 28 T1 fixes. This pass adds 47 source
-remediations, three sorting fixes among them, plus five security boundary
-hardening items. It does not represent 125 code defects fixed.
+The source count includes the prior 28 T1 fixes, 47 source remediations
+from the inventory pass, and the camera destination redesign below. Four
+additional security boundary hardening items remain under review. It does not represent 125 code defects fixed.
 
 ### Security changes
 
@@ -191,3 +191,30 @@ Keep these findings open in Sonar. Do not accept compatibility exceptions,
 add blanket exclusions, or count documentation as a source fix. Close a finding
 only after implementation, relevant regression and compatibility evidence, and
 review of the resulting scan support closure.
+
+### Implemented security redesign follow-up
+
+The camera destination finding now has server-configured exact targets, pinned
+IP connections, verified HTTPS, and no redirect or environment-proxy routing.
+The baseline camera key moves from hardened-awaiting-review to source-addressed:
+76 baseline T1 source-addressed, four hardened-awaiting-review, 35 reviewed false
+positives, nine open architectural findings, and one upstream closure. Counts
+still require a next-branch scan for confirmation.
+
+The PR-only main-image root finding is addressed by a non-root final runtime,
+build-time directory preparation, unprivileged logging, and removal of s6
+privilege-elevation bits. It is additional to the baseline inventory. Five
+accelerator-specific root findings and HTTP camera findings remain open.
+
+See [security redesign and migration](SONAR-SECURITY-REDESIGN.md) before deploying.
+The main-image default user and optional camera-probing configuration change;
+existing installations require mount permissions and discovery target setup.
+This supersedes the earlier statement that both PR blockers still await source
+implementation. Scan and deployment/hardware validation remain distinct gates.
+
+Local validation of the implemented redesign: 1,148 backend tests pass, including
+20 focused camera/security tests. Mypy passes across 388 files. API schema check,
+Ruff, shell syntax checks, and the synthetic non-root runtime check pass.
+The latter verifies recording, API clip decoding, preview, all process UIDs,
+private permissions, and clean service shutdown. CI and a fresh Sonar scan are
+pending on the follow-up commit.

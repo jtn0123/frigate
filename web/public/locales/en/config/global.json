@@ -162,6 +162,30 @@
   "networking": {
     "label": "Networking",
     "description": "Network-related settings such as IPv6 enablement for Frigate endpoints.",
+    "reolink_targets": {
+      "label": "Authorized Reolink discovery targets",
+      "description": "Map wizard host values to fixed camera IPs and API transport settings. Unlisted hosts cannot be probed. This controls optional Reolink protocol detection, not recording or manual stream setup.",
+      "address": {
+        "label": "Camera IP address",
+        "description": "Fixed camera IP for discovery. DNS is not used for connections."
+      },
+      "scheme": {
+        "label": "Camera API transport",
+        "description": "HTTPS verifies the camera certificate. HTTP is only for cameras without TLS and sends credentials without encryption."
+      },
+      "port": {
+        "label": "Camera API port",
+        "description": "Camera API port. Defaults to 443 for HTTPS and 80 for HTTP."
+      },
+      "server_name": {
+        "label": "Camera certificate hostname",
+        "description": "Hostname for TLS certificate verification and SNI. Connections still use the fixed IP. Defaults to the camera IP."
+      },
+      "ca_certs": {
+        "label": "Camera CA certificate file",
+        "description": "Optional PEM CA certificate bundle trusted for this camera. System trust is used when omitted. Certificate verification cannot be disabled."
+      }
+    },
     "ipv6": {
       "label": "IPv6 configuration",
       "description": "IPv6-specific settings for Frigate network services.",

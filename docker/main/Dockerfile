@@ -376,3 +376,10 @@ FROM deps AS frigate
 
 WORKDIR /opt/frigate/
 COPY --from=rootfs / /
+
+RUN --mount=type=bind,source=docker/main/prepare_rootless.sh,target=/tmp/prepare_rootless.sh \
+    bash /tmp/prepare_rootless.sh
+
+ENV HOME=/home/frigate
+ENV S6_READ_ONLY_ROOT=1
+USER 65534:65534

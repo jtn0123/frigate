@@ -324,7 +324,7 @@ AaCOHyZo9tFduPng090N,T2,python:S3776,frigate/api/camera.py,264,open
 AaCOHyZo9tFduPng090P,T2,python:S3776,frigate/api/camera.py,472,open
 AaCOHyZo9tFduPng090Q,T1,python:S5332,frigate/api/camera.py,508,open
 AaCOHyZo9tFduPng090R,T1,python:S5332,frigate/api/camera.py,508,open
-AaCOHyZo9tFduPng090b,T1,pythonsecurity:S5144,frigate/api/camera.py,510,hardened-awaiting-security-review
+AaCOHyZo9tFduPng090b,T1,pythonsecurity:S5144,frigate/api/camera.py,510,source-addressed-awaiting-scan
 AaCOHzhd9tFduPng0-ML,T1,typescript:S5332,web/src/types/cameraWizard.ts,33,open
 AaCOHzhd9tFduPng0-MM,T1,typescript:S5332,web/src/types/cameraWizard.ts,37,open
 AaCOHyLD9tFduPng09yJ,T2,python:S3776,frigate/detectors/plugins/rknn.py,102,open

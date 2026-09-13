@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from frigate.api.camera import reolink_detect
+from frigate.config.camera_discovery import CameraDiscoveryTarget
 from frigate.detectors.detector_config import ModelConfig
 from frigate.ptz.autotrack import ptz_moving_at_frame_time
 from frigate.util.services import get_bandwidth_stats
@@ -16,25 +17,47 @@ from frigate.util.services import get_bandwidth_stats
 class TestCameraRedirects(unittest.TestCase):
     """Camera discovery must stay on the administrator-selected host."""
 
-    @patch("frigate.api.camera.requests.get")
-    def test_redirect_is_not_followed_or_parsed(self, get):
-        get.return_value = Mock(status_code=302)
-        response = reolink_detect("camera.local", "user", "pass&word")
-        self.assertFalse(json.loads(response.body)["success"])
-        self.assertFalse(get.call_args.kwargs["allow_redirects"])
-        get.return_value.json.assert_not_called()
-        self.assertIn("password=pass%26word", get.call_args.args[0])
+    def setUp(self):
+        self.target = CameraDiscoveryTarget(address="192.168.1.10")
+        self.request = SimpleNamespace(
+            app=SimpleNamespace(
+                frigate_config=SimpleNamespace(
+                    networking=SimpleNamespace(
+                        reolink_targets={"camera.local": self.target}
+                    )
+                )
+            )
+        )
 
-    @patch("frigate.api.camera.requests.get")
-    def test_successful_camera_response_is_still_parsed(self, get):
-        get.return_value = Mock(status_code=200)
-        get.return_value.json.return_value = [
-            {"value": {"Enc": {"mainStream": {"width": 1920, "height": 1080}}}}
-        ]
-        response = reolink_detect("camera.local", "user", "password")
+    @patch("frigate.api.camera.query_reolink", return_value=(302, None))
+    def test_redirect_is_not_followed_or_parsed(self, query):
+        response = reolink_detect(self.request, "camera.local", "user", "pass&word")
+        self.assertFalse(json.loads(response.body)["success"])
+        query.assert_called_once_with(self.target, "user", "pass&word")
+
+    @patch("frigate.api.camera.query_reolink")
+    def test_successful_camera_response_is_still_parsed(self, query):
+        query.return_value = (
+            200,
+            [{"value": {"Enc": {"mainStream": {"width": 1920, "height": 1080}}}}],
+        )
+        response = reolink_detect(self.request, "camera.local", "user", "password")
         self.assertTrue(json.loads(response.body)["success"])
 
-    @patch("frigate.api.camera.requests.get")
+    @patch("frigate.api.camera.query_reolink")
+    def test_unlisted_destinations_cannot_make_requests(self, query):
+        for host in (
+            "127.0.0.1",
+            "169.254.169.254",
+            "other-camera.local",
+            "camera.local:9000",
+        ):
+            with self.subTest(host=host):
+                response = reolink_detect(self.request, host, "user", "password")
+                self.assertEqual(response.status_code, 403)
+        query.assert_not_called()
+
+    @patch("frigate.api.camera.query_reolink")
     def test_host_suffix_cannot_inject_url_components(self, get):
         for host in (
             "camera:80@other-host",
@@ -51,7 +74,7 @@ class TestCameraRedirects(unittest.TestCase):
             "camera:８０",
         ):
             with self.subTest(host=host):
-                response = reolink_detect(host, "user", "password")
+                response = reolink_detect(self.request, host, "user", "password")
                 self.assertEqual(response.status_code, 400)
         get.assert_not_called()
 
@@ -68,7 +91,7 @@ class TestCameraRedirects(unittest.TestCase):
             with self.subTest(host=host):
                 self.assertTrue(_is_valid_host(host))
 
-    @patch("frigate.api.camera.requests.get")
+    @patch("frigate.api.camera.query_reolink")
     def test_discovery_requires_admin_role(self, get):
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
@@ -97,6 +120,37 @@ class TestCameraRedirects(unittest.TestCase):
                     headers=headers,
                 )
                 self.assertEqual(response.status_code, 403)
+        get.assert_not_called()
+
+    @patch("frigate.api.camera.requests.get")
+    def test_admin_cannot_probe_an_unconfigured_destination(self, get):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from frigate.api.camera import router
+
+        get.return_value = Mock(status_code=200)
+        get.return_value.json.return_value = [
+            {"value": {"Enc": {"mainStream": {"width": 1920, "height": 1080}}}}
+        ]
+        app = FastAPI()
+        app.frigate_config = SimpleNamespace(
+            proxy=SimpleNamespace(separator=","),
+            auth=SimpleNamespace(roles={"admin": []}),
+            networking=SimpleNamespace(reolink_targets={}),
+        )
+        app.include_router(router)
+        with TestClient(app) as client:
+            response = client.get(
+                "/reolink/detect",
+                params={
+                    "host": "127.0.0.1",
+                    "username": "user",
+                    "password": "password",
+                },
+                headers={"remote-role": "admin"},
+            )
+        self.assertEqual(response.status_code, 403)
         get.assert_not_called()
 
 
