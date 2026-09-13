@@ -627,7 +627,7 @@ def get_yuv_crop(frame_shape, crop):
     return y, u1, u2, v1, v2
 
 
-def yuv_crop_and_resize(frame, region, height=None):
+def yuv_crop_and_resize(frame, region):
     # Crops and resizes a YUV frame while maintaining aspect ratio
     # https://stackoverflow.com/a/57022634
     height = frame.shape[0] // 3 * 2

@@ -1,0 +1,1 @@
+axengine @ https://github.com/AXERA-TECH/pyaxengine/releases/download/0.1.3-frigate/axengine-0.1.3-py3-none-any.whl#sha256=e995b8a887b067dc3456512aae2fa9c84f70e708c28b11caf184efdc254c64ae

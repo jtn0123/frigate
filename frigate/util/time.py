@@ -2,17 +2,34 @@
 
 import datetime
 import logging
-from zoneinfo import ZoneInfoNotFoundError
+from functools import lru_cache
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
-import pytz
 from tzlocal import get_localzone
 
 logger = logging.getLogger(__name__)
 
 
+@lru_cache(maxsize=1)
+def _timezone_names() -> dict[str, str]:
+    """Build the case-insensitive lookup only for noncanonical timezone names."""
+    return {name.casefold(): name for name in available_timezones()}
+
+
+def get_timezone(tz_name: str) -> ZoneInfo:
+    """Resolve IANA zones while retaining case-insensitive legacy inputs."""
+    try:
+        return ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError:
+        canonical = _timezone_names().get(tz_name.casefold())
+        if canonical is None:
+            raise
+        return ZoneInfo(canonical)
+
+
 def get_tz_modifiers(tz_name: str) -> tuple[str, str, float]:
     seconds_offset = (
-        datetime.datetime.now(pytz.timezone(tz_name)).utcoffset().total_seconds()
+        datetime.datetime.now(get_timezone(tz_name)).utcoffset().total_seconds()
     )
     hours_offset = int(seconds_offset / 60 / 60)
     minutes_offset = int(seconds_offset / 60 - hours_offset * 60)
@@ -59,8 +76,8 @@ def get_dst_transitions(
         continuous periods with the same UTC offset
     """
     try:
-        tz = pytz.timezone(tz_name)
-    except pytz.UnknownTimeZoneError:
+        tz = get_timezone(tz_name)
+    except (ZoneInfoNotFoundError, ValueError):
         # If timezone is invalid, return single period with no offset
         return [(start_time, end_time, 0)]
 
@@ -68,14 +85,14 @@ def get_dst_transitions(
     current = start_time
 
     # Get initial offset
-    dt = datetime.datetime.fromtimestamp(current, tz=pytz.UTC)
+    dt = datetime.datetime.fromtimestamp(current, tz=datetime.UTC)
     local_dt = dt.astimezone(tz)
     prev_offset = local_dt.utcoffset().total_seconds()
     period_start = start_time
 
     # Check each day for offset changes
     while current <= end_time:
-        dt = datetime.datetime.fromtimestamp(current, tz=pytz.UTC)
+        dt = datetime.datetime.fromtimestamp(current, tz=datetime.UTC)
         local_dt = dt.astimezone(tz)
         current_offset = local_dt.utcoffset().total_seconds()
 

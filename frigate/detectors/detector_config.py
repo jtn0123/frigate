@@ -211,11 +211,14 @@ class ModelConfig(BaseModel):
         }
 
     def compute_model_hash(self) -> None:
+        """Compute the legacy model identifier, not a security integrity check."""
         if not self.path or not os.path.exists(self.path):
-            self._model_hash = hashlib.md5(b"unknown").hexdigest()
+            self._model_hash = hashlib.md5(
+                b"unknown", usedforsecurity=False
+            ).hexdigest()
         else:
             with open(self.path, "rb") as f:
-                file_hash = hashlib.md5()
+                file_hash = hashlib.md5(usedforsecurity=False)
                 while chunk := f.read(8192):
                     file_hash.update(chunk)
             self._model_hash = file_hash.hexdigest()

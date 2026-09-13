@@ -1,0 +1,10 @@
+#!/command/with-contenv bash
+# Run log writers as the service user in an unprivileged container.
+set -o errexit -o nounset -o pipefail
+
+if [[ "$(id -u)" == 0 ]]; then
+    exec logutil-service "$1"
+fi
+
+read -r -a logging_options <<< "${S6_LOGGING_SCRIPT:-T 1 n0 s10000000 T}"
+exec s6-log -b -- "${logging_options[@]}" "$1"

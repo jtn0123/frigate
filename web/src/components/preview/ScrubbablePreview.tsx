@@ -326,52 +326,54 @@ export function InProgressPreview({
   const [playbackMode, setPlaybackMode] = useState<TimelineScrubMode>("auto");
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout>();
   const [key, setKey] = useState(0);
+  const [failedFrame, setFailedFrame] = useState<string>();
 
-  const handleLoad = useCallback(() => {
-    if (!previewFrames || !windowVisible) {
+  // Resume a decoded frame without seeking to an invalid preceding index.
+  const [loadedKey, setLoadedKey] = useState<number>();
+
+  useEffect(() => {
+    if (!previewFrames || !windowVisible || loadedKey !== key) {
       return;
     }
-
-    if (onTimeUpdate) {
-      onTimeUpdate(startTime - PREVIEW_PADDING + key);
-    }
-
+    onTimeUpdate?.(startTime - PREVIEW_PADDING + key);
     if (playbackMode != "auto") {
       return;
     }
-
     if (key == previewFrames.length - 1) {
       setReviewed();
-
       if (loop) {
         setKey(0);
-        return;
-      }
-
-      if (isMobile) {
+      } else if (isMobile) {
         isPlayingBack(false);
-
-        if (onTimeUpdate) {
-          onTimeUpdate(undefined);
-        }
+        onTimeUpdate?.(undefined);
       }
-
       return;
     }
-
-    setTimeout(() => {
-      if (setReviewed && key == Math.floor(previewFrames.length / 2)) {
+    const timeout = setTimeout(() => {
+      if (key == Math.floor(previewFrames.length / 2)) {
         setReviewed();
       }
-
-      if (previewFrames[key + 1]) {
-        setKey(key + 1);
-      }
+      setKey(key + 1);
     }, MIN_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [
+    key,
+    loadedKey,
+    playbackMode,
+    previewFrames,
+    windowVisible,
+    startTime,
+    onTimeUpdate,
+    setReviewed,
+    loop,
+    isPlayingBack,
+  ]);
 
-    // we know that these deps are correct
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, playbackMode, previewFrames]);
+  const clampFrame = useCallback(
+    (value: number) =>
+      Math.max(0, Math.min(value, (previewFrames?.length ?? 1) - 1)),
+    [previewFrames],
+  );
 
   // user interaction
 
@@ -383,12 +385,12 @@ export function InProgressPreview({
     (values: number[]) => {
       const value = values[0];
       setReviewed();
-      setKey(value);
+      setKey(clampFrame(value));
     },
 
     // we know that these deps are correct
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [setIgnoreClick, setKey],
+    [setIgnoreClick, setKey, clampFrame],
   );
 
   const onStopManualSeek = useCallback(
@@ -396,10 +398,10 @@ export function InProgressPreview({
       const value = values[0];
       setTimeout(() => {
         setPlaybackMode("auto");
-        setKey(value - 1);
+        setKey(clampFrame(value));
       }, 500);
     },
-    [setPlaybackMode],
+    [setPlaybackMode, clampFrame],
   );
 
   const onProgressHover = useCallback(
@@ -411,7 +413,9 @@ export function InProgressPreview({
       const rect = sliderRef.current.getBoundingClientRect();
       const positionX = event.clientX - rect.left;
       const width = sliderRef.current.clientWidth;
-      const progress = [Math.round((positionX / width) * previewFrames.length)];
+      const progress = [
+        Math.round((positionX / width) * (previewFrames.length - 1)),
+      ];
       onManualSeek(progress);
 
       if (hoverTimeout) {
@@ -425,7 +429,7 @@ export function InProgressPreview({
     return (
       <img
         className="size-full"
-        src={defaultImageUrl} //{`${apiHost}${review.thumb_path.replace("/media/frigate/", "")}`}
+        src={defaultImageUrl}
         alt={t("image.previewFrom", { camera })}
       />
     );
@@ -435,9 +439,16 @@ export function InProgressPreview({
     <div className="relative flex size-full items-center bg-black">
       <img
         className="pointer-events-none size-full object-contain"
-        src={`${apiHost}api/preview/${previewFrames[key]}/thumbnail.webp`}
+        src={
+          failedFrame === previewFrames[key]
+            ? defaultImageUrl
+            : `${apiHost}api/preview/${previewFrames[key]}/thumbnail.webp`
+        }
+        onError={() => setFailedFrame(previewFrames[key])}
         alt={t("image.previewFrom", { camera })}
-        onLoad={handleLoad}
+        onLoad={() => {
+          if (failedFrame !== previewFrames[key]) setLoadedKey(key);
+        }}
       />
       {showProgress && (
         <NoThumbSlider
@@ -474,7 +485,9 @@ export function InProgressPreview({
                   const positionX = event.clientX - rect.left;
                   const width = sliderRef.current.clientWidth;
                   const progress = [
-                    Math.round((positionX / width) * previewFrames.length),
+                    Math.round(
+                      (positionX / width) * (previewFrames.length - 1),
+                    ),
                   ];
 
                   setHoverTimeout(

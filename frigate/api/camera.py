@@ -6,13 +6,14 @@ import logging
 import re
 from importlib.util import find_spec
 from pathlib import Path
-from urllib.parse import quote_plus
 
 import httpx
 import requests
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 from onvif import ONVIFCamera, ONVIFError
+from urllib3.exceptions import HTTPError
+from urllib3.exceptions import TimeoutError as CameraTimeoutError
 from zeep.exceptions import Fault, TransportError
 from zeep.transports import AsyncTransport
 
@@ -31,6 +32,7 @@ from frigate.config.env import UnknownVariableError, substitute_frigate_vars
 from frigate.models import User
 from frigate.util.builtin import clean_camera_user_pass, get_record_segment_time
 from frigate.util.camera_cleanup import cleanup_camera_db, cleanup_camera_files
+from frigate.util.camera_discovery import get_reolink_main_stream, query_reolink
 from frigate.util.image import run_ffmpeg_snapshot
 from frigate.util.services import (
     analyze_record_keyframes,
@@ -48,26 +50,15 @@ router = APIRouter(tags=[Tags.camera])
 
 
 def _is_valid_host(host: str) -> bool:
+    """Validate a complete camera hostname/IP and optional numeric port.
+
+    Private addresses are intentional for LAN cameras. Reject URL components
+    such as userinfo, paths, queries, and fragments, including after a colon.
     """
-    Validate that the host is in a valid format.
-    Allows private IPs since cameras are typically on local networks.
-    Only blocks obviously malicious input to prevent injection attacks.
-    """
-    try:
-        # Remove port if present
-        host_without_port = host.split(":")[0] if ":" in host else host
-
-        # Block whitespace, newlines, and control characters
-        if not host_without_port or re.search(r"[\s\x00-\x1f]", host_without_port):
-            return False
-
-        # Allow standard hostname/IP characters: alphanumeric, dots, hyphens
-        if not re.match(r"^[a-zA-Z0-9.-]+$", host_without_port):
-            return False
-
-        return True
-    except Exception:
+    if re.fullmatch(r"[a-zA-Z0-9.-]+(?::\d{1,5})?", host, flags=re.ASCII) is None:
         return False
+    _, separator, port = host.partition(":")
+    return not separator or 1 <= int(port) <= 65535
 
 
 @router.get("/go2rtc/streams", dependencies=[Depends(allow_any_authenticated())])
@@ -469,7 +460,9 @@ def ffprobe_snapshot(request: Request, url: str = "", timeout: int = 10):
 
 
 @router.get("/reolink/detect", dependencies=[Depends(require_role(["admin"]))])
-def reolink_detect(host: str = "", username: str = "", password: str = ""):
+def reolink_detect(
+    request: Request, host: str = "", username: str = "", password: str = ""
+):
     """
     Detect Reolink camera capabilities and recommend optimal protocol.
 
@@ -501,35 +494,30 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
             status_code=400,
         )
 
+    target = request.app.frigate_config.networking.reolink_targets.get(host)
+    if target is None:
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Camera discovery target is not authorized",
+            },
+            status_code=403,
+        )
+
     try:
-        # URL-encode credentials to prevent injection
-        encoded_user = quote_plus(username)
-        encoded_password = quote_plus(password)
-        api_url = f"http://{host}/api.cgi?cmd=GetEnc&user={encoded_user}&password={encoded_password}"
-
-        response = requests.get(api_url, timeout=5)
-
-        if not response.ok:
+        status, data = query_reolink(target, username, password)
+        if not 200 <= status < 300:
             return JSONResponse(
                 content={
                     "success": False,
                     "protocol": None,
-                    "message": f"Failed to connect to camera API: HTTP {response.status_code}",
+                    "message": f"Failed to connect to camera API: HTTP {status}",
                 },
                 status_code=200,
             )
 
-        data = response.json()
-        enc_data = data[0] if isinstance(data, list) and len(data) > 0 else data
-
-        stream_info = None
-        if isinstance(enc_data, dict):
-            if enc_data.get("value", {}).get("Enc"):
-                stream_info = enc_data["value"]["Enc"]
-            elif enc_data.get("Enc"):
-                stream_info = enc_data["Enc"]
-
-        if not stream_info or not stream_info.get("mainStream"):
+        main_stream = get_reolink_main_stream(data)
+        if main_stream is None:
             return JSONResponse(
                 content={
                     "success": False,
@@ -538,7 +526,6 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
                 }
             )
 
-        main_stream = stream_info["mainStream"]
         width = main_stream.get("width", 0)
         height = main_stream.get("height", 0)
 
@@ -563,7 +550,7 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
             }
         )
 
-    except requests.exceptions.Timeout:
+    except CameraTimeoutError:
         return JSONResponse(
             content={
                 "success": False,
@@ -571,7 +558,7 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
                 "message": "Connection timeout - camera did not respond",
             }
         )
-    except requests.exceptions.RequestException:
+    except HTTPError:
         return JSONResponse(
             content={
                 "success": False,
@@ -579,8 +566,8 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
                 "message": "Failed to connect to camera",
             }
         )
-    except Exception:
-        logger.exception(f"Error detecting Reolink camera at {host}")
+    except (ValueError, TypeError, KeyError):
+        logger.warning("Invalid camera discovery response")
         return JSONResponse(
             content={
                 "success": False,

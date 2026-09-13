@@ -139,7 +139,7 @@ function getPreviewForMotionRange(
 
   return matchingPreviews.reduce((best, current) => {
     return getOverlap(current) > getOverlap(best) ? current : best;
-  });
+  }, matchingPreviews[0]);
 }
 
 function getRangeOverlapSeconds(
