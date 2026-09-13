@@ -212,6 +212,10 @@ jobs:
       # Dependabot bumps fork/audio_trial/requirements.in; this fails until the
       # hash-pinned lock the image installs is recompiled from it (F7).
       - run: python3 fork/scripts/audio-lock-check.py
+      # Known advisories in the fork's own locks, with reviewed exceptions (E7).
+      - run: |
+          python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-audit.txt
+      - run: python3 fork/scripts/lock-audit.py
       - run: python3 -m unittest discover -s fork/scripts -p "test_*.py"
 
   python_tests:
