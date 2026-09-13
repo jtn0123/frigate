@@ -202,8 +202,9 @@ jobs:
       # (python_tests) fails if the two disagree.
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-dev.lock
-      - run: ruff format --check --diff frigate migrations docker fork/scripts fork/audio_trial fork/monitoring ./*.py
-      - run: ruff check frigate migrations docker fork/scripts fork/audio_trial fork/monitoring ./*.py
+      # Paths come from fork/scripts/targets.sh so CI and `make lint` cannot drift.
+      - run: ruff format --check --diff $(fork/scripts/targets.sh py-lint)
+      - run: ruff check $(fork/scripts/targets.sh py-lint)
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
       - run: python3 -m unittest discover -s fork/scripts -p "test_*.py"
