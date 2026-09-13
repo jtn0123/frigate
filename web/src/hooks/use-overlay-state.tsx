@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useCallback,
   useContext,
   useEffect,
@@ -219,7 +220,10 @@ export function useSearchEffect(
 
     if (shouldRemove) {
       processedRef.current = currentParam;
-      setPendingRemoval(true);
+      // react-router v7 wraps navigation in startTransition, so this flag has
+      // to land in the same transition or it flushes before the callback's
+      // navigation is reflected in location.state
+      startTransition(() => setPendingRemoval(true));
     }
   }, [currentParam, callback, key]);
 
