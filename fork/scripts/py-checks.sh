@@ -27,8 +27,9 @@ unittest_with_coverage() {
   docker run --name "$container" --entrypoint python3 "$image" -c "
 import subprocess, sys
 r = subprocess.call([sys.executable, '-m', 'coverage', 'run', '-m', 'unittest'])
-script_result = subprocess.call([sys.executable, '-m', 'coverage', 'run', '--append', '-m', 'unittest', 'discover', '-s', 'fork/scripts', '-p', 'test_sonar_coverage.py'])
-r = r or script_result
+for pattern in ('test_sonar_coverage.py', 'test_release_notes.py'):
+    script_result = subprocess.call([sys.executable, '-m', 'coverage', 'run', '--append', '-m', 'unittest', 'discover', '-s', 'fork/scripts', '-p', pattern])
+    r = r or script_result
 for directory in ('fork/audio_trial', 'fork/audio_trial/benchmarks', 'fork/monitoring'):
     result = subprocess.call([sys.executable, '-m', 'coverage', 'run', '--append', '-m', 'unittest', 'discover', '-s', directory])
     r = r or result

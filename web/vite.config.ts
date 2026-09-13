@@ -138,7 +138,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "lcov", "json"],
-      include: ["src/**/*.{ts,tsx}"],
+      include: ["src/**/*.{ts,tsx}", "scripts/fork/**/*.mjs"],
       exclude: [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.d.ts",
