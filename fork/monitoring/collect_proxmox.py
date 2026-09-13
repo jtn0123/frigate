@@ -212,8 +212,12 @@ def sample(cts: list[str], previous: dict) -> dict:
     }
 
 
-def publish_snapshot(root: Path, data: dict) -> None:
+def publish_snapshot(
+    root: Path, data: dict, filename: str = "server-telemetry.json"
+) -> None:
     """Write into the CT without following container-controlled symlinks as host root."""
+    if filename not in {"server-telemetry.json", "stability.json"}:
+        raise ValueError("Unsupported telemetry filename")
     directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
     temporary = f".server-telemetry-{os.getpid()}.tmp"
     created = False
@@ -235,7 +239,7 @@ def publish_snapshot(root: Path, data: dict) -> None:
             json.dump(data, output)
         os.replace(
             temporary,
-            "server-telemetry.json",
+            filename,
             src_dir_fd=directory,
             dst_dir_fd=directory,
         )

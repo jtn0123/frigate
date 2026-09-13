@@ -16,6 +16,8 @@ import urllib.request
 from contextlib import ExitStack
 from pathlib import Path
 
+from failures import AudioFailure, cause, save_failure
+from failures import stage as failure_stage
 from queue_store import Queue, health_reason, retry_reasons
 from telemetry import STAGE_FILE, Telemetry, atomic_json, best_effort
 
@@ -122,6 +124,7 @@ def infer(audio: Path, output: Path, model: str) -> dict:
         if log is not None:
             stack.enter_context(log)
         result_file = stack.enter_context(output.open("w"))
+        stack.enter_context(failure_stage(model))
         process = subprocess.Popen(
             [
                 sys.executable,
@@ -137,22 +140,38 @@ def infer(audio: Path, output: Path, model: str) -> dict:
         )
         try:
             wait_for_inference(process)
-        except RuntimeError:
+        except RuntimeError as error:
             if checkpoint.exists():
                 result = json.loads(checkpoint.read_text())
                 result["status"] = "partial analysis; interrupted; unverified"
                 result["interrupted"] = True
-                for stage in result.get("stages", {}).values():
+                for name, stage in result.get("stages", {}).items():
                     if stage["status"] == "running":
                         stage["status"] = "failed"
                         stage["error"] = "Interrupted"
+                        best_effort(save_failure)(
+                            STATE, AudioFailure(name, cause(error)), time.time()
+                        )
                 return result
             raise
         finally:
             stop_inference(process)
             if METRICS:
                 METRICS.sample()
-    return json.loads(output.read_text())
+    result = json.loads(output.read_text())
+    return record_failed_stages(result)
+
+
+def record_failed_stages(result: dict) -> dict:
+    """Record partial stage failures even when the inference process exits cleanly."""
+    for name, stage in result.get("stages", {}).items():
+        if stage.get("status") == "failed":
+            best_effort(save_failure)(
+                STATE,
+                AudioFailure(name, stage.get("cause", "unavailable")),
+                time.time(),
+            )
+    return result
 
 
 def download_audio(job: dict, directory: Path) -> Path:
@@ -162,6 +181,7 @@ def download_audio(job: dict, directory: Path) -> Path:
     clip = directory / "clip.mp4"
     deadline = time.monotonic() + 60
     with (
+        failure_stage("download"),
         urllib.request.urlopen(API + endpoint, timeout=10) as response,
         clip.open("wb") as file,
     ):
@@ -172,29 +192,30 @@ def download_audio(job: dict, directory: Path) -> Path:
                 raise RuntimeError("clip download limit")
             file.write(chunk)
     audio = directory / "audio.wav"
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-v",
-            "error",
-            "-threads",
-            "1",
-            "-i",
-            str(clip),
-            "-vn",
-            "-t",
-            "30",
-            "-ac",
-            "1",
-            "-ar",
-            "16000",
-            str(audio),
-        ],
-        check=True,
-        timeout=30,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    with failure_stage("conversion"):
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-threads",
+                "1",
+                "-i",
+                str(clip),
+                "-vn",
+                "-t",
+                "30",
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                str(audio),
+            ],
+            check=True,
+            timeout=30,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     return audio
 
 
@@ -330,8 +351,14 @@ def process_pending(queue: Queue) -> bool:
             subprocess.SubprocessError,
         ) as error:
             # Do not put audio contents, URLs, or model output in logs.
-            queue.fail(job, time.time(), type(error).__name__)
-            logger.warning("Audio job %s failed: %s", job["id"], type(error).__name__)
+            failure = best_effort(save_failure)(STATE, error, time.time())
+            reason = (
+                f"{failure['stage']}: {failure['cause']}"
+                if failure
+                else type(error).__name__
+            )
+            queue.fail(job, time.time(), reason)
+            logger.warning("Audio job %s failed: %s", job["id"], reason)
         write_status(queue, "listening")
         return True
     return False

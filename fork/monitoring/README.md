@@ -62,3 +62,47 @@ incorrectly as events since exporter startup.
 Model history includes expandable, paginated value tables. Missing/stale samples
 remain gaps. Metric explanations expand using touch or keyboard, and graph series
 use shared theme colors plus different line patterns.
+
+## Stability incidents
+
+Install `incident_monitor.py`, `incidents.py`, and `collect_proxmox.py` together
+in `/opt/frigate-monitoring`, then install `frigate-incidents.service` in
+`/etc/systemd/system` and run `systemctl daemon-reload` followed by
+`systemctl enable --now frigate-incidents`. This host service needs no API token.
+It samples CT 106 and CT 108 every 15 seconds with bounded subprocess timeouts.
+The service runs independently of the dashboard. Stop it with
+`systemctl disable --now frigate-incidents`.
+
+The root-only `/var/lib/frigate-incidents/history.sqlite` retains 24 hours of
+samples and incident evidence across service restarts. The latest occurrence of
+each incident is retained; recurrent occurrences also remain visible in samples.
+`journalctl -u frigate-incidents` shows local open/recovery alerts. No external
+notifications are sent. The admin-only model health API reads the sanitized
+`/config/model_cache/stability.json` snapshot. It shows separate server, capture,
+continuous recording, and AI incident status, graphs, and recent evidence.
+
+Initial diagnostic thresholds are detector latency above 30 ms or skipped frames
+above 0.5 fps for three distinct fresh Frigate samples, zero capture FPS for
+20 seconds, and continuous recording more than 120 seconds behind. These are
+operator warning thresholds, not universal performance guarantees. Event-only
+recording is excluded from the continuity check. This checks recent database
+segments, not playback integrity or every historical gap. Missing measurements
+cannot establish recovery. Stats older than 90 seconds and dashboard snapshots
+older than 60 seconds show unknown status. Sustained-threshold counters restart
+with the collector; persisted incidents require valid measurements to resolve.
+
+Evidence contains GPU measurements, per-camera rates and recording freshness,
+container restarts/OOM state, safe audio failure stages, and Ollama timings.
+Generation lifecycle files record actual request start/end, image count and
+completion state after the application update. Journal completion windows overlap
+and must not be summed as request totals. Prompts, images, transcripts, camera
+URLs, credentials and raw logs are not retained by this collector. A running
+request without an end can indicate an interrupted process, not ongoing work.
+
+For a contention investigation, compare distinct source timestamps before,
+during and after an optional Ollama workload. Restore Ollama in a `finally`
+handler and stop the trial when detector latency or skipped frames increase.
+A phase boundary does not make a cached Frigate statistic a fresh measurement.
+For camera faults, compare direct and restream capture, check recording segment
+freshness, and record network latency. Stream-copy timestamp warnings alone do
+not establish a decoder or network fault.

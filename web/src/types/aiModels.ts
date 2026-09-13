@@ -25,6 +25,24 @@ export type AIModelsResponse = {
   server?: {
     status: string;
     updated?: number | null;
+    stability?: {
+      audio_failure?: { updated: number | null; stage: string; cause: string };
+      status: string;
+      updated?: number | null;
+      incidents: {
+        kind: string;
+        scope: string;
+        started: number | null;
+        updated: number | null;
+        resolved: number | null;
+      }[];
+      samples: {
+        time: number | null;
+        detector_ms: number | null;
+        skipped_fps: number | null;
+        ollama_requests: number | null;
+      }[];
+    };
     scopes: ({ scope: string; id: string } & Partial<
       Record<
         | "memory_bytes"

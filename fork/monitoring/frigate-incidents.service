@@ -1,0 +1,16 @@
+[Unit]
+Description=Frigate synchronized stability incidents
+After=pve-container.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/frigate-monitoring/incident_monitor.py
+Restart=on-failure
+RestartSec=10
+UMask=0022
+Nice=10
+MemoryMax=256M
+CPUQuota=25%
+
+[Install]
+WantedBy=multi-user.target

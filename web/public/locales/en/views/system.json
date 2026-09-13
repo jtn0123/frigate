@@ -392,7 +392,7 @@
       },
       "fileInventory": {
         "label": "Files not mapped",
-        "detail": "This feature\u2019s model files have not been mapped into the inventory yet."
+        "detail": "This feature’s model files have not been mapped into the inventory yet."
       },
       "stale": {
         "label": "Readings expired",
@@ -444,6 +444,72 @@
         "disk": "Disk free"
       },
       "pressureWarning": "Host or container memory pressure is high. Review resource use before adding more AI work."
+    }
+  },
+  "stability": {
+    "title": "Stability incidents",
+    "description": "Independent checks for the server, camera capture, continuous recordings and AI processing.",
+    "dimensions": {
+      "server": "Server",
+      "capture": "Camera capture",
+      "recording": "Recording",
+      "ai": "AI processing"
+    },
+    "states": {
+      "unknown": "Unknown",
+      "attention": "Needs attention",
+      "ok": "No active incident"
+    },
+    "unavailable": "Incident monitoring is missing or stale. Health cannot be confirmed.",
+    "clear": "No active incidents detected.",
+    "active_one": "{{count}} active incident",
+    "active_other": "{{count}} active incidents",
+    "evidence": "Recent synchronized evidence",
+    "sampleNote": "Detector data may repeat between source updates. Request counts cover overlapping 20-second windows; do not add them together. Full evidence is retained on the host for 24 hours.",
+    "columns": {
+      "time": "Time",
+      "latency": "Detector (ms)",
+      "skips": "Skipped FPS (all cameras)",
+      "requests": "Ollama completions"
+    },
+    "reasons": {
+      "ai": "Slow detection",
+      "detection": "Skipped detection frames",
+      "capture": "Camera frames missing",
+      "recording": "Continuous recordings missing",
+      "recording_unknown": "Recording status unavailable",
+      "server": "Container stopped",
+      "restart": "Container restarted",
+      "memory": "Memory kill",
+      "audio": "Audio analysis failed",
+      "monitoring": "Measurements stale"
+    },
+    "audioFailure": "Last audio failure: {{stage}}, {{cause}}",
+    "stages": {
+      "download": "clip download",
+      "conversion": "audio extraction",
+      "medium": "Medium speech and sound analysis",
+      "large-v3": "Large second opinion",
+      "worker": "worker",
+      "unknown": "unknown stage",
+      "transcription": "speech transcription",
+      "translation": "speech translation",
+      "sounds": "sound classification"
+    },
+    "causes": {
+      "timeout": "time limit reached",
+      "http_error": "recording request failed",
+      "camera_priority": "paused to protect camera processing",
+      "shutdown": "worker stopped",
+      "download_limit": "clip download limit reached",
+      "memory_reserve": "memory reserve low",
+      "process_exit": "process exited unsuccessfully",
+      "unavailable": "operation unavailable",
+      "unknown": "unknown cause"
+    },
+    "graphs": {
+      "detector_ms": "Detector latency (ms)",
+      "skipped_fps": "Skipped frames per second, all cameras"
     }
   }
 }
