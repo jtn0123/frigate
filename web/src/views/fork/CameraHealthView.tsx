@@ -63,11 +63,13 @@ export default function CameraHealthView() {
   });
   const stats = useAutoFrigateStats();
   const history = useFpsHistory(stats);
-  const [now, setNow] = useState(Date.now());
+  const [, refreshClock] = useState(0);
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 10000);
+    const timer = setInterval(() => refreshClock((tick) => tick + 1), 10000);
     return () => clearInterval(timer);
   }, []);
+  // Evaluate against the current clock when new stats arrive between timer ticks.
+  const now = Date.now();
   const fresh =
     stats &&
     Number.isFinite(stats.service.last_updated) &&
@@ -92,9 +94,9 @@ export default function CameraHealthView() {
   return (
     <div className="scrollbar-container mt-4 flex flex-col gap-3 overflow-y-auto">
       {!fresh && (
-        <p role="status" className="text-sm text-warning">
+        <output className="text-sm text-warning">
           {t("models.readiness.stale", { ns: "views/system" })}
-        </p>
+        </output>
       )}
       <div className="text-sm text-muted-foreground">
         {t("cameraHealth.description")}

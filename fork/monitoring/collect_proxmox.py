@@ -24,7 +24,12 @@ def pressure(path: Path) -> float | None:
         line = next(
             line for line in path.read_text().splitlines() if line.startswith("some ")
         )
-        return float(dict(pair.split("=") for pair in line.split()[1:])["avg10"])
+        return float(
+            {
+                key: value
+                for key, value in (pair.split("=") for pair in line.split()[1:])
+            }["avg10"]
+        )
     except (OSError, ValueError, StopIteration, KeyError):
         return None
 
@@ -66,6 +71,8 @@ def effective_limits(group: Path) -> tuple[int | None, float | None]:
 
 def init_pid(ct: str) -> int:
     """Ask local LXC tooling for the container init PID without a network token."""
+    if not ct.isdecimal() or not 100 <= int(ct) <= 999999999:
+        raise ValueError("Container ID must be a positive Proxmox numeric ID")
     return int(
         subprocess.check_output(
             ["lxc-info", "-n", ct, "-pH"], text=True, timeout=5
@@ -81,6 +88,35 @@ def group_for(pid: int) -> Path:
         if line.startswith("0::")
     )
     return CGROUP / entry.lstrip("/")
+
+
+def collect_ollama(group: Path, ct: str, cpu, hz: int) -> list[dict]:
+    """Measure matching Ollama processes only within the requested cgroup."""
+    scopes = []
+    rss, seconds, found = 0, 0.0, False
+    for proc in Path("/proc").glob("[0-9]*"):
+        try:
+            if "ollama" not in (proc / "comm").read_text().lower():
+                continue
+            process_group = group_for(int(proc.name))
+            if process_group != group and group not in process_group.parents:
+                continue
+            stat = (proc / "stat").read_text().rsplit(")", 1)[1].split()
+            rss += int(stat[21]) * os.sysconf("SC_PAGE_SIZE")
+            seconds += (int(stat[11]) + int(stat[12])) / hz
+            found = True
+        except (OSError, ValueError, StopIteration, IndexError):
+            continue
+    if found:
+        scopes.append(
+            {
+                "scope": "ollama",
+                "id": ct,
+                "memory_bytes": rss,
+                "cpu_percent": cpu("ollama:" + ct, seconds),
+            }
+        )
+    return scopes
 
 
 def sample(cts: list[str], previous: dict) -> dict:
@@ -152,29 +188,7 @@ def sample(cts: list[str], previous: dict) -> dict:
             for kind in ("cpu", "memory", "io"):
                 row[kind + "_pressure"] = pressure(group / (kind + ".pressure"))
             scopes.append(row)
-            rss, seconds, found = 0, 0.0, False
-            for proc in Path("/proc").glob("[0-9]*"):
-                try:
-                    if "ollama" not in (proc / "comm").read_text().lower():
-                        continue
-                    process_group = group_for(int(proc.name))
-                    if process_group != group and group not in process_group.parents:
-                        continue
-                    stat = (proc / "stat").read_text().rsplit(")", 1)[1].split()
-                    rss += int(stat[21]) * os.sysconf("SC_PAGE_SIZE")
-                    seconds += (int(stat[11]) + int(stat[12])) / hz
-                    found = True
-                except (OSError, ValueError, StopIteration, IndexError):
-                    continue
-            if found:
-                scopes.append(
-                    {
-                        "scope": "ollama",
-                        "id": ct,
-                        "memory_bytes": rss,
-                        "cpu_percent": cpu("ollama:" + ct, seconds),
-                    }
-                )
+            scopes.extend(collect_ollama(group, ct, cpu, hz))
         except (
             OSError,
             ValueError,

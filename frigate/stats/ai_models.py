@@ -131,16 +131,18 @@ def stats_fresh(stats: dict, now: float | None = None) -> bool:
     return updated is not None and 0 <= (now or time.time()) - updated <= 90
 
 
-def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict], dict]:
-    """Combine detector and enabled-feature inventory with audio telemetry."""
+def detector_models(config: FrigateConfig, stats: dict, fresh: bool) -> list[dict]:
+    """Collect measurements for the configured detector processes."""
     models = []
-    fresh = stats_fresh(stats)
     for name, detector in config.detectors.items():
         measurement = stats.get("detectors", {}).get(name, {})
         model = detector.model or config.model
         path = model.path
         ram = process_memory(measurement.get("pid")) if fresh else None
         available = fresh and ram is not None
+        status = "loaded" if available else "unavailable"
+        if not fresh:
+            status = "stale"
         models.append(
             {
                 "id": "detector:" + name,
@@ -148,9 +150,7 @@ def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict]
                 "role": "object_detection",
                 "location": "frigate",
                 "device": f"{detector.type} / {getattr(detector, 'device', 'AUTO')}",
-                "status": "stale"
-                if not fresh
-                else ("loaded" if available else "unavailable"),
+                "status": status,
                 "resource_scope": "process",
                 "disk_bytes": disk_size(path),
                 "ram_bytes": ram,
@@ -160,6 +160,15 @@ def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict]
                 else None,
             }
         )
+    return models
+
+
+def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict], dict]:
+    """Combine detector and enabled-feature inventory with audio telemetry."""
+    fresh = stats_fresh(stats)
+    models = detector_models(config, stats, fresh)
+    if not fresh:
+        stats = {}
     # Enrichments share processes; report those resources as shared, not additive.
     process = stats.get("processes", {}).get("embeddings", {})
     for enabled, key, role, feature_name, feature_path in (
@@ -211,11 +220,9 @@ def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict]
                 "status": "enabled" if fresh else "stale",
                 "resource_scope": "shared_process",
                 "disk_bytes": disk_size(feature_path),
-                "ram_bytes": process_memory(shared.get("pid")) if fresh else None,
-                "cpu_percent": number(shared.get("cpu")) if fresh else None,
-                "latency_ms": number(stats.get("embeddings", {}).get(key))
-                if fresh
-                else None,
+                "ram_bytes": process_memory(shared.get("pid")),
+                "cpu_percent": number(shared.get("cpu")),
+                "latency_ms": number(stats.get("embeddings", {}).get(key)),
             }
         )
     audio, queue = audio_models()

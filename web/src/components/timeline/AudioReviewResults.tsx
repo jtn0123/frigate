@@ -82,11 +82,13 @@ export default function AudioReviewResults({
       <p className="text-xs text-muted-foreground">
         {t("audioAnalysis.unverified")}
       </p>
-      {error ? (
+      {Boolean(error) && (
         <ErrorState compact error={error} onRetry={wrapAsync(() => mutate())} />
-      ) : !data ? (
+      )}
+      {!error && !data && (
         <p className="text-sm">{t("audioAnalysis.loading")}</p>
-      ) : (
+      )}
+      {!error && data && (
         <>
           {data.status !== "available" && (
             <p className="text-sm text-muted-foreground">

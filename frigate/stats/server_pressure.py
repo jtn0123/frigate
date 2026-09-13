@@ -46,10 +46,11 @@ def read_server_pressure() -> dict:
                     },
                 }
             )
+        status = "partial" if data.get("status") == "partial" else "connected"
+        if not fresh:
+            status = "stale"
         return {
-            "status": ("partial" if data.get("status") == "partial" else "connected")
-            if fresh
-            else "stale",
+            "status": status,
             "updated": updated,
             "scopes": scopes,
         }

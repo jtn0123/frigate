@@ -152,6 +152,16 @@ class Telemetry:
                     "gpu_memory_bytes": 0,
                 }
             )
+        self.sample_process(pid)
+        if pid and self.active is None:
+            for entry in self.models.values():
+                entry.update(
+                    {"status": "unknown", "ram_bytes": None, "cpu_percent": None}
+                )
+        self.publish()
+
+    def sample_process(self, pid: int | None) -> None:
+        """Measure only the process currently associated with the active stage."""
         if pid:
             try:
                 if self.process is None or self.process.pid != pid:
@@ -169,12 +179,6 @@ class Telemetry:
                 self.active = None
         else:
             self.process = None
-        if pid and self.active is None:
-            for entry in self.models.values():
-                entry.update(
-                    {"status": "unknown", "ram_bytes": None, "cpu_percent": None}
-                )
-        self.publish()
 
     @best_effort
     def publish(self) -> None:

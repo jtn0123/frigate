@@ -9,6 +9,8 @@ import time
 from results import publish
 
 logger = logging.getLogger(__name__)
+PUBLICATION_SQL = "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)"
+HEALTH_UNAVAILABLE = "camera health unavailable"
 
 
 class Queue:
@@ -139,7 +141,7 @@ class Queue:
             (json.dumps(result, ensure_ascii=False), now, job["id"]),
         )
         self.db.execute(
-            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            PUBLICATION_SQL,
             (job["id"], job["camera"]),
         )
         self.db.commit()
@@ -153,7 +155,7 @@ class Queue:
             ("pending" if job["attempts"] < 1 else "failed", reason, now, job["id"]),
         )
         self.db.execute(
-            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            PUBLICATION_SQL,
             (job["id"], job["camera"]),
         )
         self.db.commit()
@@ -166,7 +168,7 @@ class Queue:
             (json.dumps(result, ensure_ascii=False), now, job["id"]),
         )
         self.db.execute(
-            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            PUBLICATION_SQL,
             (job["id"], job["camera"]),
         )
         self.db.commit()
@@ -179,7 +181,7 @@ class Queue:
             (json.dumps(result, ensure_ascii=False), now, job["id"]),
         )
         self.db.execute(
-            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            PUBLICATION_SQL,
             (job["id"], job["camera"]),
         )
         self.db.commit()
@@ -188,7 +190,7 @@ class Queue:
     def publish(self, job: dict) -> None:
         """Retain publication intent until the shared result mount recovers."""
         self.db.execute(
-            "INSERT OR REPLACE INTO publications (id,camera) VALUES (?,?)",
+            PUBLICATION_SQL,
             (job["id"], job["camera"]),
         )
         self.db.commit()
@@ -237,14 +239,14 @@ def retry_reasons(result: dict) -> list[str]:
 def health_reason(stats: dict, available_bytes: int, large: bool = False) -> str:
     """Defer optional analysis when camera processing or memory needs room."""
     if not isinstance(stats, dict):
-        return "camera health unavailable"
+        return HEALTH_UNAVAILABLE
     if any(
         not isinstance(stats.get(key), dict)
         or not stats[key]
         or any(not isinstance(row, dict) for row in stats[key].values())
         for key in ("detectors", "cameras")
     ):
-        return "camera health unavailable"
+        return HEALTH_UNAVAILABLE
     try:
         age = time.time() - float(stats["service"]["last_updated"])
         values = [
@@ -259,9 +261,9 @@ def health_reason(stats: dict, available_bytes: int, large: bool = False) -> str
             )
             or age > 90
         ):
-            return "camera health unavailable"
+            return HEALTH_UNAVAILABLE
     except (KeyError, TypeError, ValueError):
-        return "camera health unavailable"
+        return HEALTH_UNAVAILABLE
     if any(float(c.get("skipped_fps", 0)) > 0.5 for c in stats["cameras"].values()):
         return "camera frames being skipped"
     if any(float(d["inference_speed"]) > 30 for d in stats["detectors"].values()):

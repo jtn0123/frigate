@@ -35,6 +35,7 @@ def main():
             self.wfile.write(json.dumps(value).encode())
 
         def log_message(self, *_):
+            # The synthetic API emits no request logs during this smoke check.
             pass
 
     cgroup = Path("/host-cgroup")

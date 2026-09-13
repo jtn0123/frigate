@@ -40,7 +40,10 @@ export default function AIModelMetrics({
       setHistory((previous) =>
         [...storedHistory.samples, ...previous]
           .sort((a, b) => a.updated - b.updated)
-          .reduce(appendHistory, [] as AIModelsResponse[]),
+          .reduce(
+            (samples, sample) => appendHistory(samples, sample),
+            [] as AIModelsResponse[],
+          ),
       );
   }, [storedHistory]);
   useEffect(() => {

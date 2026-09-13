@@ -16,6 +16,52 @@ from faster_whisper import WhisperModel
 from faster_whisper.audio import decode_audio
 
 
+def guard(args, samples, stop, ready, active):
+    """Stop a benchmark when measured camera health becomes unsafe."""
+    failures = 0
+    healthy = 0
+    while not stop.is_set():
+        try:
+            with urllib.request.urlopen(
+                "http://127.0.0.1:5000/api/stats", timeout=3
+            ) as response:
+                stats = json.load(response)
+            row = {
+                "time": time.time(),
+                "detectors": stats["detectors"],
+                "skipped": {
+                    k: v.get("skipped_fps") for k, v in stats["cameras"].items()
+                },
+                "gpu": stats.get("gpu_usages", {}),
+            }
+            busy = any(
+                v.get("inference_speed", 100) > 30 for v in row["detectors"].values()
+            ) or any(v is None or v > 0.5 for v in row["skipped"].values())
+            values = {
+                key: value
+                for key, value in (
+                    line.split(":", 1)
+                    for line in Path("/proc/meminfo").read_text().splitlines()
+                )
+            }
+            row["available_kib"] = int(values["MemAvailable"].split()[0])
+            busy = busy or row["available_kib"] < 512 * 1024
+            samples.append(row)
+            (args.output / f"{args.model}-health.json").write_text(json.dumps(samples))
+            failures = failures + 1 if busy else 0
+            healthy = 0 if busy else healthy + 1
+            if healthy >= 5:
+                ready.set()
+        except (OSError, ValueError, KeyError, TypeError):
+            failures += 1
+        if failures >= 3 and active.is_set():
+            (args.output / f"{args.model}-aborted.txt").write_text(
+                "Camera health or memory guard stopped benchmark"
+            )
+            os._exit(75)
+        stop.wait(3)
+
+
 def main():
     """Run offline clean/noisy trials, aborting sustained camera pressure."""
     parser = argparse.ArgumentParser()
@@ -30,51 +76,9 @@ def main():
     ready = threading.Event()
     active = threading.Event()
 
-    def guard():
-        failures = 0
-        healthy = 0
-        while not stop.is_set():
-            try:
-                with urllib.request.urlopen(
-                    "http://127.0.0.1:5000/api/stats", timeout=3
-                ) as response:
-                    stats = json.load(response)
-                row = {
-                    "time": time.time(),
-                    "detectors": stats["detectors"],
-                    "skipped": {
-                        k: v.get("skipped_fps") for k, v in stats["cameras"].items()
-                    },
-                    "gpu": stats.get("gpu_usages", {}),
-                }
-                busy = any(
-                    v.get("inference_speed", 100) > 30
-                    for v in row["detectors"].values()
-                ) or any(v is None or v > 0.5 for v in row["skipped"].values())
-                values = dict(
-                    line.split(":", 1)
-                    for line in Path("/proc/meminfo").read_text().splitlines()
-                )
-                row["available_kib"] = int(values["MemAvailable"].split()[0])
-                busy = busy or row["available_kib"] < 512 * 1024
-                samples.append(row)
-                (args.output / f"{args.model}-health.json").write_text(
-                    json.dumps(samples)
-                )
-                failures = failures + 1 if busy else 0
-                healthy = 0 if busy else healthy + 1
-                if healthy >= 5:
-                    ready.set()
-            except (OSError, ValueError, KeyError, TypeError):
-                failures += 1
-            if failures >= 3 and active.is_set():
-                (args.output / f"{args.model}-aborted.txt").write_text(
-                    "Camera health or memory guard stopped benchmark"
-                )
-                os._exit(75)
-            stop.wait(3)
-
-    monitor = threading.Thread(target=guard, daemon=True)
+    monitor = threading.Thread(
+        target=guard, args=(args, samples, stop, ready, active), daemon=True
+    )
     monitor.start()
     if not ready.wait(timeout=300):
         stop.set()

@@ -8,6 +8,7 @@
 
 import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
+import { BASE_STATS } from "../../fixtures/mock-data/stats";
 
 type CameraOverride = Partial<{
   camera_fps: number;
@@ -157,6 +158,34 @@ test.describe("Camera health cards @high", () => {
     const garage = frigateApp.page.getByTestId("camera-health-garage");
     await expect(garage).toHaveAttribute("data-state", "ok");
     await expect(garage.getByTestId("camera-health-reason")).toHaveCount(0);
+  });
+
+  test("fresh stats remain usable between freshness timer ticks", async ({
+    frigateApp,
+  }) => {
+    const start = new Date();
+    await frigateApp.page.clock.install({ time: start });
+    await gotoHealth(frigateApp);
+    const updated = new Date(start.getTime() + 6000);
+    await frigateApp.page.clock.pauseAt(updated);
+    frigateApp.ws.send(
+      "stats",
+      JSON.stringify({
+        ...BASE_STATS,
+        service: {
+          ...BASE_STATS.service,
+          uptime: 600,
+          last_updated: updated.getTime() / 1000,
+        },
+        cameras: {
+          ...BASE_STATS.cameras,
+          front_door: { ...BASE_STATS.cameras.front_door, camera_fps: 0 },
+        },
+      }),
+    );
+    await expect(
+      frigateApp.page.getByTestId("camera-health-front_door"),
+    ).toHaveAttribute("data-state", "offline", { timeout: 1000 });
   });
 
   test("right after a start, a camera without frames is starting, not offline (D14)", async ({

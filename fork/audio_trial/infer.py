@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import time
 from pathlib import Path
 
@@ -48,56 +49,44 @@ def classify(path: str) -> list[dict]:
     ]
 
 
-def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
-    """Filter nonspeech, transcribe speech, and translate non-English speech."""
-    started = time.monotonic()
-    audio = decode_audio(path, sampling_rate=16000)
-    if not len(audio) or len(audio) > 35 * 16000:
-        raise ValueError("Audio must be nonempty and at most 35 seconds")
-    with Stage("vad"):
-        spans = get_speech_timestamps(audio, VadOptions())
-    speech_seconds = sum(s["end"] - s["start"] for s in spans) / 16000
-    result = {
-        "model": size,
-        "speech_seconds": speech_seconds,
-        "transcript": "",
-        "translation": "",
-        "language": None,
-        "sounds": [],
-        "status": "no clear speech",
-        "sound_scores_are_probabilities": False,
-    }
-    result["stages"] = {}
+class Checkpoint:
+    """Persist completed stages so retries do not repeat successful inference."""
 
-    if checkpoint and Path(checkpoint).exists():
-        previous = json.loads(Path(checkpoint).read_text())
-        if previous.get("model") != size or not isinstance(
-            previous.get("stages"), dict
+    def __init__(self, result: dict, path: str | None):
+        self.result = result
+        self.path = Path(path) if path else None
+        if self.path and self.path.exists():
+            previous = json.loads(self.path.read_text())
+            if previous.get("model") != result["model"] or not isinstance(
+                previous.get("stages"), dict
+            ):
+                raise ValueError("Invalid inference checkpoint")
+            result.update(previous)
+            result.pop("interrupted", None)
+
+    def save(self):
+        """Atomically replace the durable output after each stage transition."""
+        if self.path:
+            temporary = self.path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(self.result, ensure_ascii=False))
+            temporary.replace(self.path)
+
+    def run(self, name, operation):
+        """Retry a failed stage once, or reuse a completed persisted output."""
+        result = self.result
+        completed = {
+            "transcription": (result["transcript"], result["language"]),
+            "translation": result["translation"],
+            "sounds": result["sounds"],
+        }
+        if (
+            name in completed
+            and result["stages"].get(name, {}).get("status") == "complete"
         ):
-            raise ValueError("Invalid inference checkpoint")
-        result.update(previous)
-        result.pop("interrupted", None)
-
-    def save():
-        if checkpoint:
-            target = Path(checkpoint)
-            temporary = target.with_suffix(".tmp")
-            temporary.write_text(json.dumps(result, ensure_ascii=False))
-            temporary.replace(target)
-
-    def run_stage(name, operation):
-        # Runtime allocation must reload, but completed outputs survive a restart.
-        if result["stages"].get(name, {}).get("status") == "complete":
-            if name == "transcription":
-                return result["transcript"], result["language"]
-            if name == "translation":
-                return result["translation"]
-            if name == "sounds":
-                return result["sounds"]
-        # Retry only the failed stage, not completed speech or sound analysis.
+            return completed[name]
         for attempt in range(2):
             result["stages"][name] = {"status": "running", "attempts": attempt + 1}
-            save()
+            self.save()
             try:
                 value = operation()
             except (OSError, RuntimeError, ValueError) as error:
@@ -109,76 +98,112 @@ def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
             else:
                 result["stages"][name] = {"status": "complete", "attempts": attempt + 1}
                 return value
-        save()
+        self.save()
         return None
 
+
+def load_whisper(size):
+    """Load only the verified local CPU model with the production thread limit."""
+    with Stage(size, loading=True):
+        return WhisperModel(
+            resolve_model(size),
+            device="cpu",
+            compute_type="int8",
+            cpu_threads=2,
+            download_root="/models/whisper",
+            local_files_only=True,
+        )
+
+
+def whisper_text(model, audio, size, language=None, translate=False):
+    """Run one speech stage while retaining the detected language."""
+    options = {
+        "language": language,
+        "beam_size": 5,
+        "vad_filter": True,
+        "condition_on_previous_text": False,
+    }
+    if translate:
+        options["task"] = "translate"
+    with Stage(size):
+        segments, info = model.transcribe(audio, **options)
+        text = " ".join(segment.text.strip() for segment in segments).strip()
+    return text if translate else (text, info.language)
+
+
+def analyze_speech(audio, size, checkpoint):
+    """Preserve transcription before optional translation begins."""
+    model = checkpoint.run("load", lambda: load_whisper(size))
+    if model is None:
+        return
+    result = checkpoint.result
+    speech = checkpoint.run("transcription", lambda: whisper_text(model, audio, size))
+    if speech is None:
+        return
+    result["transcript"], result["language"] = speech
+    result["status"] = "machine transcript; unverified"
+    checkpoint.save()
+    if result["language"] == "en":
+        result["translation"] = result["transcript"]
+    elif result["transcript"]:
+        result["translation"] = (
+            checkpoint.run(
+                "translation",
+                lambda: whisper_text(model, audio, size, result["language"], True),
+            )
+            or ""
+        )
+    checkpoint.save()
+
+
+def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
+    """Filter nonspeech, transcribe speech, and translate non-English speech."""
+    started = time.monotonic()
+    audio = decode_audio(path, sampling_rate=16000)
+    if not len(audio) or len(audio) > 35 * 16000:
+        raise ValueError("Audio must be nonempty and at most 35 seconds")
+    with Stage("vad"):
+        spans = get_speech_timestamps(audio, VadOptions())
+    speech_seconds = sum(span["end"] - span["start"] for span in spans) / 16000
+    result = {
+        "model": size,
+        "speech_seconds": speech_seconds,
+        "transcript": "",
+        "translation": "",
+        "language": None,
+        "sounds": [],
+        "status": "no clear speech",
+        "sound_scores_are_probabilities": False,
+        "stages": {},
+    }
+    progress = Checkpoint(result, checkpoint)
     if speech_seconds >= 0.4:
-
-        def load_model():
-            with Stage(size, loading=True):
-                return WhisperModel(
-                    resolve_model(size),
-                    device="cpu",
-                    compute_type="int8",
-                    cpu_threads=2,
-                    download_root="/models/whisper",
-                    local_files_only=True,
-                )
-
-        model = run_stage("load", load_model)
-        if model is not None:
-
-            def transcribe():
-                with Stage(size):
-                    segments, info = model.transcribe(
-                        audio,
-                        language=None,
-                        beam_size=5,
-                        vad_filter=True,
-                        condition_on_previous_text=False,
-                    )
-                    return " ".join(
-                        s.text.strip() for s in segments
-                    ).strip(), info.language
-
-            speech = run_stage("transcription", transcribe)
-            if speech is not None:
-                result["transcript"], result["language"] = speech
-                result["status"] = "machine transcript; unverified"
-                save()
-                if result["language"] == "en":
-                    result["translation"] = result["transcript"]
-                elif result["transcript"]:
-
-                    def translate():
-                        with Stage(size):
-                            segments, _ = model.transcribe(
-                                audio,
-                                language=result["language"],
-                                task="translate",
-                                beam_size=5,
-                                vad_filter=True,
-                                condition_on_previous_text=False,
-                            )
-                            return " ".join(s.text.strip() for s in segments)
-
-                    result["translation"] = run_stage("translation", translate) or ""
-            save()
-            del model
+        analyze_speech(audio, size, progress)
     if size == "medium":
-        result["sounds"] = run_stage("sounds", lambda: classify(path)) or []
+        result["sounds"] = progress.run("sounds", lambda: classify(path)) or []
     if any(stage["status"] == "failed" for stage in result["stages"].values()):
         result["status"] = "partial analysis; unverified"
     result["seconds"] = time.monotonic() - started
-    save()
+    progress.save()
     return result
+
+
+def checkpoint_argument(value: str) -> str:
+    """Restrict CLI checkpoint reads and writes to the worker state directory."""
+    root = (Path(os.environ.get("STATE_DIR", "/state")) / "checkpoints").resolve()
+    target = Path(value).resolve()
+    if not target.is_relative_to(root) or target.suffix != ".json":
+        raise argparse.ArgumentTypeError(
+            "Checkpoint must be a JSON file in worker state"
+        )
+    return str(target)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("audio")
     parser.add_argument("--model", choices=["medium", "large-v3"], default="medium")
-    parser.add_argument("--checkpoint")
+    parser.add_argument("--checkpoint", type=checkpoint_argument)
     args = parser.parse_args()
     print(
         json.dumps(analyze(args.audio, args.model, args.checkpoint), ensure_ascii=False)

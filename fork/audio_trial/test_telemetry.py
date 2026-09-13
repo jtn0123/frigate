@@ -16,16 +16,19 @@ class TelemetryTests(unittest.TestCase):
             with patch.object(
                 telemetry, "atomic_json", side_effect=OSError("disk full")
             ):
+                completed = Mock()
                 with telemetry.Stage("medium"):
-                    completed = True
+                    completed()
                 metrics.sample()
-            self.assertTrue(completed)
+            completed.assert_called_once()
 
     def test_metrics_failure_preserves_original_inference_exception(self):
+        stage = telemetry.Stage("medium")
+        failure = RuntimeError("inference failed")
         with patch.object(telemetry, "atomic_json", side_effect=PermissionError()):
             with self.assertRaisesRegex(RuntimeError, "inference failed"):
-                with telemetry.Stage("medium"):
-                    raise RuntimeError("inference failed")
+                with stage:
+                    raise failure
 
     def test_malformed_stage_snapshot_is_ignored(self):
         with tempfile.TemporaryDirectory() as directory:

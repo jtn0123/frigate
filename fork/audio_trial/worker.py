@@ -94,6 +94,25 @@ def stop_inference(process: subprocess.Popen) -> None:
         process.wait()
 
 
+def wait_for_inference(process) -> None:
+    """Prioritize camera health and bound a child process lifetime."""
+    start = time.monotonic()
+    busy_checks = 0
+    while process.poll() is None:
+        if STOP.wait(3):
+            raise RuntimeError("worker stopping")
+        if METRICS:
+            METRICS.sample(process.pid)
+        reason = running_health_reason()
+        busy_checks = busy_checks + 1 if reason else 0
+        if busy_checks >= 3:
+            raise RuntimeError("camera processing needs priority")
+        if time.monotonic() - start > 180:
+            raise RuntimeError("inference time limit")
+    if process.returncode:
+        raise RuntimeError(f"inference exited {process.returncode}")
+
+
 def infer(audio: Path, output: Path, model: str) -> dict:
     """Bound inference time and stop optional work during sustained camera stress."""
     best_effort(STAGE_FILE.unlink)(missing_ok=True)
@@ -116,22 +135,8 @@ def infer(audio: Path, output: Path, model: str) -> dict:
             stdout=result_file,
             stderr=log if log is not None else subprocess.DEVNULL,
         )
-        start = time.monotonic()
-        busy_checks = 0
         try:
-            while process.poll() is None:
-                if STOP.wait(3):
-                    raise RuntimeError("worker stopping")
-                if METRICS:
-                    METRICS.sample(process.pid)
-                reason = running_health_reason()
-                busy_checks = busy_checks + 1 if reason else 0
-                if busy_checks >= 3:
-                    raise RuntimeError("camera processing needs priority")
-                if time.monotonic() - start > 180:
-                    raise RuntimeError("inference time limit")
-            if process.returncode:
-                raise RuntimeError(f"inference exited {process.returncode}")
+            wait_for_inference(process)
         except RuntimeError:
             if checkpoint.exists():
                 result = json.loads(checkpoint.read_text())
@@ -293,6 +298,45 @@ def process_job(queue: Queue, job: dict) -> None:
         shutil.rmtree(stages, ignore_errors=True)
 
 
+def poll_reviews(queue: Queue) -> None:
+    """Fetch settled review segments and prune obsolete inference checkpoints."""
+    for stale in (STATE / "checkpoints").glob("*"):
+        if stale.is_dir() and stale.stat().st_mtime < time.time() - 7 * 86400:
+            shutil.rmtree(stale, ignore_errors=True)
+    params = urllib.parse.urlencode(
+        {
+            "cameras": ",".join(CAMERAS),
+            "after": time.time() - 600,
+            "limit": 500,
+        }
+    )
+    queue.enqueue(read_json("/review?" + params), time.time(), CAMERAS)
+
+
+def process_pending(queue: Queue) -> bool:
+    """Process at most one job and report whether the queue should drain again."""
+    reason = health()
+    write_status(queue, "paused: " + reason if reason else "listening")
+    job = None if reason else queue.claim(time.time())
+    if job:
+        write_status(queue, "processing " + job["id"])
+        try:
+            process_job(queue, job)
+            logger.info("Completed audio job %s", job["id"])
+        except (
+            OSError,
+            ValueError,
+            RuntimeError,
+            subprocess.SubprocessError,
+        ) as error:
+            # Do not put audio contents, URLs, or model output in logs.
+            queue.fail(job, time.time(), type(error).__name__)
+            logger.warning("Audio job %s failed: %s", job["id"], type(error).__name__)
+        write_status(queue, "listening")
+        return True
+    return False
+
+
 def main() -> None:
     """Poll settled events and serialize all heavy analysis across cameras."""
     global METRICS
@@ -307,42 +351,9 @@ def main() -> None:
         try:
             queue.flush_publications()
             if time.monotonic() >= next_poll:
-                for stale in (STATE / "checkpoints").glob("*"):
-                    if (
-                        stale.is_dir()
-                        and stale.stat().st_mtime < time.time() - 7 * 86400
-                    ):
-                        shutil.rmtree(stale, ignore_errors=True)
-                params = urllib.parse.urlencode(
-                    {
-                        "cameras": ",".join(CAMERAS),
-                        "after": time.time() - 600,
-                        "limit": 500,
-                    }
-                )
-                queue.enqueue(read_json("/review?" + params), time.time(), CAMERAS)
+                poll_reviews(queue)
                 next_poll = time.monotonic() + 10
-            reason = health()
-            write_status(queue, "paused: " + reason if reason else "listening")
-            job = None if reason else queue.claim(time.time())
-            if job:
-                write_status(queue, "processing " + job["id"])
-                try:
-                    process_job(queue, job)
-                    logger.info("Completed audio job %s", job["id"])
-                except (
-                    OSError,
-                    ValueError,
-                    RuntimeError,
-                    subprocess.SubprocessError,
-                ) as error:
-                    # Do not put audio contents, URLs, or model output in logs.
-                    queue.fail(job, time.time(), type(error).__name__)
-                    logger.warning(
-                        "Audio job %s failed: %s", job["id"], type(error).__name__
-                    )
-                write_status(queue, "listening")
-                completed_job = True
+            completed_job = process_pending(queue)
         except (OSError, ValueError, KeyError, RuntimeError) as error:
             logger.warning("Poll unavailable: %s", type(error).__name__)
             write_status(queue, "paused: poll unavailable")

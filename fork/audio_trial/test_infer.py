@@ -69,6 +69,16 @@ class InferenceRoutingTests(unittest.TestCase):
                 self.model.transcribe.call_args.kwargs["task"], "translate"
             )
 
+    def test_cli_checkpoint_rejects_paths_outside_worker_state(self):
+        import argparse
+
+        with self.assertRaises(argparse.ArgumentTypeError):
+            self.module.checkpoint_argument("/etc/passwd")
+        self.assertEqual(
+            self.module.checkpoint_argument("/state/checkpoints/job/medium.json"),
+            "/state/checkpoints/job/medium.json",
+        )
+
     def test_silence_skips_whisper_but_still_classifies_sounds(self):
         self.module.get_speech_timestamps.return_value = []
         result = self.module.analyze("clip.wav", "medium")

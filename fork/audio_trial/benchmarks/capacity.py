@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.request
@@ -45,6 +46,26 @@ def healthy(sample):
     )
 
 
+def monitor(report, stop, ready, active, save):
+    """Stop a benchmark when measured camera health becomes unsafe."""
+    good = bad = 0
+    while not stop.is_set():
+        try:
+            sample = stats()
+            report["samples"].append(sample)
+            good = good + 1 if healthy(sample) else 0
+            bad = 0 if healthy(sample) else bad + 1
+            if good >= 5:
+                ready.set()
+        except (OSError, ValueError, KeyError, TypeError):
+            bad += 1
+        if bad >= 3 and active.is_set():
+            report["aborted"] = "Camera health threshold exceeded"
+            save()
+            os._exit(75)
+        stop.wait(3)
+
+
 def main():
     """Test two then four additional 720p15 decode streams with 5 FPS detection."""
     parser = argparse.ArgumentParser()
@@ -64,35 +85,18 @@ def main():
     def save():
         (args.output / "capacity.json").write_text(json.dumps(report, indent=2))
 
-    def monitor():
-        good = bad = 0
-        while not stop.is_set():
-            try:
-                sample = stats()
-                report["samples"].append(sample)
-                good = good + 1 if healthy(sample) else 0
-                bad = 0 if healthy(sample) else bad + 1
-                if good >= 5:
-                    ready.set()
-            except (OSError, ValueError, KeyError, TypeError):
-                bad += 1
-            if bad >= 3 and active.is_set():
-                report["aborted"] = "Camera health threshold exceeded"
-                save()
-                os._exit(75)
-            stop.wait(3)
-
-    thread = threading.Thread(target=monitor, daemon=True)
+    thread = threading.Thread(
+        target=monitor, args=(report, stop, ready, active, save), daemon=True
+    )
     thread.start()
     if not ready.wait(timeout=300):
         report["aborted"] = "No healthy baseline in five minutes; no workload started"
         save()
         return
     active.set()
-    ffmpeg = (
-        shutil.which("ffmpeg") or sorted(glob.glob("/usr/lib/ffmpeg/*/bin/ffmpeg"))[-1]
-    )
-    clip = "/tmp/capacity-source.mp4"
+    ffmpeg = shutil.which("ffmpeg") or max(glob.glob("/usr/lib/ffmpeg/*/bin/ffmpeg"))
+    temporary = tempfile.TemporaryDirectory(prefix="frigate-capacity-")
+    clip = str(Path(temporary.name) / "source.mp4")
     subprocess.run(
         [
             ffmpeg,
@@ -203,6 +207,7 @@ def main():
     finally:
         stop.set()
         thread.join(timeout=4)
+        temporary.cleanup()
         save()
 
 
