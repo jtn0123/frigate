@@ -62,12 +62,11 @@ function System() {
 
   // stats page
 
-  const [page, setPage] = useHashState<SystemMetric>();
-  const [pageToggle, setPageToggle] = useOptimisticState(
-    page ?? "general",
-    setPage,
-    100,
-  );
+  // useHashState yields "" (not undefined) at a bare /system, so default
+  // with || or no tab is ever marked visited and nothing renders
+  const [hashPage, setPage] = useHashState<SystemMetric>();
+  const page: SystemMetric = hashPage || "general";
+  const [pageToggle, setPageToggle] = useOptimisticState(page, setPage, 100);
   const [lastUpdated, setLastUpdated] = useState<number>(
     Math.floor(Date.now() / 1000),
   );
