@@ -287,3 +287,28 @@ test.describe("Live mobile layout @critical @mobile", () => {
     await expect(frigateApp.page.locator("body")).toBeVisible();
   });
 });
+
+test.describe("Live camera groups @critical @mobile", () => {
+  // UI46: groups using the backend's default icon ("generic") rendered as
+  // blank buttons, and every group button was named "Camera Groups".
+  test("group buttons show an icon and are named after the group", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/");
+    // "default" uses the backend's default icon and is shown on both layouts
+    // (phones collapse the rest behind "Show all camera groups")
+    const group = frigateApp.page.getByRole("button", {
+      name: "default",
+      exact: true,
+    });
+    await expect(group).toBeVisible({ timeout: 10_000 });
+    await expect(group.locator("svg")).toHaveCount(1);
+    // exact: "Edit Camera Groups" is a different, correctly named button
+    await expect(
+      frigateApp.page.getByRole("button", {
+        name: "Camera Groups",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+  });
+});
