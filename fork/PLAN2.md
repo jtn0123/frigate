@@ -14,7 +14,7 @@ PLAN.md step 9. Work is on `section/debug`.
 | Track | Status |
 |---|---|
 | 1. Debugging | D12, D13, I12 committed. Demo QA logged below. No high-severity runtime bugs found to fix without an owner call. |
-| 2. Type safety | Not started. Next: PR-02 type-guardrails, then PR-04, PR-01, PR-14. |
+| 2. Type safety | PR-02 and PR-04 merged. PR-01 A5+D9 on `section/type-contract`, then PR-14. |
 | 3. Dependencies | Not started. Wait for the debug PR. |
 
 ## Bugs found
@@ -206,6 +206,10 @@ Each block lists items, scope, done-when, size, impact and conflict risk.
 Blocks that need the demo stack wait for PLAN.md step 3b (I7).
 
 ### PR-01 · type-contract — A5, D9 — M
+- **Status (2026-09-11):** A5+D9 on `section/type-contract`. Generated types
+  plus `useApi`/`apiGet` for `/config`, `/review`, `/events`, `/stats`.
+  JSON fixtures validate against the spec 200 schemas (`review-summary`
+  and `config-schema` skipped with documented reasons until B2).
 - **Scope:** `web/scripts/fork/gen-api-types.mjs` generating
   `web/src/types/fork/api.gen.ts` from `docs/static/frigate-api.yaml`
   (`openapi-typescript`, dev dependency); a CI check that the generated file is
