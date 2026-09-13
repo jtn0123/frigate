@@ -28,7 +28,7 @@ import {
 } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { LuPencil, LuPlus, LuSettings } from "react-icons/lu";
+import { LuLayoutGrid, LuPencil, LuPlus, LuSettings } from "react-icons/lu";
 import {
   Dialog,
   DialogContent,
@@ -100,6 +100,21 @@ import { useUserPersistedOverlayState } from "@/hooks/use-overlay-state";
 
 // the picker needs every lucide icon, so it stays out of the eager bundle
 const IconPicker = lazy(() => import("../icons/IconPicker"));
+
+/**
+ * A group's chosen icon, or a generic grid when it names no Lucide icon. The
+ * backend default is "generic", which LuIcon renders as nothing, so those
+ * groups showed as blank buttons.
+ */
+function GroupIcon({
+  icon,
+  className,
+}: Readonly<{ icon?: string; className: string }>) {
+  if (isLuIconName(icon)) {
+    return <LuIcon name={icon} className={className} />;
+  }
+  return <LuLayoutGrid aria-hidden className={className} />;
+}
 
 type CameraGroupSelectorProps = {
   className?: string;
@@ -269,16 +284,14 @@ export function CameraGroupSelector({
               ? "bg-blue-900 bg-opacity-60 text-selected focus:bg-blue-900 focus:bg-opacity-60"
               : "bg-secondary text-secondary-foreground",
           )}
-          aria-label={t("group.label")}
+          aria-label={name.replaceAll("_", " ")}
           size="sm"
           onClick={() => {
             setGroup(name, group != "default");
             afterSelect?.();
           }}
         >
-          {config && config.icon && (
-            <LuIcon name={config.icon} className="size-5" />
-          )}
+          <GroupIcon icon={config?.icon} className="size-5" />
         </Button>
       )),
     ];
@@ -354,15 +367,13 @@ export function CameraGroupSelector({
                         ? "bg-blue-900 bg-opacity-60 text-selected focus:bg-blue-900 focus:bg-opacity-60"
                         : "bg-secondary text-secondary-foreground"
                     }
-                    aria-label={t("group.label")}
+                    aria-label={name.replaceAll("_", " ")}
                     size="xs"
                     onClick={() => setGroup(name, group != "default")}
                     onMouseEnter={() => showTooltip(name)}
                     onMouseLeave={() => showTooltip(undefined)}
                   >
-                    {config && config.icon && (
-                      <LuIcon name={config.icon} className="size-4" />
-                    )}
+                    <GroupIcon icon={config?.icon} className="size-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipPortal>

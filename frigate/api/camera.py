@@ -27,7 +27,7 @@ from frigate.api.camera_config import remove_camera_from_config
 from frigate.api.defs.request.app_body import CameraSetBody
 from frigate.api.defs.tags import Tags
 from frigate.config import FrigateConfig
-from frigate.config.env import substitute_frigate_vars
+from frigate.config.env import UnknownVariableError, substitute_frigate_vars
 from frigate.models import User
 from frigate.util.builtin import clean_camera_user_pass, get_record_segment_time
 from frigate.util.camera_cleanup import cleanup_camera_db, cleanup_camera_files
@@ -170,7 +170,7 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
         if src:
             try:
                 resolved_src = substitute_frigate_vars(src)
-            except KeyError:
+            except UnknownVariableError:
                 resolved_src = src
 
             if is_restricted_go2rtc_source(resolved_src):

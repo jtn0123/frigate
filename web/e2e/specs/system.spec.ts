@@ -247,3 +247,21 @@ test("unknown System tab falls back to General and preserves view parameters @me
   await frigateApp.page.getByLabel("Select cameras").click();
   await expect(frigateApp.page).toHaveURL(/camera=front_door#cameras/);
 });
+
+test.describe("System — bare /system URL @medium", () => {
+  // UI45: useHashState yields "" at /system, and `page ?? "general"` kept
+  // it, so no tab was selected and the page body stayed empty.
+  test("defaults to the General tab and renders its metrics", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/system");
+    await expect(frigateApp.page.getByLabel("Select general")).toHaveAttribute(
+      "data-state",
+      "on",
+      { timeout: 15_000 },
+    );
+    await expect(
+      frigateApp.page.getByText("Detector Inference Speed"),
+    ).toBeVisible();
+  });
+});

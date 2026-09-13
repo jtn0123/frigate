@@ -5,6 +5,8 @@
  * check. Two files are skipped with a documented reason: review-summary
  * (spec shape != the day-keyed payload the UI uses; do not reshape until
  * B2) and config-schema (JSON Schema for the editor, not an API list).
+ * Fields where the spec disagrees with what the endpoint really sends are
+ * listed in EPOCH_FIELD_DRIFT with the reason.
  *
  *   node e2e/scripts/validate-fixtures.mjs
  */
@@ -45,6 +47,54 @@ export const FIXTURE_MAP = {
       "Fixture is the JSON Schema document for the config editor, not a typed API list payload. Spec 200 is empty.",
   },
 };
+
+/**
+ * Spec drift: fields the spec types as date-time but the endpoint sends as
+ * epoch seconds. The fixture must hold numbers (what the UI receives and
+ * does math on); they are converted to ISO strings for the spec check only,
+ * so every other field is still validated.
+ *
+ * @type {Record<string, {fields: string[], reason: string}>}
+ */
+export const EPOCH_FIELD_DRIFT = {
+  "reviews.json": {
+    fields: ["start_time", "end_time"],
+    reason:
+      "/review returns the Peewee rows through JSONResponse, bypassing response_model, so times are epoch seconds; the spec types them from ReviewSegmentResponse as date-time. ISO strings rendered every review card as Invalid Time (D20).",
+  },
+};
+
+/**
+ * @param {unknown} payload
+ * @param {{fields: string[], reason: string}} drift
+ * @returns {{ payload: unknown, errors: string[] }}
+ */
+function convertEpochFields(payload, drift) {
+  if (!Array.isArray(payload)) {
+    return { payload, errors: ["expected a JSON array"] };
+  }
+  /** @type {string[]} */
+  const errors = [];
+  const converted = payload.map((item, index) => {
+    if (item === null || typeof item !== "object") {
+      return item;
+    }
+    /** @type {Record<string, unknown>} */
+    const copy = { ...item };
+    for (const field of drift.fields) {
+      const value = copy[field];
+      if (typeof value !== "number") {
+        errors.push(
+          `/${index}/${field} must be epoch seconds, got ${JSON.stringify(value)}: ${drift.reason}`,
+        );
+        continue;
+      }
+      copy[field] = new Date(value * 1000).toISOString();
+    }
+    return copy;
+  });
+  return { payload: converted, errors };
+}
 
 /**
  * Rewrite local OpenAPI pointers so Ajv can resolve them against the
@@ -218,9 +268,18 @@ export function validateFixtures(options = {}) {
     try {
       const schema = rewriteRefs(responseSchema(spec, mapping.path, method));
       const validate = ajv.compile(schema);
-      const payload =
+      let payload =
         options.payloads?.[file] ??
         JSON.parse(readFileSync(join(fixtureDir, file), "utf8"));
+      const drift = EPOCH_FIELD_DRIFT[file];
+      if (drift) {
+        const converted = convertEpochFields(payload, drift);
+        if (converted.errors.length) {
+          results.push({ file, status: "fail", errors: converted.errors });
+          continue;
+        }
+        payload = converted.payload;
+      }
       if (validate(payload)) {
         results.push({ file, status: "pass", errors: [] });
       } else {

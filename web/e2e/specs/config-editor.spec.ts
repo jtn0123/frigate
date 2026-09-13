@@ -7,7 +7,11 @@
  */
 
 import { test, expect } from "../fixtures/frigate-test";
-import { installWsFrameCapture, waitForWsFrame } from "../helpers/ws-frames";
+import {
+  installWsFrameCapture,
+  readWsFrames,
+  waitForWsFrame,
+} from "../helpers/ws-frames";
 import { grantClipboardPermissions, readClipboard } from "../helpers/clipboard";
 import {
   getMonacoVisibleText,
@@ -168,6 +172,82 @@ test.describe("Config Editor — Save and Restart @medium", () => {
     await expect(
       frigateApp.page.locator(".monaco-editor").first(),
     ).toBeVisible();
+  });
+
+  // UI43: the config used to be written before the confirmation appeared,
+  // so Cancel skipped only the restart and left the new config on disk.
+  test("nothing is saved until the restart is confirmed", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({ configRaw: SAMPLE_CONFIG });
+    const save = await installSaveRoute(frigateApp, 200, { message: "Saved" });
+
+    await frigateApp.goto("/config");
+    await expect(frigateApp.page.locator(".monaco-editor").first()).toBeVisible(
+      { timeout: 15_000 },
+    );
+
+    await frigateApp.page.getByLabel("Save & Restart").click();
+    const dialog = frigateApp.page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    expect(save.capturedUrl()).toBeNull();
+
+    await dialog.getByRole("button", { name: /cancel/i }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 3_000 });
+    expect(save.capturedUrl()).toBeNull();
+  });
+
+  test("confirming saves first, then restarts", async ({ frigateApp }) => {
+    await frigateApp.installDefaults({ configRaw: SAMPLE_CONFIG });
+    const save = await installSaveRoute(frigateApp, 200, { message: "Saved" });
+    await installWsFrameCapture(frigateApp.page);
+
+    await frigateApp.goto("/config");
+    await expect(frigateApp.page.locator(".monaco-editor").first()).toBeVisible(
+      { timeout: 15_000 },
+    );
+
+    await frigateApp.page.getByLabel("Save & Restart").click();
+    const dialog = frigateApp.page.getByRole("alertdialog");
+    await dialog.getByRole("button", { name: /restart/i }).click();
+
+    await expect
+      .poll(() => save.capturedUrl())
+      .toContain("save_option=saveonly");
+    await waitForWsFrame(
+      frigateApp.page,
+      (frame) => frame.includes('"restart"'),
+      {
+        message: "the restart frame follows a successful save",
+      },
+    );
+  });
+
+  test("a failed save cancels the restart", async ({ frigateApp }) => {
+    await frigateApp.installDefaults({ configRaw: SAMPLE_CONFIG });
+    const save = await installSaveRoute(frigateApp, 400, {
+      message: "cameras.front_door: invalid ffmpeg input",
+    });
+    await installWsFrameCapture(frigateApp.page);
+
+    await frigateApp.goto("/config");
+    await expect(frigateApp.page.locator(".monaco-editor").first()).toBeVisible(
+      { timeout: 15_000 },
+    );
+
+    await frigateApp.page.getByLabel("Save & Restart").click();
+    const dialog = frigateApp.page.getByRole("alertdialog");
+    await dialog.getByRole("button", { name: /restart/i }).click();
+
+    await expect
+      .poll(() => save.capturedUrl())
+      .toContain("save_option=saveonly");
+    await expect(
+      frigateApp.page.getByText("cameras.front_door: invalid ffmpeg input"),
+    ).toBeVisible();
+    await expect(dialog).not.toBeVisible();
+    const frames = await readWsFrames(frigateApp.page);
+    expect(frames.some((frame) => frame.includes('"restart"'))).toBe(false);
   });
 });
 

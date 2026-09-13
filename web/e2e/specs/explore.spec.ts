@@ -331,3 +331,40 @@ test.describe("Explore — Frigate+ submission (desktop) @high", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("Explore — label section headers @high", () => {
+  // D20: /events/explore sends event_count per label; the fixture lacked it
+  // and the header rendered the bare i18n key "Trackedobjectscount".
+  test("headers show the tracked object count, not the i18n key", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/explore");
+    await expect(frigateApp.page.getByText("2 tracked objects")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(frigateApp.page.getByText("1 tracked object")).toBeVisible();
+    await expect(frigateApp.page.getByText(/trackedobjectscount/i)).toHaveCount(
+      0,
+    );
+  });
+});
+
+test.describe("Explore — filter bar on phones @high @mobile", () => {
+  // UI51: the scrolling filter bar was justify-end, so when it overflowed a
+  // phone screen its first button ("All Cameras") went off the left edge,
+  // where a scroll container cannot reach.
+  test(
+    "the cameras filter sits fully on screen",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.goto("/explore");
+      const cameras = frigateApp.page.getByLabel("Cameras Filter");
+      await expect(cameras).toBeVisible({ timeout: 10_000 });
+      const box = await cameras.boundingBox();
+      const width = frigateApp.page.viewportSize()?.width ?? 0;
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    },
+  );
+});

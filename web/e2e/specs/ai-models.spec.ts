@@ -73,7 +73,7 @@ test.describe("AI model status @medium @mobile", () => {
       path: testInfo.outputPath("before-system.png"),
       fullPage: true,
     });
-    await frigateApp.page.getByLabel("Select models").click();
+    await frigateApp.page.getByLabel("Select AI Models").click();
     await frigateApp.page
       .locator("summary")
       .filter({ hasText: "Model history" })
@@ -233,7 +233,7 @@ test("model links preserve range and selection through refresh and history @high
     "data-state",
     "on",
   );
-  await page.getByLabel("Select models").click();
+  await page.getByLabel("Select AI Models").click();
   await expect(model).toHaveValue("audio:medium");
 });
 

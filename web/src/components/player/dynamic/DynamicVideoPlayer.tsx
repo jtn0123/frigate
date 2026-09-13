@@ -12,6 +12,8 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { Recording } from "@/types/record";
 import { Preview } from "@/types/preview";
 import PreviewPlayer, { PreviewController } from "../PreviewPlayer";
+import { usePreviewForTimeRange } from "@/hooks/use-camera-previews";
+import { isCurrentOrPreviousHour } from "@/utils/dateUtil";
 import { DynamicVideoController } from "./DynamicVideoController";
 import HlsVideoPlayer, { HlsSource } from "../HlsVideoPlayer";
 import { useDetailStream } from "@/context/detail-stream-context";
@@ -93,6 +95,19 @@ export default function DynamicVideoPlayer({
   const [previewController, setPreviewController] =
     useState<PreviewController | null>(null);
   const [noRecording, setNoRecording] = useState(false);
+
+  // With nothing to preview, PreviewPlayer renders "No Preview Found", which
+  // sat under the loading spinner while the recording loaded. Keep it hidden
+  // during a load in that case so only the spinner shows.
+  const previewForRange = usePreviewForTimeRange(
+    cameraPreviews,
+    camera,
+    timeRange,
+  );
+  // mirrors PreviewPlayer, which plays frames for the current and the
+  // previous hour (that hour's mp4 is written only after it ends)
+  const hasPreview =
+    Boolean(previewForRange) || isCurrentOrPreviousHour(timeRange.before);
   const controller = useMemo(() => {
     if (!config || !playerRef.current || !previewController) {
       return undefined;
@@ -381,7 +396,7 @@ export default function DynamicVideoPlayer({
       <PreviewPlayer
         className={cn(
           className,
-          isScrubbing || isLoading ? "visible" : "hidden",
+          isScrubbing || (isLoading && hasPreview) ? "visible" : "hidden",
         )}
         camera={camera}
         timeRange={timeRange}

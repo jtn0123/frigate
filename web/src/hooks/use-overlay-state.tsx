@@ -214,6 +214,12 @@ export function useSearchEffect(
   const [pendingRemoval, setPendingRemoval] = useState(false);
   const processedRef = useRef<string | null>(null);
 
+  // the strip navigate below has to read the location as it is when that
+  // navigate actually runs: an async callback can write location state after
+  // this effect's closure was created, and that state must not be clobbered
+  const locationRef = useRef(location);
+  locationRef.current = location;
+
   const currentParam = searchParams.get(key);
 
   // Process the param via callback (once per unique param value)
@@ -243,17 +249,19 @@ export function useSearchEffect(
     }
 
     setPendingRemoval(false);
-    void navigate(location.pathname + location.hash, {
-      state: location.state,
+    const loc = locationRef.current;
+    // react-router updates window.history synchronously but only re-renders
+    // on a transition, so a callback that navigated (including asynchronously,
+    // after this effect's render) may not be reflected in loc yet. The history
+    // entry is the live value; stripping the param must not roll it back.
+    const liveState =
+      (window.history.state as { usr?: unknown } | null)?.usr ?? loc.state;
+    void navigate(loc.pathname + loc.hash, {
+      state: liveState,
       replace: true,
     });
-  }, [
-    pendingRemoval,
-    navigate,
-    location.pathname,
-    location.hash,
-    location.state,
-  ]);
+    // locationRef is stable so we don't need it in deps
+  }, [pendingRemoval, navigate]);
 
   // Reset tracking when param is removed from the URL
   useEffect(() => {

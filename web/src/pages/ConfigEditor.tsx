@@ -71,7 +71,10 @@ function ConfigEditor() {
         if (response.status === 200) {
           setError("");
           setHasChanges(false);
-          toast.success(response.data.message, { position: "top-center" });
+          toast.success(
+            response.data?.message || t("configEditor.saved", { ns: "fork" }),
+            { position: "top-center" },
+          );
         }
       } catch (error) {
         toast.error(t("toast.error.savingError"), { position: "top-center" });
@@ -108,14 +111,22 @@ function ConfigEditor() {
     }
   }, [onHandleSaveConfig]);
 
-  const handleSaveAndRestart = useCallback(async () => {
+  // Ask first: saving before the confirmation meant Cancel still left the new
+  // config on disk with nothing to say so.
+  const handleSaveAndRestart = useCallback(() => {
+    setRestartDialogOpen(true);
+  }, []);
+
+  const saveThenRestart = useCallback(async (): Promise<boolean> => {
     try {
       await onHandleSaveConfig("saveonly");
-      setRestartDialogOpen(true);
-    } catch (error) {
-      // If save fails, error is already set in onHandleSaveConfig, no dialog opens
+    } catch {
+      // onHandleSaveConfig already shows the error; skip the restart
+      return false;
     }
-  }, [onHandleSaveConfig]);
+    sendRestart("restart");
+    return true;
+  }, [onHandleSaveConfig, sendRestart]);
 
   useEffect(() => {
     if (!rawConfig) {
@@ -282,7 +293,7 @@ function ConfigEditor() {
               size="sm"
               className="flex items-center gap-2"
               aria-label={t("saveAndRestart")}
-              onClick={wrapAsync(handleSaveAndRestart)}
+              onClick={handleSaveAndRestart}
             >
               <div className="relative size-5">
                 <LuSave className="absolute left-0 top-0 size-3 text-secondary-foreground" />
@@ -315,7 +326,7 @@ function ConfigEditor() {
       <RestartDialog
         isOpen={restartDialogOpen}
         onClose={() => setRestartDialogOpen(false)}
-        onRestart={() => sendRestart("restart")}
+        onRestart={saveThenRestart}
       />
     </div>
   );

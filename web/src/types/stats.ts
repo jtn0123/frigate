@@ -157,6 +157,8 @@ export type Ffprobe = {
 export type KeyframeSeverity =
   "ok" | "warning" | "error" | "unknown" | "record_disabled";
 
+export type KeyframeGapPattern = "fixed" | "variable";
+
 export type KeyframeAnalysis = {
   severity: KeyframeSeverity;
   stream_index?: number;
@@ -164,6 +166,7 @@ export type KeyframeAnalysis = {
   max_gap?: number | null;
   mean_gap?: number | null;
   min_gap?: number | null;
+  pattern?: KeyframeGapPattern | null;
   duration_observed?: number | null;
   segment_time?: number;
   thresholds?: { warning: number; error: number };
