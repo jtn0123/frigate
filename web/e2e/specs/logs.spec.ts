@@ -319,10 +319,11 @@ test.describe("Logs — load errors and tab labels (UI50) @medium @mobile", () =
       exact: true,
     });
     await expect(go2rtc).toBeVisible({ timeout: 10_000 });
-    await expect(go2rtc).toHaveText("go2rtc");
+    // innerText: the old label was "go2rtc" in the DOM, title-cased by CSS
+    await expect(go2rtc).toHaveText("go2rtc", { useInnerText: true });
     await expect(
       frigateApp.page.getByRole("radio", { name: "Select nginx", exact: true }),
-    ).toHaveText("nginx");
+    ).toHaveText("nginx", { useInnerText: true });
   });
 
   test(
