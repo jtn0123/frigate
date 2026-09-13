@@ -130,7 +130,11 @@ test.describe("Logs — websocket tab @medium", () => {
       route.fulfill({ status: 200, body: "" }),
     );
     await frigateApp.goto("/logs");
-    const wsTab = frigateApp.page.getByLabel("Select websocket");
+    // named after its visible label since UI50 (it used the raw id)
+    const wsTab = frigateApp.page.getByRole("radio", {
+      name: "Select Messages",
+      exact: true,
+    });
     await expect(wsTab).toBeVisible({ timeout: 5_000 });
     await wsTab.click();
     await expect(wsTab).toHaveAttribute("data-state", "on", { timeout: 5_000 });
@@ -266,4 +270,77 @@ test.describe("Logs — mobile @medium @mobile", () => {
       timeout: 5_000,
     });
   });
+});
+
+test.describe("Logs — load errors and tab labels (UI50) @medium @mobile", () => {
+  test("a malformed log response shows an error state, not a raw error", async ({
+    frigateApp,
+  }) => {
+    let healthy = false;
+    await frigateApp.page.route(/\/api\/logs\/frigate(\?|$)/, (route) =>
+      healthy
+        ? route.fulfill({
+            json: {
+              totalLines: 1,
+              lines: ["[2026-04-06 10:00:00] INFO: Frigate started"],
+            },
+          })
+        : route.fulfill({
+            contentType: "text/html",
+            body: "<html>proxy error</html>",
+          }),
+    );
+    await frigateApp.page.route(/\/api\/logs\/frigate\?stream=true/, (route) =>
+      route.fulfill({ contentType: "text/plain", body: "" }),
+    );
+    await frigateApp.goto("/logs");
+
+    const errorState = frigateApp.page.getByTestId("fork-error-state");
+    await expect(errorState).toBeVisible({ timeout: 10_000 });
+    await expect(
+      frigateApp.page.getByText(/Cannot read properties/),
+    ).toHaveCount(0);
+
+    healthy = true;
+    await errorState.getByRole("button", { name: "Retry" }).click();
+    await expect(frigateApp.page.getByText(/Frigate started/)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(errorState).toHaveCount(0);
+  });
+
+  test("log sources keep their real names", async ({ frigateApp }) => {
+    await frigateApp.page.route(/\/api\/logs\/.*/, (route) =>
+      route.fulfill({ json: { totalLines: 0, lines: [] } }),
+    );
+    await frigateApp.goto("/logs");
+    const go2rtc = frigateApp.page.getByRole("radio", {
+      name: "Select go2rtc",
+      exact: true,
+    });
+    await expect(go2rtc).toBeVisible({ timeout: 10_000 });
+    await expect(go2rtc).toHaveText("go2rtc");
+    await expect(
+      frigateApp.page.getByRole("radio", { name: "Select nginx", exact: true }),
+    ).toHaveText("nginx");
+  });
+
+  test(
+    "@mobile the last log tab is reachable beside the action buttons",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.page.route(/\/api\/logs\/.*/, (route) =>
+        route.fulfill({ json: { totalLines: 0, lines: [] } }),
+      );
+      await frigateApp.goto("/logs");
+      const messages = frigateApp.page.getByRole("radio", {
+        name: "Select Messages",
+        exact: true,
+      });
+      await expect(messages).toBeVisible({ timeout: 10_000 });
+      // click() fails if another element (the Copy button) would take it
+      await messages.click();
+      await expect(messages).toHaveAttribute("data-state", "on");
+    },
+  );
 });
