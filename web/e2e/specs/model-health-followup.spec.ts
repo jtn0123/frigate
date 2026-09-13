@@ -71,7 +71,7 @@ test("prioritizes queue and captures models and health @medium @mobile", async (
   await page.screenshot({
     path: info.outputPath("general-.png"),
   });
-  await page.getByLabel("Select models").click();
+  await page.getByLabel("Select AI Models").click();
   await expect(
     page.getByRole("article", { name: "Whisper Medium" }),
   ).toBeVisible();

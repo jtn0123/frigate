@@ -58,6 +58,8 @@ export function CaseCard({
     () => new Set(exports.map((exp) => exp.camera)).size,
     [exports],
   );
+  // A pruned or missing thumbnail showed the browser's broken-image glyph
+  const [thumbFailed, setThumbFailed] = useState(false);
 
   return (
     <div
@@ -71,14 +73,15 @@ export function CaseCard({
       aria-label={exportCase.name}
       onKeyDown={onActivate(() => onSelect())}
     >
-      {firstExport && (
+      {firstExport && !thumbFailed && (
         <img
           className="absolute inset-0 size-full object-cover"
           src={`${baseUrl}${firstExport.thumb_path.replace("/media/frigate/", "")}`}
           alt=""
+          onError={() => setThumbFailed(true)}
         />
       )}
-      {!firstExport && (
+      {(!firstExport || thumbFailed) && (
         <div className="absolute inset-0 bg-gradient-to-br from-secondary via-secondary/80 to-muted" />
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-gradient-to-t from-black/60 to-transparent" />
@@ -134,6 +137,7 @@ export function ExportCard({
   const { t } = useTranslation(["views/exports", "views/replay"]);
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
+  const [thumbFailed, setThumbFailed] = useState(false);
   const [loading, setLoading] = useState(
     exportedRecording.thumb_path.length > 0,
   );
@@ -195,6 +199,7 @@ export function ExportCard({
   // ever reuses the instance across different exports.
   useEffect(() => {
     setLoading(exportedRecording.thumb_path.length > 0);
+    setThumbFailed(false);
   }, [exportedRecording.thumb_path]);
 
   // selection
@@ -320,7 +325,7 @@ export function ExportCard({
           <ActivityIndicator />
         ) : (
           <>
-            {exportedRecording.thumb_path.length > 0 ? (
+            {exportedRecording.thumb_path.length > 0 && !thumbFailed ? (
               <img
                 className="absolute inset-0 aspect-video size-full rounded-lg object-cover md:rounded-2xl"
                 src={`${baseUrl}${exportedRecording.thumb_path.replace("/media/frigate/", "")}`}
@@ -329,6 +334,12 @@ export function ExportCard({
                   label: exportedRecording.name,
                 })}
                 onLoad={() => setLoading(false)}
+                onError={() => {
+                  // show the plain tile instead of a broken image, and stop
+                  // the skeleton, which only onLoad used to clear
+                  setThumbFailed(true);
+                  setLoading(false);
+                }}
               />
             ) : (
               <div className="absolute inset-0 rounded-lg bg-secondary md:rounded-2xl" />
@@ -338,11 +349,13 @@ export function ExportCard({
         {!exportedRecording.in_progress && !selectionMode && (
           <div className="absolute bottom-2 right-3 z-40">
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <BlurredIconButton
-                  aria-label={t("tooltip.editName")}
-                  onClick={(e) => e.stopPropagation()}
-                >
+              {/* One named trigger: the old inner "Edit name" element nested a
+                  second clickable control inside the trigger button */}
+              <DropdownMenuTrigger
+                aria-label={t("a11y.moreActions", { ns: "fork" })}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <BlurredIconButton>
                   <FiMoreVertical className="size-5" />
                 </BlurredIconButton>
               </DropdownMenuTrigger>

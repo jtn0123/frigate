@@ -78,3 +78,49 @@ test.describe("Read-path errors @high", () => {
     },
   );
 });
+
+test.describe("Error toasts are readable @medium @mobile", () => {
+  // UI47: error toasts sit on bg-danger, and their description used the
+  // muted gray meant for neutral toasts, about 1.4:1 against the red.
+  test("the description reaches 3:1 contrast on the red background", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.page.route("**/api/review/summary**", (route) =>
+      route.fulfill({ status: 500, json: { message: "summary unavailable" } }),
+    );
+    await frigateApp.goto("/review");
+    const description = frigateApp.page
+      .locator('[data-sonner-toast][data-type="error"] [data-description]')
+      .first();
+    await expect(description).toBeVisible({ timeout: 10_000 });
+
+    const ratio = await description.evaluate((el) => {
+      const toastEl = el.closest("[data-sonner-toast]") as HTMLElement;
+      const channels = (color: string): number[] =>
+        (color.match(/[\d.]+/g) ?? []).map(Number);
+      const bgValues = channels(getComputedStyle(toastEl).backgroundColor);
+      const fgValues = channels(getComputedStyle(el).color);
+      const bg = [0, 1, 2].map((i) => bgValues[i] ?? 0);
+      const alpha = fgValues[3] ?? 1;
+      // blend a translucent text color over the background
+      const mixed = bg.map(
+        (b, i) => (fgValues[i] ?? 0) * alpha + b * (1 - alpha),
+      );
+      const luminance = (rgb: number[]) => {
+        const lin = rgb.map((v) => {
+          const c = v / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return (
+          0.2126 * (lin[0] ?? 0) +
+          0.7152 * (lin[1] ?? 0) +
+          0.0722 * (lin[2] ?? 0)
+        );
+      };
+      const a = luminance(mixed);
+      const b = luminance(bg);
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    });
+    expect(ratio).toBeGreaterThanOrEqual(3);
+  });
+});
