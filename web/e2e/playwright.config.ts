@@ -8,6 +8,11 @@ const webRoot = resolve(__dirname, "..");
 
 const DESKTOP_UA =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+// The CSP specs need `vite preview` to serve the policy (E2E_CSP=1); without it
+// they are not collected at all, instead of running and skipping.
+const CSP_TAG = /@csp/;
+const skipCsp = process.env.E2E_CSP ? [] : [CSP_TAG];
+
 const MOBILE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
@@ -39,7 +44,7 @@ export default defineConfig({
     {
       name: "desktop",
       // fork: tests for one layout are tagged instead of skipped at run time
-      grepInvert: /@mobile-only/,
+      grepInvert: [/@mobile-only/, ...skipCsp],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1920, height: 1080 },
@@ -48,7 +53,7 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      grepInvert: /@desktop-only/,
+      grepInvert: [/@desktop-only/, ...skipCsp],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 390, height: 844 },

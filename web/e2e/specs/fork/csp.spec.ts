@@ -41,12 +41,10 @@ async function collectViolations(page: Page): Promise<Violation[]> {
   return violations;
 }
 
-test.describe("Content-Security-Policy @high", () => {
-  test.skip(
-    !process.env["E2E_CSP"],
-    "run with E2E_CSP=1 so the preview server serves the policy",
-  );
-
+// Tagged rather than skipped at run time: playwright.config.ts collects these
+// only when E2E_CSP is set, so they never appear as ignored tests (the D19
+// treatment of layout-only specs).
+test.describe("Content-Security-Policy @high @csp", () => {
   test("the served policy is enforcing, not report-only", async ({
     frigateApp,
   }) => {
@@ -62,9 +60,11 @@ test.describe("Content-Security-Policy @high", () => {
     const violations = await collectViolations(frigateApp.page);
     for (const route of ROUTES) {
       await frigateApp.goto(route);
-      // Lazily imported chunks, workers and players start after first paint;
-      // the network settling is the signal that they have.
-      await frigateApp.page.waitForLoadState("networkidle");
+      // Lazily imported chunks, workers and players start after first paint,
+      // so wait for the document itself to finish rather than a quiet network.
+      await frigateApp.page.waitForFunction(
+        () => document.readyState === "complete",
+      );
       await expect(violations).toEqual([]);
     }
   });

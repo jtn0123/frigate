@@ -154,7 +154,7 @@ class AuditProcessTests(unittest.TestCase):
                 with (
                     unittest.mock.patch.dict(_MODULE.TARGETS, {}, clear=False),
                     unittest.mock.patch.object(sys, "argv", ["lock-audit.py"]),
-                    unittest.mock.patch.object(_MODULE, "review", lambda *_: []),
+                    unittest.mock.patch.object(_MODULE, "review", return_value=[]),
                 ):
                     self.assertEqual(_MODULE.main(), 0)
         self.assertEqual(sorted(scanned), sorted(_MODULE.TARGETS))
