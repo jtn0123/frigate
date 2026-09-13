@@ -226,3 +226,87 @@ test.describe("Review — mobile @critical @mobile", () => {
     await expect(frigateApp.page).toHaveURL(/\/$/);
   });
 });
+
+test.describe("Review — fixture data renders like the real API @high", () => {
+  // D20: reviews.json used to carry ISO-string times, "/clips/..." thumb
+  // paths and a summary without last24Hours, so every card read "Invalid
+  // Time", every thumbnail was a broken "//clips" URL, and the severity
+  // badges read 0. These assertions keep the fixtures honest.
+  test("cards show real times and loaded thumbnails", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/review");
+    const review = new ReviewPage(frigateApp.page, !frigateApp.isMobile);
+    const card = review.reviewItems.first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card).not.toContainText(/invalid/i);
+
+    const thumb = card.locator("img").first();
+    await expect(thumb).toHaveAttribute("src", /\/clips\/review\//);
+    await expect(thumb).not.toHaveAttribute("src", /\/\/clips/);
+    await expect
+      .poll(() => thumb.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+  });
+
+  test("severity badge counts come from last24Hours", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/review");
+    const review = new ReviewPage(frigateApp.page, !frigateApp.isMobile);
+    // review-summary.json: last24Hours total_alert 2, reviewed_alert 1
+    await expect(review.alertsTab).toContainText("1", { timeout: 10_000 });
+  });
+});
+
+test.describe("Review — recording view loading state @high @mobile", () => {
+  // UI48: while a recording loaded with no preview for the range, the
+  // preview player's "No Preview Found" sat under the loading spinner.
+  test("the spinner does not cover the no-preview message", async ({
+    frigateApp,
+  }) => {
+    // Hold the camera's recordings so the view stays in its loading state
+    // past the player's 1 s loading timer.
+    await frigateApp.page.route("**/api/*/recordings?**", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 8_000));
+      await route.fulfill({ json: [] }).catch(() => undefined);
+    });
+    await frigateApp.goto("/review");
+    const page = frigateApp.page;
+    const cards = page.locator('.review-item [role="button"]');
+    await expect(cards.first()).toBeVisible({ timeout: 10_000 });
+    await cards.first().click();
+    await expect(page).toHaveTitle(/Recordings/);
+
+    const spinner = page.getByLabel("Loading…").first();
+    await expect(spinner).toBeVisible({ timeout: 5_000 });
+
+    const overlapping = await page.evaluate(() => {
+      const spin = Array.from(
+        document.querySelectorAll<HTMLElement>('[aria-label="Loading…"]'),
+      ).find((el) => el.getBoundingClientRect().width > 0);
+      if (!spin) return -1;
+      const s = spin.getBoundingClientRect();
+      return (
+        Array.from(document.querySelectorAll<HTMLElement>("div"))
+          // innerText, not textContent: a wrapper around the hidden preview
+          // player would otherwise "contain" the message it no longer shows
+          .filter(
+            (el) =>
+              el.innerText.trim() === "No Preview Found" &&
+              el.checkVisibility(),
+          )
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            return (
+              r.left < s.right &&
+              r.right > s.left &&
+              r.top < s.bottom &&
+              r.bottom > s.top
+            );
+          }).length
+      );
+    });
+    expect(overlapping).toBe(0);
+  });
+});

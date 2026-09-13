@@ -17,7 +17,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
         classNames: {
           toast:
             "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
+          // error toasts sit on bg-danger, where muted gray text read at ~1.4:1
+          description:
+            "group-[.toast]:text-muted-foreground group-data-[type=error]:!text-foreground/90",
           actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary",
           cancelButton:
             "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",

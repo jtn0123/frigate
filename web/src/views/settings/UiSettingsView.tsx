@@ -45,16 +45,27 @@ function SwitchSettingRow({
   checked,
   onCheckedChange,
 }: Readonly<SwitchSettingRowProps>) {
+  // Two switches render (beside the label on mobile, in the control column
+  // from md up) and only one is visible. A label's htmlFor can target just
+  // one, and it pointed at the mobile switch, so on desktop clicking the
+  // title did nothing and the visible switch had no name. The title toggles
+  // the setting itself and names both switches.
+  const labelId = `${id}-label`;
   return (
     <div className={SPLIT_ROW_CLASS_NAME}>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4 md:block">
-          <Label className="cursor-pointer" htmlFor={id}>
+          <Label
+            id={labelId}
+            className="cursor-pointer"
+            onClick={() => onCheckedChange(!(checked ?? false))}
+          >
             {label}
           </Label>
           <div className="md:hidden">
             <Switch
               id={id}
+              aria-labelledby={labelId}
               checked={checked ?? false}
               onCheckedChange={onCheckedChange}
             />
@@ -65,6 +76,7 @@ function SwitchSettingRow({
       <div className="hidden w-full md:flex md:max-w-2xl md:items-center">
         <Switch
           id={`${id}-desktop`}
+          aria-labelledby={labelId}
           checked={checked ?? false}
           onCheckedChange={onCheckedChange}
         />

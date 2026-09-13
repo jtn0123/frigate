@@ -88,7 +88,9 @@ export default function AccountSettings({
       <Tooltip>
         <Trigger asChild>
           <TooltipTrigger asChild>
-            <div
+            <button
+              type="button"
+              aria-label={t("menu.user.account", { ns: "common" })}
               className={cn(
                 "flex flex-col items-center justify-center",
                 isDesktop
@@ -98,7 +100,7 @@ export default function AccountSettings({
               )}
             >
               <VscAccount className="size-5 md:m-[6px]" />
-            </div>
+            </button>
           </TooltipTrigger>
         </Trigger>
         <TooltipPortal>

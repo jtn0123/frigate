@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { wrapAsync } from "@/utils/promise";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +26,9 @@ import { useTranslation } from "react-i18next";
 type RestartDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onRestart: () => void;
+  /** Resolve to false to cancel, e.g. when a save that must precede the
+   * restart fails; the restarting sheet then never opens. */
+  onRestart: () => void | Promise<boolean | void>;
 };
 
 export default function RestartDialog({
@@ -62,9 +65,14 @@ export default function RestartDialog({
     }
   }, [countdown]);
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
+    const result = await onRestart();
+    if (result === false) {
+      setRestartDialogOpen(false);
+      onClose();
+      return;
+    }
     setRestartingSheetOpen(true);
-    onRestart();
   };
 
   const handleForceReload = () => {
@@ -93,7 +101,7 @@ export default function RestartDialog({
             <AlertDialogCancel>
               {t("button.cancel", { ns: "common" })}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleRestart}>
+            <AlertDialogAction onClick={wrapAsync(handleRestart)}>
               {t("restart.button")}
             </AlertDialogAction>
           </AlertDialogFooter>

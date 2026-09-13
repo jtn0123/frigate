@@ -45,6 +45,7 @@
     "placeholder": "Search pages, cameras, settings, and actions",
     "empty": "No results found.",
     "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
+    "footerHintMac": "⌘K or / to open, arrows to move, Enter to run",
     "groups": {
       "recent": "Recent",
       "pages": "Pages",
@@ -248,6 +249,13 @@
     "checking": "Checking...",
     "checkFailed": "Could not check for updates",
     "close": "Close"
+  },
+  "configEditor": {
+    "saved": "Config saved"
+  },
+  "a11y": {
+    "home": "Frigate home",
+    "moreActions": "More actions"
   },
   "timelineAccessibility": {
     "exportStart": "Export start time",

@@ -142,7 +142,10 @@ test.describe("Navigation — settings menu (desktop) @critical", () => {
         .locator("aside .mb-8 div[class*='cursor-pointer']")
         .first();
       await gear.click();
-      await frigateApp.page.getByLabel(target.label).click();
+      // by role: the gear trigger itself is also named "Settings" (C13)
+      await frigateApp.page
+        .getByRole("menuitem", { name: target.label, exact: true })
+        .click();
       await expect(frigateApp.page).toHaveURL(target.url);
     });
   }

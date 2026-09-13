@@ -10,7 +10,7 @@ import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { Preview } from "@/types/preview";
 import { PreviewPlayback } from "@/types/playback";
-import { isCurrentHour } from "@/utils/dateUtil";
+import { isCurrentOrPreviousHour } from "@/utils/dateUtil";
 import { baseUrl } from "@/api/baseUrl";
 import { isAndroid, isChrome, isMobile } from "react-device-detect";
 import { TimeRange } from "@/types/timeline";
@@ -77,7 +77,7 @@ export default function PreviewPlayer({
     );
   }
 
-  if (isCurrentHour(timeRange.before)) {
+  if (isCurrentOrPreviousHour(timeRange.before)) {
     return (
       <PreviewFramesPlayer
         className={className}

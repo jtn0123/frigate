@@ -588,7 +588,7 @@ export default function SearchView({
             {selectedObjects.length == 0 || bulk.enabled ? (
               <>
                 <SearchFilterGroup
-                  className="order-1 w-max max-w-full justify-end"
+                  className="order-1 w-max max-w-full justify-start"
                   filter={searchFilter}
                   onUpdateFilter={onUpdateFilter}
                 />

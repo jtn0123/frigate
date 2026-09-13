@@ -951,12 +951,17 @@ def get_hailo_temps() -> dict[str, float]:
     return temps
 
 
+# Snapshot: environment_vars lands in os.environ after import and must not
+# be able to enable this.
+_GO2RTC_ARBITRARY_EXEC_ENV = os.environ.get("GO2RTC_ALLOW_ARBITRARY_EXEC")
+
+
 def is_go2rtc_arbitrary_exec_allowed() -> bool:
     """Read the GO2RTC_ALLOW_ARBITRARY_EXEC override from env, docker
     secrets, or the Home Assistant add-on options file."""
     raw: str | None = None
-    if "GO2RTC_ALLOW_ARBITRARY_EXEC" in os.environ:
-        raw = os.environ.get("GO2RTC_ALLOW_ARBITRARY_EXEC")
+    if _GO2RTC_ARBITRARY_EXEC_ENV is not None:
+        raw = _GO2RTC_ARBITRARY_EXEC_ENV
     elif (
         os.path.isdir(_SECRETS_DIR)
         and os.access(_SECRETS_DIR, os.R_OK)
@@ -1042,6 +1047,7 @@ def ffprobe_stream(ffmpeg, path: str, detailed: bool = False) -> sp.CompletedPro
 
 KEYFRAME_PROBE_WINDOW_SECONDS = 20
 KEYFRAME_GAP_WARNING_SECONDS = 4.0
+KEYFRAME_GAP_JITTER_SECONDS = 0.5
 
 
 def parse_keyframe_packets(output: str) -> tuple[list[float], float | None]:
@@ -1083,6 +1089,10 @@ def classify_keyframe_gaps(
       - "error" when the longest gap exceeds the record segment length
       - "warning" when the longest gap exceeds the warning threshold
       - "ok" otherwise
+
+    The "pattern" key separates the two causes so callers can give accurate
+    advice: "fixed" is a regular GOP that is simply too long, "variable" is
+    the irregular spacing a smart/+ codec produces.
     """
     thresholds = {
         "warning": KEYFRAME_GAP_WARNING_SECONDS,
@@ -1095,6 +1105,7 @@ def classify_keyframe_gaps(
             "max_gap": None,
             "mean_gap": None,
             "min_gap": None,
+            "pattern": None,
             "segment_time": segment_time,
             "severity": "unknown",
             "thresholds": thresholds,
@@ -1102,6 +1113,7 @@ def classify_keyframe_gaps(
 
     gaps = [b - a for a, b in zip(keyframe_pts, keyframe_pts[1:])]
     max_gap = max(gaps)
+    min_gap = min(gaps)
 
     if max_gap > segment_time:
         severity = "error"
@@ -1110,11 +1122,16 @@ def classify_keyframe_gaps(
     else:
         severity = "ok"
 
+    # allow for encoder jitter and probe rounding before calling a GOP variable
+    tolerance = max(KEYFRAME_GAP_JITTER_SECONDS, min_gap * 0.25)
+    pattern = "variable" if (max_gap - min_gap) > tolerance else "fixed"
+
     return {
         "keyframe_count": len(keyframe_pts),
         "max_gap": round(max_gap, 2),
         "mean_gap": round(sum(gaps) / len(gaps), 2),
-        "min_gap": round(min(gaps), 2),
+        "min_gap": round(min_gap, 2),
+        "pattern": pattern,
         "segment_time": segment_time,
         "severity": severity,
         "thresholds": thresholds,

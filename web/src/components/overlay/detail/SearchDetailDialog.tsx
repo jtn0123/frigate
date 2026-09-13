@@ -161,7 +161,15 @@ function TabsWithActions({
                 className="flex scroll-mx-10 items-center justify-between gap-2 text-muted-foreground"
                 value={item}
                 data-nav-item={item}
-                aria-label={`Select ${item}`}
+                aria-label={t("selectItem", {
+                  ns: "common",
+                  item:
+                    item === "snapshot"
+                      ? search?.has_snapshot
+                        ? t("type.snapshot")
+                        : t("type.thumbnail")
+                      : t(`type.${item}`),
+                })}
               >
                 <div className="smart-capitalize">
                   {item === "snapshot"
@@ -1358,12 +1366,13 @@ function ObjectDetailsTab({
                       {isAdmin && search.end_time && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span>
-                              <FaPencilAlt
-                                className="size-4 cursor-pointer text-primary/40 hover:text-primary/80"
-                                onClick={() => setIsSubLabelDialogOpen(true)}
-                              />
-                            </span>
+                            <button
+                              type="button"
+                              aria-label={t("details.editSubLabel.title")}
+                              onClick={() => setIsSubLabelDialogOpen(true)}
+                            >
+                              <FaPencilAlt className="size-4 cursor-pointer text-primary/40 hover:text-primary/80" />
+                            </button>
                           </TooltipTrigger>
                           <TooltipPortal>
                             <TooltipContent>
@@ -1381,10 +1390,13 @@ function ObjectDetailsTab({
                         {t("details.topScore.label")}
                         <Popover>
                           <PopoverTrigger asChild>
-                            <div className="cursor-pointer p-0">
+                            <button
+                              type="button"
+                              className="cursor-pointer p-0"
+                            >
                               <LuInfo className="size-4" />
                               <span className="sr-only">Info</span>
-                            </div>
+                            </button>
                           </PopoverTrigger>
                           <PopoverContent
                             container={popoverContainerRef.current}
