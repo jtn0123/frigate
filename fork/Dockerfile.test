@@ -1,9 +1,12 @@
 # Backend unit-test runner for the fork. Layers the working tree's Python
 # sources over the matching upstream image so tests run against the exact
 # runtime (labelmaps, ffmpeg, wheels) without a full image build.
-ARG BASE=ghcr.io/blakeblackshear/frigate:0.18.0-rc2
+ARG BASE=ghcr.io/blakeblackshear/frigate:0.18.0
 FROM ${BASE}
 WORKDIR /opt/frigate
+# Release tooling tests exercise real throwaway Git repositories.
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+  && rm -rf /var/lib/apt/lists/*
 # Dev tools before the sources, so editing Python reuses this layer instead of
 # re-running pip on every build. They come from the hash-pinned lock as wheels
 # only; the check fails the build when requirements-dev.txt moved on without it.

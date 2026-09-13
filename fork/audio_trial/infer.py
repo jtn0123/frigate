@@ -8,6 +8,7 @@ from pathlib import Path
 
 import ctranslate2  # noqa: F401  # Load before ONNX Runtime.
 import numpy as np
+from failures import cause
 from faster_whisper import WhisperModel
 from faster_whisper.audio import decode_audio
 from faster_whisper.vad import VadOptions, get_speech_timestamps
@@ -93,6 +94,7 @@ class Checkpoint:
                 result["stages"][name] = {
                     "status": "failed",
                     "error": type(error).__name__,
+                    "cause": cause(error),
                     "attempts": attempt + 1,
                 }
             else:

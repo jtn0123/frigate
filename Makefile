@@ -61,7 +61,7 @@ run_tests: local
 .PHONY: run_tests
 
 # ---- fork inner-loop targets (see fork/README.md) ---------------------------
-FORK_TEST_BASE ?= ghcr.io/blakeblackshear/frigate:0.18.0-rc2
+FORK_TEST_BASE ?= ghcr.io/blakeblackshear/frigate:0.18.0
 # One test image per worktree, so parallel worktrees never test each other's sources.
 FORK_TEST_IMAGE ?= frigate-fork-test-$(notdir $(CURDIR))
 PROXY_HOST ?= localhost:5000

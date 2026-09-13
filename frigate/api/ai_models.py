@@ -17,6 +17,7 @@ from frigate.stats.ai_models import (
 )
 from frigate.stats.model_history import read_history, save_sample
 from frigate.stats.server_pressure import read_server_pressure
+from frigate.stats.stability import read_stability
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,10 @@ async def sample_models(app) -> AIModelsResponse:
             audio=audio,
             source_updated=number(stats.get("service", {}).get("last_updated")),
             telemetry_status="connected" if stats_fresh(stats) else "stale",
-            server=await asyncio.to_thread(read_server_pressure),
+            server={
+                **await asyncio.to_thread(read_server_pressure),
+                "stability": await asyncio.to_thread(read_stability),
+            },
             shared_gpus={
                 name: {k: value.get(k) for k in ("gpu", "mem", "temp", "vendor")}
                 for name, value in (

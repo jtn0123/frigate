@@ -18,6 +18,7 @@ from frigate.config import GenAIProviderEnum
 from frigate.genai import GenAIClient, register_genai_provider
 from frigate.genai.utils import parse_tool_calls_from_message
 from frigate.stats.generation_metrics import record_generation_metrics
+from frigate.stats.generation_requests import generation_request
 
 logger = logging.getLogger(__name__)
 
@@ -231,12 +232,13 @@ class OllamaClient(GenAIClient):
                 {k: v for k, v in ollama_options.items() if k != "format"},
             )
             started = time.monotonic()
-            result = self.provider.generate(
-                self.genai_config.model,
-                prompt,
-                images=images if images else None,
-                **ollama_options,
-            )
+            with generation_request(len(images) if images else 0):
+                result = self.provider.generate(
+                    self.genai_config.model,
+                    prompt,
+                    images=images if images else None,
+                    **ollama_options,
+                )
             logger.debug(
                 "Ollama generate response: done=%s, done_reason=%s, eval_count=%s, "
                 "prompt_eval_count=%s, response_len=%s",

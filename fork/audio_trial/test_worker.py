@@ -66,7 +66,7 @@ class WorkerTests(unittest.TestCase):
             patch.object(worker.time, "monotonic", side_effect=[0, 61]),
             patch.object(worker.subprocess, "run") as convert,
         ):
-            with self.assertRaisesRegex(RuntimeError, "download limit"):
+            with self.assertRaisesRegex(RuntimeError, "download_limit"):
                 worker.download_audio(self.job, self.root)
         convert.assert_not_called()
 
@@ -81,7 +81,7 @@ class WorkerTests(unittest.TestCase):
                 side_effect=worker.subprocess.TimeoutExpired("ffmpeg", 30),
             ),
         ):
-            with self.assertRaises(worker.subprocess.TimeoutExpired):
+            with self.assertRaisesRegex(worker.AudioFailure, "conversion: timeout"):
                 worker.download_audio(self.job, self.root)
 
     def test_existing_builtin_transcription_prevents_duplicate_worker_processing(self):
