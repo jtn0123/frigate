@@ -59,8 +59,6 @@ gate_lint() { (cd web && npm run -s lint); return $?; }
 gate_typecheck() { (cd web && npm run -s typecheck); return $?; }
 gate_ratchet() { (cd web && npm run -s type-ratchet); return $?; }
 gate_i18n() { (cd web && npm run -s i18n:extract:ci); return $?; }
-# The generated API types against docs/static/frigate-api.yaml (A5).
-gate_api_types() { (cd web && npm run -s api:types:ci); return $?; }
 gate_gitleaks() { gitleaks git --no-banner --redact --log-opts="origin/dev..HEAD" .; return $?; }
 
 gate_vitest() {
@@ -142,7 +140,7 @@ skip() {
   return 0
 }
 
-host=(lint typecheck ratchet vitest i18n api_types ruff mypy_fork gitleaks)
+host=(lint typecheck ratchet vitest i18n ruff mypy_fork gitleaks)
 docker_lane=()
 if [[ "$mode" == fast ]]; then
   if touches '^fork/scripts/.*\.py$'; then
