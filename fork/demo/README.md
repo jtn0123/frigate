@@ -17,7 +17,7 @@ container does not read that file.
 
 ## What it is
 
-- Base image `ghcr.io/blakeblackshear/frigate:0.18.0` (multi-arch, so this
+- Base image `ghcr.io/blakeblackshear/frigate:0.18.0-rc2` (multi-arch, so this
   Mac runs arm64 natively).
 - Overlay: this tree's `frigate/`, `migrations/`, and `web/dist` (from
   `npm run e2e:build`, base `/`).
