@@ -125,6 +125,13 @@ describe("type ratchet command", () => {
       expect.stringContaining("Run with --write"),
     );
   });
+  it("rejects a corrupt baseline without overwriting it", async () => {
+    mocks.read.mockImplementation((path) =>
+      path.endsWith("type-ratchet.json") ? "not JSON" : source,
+    );
+    await expect(run()).rejects.toThrow("exit:2");
+    expect(mocks.write).not.toHaveBeenCalled();
+  });
   it("propagates an ESLint launch failure", async () => {
     mocks.spawn.mockReturnValue({ error: new Error("cannot start eslint") });
     await expect(run()).rejects.toThrow("cannot start eslint");
