@@ -282,3 +282,85 @@ test("shows both container limits and removes measurements after collector outag
   ).toBeVisible();
   await expect(container.getByText("20 GiB", { exact: true })).toHaveCount(0);
 });
+
+test("separates recording incidents from camera capture and exposes evidence @mobile", async ({
+  frigateApp,
+}, testInfo) => {
+  const page = frigateApp.page;
+  let stale = false;
+  await page.route("**/api/ai/models", (route) =>
+    route.fulfill({
+      json: {
+        ...inventory,
+        server: {
+          status: "connected",
+          scopes: [],
+          stability: {
+            status: stale ? "stale" : "connected",
+            updated: Date.now() / 1000,
+            incidents: [
+              {
+                kind: "recording",
+                scope: "c120_3",
+                started: Date.now() / 1000 - 130,
+                updated: Date.now() / 1000,
+                resolved: null,
+              },
+            ],
+            samples: [
+              {
+                time: Date.now() / 1000 - 15,
+                detector_ms: 5,
+                skipped_fps: 0,
+                ollama_requests: 0,
+              },
+              {
+                time: Date.now() / 1000,
+                detector_ms: 132,
+                skipped_fps: 0.1,
+                ollama_requests: 1,
+              },
+            ],
+            audio_failure: {
+              updated: Date.now() / 1000,
+              stage: "conversion",
+              cause: "timeout",
+            },
+          },
+        },
+      },
+    }),
+  );
+  await page.route("**/api/ai/models/history", (route) =>
+    route.fulfill({ json: { status: "connected", samples: [] } }),
+  );
+  await frigateApp.goto("/system#models");
+  const panel = page.getByRole("region", { name: "Stability incidents" });
+  await expect(
+    panel.getByText("Continuous recordings missing: c120_3"),
+  ).toBeVisible();
+  await expect(
+    panel.getByText("No active incident", { exact: true }),
+  ).toHaveCount(3);
+  await expect(
+    panel.getByText("Last audio failure: audio extraction, time limit reached"),
+  ).toBeVisible();
+  await panel.getByText("Recent synchronized evidence").click();
+  await expect(
+    panel.getByRole("cell", { name: "132.0", exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.getByRole("img", { name: "Detector latency (ms)" }),
+  ).toBeVisible();
+  await panel.screenshot({
+    path: testInfo.outputPath("stability-incidents.png"),
+  });
+  stale = true;
+  await page.reload();
+  await expect(panel.getByText("Unknown", { exact: true })).toHaveCount(4);
+  await expect(
+    panel.getByText(
+      "Incident monitoring is missing or stale. Health cannot be confirmed.",
+    ),
+  ).toBeVisible();
+});
