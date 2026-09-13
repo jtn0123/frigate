@@ -117,7 +117,9 @@ export function reportReadError(error: unknown, key: unknown): void {
 
   const show = () =>
     toast.error(title, {
-      id: `fork-read-error-${id}`,
+      // One toast per burst: a page that fails several reads at once used to
+      // stack a toast per endpoint over its toolbar. The newest replaces it.
+      id: "fork-read-error",
       description: serverMessage(error),
       position: "top-center",
     });
