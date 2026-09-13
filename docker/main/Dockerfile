@@ -90,13 +90,13 @@ FROM base_host AS ov-converter
 ARG DEBIAN_FRONTEND
 
 # Install OpenVINO for model conversion
-COPY docker/main/requirements-ov.txt /requirements-ov.txt
+COPY docker/main/requirements-ov.lock /requirements-ov.lock
 RUN apt-get -qq update \
     && apt-get -qq install -y wget curl ca-certificates python3 python3-distutils \
     && curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
     && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip" \
-    && pip3 install -r /requirements-ov.txt
+    && pip3 install --only-binary=:all: --require-hashes -r /requirements-ov.lock
 
 # Get OpenVino Model
 RUN --mount=type=bind,source=docker/main/build_ov_model.py,target=/build_ov_model.py \
@@ -194,10 +194,10 @@ RUN curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https
     && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip"
 
-COPY docker/main/requirements.txt /requirements.txt
+COPY docker/main/requirements.lock /requirements.lock
 COPY docker/main/requirements-dev.txt /requirements-dev.txt
 
-RUN pip3 install -r /requirements.txt
+RUN pip3 install --only-binary=:all: --require-hashes -r /requirements.lock
 
 # Build pysqlite3 from source
 COPY docker/main/build_pysqlite3.sh /build_pysqlite3.sh
@@ -282,10 +282,10 @@ RUN curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https
     && python3 get-pip.py "pip"
 
 RUN --mount=type=bind,from=wheels,source=/wheels,target=/deps/wheels \
-    pip3 install -U /deps/wheels/*.whl
+    pip3 install --only-binary=:all: -U /deps/wheels/*.whl
 
 # Install Axera Engine
-RUN pip3 install https://github.com/AXERA-TECH/pyaxengine/releases/download/0.1.3-frigate/axengine-0.1.3-py3-none-any.whl
+RUN pip3 install --only-binary=:all: https://github.com/AXERA-TECH/pyaxengine/releases/download/0.1.3-frigate/axengine-0.1.3-py3-none-any.whl
 
 ENV PATH="${PATH}:/usr/bin/axcl"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/axcl"
@@ -330,7 +330,7 @@ RUN curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://deb
     ./nsolid_setup_deb.sh 20 && \
     apt-get install nodejs -y \
     && rm -rf /var/lib/apt/lists/* \
-    && npm install -g npm@10
+    && npm install -g --ignore-scripts npm@10.9.9
 
 WORKDIR /workspace/frigate
 
@@ -338,8 +338,8 @@ RUN apt-get update \
     && apt-get install make -y \
     && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./docker/main/requirements-dev.txt,target=/workspace/frigate/requirements-dev.txt \
-    pip3 install -r requirements-dev.txt
+RUN --mount=type=bind,source=./docker/main/requirements-dev.lock,target=/workspace/frigate/requirements-dev.lock \
+    pip3 install --only-binary=:all: --require-hashes -r requirements-dev.lock
 
 HEALTHCHECK NONE
 
@@ -352,7 +352,8 @@ FROM --platform=$BUILDPLATFORM node:20 AS web-build
 
 WORKDIR /work
 COPY web/package.json web/package-lock.json ./
-RUN npm install
+COPY web/patches ./patches
+RUN npm ci --ignore-scripts && npm run postinstall
 
 COPY web/ ./
 RUN npm run build \

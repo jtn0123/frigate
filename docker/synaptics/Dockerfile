@@ -19,7 +19,7 @@ ARG TARGETARCH
 ARG PIP_BREAK_SYSTEM_PACKAGES
 
 RUN --mount=type=bind,from=synap1680-wheels,source=/wheels,target=/deps/synap-wheels \
-pip3 install --no-deps -U /deps/synap-wheels/*.whl
+pip3 install --only-binary=:all: --no-deps -U /deps/synap-wheels/*.whl
 
 WORKDIR /opt/frigate/
 COPY --from=rootfs / /

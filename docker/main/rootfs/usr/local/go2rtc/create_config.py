@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from frigate.const import (
     LIBAVFORMAT_VERSION_MAJOR,
 )
 from frigate.ffmpeg_presets import parse_preset_hardware_acceleration_encode
+from frigate.util.atomic import write_private_file
 from frigate.util.config import find_config_file, resolve_ffmpeg_path
 from frigate.util.services import (
     is_go2rtc_arbitrary_exec_allowed,
@@ -184,6 +186,7 @@ if config.get("birdseye", {}).get("restream", False):
     else:
         go2rtc_config["streams"] = {"birdseye": ffmpeg_cmd}
 
-# Write go2rtc_config to /dev/shm/go2rtc.yaml
-with open("/dev/shm/go2rtc.yaml", "w") as f:
-    yaml.dump(go2rtc_config, f)
+# Camera credentials must not be exposed through a world-readable runtime file.
+config_output = StringIO()
+yaml.dump(go2rtc_config, config_output)
+write_private_file(Path("/dev/shm/go2rtc.yaml"), config_output.getvalue())

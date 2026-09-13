@@ -507,9 +507,9 @@ def reolink_detect(host: str = "", username: str = "", password: str = ""):
         encoded_password = quote_plus(password)
         api_url = f"http://{host}/api.cgi?cmd=GetEnc&user={encoded_user}&password={encoded_password}"
 
-        response = requests.get(api_url, timeout=5)
+        response = requests.get(api_url, timeout=5, allow_redirects=False)
 
-        if not response.ok:
+        if not 200 <= response.status_code < 300:
             return JSONResponse(
                 content={
                     "success": False,
