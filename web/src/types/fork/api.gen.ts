@@ -3,6 +3,9 @@
  * Do not make direct changes to the file.
  */
 
+// Source: docs/static/frigate-api.yaml
+// Regenerate: (cd web && npm run api-types)
+
 export interface paths {
     "/ai/models": {
         parameters: {

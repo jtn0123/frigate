@@ -1,5 +1,4 @@
 import { AIModelsResponse } from "@/types/aiModels";
-import { FrigateConfig } from "@/types/frigateConfig";
 import {
   CameraDetectThreshold,
   CameraFfmpegThreshold,
@@ -8,6 +7,7 @@ import {
 import { FrigateStats, PotentialProblem } from "@/types/stats";
 import { useEffect, useState, useMemo } from "react";
 import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import useDeepMemo from "./use-deep-memo";
 import { capitalizeAll, capitalizeFirstLetter } from "@/utils/stringUtil";
 import { isReplayCamera } from "@/utils/cameraUtil";
@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 
 export default function useStats(stats: FrigateStats | undefined) {
   const { t } = useTranslation(["views/system"]);
-  const { data: config } = useSWR<FrigateConfig>("config");
+  const { data: config } = useApi("/config");
   const isAdmin = useIsAdmin();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -253,7 +253,7 @@ export default function useStats(stats: FrigateStats | undefined) {
 }
 
 export function useAutoFrigateStats() {
-  const { data: initialStats } = useSWR<FrigateStats>("stats", {
+  const { data: initialStats } = useApi("/stats", {
     revalidateOnFocus: false,
   });
   const latestStats = useFrigateStats();

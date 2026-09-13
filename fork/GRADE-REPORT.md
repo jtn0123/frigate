@@ -20,13 +20,13 @@ this file says what each item is.
 | A | Architecture & Design | B− | B− | B− | B | 4 |
 | B | Backend Quality | B− | B | B | B | 2 |
 | C | Frontend Quality | C | C+ | C+ | B− | 5 |
-| D | Testing & Reliability | C+ | B− | B | B+ | 5 |
+| D | Testing & Reliability | C+ | B− | B | B+ | 4 |
 | E | Security | B+ | B+ | A− | A | 0 |
 | F | Dependencies & Tech Currency | C+ | B− | B− | B− | 1 |
 | G | Performance & Scalability | C+ | B− | B− | B− | 4 |
 | H | Documentation & Onboarding | C | C+ | C+ | C+ | 4 |
 | I | Developer Experience & Tooling | C+ | B | B+ | B+ | 3 |
-| **Overall** | | **B−** | **B** | **B+** | **B+** | **28** + UX track |
+| **Overall** | | **B−** | **B** | **B+** | **B+** | **27** + UX track |
 
 **What this branch shipped (2026-09-13).** Thirteen of the fifteen items at the
 top of the priority list, one of them (G9) half: A5, B5, C9, D20, D21, E6, E7,
@@ -84,7 +84,7 @@ with no package boundary (A6).
 - **Effort:** M (scoped)
 - **Grade lift:** B− → B− (removes the worst layout bug; the full migration stays out of scope)
 
-- ~~A5~~ ✓ done 2026-09-13 — `web/src/types/fork/api.gen.ts` generated from the spec and CI-checked
+- ~~A5~~ ✓ done 2026-09-13 — `web/src/types/fork/api.gen.ts` generated from the spec and checked by `npm run typecheck` (PR #25 on `next`; this branch adds the fork's update and share types as consumers)
 
 
 #### A6 — Give the fork's Python tooling a package boundary `[fork]` — new 2026-09-13
@@ -241,12 +241,8 @@ tooling tests only execute on CI's coverage path (D20).
 - **Effort:** S
 - **Grade lift:** B → B (prerequisite for A1)
 
-#### D9 — Validate e2e mock fixtures against the API spec `[FE] [fork]`
-- **Where:** `web/e2e/fixtures/` (hand-built JSON payloads), `docs/static/frigate-api.yaml`
-- **What's wrong:** Mocks can drift from the real API after an upstream rebase and the e2e suite keeps passing against a shape the server no longer sends.
-- **Fix:** Validate every fixture against the spec's response schemas in the e2e setup (ships with A5).
-- **Effort:** S
-- **Grade lift:** B → B (test fidelity)
+- ~~D9~~ ✓ done 2026-09-13 — e2e fixtures validated against the spec (PR #25 on `next`)
+
 
 #### D4 — Test the core tracking pipeline `[BE] [upstream]` — backlog
 - **Where:** `frigate/track/object_processing.py`, `frigate/comms/dispatcher.py`
