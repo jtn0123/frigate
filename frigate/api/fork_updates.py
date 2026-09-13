@@ -3,9 +3,9 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
 
 from frigate.api.auth import allow_any_authenticated
+from frigate.api.defs.response.fork_response import ForkUpdatesResponse
 from frigate.api.defs.tags import Tags
 from frigate.fork.updates import FORK_REPO, get_checker
 from frigate.version import VERSION
@@ -28,15 +28,19 @@ def disabled_state() -> dict[str, Any]:
     }
 
 
-@router.get("/fork/updates", dependencies=[Depends(allow_any_authenticated())])
-def fork_updates(request: Request, refresh: bool = False) -> JSONResponse:
+@router.get(
+    "/fork/updates",
+    dependencies=[Depends(allow_any_authenticated())],
+    response_model=ForkUpdatesResponse,
+)
+def fork_updates(request: Request, refresh: bool = False) -> dict[str, Any]:
     """Compare the running build with the fork's releases.
 
     Honors `telemetry.version_check: false` by never contacting GitHub. Only
     admins can force a refetch with `refresh=true`.
     """
     if not request.app.frigate_config.telemetry.version_check:
-        return JSONResponse(content=disabled_state())
+        return disabled_state()
 
     force = refresh and request.headers.get("remote-role") == "admin"
-    return JSONResponse(content=get_checker().state(force=force))
+    return get_checker().state(force=force)

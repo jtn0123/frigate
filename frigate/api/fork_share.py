@@ -6,6 +6,7 @@ import re
 import secrets
 import time
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -18,6 +19,7 @@ from frigate.api.auth import (
     get_current_user,
     require_camera_access,
 )
+from frigate.api.defs.response.fork_response import ShareLinkResponse
 from frigate.api.defs.tags import Tags
 from frigate.api.media import recording_clip
 from frigate.models import Event, ShareLink
@@ -51,7 +53,7 @@ def _share_url(token: str) -> str:
     return f"/share/{token}"
 
 
-def _event_payload(event: Event) -> dict:
+def _event_payload(event: Event) -> dict[str, Any]:
     return {
         "event_id": event.id,
         "camera": event.camera,
@@ -74,7 +76,11 @@ def _get_valid_link(token: str) -> tuple[ShareLink | None, str | None]:
     return link, None
 
 
-@router.post("/fork/share", dependencies=[Depends(allow_any_authenticated())])
+@router.post(
+    "/fork/share",
+    dependencies=[Depends(allow_any_authenticated())],
+    response_model=ShareLinkResponse,
+)
 async def create_share(request: Request, body: ShareCreateBody):
     """Create an expiring public link for an event clip."""
     current_user = await get_current_user(request)
@@ -130,6 +136,7 @@ async def create_share(request: Request, body: ShareCreateBody):
 @router.get(
     "/fork/share/{token}",
     dependencies=[Depends(allow_public())],
+    response_model=ShareLinkResponse,
 )
 async def get_share(token: str):
     """Return metadata for a public share link."""

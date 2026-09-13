@@ -7296,7 +7296,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ShareLinkResponse'
         '422':
           description: Validation Error
           content:
@@ -7328,7 +7329,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ShareLinkResponse'
         '422':
           description: Validation Error
           content:
@@ -7394,7 +7396,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ForkUpdatesResponse'
         '422':
           description: Validation Error
           content:
@@ -8639,6 +8642,109 @@ components:
                 "john_doe": ["face1.webp", "face2.jpg"],
                 "jane_smith": ["face3.png"]
             }
+    ForkReleaseModel:
+      properties:
+        tag:
+          type: string
+          title: Tag
+          description: Git tag of the release, for example fork/0.18.0-...
+        name:
+          type: string
+          title: Name
+          description: Release title
+        sha:
+          type: string
+          title: Sha
+          description: Commit the release was built from
+        published_at:
+          type: string
+          title: Published At
+          description: ISO 8601 publication time from GitHub
+        url:
+          type: string
+          title: Url
+          description: Release page on GitHub
+        notes:
+          type: string
+          title: Notes
+          description: Release notes, with the build marker removed
+      type: object
+      required:
+        - tag
+        - name
+        - sha
+        - published_at
+        - url
+        - notes
+      title: ForkReleaseModel
+      description: One published fork release carrying a build marker.
+    ForkUpdatesResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+          description: up-to-date, available, development (a build with no 
+            matching release), unknown (releases could not be read), or disabled
+            (telemetry.version_check is false)
+        repo:
+          type: string
+          title: Repo
+          description: Repository the releases come from
+        current_version:
+          type: string
+          title: Current Version
+          description: Version string of the running build
+        current_sha:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Current Sha
+          description: Commit the running build was stamped with
+        current_tag:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Current Tag
+          description: Tag of the release the running build matches
+        latest_tag:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Latest Tag
+          description: Tag of the newest published release
+        newer_count:
+          type: integer
+          minimum: 0.0
+          title: Newer Count
+          description: Releases published after the running build
+        releases:
+          items:
+            $ref: '#/components/schemas/ForkReleaseModel'
+          type: array
+          title: Releases
+          description: Releases, newest first
+        checked_at:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Checked At
+          description: Unix timestamp of the last successful check
+        error:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Error
+          description: Why the last check failed, if it did
+      type: object
+      required:
+        - status
+        - repo
+        - current_version
+        - newer_count
+        - releases
+      title: ForkUpdatesResponse
+      description: What the running build is, and what the fork has published 
+        since.
     GenAIProbeBody:
       properties:
         provider:
@@ -9119,6 +9225,59 @@ components:
       required:
         - event_id
       title: ShareCreateBody
+    ShareLinkResponse:
+      properties:
+        token:
+          type: string
+          title: Token
+          description: Share token; the credential for the link
+        url:
+          type: string
+          title: Url
+          description: Path the browser opens, relative to the base path
+        expires_at:
+          type: number
+          title: Expires At
+          description: Unix timestamp when the link stops working
+        event_id:
+          type: string
+          title: Event Id
+          description: Event the clip belongs to
+        camera:
+          type: string
+          title: Camera
+          description: Camera name for the event
+        label:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Label
+          description: Object label for the event
+        start_time:
+          type: number
+          title: Start Time
+          description: Unix timestamp the event started
+        end_time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: End Time
+          description: Unix timestamp the event ended, if it has
+        has_clip:
+          type: boolean
+          title: Has Clip
+          description: Whether a clip exists for the event
+      type: object
+      required:
+        - token
+        - url
+        - expires_at
+        - event_id
+        - camera
+        - start_time
+        - has_clip
+      title: ShareLinkResponse
+      description: A clip share link and the event it points at.
     StartExportResponse:
       properties:
         success:
