@@ -205,6 +205,8 @@ jobs:
       # Paths come from fork/scripts/targets.sh so CI and `make lint` cannot drift.
       - run: ruff format --check --diff $(fork/scripts/targets.sh py-lint)
       - run: ruff check $(fork/scripts/targets.sh py-lint)
+      # The fork's own Python is type-checked with no ignore sections (I16).
+      - run: python3 -m mypy --config-file fork/mypy.ini fork/monitoring fork/audio_trial fork/scripts
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
       # Dependabot bumps fork/audio_trial/requirements.in; this fails until the

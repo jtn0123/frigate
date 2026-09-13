@@ -3,20 +3,22 @@
 import json
 import subprocess
 import urllib.error
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 
 class AudioFailure(RuntimeError):
     """A fixed stage and cause suitable for logs and operator status."""
 
-    def __init__(self, stage, cause):
+    def __init__(self, stage: str, cause: str) -> None:
         self.stage = stage
         self.cause = cause
         super().__init__(f"{stage}: {cause}")
 
 
-def cause(error):
+def cause(error: BaseException) -> str:
     """Classify known operational failures without returning arbitrary messages."""
     if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)):
         return "timeout"
@@ -40,7 +42,7 @@ def cause(error):
 
 
 @contextmanager
-def stage(name):
+def stage(name: str) -> Iterator[None]:
     """Preserve a sanitized stage at each download/conversion/model boundary."""
     try:
         yield
@@ -50,7 +52,7 @@ def stage(name):
         raise AudioFailure(name, cause(error)) from error
 
 
-def save_failure(state: Path, error, now):
+def save_failure(state: Path, error: BaseException, now: float) -> dict[str, Any]:
     """Write an atomic, private-content-free failure report."""
     data = {
         "updated": now,

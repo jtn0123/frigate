@@ -4,6 +4,7 @@ import json
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 import worker
 from queue_store import Queue
@@ -18,12 +19,12 @@ def main() -> None:
     reason = worker.health()
     if reason:
         raise RuntimeError(reason)
-    report = {"samples": [], "results": [], "started": time.time()}
+    report: dict[str, Any] = {"samples": [], "results": [], "started": time.time()}
     done = threading.Event()
 
-    def sample():
+    def sample() -> None:
         while not done.is_set():
-            stats = worker.read_json("/stats")
+            stats = worker.read_json_object("/stats")
             report["samples"].append(
                 {
                     "time": time.time(),
@@ -40,7 +41,7 @@ def main() -> None:
     monitor.start()
     try:
         queue = Queue(str(worker.STATE / "queue.sqlite"))
-        review = {
+        review: dict[str, Any] = {
             "id": "validation-recorded-doorbell",
             "camera": "doorbell",
             "start_time": 1789224193.2238,

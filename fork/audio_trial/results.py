@@ -3,11 +3,13 @@
 import hashlib
 import json
 import os
+import sqlite3
 import time
 from pathlib import Path
+from typing import Any
 
 
-def publish(db, job: dict) -> None:
+def publish(db: sqlite3.Connection, job: dict[str, Any]) -> None:
     """Atomically replace one review's result file, with seven-day retention."""
     root = Path(os.environ.get("TELEMETRY_DIR", "/telemetry")) / "results"
     root.mkdir(parents=True, exist_ok=True)

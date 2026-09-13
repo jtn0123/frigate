@@ -4,21 +4,25 @@ import json
 import logging
 import os
 import time
+from collections.abc import Callable
 from functools import wraps
 from importlib.util import find_spec
 from pathlib import Path
+from typing import Any, TypeVar
 
 import psutil
 
 logger = logging.getLogger(__name__)
 _last_warning = float("-inf")
 
+R = TypeVar("R")
 
-def best_effort(operation):
+
+def best_effort(operation: Callable[..., R]) -> Callable[..., R | None]:
     """Keep optional measurements outside the inference failure boundary."""
 
     @wraps(operation)
-    def wrapped(*args, **kwargs):
+    def wrapped(*args: Any, **kwargs: Any) -> R | None:
         global _last_warning
         try:
             return operation(*args, **kwargs)
@@ -32,7 +36,7 @@ def best_effort(operation):
     return wrapped
 
 
-def read_snapshot(path: Path) -> dict:
+def read_snapshot(path: Path) -> dict[str, Any]:
     """Discard malformed optional snapshots instead of trusting their shape."""
     try:
         data = json.loads(path.read_text())
@@ -62,7 +66,7 @@ if whisper_spec and whisper_spec.origin:
     MODEL_ROOTS["vad"] = Path(whisper_spec.origin).parent / "assets"
 
 
-def atomic_json(path: Path, data: dict) -> None:
+def atomic_json(path: Path, data: dict[str, Any]) -> None:
     """Replace a complete snapshot so readers never see a partial write."""
     temporary = path.with_suffix(".tmp")
     with temporary.open("w") as output:
@@ -73,11 +77,11 @@ def atomic_json(path: Path, data: dict) -> None:
 class Stage:
     """Measure stage duration and process memory without claiming model-only RSS."""
 
-    def __init__(self, model: str, loading: bool = False):
+    def __init__(self, model: str, loading: bool = False) -> None:
         self.model = model
         self.loading = loading
 
-    def __enter__(self):
+    def __enter__(self) -> "Stage":
         self.started = time.monotonic()
         self.data = read_snapshot(STAGE_FILE)
         self.data.update(
@@ -91,7 +95,7 @@ class Stage:
         return self
 
     @best_effort
-    def __exit__(self, error_type, *_):
+    def __exit__(self, error_type: type[BaseException] | None, *_: object) -> None:
         metrics = self.data["models"].setdefault(self.model, {})
         if error_type is None:
             metrics["load_ms" if self.loading else "latency_ms"] = (
@@ -109,18 +113,18 @@ class Stage:
 class Telemetry:
     """Sample a single inference process and publish bounded queue counters."""
 
-    def __init__(self, directory: Path):
+    def __init__(self, directory: Path) -> None:
         self.path = directory / "models.json"
         best_effort(directory.mkdir)(parents=True, exist_ok=True)
-        self.models = {}
-        self.disk_checked = 0
-        self.process = None
-        self.active = None
+        self.models: dict[str, dict[str, Any]] = {}
+        self.disk_checked = 0.0
+        self.process: psutil.Process | None = None
+        self.active: str | None = None
         self.state = "cached"
-        self.queue = {}
-        self.available = None
+        self.queue: dict[str, Any] = {}
+        self.available: int | None = None
         self.pause_reason = ""
-        self.oldest_wait = 0
+        self.oldest_wait = 0.0
         self.models = read_snapshot(self.path)["models"]
         for entry in self.models.values():
             entry.update({"status": "cached", "ram_bytes": 0, "cpu_percent": 0})

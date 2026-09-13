@@ -83,6 +83,13 @@ gate_ruff() {
   fi
 }
 
+# The fork's own Python (monitoring, audio trial, scripts) under fork/mypy.ini.
+# frigate/ is checked in the Docker lane, inside the test image.
+gate_mypy_fork() {
+  python3 -m mypy --config-file fork/mypy.ini fork/monitoring fork/audio_trial fork/scripts
+  return $?
+}
+
 # Unit tests for the fork's own scripts (release notes); plain python3, no image.
 gate_scripts() { python3 -m unittest discover -s fork/scripts -p 'test_*.py'; }
 
@@ -133,7 +140,7 @@ skip() {
   return 0
 }
 
-host=(lint typecheck ratchet vitest i18n ruff gitleaks)
+host=(lint typecheck ratchet vitest i18n ruff mypy_fork gitleaks)
 docker_lane=()
 if [[ "$mode" == fast ]]; then
   if touches '^fork/scripts/.*\.py$'; then

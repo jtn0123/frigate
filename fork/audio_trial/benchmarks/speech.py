@@ -9,6 +9,7 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import ctranslate2  # noqa: F401
 import numpy as np
@@ -16,7 +17,13 @@ from faster_whisper import WhisperModel
 from faster_whisper.audio import decode_audio
 
 
-def guard(args, samples, stop, ready, active):
+def guard(
+    args: argparse.Namespace,
+    samples: list[dict[str, Any]],
+    stop: threading.Event,
+    ready: threading.Event,
+    active: threading.Event,
+) -> None:
     """Stop a benchmark when measured camera health becomes unsafe."""
     failures = 0
     healthy = 0
@@ -60,7 +67,7 @@ def guard(args, samples, stop, ready, active):
         stop.wait(3)
 
 
-def main():
+def main() -> None:
     """Run offline clean/noisy trials, aborting sustained camera pressure."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
@@ -69,7 +76,7 @@ def main():
     parser.add_argument("--weights", required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    samples = []
+    samples: list[dict[str, Any]] = []
     stop = threading.Event()
     ready = threading.Event()
     active = threading.Event()
