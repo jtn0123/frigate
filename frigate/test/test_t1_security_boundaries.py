@@ -34,6 +34,69 @@ class TestCameraRedirects(unittest.TestCase):
         response = reolink_detect("camera.local", "user", "password")
         self.assertTrue(json.loads(response.body)["success"])
 
+    @patch("frigate.api.camera.requests.get")
+    def test_host_suffix_cannot_inject_url_components(self, get):
+        for host in (
+            "camera:80@other-host",
+            "camera:80/path",
+            "camera:80?cmd=Other",
+            "camera:80#fragment",
+            "camera:80\\other",
+            "camera:80\n",
+            "camera:0",
+            "camera:65536",
+            "camera:invalid",
+            "camera:80:90",
+        ):
+            with self.subTest(host=host):
+                response = reolink_detect(host, "user", "password")
+                self.assertEqual(response.status_code, 400)
+        get.assert_not_called()
+
+    def test_lan_hostnames_and_valid_ports_remain_supported(self):
+        from frigate.api.camera import _is_valid_host
+
+        for host in (
+            "192.168.1.10",
+            "camera.local",
+            "camera-1",
+            "camera:8080",
+            "camera.local.",
+        ):
+            with self.subTest(host=host):
+                self.assertTrue(_is_valid_host(host))
+
+    @patch("frigate.api.camera.requests.get")
+    def test_discovery_requires_admin_role(self, get):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from frigate.api.camera import router
+
+        app = FastAPI()
+        setattr(
+            app,
+            "frigate_config",
+            SimpleNamespace(
+                proxy=SimpleNamespace(separator=","),
+                auth=SimpleNamespace(roles={"admin": [], "viewer": []}),
+            ),
+        )
+        app.include_router(router)
+        with TestClient(app) as client:
+            for headers in ({}, {"remote-role": "viewer"}):
+                response = client.get(
+                    "/reolink/detect",
+                    params={
+                        "host": "camera.local",
+                        "username": "user",
+                        "password": "password",
+                    },
+                    headers=headers,
+                )
+                self.assertEqual(response.status_code, 403)
+        get.assert_not_called()
+
 
 class TestModelIdentifier(unittest.TestCase):
     """The historical model identifier must retain exact compatibility."""

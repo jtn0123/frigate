@@ -48,26 +48,15 @@ router = APIRouter(tags=[Tags.camera])
 
 
 def _is_valid_host(host: str) -> bool:
+    """Validate a complete camera hostname/IP and optional numeric port.
+
+    Private addresses are intentional for LAN cameras. Reject URL components
+    such as userinfo, paths, queries, and fragments, including after a colon.
     """
-    Validate that the host is in a valid format.
-    Allows private IPs since cameras are typically on local networks.
-    Only blocks obviously malicious input to prevent injection attacks.
-    """
-    try:
-        # Remove port if present
-        host_without_port = host.split(":")[0] if ":" in host else host
-
-        # Block whitespace, newlines, and control characters
-        if not host_without_port or re.search(r"[\s\x00-\x1f]", host_without_port):
-            return False
-
-        # Allow standard hostname/IP characters: alphanumeric, dots, hyphens
-        if not re.match(r"^[a-zA-Z0-9.-]+$", host_without_port):
-            return False
-
-        return True
-    except Exception:
+    if re.fullmatch(r"[a-zA-Z0-9.-]+(?::[0-9]{1,5})?", host) is None:
         return False
+    _, separator, port = host.partition(":")
+    return not separator or 1 <= int(port) <= 65535
 
 
 @router.get("/go2rtc/streams", dependencies=[Depends(allow_any_authenticated())])

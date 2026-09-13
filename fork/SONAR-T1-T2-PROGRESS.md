@@ -116,8 +116,9 @@ The five hardened review items are the cache path and Birdseye pipe, go2rtc
 configuration, shutdown marker, and camera request destination. A new scan and
 security review must establish their final Sonar disposition.
 
-Validation before integrating the latest next changes: 1,115 backend tests
-passed. After integration, 284 frontend tests and TypeScript checks passed.
-The final combined backend, lint, and Docker checks are recorded in the PR.
+Validation after integrating current next: 1,134 backend tests, 284 frontend
+tests, TypeScript checks, mypy across 385 source files, ESLint, and E2E spec lint
+pass. The Linux web image builds successfully with dependency scripts disabled.
+PR: https://github.com/jtn0123/frigate/pull/43 (draft while CI and Sonar run).
 The web build now permits a configurable 4 GiB Node heap because the Linux
 Node 20 build exceeded its default 2 GiB heap while bundling the UI.
