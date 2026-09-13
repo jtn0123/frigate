@@ -31,6 +31,7 @@ from frigate.api import (
     preview,
     record,
     review,
+    review_audio,
 )
 from frigate.api import app as main_app
 from frigate.api.auth import (
@@ -144,6 +145,7 @@ def create_fastapi_app(
     @app.on_event("startup")
     async def startup():
         logger.info("FastAPI started")
+        app.state.model_sampler_task = asyncio.create_task(ai_models.model_sampler(app))
         app.state.replay_watchdog_task = asyncio.create_task(
             debug_replay_auto_stop_watchdog(
                 replay_manager, frigate_config, config_publisher
@@ -152,6 +154,11 @@ def create_fastapi_app(
 
     @app.on_event("shutdown")
     async def shutdown():
+        sampler = getattr(app.state, "model_sampler_task", None)
+        if sampler is not None:
+            sampler.cancel()
+            with suppress(asyncio.CancelledError):
+                await sampler
         task = getattr(app.state, "replay_watchdog_task", None)
         if task is not None:
             task.cancel()
@@ -178,6 +185,7 @@ def create_fastapi_app(
     app.include_router(chat.router)
     app.include_router(classification.router)
     app.include_router(review.router)
+    app.include_router(review_audio.router)
     app.include_router(main_app.router)
     app.include_router(preview.router)
     app.include_router(notification.router)

@@ -19,6 +19,44 @@ export type AIModelStatus = {
 
 export type AIModelsResponse = {
   updated: number;
+  source_updated?: number | null;
+  telemetry_status?: string;
+  history_status?: string;
+  server?: {
+    status: string;
+    updated?: number | null;
+    stability?: {
+      audio_failure?: { updated: number | null; stage: string; cause: string };
+      status: string;
+      updated?: number | null;
+      incidents: {
+        kind: string;
+        scope: string;
+        started: number | null;
+        updated: number | null;
+        resolved: number | null;
+      }[];
+      samples: {
+        time: number | null;
+        detector_ms: number | null;
+        skipped_fps: number | null;
+        ollama_requests: number | null;
+      }[];
+    };
+    scopes: ({ scope: string; id: string } & Partial<
+      Record<
+        | "memory_bytes"
+        | "memory_limit_bytes"
+        | "swap_bytes"
+        | "cpu_percent"
+        | "cpu_limit"
+        | "memory_pressure"
+        | "oom_kills"
+        | "disk_free_bytes",
+        number | null
+      >
+    >)[];
+  };
   models: AIModelStatus[];
   audio: {
     status: string;

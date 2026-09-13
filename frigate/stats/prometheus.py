@@ -459,14 +459,14 @@ class CustomCollector(Collector):
         try:
             for storage_path, storage_stats in stats["service"]["storage"].items():
                 self.add_metric(
-                    storage_free, [storage_path], storage_stats, "free", 1e6
-                )  # MB to bytes
+                    storage_free, [storage_path], storage_stats, "free", 1024**2
+                )  # MiB to bytes
                 self.add_metric(
-                    storage_total, [storage_path], storage_stats, "total", 1e6
-                )  # MB to bytes
+                    storage_total, [storage_path], storage_stats, "total", 1024**2
+                )  # MiB to bytes
                 self.add_metric(
-                    storage_used, [storage_path], storage_stats, "used", 1e6
-                )  # MB to bytes
+                    storage_used, [storage_path], storage_stats, "used", 1024**2
+                )  # MiB to bytes
                 storage_mount_type.add_metric(
                     storage_path,
                     {
@@ -482,9 +482,9 @@ class CustomCollector(Collector):
         yield storage_total
         yield storage_used
 
-        camera_events = CounterMetricFamily(
-            "frigate_camera_events",
-            "Count of camera events since exporter started",
+        camera_events = GaugeMetricFamily(
+            "frigate_camera_events_retained",
+            "Current retained camera events; decreases when events expire",
             labels=["camera", "label"],
         )
 

@@ -39,8 +39,8 @@ part of this initial trial.
   threads use two cores. Temporary clips are bounded and removed after analysis.
 - `state/status.json` contains the latest 100 jobs and outputs. Full seven-day
   results are in `state/queue.sqlite`. Logs exclude transcripts and credentials.
-- Audio results are not integrated into Frigate's event view. This is an operator-reviewed trial;
-  results do not automatically become alerts or overwrite existing descriptions.
+- Expanded reviews show separate unverified audio results. Results do not
+  automatically become alerts or overwrite existing descriptions.
 
 ## Model telemetry
 
@@ -65,8 +65,8 @@ The trial depends on Frigate generating an audio or person review event. It will
 miss sounds outside those triggers and waits for long-running events to close.
 Speech detection can miss quiet/distant speech or mistake noise for speech.
 Plausible but incorrect wording can pass the retry checks. No universal confidence
-score is claimed. Chunk boundaries may duplicate words. A memory-deferred Large
-retry is recorded but not scheduled again automatically in this first version.
+score is claimed. Chunk boundaries may duplicate words. Deferred Large retries
+are bounded by the hourly budget and expire after one hour.
 
 ## Deploy on CT 106
 
@@ -109,3 +109,64 @@ identity, aging, bounded retries, memory checks, preserving Medium results after
 a failed Large retry, and cancelling inference when camera health is unavailable.
 Real hardware smoke tests are also required before leaving the trial running.
 These tests do not establish capacity for additional live camera streams.
+
+## Review results and second opinions
+
+Expanded review items now show camera-authorized audio analysis separately from
+event descriptions. Speech and sound stages retry independently once, preserve
+completed output and label partial results. Scores remain raw similarities.
+Completed results are published atomically under the shared telemetry directory,
+limited to 100 chunks per review, 1 MiB per review, 10,000 reviews and seven days.
+Older/unprocessed reviews show an explicit unavailable-results message.
+
+Large requests deferred by memory or the hourly budget remain in the durable
+queue. They retry no sooner than one minute, expire after one hour and reuse the
+saved Medium result. The existing two-per-hour Large budget still applies.
+Disable built-in `audio_transcription.enabled` on companion-managed cameras;
+the companion pauses with an ownership warning if both are enabled. This avoids
+duplicate automatic work without changing the built-in configuration for you.
+
+## Reliability, reproducibility, and validation
+
+The worker polls for new reviews at most once per ten seconds but drains queued
+jobs immediately. Every job still passes the camera and memory health gate; idle,
+failed-poll, and pressure states keep an interruptible ten-second cooldown. A
+metrics or operator-status write failure cannot fail inference. SQLite queue and
+result checkpoints remain durable operations whose errors are not ignored.
+
+`models.lock.json` pins the exact Medium, Large-v3, and CLAP snapshots and SHA-256
+hashes. Inference uses these snapshot paths, not a moving Hugging Face branch or
+`CLAP_MODEL` override. First use verifies every file. A private integrity record
+avoids rereading gigabytes on each job; changed file size, inode, modification time,
+or change time causes content revalidation. Keep `/models` read-only. Delete
+`/state/integrity-*.json` to force a full recheck. Missing or corrupt files fail the
+relevant inference stage; the worker never downloads replacement weights online.
+
+The amd64 runtime pins its Python base digest, Debian repository snapshot, and
+all Python dependency versions and hashes (`requirements.lock`). Regenerate the
+lock deliberately after changing `requirements.in`, using:
+
+```sh
+uv pip compile requirements.in --python-version 3.11 \
+  --python-platform x86_64-unknown-linux-gnu \
+  --extra-index-url https://download.pytorch.org/whl/cpu \
+  --index-strategy unsafe-best-match --generate-hashes -o requirements.lock
+```
+
+The extra index supplies the exact CPU Torch wheel; installed artifacts must match
+the lock's hashes. A dependency or OS security update requires a reviewed lock or
+snapshot update and a new runtime test. This fixes inputs, not a claim that every
+Docker layer will have byte-identical timestamps. CI builds the real companion
+image, runs its regression tests and `pip check`, then starts/stops its worker as
+UID 1000 with a read-only root, no external network, and synthetic local API data.
+The startup test verifies imports and polling, not speech accuracy.
+
+Public-reference benchmarks live in `benchmarks/`. `speech.py` measures clean and
+10 dB white-noise variants with the production two-thread CPU settings;
+`score.py` computes aggregate word and character edit rates. English reference
+edit rate is only a lexical comparison: valid translations can use different
+words. `capacity.py` measures additional 720p H264 decode plus 320px YOLO inference
+at 5 FPS, first two then four streams. It excludes recording, event tracking,
+network behavior, and speech jobs. Both hardware runners require a healthy
+baseline and abort sustained camera pressure. An aborted trial is not a capacity
+pass. Keep their output and state separate from production telemetry.

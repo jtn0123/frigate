@@ -41,6 +41,7 @@ export default defineConfig({
     keepNames: true,
   },
   build: {
+    sourcemap: process.env.E2E_COVERAGE === "1",
     // Only the monaco editor chunk legitimately exceeds this.
     chunkSizeWarningLimit: 900,
     rollupOptions: {
@@ -130,13 +131,13 @@ export default defineConfig({
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "__test__/**/*.{test,spec}.{ts,tsx}",
-      "scripts/fork/**/*.test.ts",
+      "scripts/fork/**/*.test.{ts,js}",
     ],
     exclude: ["node_modules/**", "dist/**", "e2e/**"],
     includeSource: ["src/**/*.{js,jsx,ts,tsx}"],
     coverage: {
       provider: "v8",
-      reporter: ["text-summary", "lcov"],
+      reporter: ["text-summary", "lcov", "json"],
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/**/*.test.{ts,tsx}",

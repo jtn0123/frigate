@@ -123,6 +123,28 @@ export class ApiMocker {
       route.fulfill({ json: reviews }),
     );
 
+    await this.page.route(/\/api\/review\/activity\/motion/, (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await this.page.route(/\/api\/review\/[^/]+\/audio/, (route) =>
+      route.fulfill({ json: { status: "empty", chunks: [] } }),
+    );
+    await this.page.route(/\/api\/ai\/models(\?|$)/, (route) =>
+      route.fulfill({
+        json: {
+          updated: Date.now() / 1000,
+          telemetry_status: "not_connected",
+          models: [],
+          shared_gpus: {},
+          audio: { status: "not_connected" },
+          server: { status: "not_connected", scopes: [] },
+        },
+      }),
+    );
+    await this.page.route(/\/api\/ai\/models\/history/, (route) =>
+      route.fulfill({ json: { status: "connected", samples: [] } }),
+    );
+
     // Export jobs. The Exports page polls this every 2s while any export
     // is in_progress; without a mock route it falls through to the preview
     // server which returns 500 and makes the page flap between loading and

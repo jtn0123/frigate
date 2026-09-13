@@ -56,6 +56,7 @@ from frigate.jobs.media_sync import (
     start_media_sync_job,
 )
 from frigate.models import Event, Timeline
+from frigate.stats.model_prometheus import model_metrics
 from frigate.stats.prometheus import get_metrics, update_metrics
 from frigate.types import JobStatusTypesEnum
 from frigate.util.builtin import (
@@ -164,7 +165,7 @@ def stats_history(request: Request, keys: str = None):
     return JSONResponse(content=request.app.stats_emitter.get_stats_history(keys))
 
 
-@router.get("/metrics", dependencies=[Depends(allow_any_authenticated())])
+@router.get("/metrics", dependencies=[Depends(require_role(["admin"]))])
 def metrics(request: Request):
     """Expose Prometheus metrics endpoint and update metrics with latest stats"""
     # Retrieve the latest statistics and update the Prometheus metrics
@@ -178,6 +179,8 @@ def metrics(request: Request):
 
     update_metrics(stats=stats, event_counts=event_counts)
     content, content_type = get_metrics()
+    cached = getattr(request.app.state, "ai_models_cache", None)
+    content += model_metrics(cached[1].model_dump() if cached else None)
     return Response(content=content, media_type=content_type)
 
 

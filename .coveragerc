@@ -6,10 +6,16 @@ source =
     migrations
     testing-scripts
     fork/scripts
+    fork/audio_trial
+    fork/monitoring
 omit =
     frigate/test/*
     fork/scripts/test_*.py
     frigate/version.py
+    fork/**/test_*.py
+    fork/audio_trial/smoke.py
+    fork/audio_trial/startup_check.py
+    fork/scripts/audio-recovery-check.py
 
 [report]
 show_missing = True

@@ -111,7 +111,8 @@
       "degraded": "Degraded",
       "offline": "Offline",
       "disabled": "Disabled",
-      "starting": "Starting"
+      "starting": "Starting",
+      "unknown": "Unknown"
     },
     "reason": {
       "noStats": "No stats reported",

@@ -16,7 +16,6 @@ services:
     environment:
       CAMERAS: doorbell
       PARENT_MEMORY_LIMIT_BYTES: "21474836480" # Verified CT 106 limit (20 GiB); update if resized.
-      CLAP_MODEL: /models/audio-alternatives-20260912/hf/models--laion--clap-htsat-unfused/snapshots/8fa0f1c6d0433df6e97c127f64b2a1d6c0dcda8a
     volumes:
       - /opt/frigate/config/model_cache:/models:ro
       - ./state:/state
