@@ -121,8 +121,9 @@ ENV CCACHE_MAXSIZE 2G
 # Build libUSB without udev.  Needed for Openvino NCS2 support
 WORKDIR /opt
 RUN apt-get update && apt-get install -y unzip build-essential automake libtool ccache pkg-config
-RUN --mount=type=cache,target=/root/.ccache curl --proto '=https' --proto-redir '=https' -fsSL --output v1.0.26.zip https://github.com/libusb/libusb/archive/v1.0.26.zip && \
-    unzip v1.0.26.zip && cd libusb-1.0.26 && \
+ADD --chmod=644 --checksum=sha256:4175f942e74f3c34b71d01b107d33e713f9ff47563f49bcc6e8b2534f414dd54 \
+    https://github.com/libusb/libusb/archive/v1.0.26.zip v1.0.26.zip
+RUN --mount=type=cache,target=/root/.ccache unzip v1.0.26.zip && cd libusb-1.0.26 && \
     ./bootstrap.sh && \
     ./configure CC='ccache gcc' CCX='ccache g++' --disable-udev --enable-shared && \
     make -j $(nproc --all)
@@ -142,17 +143,21 @@ RUN /bin/mkdir -p '/usr/local/lib' && \
 FROM wget AS models
 
 # Get model and labels
-RUN curl --proto '=https' --proto-redir '=https' -fsSL --output edgetpu_model.tflite https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite
-RUN curl --proto '=https' --proto-redir '=https' -fsSL --output cpu_model.tflite https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess.tflite
+ADD --chmod=644 --checksum=sha256:4a2be2bbb614e576d56dcb914fa52752bf0f13411512710d355d97faa1b35641 \
+    https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite edgetpu_model.tflite
+ADD --chmod=644 --checksum=sha256:90bb33a634e041914cc1819aa5df99818e6c396c4d2db952c0fd7a9cffc4724f \
+    https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess.tflite cpu_model.tflite
 COPY labelmap.txt .
 # Copy OpenVino model
 COPY --from=ov-converter /models/ssdlite_mobilenet_v2.xml openvino-model/
 COPY --from=ov-converter /models/ssdlite_mobilenet_v2.bin openvino-model/
-RUN curl --proto '=https' --proto-redir '=https' -fsSL --output openvino-model/coco_91cl_bkgr.txt https://github.com/openvinotoolkit/open_model_zoo/raw/master/data/dataset_classes/coco_91cl_bkgr.txt && \
-    sed -i 's/truck/car/g' openvino-model/coco_91cl_bkgr.txt
+ADD --chmod=644 --checksum=sha256:e428f6bc489647c67d776c41995a0b66e351bf850ebb11d21994164c9a2b5d44 \
+    https://github.com/openvinotoolkit/open_model_zoo/raw/master/data/dataset_classes/coco_91cl_bkgr.txt openvino-model/coco_91cl_bkgr.txt
+RUN sed -i 's/truck/car/g' openvino-model/coco_91cl_bkgr.txt
 # Get Audio Model and labels
-RUN curl --proto '=https' --proto-redir '=https' -fsSL --output yamnet.tar.gz https://www.kaggle.com/api/v1/models/google/yamnet/tfLite/classification-tflite/1/download && \
-    tar xzf yamnet.tar.gz && mv 1.tflite cpu_audio_model.tflite && rm yamnet.tar.gz
+ADD --chmod=644 --checksum=sha256:1b971b2132760273a5fb8f5dc504e86783b27853bb3135d555ae06f1e1e365f3 \
+    https://www.kaggle.com/api/v1/models/google/yamnet/tfLite/classification-tflite/1/download yamnet.tar.gz
+RUN tar xzf yamnet.tar.gz && mv 1.tflite cpu_audio_model.tflite && rm yamnet.tar.gz
 COPY audio-labelmap.txt .
 
 
@@ -190,8 +195,9 @@ RUN apt-get -qq update \
 
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
-RUN curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
-    && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
+ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
+    https://bootstrap.pypa.io/get-pip.py get-pip.py
+RUN sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip"
 
 COPY docker/main/requirements.lock /requirements.lock
@@ -277,8 +283,9 @@ RUN --mount=type=bind,source=docker/main/install_deps.sh,target=/deps/install_de
 ENV DEFAULT_FFMPEG_VERSION="8.0"
 ENV INCLUDED_FFMPEG_VERSIONS="${DEFAULT_FFMPEG_VERSION}:7.0:5.0"
 
-RUN curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
-    && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
+ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
+    https://bootstrap.pypa.io/get-pip.py get-pip.py
+RUN sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip"
 
 RUN --mount=type=bind,from=wheels,source=/wheels,target=/deps/wheels \
@@ -326,8 +333,9 @@ RUN mkdir -p /opt/frigate \
     && ln -svf /workspace/frigate/frigate /opt/frigate/frigate
 
 # Install Node 20
-RUN curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://deb.nodesource.com/nsolid_setup_deb.sh && \
-    chmod 500 nsolid_setup_deb.sh && \
+ADD --chmod=644 --checksum=sha256:2af36fc425b3aeffeef0d5cf83960ddf98a7e612f507198f6710bead450db9cf \
+    https://deb.nodesource.com/nsolid_setup_deb.sh nsolid_setup_deb.sh
+RUN chmod 500 nsolid_setup_deb.sh && \
     ./nsolid_setup_deb.sh 20 && \
     apt-get install nodejs -y \
     && rm -rf /var/lib/apt/lists/* \

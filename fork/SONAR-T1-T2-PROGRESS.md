@@ -240,3 +240,21 @@ Combined local validation: 1,201 backend tests, 310 frontend tests, mypy across
 The integrated runtime passes CPU inference, recording, preview, decoded API
 playback, private permissions, and graceful service shutdown with the rebuilt
 nginx. Final PR CI and Sonar confirmation follow the integration commit.
+
+### PR minor download cleanup
+
+The 859366c00 scan passed with zero vulnerabilities, zero bugs, 90.6% new-code
+coverage, and zero duplication. Its 13 remaining issues are addressed here:
+12 docker:S7026 downloads now use ADD with explicit 0644 permissions and SHA-256
+checksums; shelldre:S1192 uses one readonly HTTPS-only constant for both initial
+and redirected Jetson downloads. Existing extraction and installer steps remain.
+ROCm uses Dockerfile frontend 1.6 to support checksum verification.
+
+All 12 replacement ADD instructions were built with Docker, then their hashes,
+permissions, and applicable archive/model formats were checked in the resulting
+image. Shell syntax and unchanged curl argument lists were verified. These checks
+do not claim complete accelerator-image builds or physical hardware validation.
+Bootstrap and label URLs can change upstream: review the replacement artifact
+and update its checksum deliberately if a future build reports a mismatch.
+The next CI/Sonar scan must confirm closure of these 13 keys; no findings were
+accepted and no analyzer exclusions were added.
