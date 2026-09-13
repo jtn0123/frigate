@@ -114,48 +114,50 @@ def main():
     if not ready.wait(timeout=300):
         report["aborted"] = "No healthy baseline in five minutes; no workload started"
         save()
+        stop.set()
+        thread.join(timeout=4)
         return
     active.set()
     ffmpeg = shutil.which("ffmpeg") or max(glob.glob("/usr/lib/ffmpeg/*/bin/ffmpeg"))
     temporary = tempfile.TemporaryDirectory(prefix="frigate-capacity-")
     clip = str(Path(temporary.name) / "source.mp4")
-    subprocess.run(
-        [
-            ffmpeg,
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc2=size=1280x720:rate=15",
-            "-t",
-            "10",
-            "-c:v",
-            "libx264",
-            "-threads",
-            "1",
-            "-preset",
-            "ultrafast",
-            "-y",
-            clip,
-        ],
-        check=True,
-        timeout=60,
-    )
-    options = ort.SessionOptions()
-    options.intra_op_num_threads = 2
-    options.inter_op_num_threads = 1
-    if "MIGraphXExecutionProvider" not in ort.get_available_providers():
-        raise RuntimeError("ROCm provider is required, refusing CPU fallback")
-    model = ort.InferenceSession(
-        "/models/yolov9-s-320.onnx",
-        sess_options=options,
-        providers=["MIGraphXExecutionProvider"],
-    )
-    report["providers"] = model.get_providers()
-    name = model.get_inputs()[0].name
     try:
+        subprocess.run(
+            [
+                ffmpeg,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=1280x720:rate=15",
+                "-t",
+                "10",
+                "-c:v",
+                "libx264",
+                "-threads",
+                "1",
+                "-preset",
+                "ultrafast",
+                "-y",
+                clip,
+            ],
+            check=True,
+            timeout=60,
+        )
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = 2
+        options.inter_op_num_threads = 1
+        if "MIGraphXExecutionProvider" not in ort.get_available_providers():
+            raise RuntimeError("ROCm provider is required, refusing CPU fallback")
+        model = ort.InferenceSession(
+            "/models/yolov9-s-320.onnx",
+            sess_options=options,
+            providers=["MIGraphXExecutionProvider"],
+        )
+        report["providers"] = model.get_providers()
+        name = model.get_inputs()[0].name
         for count in (2, 4):
             phase = {
                 "extra_cameras": count,
