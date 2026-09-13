@@ -96,23 +96,30 @@ test.describe("Error toasts are readable @medium @mobile", () => {
 
     const ratio = await description.evaluate((el) => {
       const toastEl = el.closest("[data-sonner-toast]") as HTMLElement;
-      const parse = (c: string) => {
-        const m = c.match(/[\d.]+/g)?.map(Number) ?? [0, 0, 0, 1];
-        return { rgb: m.slice(0, 3), a: m[3] ?? 1 };
-      };
-      const bg = parse(getComputedStyle(toastEl).backgroundColor).rgb;
-      const fg = parse(getComputedStyle(el).color);
+      const channels = (color: string): number[] =>
+        (color.match(/[\d.]+/g) ?? []).map(Number);
+      const bgValues = channels(getComputedStyle(toastEl).backgroundColor);
+      const fgValues = channels(getComputedStyle(el).color);
+      const bg = [0, 1, 2].map((i) => bgValues[i] ?? 0);
+      const alpha = fgValues[3] ?? 1;
       // blend a translucent text color over the background
-      const mixed = fg.rgb.map((v, i) => v * fg.a + bg[i] * (1 - fg.a));
-      const lum = (rgb: number[]) => {
-        const [r, g, b] = rgb.map((v) => {
-          const s = v / 255;
-          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      const mixed = bg.map(
+        (b, i) => (fgValues[i] ?? 0) * alpha + b * (1 - alpha),
+      );
+      const luminance = (rgb: number[]) => {
+        const lin = rgb.map((v) => {
+          const c = v / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
         });
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        return (
+          0.2126 * (lin[0] ?? 0) +
+          0.7152 * (lin[1] ?? 0) +
+          0.0722 * (lin[2] ?? 0)
+        );
       };
-      const [l1, l2] = [lum(mixed), lum(bg)].sort((a, b) => b - a);
-      return (l1 + 0.05) / (l2 + 0.05);
+      const a = luminance(mixed);
+      const b = luminance(bg);
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
     });
     expect(ratio).toBeGreaterThanOrEqual(3);
   });
