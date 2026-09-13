@@ -44,10 +44,6 @@ class TimelineProcessor(threading.Thread):
                 continue
 
             if input_type == EventTypeEnum.tracked_object:
-                # None prev_event_data is only allowed for the start of an event
-                if event_type != EventStateEnum.start and prev_event_data is None:
-                    continue
-
                 self.handle_object_detection(
                     camera, event_type, prev_event_data, event_data
                 )
@@ -57,7 +53,7 @@ class TimelineProcessor(threading.Thread):
     def insert_or_save(
         self,
         entry: dict[Any, Any],
-        prev_event_data: dict[Any, Any],
+        prev_event_data: dict[Any, Any] | None,
         event_data: dict[Any, Any],
     ) -> None:
         """Insert into db or cache."""
@@ -82,10 +78,12 @@ class TimelineProcessor(threading.Thread):
         self,
         camera: str,
         event_type: str,
-        prev_event_data: dict[Any, Any],
+        prev_event_data: dict[Any, Any] | None,
         event_data: dict[Any, Any],
     ) -> None:
         """Handle object detection."""
+        if event_type != EventStateEnum.start and prev_event_data is None:
+            return
         camera_config = self.config.cameras.get(camera)
         if (
             camera_config is None
@@ -123,7 +121,7 @@ class TimelineProcessor(threading.Thread):
 
         # update sub labels for existing entries that haven't been added yet
         if (
-            prev_event_data != None
+            prev_event_data is not None
             and prev_event_data["sub_label"] != event_data["sub_label"]
             and event_id in self.pre_event_cache.keys()
         ):
@@ -134,7 +132,7 @@ class TimelineProcessor(threading.Thread):
             timeline_entry = base_entry.copy()
             timeline_entry[Timeline.class_type] = "visible"
             self.insert_or_save(timeline_entry, prev_event_data, event_data)
-        elif event_type == EventStateEnum.update:
+        elif event_type == EventStateEnum.update and prev_event_data is not None:
             # Check all conditions and create timeline entries for each change
             entries_to_save = []
 

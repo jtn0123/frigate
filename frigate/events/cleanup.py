@@ -119,8 +119,8 @@ class EventCleanup(threading.Thread):
 
             events_to_update: list[str] = []
 
-            for event in query.iterator():
-                events_to_update.append(str(event.id))
+            for matching_event in query.iterator():
+                events_to_update.append(str(matching_event.id))
                 if len(events_to_update) >= CHUNK_SIZE:
                     logger.debug(
                         f"Updating {update_params} for {len(events_to_update)} events"
@@ -178,13 +178,13 @@ class EventCleanup(threading.Thread):
                 # delete the grabbed clips from disk
                 # only snapshots are stored in /clips
                 # so no need to delete mp4 files
-                for event in expired_events:
-                    events_to_update.append(str(event.id))
-                    deleted = delete_event_snapshot(event)
+                for expired_event in expired_events:
+                    events_to_update.append(str(expired_event.id))
+                    deleted = delete_event_snapshot(expired_event)
 
                     if not deleted:
                         logger.warning(
-                            f"Unable to delete event images for {event.camera}: {event.id}"
+                            f"Unable to delete event images for {expired_event.camera}: {expired_event.id}"
                         )
 
         # update the clips attribute for the db entry

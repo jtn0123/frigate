@@ -1,7 +1,7 @@
 // @ts-nocheck
 /* Vendored from uqr 0.1.2 (MIT): https://github.com/unjs/uqr */
 
-var QrCodeDataType = /* @__PURE__ */ ((QrCodeDataType2) => {
+const QrCodeDataType = /* @__PURE__ */ ((QrCodeDataType2) => {
   QrCodeDataType2[(QrCodeDataType2["Border"] = -1)] = "Border";
   QrCodeDataType2[(QrCodeDataType2["Data"] = 0)] = "Data";
   QrCodeDataType2[(QrCodeDataType2["Function"] = 1)] = "Function";
@@ -9,10 +9,10 @@ var QrCodeDataType = /* @__PURE__ */ ((QrCodeDataType2) => {
   QrCodeDataType2[(QrCodeDataType2["Timing"] = 3)] = "Timing";
   QrCodeDataType2[(QrCodeDataType2["Alignment"] = 4)] = "Alignment";
   return QrCodeDataType2;
-})(QrCodeDataType || {});
+})({});
 
-var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) =>
+const __defProp = Object.defineProperty;
+const __defNormalProp = (obj, key, value) =>
   key in obj
     ? __defProp(obj, key, {
         enumerable: true,
@@ -21,7 +21,7 @@ var __defNormalProp = (obj, key, value) =>
         value,
       })
     : (obj[key] = value);
-var __publicField = (obj, key, value) => {
+const __publicField = (obj, key, value) => {
   __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
   return value;
 };
@@ -295,18 +295,22 @@ class QrCode {
     let i = 0;
     for (let right = this.size - 1; right >= 1; right -= 2) {
       if (right === 6) right = 5;
-      for (let vert = 0; vert < this.size; vert++) {
-        for (let j = 0; j < 2; j++) {
-          const x = right - j;
-          const upward = ((right + 1) & 2) === 0;
-          const y = upward ? this.size - 1 - vert : vert;
-          if (!this.types[y][x] && i < data.length * 8) {
-            this.modules[y][x] = getBit(data[i >>> 3], 7 - (i & 7));
-            i++;
-          }
+      i = this.drawCodewordColumn(data, right, i);
+    }
+  }
+  drawCodewordColumn(data, right, bitIndex) {
+    const upward = ((right + 1) & 2) === 0;
+    for (let vert = 0; vert < this.size; vert++) {
+      const y = upward ? this.size - 1 - vert : vert;
+      for (let j = 0; j < 2; j++) {
+        const x = right - j;
+        if (!this.types[y][x] && bitIndex < data.length * 8) {
+          this.modules[y][x] = getBit(data[bitIndex >>> 3], 7 - (bitIndex & 7));
+          bitIndex++;
         }
       }
     }
+    return bitIndex;
   }
   // XORs the codeword modules in this QR Code with the given mask pattern.
   // The function modules must be marked and the codeword bits must be drawn
@@ -355,47 +359,9 @@ class QrCode {
   // This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
   getPenaltyScore() {
     let result = 0;
-    for (let y = 0; y < this.size; y++) {
-      let runColor = false;
-      let runX = 0;
-      const runHistory = [0, 0, 0, 0, 0, 0, 0];
-      for (let x = 0; x < this.size; x++) {
-        if (this.modules[y][x] === runColor) {
-          runX++;
-          if (runX === 5) result += PENALTY_N1;
-          else if (runX > 5) result++;
-        } else {
-          this.finderPenaltyAddHistory(runX, runHistory);
-          if (!runColor)
-            result += this.finderPenaltyCountPatterns(runHistory) * PENALTY_N3;
-          runColor = this.modules[y][x];
-          runX = 1;
-        }
-      }
-      result +=
-        this.finderPenaltyTerminateAndCount(runColor, runX, runHistory) *
-        PENALTY_N3;
-    }
+    for (const row of this.modules) result += this.getLinePenalty(row);
     for (let x = 0; x < this.size; x++) {
-      let runColor = false;
-      let runY = 0;
-      const runHistory = [0, 0, 0, 0, 0, 0, 0];
-      for (let y = 0; y < this.size; y++) {
-        if (this.modules[y][x] === runColor) {
-          runY++;
-          if (runY === 5) result += PENALTY_N1;
-          else if (runY > 5) result++;
-        } else {
-          this.finderPenaltyAddHistory(runY, runHistory);
-          if (!runColor)
-            result += this.finderPenaltyCountPatterns(runHistory) * PENALTY_N3;
-          runColor = this.modules[y][x];
-          runY = 1;
-        }
-      }
-      result +=
-        this.finderPenaltyTerminateAndCount(runColor, runY, runHistory) *
-        PENALTY_N3;
+      result += this.getLinePenalty(this.modules.map((row) => row[x]));
     }
     for (let y = 0; y < this.size - 1; y++) {
       for (let x = 0; x < this.size - 1; x++) {
@@ -416,6 +382,30 @@ class QrCode {
     result += k * PENALTY_N4;
     return result;
   }
+  getLinePenalty(line) {
+    let result = 0;
+    let runColor = false;
+    let runLength = 0;
+    const runHistory = [0, 0, 0, 0, 0, 0, 0];
+    for (const color of line) {
+      if (color === runColor) {
+        runLength++;
+        if (runLength === 5) result += PENALTY_N1;
+        else if (runLength > 5) result++;
+      } else {
+        this.finderPenaltyAddHistory(runLength, runHistory);
+        if (!runColor)
+          result += this.finderPenaltyCountPatterns(runHistory) * PENALTY_N3;
+        runColor = color;
+        runLength = 1;
+      }
+    }
+    return (
+      result +
+      this.finderPenaltyTerminateAndCount(runColor, runLength, runHistory) *
+        PENALTY_N3
+    );
+  }
   /* -- Private helper functions -- */
   // Returns an ascending list of positions of alignment patterns for this version number.
   // Each position is in the range [0,177), and are used on both the x and y axes.
@@ -430,8 +420,11 @@ class QrCode {
           ? 26
           : Math.ceil((this.version * 4 + 4) / (numAlign * 2 - 2)) * 2;
       const result = [6];
-      for (let pos = this.size - 7; result.length < numAlign; pos -= step)
+      let pos = this.size - 7;
+      while (result.length < numAlign) {
         result.splice(1, 0, pos);
+        pos -= step;
+      }
       return result;
     }
   }
@@ -663,8 +656,11 @@ function encodeSegments(
   const dataCapacityBits = getNumDataCodewords(version, ecl) * 8;
   appendBits(0, Math.min(4, dataCapacityBits - bb.length), bb);
   appendBits(0, (8 - (bb.length % 8)) % 8, bb);
-  for (let padByte = 236; bb.length < dataCapacityBits; padByte ^= 236 ^ 17)
+  let padByte = 236;
+  while (bb.length < dataCapacityBits) {
     appendBits(padByte, 8, bb);
+    padByte ^= 236 ^ 17;
+  }
   const dataCodewords = Array.from(
     { length: Math.ceil(bb.length / 8) },
     () => 0,
