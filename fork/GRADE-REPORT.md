@@ -15,18 +15,26 @@ this file says what each item is.
 
 ## Summary
 
-| ID | Category | Baseline | 09-11 | Now | Open items |
-|----|----------|----------|-------|-----|------------|
-| A | Architecture & Design | B− | B− | B− | 5 |
-| B | Backend Quality | B− | B | B | 3 |
-| C | Frontend Quality | C | C+ | C+ | 6 |
-| D | Testing & Reliability | C+ | B− | B | 7 |
-| E | Security | B+ | B+ | A− | 2 |
-| F | Dependencies & Tech Currency | C+ | B− | B− | 2 |
-| G | Performance & Scalability | C+ | B− | B− | 5 |
-| H | Documentation & Onboarding | C | C+ | C+ | 4 |
-| I | Developer Experience & Tooling | C+ | B | B+ | 5 |
-| **Overall** | | **B−** | **B** | **B+** | **39** + UX track |
+| ID | Category | Baseline | 09-11 | 09-13 audit | After this branch | Open items |
+|----|----------|----------|-------|-------------|-------------------|------------|
+| A | Architecture & Design | B− | B− | B− | B | 4 |
+| B | Backend Quality | B− | B | B | B | 2 |
+| C | Frontend Quality | C | C+ | C+ | B− | 5 |
+| D | Testing & Reliability | C+ | B− | B | B+ | 5 |
+| E | Security | B+ | B+ | A− | A | 0 |
+| F | Dependencies & Tech Currency | C+ | B− | B− | B− | 1 |
+| G | Performance & Scalability | C+ | B− | B− | B− | 4 |
+| H | Documentation & Onboarding | C | C+ | C+ | C+ | 4 |
+| I | Developer Experience & Tooling | C+ | B | B+ | B+ | 3 |
+| **Overall** | | **B−** | **B** | **B+** | **B+** | **28** + UX track |
+
+**What this branch shipped (2026-09-13).** Thirteen of the fifteen items at the
+top of the priority list, one of them (G9) half: A5, B5, C9, D20, D21, E6, E7,
+F7, G8, I3 (first wave), I16, I17, and G9's image half. B2 and D6 were
+deliberately left. Security reaches A (CSP enforced and re-checked by the
+suite, the fork's own locks scanned) and testing B+, but the overall grade
+stays B+: documentation is untouched at C+, and performance stays B− until the
+card grids are virtualised, which is the half of G9 this branch did not do.
 
 **What moved the overall grade since 2026-09-11.** Security closed its two
 open blockers (E4 triage, E5 patches) and gained a SonarCloud quality gate on
@@ -38,7 +46,7 @@ new `fork/` Python codebase (monitoring, audio trial, scripts) arrived without
 the guarantees the rest of the repo has: no mypy, no Dependabot on its locks,
 and its tests only run in CI's coverage path.
 
-**Top 5 highest-leverage open fixes:** G9, C9, I16, I3, B2
+**Top 5 highest-leverage open fixes:** G9 (virtualisation), B2, D6, C7, A6
 
 **Type safety at a glance.** Frontend: TypeScript `strict` (plus
 `noUnusedLocals/Parameters`, `noFallthroughCasesInSwitch`) gates the build;
@@ -76,12 +84,8 @@ with no package boundary (A6).
 - **Effort:** M (scoped)
 - **Grade lift:** B− → B− (removes the worst layout bug; the full migration stays out of scope)
 
-#### A5 — Generate frontend API types from the OpenAPI spec `[fork, upstreamable]`
-- **Where:** `web/src/types/` (hand-written), `docs/static/frigate-api.yaml` (generated and CI-checked)
-- **What's wrong:** The one untyped seam in an otherwise typed app. When an upstream rebase changes a response, the UI compiles fine and breaks at runtime. The 0.18.0 stable rebase on 2026-09-13 was exactly this risk, taken on trust.
-- **Fix:** Generate `web/src/types/fork/api.gen.ts` from the spec (`openapi-typescript`, dev dependency only) in a CI-checked script; migrate the most-used SWR keys (`config`, `review`, `events`, `stats`) first. Coverage grows as B2/B5 add response models.
-- **Effort:** M
-- **Grade lift:** B− → B (turns API drift into compile errors)
+- ~~A5~~ ✓ done 2026-09-13 — `web/src/types/fork/api.gen.ts` generated from the spec and CI-checked
+
 
 #### A6 — Give the fork's Python tooling a package boundary `[fork]` — new 2026-09-13
 - **Where:** `fork/monitoring/` (host collectors and incident tracking, 3 test files), `fork/audio_trial/` (worker, queue, telemetry, benchmarks, own Dockerfile and lock, 8 test files), `fork/scripts/` (CI helpers); each is a flat directory of modules imported by path, with `python3 -m unittest discover -s <dir>` as the only entry point
@@ -125,12 +129,8 @@ routes still return raw dicts, and the fork's own two routers added none.
 - **Effort:** L
 - **Grade lift:** B → B+
 
-#### B5 — Type the fork's own routers `[fork]` — new 2026-09-13
-- **Where:** `frigate/api/fork_share.py`, `frigate/api/fork_updates.py` (0 `response_model` between them), consumed by `web/src/lib/fork/{updates,share-path}.ts`
-- **What's wrong:** The fork asks upstream for response models (B2) while adding routes without them. These two are the easiest possible case: both are fork-owned end to end, so the spec, the generated types (A5) and the e2e fixtures (D9) could all be exact today.
-- **Fix:** A response model per route in `frigate/api/defs/response/fork.py`, regenerate `docs/static/frigate-api.yaml`, and point the fork's TypeScript types at the generated shapes.
-- **Effort:** S
-- **Grade lift:** B → B (credibility for B2; unblocks A5's first slice)
+- ~~B5~~ ✓ done 2026-09-13 — response models on `/fork/share` and `/fork/updates`; spec regenerated
+
 
 #### B4 — Declare indexes on models, not only in migrations `[upstream]` — backlog
 - **Where:** `migrations/011`, `020`, `022`, `027` vs `frigate/models.py`
@@ -159,12 +159,8 @@ round: the fork's own UI ships English-only (C13).
 - ~~C11~~ ✓ 2026-09-11 — floating and misused promises are errors (269 → 0)
 - ~~C12~~ ✓ 2026-09-11 — 45 of 46 SonarCloud findings in fork web files cleared
 
-#### C9 — Ratchet the remaining jsx-a11y warnings to errors `[fork, upstreamable]`
-- **Where:** `web/eslint.config.js:24-31` (every recommended jsx-a11y rule downgraded to `warn`); hotspots by rule: label-has-for, no-noninteractive-tabindex, no-static-element-interactions, control-has-associated-label, no-autofocus, click-events-have-key-events
-- **What's wrong:** Warnings do not block regressions; new inaccessible markup lands silently. This is the largest single lift still available in C.
-- **Fix:** One rule per commit: fix every site, then set that rule to `error`. No `eslint-disable`; a site that needs a rewrite keeps its rule at `warn` and is listed in `fork/PLAN.md` Follow-ups.
-- **Effort:** M
-- **Grade lift:** C+ → B− (accessibility becomes enforced, not advisory)
+- ~~C9~~ ✓ done 2026-09-13 — every jsx-a11y rule is an error (a clean run reported zero findings)
+
 
 #### C3 — Extract the Settings "Save All" transaction into a tested module `[fork]`
 - **Where:** `web/src/pages/Settings.tsx` (2,354 lines) save path
@@ -228,19 +224,8 @@ tooling tests only execute on CI's coverage path (D20).
 - ~~D17~~ ✓ 2026-09-11 — ctranslate2 loaded before onnxruntime (ROCm transcription crash loop)
 - ~~D18~~ ✓ 2026-09-11 — Ollama per-image token cost measured, not guessed
 
-#### D21 — Put a floor under coverage `[fork]` — new 2026-09-13
-- **Where:** `.coveragerc`, `web/vite.config.ts` coverage block, `.github/workflows/fork-checks.yml` `sonar` job (`sonar.qualitygate.wait=true` with the project's default gate), `fork/scripts/sonar-coverage-check.py` (verifies the reports exist, not what they say)
-- **What's wrong:** Coverage is now measured on both sides and shipped to Sonar, but nothing in this repo fails when it drops. The quality gate covers new code by Sonar's default only; a refactor that deletes tests, or a new fork module with none, passes every local and CI gate.
-- **Fix:** Record today's totals as a baseline file next to `fork/type-ratchet.json` and fail CI when either side falls below it (same ratchet shape, same override path). Keep the Sonar gate for new-code quality; this one is for the direction of travel.
-- **Effort:** S
-- **Grade lift:** B → B+ (locks in D5/D8, the round's biggest investment)
+- ~~D21~~ ✓ done 2026-09-13 — line coverage compared with `fork/coverage-floor.json` in the Sonar job
 
-#### D20 — Run the fork's tooling tests in the normal test path `[fork]` — new 2026-09-13
-- **Where:** `fork/scripts/py-checks.sh` (the `fork/audio_trial`, `fork/audio_trial/benchmarks` and `fork/monitoring` discoveries only run inside `unittest_with_coverage`, i.e. when `COVERAGE_XML` is set); `fork/scripts/check.sh` runs only `fork/scripts` discovery; CI lints all three directories but `make check` lints only `fork/scripts`
-- **What's wrong:** 94 test functions guarding the monitoring and audio tooling do not run in `make check` or `make test-py`, and two of the three directories are not linted locally either. The inner loop is quietly weaker than CI, which is how fork tooling regressions reach `next`.
-- **Fix:** Move the directory list into one variable used by both the coverage and the plain path in `py-checks.sh`, and give `check.sh` the same ruff targets as the workflow. No new CI time.
-- **Effort:** S
-- **Grade lift:** B → B (closes a local/CI gap; prerequisite for trusting A6's tooling)
 
 #### D6 — Visual regression screenshots `[FE] [fork]`
 - **Where:** `web/e2e/playwright.config.ts` (no `toHaveScreenshot` anywhere); fork UI in `web/src/components/fork/`, `themes/fork-appearance.css`
@@ -300,19 +285,11 @@ the fork's own supply chain has an unwatched corner (F7).
 - ~~E4~~ ✓ 2026-09-11 — CodeQL criticals and highs traced; fixed or dismissed with reasons
 - ~~E5~~ ✓ 2026-09-11 — shipped advisories patched in the image and the web lock
 
-#### E6 — Move CSP from report-only to enforced `[upstream]`
-- **Where:** `docker/main/rootfs/usr/local/nginx/conf/security_headers.conf:21` (`Content-Security-Policy-Report-Only`)
-- **What's wrong:** The policy is written but protects nothing. It is now the single item standing between this category and A, and the demo stack (I7) that was blocking it exists.
-- **Fix:** Collect violations in the demo stack across all pages (monaco workers, blob players, go2rtc WebRTC page, the fork's share page and QR canvas), tighten, then enforce.
-- **Effort:** M
-- **Grade lift:** A− → A
+- ~~E6~~ ✓ done 2026-09-13 — CSP enforced, with an e2e pass behind the same policy (`E2E_CSP=1`)
 
-#### E7 — Scan the fork's own images and locks `[fork]` — new 2026-09-13
-- **Where:** `fork/audio_trial/Dockerfile` + `requirements.lock` (built and run in CI, and on the owner's host during the trial), `fork/Dockerfile.test`, `fork/requirements-dev.lock`, `fork/requirements-sonar.txt` — none covered by Dependabot (F7) and none scanned
-- **What's wrong:** Everything that reaches the published image is scanned; the fork's side images are not, even though the audio trial runs on the owner's server with a model cache and a telemetry volume. CI already runs it read-only, non-root, `--network none` and `--cap-drop ALL`, so the runtime posture is good and only the contents are unwatched.
-- **Fix:** Add the three files to Dependabot (F7) and run the existing image scan over `frigate-audio-check` in the audio job; fail on high or critical.
-- **Effort:** S
-- **Grade lift:** A− → A− (keeps the new tooling from becoming the soft spot)
+
+- ~~E7~~ ✓ done 2026-09-13 — pip-audit over the fork's three locks, with reviewed exceptions that expire when unreported
+
 
 ---
 
@@ -332,12 +309,8 @@ requirement files are outside Dependabot's watch (F7).
 - ~~F5~~ ✓ 2026-09-11 — `sort-by` removed, remaining dormant deps documented
 - ~~F6~~ ✓ 2026-09-11 — minor/patch refresh within majors
 
-#### F7 — Put the fork's lock files under Dependabot `[fork]` — new 2026-09-13
-- **Where:** `.github/dependabot.yml` (github-actions `/`, docker `/docker`, pip `/docker/{main,tensorrt,rockchip,rocm}`, npm `/web` and `/docs`) versus `fork/requirements-dev.lock`, `fork/requirements-sonar.txt`, `fork/audio_trial/requirements.lock`
-- **What's wrong:** Three hash-pinned files, added precisely so installs are reproducible, have nothing that updates them. Hash pinning without a bump path rots fastest: the next security advisory in a dev or trial dependency is invisible here.
-- **Fix:** A pip entry per directory, grouped like the existing ones, security-only for the trial lock. Where the file is a `.lock` compiled from `.in`, add the compile step to the PR body or automate it in the same action.
-- **Effort:** S
-- **Grade lift:** B− → B− (removes the only unwatched dependency surface; pairs with E7)
+- ~~F7~~ ✓ done 2026-09-13 — Dependabot on `/fork` and `/fork/audio_trial`, plus a lock-drift check
+
 
 #### F4 — Frontend major bumps `[fork]` — backlog, scheduled last (owner OK 2026-09-11)
 - **Where:** `web/package.json`: ~34 packages a major behind (toolchain: TypeScript, Vite, Vitest, jsdom; runtime: react-router, i18next, date-fns, zod, apexcharts, lucide, framer-motion, tailwind-merge)
@@ -367,19 +340,16 @@ assets are not `immutable`, and summary endpoints have no HTTP caching.
 - ~~G6~~ ✓ 2026-09-10 — `frigate/record/cache_tracker.py`
 - ~~G7~~ ✓ 2026-09-11 — eager-bundle budget enforced in CI
 
-#### G9 — Virtualise the card grids and lazy-load images `[fork, upstreamable]`
-- **Where:** `web/src/views/search/SearchView.tsx`, `views/events/EventView.tsx`, `views/recording/RecordingView.tsx` (infinite scroll keeps every card mounted; no virtualisation library in `package.json`); 24 of 34 `<img>` in `web/src` lack `loading="lazy"` / `decoding="async"`
+#### G9 — Virtualise the card grids `[fork, upstreamable]` — images half done 2026-09-13
+- **Where:** `web/src/views/search/SearchView.tsx`, `views/events/EventView.tsx`, `views/recording/RecordingView.tsx` (infinite scroll keeps every card mounted; no virtualisation library in `package.json`)
+- **Done (2026-09-13):** every thumbnail in a scrolling list carries `decoding="async"`, and the ones that did not defer now carry `loading="lazy"`. The single in-view images (dialogs, wizards, players) stay eager on purpose.
 - **What's wrong:** Long Review/Explore sessions grow the DOM and image memory without bound; offscreen thumbnails compete with visible ones. Still the largest runtime win available anywhere in this report.
 - **Fix:** `@tanstack/react-virtual` (small, no peer majors) for the three grids behind a flag; add `loading="lazy" decoding="async"` to non-critical images. The image half is an afternoon and can ship first.
 - **Effort:** M
 - **Grade lift:** B− → B
 
-#### G8 — Put the Settings form chunk on a diet `[fork, upstreamable]`
-- **Where:** `web/dist/assets/ConfigSectionTemplate-*.js` (~246 kB gzip: `@rjsf/core`, `@rjsf/shadcn`, `@rjsf/validator-ajv8` compiling schemas at runtime)
-- **What's wrong:** Every Settings visit downloads and compiles a schema validator before the form is usable. It is the largest single chunk and the budget (G7) now holds the rest of the app still while this one stays lazy.
-- **Fix:** Precompile validators at build time (ajv standalone via a Vite plugin) or load `validator-ajv8` on first validation; measure before/after against the budget.
-- **Effort:** M
-- **Grade lift:** B− → B− (Settings load time)
+- ~~G8~~ ✓ done 2026-09-13 — the ajv validator streams beside the settings chunk (882 kB → 635 kB raw)
+
 
 #### G10 — Immutable, precompressed static assets `[upstream]`
 - **Where:** `docker/main/rootfs/usr/local/nginx/conf/nginx.conf` (`/assets/` has `expires 1y` + `Cache-Control "public"`, no `immutable`; gzip on the fly, no `gzip_static`)
@@ -472,26 +442,19 @@ gates drift from CI (D20).
 - ~~I14~~ ✓ 2026-09-11 — SonarCloud findings in fork CI, scripts and backend cleared
 - ~~I15~~ ✓ 2026-09-11 — ROCm image in the release workflow; runner disk reserve
 
-#### I16 — Type-check the fork's Python `[fork]` — new 2026-09-13
-- **Where:** `fork/scripts/py-checks.sh` runs `mypy --config-file frigate/mypy.ini frigate` only; `fork/{monitoring,audio_trial,scripts}` are linted by ruff but never type-checked, and `frigate/mypy.ini` has no section for them
-- **What's wrong:** The fork holds the frontend to a stricter standard than upstream (C10's ratchet) while its own Python, including the host monitoring that decides what an incident is, has no type checking at all. These are new files with no legacy excuse, so the cost of starting strict is near zero and rises every week.
-- **Fix:** A `fork/mypy.ini` inheriting the strict block with no `ignore_errors`, run in the same parallel lane as the existing mypy; fix what it finds (expected to be small) and never add an ignore section. Ships naturally with A6's package boundary.
-- **Effort:** S
-- **Grade lift:** B+ → B+ (stops the second codebase starting out untyped; with I3, B+ → A−)
+- ~~I16~~ ✓ done 2026-09-13 — `fork/mypy.ini`, strict with no ignore sections; 85 findings fixed
 
-#### I3 — Continue the mypy ratchet `[upstream]`
+
+#### I3 — Continue the mypy ratchet `[upstream]` — first wave done 2026-09-13
 - **Where:** `frigate/mypy.ini` (`ignore_errors = true` for `frigate.api.*`, `config.*`, `detectors.*`, `embeddings.*`, `ptz.*`, `test.*`, `util.*`, `video.*`); `frigate.stats` and `frigate.debug_replay` already re-enabled by the fork
+- **Done (2026-09-13):** the 30 modules inside those packages that already pass the strict flags are checked per module (most of `frigate.config`, four `frigate.util` modules, the embeddings helpers, `frigate.video.restart_log` and `hwaccel_fallback`). Measured cost of the rest: `video.ffmpeg` 43, `video.detect` 36, `ptz.autotrack` 185, `api.event` 105, `api.media` 69.
 - **What's wrong:** Strict flags still skip the large packages, including every route handler, so 143 `type: ignore` comments sit in code that mypy mostly is not reading.
 - **Fix:** Remaining waves: `ptz`+`video`, then `config`, `util`, `detectors`+`embeddings`, `api` last, one PR each so the ratchet holds. Never enable mypy on `frigate.test`.
 - **Effort:** L
 - **Grade lift:** B+ → A− (with I16)
 
-#### I17 — Keep one list of lint and test targets `[fork]` — new 2026-09-13
-- **Where:** `.github/workflows/fork-checks.yml` (ruff over `frigate migrations docker fork/scripts fork/audio_trial fork/monitoring ./*.py`) versus `Makefile` and `fork/scripts/check.sh` (the same command without `fork/audio_trial fork/monitoring`); the matching test-path gap is D20
-- **What's wrong:** Three places spell out the same target list and two of them are already behind. A contributor who runs `make check` before pushing gets a green result CI can still reject, which is the specific failure mode `make check` exists to prevent.
-- **Fix:** One `fork/scripts/targets.sh` (or a Make variable) sourced by the workflow, the Makefile and `check.sh`. Pairs with D20; same commit is fine.
-- **Effort:** S
-- **Grade lift:** B+ → B+ (trust in the local gate)
+- ~~I17~~ ✓ done 2026-09-13 — `fork/scripts/targets.sh` is the one list CI, the Makefile and check.sh read
+
 
 #### I8 — Overlay image for fast branch builds `[fork]` — backlog
 - **Where:** `.github/workflows/fork-build.yml` (full image build, ~40 minutes cold)
