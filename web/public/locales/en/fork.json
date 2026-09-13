@@ -253,6 +253,10 @@
   "configEditor": {
     "saved": "Config saved"
   },
+  "a11y": {
+    "home": "Frigate home",
+    "moreActions": "More actions"
+  },
   "timelineAccessibility": {
     "exportStart": "Export start time",
     "exportEnd": "Export end time",

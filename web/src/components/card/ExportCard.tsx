@@ -349,11 +349,13 @@ export function ExportCard({
         {!exportedRecording.in_progress && !selectionMode && (
           <div className="absolute bottom-2 right-3 z-40">
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <BlurredIconButton
-                  aria-label={t("tooltip.editName")}
-                  onClick={(e) => e.stopPropagation()}
-                >
+              {/* One named trigger: the old inner "Edit name" element nested a
+                  second clickable control inside the trigger button */}
+              <DropdownMenuTrigger
+                aria-label={t("a11y.moreActions", { ns: "fork" })}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <BlurredIconButton>
                   <FiMoreVertical className="size-5" />
                 </BlurredIconButton>
               </DropdownMenuTrigger>

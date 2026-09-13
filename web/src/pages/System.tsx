@@ -115,7 +115,7 @@ function System() {
               key={item}
               className={`flex items-center justify-between gap-2 ${pageToggle == item ? "" : "*:text-muted-foreground"}`}
               value={item}
-              aria-label={t("selectTab", { tab: item })}
+              aria-label={t("selectTab", { tab: t(item + ".title") })}
             >
               {item == "general" && <LuActivity className="size-4" />}
               {item == "enrichments" && <LuSearchCode className="size-4" />}

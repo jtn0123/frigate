@@ -62,12 +62,11 @@ test.describe("Export Page - Delete race @high", () => {
       timeout: 5_000,
     });
 
-    // Open the kebab menu on the export card. The kebab uses the
-    // (misleading) aria-label "Edit name" from ExportCard's source — it
-    // wraps the FiMoreVertical icon. There is exactly one such button on
-    // the page once we have a single export rendered.
+    // Open the kebab menu on the export card. Its trigger is named "More
+    // actions" (C13; it used to be the misleading "Edit name"). There is
+    // exactly one such button on the page once a single export renders.
     const kebab = frigateApp.page
-      .getByRole("button", { name: /edit name/i })
+      .getByRole("button", { name: /more actions/i })
       .first();
     await expect(kebab).toBeVisible({ timeout: 5_000 });
     await kebab.click();

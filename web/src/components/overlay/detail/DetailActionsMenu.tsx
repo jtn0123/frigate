@@ -40,6 +40,7 @@ export default function DetailActionsMenu({
     "views/explore",
     "views/faceLibrary",
     "views/replay",
+    "fork",
   ]);
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -136,10 +137,11 @@ export default function DetailActionsMenu({
 
   return (
     <DropdownMenu modal={false} open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger>
-        <div className="rounded" role="button">
-          <HiDotsHorizontal className="size-4 text-muted-foreground" />
-        </div>
+      <DropdownMenuTrigger
+        className="rounded"
+        aria-label={t("a11y.moreActions", { ns: "fork" })}
+      >
+        <HiDotsHorizontal className="size-4 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuPortal>
         <DropdownMenuContent align="end">
