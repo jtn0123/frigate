@@ -34,7 +34,10 @@ export function useCameraPreviews(
 
   // an hour's mp4 is written after that hour ends, so it is never in the
   // response the page loaded with
-  useHourRollover(refreshPreviews, refreshOnHourRollover && fetchPreviews);
+  useHourRollover(
+    () => void refreshPreviews(),
+    refreshOnHourRollover && fetchPreviews,
+  );
 
   return fetchPreviews ? allPreviews : [];
 }

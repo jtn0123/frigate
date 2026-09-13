@@ -459,5 +459,5 @@ function PreviewContent({
   }
 
   // unreachable while the caller gates on hasPreviewContent
-  return <img className="size-full" src={defaultImageUrl} />;
+  return <img className="size-full" src={defaultImageUrl} alt="" />;
 }
