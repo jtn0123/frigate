@@ -285,7 +285,8 @@ RUN --mount=type=bind,from=wheels,source=/wheels,target=/deps/wheels \
     pip3 install --only-binary=:all: -U /deps/wheels/*.whl
 
 # Install Axera Engine
-RUN pip3 install --only-binary=:all: https://github.com/AXERA-TECH/pyaxengine/releases/download/0.1.3-frigate/axengine-0.1.3-py3-none-any.whl
+COPY docker/main/requirements-axengine.lock /requirements-axengine.lock
+RUN pip3 install --only-binary=:all: --require-hashes -r /requirements-axengine.lock
 
 ENV PATH="${PATH}:/usr/bin/axcl"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/axcl"

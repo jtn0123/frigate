@@ -50,9 +50,9 @@ RUN curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https
     && python3 get-pip.py "pip" --break-system-packages
 RUN python3 -m pip config set global.break-system-packages true
 
-COPY docker/rocm/requirements-wheels-rocm.txt /requirements.txt
+COPY docker/rocm/requirements-wheels-rocm.lock /requirements-rocm.lock
 RUN pip3 uninstall -y onnxruntime \
-    && pip3 install -r /requirements.txt
+    && pip3 install --only-binary=:all: --require-hashes -r /requirements-rocm.lock
 
 #######################################################################
 FROM scratch AS rocm-dist

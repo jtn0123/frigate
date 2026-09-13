@@ -61,13 +61,13 @@ inventory from 122 to 125. One original finding closed in the upstream scan.
 
 | T1 disposition | Count |
 | --- | ---: |
-| Source addressed, awaiting scan confirmation | 72 |
+| Source addressed, awaiting scan confirmation | 75 |
 | Reviewed false positives, confirmed closed in Sonar | 35 |
 | Hardened, still awaiting security review | 5 |
-| Open architectural or dependency risks | 12 |
+| Open architectural risks | 9 |
 | Closed by the upstream scan | 1 |
 
-The source count includes the prior 28 T1 fixes. This pass adds 44 source
+The source count includes the prior 28 T1 fixes. This pass adds 47 source
 remediations, three sorting fixes among them, plus five security boundary
 hardening items. It does not represent 125 code defects fixed.
 
@@ -105,20 +105,27 @@ read-only log paths. No rule, quality gate, or scan scope was disabled.
 
 ### Remaining risks and required evidence
 
-The 12 open findings are five root-runtime Docker findings, four HTTP camera
-compatibility findings, and three dependency findings (the Axera wheel's
-transitive dependencies and the ROCm install). These are not waived. A safe
+The nine open findings are five root-runtime Docker findings and four HTTP
+camera compatibility findings. These are not waived. A safe
 rootless conversion must account for s6, nginx, device permissions, and all
 accelerators. Removing HTTP requires a tested option for cameras without TLS.
-Dependency locking must preserve the shared runtime's NumPy/accelerator ABI.
+Axera and ROCm addon dependencies are now hash-locked against the validated
+shared runtime versions, preserving NumPy 1.26.4 and protobuf 5.29.6. Target
+platform wheel downloads and hashes pass; this does not constitute a hardware
+inference test.
 
 The five hardened review items are the cache path and Birdseye pipe, go2rtc
 configuration, shutdown marker, and camera request destination. A new scan and
 security review must establish their final Sonar disposition.
 
-Validation after integrating current next: 1,134 backend tests, 284 frontend
+Validation after integrating current next: 1,137 backend tests, 284 frontend
 tests, TypeScript checks, mypy across 385 source files, ESLint, and E2E spec lint
 pass. The Linux web image builds successfully with dependency scripts disabled.
 PR: https://github.com/jtn0123/frigate/pull/43 (draft while CI and Sonar run).
 The web build now permits a configurable 4 GiB Node heap because the Linux
 Node 20 build exceeded its default 2 GiB heap while bundling the UI.
+
+CodeQL follow-up: the old camera host validator ignored everything after the
+first colon. Ten malformed host/port variants reproduced the gap. The validator
+now checks the entire authority and limits ports to 1 through 65535. Tests also
+prove viewer and missing-role requests cannot invoke camera discovery.

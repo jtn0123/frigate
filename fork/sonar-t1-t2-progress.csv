@@ -243,7 +243,7 @@ AaCOHz0p9tFduPng0-UX,T1,text:S6389,web/public/locales/fa/config/global.json,277,
 AaCOHzJa9tFduPng0-D-,T2,typescript:S3776,web/src/components/overlay/detail/TrackingDetails.tsx,203,open
 AaCOHzhB9tFduPng0-MI,T2,typescript:S3776,web/src/api/ws.ts,156,open
 AaCOHz9p9tFduPng0-W3,T1,docker:S8541,docker/main/Dockerfile,287,source-addressed-awaiting-scan
-AaCOHz9p9tFduPng0-W4,T1,docker:S8544,docker/main/Dockerfile,287,open
+AaCOHz9p9tFduPng0-W4,T1,docker:S8544,docker/main/Dockerfile,287,source-addressed-awaiting-scan
 AaCOHzOO9tFduPng0-Fs,T2,typescript:S3776,web/src/components/overlay/ReviewActivityCalendar.tsx,69,open
 AaCOHztd9tFduPng0-RG,T2,typescript:S3776,web/src/views/events/EventView.tsx,992,open
 AaCOHyaI9tFduPng0900,T2,python:S3776,frigate/api/media.py,898,open
@@ -382,8 +382,8 @@ AaCOHzRz9tFduPng0-G8,T2,typescript:S3776,web/src/components/dynamic/TimeAgo.tsx,
 AaCOHzt49tFduPng0-RP,T2,typescript:S3776,web/src/views/live/LiveBirdseyeView.tsx,34,open
 AaCOHzWY9tFduPng0-Ij,T2,typescript:S3776,web/src/components/filter/CamerasFilterButton.tsx,223,open
 AaCOH0Iu9tFduPng0-Yu,T1,docker:S6506,docker/rocm/Dockerfile,48,source-addressed-awaiting-scan
-AaCOH0Iu9tFduPng0-Yv,T1,docker:S8541,docker/rocm/Dockerfile,55,open
-AaCOH0Iu9tFduPng0-Yw,T1,docker:S8544,docker/rocm/Dockerfile,55,open
+AaCOH0Iu9tFduPng0-Yv,T1,docker:S8541,docker/rocm/Dockerfile,55,source-addressed-awaiting-scan
+AaCOH0Iu9tFduPng0-Yw,T1,docker:S8544,docker/rocm/Dockerfile,55,source-addressed-awaiting-scan
 AaCOHyo89tFduPng096h,T2,python:S3776,frigate/util/services.py,1372,open
 AaCOHz9p9tFduPng0-W1,T1,docker:S6506,docker/main/Dockerfile,279,source-addressed-awaiting-scan
 AaCOHzIz9tFduPng0-Du,T1,typescript:S2245,web/src/components/overlay/detail/ObjectPathPlotter.tsx,97,reviewed-false-positive-confirmed

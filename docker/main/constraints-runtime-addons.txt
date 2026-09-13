@@ -1,0 +1,10 @@
+# Preserve shared versions from the validated Python 3.11 runtime when locking
+# accelerator addons. In particular, TensorFlow requires NumPy 1.x and protobuf <6.
+numpy==1.26.4
+protobuf==5.29.6
+sympy==1.14.0
+flatbuffers==25.12.19
+packaging==26.3
+cffi==2.1.1
+ml-dtypes==0.5.4
+pycparser==3.0
