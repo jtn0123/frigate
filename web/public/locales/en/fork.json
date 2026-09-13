@@ -249,6 +249,9 @@
     "checkFailed": "Could not check for updates",
     "close": "Close"
   },
+  "configEditor": {
+    "saved": "Config saved"
+  },
   "timelineAccessibility": {
     "exportStart": "Export start time",
     "exportEnd": "Export end time",
