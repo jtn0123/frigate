@@ -1,1 +1,3 @@
 scikit-build == 0.18.*
+# Match the bootstrap pin used by native extension build stages.
+setuptools == 77.0.3
