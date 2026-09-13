@@ -443,7 +443,7 @@ gates drift from CI (D20).
 
 #### I3 — Continue the mypy ratchet `[upstream]` — first wave done 2026-09-13
 - **Where:** `frigate/mypy.ini` (`ignore_errors = true` for `frigate.api.*`, `config.*`, `detectors.*`, `embeddings.*`, `ptz.*`, `test.*`, `util.*`, `video.*`); `frigate.stats` and `frigate.debug_replay` already re-enabled by the fork
-- **Done (2026-09-13):** the 30 modules inside those packages that already pass the strict flags are checked per module (most of `frigate.config`, four `frigate.util` modules, the embeddings helpers, `frigate.video.restart_log` and `hwaccel_fallback`). Measured cost of the rest: `video.ffmpeg` 43, `video.detect` 36, `ptz.autotrack` 185, `api.event` 105, `api.media` 69.
+- **Done (2026-09-13):** the 29 modules inside those packages that already pass the strict flags are checked per module (most of `frigate.config`, four `frigate.util` modules, the embeddings helpers, `frigate.video.restart_log` and `hwaccel_fallback`). `frigate.util.media` was in the first draft and came back out: under the image's types-peewee stubs its `Recordings.id.in_(...)` reads as a call to an instance variable. Measured cost of the rest: `video.ffmpeg` 43, `video.detect` 36, `ptz.autotrack` 185, `api.event` 105, `api.media` 69.
 - **What's wrong:** Strict flags still skip the large packages, including every route handler, so 143 `type: ignore` comments sit in code that mypy mostly is not reading.
 - **Fix:** Remaining waves: `ptz`+`video`, then `config`, `util`, `detectors`+`embeddings`, `api` last, one PR each so the ratchet holds. Never enable mypy on `frigate.test`.
 - **Effort:** L
