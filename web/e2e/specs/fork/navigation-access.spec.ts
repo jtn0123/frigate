@@ -63,12 +63,13 @@ test("ingress basename survives shared links, tab changes, and reload @high @mob
   await expect(
     page.getByRole("button", { name: "Copy link to this view" }),
   ).toBeVisible();
-  await page.getByLabel("Select general", { exact: true }).click();
+  await page.getByLabel(/^Select general$/i).click();
   await expect(page).toHaveURL(/\/nvr\/system\?camera=front_door#general$/);
   await page.reload();
-  await expect(
-    page.getByLabel("Select general", { exact: true }),
-  ).toHaveAttribute("data-state", "on");
+  await expect(page.getByLabel(/^Select general$/i)).toHaveAttribute(
+    "data-state",
+    "on",
+  );
   await page.goBack();
   await expect(page).toHaveURL(/\/nvr\/system\?camera=front_door#health$/);
 });

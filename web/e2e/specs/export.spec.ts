@@ -1168,6 +1168,7 @@ test.describe("Export Page - Active Job Progress @medium", () => {
 });
 
 test.describe("Export Page - thumbnail fallback @high @mobile", () => {
+  test.use({ expectedErrors: [/Failed to load resource.*404/] });
   // UI49: a thumbnail that fails to load left the browser's broken-image
   // glyph (and its alt text) on the card, and the export card's skeleton
   // only cleared on load, so it never cleared.

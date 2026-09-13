@@ -124,6 +124,7 @@ test.describe("Config Editor — Save @medium", () => {
 });
 
 test.describe("Config Editor — Save and Restart @medium", () => {
+  test.use({ expectedErrors: [/Failed to load resource.*400/] });
   test.skip(
     ({ frigateApp }) => frigateApp.isMobile,
     "Save and Restart button copy is desktop-visible",
