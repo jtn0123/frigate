@@ -70,35 +70,7 @@ def read_stability() -> dict:
             )
         latest = data.get("samples", [])[-1] if data.get("samples") else {}
         failure = latest.get("audio_failure", {})
-        safe_failure = {
-            "updated": number(failure.get("updated")),
-            "stage": failure.get("stage")
-            if failure.get("stage")
-            in {
-                "download",
-                "conversion",
-                "medium",
-                "large-v3",
-                "worker",
-                "transcription",
-                "translation",
-                "sounds",
-            }
-            else "unknown",
-            "cause": failure.get("cause")
-            if failure.get("cause")
-            in {
-                "timeout",
-                "http_error",
-                "camera_priority",
-                "shutdown",
-                "download_limit",
-                "memory_reserve",
-                "process_exit",
-                "unavailable",
-            }
-            else "unknown",
-        }
+        safe_failure = sanitize_failure(failure)
         return {
             "audio_failure": safe_failure,
             "status": "connected" if fresh else "stale",
@@ -110,3 +82,36 @@ def read_stability() -> dict:
         return {"status": "not_connected", "incidents": [], "samples": []}
     except (OSError, ValueError, TypeError, AttributeError):
         return {"status": "invalid", "incidents": [], "samples": []}
+
+
+def sanitize_failure(failure: dict) -> dict:
+    """Expose only fixed failure vocabulary, never arbitrary model errors."""
+    return {
+        "updated": number(failure.get("updated")),
+        "stage": failure.get("stage")
+        if failure.get("stage")
+        in {
+            "download",
+            "conversion",
+            "medium",
+            "large-v3",
+            "worker",
+            "transcription",
+            "translation",
+            "sounds",
+        }
+        else "unknown",
+        "cause": failure.get("cause")
+        if failure.get("cause")
+        in {
+            "timeout",
+            "http_error",
+            "camera_priority",
+            "shutdown",
+            "download_limit",
+            "memory_reserve",
+            "process_exit",
+            "unavailable",
+        }
+        else "unknown",
+    }

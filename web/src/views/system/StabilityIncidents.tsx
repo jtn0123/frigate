@@ -19,6 +19,13 @@ export default function StabilityIncidents({
     recording: ["recording", "recording_unknown"],
     ai: ["ai", "detection", "audio"],
   };
+  let status = t("stability.unavailable");
+  if (fresh) {
+    status =
+      active.length === 0
+        ? t("stability.clear")
+        : t("stability.active", { count: active.length });
+  }
   return (
     <section
       className="rounded-xl border border-secondary p-4"
@@ -33,26 +40,22 @@ export default function StabilityIncidents({
           const problem = active.some((row) =>
             groups[dimension].includes(row.kind),
           );
+          let state = "unknown";
+          if (fresh) state = problem ? "attention" : "ok";
           return (
             <div key={dimension} className="rounded bg-background_alt p-2">
               <div>{t(`stability.dimensions.${dimension}`)}</div>
               <strong
                 className={!fresh || problem ? "text-warning" : "text-success"}
               >
-                {t(
-                  `stability.states.${!fresh ? "unknown" : problem ? "attention" : "ok"}`,
-                )}
+                {t(`stability.states.${state}`)}
               </strong>
             </div>
           );
         })}
       </div>
       <div role="status" aria-live="polite">
-        {!fresh
-          ? t("stability.unavailable")
-          : active.length === 0
-            ? t("stability.clear")
-            : t("stability.active", { count: active.length })}
+        {status}
       </div>
       <ul className="mt-2 space-y-2">
         {active.map((row) => (

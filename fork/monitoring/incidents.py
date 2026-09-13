@@ -37,56 +37,86 @@ class Incidents:
         problems = set()
         if not fresh:
             problems.add("monitoring:stale")
-        if fresh and (
+        elif self.incomplete(sample):
+            problems.add("monitoring:partial")
+        if fresh and source != self.last_source:
+            self.last_source = source
+            self.advance_streaks(sample)
+        if fresh:
+            problems.update(key for key, count in self.streaks.items() if count >= 3)
+        self.camera_problems(sample, now, fresh, problems)
+        self.container_problems(sample, problems)
+        failure_time = sample.get("audio_failure", {}).get("updated")
+        if sample.get("audio_failures", 0) or (
+            numeric(failure_time) and 0 <= now - failure_time <= 30
+        ):
+            problems.add("audio:failure")
+        return self.persist(sample, now, fresh, problems)
+
+    @staticmethod
+    def incomplete(sample):
+        """Require actual readings before displaying healthy dimensions."""
+        return (
             not sample.get("cameras")
             or not sample.get("containers")
+            or not sample.get("detector_ms")
             or any(
                 c.get("running") is None for c in sample.get("containers", {}).values()
             )
-            or not sample.get("detector_ms")
             or any(
                 camera.get("enabled") and not numeric(camera.get("camera_fps"))
                 for camera in sample.get("cameras", {}).values()
             )
-        ):
-            problems.add("monitoring:partial")
-        advance = fresh and source != self.last_source
-        if advance:
-            self.last_source = source
-            slow = any(
-                numeric(v) and v > 30 for v in sample.get("detector_ms", {}).values()
-            )
-            if any(numeric(v) for v in sample.get("detector_ms", {}).values()):
-                self.streaks["ai:slow"] = (
-                    self.streaks.get("ai:slow", 0) + 1 if slow else 0
-                )
-            for name, camera in sample.get("cameras", {}).items():
-                key = "detection:" + name
-                value = camera.get("skipped_fps")
-                if not numeric(value):
-                    continue
-                self.streaks[key] = (
-                    self.streaks.get(key, 0) + 1
-                    if numeric(value) and value > 0.5
-                    else 0
-                )
-        if fresh:
-            problems.update(key for key, count in self.streaks.items() if count >= 3)
+        )
+
+    def advance_streaks(self, sample):
+        """Advance sustained AI warnings only for numeric source readings."""
+        slow = any(
+            numeric(v) and v > 30 for v in sample.get("detector_ms", {}).values()
+        )
+        if any(numeric(v) for v in sample.get("detector_ms", {}).values()):
+            self.streaks["ai:slow"] = self.streaks.get("ai:slow", 0) + 1 if slow else 0
         for name, camera in sample.get("cameras", {}).items():
-            if not camera.get("enabled"):
+            key = "detection:" + name
+            value = camera.get("skipped_fps")
+            if not numeric(value):
                 continue
-            fps = camera.get("camera_fps")
-            if fresh and numeric(fps) and fps <= 0:
-                since = self.capture_missing.setdefault(name, now)
-                if now - since >= 20:
-                    problems.add("capture:" + name)
-            elif fresh and numeric(fps):
-                self.capture_missing.pop(name, None)
-            end = camera.get("recording_end")
-            if camera.get("recording_expected") and numeric(end) and now - end > 120:
-                problems.add("recording:" + name)
-            elif camera.get("recording_expected") and not numeric(end):
-                problems.add("recording_unknown:" + name)
+            self.streaks[key] = (
+                self.streaks.get(key, 0) + 1 if numeric(value) and value > 0.5 else 0
+            )
+
+    def camera_problems(self, sample, now, fresh, problems):
+        """Track capture and expected continuous recordings separately."""
+        for name, camera in sample.get("cameras", {}).items():
+            if camera.get("enabled"):
+                self.capture_problem(name, camera, now, fresh, problems)
+                self.recording_problem(name, camera, now, problems)
+
+    def capture_problem(self, name, camera, now, fresh, problems):
+        """Require twenty seconds of fresh zero-FPS readings."""
+        fps = camera.get("camera_fps")
+        if not fresh or not numeric(fps):
+            return
+        if fps <= 0:
+            since = self.capture_missing.setdefault(name, now)
+            if now - since >= 20:
+                problems.add("capture:" + name)
+        else:
+            self.capture_missing.pop(name, None)
+
+    @staticmethod
+    def recording_problem(name, camera, now, problems):
+        """Only continuously recorded cameras must have a recent segment."""
+        if not camera.get("recording_expected"):
+            return
+        end = camera.get("recording_end")
+        if not numeric(end):
+            problems.add("recording_unknown:" + name)
+        elif now - end > 120:
+            problems.add("recording:" + name)
+
+    def container_problems(self, sample, problems):
+        """Track process availability, restarts and explicit OOM state."""
         for name, container in sample.get("containers", {}).items():
             if container.get("running") is False:
                 problems.add("server:" + name)
@@ -101,11 +131,9 @@ class Incidents:
             self.previous_containers[name] = dict(container)
             if container.get("oom_killed"):
                 problems.add("memory:" + name)
-        failure_time = sample.get("audio_failure", {}).get("updated")
-        if sample.get("audio_failures", 0) or (
-            numeric(failure_time) and 0 <= now - failure_time <= 30
-        ):
-            problems.add("audio:failure")
+
+    def persist(self, sample, now, fresh, problems):
+        """Retain incidents and bounded history atomically."""
         evidence = json.dumps(sample, allow_nan=False)
         self.db.execute("INSERT INTO samples VALUES (?,?)", (now, evidence))
         for key in problems:
@@ -113,6 +141,14 @@ class Incidents:
                 "INSERT INTO incidents VALUES (?,?,?,NULL,?) ON CONFLICT(key) DO UPDATE SET started=CASE WHEN resolved IS NULL THEN started ELSE excluded.started END, updated=excluded.updated,resolved=NULL,evidence=excluded.evidence",
                 (key, now, now, evidence),
             )
+        self.resolve(sample, now, fresh, problems)
+        self.db.execute("DELETE FROM samples WHERE time < ?", (now - 86400,))
+        self.db.execute("DELETE FROM incidents WHERE resolved < ?", (now - 86400,))
+        self.db.commit()
+        return self.report(now)
+
+    def resolve(self, sample, now, fresh, problems):
+        """Clear incidents only when their own subsystem has a valid reading."""
         for (key,) in self.db.execute(
             "SELECT key FROM incidents WHERE resolved IS NULL"
         ).fetchall():
@@ -140,10 +176,6 @@ class Incidents:
                 self.db.execute(
                     "UPDATE incidents SET resolved=? WHERE key=?", (now, key)
                 )
-        self.db.execute("DELETE FROM samples WHERE time < ?", (now - 86400,))
-        self.db.execute("DELETE FROM incidents WHERE resolved < ?", (now - 86400,))
-        self.db.commit()
-        return self.report(now)
 
     def report(self, now):
         """Return bounded incident metadata and recent correlated measurements."""

@@ -101,9 +101,12 @@ def capture():
             timeout=5,
             check=True,
         )
-        state = dict(
-            line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
-        )
+        state = {
+            key: value
+            for line in result.stdout.splitlines()
+            if "=" in line
+            for key, value in [line.split("=", 1)]
+        }
         sample.setdefault("containers", {})["ollama"] = {
             "running": state.get("ActiveState") == "active",
             "started": state.get("ExecMainStartTimestampMonotonic"),
@@ -114,9 +117,8 @@ def capture():
     return sample
 
 
-def completion_timings(log):
-    """Extract only safe completion fields, including compound Go durations."""
-    requests = []
+def duration_seconds(value):
+    """Parse a bounded Go duration from its start, without unanchored backtracking."""
     units = {
         "ns": 1e-9,
         "us": 1e-6,
@@ -127,26 +129,34 @@ def completion_timings(log):
         "m": 60,
         "h": 3600,
     }
-    for line in log.splitlines():
-        match = re.search(
-            r'\|\s*(\d{3})\s*\|\s*([^| ]+)\s*\|.*POST\s+"(/api/(?:chat|generate))"',
-            line,
-        )
+    if not value or len(value) > 64:
+        return None
+    total = 0.0
+    while value:
+        match = re.match(r"(\d+(?:\.\d+)?)(ns|us|µs|μs|ms|s|m|h)", value)
         if not match:
+            return None
+        total += float(match[1]) * units[match[2]]
+        value = value[match.end() :]
+    return total
+
+
+def completion_timings(log):
+    """Extract only safe completion fields, including compound Go durations."""
+    requests = []
+    for line in log.splitlines():
+        fields = [field.strip() for field in line.split("|")]
+        if len(fields) != 5 or not fields[1].isdigit():
             continue
-        parts = re.findall(r"([\d.]+)(ns|us|µs|μs|ms|s|m|h)", match[2])
-        if not parts or "".join(value + unit for value, unit in parts) != match[2]:
+        route = fields[4].split()
+        if len(route) != 2 or route[0] != "POST":
             continue
-        try:
-            duration = sum(float(value) * units[unit] for value, unit in parts)
-        except ValueError:
+        path = route[1].strip('"')
+        duration = duration_seconds(fields[2])
+        if path not in {"/api/chat", "/api/generate"} or duration is None:
             continue
         requests.append(
-            {
-                "http_status": int(match[1]),
-                "duration_seconds": duration,
-                "route": match[3],
-            }
+            {"http_status": int(fields[1]), "duration_seconds": duration, "route": path}
         )
     return requests[-20:]
 

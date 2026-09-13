@@ -159,6 +159,11 @@ def infer(audio: Path, output: Path, model: str) -> dict:
             if METRICS:
                 METRICS.sample()
     result = json.loads(output.read_text())
+    return record_failed_stages(result)
+
+
+def record_failed_stages(result: dict) -> dict:
+    """Record partial stage failures even when the inference process exits cleanly."""
     for name, stage in result.get("stages", {}).items():
         if stage.get("status") == "failed":
             best_effort(save_failure)(

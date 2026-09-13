@@ -83,7 +83,9 @@ class IncidentTests(unittest.TestCase):
             self.monitor.observe({**self.sample, "time": n, "source_updated": n})
         report = self.monitor.observe({"time": 148, "source_updated": 148})
         active = {r["key"] for r in report["incidents"] if r["resolved"] is None}
-        self.assertTrue({"ai:slow", "detection:door", "monitoring:partial"} <= active)
+        self.assertLessEqual(
+            {"ai:slow", "detection:door", "monitoring:partial"}, active
+        )
 
     def test_capture_waits_twenty_seconds_then_requires_valid_recovery(self):
         self.sample["cameras"]["door"]["camera_fps"] = 0
@@ -128,7 +130,7 @@ class IncidentTests(unittest.TestCase):
         from incident_monitor import completion_timings
 
         result = completion_timings(
-            '[GIN] | 200 | 1m20.5s | private POST "/api/generate"\n[GIN] | 500 | 50µs | secret POST "/api/chat"'
+            '[GIN] | 200 | 1m20.5s | private | POST "/api/generate"\n[GIN] | 500 | 50µs | secret | POST "/api/chat"'
         )
         self.assertEqual(result[0]["duration_seconds"], 80.5)
         self.assertAlmostEqual(result[1]["duration_seconds"], 0.00005)
@@ -162,7 +164,7 @@ class IncidentTests(unittest.TestCase):
             {**self.sample, "time": 115, "source_updated": 115}
         )
         active = {r["key"] for r in report["incidents"] if r["resolved"] is None}
-        self.assertTrue({"server:ollama", "monitoring:partial"} <= active)
+        self.assertLessEqual({"server:ollama", "monitoring:partial"}, active)
 
     def test_partial_audio_failure_is_an_incident_without_log_error(self):
         report = self.monitor.observe(
