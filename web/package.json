@@ -23,7 +23,9 @@
     "i18n:extract": "i18next-cli extract",
     "i18n:extract:ci": "i18next-cli extract --ci",
     "i18n:status": "i18next-cli status",
-    "bundle:budget": "node scripts/fork/bundle-budget.mjs"
+    "bundle:budget": "node scripts/fork/bundle-budget.mjs",
+    "api:types": "node scripts/fork/api-types.mjs",
+    "api:types:ci": "node scripts/fork/api-types.mjs --check"
   },
   "dependencies": {
     "@cycjimmy/jsmpeg-player": "^6.1.2",
@@ -137,6 +139,7 @@
     "jest-websocket-mock": "^2.5.0",
     "jsdom": "^24.1.1",
     "msw": "^2.3.5",
+    "openapi-typescript": "^7.13.0",
     "patch-package": "^8.0.1",
     "postcss": "^8.5.28",
     "prettier": "^3.3.3",

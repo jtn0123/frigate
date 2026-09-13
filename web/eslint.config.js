@@ -42,6 +42,8 @@ export default tseslint.config(
       "src/components/ui/**",
       // fork: vendored QR encoder (uqr), kept byte-for-byte
       "src/lib/fork/qr-encode.ts",
+      // fork: generated from the API spec by scripts/fork/api-types.mjs
+      "src/types/fork/api.gen.ts",
     ],
   },
   js.configs.recommended,

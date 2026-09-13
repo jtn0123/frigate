@@ -22,7 +22,9 @@ const typeAwareRules = {
 
 export default tseslint.config(
   // Vendored QR encoder (uqr), kept byte-for-byte; ignored in eslint.config.js too.
-  { ignores: ["src/lib/fork/qr-encode.ts"] },
+  // The API types are generated from the spec (scripts/fork/api-types.mjs), so
+  // their shape is the server's, not something a commit can be asked to fix.
+  { ignores: ["src/lib/fork/qr-encode.ts", "src/types/fork/api.gen.ts"] },
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["**/*.d.ts"],

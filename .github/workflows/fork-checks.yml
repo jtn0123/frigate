@@ -95,6 +95,9 @@ jobs:
         working-directory: ./web
       - run: npm run i18n:extract:ci
         working-directory: ./web
+      # The generated API types must match the spec the backend generates (A5).
+      - run: npm run api:types:ci
+        working-directory: ./web
 
   # Tools run straight from node_modules/.bin (the lockfile's versions), not
   # through npx, which could fetch a missing package from the registry.
