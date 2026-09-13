@@ -1,7 +1,7 @@
 # Overlay this checkout's Python, migrations and built UI on the multi-arch
 # rc2 image. Sources are COPY'd (not bind-mounted) because Docker Desktop on
 # this Mac does not share /Volumes, so a USB bind-mount arrives empty.
-ARG BASE=ghcr.io/blakeblackshear/frigate:0.18.0-rc2
+ARG BASE=ghcr.io/blakeblackshear/frigate:0.18.0
 FROM ${BASE}
 COPY frigate /opt/frigate/frigate
 COPY migrations /opt/frigate/migrations

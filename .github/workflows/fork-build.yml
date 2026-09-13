@@ -75,7 +75,7 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/fork/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/fork/}"
           else
-            # The upstream tag this build sits on, e.g. 0.18.0-rc2-20260911.42
+            # The upstream tag this build sits on, e.g. 0.18.0-20260911.42
             BASE_TAG="$(git describe --tags --match 'v*' --abbrev=0 "$(git merge-base HEAD origin/dev)")"
             VERSION="${BASE_TAG#v}-$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
           fi

@@ -29,7 +29,7 @@ concurrency:
 
 env:
   DEFAULT_PYTHON: "3.11"
-  FORK_TEST_BASE: ghcr.io/blakeblackshear/frigate:0.18.0-rc2
+  FORK_TEST_BASE: ghcr.io/blakeblackshear/frigate:0.18.0
 
 jobs:
   secrets_scan:
