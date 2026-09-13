@@ -3,6 +3,7 @@
 import logging
 import os
 import tempfile
+import time
 import unittest
 from collections import deque
 from types import SimpleNamespace
@@ -255,6 +256,17 @@ class TestRememberedFallback(unittest.TestCase):
 
         self.assertFalse(os.path.exists(self.path))
         self.assertFalse(HwaccelFallback(camera_config(), state_path=self.path).active)
+
+    def test_no_state_path_means_nothing_is_restored(self):
+        # The in-memory default (no state file) must not reach the file system:
+        # _restore used to open state_path without the guard _save has.
+        fallback = HwaccelFallback(camera_config())
+
+        self.assertIsNone(fallback.state_path)
+        self.assertFalse(fallback.active)
+        self.assertIsNone(fallback.since)
+        fallback._restore(time.time())
+        self.assertFalse(fallback.active)
 
     def test_an_unreadable_file_is_ignored_with_a_warning(self):
         os.makedirs(os.path.dirname(self.path))
