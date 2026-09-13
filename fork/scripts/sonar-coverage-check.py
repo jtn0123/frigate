@@ -9,6 +9,7 @@ either side falls below it by more than the recorded tolerance (D21).
 import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 from defusedxml.ElementTree import parse
 
@@ -78,16 +79,24 @@ def web_line_rate(lcov_path: Path) -> float:
     return 100 * covered / total
 
 
+def tolerance_for(floor: dict[str, Any], side: str) -> float:
+    """Each side's allowance: one number for both, or one per side."""
+    configured = floor.get("tolerance_points", 0)
+    if isinstance(configured, dict):
+        return float(configured.get(side, 0))
+    return float(configured)
+
+
 def check_floor(root: Path, measured: dict[str, float]) -> list[str]:
     """Report every side that fell below its recorded floor."""
     floor = json.loads((root / FLOOR_PATH).read_text())
-    tolerance = float(floor.get("tolerance_points", 0))
     below = []
     for side, value in sorted(measured.items()):
         recorded = floor.get(side)
         if recorded is None:
             print(f"{side} coverage {value:.2f}% (no floor recorded yet)")
             continue
+        tolerance = tolerance_for(floor, side)
         print(
             f"{side} coverage {value:.2f}% (floor {recorded}%, tolerance {tolerance})"
         )

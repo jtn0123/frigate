@@ -175,3 +175,39 @@ class TestCoverageMain(unittest.TestCase):
             )
             self.floor(root, python=90.0, web=90.0)
             self.assertEqual(_MODULE.main(root), 1)
+
+
+class TestPerSideTolerance(unittest.TestCase):
+    """Web coverage swings with e2e sharding, so its allowance is its own."""
+
+    def floor_file(self, directory: Path, tolerance: object) -> Path:
+        root = Path(directory)
+        (root / "fork").mkdir(parents=True, exist_ok=True)
+        (root / "fork/coverage-floor.json").write_text(
+            json.dumps({"tolerance_points": tolerance, "python": 41.0, "web": 57.0})
+        )
+        return root
+
+    def test_one_number_still_applies_to_both_sides(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.floor_file(directory, 1.0)
+            self.assertEqual(
+                _MODULE.check_floor(root, {"python": 40.5, "web": 56.5}), []
+            )
+            self.assertEqual(
+                len(_MODULE.check_floor(root, {"python": 39.0, "web": 55.0})), 2
+            )
+
+    def test_a_per_side_map_gives_each_its_own_allowance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.floor_file(directory, {"python": 1.0, "web": 3.0})
+            # The same 2 point dip is noise for web and a regression for python.
+            below = _MODULE.check_floor(root, {"python": 39.0, "web": 55.0})
+            self.assertEqual(len(below), 1)
+            self.assertIn("python", below[0])
+
+    def test_a_side_missing_from_the_map_gets_no_allowance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.floor_file(directory, {"web": 3.0})
+            below = _MODULE.check_floor(root, {"python": 40.9})
+            self.assertEqual(len(below), 1)
