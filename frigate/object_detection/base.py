@@ -359,8 +359,10 @@ class ObjectDetectProcess:
             if self.detect_process.exitcode is None:
                 # detection_start is set only after detection_queue.get()
                 # returns. If it was reset during the grace period, the process
-                # recovered and may be waiting on the shared queue again.
-                if self.detection_start.value == 0.0:  # type: ignore[attr-defined]
+                # recovered and may be waiting on the shared queue again. A
+                # reset writes exactly 0.0 and a busy value is a positive
+                # timestamp, so compare by order rather than float equality.
+                if self.detection_start.value <= 0.0:  # type: ignore[attr-defined]
                     logging.info("Detection process recovered before restart")
                     return
 

@@ -87,7 +87,8 @@ async function openAtRollover(frigateApp: {
   };
 }
 
-test.describe("Preview hour rollover: desktop @medium", () => {
+// the preview tile row only renders on desktop
+test.describe("Preview hour rollover: desktop @medium @desktop-only", () => {
   // one alternation regex, not two entries: Playwright's isFixtureTuple reads a
   // two-element array as [value, options]
   test.use({
@@ -96,12 +97,7 @@ test.describe("Preview hour rollover: desktop @medium", () => {
 
   test("tile keeps a preview source when the hour rolls over", async ({
     frigateApp,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "desktop",
-      "preview tile row only renders on desktop",
-    );
-
+  }) => {
     const rollOver = await openAtRollover(frigateApp);
 
     // both handles are URLs only PreviewPlayer renders: the main camera's
@@ -124,19 +120,15 @@ test.describe("Preview hour rollover: desktop @medium", () => {
   });
 });
 
-test.describe("Preview hour rollover: mobile @medium @mobile", () => {
+// the desktop case above covers the tile row as well
+test.describe("Preview hour rollover: mobile @medium @mobile @mobile-only", () => {
   test.use({
     expectedErrors: [/no supported source was found|MEDIA_ELEMENT_ERROR/i],
   });
 
   test("main camera scrub preview keeps its source when the hour rolls over", async ({
     frigateApp,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name === "desktop",
-      "desktop case above covers the tile row as well",
-    );
-
+  }) => {
     const rollOver = await openAtRollover(frigateApp);
 
     // the tile row is desktop-only, but the main player's scrub preview is a
@@ -163,12 +155,11 @@ test.describe("Preview hour rollover: mobile @medium @mobile", () => {
  * A review with no mp4 at all (aged out, camera offline, generation failed)
  * used to fade to black on hover, since playback hides the thumbnail.
  */
-test.describe("Review card without a preview: desktop @medium", () => {
+// hover is desktop only
+test.describe("Review card without a preview: desktop @medium @desktop-only", () => {
   test("hovering keeps the thumbnail instead of blanking the card", async ({
     frigateApp,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "hover is desktop only");
-
+  }) => {
     // three hours old, so neither the current nor the previous hour
     const start = Math.floor(Date.now() / 1000) - 3 * 3600;
     const noPreviewReview = {
