@@ -24,7 +24,7 @@ AaCOHyaI9tFduPng090x,T2,python:S3776,frigate/api/media.py,464,open
 AaCOHyaI9tFduPng090y,T2,python:S3776,frigate/api/media.py,572,open
 AaCOHybi9tFduPng091O,T2,python:S3776,frigate/api/record.py,262,open
 AaCOHybi9tFduPng091P,T2,python:S3776,frigate/api/record.py,363,open
-AaCOHybA9tFduPng0907,T2,python:S3776,frigate/api/review.py,52,open
+AaCOHybA9tFduPng0907,T2,python:S3776,frigate/api/review.py,52,source-addressed-awaiting-scan
 AaCOHybA9tFduPng0909,T2,python:S3776,frigate/api/review.py,207,open
 AaCOHyYJ9tFduPng09z9,T2,python:S3776,frigate/api/notification.py,31,open
 AaCOHz0p9tFduPng0-UW,T1,text:S6389,web/public/locales/fa/config/global.json,118,open
@@ -399,7 +399,7 @@ AaCOH0L89tFduPng0-Y-,T1,docker:S8541,docker/rockchip/Dockerfile,24,open
 AaCOH0Ge9tFduPng0-YU,T1,docker:S8541,docker/tensorrt/Dockerfile.amd64,37,open
 AaCOH0Gn9tFduPng0-YV,T1,shell:S8541,docker/tensorrt/detector/build_python_tensorrt.sh,19,open
 AaCOHy5U9tFduPng09-z,T2,typescript:S3776,web/src/components/input/InputWithTags.tsx,255,open
-AaCOHznt9tFduPng0-Or,T2,typescript:S2004,web/src/hooks/resize-observer.ts,21,open
+AaCOHznt9tFduPng0-Or,T2,typescript:S2004,web/src/hooks/resize-observer.ts,21,source-addressed-awaiting-scan
 AaCOHydM9tFduPng091_,T2,python:S3776,frigate/api/app.py,1041,open
 AaCOHzni9tFduPng0-Oq,T2,typescript:S3776,web/src/hooks/use-draggable-element.ts,479,open
 AaCOHyAo9tFduPng09xB,T1,typescript:S5332,docs/docusaurus.config.ts,146,source-addressed-awaiting-scan
@@ -407,7 +407,7 @@ AaCOHz9f9tFduPng0-Wa,T1,shell:S5332,docker/rpi/install_deps.sh,21,source-address
 AaCOHydM9tFduPng0911,T2,python:S3776,frigate/api/app.py,526,open
 AaCOHyue9tFduPng098n,T2,python:S3776,frigate/ptz/autotrack.py,1052,open
 AaCOHyuo9tFduPng098u,T2,python:S8510,frigate/events/cleanup.py,122,source-addressed-awaiting-scan
-AaCOHyuo9tFduPng098w,T2,python:S5727,frigate/events/cleanup.py,235,open
+AaCOHyuo9tFduPng098w,T2,python:S5727,frigate/events/cleanup.py,235,source-addressed-awaiting-scan
 AaCOHyou9tFduPng096D,T2,python:S3776,frigate/util/image.py,193,open
 AaCOHyrx9tFduPng097M,T2,python:S3776,frigate/service_manager/multiprocessing_waiter.py,49,open
 AaCOHyaI9tFduPng0902,T2,python:S3776,frigate/api/media.py,977,open

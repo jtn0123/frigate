@@ -31,7 +31,24 @@ Source-addressed is provisional until a subsequent scan confirms closure.
 
 ## Remaining work
 
-94 T1 and 330 T2 baseline findings remain unaddressed in source. Among these
-are security-sensitive operations requiring individual review and 319 complex
+94 T1 and 327 T2 baseline findings remain unaddressed in source. Among these
+are security-sensitive operations requiring individual review and 318 complex
 functions requiring refactoring. Do not disable rules or weaken the quality
 gate to report zero. No server-side findings were dismissed by this batch.
+
+
+## Next pass
+
+Three additional T2 findings are addressed in source (49 total, 28 T1 and 21 T2):
+
+- Remove obsolete clip-retention file deletion using a .None extension. Event
+  clip expiry now updates metadata only; recording retention owns video files.
+- Simplify Review label/zone query construction while retaining any-match
+  behavior, verified with both object and audio labels across multiple zones.
+- Reduce nested resize-observer callbacks and verify dimension delivery and
+  observer disconnection on unmount.
+
+The clip-retention regression fails against the baseline because unlink is
+called. Validation: 1,106 backend unittest tests and 273 frontend unit tests pass.
+Python mypy, TypeScript compilation, lint checks, and generated API spec
+consistency checks pass.
