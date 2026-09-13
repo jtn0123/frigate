@@ -32,7 +32,7 @@ from frigate.config.env import substitute_frigate_vars
 from frigate.models import User
 from frigate.util.builtin import clean_camera_user_pass, get_record_segment_time
 from frigate.util.camera_cleanup import cleanup_camera_db, cleanup_camera_files
-from frigate.util.camera_discovery import query_reolink
+from frigate.util.camera_discovery import get_reolink_main_stream, query_reolink
 from frigate.util.image import run_ffmpeg_snapshot
 from frigate.util.services import (
     analyze_record_keyframes,
@@ -516,19 +516,8 @@ def reolink_detect(
                 status_code=200,
             )
 
-        enc_data = data[0] if isinstance(data, list) and len(data) > 0 else data
-
-        stream_info = None
-        if isinstance(enc_data, dict):
-            value = enc_data.get("value")
-            if isinstance(value, dict) and value.get("Enc"):
-                stream_info = value["Enc"]
-            elif enc_data.get("Enc"):
-                stream_info = enc_data["Enc"]
-
-        if not isinstance(stream_info, dict) or not isinstance(
-            stream_info.get("mainStream"), dict
-        ):
+        main_stream = get_reolink_main_stream(data)
+        if main_stream is None:
             return JSONResponse(
                 content={
                     "success": False,
@@ -537,7 +526,6 @@ def reolink_detect(
                 }
             )
 
-        main_stream = stream_info["mainStream"]
         width = main_stream.get("width", 0)
         height = main_stream.get("height", 0)
 

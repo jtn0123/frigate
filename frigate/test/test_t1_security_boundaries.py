@@ -45,8 +45,17 @@ class TestCameraRedirects(unittest.TestCase):
         self.assertTrue(json.loads(response.body)["success"])
 
     @patch("frigate.api.camera.query_reolink")
+    def test_direct_high_resolution_payload_recommends_rtsp(self, query):
+        query.return_value = (
+            200,
+            {"Enc": {"mainStream": {"width": 3840, "height": 2160}}},
+        )
+        response = reolink_detect(self.request, "camera.local", "user", "password")
+        self.assertEqual(json.loads(response.body)["protocol"], "rtsp")
+
+    @patch("frigate.api.camera.query_reolink")
     def test_malformed_camera_payload_is_a_safe_failure(self, query):
-        for data in ({"value": None}, {"Enc": [1]}, {"Enc": {"mainStream": 1}}):
+        for data in ([], {}, {"value": None}, {"Enc": [1]}, {"Enc": {"mainStream": 1}}):
             with self.subTest(data=data):
                 query.return_value = (200, data)
                 response = reolink_detect(

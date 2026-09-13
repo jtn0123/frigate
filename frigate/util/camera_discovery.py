@@ -45,3 +45,18 @@ def query_reolink(
             response.status,
             response.json() if 200 <= response.status < 300 else None,
         )
+
+
+def get_reolink_main_stream(data: Any) -> dict[str, Any] | None:
+    """Extract the main stream from supported Reolink response shapes."""
+    data = data[0] if isinstance(data, list) and data else data
+    if not isinstance(data, dict):
+        return None
+    value = data.get("value")
+    stream = value.get("Enc") if isinstance(value, dict) else None
+    if not stream:
+        stream = data.get("Enc")
+    if not isinstance(stream, dict):
+        return None
+    main_stream = stream.get("mainStream")
+    return main_stream if isinstance(main_stream, dict) else None
