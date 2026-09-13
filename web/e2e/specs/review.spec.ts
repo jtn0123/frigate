@@ -258,3 +258,55 @@ test.describe("Review — fixture data renders like the real API @high", () => {
     await expect(review.alertsTab).toContainText("1", { timeout: 10_000 });
   });
 });
+
+test.describe("Review — recording view loading state @high @mobile", () => {
+  // UI48: while a recording loaded with no preview for the range, the
+  // preview player's "No Preview Found" sat under the loading spinner.
+  test("the spinner does not cover the no-preview message", async ({
+    frigateApp,
+  }) => {
+    // Hold the camera's recordings so the view stays in its loading state
+    // past the player's 1 s loading timer.
+    await frigateApp.page.route("**/api/*/recordings?**", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 8_000));
+      await route.fulfill({ json: [] }).catch(() => undefined);
+    });
+    await frigateApp.goto("/review");
+    const page = frigateApp.page;
+    const cards = page.locator('.review-item [role="button"]');
+    await expect(cards.first()).toBeVisible({ timeout: 10_000 });
+    await cards.first().click();
+    await expect(page).toHaveTitle(/Recordings/);
+
+    const spinner = page.getByLabel("Loading…").first();
+    await expect(spinner).toBeVisible({ timeout: 5_000 });
+
+    const overlapping = await page.evaluate(() => {
+      const spin = Array.from(
+        document.querySelectorAll<HTMLElement>('[aria-label="Loading…"]'),
+      ).find((el) => el.getBoundingClientRect().width > 0);
+      if (!spin) return -1;
+      const s = spin.getBoundingClientRect();
+      return (
+        Array.from(document.querySelectorAll<HTMLElement>("div"))
+          // innerText, not textContent: a wrapper around the hidden preview
+          // player would otherwise "contain" the message it no longer shows
+          .filter(
+            (el) =>
+              el.innerText.trim() === "No Preview Found" &&
+              el.checkVisibility(),
+          )
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            return (
+              r.left < s.right &&
+              r.right > s.left &&
+              r.top < s.bottom &&
+              r.bottom > s.top
+            );
+          }).length
+      );
+    });
+    expect(overlapping).toBe(0);
+  });
+});
