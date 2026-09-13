@@ -348,3 +348,23 @@ test.describe("Explore — label section headers @high", () => {
     );
   });
 });
+
+test.describe("Explore — filter bar on phones @high @mobile", () => {
+  // UI51: the scrolling filter bar was justify-end, so when it overflowed a
+  // phone screen its first button ("All Cameras") went off the left edge,
+  // where a scroll container cannot reach.
+  test(
+    "the cameras filter sits fully on screen",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.goto("/explore");
+      const cameras = frigateApp.page.getByLabel("Cameras Filter");
+      await expect(cameras).toBeVisible({ timeout: 10_000 });
+      const box = await cameras.boundingBox();
+      const width = frigateApp.page.viewportSize()?.width ?? 0;
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    },
+  );
+});
