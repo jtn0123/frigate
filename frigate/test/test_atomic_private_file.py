@@ -43,3 +43,43 @@ class TestPrivateRuntimeFile(unittest.TestCase):
                     write_private_file(path, "new")
             self.assertEqual(path.read_text(), "old")
             self.assertEqual(list(Path(directory).iterdir()), [path])
+
+
+class TestPrivateRuntimeDirectory(unittest.TestCase):
+    """Shared cache files must remain inside a directory owned by the service."""
+
+    def test_creates_and_secures_existing_directory(self):
+        from frigate.util.atomic import ensure_private_directory
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cache"
+            ensure_private_directory(path)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700)
+            path.chmod(0o777)
+            (path / "frame").write_text("existing frame")
+            ensure_private_directory(path)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o700)
+            self.assertEqual((path / "frame").read_text(), "existing frame")
+
+    def test_rejects_symlink_without_changing_target_permissions(self):
+        from frigate.util.atomic import ensure_private_directory
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "target"
+            target.mkdir(mode=0o755)
+            path = Path(directory) / "cache"
+            path.symlink_to(target)
+            with self.assertRaises(OSError):
+                ensure_private_directory(path)
+            self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o755)
+
+    def test_rejects_directory_owned_by_another_user(self):
+        from frigate.util.atomic import ensure_private_directory
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cache"
+            path.mkdir(mode=0o755)
+            with patch("frigate.util.atomic.os.geteuid", return_value=-1):
+                with self.assertRaises(PermissionError):
+                    ensure_private_directory(path)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755)

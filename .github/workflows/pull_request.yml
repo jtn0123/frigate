@@ -100,10 +100,10 @@ jobs:
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
           cache: pip
-          cache-dependency-path: docker/main/requirements-dev.lock
+          cache-dependency-path: fork/requirements-dev.lock
       - name: Install requirements
         run: |
-          python3 -m pip install --only-binary=:all: --require-hashes -r docker/main/requirements-dev.lock
+          python3 -m pip install --only-binary=:all: --require-hashes -r fork/requirements-dev.lock
       - name: Check formatting
         run: |
           ruff format --check --diff frigate migrations docker *.py

@@ -138,8 +138,10 @@ function migrate_db_from_media_to_config() {
     fi
 }
 
-# remove leftover from last run, not normally needed, but just in case
-# used by the docker healthcheck
+# The cache contains camera frames and is shared only by root-run services.
+PYTHONPATH=/opt/frigate python3 -c 'from pathlib import Path; from frigate.util.atomic import ensure_private_directory; ensure_private_directory(Path("/tmp/cache"))'
+
+# Remove the previous Docker healthcheck shutdown marker.
 rm -f /dev/shm/.frigate-is-stopping
 
 migrate_addon_config_dir

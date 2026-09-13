@@ -338,7 +338,7 @@ RUN apt-get update \
     && apt-get install make -y \
     && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./docker/main/requirements-dev.lock,target=/workspace/frigate/requirements-dev.lock \
+RUN --mount=type=bind,source=./fork/requirements-dev.lock,target=/workspace/frigate/requirements-dev.lock \
     pip3 install --only-binary=:all: --require-hashes -r requirements-dev.lock
 
 HEALTHCHECK NONE
@@ -349,6 +349,8 @@ CMD ["sleep", "infinity"]
 # Frigate web build
 # This should be architecture agnostic, so speed up the build on multiarch by not using QEMU.
 FROM --platform=$BUILDPLATFORM node:20 AS web-build
+# Bundling Monaco and the UI exceeds Node 20's default 2 GiB heap.
+ARG NODE_OPTIONS=--max-old-space-size=4096
 
 WORKDIR /work
 COPY web/package.json web/package-lock.json ./

@@ -13,7 +13,7 @@ mv /tmp/mx_accl_frigate-2.1.0 /opt/mx_accl_frigate
 rm /tmp/mxaccl.zip
 
 # Install Python dependencies
-pip3 install -r /opt/mx_accl_frigate/freeze
+pip3 install --only-binary=:all: -r /opt/mx_accl_frigate/freeze
 
 # Link the Python package dynamically
 SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])")

@@ -18,3 +18,17 @@ def write_private_file(path: Path, content: str) -> None:
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
+
+
+def ensure_private_directory(path: Path) -> None:
+    """Secure an owned runtime directory without following a final symlink."""
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        if os.fstat(descriptor).st_uid != os.geteuid():
+            raise PermissionError(
+                f"Runtime directory is not owned by this user: {path}"
+            )
+        os.fchmod(descriptor, 0o700)
+    finally:
+        os.close(descriptor)

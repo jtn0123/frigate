@@ -1,3 +1,4 @@
+import { sortedStrings } from "@/utils/stringSort";
 import {
   Drawer,
   DrawerClose,
@@ -129,7 +130,7 @@ export default function FaceSelectionDialog({
                 "max-h-[40dvh] gap-2 overflow-y-auto overflow-x-hidden pb-4",
             )}
           >
-            {filteredNames.sort().map((faceName) => (
+            {sortedStrings(filteredNames).map((faceName) => (
               <SelectorItem
                 key={faceName}
                 className="flex cursor-pointer gap-2 smart-capitalize"
