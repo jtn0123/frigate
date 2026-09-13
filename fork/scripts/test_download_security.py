@@ -37,6 +37,10 @@ def download_options():
     for path in paths:
         source = (ROOT / path).read_text().replace("\\\n", " ")
         lines = source.splitlines()
+        # Resolve literal readonly values without executing build scripts.
+        constants = dict(
+            re.findall(r'^readonly ([A-Z_]+)="([^"$`\\]*)"$', source, re.MULTILINE)
+        )
         policy = next(
             (
                 line.split("curl ", 1)[1].removesuffix(' "$@"')
@@ -77,7 +81,7 @@ def download_options():
                 ) or token.startswith("https://"):
                     break
                 # Save test responses to stdout instead of the build's filesystem.
-                options.append(token)
+                options.append(constants[token[1:]] if token.startswith("$") else token)
             commands.append((path, options))
     return commands
 
