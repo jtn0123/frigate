@@ -90,24 +90,14 @@ test.describe("System — tabs @medium", () => {
       "on",
       { timeout: 5_000 },
     );
-    // On desktop, tab buttons render text labels so the word "storage"
-    // always appears in #pageRoot after switching. On mobile, tabs are
-    // icon-only, so we verify the general-tab content disappears instead
-    // (the storage tab's metrics section is hidden but general is gone).
-    if (!frigateApp.isMobile) {
-      await expect
-        .poll(
-          async () => (await frigateApp.page.textContent("#pageRoot")) ?? "",
-          { timeout: 10_000 },
-        )
-        .toMatch(/storage|mount|disk|used|free/i);
-    } else {
-      // Mobile: tab activation (data-state "on") already asserted above.
-      // Additionally confirm general tab is no longer the active tab.
-      await expect(
-        frigateApp.page.getByLabel("Select general"),
-      ).toHaveAttribute("data-state", "off", { timeout: 5_000 });
-    }
+    await expect(
+      frigateApp.page.getByText("Overview", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      frigateApp.page.getByText("/dev/shm", {
+        exact: true,
+      }),
+    ).toBeVisible();
   });
 
   test("cameras tab renders each configured camera", async ({ frigateApp }) => {
