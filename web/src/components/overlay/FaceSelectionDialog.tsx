@@ -129,15 +129,17 @@ export default function FaceSelectionDialog({
                 "max-h-[40dvh] gap-2 overflow-y-auto overflow-x-hidden pb-4",
             )}
           >
-            {filteredNames.sort().map((faceName) => (
-              <SelectorItem
-                key={faceName}
-                className="flex cursor-pointer gap-2 smart-capitalize"
-                onClick={() => onTrainAttempt(faceName)}
-              >
-                {faceName}
-              </SelectorItem>
-            ))}
+            {[...filteredNames]
+              .sort((left, right) => left.localeCompare(right))
+              .map((faceName) => (
+                <SelectorItem
+                  key={faceName}
+                  className="flex cursor-pointer gap-2 smart-capitalize"
+                  onClick={() => onTrainAttempt(faceName)}
+                >
+                  {faceName}
+                </SelectorItem>
+              ))}
             <DropdownMenuSeparator />
             <SelectorItem
               className="flex cursor-pointer gap-2 smart-capitalize"

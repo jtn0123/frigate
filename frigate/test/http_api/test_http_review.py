@@ -76,6 +76,28 @@ class TestHttpReview(BaseTestHttp):
             response_json = response.json()
             assert len(response_json) == 1
 
+    def test_label_and_zone_filters_match_any_requested_value(self):
+        now = datetime.now().timestamp()
+        for event_id, data in [
+            ("object", {"objects": ["person"], "audio": [], "zones": ["yard"]}),
+            ("audio", {"objects": [], "audio": ["bark"], "zones": ["driveway"]}),
+            ("other", {"objects": ["car"], "audio": [], "zones": ["street"]}),
+        ]:
+            super().insert_mock_review_segment(event_id, now - 2, now - 1)
+            ReviewSegment.update(data=data).where(
+                ReviewSegment.id == event_id
+            ).execute()
+        with AuthTestClient(self.app) as client:
+            response = client.get(
+                "/review",
+                params={
+                    "labels": "person,bark",
+                    "zones": "yard,driveway",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({row["id"] for row in response.json()}, {"object", "audio"})
+
     def test_get_review_no_filters(self):
         now = datetime.now().timestamp()
 

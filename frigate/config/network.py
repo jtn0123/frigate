@@ -1,6 +1,7 @@
 from pydantic import Field, model_validator
 
 from .base import FrigateBaseModel
+from .camera_discovery import CameraDiscoveryTarget
 
 __all__ = ["IPv6Config", "ListenConfig", "NetworkingConfig"]
 
@@ -50,6 +51,11 @@ class ListenConfig(FrigateBaseModel):
 
 
 class NetworkingConfig(FrigateBaseModel):
+    reolink_targets: dict[str, CameraDiscoveryTarget] = Field(
+        default_factory=dict,
+        title="Authorized Reolink discovery targets",
+        description="Map wizard host values to fixed camera IPs and API transport settings. Unlisted hosts cannot be probed. This controls optional Reolink protocol detection, not recording or manual stream setup.",
+    )
     ipv6: IPv6Config = Field(
         default_factory=IPv6Config,
         title="IPv6 configuration",

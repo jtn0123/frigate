@@ -59,7 +59,7 @@ export default function Statusbar() {
     const info = profilesData.profiles.find(
       (p) => p.name === profilesData.active_profile,
     );
-    const allNames = profilesData.profiles.map((p) => p.name).sort();
+    const allNames = profilesData.profiles.map((p) => p.name);
     return {
       name: profilesData.active_profile,
       friendlyName: info?.friendly_name ?? profilesData.active_profile,

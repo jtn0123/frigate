@@ -17,11 +17,11 @@ sudo rm -f /etc/apt/sources.list.d/memryx.list /etc/apt/trusted.gpg.d/memryx.asc
 # Install kernel headers
 echo "Installing kernel headers for: $(uname -r)"
 sudo apt update
-sudo apt install -y dkms linux-headers-$(uname -r)
+sudo apt install -y curl ca-certificates dkms linux-headers-$(uname -r)
 
 # Add MemryX key and repo
 echo "Adding MemryX GPG key and repository..."
-wget -qO- https://developer.memryx.com/deb/memryx.asc | sudo tee /etc/apt/trusted.gpg.d/memryx.asc >/dev/null
+curl --proto '=https' --proto-redir '=https' -fsSL https://developer.memryx.com/deb/memryx.asc | sudo tee /etc/apt/trusted.gpg.d/memryx.asc >/dev/null
 echo 'deb https://developer.memryx.com/deb stable main' | sudo tee /etc/apt/sources.list.d/memryx.list >/dev/null
 
 # Update and install specific SDK 2.1 packages

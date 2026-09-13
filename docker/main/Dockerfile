@@ -30,7 +30,7 @@ RUN sh -c "$BASE_HOOK"
 FROM slim-base AS wget
 ARG DEBIAN_FRONTEND
 RUN apt-get update \
-    && apt-get install -y wget xz-utils \
+    && apt-get install -y ca-certificates curl wget xz-utils \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /rootfs
 
@@ -90,18 +90,18 @@ FROM base_host AS ov-converter
 ARG DEBIAN_FRONTEND
 
 # Install OpenVINO for model conversion
-COPY docker/main/requirements-ov.txt /requirements-ov.txt
+COPY docker/main/requirements-ov.lock /requirements-ov.lock
 RUN apt-get -qq update \
-    && apt-get -qq install -y wget python3 python3-distutils \
-    && wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
+    && apt-get -qq install -y wget curl ca-certificates python3 python3-distutils \
+    && curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
     && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip" \
-    && pip3 install -r /requirements-ov.txt
+    && pip3 install --only-binary=:all: --require-hashes -r /requirements-ov.lock
 
 # Get OpenVino Model
 RUN --mount=type=bind,source=docker/main/build_ov_model.py,target=/build_ov_model.py \
     mkdir /models && cd /models \
-    && wget http://download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz \
+    && curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://storage.googleapis.com/download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz \
     && tar -xvf ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz \
     && python3 /build_ov_model.py
 
@@ -121,8 +121,9 @@ ENV CCACHE_MAXSIZE 2G
 # Build libUSB without udev.  Needed for Openvino NCS2 support
 WORKDIR /opt
 RUN apt-get update && apt-get install -y unzip build-essential automake libtool ccache pkg-config
-RUN --mount=type=cache,target=/root/.ccache wget -q https://github.com/libusb/libusb/archive/v1.0.26.zip -O v1.0.26.zip && \
-    unzip v1.0.26.zip && cd libusb-1.0.26 && \
+ADD --chmod=644 --checksum=sha256:4175f942e74f3c34b71d01b107d33e713f9ff47563f49bcc6e8b2534f414dd54 \
+    https://github.com/libusb/libusb/archive/v1.0.26.zip v1.0.26.zip
+RUN --mount=type=cache,target=/root/.ccache unzip v1.0.26.zip && cd libusb-1.0.26 && \
     ./bootstrap.sh && \
     ./configure CC='ccache gcc' CCX='ccache g++' --disable-udev --enable-shared && \
     make -j $(nproc --all)
@@ -142,16 +143,21 @@ RUN /bin/mkdir -p '/usr/local/lib' && \
 FROM wget AS models
 
 # Get model and labels
-RUN wget -qO edgetpu_model.tflite https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite
-RUN wget -qO cpu_model.tflite https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess.tflite
+ADD --chmod=644 --checksum=sha256:4a2be2bbb614e576d56dcb914fa52752bf0f13411512710d355d97faa1b35641 \
+    https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite edgetpu_model.tflite
+ADD --chmod=644 --checksum=sha256:90bb33a634e041914cc1819aa5df99818e6c396c4d2db952c0fd7a9cffc4724f \
+    https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess.tflite cpu_model.tflite
 COPY labelmap.txt .
 # Copy OpenVino model
 COPY --from=ov-converter /models/ssdlite_mobilenet_v2.xml openvino-model/
 COPY --from=ov-converter /models/ssdlite_mobilenet_v2.bin openvino-model/
-RUN wget -q https://github.com/openvinotoolkit/open_model_zoo/raw/master/data/dataset_classes/coco_91cl_bkgr.txt -O openvino-model/coco_91cl_bkgr.txt && \
-    sed -i 's/truck/car/g' openvino-model/coco_91cl_bkgr.txt
+ADD --chmod=644 --checksum=sha256:e428f6bc489647c67d776c41995a0b66e351bf850ebb11d21994164c9a2b5d44 \
+    https://github.com/openvinotoolkit/open_model_zoo/raw/master/data/dataset_classes/coco_91cl_bkgr.txt openvino-model/coco_91cl_bkgr.txt
+RUN sed -i 's/truck/car/g' openvino-model/coco_91cl_bkgr.txt
 # Get Audio Model and labels
-RUN wget -qO - https://www.kaggle.com/api/v1/models/google/yamnet/tfLite/classification-tflite/1/download | tar xvz && mv 1.tflite cpu_audio_model.tflite
+ADD --chmod=644 --checksum=sha256:1b971b2132760273a5fb8f5dc504e86783b27853bb3135d555ae06f1e1e365f3 \
+    https://www.kaggle.com/api/v1/models/google/yamnet/tfLite/classification-tflite/1/download yamnet.tar.gz
+RUN tar xzf yamnet.tar.gz && mv 1.tflite cpu_audio_model.tflite && rm yamnet.tar.gz
 COPY audio-labelmap.txt .
 
 
@@ -169,7 +175,7 @@ ARG DEBUG=false
 # Use a separate container to build wheels to prevent build dependencies in final image
 RUN apt-get -qq update \
     && apt-get -qq install -y \
-    apt-transport-https wget unzip \
+    apt-transport-https wget curl ca-certificates unzip \
     && apt-get -qq update \
     && apt-get -qq install -y \
     python3.11 \
@@ -189,14 +195,15 @@ RUN apt-get -qq update \
 
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
-RUN wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
-    && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
+ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
+    https://bootstrap.pypa.io/get-pip.py get-pip.py
+RUN sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip"
 
-COPY docker/main/requirements.txt /requirements.txt
+COPY docker/main/requirements.lock /requirements.lock
 COPY docker/main/requirements-dev.txt /requirements-dev.txt
 
-RUN pip3 install -r /requirements.txt
+RUN pip3 install --only-binary=:all: --require-hashes -r /requirements.lock
 
 # Build pysqlite3 from source
 COPY docker/main/build_pysqlite3.sh /build_pysqlite3.sh
@@ -276,15 +283,17 @@ RUN --mount=type=bind,source=docker/main/install_deps.sh,target=/deps/install_de
 ENV DEFAULT_FFMPEG_VERSION="8.0"
 ENV INCLUDED_FFMPEG_VERSIONS="${DEFAULT_FFMPEG_VERSION}:7.0:5.0"
 
-RUN wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
-    && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
+ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
+    https://bootstrap.pypa.io/get-pip.py get-pip.py
+RUN sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip"
 
 RUN --mount=type=bind,from=wheels,source=/wheels,target=/deps/wheels \
-    pip3 install -U /deps/wheels/*.whl
+    pip3 install --only-binary=:all: -U /deps/wheels/*.whl
 
 # Install Axera Engine
-RUN pip3 install https://github.com/AXERA-TECH/pyaxengine/releases/download/0.1.3-frigate/axengine-0.1.3-py3-none-any.whl
+COPY docker/main/requirements-axengine.lock /requirements-axengine.lock
+RUN pip3 install --only-binary=:all: --require-hashes -r /requirements-axengine.lock
 
 ENV PATH="${PATH}:/usr/bin/axcl"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/axcl"
@@ -324,12 +333,13 @@ RUN mkdir -p /opt/frigate \
     && ln -svf /workspace/frigate/frigate /opt/frigate/frigate
 
 # Install Node 20
-RUN curl -SLO https://deb.nodesource.com/nsolid_setup_deb.sh && \
-    chmod 500 nsolid_setup_deb.sh && \
+ADD --chmod=644 --checksum=sha256:2af36fc425b3aeffeef0d5cf83960ddf98a7e612f507198f6710bead450db9cf \
+    https://deb.nodesource.com/nsolid_setup_deb.sh nsolid_setup_deb.sh
+RUN chmod 500 nsolid_setup_deb.sh && \
     ./nsolid_setup_deb.sh 20 && \
     apt-get install nodejs -y \
     && rm -rf /var/lib/apt/lists/* \
-    && npm install -g npm@10
+    && npm install -g --ignore-scripts npm@10.9.9
 
 WORKDIR /workspace/frigate
 
@@ -337,8 +347,8 @@ RUN apt-get update \
     && apt-get install make -y \
     && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./docker/main/requirements-dev.txt,target=/workspace/frigate/requirements-dev.txt \
-    pip3 install -r requirements-dev.txt
+RUN --mount=type=bind,source=./fork/requirements-dev.lock,target=/workspace/frigate/requirements-dev.lock \
+    pip3 install --only-binary=:all: --require-hashes -r requirements-dev.lock
 
 HEALTHCHECK NONE
 
@@ -348,10 +358,13 @@ CMD ["sleep", "infinity"]
 # Frigate web build
 # This should be architecture agnostic, so speed up the build on multiarch by not using QEMU.
 FROM --platform=$BUILDPLATFORM node:20 AS web-build
+# Bundling Monaco and the UI exceeds Node 20's default 2 GiB heap.
+ARG NODE_OPTIONS=--max-old-space-size=4096
 
 WORKDIR /work
 COPY web/package.json web/package-lock.json ./
-RUN npm install
+COPY web/patches ./patches
+RUN npm ci --ignore-scripts && npm run postinstall
 
 COPY web/ ./
 RUN npm run build \
@@ -371,3 +384,10 @@ FROM deps AS frigate
 
 WORKDIR /opt/frigate/
 COPY --from=rootfs / /
+
+RUN --mount=type=bind,source=docker/main/prepare_rootless.sh,target=/tmp/prepare_rootless.sh \
+    bash /tmp/prepare_rootless.sh
+
+ENV HOME=/home/frigate
+ENV S6_READ_ONLY_ROOT=1
+USER 65534:65534

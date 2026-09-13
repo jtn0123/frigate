@@ -82,6 +82,7 @@ from frigate.stats.util import stats_init
 from frigate.storage import StorageMaintainer
 from frigate.timeline import TimelineProcessor
 from frigate.track.object_processing import TrackedObjectProcessor
+from frigate.util.atomic import ensure_private_directory, write_private_file
 from frigate.util.builtin import empty_and_close_queue
 from frigate.util.image import UntrackedSharedMemory
 from frigate.util.process import FrigateProcess
@@ -127,12 +128,12 @@ class FrigateApp:
         return self.config_holder.config
 
     def ensure_dirs(self) -> None:
+        ensure_private_directory(Path(CACHE_DIR))
         dirs = [
             CONFIG_DIR,
             RECORD_DIR,
             THUMB_DIR,
             f"{CLIPS_DIR}/cache",
-            CACHE_DIR,
             MODEL_CACHE_DIR,
             EXPORT_DIR,
         ]
@@ -650,7 +651,7 @@ class FrigateApp:
         logger.info("Stopping...")
 
         # used by the docker healthcheck
-        Path("/dev/shm/.frigate-is-stopping").touch()
+        write_private_file(Path("/dev/shm/.frigate-is-stopping"), "")
 
         # Cancel any running motion search jobs before setting stop_event
         stop_all_motion_search_jobs()

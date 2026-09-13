@@ -83,3 +83,10 @@ export function getChunkedTimeRange(
 
   return { start: startTimestamp, end: endTimestamp, ranges: data };
 }
+
+/** Get numeric bounds without mutating the observed timestamp list. */
+export function getVisibleTimestampBounds(timestamps: readonly string[]) {
+  const values = timestamps.map(Number).filter(Number.isFinite);
+  if (!values.length) return { start: 0, end: 0 };
+  return { start: Math.min(...values), end: Math.max(...values) };
+}

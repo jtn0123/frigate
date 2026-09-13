@@ -24,7 +24,7 @@ jobs:
           node-version: 20.x
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: npm ci
+      - run: npm ci --ignore-scripts && npm run postinstall
         working-directory: ./web
       - name: Lint
         run: npm run lint
@@ -45,13 +45,13 @@ jobs:
           node-version: 20.x
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: npm ci
+      - run: npm ci --ignore-scripts && npm run postinstall
         working-directory: ./web
       - name: Build web
         run: npm run build
         working-directory: ./web
       - name: Test
-        run: npx vitest run
+        run: npm test -- --run
         working-directory: ./web
 
   web_e2e:
@@ -66,10 +66,10 @@ jobs:
           node-version: 20.x
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: npm ci
+      - run: npm ci --ignore-scripts && npm run postinstall
         working-directory: ./web
       - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
+        run: ./node_modules/.bin/playwright install chromium --with-deps
         working-directory: ./web
       - name: Build web for E2E
         run: npm run e2e:build
@@ -100,11 +100,10 @@ jobs:
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
           cache: pip
-          cache-dependency-path: docker/main/requirements-dev.txt
+          cache-dependency-path: fork/requirements-dev.lock
       - name: Install requirements
         run: |
-          python3 -m pip install -U pip
-          python3 -m pip install -r docker/main/requirements-dev.txt
+          python3 -m pip install --only-binary=:all: --require-hashes -r fork/requirements-dev.lock
       - name: Check formatting
         run: |
           ruff format --check --diff frigate migrations docker *.py
@@ -126,7 +125,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - name: Install devcontainer cli
-        run: npm install --global @devcontainers/cli
+        run: npm install --global --ignore-scripts @devcontainers/cli@0.89.0
       - name: Build devcontainer
         env:
           DOCKER_BUILDKIT: "1"

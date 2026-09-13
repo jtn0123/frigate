@@ -1,6 +1,7 @@
 """Exercise build-download transport flags against local HTTP and HTTPS servers."""
 
 import http.server
+import re
 import shlex
 import ssl
 import subprocess
@@ -25,11 +26,21 @@ def download_options():
         "docker/main/install_hailort.sh",
         "docker/main/install_memryx.sh",
         ".devcontainer/post_create.sh",
+        "docker/main/Dockerfile",
+        "docker/rocm/Dockerfile",
+        "docker/synaptics/Dockerfile",
+        "docker/memryx/user_installation.sh",
+        "docker/tensorrt/Dockerfile.arm64",
+        "docker/tensorrt/build_jetson_ffmpeg.sh",
     ]
     commands = []
     for path in paths:
         source = (ROOT / path).read_text().replace("\\\n", " ")
         lines = source.splitlines()
+        # Resolve literal readonly values without executing build scripts.
+        constants = dict(
+            re.findall(r'^readonly ([A-Z_]+)="([^"$`\\]*)"$', source, re.MULTILINE)
+        )
         policy = next(
             (
                 line.split("curl ", 1)[1].removesuffix(' "$@"')
@@ -39,7 +50,14 @@ def download_options():
             None,
         )
         for line in lines:
-            command = line.strip()
+            match = re.search(
+                r"(?:^|&&\s+|RUN\s+(?:--mount=\S+\s+)?)"
+                r"((?:wget|curl|download_https)\s+.*)",
+                line.strip(),
+            )
+            if match is None:
+                continue
+            command = match.group(1)
             if command.startswith("wget "):
                 raise AssertionError(
                     f"Download bypasses the curl transport policy: {path}"
@@ -63,7 +81,7 @@ def download_options():
                 ) or token.startswith("https://"):
                     break
                 # Save test responses to stdout instead of the build's filesystem.
-                options.append(token)
+                options.append(constants[token[1:]] if token.startswith("$") else token)
             commands.append((path, options))
     return commands
 

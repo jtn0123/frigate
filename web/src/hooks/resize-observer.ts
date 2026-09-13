@@ -16,9 +16,9 @@ export function useResizeObserver(...refs: RefType[]) {
   const resizeObserver = useMemo(
     () =>
       new ResizeObserver((entries) => {
+        const newDimensions = entries.map((entry) => entry.contentRect);
         window.requestAnimationFrame(() => {
           setDimensions((prevDimensions) => {
-            const newDimensions = entries.map((entry) => entry.contentRect);
             if (
               JSON.stringify(prevDimensions) !== JSON.stringify(newDimensions)
             ) {

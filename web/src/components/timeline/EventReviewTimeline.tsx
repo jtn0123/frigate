@@ -114,8 +114,8 @@ export function EventReviewTimeline({
       !showMinimap &&
       virtualizedSegmentsRef.current
     ) {
-      const alignedVisibleTimestamps = visibleTimestamps.map(
-        alignStartDateToTimeline,
+      const alignedVisibleTimestamps = visibleTimestamps.map((timestamp) =>
+        alignStartDateToTimeline(timestamp),
       );
 
       scrollToSegment(Math.max(...alignedVisibleTimestamps), true);
