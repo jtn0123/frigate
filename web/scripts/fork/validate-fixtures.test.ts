@@ -52,6 +52,27 @@ describe("validateFixtures", () => {
     expect(review?.errors.join(" ")).toMatch(/id/i);
   });
 
+  it("requires review times as epoch seconds, since that is what /review sends", () => {
+    // D20: the spec types these as date-time, but the endpoint returns the
+    // stored epoch seconds, and ISO strings rendered "Invalid Time" cards
+    const reviews = JSON.parse(
+      readFileSync(join(fixtureDir, "reviews.json"), "utf8"),
+    ) as Array<Record<string, unknown>>;
+    expect(typeof reviews[0]?.start_time).toBe("number");
+
+    const iso = reviews.map((review) => ({
+      ...review,
+      start_time: "2026-06-05T11:30:09.365581",
+    }));
+    const report = validateFixtures({ payloads: { "reviews.json": iso } });
+    expect(report.ok).toBe(false);
+    const review = report.results.find((row) => row.file === "reviews.json");
+    expect(review?.status).toBe("fail");
+    expect(review?.errors.join(" ")).toMatch(
+      /start_time must be epoch seconds/,
+    );
+  });
+
   it("fails when a JSON fixture is not in FIXTURE_MAP", () => {
     const report = validateFixtures({ extraFiles: ["unmapped.json"] });
     expect(report.ok).toBe(false);
