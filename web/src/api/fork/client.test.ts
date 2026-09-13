@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { components } from "@/types/fork/api.gen";
-import { eventSpecId, reviewSpecId, swrKey } from "./client";
+
+const get = vi.fn<(...args: unknown[]) => Promise<{ data: unknown }>>();
+const swrSpy = vi.fn<(...args: unknown[]) => unknown>();
+
+vi.mock("axios", () => ({
+  default: { get: (...args: unknown[]) => get(...args) },
+}));
+
+vi.mock("swr", () => ({
+  default: (...args: unknown[]) => swrSpy(...args),
+}));
+
+import { apiGet, eventSpecId, reviewSpecId, swrKey, useApi } from "./client";
 
 describe("swrKey", () => {
   it("keeps the axios-relative keys the rest of the app already uses", () => {
@@ -47,5 +59,49 @@ describe("spec field handles", () => {
     };
     expect(reviewSpecId(review)).toBe("review-1");
     expect(eventSpecId(event)).toBe("event-1");
+  });
+});
+
+describe("useApi", () => {
+  beforeEach(() => {
+    swrSpy.mockReset();
+    swrSpy.mockReturnValue({ data: undefined });
+  });
+
+  it("passes the axios-relative key and the SWR options through", () => {
+    useApi("/stats", { refreshInterval: 1000 });
+
+    expect(swrSpy).toHaveBeenCalledWith("stats", {
+      refreshInterval: 1000,
+    });
+  });
+
+  it("splits params out of the options into the tuple key", () => {
+    useApi("/events", { params: { limit: 5 }, revalidateOnFocus: false });
+
+    expect(swrSpy).toHaveBeenCalledWith(["events", { limit: 5 }], {
+      revalidateOnFocus: false,
+    });
+  });
+
+  it("passes a null key through so the read can be skipped", () => {
+    useApi(null);
+
+    expect(swrSpy).toHaveBeenCalledWith(null, {});
+  });
+});
+
+describe("apiGet", () => {
+  beforeEach(() => {
+    get.mockReset();
+  });
+
+  it("requests the axios-relative path and unwraps the body", async () => {
+    get.mockResolvedValue({ data: [{ id: "review-1" }] });
+
+    const data = await apiGet("/review", { limit: 10 });
+
+    expect(get).toHaveBeenCalledWith("review", { params: { limit: 10 } });
+    expect(data).toEqual([{ id: "review-1" }]);
   });
 });

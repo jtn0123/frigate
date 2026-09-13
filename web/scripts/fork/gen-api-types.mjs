@@ -11,35 +11,70 @@ import { fileURLToPath } from "node:url";
 import openapiTS, { astToString, COMMENT_HEADER } from "openapi-typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const webRoot = resolve(here, "../..");
-const repoRoot = resolve(webRoot, "..");
-const specPath = join(repoRoot, "docs/static/frigate-api.yaml");
-const outPath = join(webRoot, "src/types/fork/api.gen.ts");
-const check = process.argv.includes("--check");
+export const webRoot = resolve(here, "../..");
+export const repoRoot = resolve(webRoot, "..");
+export const specPath = join(repoRoot, "docs/static/frigate-api.yaml");
+export const outPath = join(webRoot, "src/types/fork/api.gen.ts");
 
 const banner = `${COMMENT_HEADER}// Source: docs/static/frigate-api.yaml\n// Regenerate: (cd web && npm run api-types)\n\n`;
 
-const ast = await openapiTS(new URL(`file://${specPath}`));
-const next = `${banner}${astToString(ast)}`;
-
-if (check) {
-  let current = "";
-  try {
-    current = readFileSync(outPath, "utf8");
-  } catch {
-    console.error(
-      `missing ${relative(repoRoot, outPath)}; run npm run api-types`,
-    );
-    process.exit(1);
-  }
-  if (current !== next) {
-    console.error(
-      `${relative(repoRoot, outPath)} is stale. Run:\n  (cd web && npm run api-types)`,
-    );
-    process.exit(1);
-  }
-  process.exit(0);
+/** Render the spec at `spec` as the contents of api.gen.ts. */
+export async function renderTypes(spec = specPath) {
+  const ast = await openapiTS(new URL(`file://${spec}`));
+  return `${banner}${astToString(ast)}`;
 }
 
-writeFileSync(outPath, next);
-console.log(`wrote ${relative(repoRoot, outPath)} (${next.length} bytes)`);
+/**
+ * Write or verify the generated types.
+ *
+ * Returns `{ code, message }`: code 0 on success, 1 when `--check` finds the
+ * file missing or stale. The CLI turns that into the process exit code.
+ */
+export async function run({
+  check = false,
+  spec = specPath,
+  out = outPath,
+} = {}) {
+  const next = await renderTypes(spec);
+
+  if (!check) {
+    writeFileSync(out, next);
+    return {
+      code: 0,
+      message: `wrote ${relative(repoRoot, out)} (${next.length} bytes)`,
+    };
+  }
+
+  let current;
+  try {
+    current = readFileSync(out, "utf8");
+  } catch {
+    return {
+      code: 1,
+      message: `missing ${relative(repoRoot, out)}; run npm run api-types`,
+    };
+  }
+
+  if (current !== next) {
+    return {
+      code: 1,
+      message: `${relative(repoRoot, out)} is stale. Run:\n  (cd web && npm run api-types)`,
+    };
+  }
+
+  return { code: 0, message: "" };
+}
+
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+
+if (invokedDirectly) {
+  const { code, message } = await run({
+    check: process.argv.includes("--check"),
+  });
+  if (message) {
+    (code === 0 ? console.log : console.error)(message);
+  }
+  process.exit(code);
+}
