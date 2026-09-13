@@ -20,11 +20,12 @@ export default function ShareViewButton() {
     <Button
       variant="outline"
       size="sm"
+      className="h-auto min-h-9 min-w-0 whitespace-normal py-2 text-left"
       onClick={() => {
         void copy();
       }}
     >
-      <LuLink className="mr-2 size-4" />
+      <LuLink className="mr-2 size-4 shrink-0" />
       {t(
         copiedKey === location.key
           ? "navigation.copied"

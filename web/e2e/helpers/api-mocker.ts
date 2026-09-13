@@ -76,6 +76,25 @@ export class ApiMocker {
       return route.fulfill({ json: { success: true } });
     });
 
+    // Empty optional data for pages that do not install richer fixtures.
+    await this.page.route("**/api/config/raw_paths", (route) =>
+      route.fulfill({ json: {} }),
+    );
+    await this.page.route("**/api/review/event/*", (route) =>
+      route.fulfill({ json: null }),
+    );
+    await this.page.route("**/api/*/recordings?**", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await this.page.route("**/api/recordings/unavailable?**", (route) =>
+      route.fulfill({ json: [] }),
+    );
+
+    // No configured chat models in the default fixture.
+    await this.page.route("**/api/genai/models", (route) =>
+      route.fulfill({ json: {} }),
+    );
+
     // Profile endpoint (AuthProvider fetches /profile directly via axios,
     // which resolves to /api/profile due to axios.defaults.baseURL)
     await this.page.route("**/profile", (route) =>
@@ -307,7 +326,7 @@ export class MediaMocker {
 
   async install() {
     // Camera snapshots
-    await this.page.route("**/api/*/latest.jpg**", (route) =>
+    await this.page.route("**/api/*/latest.{jpg,webp}**", (route) =>
       route.fulfill({
         contentType: "image/png",
         body: PLACEHOLDER_PNG,

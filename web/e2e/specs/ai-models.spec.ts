@@ -228,6 +228,11 @@ test("model links preserve range and selection through refresh and history @high
   await expect(model).toHaveValue("audio:medium");
   await page.getByLabel("Select general").click();
   await expect(page).toHaveURL(/range=15#general/);
+  // The data router can update history before React commits the new tab.
+  await expect(page.getByLabel("Select general")).toHaveAttribute(
+    "data-state",
+    "on",
+  );
   await page.getByLabel("Select models").click();
   await expect(model).toHaveValue("audio:medium");
 });

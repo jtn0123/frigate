@@ -100,6 +100,14 @@ function ConfigEditor() {
     });
   }, [editorRef, t]);
 
+  const handleSaveOnly = useCallback(async () => {
+    try {
+      await onHandleSaveConfig("saveonly");
+    } catch {
+      // The save handler already shows the error and preserves dirty edits.
+    }
+  }, [onHandleSaveConfig]);
+
   const handleSaveAndRestart = useCallback(async () => {
     try {
       await onHandleSaveConfig("saveonly");
@@ -154,7 +162,7 @@ function ConfigEditor() {
       editorRef.current?.addCommand(
         monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
         () => {
-          void onHandleSaveConfig("saveonly");
+          void handleSaveOnly();
         },
       );
     } else if (editorRef.current) {
@@ -172,7 +180,7 @@ function ConfigEditor() {
       }
       schemaConfiguredRef.current = false;
     };
-  }, [rawConfig, apiHost, systemTheme, theme, onHandleSaveConfig]);
+  }, [rawConfig, apiHost, systemTheme, theme, handleSaveOnly]);
 
   // when in safe mode, attempt to validate the existing (invalid) config immediately
   // so that the user sees the validation errors without needing to press save
@@ -286,7 +294,7 @@ function ConfigEditor() {
               size="sm"
               className="flex items-center gap-2"
               aria-label={t("saveOnly")}
-              onClick={wrapAsync(() => onHandleSaveConfig("saveonly"))}
+              onClick={wrapAsync(handleSaveOnly)}
             >
               <LuSave className="text-secondary-foreground" />
               <span className="hidden md:block">{t("saveOnly")}</span>

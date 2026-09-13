@@ -55,6 +55,7 @@ test.describe("Config Editor — Monaco @medium", () => {
 });
 
 test.describe("Config Editor — Save @medium", () => {
+  test.use({ expectedErrors: [/Failed to load resource.*400/] });
   test.skip(
     ({ frigateApp }) => frigateApp.isMobile,
     "Save button copy is desktop-visible (hidden md:block)",
@@ -92,10 +93,29 @@ test.describe("Config Editor — Save @medium", () => {
     await expect(frigateApp.page.locator(".monaco-editor").first()).toBeVisible(
       { timeout: 15_000 },
     );
+    const pageErrors: string[] = [];
+    frigateApp.page.on("pageerror", (error) => pageErrors.push(error.message));
+    await replaceMonacoValue(frigateApp.page, SAMPLE_CONFIG + "# unsaved edit");
     await frigateApp.page.getByLabel("Save Only").click();
     await expect(frigateApp.page.getByText(/Invalid field/i)).toBeVisible({
       timeout: 5_000,
     });
+    const dismissed = new Promise<void>((resolve) => {
+      frigateApp.page.once("dialog", async (dialog) => {
+        await dialog.dismiss();
+        resolve();
+      });
+    });
+    await frigateApp.page
+      .getByRole("link", { name: "Export", exact: true })
+      .first()
+      .click();
+    await dismissed;
+    await expect(frigateApp.page).toHaveURL(/\/config$/);
+    expect(await getMonacoVisibleText(frigateApp.page)).toMatch(
+      /unsaved\s+edit/,
+    );
+    expect(pageErrors).toEqual([]);
   });
 });
 
@@ -232,6 +252,7 @@ test.describe("Config Editor — Cmd+S keyboard shortcut @medium", () => {
 });
 
 test.describe("Config Editor — Safe Mode auto-validation @medium", () => {
+  test.use({ expectedErrors: [/Failed to load resource.*400/] });
   test("safe-mode config auto-posts on mount and shows the inline error", async ({
     frigateApp,
   }) => {

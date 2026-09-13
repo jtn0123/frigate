@@ -107,21 +107,28 @@ test("prioritizes queue and captures models and health @medium @mobile", async (
     path: info.outputPath("health-.png"),
   });
 });
-test("audit unavailable model endpoint @mobile", async ({
-  frigateApp,
-}, info) => {
-  await frigateApp.page.route("**/api/ai/models", (route) =>
-    route.fulfill({ status: 503, json: { message: "unavailable" } }),
-  );
-  await frigateApp.goto("/system#models");
-  await expect(
-    frigateApp.page.getByRole("button", { name: /retry/i }),
-  ).toBeVisible();
-  await expect(
-    frigateApp.page.getByText("System is healthy", { exact: true }),
-  ).toHaveCount(0);
-  await frigateApp.page.screenshot({
-    path: info.outputPath("models-error-.png"),
+test.describe("unavailable model response", () => {
+  test.use({
+    expectedErrors: [
+      /503 Service Unavailable.*\/api\/ai\/models|Failed to load resource.*503/,
+    ],
+  });
+  test("audit unavailable model endpoint @mobile", async ({
+    frigateApp,
+  }, info) => {
+    await frigateApp.page.route("**/api/ai/models", (route) =>
+      route.fulfill({ status: 503, json: { message: "unavailable" } }),
+    );
+    await frigateApp.goto("/system#models");
+    await expect(
+      frigateApp.page.getByRole("button", { name: /retry/i }),
+    ).toBeVisible();
+    await expect(
+      frigateApp.page.getByText("System is healthy", { exact: true }),
+    ).toHaveCount(0);
+    await frigateApp.page.screenshot({
+      path: info.outputPath("models-error-.png"),
+    });
   });
 });
 test("audit empty model inventory @mobile", async ({ frigateApp }, info) => {

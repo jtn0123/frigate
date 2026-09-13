@@ -44,9 +44,30 @@ Use `npm run typecheck`, `npm run lint`, `npm run i18n:extract:ci`,
 `npm run coverage`, `npm run e2e:build`, and `npm run e2e` from `web`.
 New tests exercise URL selection, query preservation, browser history, dirty
 navigation cancellation, deliberate exit, and unload-handler cleanup.
+The hardening tests also cover failed Settings and YAML saves retaining edits,
+successful saves clearing the exit guard, expired-session redirects, viewer
+denial on shared monitoring links, ingress basenames, keyboard clipboard
+fallback, and long translated labels on narrow dark layouts. YAML Save Only
+and its keyboard shortcut handle rejected saves after showing the error.
+The fork E2E workflow enables `E2E_STRICT_ERRORS=1`, so unexpected console,
+page, and request errors fail the run. Intentional error-response tests declare
+their expected failures; optional API and WebP fixtures keep unrelated pages
+from making unhandled requests to the preview server.
 Browser tests cover both desktop and mobile layouts. Mocked streams cannot prove
 physical camera continuity or live GPU performance; those need a deployment and
 runtime observation.
+
+A separate local preview was connected through an SSH tunnel to the existing
+Frigate backend for a read-only smoke test. A video reached playback-ready
+state, stream sockets closed when leaving Live and reopened on return, and the
+shared status socket remained connected. All nine cameras reported zero skipped
+frames in the before and after samples. This is short-duration evidence, not a
+soak test or a production deployment. The production-base build also passed
+desktop and mobile navigation under a local ingress-rewrite simulation.
+The doorbell's existing hourly stall counter increased from 76 to 82 during
+the observation window, despite normal sampled FPS. The health card showed
+degraded status. This remains a live camera diagnostic follow-up and prevents
+treating the smoke test as proof of server stability.
 
 ## Measured startup cost
 
