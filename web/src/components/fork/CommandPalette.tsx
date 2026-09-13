@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { isApplePlatform } from "@/lib/fork/platform";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useApi } from "@/api/fork/client";
@@ -448,7 +449,13 @@ function CommandPaletteInner() {
             </CommandList>
             <div className="flex items-center gap-3 border-t px-3 py-1.5 text-xs text-muted-foreground">
               <LuHistory className="size-3" />
-              <span>{t("commandPalette.footerHint")}</span>
+              <span>
+                {t(
+                  isApplePlatform()
+                    ? "commandPalette.footerHintMac"
+                    : "commandPalette.footerHint",
+                )}
+              </span>
             </div>
           </Command>
         </DialogContent>

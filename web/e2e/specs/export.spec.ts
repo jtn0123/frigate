@@ -62,12 +62,11 @@ test.describe("Export Page - Delete race @high", () => {
       timeout: 5_000,
     });
 
-    // Open the kebab menu on the export card. The kebab uses the
-    // (misleading) aria-label "Edit name" from ExportCard's source — it
-    // wraps the FiMoreVertical icon. There is exactly one such button on
-    // the page once we have a single export rendered.
+    // Open the kebab menu on the export card. Its trigger is named "More
+    // actions" (C13; it used to be the misleading "Edit name"). There is
+    // exactly one such button on the page once a single export renders.
     const kebab = frigateApp.page
-      .getByRole("button", { name: /edit name/i })
+      .getByRole("button", { name: /more actions/i })
       .first();
     await expect(kebab).toBeVisible({ timeout: 5_000 });
     await kebab.click();
@@ -1165,5 +1164,30 @@ test.describe("Export Page - Active Job Progress @medium", () => {
     await expect(
       frigateApp.page.getByText(/Encoding \(retry\)\s*·\s*12%/),
     ).toBeVisible();
+  });
+});
+
+test.describe("Export Page - thumbnail fallback @high @mobile", () => {
+  // UI49: a thumbnail that fails to load left the browser's broken-image
+  // glyph (and its alt text) on the card, and the export card's skeleton
+  // only cleared on load, so it never cleared.
+  test("cards drop a thumbnail that fails to load", async ({ frigateApp }) => {
+    await frigateApp.page.route("**/clips/export/**", (route) =>
+      route.fulfill({ status: 404, body: "" }),
+    );
+    await frigateApp.goto("/export");
+
+    const exportCard = frigateApp.page.getByRole("button", {
+      name: "Front Door - Person Alert",
+    });
+    await expect(exportCard).toBeVisible({ timeout: 10_000 });
+    await expect(exportCard.locator("img")).toHaveCount(0);
+    await expect(exportCard.locator(".animate-pulse")).toHaveCount(0);
+
+    const caseCard = frigateApp.page.getByRole("button", {
+      name: "Package Theft Investigation",
+    });
+    await expect(caseCard).toBeVisible();
+    await expect(caseCard.locator("img")).toHaveCount(0);
   });
 });

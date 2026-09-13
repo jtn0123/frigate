@@ -60,3 +60,27 @@ describe("reportReadError", () => {
     });
   });
 });
+
+describe("reportReadError bursts (UI47)", () => {
+  beforeEach(() => {
+    toastError.mockReset();
+    resetReadErrorCooldowns();
+    registerToaster();
+  });
+
+  it("shows one toast for several endpoints failing at once", () => {
+    // Opening a recording used to stack one toast per failed endpoint over
+    // the toolbar; they now share one id, so the newest replaces the rest.
+    reportReadError(httpError(500, "down"), "recordings/unavailable");
+    reportReadError(httpError(500, "down"), "review/activity/motion");
+    reportReadError(httpError(500, "down"), "front_door/recordings");
+
+    expect(toastError).toHaveBeenCalledTimes(3);
+    const ids = new Set(
+      toastError.mock.calls.map(
+        (call) => (call[1] as { id?: string } | undefined)?.id,
+      ),
+    );
+    expect(ids).toEqual(new Set(["fork-read-error"]));
+  });
+});
