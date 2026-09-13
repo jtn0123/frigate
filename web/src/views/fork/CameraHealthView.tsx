@@ -63,13 +63,13 @@ export default function CameraHealthView() {
   });
   const stats = useAutoFrigateStats();
   const history = useFpsHistory(stats);
-  const [, refreshClock] = useState(0);
+  const [lastTick, setLastTick] = useState(Date.now());
   useEffect(() => {
-    const timer = setInterval(() => refreshClock((tick) => tick + 1), 10000);
+    const timer = setInterval(() => setLastTick(Date.now()), 10000);
     return () => clearInterval(timer);
   }, []);
   // Evaluate against the current clock when new stats arrive between timer ticks.
-  const now = Date.now();
+  const now = Math.max(lastTick, Date.now());
   const fresh =
     stats &&
     Number.isFinite(stats.service.last_updated) &&

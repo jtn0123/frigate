@@ -25,10 +25,11 @@ def pressure(path: Path) -> float | None:
             line for line in path.read_text().splitlines() if line.startswith("some ")
         )
         return float(
-            {
-                key: value
-                for key, value in (pair.split("=") for pair in line.split()[1:])
-            }["avg10"]
+            next(
+                pair.removeprefix("avg10=")
+                for pair in line.split()[1:]
+                if pair.startswith("avg10=")
+            )
         )
     except (OSError, ValueError, StopIteration, KeyError):
         return None

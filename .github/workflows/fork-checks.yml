@@ -135,6 +135,8 @@ jobs:
       # `npm run e2e:build` without tsc; built once and shared by every shard.
       - run: node_modules/.bin/vite build --base=/
         working-directory: ./web
+        env:
+          E2E_COVERAGE: "1"
       - uses: actions/upload-artifact@v4
         with:
           name: e2e-dist
@@ -164,6 +166,15 @@ jobs:
         working-directory: ./web
       - run: npm run e2e -- --shard=${{ matrix.shard }}/3
         working-directory: ./web
+        env:
+          E2E_COVERAGE: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-coverage-${{ matrix.shard }}
+          path: web/coverage-browser
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -247,13 +258,15 @@ jobs:
             --tmpfs /host-cgroup:uid=1000,gid=1000 frigate-audio-check python startup_check.py
   sonar:
     name: Sonar - Coverage + quality gate
-    needs: [web_unit, python_tests]
+    needs: [web_unit, python_tests, web_e2e]
     # Fork PRs have no secret. Never use pull_request_target to scan their code.
     # The Free plan supports next (Sonar's main branch) and PRs targeting it.
     if: >-
+      !cancelled() && needs.web_unit.result == 'success' &&
+      needs.python_tests.result == 'success' && (
       (github.event_name != 'pull_request' && github.ref == 'refs/heads/next') ||
       (github.event_name == 'pull_request' && github.base_ref == 'next' &&
-       github.event.pull_request.head.repo.full_name == github.repository)
+       github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -274,6 +287,23 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
+      - uses: ./.github/actions/fork-web-setup
+        if: needs.web_e2e.result == 'success'
+      - uses: actions/download-artifact@v4
+        if: needs.web_e2e.result == 'success'
+        with:
+          name: e2e-dist
+          path: web/dist
+      - uses: actions/download-artifact@v4
+        if: needs.web_e2e.result == 'success'
+        with:
+          pattern: browser-coverage-*
+          path: web/coverage-browser
+          merge-multiple: true
+      - name: Merge measured browser and unit coverage
+        if: needs.web_e2e.result == 'success'
+        run: node scripts/fork/merge-browser-coverage.mjs
+        working-directory: ./web
       - name: Verify coverage reports
         run: python3 fork/scripts/sonar-coverage-check.py
       - name: Check Sonar authentication

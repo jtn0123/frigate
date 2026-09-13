@@ -214,3 +214,71 @@ for (const theme of ["light", "dark"] as const) {
     );
   });
 }
+
+test("shows both container limits and removes measurements after collector outage @mobile", async ({
+  frigateApp,
+}) => {
+  const page = frigateApp.page;
+  let stale = false;
+  await page.route("**/api/ai/models", (route) =>
+    route.fulfill({
+      json: {
+        ...inventory,
+        updated: Date.now() / 1000,
+        server: {
+          status: stale ? "stale" : "connected",
+          scopes: [
+            {
+              scope: "host",
+              id: "test-host",
+              memory_bytes: stale ? null : 12 * 1024 ** 3,
+              memory_limit_bytes: stale ? null : 32 * 1024 ** 3,
+              cpu_percent: stale ? null : 320,
+              cpu_limit: stale ? null : 16,
+            },
+            {
+              scope: "container",
+              id: "106",
+              memory_bytes: stale ? null : 6 * 1024 ** 3,
+              memory_limit_bytes: stale ? null : 20 * 1024 ** 3,
+              cpu_limit: stale ? null : 8,
+              oom_kills: stale ? null : 3,
+              disk_free_bytes: stale ? null : 40 * 1024 ** 3,
+            },
+            {
+              scope: "container",
+              id: "108",
+              memory_bytes: null,
+              memory_limit_bytes: stale ? null : 12 * 1024 ** 3,
+            },
+            {
+              scope: "ollama",
+              id: "108",
+              memory_bytes: stale ? null : 2 * 1024 ** 3,
+            },
+          ],
+        },
+      },
+    }),
+  );
+  await frigateApp.goto("/system#models");
+  const container = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: "Container 106", exact: true }),
+  });
+  await expect(container.getByText("20 GiB", { exact: true })).toBeVisible();
+  await expect(container.getByText("40 GiB", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Container 108", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Ollama service 108", exact: true }),
+  ).toBeVisible();
+  stale = true;
+  await page.reload();
+  await expect(
+    page
+      .getByText("Host collector is missing or stale.", { exact: false })
+      .first(),
+  ).toBeVisible();
+  await expect(container.getByText("20 GiB", { exact: true })).toHaveCount(0);
+});

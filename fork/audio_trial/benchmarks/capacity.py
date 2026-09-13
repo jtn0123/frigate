@@ -66,6 +66,28 @@ def monitor(report, stop, ready, active, save):
         stop.wait(3)
 
 
+def consume_frames(processes, model, name, phase, seconds):
+    """Measure complete decoded frames until the bounded phase ends."""
+    frame_bytes = 320 * 320 * 3
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        for index, process in enumerate(processes):
+            frame = process.stdout.read(frame_bytes)
+            if len(frame) != frame_bytes:
+                raise RuntimeError("Decode stream ended early")
+            tensor = (
+                np.frombuffer(frame, dtype=np.uint8)
+                .reshape(320, 320, 3)
+                .transpose(2, 0, 1)[None]
+                .astype(np.float32)
+                / 255
+            )
+            start = time.monotonic()
+            model.run(None, {name: tensor})
+            phase["inference_ms"].append((time.monotonic() - start) * 1000)
+            phase["frames"][index] += 1
+
+
 def main():
     """Test two then four additional 720p15 decode streams with 5 FPS detection."""
     parser = argparse.ArgumentParser()
@@ -133,7 +155,6 @@ def main():
     )
     report["providers"] = model.get_providers()
     name = model.get_inputs()[0].name
-    frame_bytes = 320 * 320 * 3
     try:
         for count in (2, 4):
             phase = {
@@ -176,23 +197,7 @@ def main():
                             stdout=subprocess.PIPE,
                         )
                     )
-                deadline = time.monotonic() + args.seconds
-                while time.monotonic() < deadline:
-                    for index, process in enumerate(processes):
-                        frame = process.stdout.read(frame_bytes)
-                        if len(frame) != frame_bytes:
-                            raise RuntimeError("Decode stream ended early")
-                        tensor = (
-                            np.frombuffer(frame, dtype=np.uint8)
-                            .reshape(320, 320, 3)
-                            .transpose(2, 0, 1)[None]
-                            .astype(np.float32)
-                            / 255
-                        )
-                        start = time.monotonic()
-                        model.run(None, {name: tensor})
-                        phase["inference_ms"].append((time.monotonic() - start) * 1000)
-                        phase["frames"][index] += 1
+                consume_frames(processes, model, name, phase, args.seconds)
                 phase["ended"] = time.time()
                 save()
             finally:

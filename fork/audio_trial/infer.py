@@ -188,23 +188,29 @@ def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
     return result
 
 
-def checkpoint_argument(value: str) -> str:
-    """Restrict CLI checkpoint reads and writes to the worker state directory."""
-    root = (Path(os.environ.get("STATE_DIR", "/state")) / "checkpoints").resolve()
-    target = Path(value).resolve()
-    if not target.is_relative_to(root) or target.suffix != ".json":
-        raise argparse.ArgumentTypeError(
-            "Checkpoint must be a JSON file in worker state"
-        )
-    return str(target)
+def job_key_argument(value: str) -> int:
+    """Accept only the fixed-width hexadecimal identifier created by the worker."""
+    if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+        raise argparse.ArgumentTypeError("Job key must contain 64 hexadecimal digits")
+    return int(value, 16)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("audio")
     parser.add_argument("--model", choices=["medium", "large-v3"], default="medium")
-    parser.add_argument("--checkpoint", type=checkpoint_argument)
+    parser.add_argument("--job-key", type=job_key_argument)
     args = parser.parse_args()
-    print(
-        json.dumps(analyze(args.audio, args.model, args.checkpoint), ensure_ascii=False)
-    )
+    checkpoint = None
+    if args.job_key is not None:
+        filename = {
+            "medium": "medium.checkpoint.json",
+            "large-v3": "large.checkpoint.json",
+        }[args.model]
+        checkpoint = str(
+            Path(os.environ.get("STATE_DIR", "/state"))
+            / "checkpoints"
+            / f"{args.job_key:064x}"
+            / filename
+        )
+    print(json.dumps(analyze(args.audio, args.model, checkpoint), ensure_ascii=False))

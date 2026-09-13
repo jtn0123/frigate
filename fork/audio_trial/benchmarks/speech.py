@@ -37,14 +37,12 @@ def guard(args, samples, stop, ready, active):
             busy = any(
                 v.get("inference_speed", 100) > 30 for v in row["detectors"].values()
             ) or any(v is None or v > 0.5 for v in row["skipped"].values())
-            values = {
-                key: value
-                for key, value in (
-                    line.split(":", 1)
-                    for line in Path("/proc/meminfo").read_text().splitlines()
-                )
-            }
-            row["available_kib"] = int(values["MemAvailable"].split()[0])
+            available = next(
+                line
+                for line in Path("/proc/meminfo").read_text().splitlines()
+                if line.startswith("MemAvailable:")
+            )
+            row["available_kib"] = int(available.split()[1])
             busy = busy or row["available_kib"] < 512 * 1024
             samples.append(row)
             (args.output / f"{args.model}-health.json").write_text(json.dumps(samples))
@@ -52,7 +50,7 @@ def guard(args, samples, stop, ready, active):
             healthy = 0 if busy else healthy + 1
             if healthy >= 5:
                 ready.set()
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, ValueError, KeyError, TypeError, StopIteration):
             failures += 1
         if failures >= 3 and active.is_set():
             (args.output / f"{args.model}-aborted.txt").write_text(
