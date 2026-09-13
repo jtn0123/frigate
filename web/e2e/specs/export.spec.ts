@@ -1167,3 +1167,28 @@ test.describe("Export Page - Active Job Progress @medium", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("Export Page - thumbnail fallback @high @mobile", () => {
+  // UI49: a thumbnail that fails to load left the browser's broken-image
+  // glyph (and its alt text) on the card, and the export card's skeleton
+  // only cleared on load, so it never cleared.
+  test("cards drop a thumbnail that fails to load", async ({ frigateApp }) => {
+    await frigateApp.page.route("**/clips/export/**", (route) =>
+      route.fulfill({ status: 404, body: "" }),
+    );
+    await frigateApp.goto("/export");
+
+    const exportCard = frigateApp.page.getByRole("button", {
+      name: "Front Door - Person Alert",
+    });
+    await expect(exportCard).toBeVisible({ timeout: 10_000 });
+    await expect(exportCard.locator("img")).toHaveCount(0);
+    await expect(exportCard.locator(".animate-pulse")).toHaveCount(0);
+
+    const caseCard = frigateApp.page.getByRole("button", {
+      name: "Package Theft Investigation",
+    });
+    await expect(caseCard).toBeVisible();
+    await expect(caseCard.locator("img")).toHaveCount(0);
+  });
+});
