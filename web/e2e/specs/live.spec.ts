@@ -9,6 +9,7 @@
 
 import { test, expect } from "../fixtures/frigate-test";
 import { LivePage } from "../pages/live.page";
+import { BASE_STATS } from "../fixtures/mock-data/stats";
 import { installWsFrameCapture, waitForWsFrame } from "../helpers/ws-frames";
 import {
   expectBodyInteractive,
@@ -311,4 +312,33 @@ test.describe("Live camera groups @critical @mobile", () => {
       }),
     ).toHaveCount(0);
   });
+});
+
+test.describe("Status bar wording @critical", () => {
+  // UI52: the slow-detector warning capitalized only the first letter of
+  // the detector key, so the default `cpu` detector read "Cpu is slow".
+  test(
+    "a slow cpu detector reads CPU in the status bar",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.goto("/");
+      // The status bar reads live stats from the websocket, whose connect
+      // frame carries no detectors; push the fixture stats (detector "cpu"
+      // at 75.5 ms inference) so the slow-detector warning is raised.
+      frigateApp.ws.send(
+        "stats",
+        JSON.stringify({
+          ...BASE_STATS,
+          service: { ...BASE_STATS.service, last_updated: Date.now() / 1000 },
+        }),
+      );
+      // exact: the default text match ignores case, and "Cpu" would pass
+      await expect(
+        frigateApp.page.getByText("CPU is slow (75.5 ms)", { exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+      // checked once, while the warning is showing: a retrying toHaveCount
+      // would pass as soon as later stats clear the warning
+      expect(await frigateApp.page.getByText(/Cpu is slow/).count()).toBe(0);
+    },
+  );
 });
