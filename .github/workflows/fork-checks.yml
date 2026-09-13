@@ -207,6 +207,9 @@ jobs:
       - run: ruff check $(fork/scripts/targets.sh py-lint)
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
+      # Dependabot bumps fork/audio_trial/requirements.in; this fails until the
+      # hash-pinned lock the image installs is recompiled from it (F7).
+      - run: python3 fork/scripts/audio-lock-check.py
       - run: python3 -m unittest discover -s fork/scripts -p "test_*.py"
 
   python_tests:
