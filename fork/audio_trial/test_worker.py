@@ -1,5 +1,6 @@
 """Exercise service boundaries without models, cameras, or network access."""
 
+import io
 import json
 import tempfile
 import unittest
@@ -41,6 +42,88 @@ class WorkerTests(unittest.TestCase):
         self.queue.db.close()
         self.state_patch.stop()
         self.temp.cleanup()
+
+    def test_recording_download_encodes_camera_and_bounds_audio_conversion(self):
+        job = {**self.job, "camera": "front door/entry"}
+        with (
+            patch.object(
+                worker.urllib.request, "urlopen", return_value=io.BytesIO(b"clip")
+            ) as request,
+            patch.object(worker.subprocess, "run") as convert,
+        ):
+            audio = worker.download_audio(job, self.root)
+        self.assertIn("front%20door%2Fentry", request.call_args.args[0])
+        self.assertEqual((self.root / "clip.mp4").read_bytes(), b"clip")
+        self.assertEqual(audio, self.root / "audio.wav")
+        self.assertEqual(convert.call_args.kwargs["timeout"], 30)
+        self.assertIn("16000", convert.call_args.args[0])
+
+    def test_recording_download_stops_after_deadline(self):
+        with (
+            patch.object(
+                worker.urllib.request, "urlopen", return_value=io.BytesIO(b"clip")
+            ),
+            patch.object(worker.time, "monotonic", side_effect=[0, 61]),
+            patch.object(worker.subprocess, "run") as convert,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "download limit"):
+                worker.download_audio(self.job, self.root)
+        convert.assert_not_called()
+
+    def test_recording_conversion_failure_is_not_a_successful_audio_job(self):
+        with (
+            patch.object(
+                worker.urllib.request, "urlopen", return_value=io.BytesIO(b"clip")
+            ),
+            patch.object(
+                worker.subprocess,
+                "run",
+                side_effect=worker.subprocess.TimeoutExpired("ffmpeg", 30),
+            ),
+        ):
+            with self.assertRaises(worker.subprocess.TimeoutExpired):
+                worker.download_audio(self.job, self.root)
+
+    def test_existing_builtin_transcription_prevents_duplicate_worker_processing(self):
+        with patch.object(
+            worker,
+            "read_json",
+            return_value={
+                "cameras": {"doorbell": {"audio_transcription": {"enabled": True}}}
+            },
+        ):
+            self.assertIn("transcription", worker.health())
+
+    def test_interruption_retains_completed_transcript_and_marks_active_stage_failed(
+        self,
+    ):
+        output = self.root / "medium.json"
+        output.with_suffix(".checkpoint.json").write_text(
+            json.dumps(
+                {
+                    "transcript": "preserved",
+                    "stages": {
+                        "transcription": {"status": "complete"},
+                        "translation": {"status": "running"},
+                    },
+                }
+            )
+        )
+        with (
+            patch.object(
+                worker,
+                "wait_for_inference",
+                side_effect=RuntimeError("camera pressure"),
+            ),
+            patch.object(worker.subprocess, "Popen") as process,
+            patch.object(worker, "stop_inference") as stop,
+            patch.object(worker, "METRICS", None),
+        ):
+            result = worker.infer(self.root / "audio.wav", output, "medium")
+        self.assertEqual(result["transcript"], "preserved")
+        self.assertTrue(result["interrupted"])
+        self.assertEqual(result["stages"]["translation"]["error"], "Interrupted")
+        stop.assert_called_once_with(process.return_value)
 
     def test_stage_cleanup_and_log_failures_do_not_discard_inference(self):
         output = self.root / "result.json"
