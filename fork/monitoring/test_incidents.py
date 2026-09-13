@@ -147,8 +147,33 @@ class IncidentTests(unittest.TestCase):
             side_effect=[
                 subprocess.CompletedProcess([], 0, json.dumps(self.sample)),
                 subprocess.TimeoutExpired("journalctl", 5),
+                subprocess.CompletedProcess([], 0, "ActiveState=active\nNRestarts=0"),
             ],
         ):
             result = capture()
         self.assertEqual(result["cameras"], self.sample["cameras"])
         self.assertIsNone(result["ollama_completions_last_20s"])
+
+    def test_unknown_service_cannot_resolve_server_outage(self):
+        self.sample["containers"]["ollama"] = {"running": False}
+        self.monitor.observe(self.sample)
+        self.sample["containers"]["ollama"] = {"running": None}
+        report = self.monitor.observe(
+            {**self.sample, "time": 115, "source_updated": 115}
+        )
+        active = {r["key"] for r in report["incidents"] if r["resolved"] is None}
+        self.assertTrue({"server:ollama", "monitoring:partial"} <= active)
+
+    def test_partial_audio_failure_is_an_incident_without_log_error(self):
+        report = self.monitor.observe(
+            {
+                **self.sample,
+                "audio_failures": 0,
+                "audio_failure": {
+                    "updated": 99,
+                    "stage": "translation",
+                    "cause": "timeout",
+                },
+            }
+        )
+        self.assertIn("audio:failure", {r["key"] for r in report["incidents"]})

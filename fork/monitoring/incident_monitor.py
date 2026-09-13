@@ -79,6 +79,38 @@ def capture():
     except (OSError, subprocess.SubprocessError):
         # Keep camera evidence even when the independent Ollama CT is unavailable.
         sample["ollama_completions_last_20s"] = None
+    try:
+        result = subprocess.run(
+            [
+                "pct",
+                "exec",
+                "108",
+                "--",
+                "systemctl",
+                "show",
+                "ollama",
+                "-p",
+                "ActiveState",
+                "-p",
+                "ExecMainStartTimestampMonotonic",
+                "-p",
+                "NRestarts",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+        state = dict(
+            line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
+        )
+        sample.setdefault("containers", {})["ollama"] = {
+            "running": state.get("ActiveState") == "active",
+            "started": state.get("ExecMainStartTimestampMonotonic"),
+            "restarts": int(state.get("NRestarts", 0)),
+        }
+    except (OSError, ValueError, subprocess.SubprocessError):
+        sample.setdefault("containers", {})["ollama"] = {"running": None}
     return sample
 
 

@@ -40,6 +40,9 @@ class Incidents:
         if fresh and (
             not sample.get("cameras")
             or not sample.get("containers")
+            or any(
+                c.get("running") is None for c in sample.get("containers", {}).values()
+            )
             or not sample.get("detector_ms")
             or any(
                 camera.get("enabled") and not numeric(camera.get("camera_fps"))
@@ -85,8 +88,10 @@ class Incidents:
             elif camera.get("recording_expected") and not numeric(end):
                 problems.add("recording_unknown:" + name)
         for name, container in sample.get("containers", {}).items():
-            if not container.get("running"):
+            if container.get("running") is False:
                 problems.add("server:" + name)
+            if container.get("running") is None:
+                continue
             previous = self.previous_containers.get(name)
             if previous and (
                 container.get("started") != previous.get("started")
@@ -96,7 +101,10 @@ class Incidents:
             self.previous_containers[name] = dict(container)
             if container.get("oom_killed"):
                 problems.add("memory:" + name)
-        if sample.get("audio_failures", 0):
+        failure_time = sample.get("audio_failure", {}).get("updated")
+        if sample.get("audio_failures", 0) or (
+            numeric(failure_time) and 0 <= now - failure_time <= 30
+        ):
             problems.add("audio:failure")
         evidence = json.dumps(sample, allow_nan=False)
         self.db.execute("INSERT INTO samples VALUES (?,?)", (now, evidence))
@@ -120,9 +128,12 @@ class Incidents:
                 "recording": bool(camera) and numeric(camera.get("recording_end")),
                 "recording_unknown": bool(camera)
                 and numeric(camera.get("recording_end")),
-                "server": scope in sample.get("containers", {}),
-                "memory": scope in sample.get("containers", {}),
-                "restart": scope in sample.get("containers", {}),
+                "server": sample.get("containers", {}).get(scope, {}).get("running")
+                is not None,
+                "memory": sample.get("containers", {}).get(scope, {}).get("running")
+                is not None,
+                "restart": sample.get("containers", {}).get(scope, {}).get("running")
+                is not None,
                 "audio": "audio_failures" in sample,
             }.get(kind, False)
             if key not in problems and observable:
