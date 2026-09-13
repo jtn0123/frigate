@@ -5,7 +5,8 @@
 # another (that drift is what I17 and D20 in fork/GRADE-REPORT.md fixed).
 #
 #   fork/scripts/targets.sh py-lint       # ruff format/check arguments
-#   fork/scripts/targets.sh py-test-dirs  # unittest discovery roots outside frigate/
+#   fork/scripts/targets.sh py-test-dirs     # unittest discovery roots outside frigate/
+#   fork/scripts/targets.sh py-script-tests  # fork/scripts tests the image can run
 #
 # Paths are printed space separated, relative to the repository root.
 set -euo pipefail
@@ -22,13 +23,25 @@ py_lint=(frigate migrations docker fork/scripts fork/audio_trial fork/monitoring
 # frigate/ suite is discovered by unittest itself, so it is not listed.
 py_test_dirs=(fork/audio_trial fork/audio_trial/benchmarks fork/monitoring)
 
+# fork/scripts tests the coverage run can execute inside the thin test image.
+# test_download_security.py is not here: it reads docker/ build scripts, which
+# the image does not carry. It still runs in the Python - Lint job, which has
+# the whole checkout.
+py_script_tests=(
+  test_sonar_coverage.py
+  test_release_notes.py
+  test_lock_audit.py
+  test_audio_lock.py
+)
+
 main() {
   local what="${1:-}"
   case "$what" in
     py-lint) echo "${py_lint[*]}" ;;
     py-test-dirs) echo "${py_test_dirs[*]}" ;;
+    py-script-tests) echo "${py_script_tests[*]}" ;;
     *)
-      echo "usage: ${0##*/} {py-lint|py-test-dirs}" >&2
+      echo "usage: ${0##*/} {py-lint|py-test-dirs|py-script-tests}" >&2
       return 2
       ;;
   esac

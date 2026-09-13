@@ -17,6 +17,8 @@ set -uo pipefail
 image="${FORK_TEST_IMAGE:-frigate-fork-test}"
 # Discovery roots outside frigate/, shared with CI and the Makefile.
 fork_test_dirs="$(fork/scripts/targets.sh py-test-dirs)"
+# fork/scripts tests that run inside the image, so their coverage reaches Sonar.
+fork_script_tests="$(fork/scripts/targets.sh py-script-tests)"
 logs="$(mktemp -d)"
 trap 'rm -rf "$logs"' EXIT
 
@@ -51,7 +53,7 @@ unittest_with_coverage() {
   docker run --name "$container" --entrypoint python3 "$image" -c "
 import subprocess, sys
 r = subprocess.call([sys.executable, '-m', 'coverage', 'run', '-m', 'unittest'])
-for pattern in ('test_sonar_coverage.py', 'test_release_notes.py'):
+for pattern in '${fork_script_tests}'.split():
     script_result = subprocess.call([sys.executable, '-m', 'coverage', 'run', '--append', '-m', 'unittest', 'discover', '-s', 'fork/scripts', '-p', pattern])
     r = r or script_result
 for directory in '${fork_test_dirs}'.split():
