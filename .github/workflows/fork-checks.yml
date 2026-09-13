@@ -245,8 +245,11 @@ jobs:
         run: docker build --platform linux/amd64 -t frigate-audio-check fork/audio_trial
       - name: Recover after forced container termination
         run: python3 fork/scripts/audio-recovery-check.py frigate-audio-check
-      - name: Benchmark scoring regressions
-        run: python3 -m unittest discover -s fork/audio_trial/benchmarks -p "test_*.py"
+      - name: Benchmark safety and scoring regressions
+        run: |
+          docker run --rm --network none --read-only --tmpfs /tmp \
+            -v "$PWD/fork/audio_trial/benchmarks:/benchmarks:ro" \
+            frigate-audio-check python -m unittest discover -s /benchmarks -p 'test_*.py'
       - name: Runtime dependency and regression checks
         run: |
           docker run --rm --network none frigate-audio-check pip check
