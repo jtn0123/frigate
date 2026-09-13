@@ -69,14 +69,15 @@ RUN apt-get -qq update && \
 RUN apt-get -qq update \
     && apt-get -qq install -y --no-install-recommends \
     python3.11 python3.11-dev \
-    wget build-essential cmake git \
+    wget curl ca-certificates build-essential cmake git \
     && rm -rf /var/lib/apt/lists/*
 
 # Ensure python3 defaults to python3.11
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
-RUN wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
-    && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
+ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
+    https://bootstrap.pypa.io/get-pip.py get-pip.py
+RUN sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip"
 
 FROM build-wheels AS trt-wheels
@@ -145,8 +146,8 @@ COPY --from=trt-wheels /etc/TENSORRT_VER /etc/TENSORRT_VER
 RUN --mount=type=bind,from=trt-wheels,source=/trt-wheels,target=/deps/trt-wheels \
     --mount=type=bind,from=trt-model-wheels,source=/trt-model-wheels,target=/deps/trt-model-wheels \
     pip3 uninstall -y onnxruntime \
-    && pip3 install -U /deps/trt-wheels/*.whl \
-    && pip3 install -U /deps/trt-model-wheels/*.whl \
+    && pip3 install --only-binary=:all: -U /deps/trt-wheels/*.whl \
+    && pip3 install --only-binary=:all: -U /deps/trt-model-wheels/*.whl \
     && ldconfig
 
 WORKDIR /opt/frigate/

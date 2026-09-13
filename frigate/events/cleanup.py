@@ -2,14 +2,11 @@
 
 import datetime
 import logging
-import os
 import threading
 from multiprocessing.synchronize import Event as MpEvent
-from pathlib import Path
 from typing import Any
 
 from frigate.config import FrigateConfig
-from frigate.const import CLIPS_DIR
 from frigate.db.sqlitevecq import SqliteVecQueueDatabase
 from frigate.models import Event, Timeline
 from frigate.util.file import delete_event_snapshot, delete_event_thumbnail
@@ -119,8 +116,8 @@ class EventCleanup(threading.Thread):
 
             events_to_update: list[str] = []
 
-            for event in query.iterator():
-                events_to_update.append(str(event.id))
+            for matching_event in query.iterator():
+                events_to_update.append(str(matching_event.id))
                 if len(events_to_update) >= CHUNK_SIZE:
                     logger.debug(
                         f"Updating {update_params} for {len(events_to_update)} events"
@@ -178,13 +175,13 @@ class EventCleanup(threading.Thread):
                 # delete the grabbed clips from disk
                 # only snapshots are stored in /clips
                 # so no need to delete mp4 files
-                for event in expired_events:
-                    events_to_update.append(str(event.id))
-                    deleted = delete_event_snapshot(event)
+                for expired_event in expired_events:
+                    events_to_update.append(str(expired_event.id))
+                    deleted = delete_event_snapshot(expired_event)
 
                     if not deleted:
                         logger.warning(
-                            f"Unable to delete event images for {event.camera}: {event.id}"
+                            f"Unable to delete event images for {expired_event.camera}: {expired_event.id}"
                         )
 
         # update the clips attribute for the db entry
@@ -201,7 +198,6 @@ class EventCleanup(threading.Thread):
             self.config.record.alerts.retain.days,
             self.config.record.detections.retain.days,
         )
-        file_extension = None  # mp4 clips are no longer stored in /clips
         update_params = {"has_clip": False}
 
         # get expiration time for this label
@@ -209,42 +205,7 @@ class EventCleanup(threading.Thread):
         expire_after = (
             datetime.datetime.now() - datetime.timedelta(days=expire_days)
         ).timestamp()
-        # grab all events after specific time
-        expired_events: list[Event] = (
-            Event.select(
-                Event.id,
-                Event.camera,
-            )
-            .where(
-                Event.camera.not_in(self.camera_keys),  # type: ignore[arg-type,call-arg,misc]
-                Event.start_time < expire_after,
-                Event.retain_indefinitely == False,
-            )
-            .namedtuples()
-            .iterator()
-        )
-        expired_events = list(expired_events)
-        logger.debug(f"{len(expired_events)} events can be expired")
-        # delete the media from disk
-        for expired in expired_events:
-            media_name = f"{expired.camera}-{expired.id}"
-            media_path = Path(f"{os.path.join(CLIPS_DIR, media_name)}.{file_extension}")
-
-            try:
-                media_path.unlink(missing_ok=True)
-                if file_extension == "jpg":
-                    media_path = Path(
-                        f"{os.path.join(CLIPS_DIR, media_name)}-clean.webp"
-                    )
-                    media_path.unlink(missing_ok=True)
-                    # Also delete clean.png (legacy) for backward compatibility
-                    media_path = Path(
-                        f"{os.path.join(CLIPS_DIR, media_name)}-clean.png"
-                    )
-                    media_path.unlink(missing_ok=True)
-            except OSError as e:
-                logger.warning(f"Unable to delete event images: {e}")
-
+        # Recordings retention owns video files; this only expires event metadata.
         # update the clips attribute for the db entry
         query = Event.select(Event.id).where(
             Event.camera.not_in(self.camera_keys),  # type: ignore[arg-type,call-arg,misc]
@@ -278,10 +239,6 @@ class EventCleanup(threading.Thread):
 
         ## Expire events from cameras based on the camera config
         for name, camera in self.config.cameras.items():
-            expire_days = max(
-                camera.record.alerts.retain.days,
-                camera.record.detections.retain.days,
-            )
             alert_expire_date = (
                 now - datetime.timedelta(days=camera.record.alerts.retain.days)
             ).timestamp()

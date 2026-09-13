@@ -1,5 +1,5 @@
 Types: deb
-URIs: http://deb.debian.org/debian
+URIs: https://deb.debian.org/debian
 Suites: bookworm-backports
 Components: main
 Enabled: yes

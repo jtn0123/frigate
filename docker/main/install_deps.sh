@@ -44,7 +44,7 @@ if [[ "${TARGETARCH}" == "arm64" ]]; then
     if [[ "${BASE_IMAGE}" == *"nvcr.io/nvidia/tensorrt"* ]]; then
         echo "Info: Skipping apt-get commands because BASE_IMAGE includes 'nvcr.io/nvidia/tensorrt' for arm64."
     else
-        echo "deb http://deb.debian.org/debian bookworm-backports main" | tee /etc/apt/sources.list.d/bookworm-backbacks.list
+        echo "deb https://deb.debian.org/debian bookworm-backports main" | tee /etc/apt/sources.list.d/bookworm-backbacks.list
         apt-get -qq update
         apt-get -qq install --no-install-recommends --no-install-suggests -y mesa-teflon-delegate/bookworm-backports
     fi
@@ -119,7 +119,7 @@ if [[ "${TARGETARCH}" == "amd64" ]]; then
     rm -f /etc/apt/sources.list.d/intel-gpu-jammy.list
 
     # upgrade libva2, oneVPL runtime, and libvpl2 from trixie for Battlemage support
-    echo "deb http://deb.debian.org/debian trixie main" > /etc/apt/sources.list.d/trixie.list
+    echo "deb https://deb.debian.org/debian trixie main" > /etc/apt/sources.list.d/trixie.list
     apt-get -qq update
     apt-get -qq install -y -t trixie libva2 libva-drm2 libzstd1
     apt-get -qq install -y -t trixie libmfx-gen1.2 libvpl2

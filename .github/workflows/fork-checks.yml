@@ -221,6 +221,11 @@ jobs:
       - run: fork/scripts/py-checks.sh
         env:
           COVERAGE_XML: coverage-py/coverage.xml
+      - name: Non-root NVR startup, recording, playback, and shutdown
+        run: |
+          docker build --target nginx -f docker/main/Dockerfile -t frigate-nginx-check .
+          docker build -f fork/Dockerfile.rootless-test --build-arg BASE=frigate-fork-test -t frigate-rootless-check .
+          python3 fork/scripts/test_rootless_runtime.py frigate-rootless-check
       - name: Audio companion unit tests
         run: docker run --rm -v "$PWD/fork/audio_trial:/opt/frigate/fork/audio_trial:ro" frigate-fork-test discover -s fork/audio_trial -v
       - uses: actions/upload-artifact@v4

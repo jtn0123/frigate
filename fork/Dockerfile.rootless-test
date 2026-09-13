@@ -1,0 +1,17 @@
+# Runtime validation using the fork's dependency test image and current sources.
+ARG BASE=frigate-fork-test-sonar-ci
+ARG NGINX_IMAGE=frigate-nginx-check
+FROM ${NGINX_IMAGE} AS nginx
+FROM ${BASE}
+USER root
+# Match the current nginx-vod-module directives instead of the upstream binary.
+COPY --from=nginx /usr/local/nginx/ /usr/local/nginx/
+COPY frigate /opt/frigate/frigate
+COPY migrations /opt/frigate/migrations
+COPY docker/main/rootfs /
+COPY docker/main/prepare_rootless.sh /tmp/prepare_rootless.sh
+RUN bash /tmp/prepare_rootless.sh
+ENV HOME=/home/frigate S6_READ_ONLY_ROOT=1
+USER 65534:65534
+ENTRYPOINT ["/init"]
+CMD []

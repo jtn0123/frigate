@@ -25,6 +25,7 @@ make version
 
 cd web
 
-npm install
+npm ci --ignore-scripts
+npm run postinstall
 
 npm run build

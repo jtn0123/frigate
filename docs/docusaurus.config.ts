@@ -143,7 +143,7 @@ const config: Config = {
           position: "right",
         },
         {
-          href: "http://demo.frigate.video",
+          href: "https://demo.frigate.video",
           label: "Demo",
           position: "right",
         },
