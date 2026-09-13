@@ -226,3 +226,35 @@ test.describe("Review — mobile @critical @mobile", () => {
     await expect(frigateApp.page).toHaveURL(/\/$/);
   });
 });
+
+test.describe("Review — fixture data renders like the real API @high", () => {
+  // D20: reviews.json used to carry ISO-string times, "/clips/..." thumb
+  // paths and a summary without last24Hours, so every card read "Invalid
+  // Time", every thumbnail was a broken "//clips" URL, and the severity
+  // badges read 0. These assertions keep the fixtures honest.
+  test("cards show real times and loaded thumbnails", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/review");
+    const review = new ReviewPage(frigateApp.page, !frigateApp.isMobile);
+    const card = review.reviewItems.first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card).not.toContainText(/invalid/i);
+
+    const thumb = card.locator("img").first();
+    await expect(thumb).toHaveAttribute("src", /\/clips\/review\//);
+    await expect(thumb).not.toHaveAttribute("src", /\/\/clips/);
+    await expect
+      .poll(() => thumb.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+  });
+
+  test("severity badge counts come from last24Hours", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/review");
+    const review = new ReviewPage(frigateApp.page, !frigateApp.isMobile);
+    // review-summary.json: last24Hours total_alert 2, reviewed_alert 1
+    await expect(review.alertsTab).toContainText("1", { timeout: 10_000 });
+  });
+});

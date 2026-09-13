@@ -331,3 +331,20 @@ test.describe("Explore — Frigate+ submission (desktop) @high", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("Explore — label section headers @high", () => {
+  // D20: /events/explore sends event_count per label; the fixture lacked it
+  // and the header rendered the bare i18n key "Trackedobjectscount".
+  test("headers show the tracked object count, not the i18n key", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.goto("/explore");
+    await expect(frigateApp.page.getByText("2 tracked objects")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(frigateApp.page.getByText("1 tracked object")).toBeVisible();
+    await expect(frigateApp.page.getByText(/trackedobjectscount/i)).toHaveCount(
+      0,
+    );
+  });
+});
