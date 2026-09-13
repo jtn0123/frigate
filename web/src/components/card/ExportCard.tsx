@@ -76,6 +76,8 @@ export function CaseCard({
           className="absolute inset-0 size-full object-cover"
           src={`${baseUrl}${firstExport.thumb_path.replace("/media/frigate/", "")}`}
           alt=""
+          loading="lazy"
+          decoding="async"
         />
       )}
       {!firstExport && (
@@ -328,6 +330,8 @@ export function ExportCard({
                   ns: "common",
                   label: exportedRecording.name,
                 })}
+                loading="lazy"
+                decoding="async"
                 onLoad={() => setLoading(false)}
               />
             ) : (

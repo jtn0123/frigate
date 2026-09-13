@@ -129,6 +129,7 @@ export const ClassificationCard = forwardRef<
     >
       <img
         ref={imgRef}
+        decoding="async"
         alt={data.name}
         className={cn(
           "absolute bottom-0 left-0 right-0 top-0 size-full",
