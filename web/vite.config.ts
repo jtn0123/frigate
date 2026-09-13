@@ -1,35 +1,12 @@
 /// <reference types="vitest" />
 import path, { resolve } from "path";
-import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import monacoEditorPlugin from "vite-plugin-monaco-editor";
+// @ts-expect-error -- plain ESM helper shared with the e2e CSP check (E6)
+import { cspHeaders } from "./scripts/fork/csp-header.mjs";
 
 const proxyHost = process.env.PROXY_HOST || "localhost:5000";
-
-/**
- * The policy nginx serves, read from its own config so the e2e check cannot
- * drift from what ships (E6). Only used when E2E_CSP is set.
- */
-function contentSecurityPolicy(): Record<string, string> {
-  if (!process.env.E2E_CSP) {
-    return {};
-  }
-  const conf = readFileSync(
-    resolve(
-      __dirname,
-      "../docker/main/rootfs/usr/local/nginx/conf/security_headers.conf",
-    ),
-    "utf8",
-  );
-  const match = /add_header Content-Security-Policy "([^"]+)"/.exec(conf);
-  if (!match) {
-    throw new Error(
-      "No enforcing Content-Security-Policy in security_headers.conf",
-    );
-  }
-  return { "Content-Security-Policy": match[1] };
-}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -37,7 +14,7 @@ export default defineConfig({
     "import.meta.vitest": "undefined",
   },
   preview: {
-    headers: contentSecurityPolicy(),
+    headers: cspHeaders(),
   },
   server: {
     proxy: {

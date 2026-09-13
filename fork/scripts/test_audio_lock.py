@@ -3,6 +3,7 @@
 import importlib.util
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -67,3 +68,24 @@ class AudioLockTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AudioLockMainTests(unittest.TestCase):
+    """The command has to fail the job when the lock is behind."""
+
+    def run_main(self, source: str, lock: str) -> int:
+        with tempfile.TemporaryDirectory() as directory:
+            write(Path(directory), source, lock)
+            with unittest.mock.patch.object(_MODULE, "_TRIAL", Path(directory)):
+                return _MODULE.main()
+
+    def test_a_matching_lock_passes(self):
+        self.assertEqual(self.run_main("numpy==1.26.4\n", "numpy==1.26.4\n"), 0)
+
+    def test_a_stale_lock_fails(self):
+        self.assertEqual(self.run_main("numpy==1.27.0\n", "numpy==1.26.4\n"), 1)
+
+    def test_missing_files_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with unittest.mock.patch.object(_MODULE, "_TRIAL", Path(directory)):
+                self.assertEqual(_MODULE.main(), 1)

@@ -127,3 +127,51 @@ class TestCoverageFloor(unittest.TestCase):
                 _MODULE.python_line_rate(root / "coverage.xml")
             with self.assertRaises(ValueError):
                 _MODULE.web_line_rate(root / "lcov.info")
+
+
+class TestCoverageMain(unittest.TestCase):
+    """The command has to fail the job, not only compute a number."""
+
+    def tree(self, directory: Path, python_hits: str, web_hits: str) -> Path:
+        root = Path(directory)
+        (root / "frigate").mkdir(parents=True)
+        (root / "frigate/api.py").touch()
+        (root / "web/src").mkdir(parents=True)
+        (root / "web/src/player.ts").touch()
+        (root / "coverage-py").mkdir()
+        (root / "coverage-py/coverage.xml").write_text(
+            "<coverage><sources><source>.</source></sources><packages><package>"
+            '<classes><class filename="frigate/api.py"><lines>'
+            f"{python_hits}</lines></class></classes></package></packages></coverage>"
+        )
+        (root / "web/coverage").mkdir(parents=True)
+        (root / "web/coverage/lcov.info").write_text(
+            f"SF:src/player.ts\n{web_hits}end_of_record\n"
+        )
+        return root
+
+    def floor(self, root: Path, **values: object) -> None:
+        payload = {"tolerance_points": 0.5, "python": None, "web": None}
+        payload.update(values)
+        (root / "fork").mkdir(parents=True, exist_ok=True)
+        (root / "fork/coverage-floor.json").write_text(json.dumps(payload))
+
+    def test_reports_above_the_floor_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.tree(
+                directory,
+                '<line number="1" hits="1"/><line number="2" hits="1"/>',
+                "DA:1,1\nDA:2,1\n",
+            )
+            self.floor(root, python=90.0, web=90.0)
+            self.assertEqual(_MODULE.main(root), 0)
+
+    def test_a_side_below_its_floor_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.tree(
+                directory,
+                '<line number="1" hits="1"/><line number="2" hits="0"/>',
+                "DA:1,1\nDA:2,1\n",
+            )
+            self.floor(root, python=90.0, web=90.0)
+            self.assertEqual(_MODULE.main(root), 1)

@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -111,3 +112,49 @@ class LockAuditTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AuditProcessTests(unittest.TestCase):
+    """pip-audit's output is parsed, and its silence is an error, not an empty pass."""
+
+    def fake_run(self, stdout: str, stderr: str = ""):
+        def run(*_args: object, **_kwargs: object):
+            return subprocess.CompletedProcess(
+                args=[], returncode=1, stdout=stdout, stderr=stderr
+            )
+
+        return run
+
+    def test_a_report_is_parsed(self):
+        with unittest.mock.patch.object(
+            _MODULE.subprocess, "run", self.fake_run(json.dumps(REPORT))
+        ):
+            report = _MODULE.audit("fork/requirements-dev.lock", [])
+        self.assertEqual(_MODULE.findings(report)[0][0], "transformers")
+
+    def test_no_output_is_an_error(self):
+        with unittest.mock.patch.object(
+            _MODULE.subprocess, "run", self.fake_run("", "pip-audit exploded")
+        ):
+            with self.assertRaises(RuntimeError) as caught:
+                _MODULE.audit("fork/requirements-dev.lock", [])
+        self.assertIn("pip-audit exploded", str(caught.exception))
+
+    def test_the_command_scans_every_target(self):
+        scanned = []
+
+        def run(argv, **_kwargs):
+            scanned.append(argv[argv.index("-r") + 1])
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0, stdout=json.dumps({"dependencies": []})
+            )
+
+        with unittest.mock.patch.object(_MODULE.subprocess, "run", run):
+            with unittest.mock.patch.object(_MODULE, "EXCEPTIONS", _MODULE.EXCEPTIONS):
+                with (
+                    unittest.mock.patch.dict(_MODULE.TARGETS, {}, clear=False),
+                    unittest.mock.patch.object(sys, "argv", ["lock-audit.py"]),
+                    unittest.mock.patch.object(_MODULE, "review", lambda *_: []),
+                ):
+                    self.assertEqual(_MODULE.main(), 0)
+        self.assertEqual(sorted(scanned), sorted(_MODULE.TARGETS))

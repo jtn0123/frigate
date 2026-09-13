@@ -98,8 +98,9 @@ def check_floor(root: Path, measured: dict[str, float]) -> list[str]:
     return below
 
 
-if __name__ == "__main__":
-    root = Path.cwd()
+def main(root: Path | None = None) -> int:
+    """Normalize both reports, then hold each side to its floor."""
+    root = Path.cwd() if root is None else root
     python_count, web_count = prepare_reports(root)
     print(f"Validated coverage paths: {python_count} Python, {web_count} web files")
     below = check_floor(
@@ -109,11 +110,16 @@ if __name__ == "__main__":
             "web": web_line_rate(root / "web/coverage/lcov.info"),
         },
     )
-    if below:
-        for line in below:
-            print(f"::error::{line}")
-        print(
-            "Add tests, or lower the floor in fork/coverage-floor.json in the same "
-            "commit that explains why",
-        )
-        raise SystemExit(1)
+    if not below:
+        return 0
+    for line in below:
+        print(f"::error::{line}")
+    print(
+        "Add tests, or lower the floor in fork/coverage-floor.json in the same "
+        "commit that explains why",
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
