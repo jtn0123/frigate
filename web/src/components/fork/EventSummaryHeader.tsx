@@ -14,12 +14,11 @@ import { isForkEnabled } from "@/fork/flags";
 import { use24HourTime, useFormattedTimestamp } from "@/hooks/use-date-utils";
 import { cn } from "@/lib/utils";
 import type { EventSummaryData } from "@/lib/fork/event-summary";
-import type { FrigateConfig } from "@/types/frigateConfig";
 import { getDurationFromTimestamps } from "@/utils/dateUtil";
 import { getIconForLabel } from "@/utils/iconUtil";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { useTranslation } from "react-i18next";
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 
 type EventSummaryHeaderProps = EventSummaryData & {
   className?: string;
@@ -36,7 +35,7 @@ export default function EventSummaryHeader({
   className,
 }: EventSummaryHeaderProps) {
   const { t } = useTranslation(["fork", "common"]);
-  const { data: config } = useSWR<FrigateConfig>("config");
+  const { data: config } = useApi("/config");
   const is24Hour = use24HourTime(config);
   const formattedDate = useFormattedTimestamp(
     startTime,
