@@ -30,7 +30,7 @@ RUN sh -c "$BASE_HOOK"
 FROM slim-base AS wget
 ARG DEBIAN_FRONTEND
 RUN apt-get update \
-    && apt-get install -y wget xz-utils \
+    && apt-get install -y wget curl ca-certificates xz-utils \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /rootfs
 
@@ -92,8 +92,8 @@ ARG DEBIAN_FRONTEND
 # Install OpenVINO for model conversion
 COPY docker/main/requirements-ov.txt /requirements-ov.txt
 RUN apt-get -qq update \
-    && apt-get -qq install -y wget python3 python3-distutils \
-    && wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
+    && apt-get -qq install -y wget curl ca-certificates python3 python3-distutils \
+    && curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
     && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip" \
     && pip3 install -r /requirements-ov.txt
@@ -101,7 +101,7 @@ RUN apt-get -qq update \
 # Get OpenVino Model
 RUN --mount=type=bind,source=docker/main/build_ov_model.py,target=/build_ov_model.py \
     mkdir /models && cd /models \
-    && wget http://download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz \
+    && curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://storage.googleapis.com/download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz \
     && tar -xvf ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz \
     && python3 /build_ov_model.py
 
@@ -121,7 +121,7 @@ ENV CCACHE_MAXSIZE 2G
 # Build libUSB without udev.  Needed for Openvino NCS2 support
 WORKDIR /opt
 RUN apt-get update && apt-get install -y unzip build-essential automake libtool ccache pkg-config
-RUN --mount=type=cache,target=/root/.ccache wget -q https://github.com/libusb/libusb/archive/v1.0.26.zip -O v1.0.26.zip && \
+RUN --mount=type=cache,target=/root/.ccache curl --proto '=https' --proto-redir '=https' -fsSL --output v1.0.26.zip https://github.com/libusb/libusb/archive/v1.0.26.zip && \
     unzip v1.0.26.zip && cd libusb-1.0.26 && \
     ./bootstrap.sh && \
     ./configure CC='ccache gcc' CCX='ccache g++' --disable-udev --enable-shared && \
@@ -142,16 +142,17 @@ RUN /bin/mkdir -p '/usr/local/lib' && \
 FROM wget AS models
 
 # Get model and labels
-RUN wget -qO edgetpu_model.tflite https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite
-RUN wget -qO cpu_model.tflite https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess.tflite
+RUN curl --proto '=https' --proto-redir '=https' -fsSL --output edgetpu_model.tflite https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite
+RUN curl --proto '=https' --proto-redir '=https' -fsSL --output cpu_model.tflite https://github.com/google-coral/test_data/raw/release-frogfish/ssdlite_mobiledet_coco_qat_postprocess.tflite
 COPY labelmap.txt .
 # Copy OpenVino model
 COPY --from=ov-converter /models/ssdlite_mobilenet_v2.xml openvino-model/
 COPY --from=ov-converter /models/ssdlite_mobilenet_v2.bin openvino-model/
-RUN wget -q https://github.com/openvinotoolkit/open_model_zoo/raw/master/data/dataset_classes/coco_91cl_bkgr.txt -O openvino-model/coco_91cl_bkgr.txt && \
+RUN curl --proto '=https' --proto-redir '=https' -fsSL --output openvino-model/coco_91cl_bkgr.txt https://github.com/openvinotoolkit/open_model_zoo/raw/master/data/dataset_classes/coco_91cl_bkgr.txt && \
     sed -i 's/truck/car/g' openvino-model/coco_91cl_bkgr.txt
 # Get Audio Model and labels
-RUN wget -qO - https://www.kaggle.com/api/v1/models/google/yamnet/tfLite/classification-tflite/1/download | tar xvz && mv 1.tflite cpu_audio_model.tflite
+RUN curl --proto '=https' --proto-redir '=https' -fsSL --output yamnet.tar.gz https://www.kaggle.com/api/v1/models/google/yamnet/tfLite/classification-tflite/1/download && \
+    tar xzf yamnet.tar.gz && mv 1.tflite cpu_audio_model.tflite && rm yamnet.tar.gz
 COPY audio-labelmap.txt .
 
 
@@ -169,7 +170,7 @@ ARG DEBUG=false
 # Use a separate container to build wheels to prevent build dependencies in final image
 RUN apt-get -qq update \
     && apt-get -qq install -y \
-    apt-transport-https wget unzip \
+    apt-transport-https wget curl ca-certificates unzip \
     && apt-get -qq update \
     && apt-get -qq install -y \
     python3.11 \
@@ -189,7 +190,7 @@ RUN apt-get -qq update \
 
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
-RUN wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
+RUN curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
     && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip"
 
@@ -276,7 +277,7 @@ RUN --mount=type=bind,source=docker/main/install_deps.sh,target=/deps/install_de
 ENV DEFAULT_FFMPEG_VERSION="8.0"
 ENV INCLUDED_FFMPEG_VERSIONS="${DEFAULT_FFMPEG_VERSION}:7.0:5.0"
 
-RUN wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
+RUN curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
     && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
     && python3 get-pip.py "pip"
 
@@ -324,7 +325,7 @@ RUN mkdir -p /opt/frigate \
     && ln -svf /workspace/frigate/frigate /opt/frigate/frigate
 
 # Install Node 20
-RUN curl -SLO https://deb.nodesource.com/nsolid_setup_deb.sh && \
+RUN curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://deb.nodesource.com/nsolid_setup_deb.sh && \
     chmod 500 nsolid_setup_deb.sh && \
     ./nsolid_setup_deb.sh 20 && \
     apt-get install nodejs -y \

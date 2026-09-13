@@ -1,0 +1,17 @@
+issue_key,rule,file,baseline_line
+AaCOHz9p9tFduPng0-W1,docker:S6506,docker/main/Dockerfile,279
+AaCOHz9p9tFduPng0-Wm,docker:S6506,docker/main/Dockerfile,124
+AaCOHz9p9tFduPng0-Wr,docker:S6506,docker/main/Dockerfile,154
+AaCOHz9p9tFduPng0-Wh,docker:S5332,docker/main/Dockerfile,104
+AaCOH0Fm9tFduPng0-YK,shell:S6506,docker/tensorrt/build_jetson_ffmpeg.sh,39
+AaCOHz9p9tFduPng0-W6,docker:S6506,docker/main/Dockerfile,327
+AaCOH0DV9tFduPng0-X9,docker:S6506,docker/tensorrt/Dockerfile.arm64,78
+AaCOH0Fm9tFduPng0-YI,shell:S6506,docker/tensorrt/build_jetson_ffmpeg.sh,31
+AaCOH0Fm9tFduPng0-YJ,shell:S6506,docker/tensorrt/build_jetson_ffmpeg.sh,35
+AaCOH0Fm9tFduPng0-YL,shell:S6506,docker/tensorrt/build_jetson_ffmpeg.sh,50
+AaCOH0Fm9tFduPng0-YM,shell:S6506,docker/tensorrt/build_jetson_ffmpeg.sh,56
+AaCOHz9p9tFduPng0-Wq,docker:S6506,docker/main/Dockerfile,151
+AaCOHz9p9tFduPng0-We,docker:S6506,docker/main/Dockerfile,96
+AaCOHz9p9tFduPng0-Wn,docker:S6506,docker/main/Dockerfile,145
+AaCOHz9p9tFduPng0-Wo,docker:S6506,docker/main/Dockerfile,146
+AaCOHz9p9tFduPng0-Wx,docker:S6506,docker/main/Dockerfile,192

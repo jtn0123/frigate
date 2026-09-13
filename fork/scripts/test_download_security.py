@@ -1,6 +1,7 @@
 """Exercise build-download transport flags against local HTTP and HTTPS servers."""
 
 import http.server
+import re
 import shlex
 import ssl
 import subprocess
@@ -25,6 +26,9 @@ def download_options():
         "docker/main/install_hailort.sh",
         "docker/main/install_memryx.sh",
         ".devcontainer/post_create.sh",
+        "docker/main/Dockerfile",
+        "docker/tensorrt/Dockerfile.arm64",
+        "docker/tensorrt/build_jetson_ffmpeg.sh",
     ]
     commands = []
     for path in paths:
@@ -39,7 +43,14 @@ def download_options():
             None,
         )
         for line in lines:
-            command = line.strip()
+            match = re.search(
+                r"(?:^|&&\s+|RUN\s+(?:--mount=\S+\s+)?)"
+                r"((?:wget|curl|download_https)\s+.*)",
+                line.strip(),
+            )
+            if match is None:
+                continue
+            command = match.group(1)
             if command.startswith("wget "):
                 raise AssertionError(
                     f"Download bypasses the curl transport policy: {path}"
