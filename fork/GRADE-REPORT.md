@@ -9,7 +9,8 @@
 **How IDs work in this file.** IDs are stable across regrades because commits,
 `FORK.md` and `fork/PLAN.md` refer to them. Done items are struck through
 with ✓ and kept as one line. New items take the next free number in their
-category. Product features live in the **UX feature track** (UI1…) at the
+category. This branch's D20, D21, E7 and C13 became D22, D23, E8 and C14 when
+`next` took those numbers first while it was open; the trunk keeps the number. Product features live in the **UX feature track** (UI1…) at the
 end. `fork/PLAN.md` and then `fork/PLAN2.md` decide the order work happens in;
 this file says what each item is.
 
@@ -29,7 +30,7 @@ this file says what each item is.
 | **Overall** | | **B−** | **B** | **B+** | **B+** | **27** + UX track |
 
 **What this branch shipped (2026-09-13).** Thirteen of the fifteen items at the
-top of the priority list, one of them (G9) half: A5, B5, C9, D20, D21, E6, E7,
+top of the priority list, one of them (G9) half: A5, B5, C9, D22, D23, E6, E8,
 F7, G8, I3 (first wave), I16, I17, and G9's image half. B2 and D6 were
 deliberately left. Security reaches A (CSP enforced and re-checked by the
 suite, the fork's own locks scanned) and testing B+, but the overall grade
@@ -149,7 +150,7 @@ escape hatch. The three things holding C+ are all still open: jsx-a11y is
 advisory (every recommended rule is `warn` in `web/eslint.config.js`, C9), 107
 `exhaustive-deps` suppressions remain of 167 `eslint-disable` comments (C7),
 and the Settings save transaction is still inline and untested (C3). New this
-round: the fork's own UI ships English-only (C13).
+round: the fork's own UI ships English-only (C14).
 
 - ~~C1~~ ✓ 2026-09-10 — route error boundary, chunk-load recovery
 - ~~C2~~ ✓ 2026-09-10 — jsx-a11y lint, 42 role/tabIndex sites, 27 real buttons, 16 alt texts
@@ -169,7 +170,7 @@ round: the fork's own UI ships English-only (C13).
 - **Effort:** M
 - **Grade lift:** C+ → C+ (risk reduction)
 
-#### C13 — Translate the fork's UI strings `[fork]` — new 2026-09-13
+#### C14 — Translate the fork's UI strings `[fork]` — new 2026-09-13
 - **Where:** `web/public/locales/en/fork.json` (220 keys) is the only `fork.json`; the other 40 locale directories have none
 - **What's wrong:** Every fork feature (command palette, camera health, inbox, appearance, share, update notices, settings nav) falls back to English for non-English users, in an app whose upstream is fully translated. `CLAUDE.md` requires `t()` and the code obeys it, so the strings exist but land untranslated.
 - **Fix:** Decide the policy and write it down: either machine-translate the 220 keys into the top locales with a fork script and let Crowdin correct them later, or state in `FORK.md` that fork UI is English-only and hide the affected entry points from non-English builds. Silence is the worst option.
@@ -206,9 +207,9 @@ PRs into `next`. Volume grew too: 100 backend test files / 1,113 test
 functions, 249 web unit cases, 278 e2e cases across 41 specs, plus 94 test
 functions in the fork's own tooling. Nine reliability items found on the
 owner's server (D10–D18) are fixed with tests. Held at B rather than B+: no
-coverage floor is enforced anywhere (D21), the tracking pipeline still has no
+coverage floor is enforced anywhere (D23), the tracking pipeline still has no
 unit tests (D4), there are no visual regression baselines (D6), and the fork's
-tooling tests only execute on CI's coverage path (D20).
+tooling tests only execute on CI's coverage path (D22).
 
 - ~~D1~~ ✓ 2026-09-10 — vitest set-up, CI step
 - ~~D2~~ ✓ 2026-09-11 — e2e for Settings save, camera wizard, zone editing, motion search
@@ -224,7 +225,7 @@ tooling tests only execute on CI's coverage path (D20).
 - ~~D17~~ ✓ 2026-09-11 — ctranslate2 loaded before onnxruntime (ROCm transcription crash loop)
 - ~~D18~~ ✓ 2026-09-11 — Ollama per-image token cost measured, not guessed
 
-- ~~D21~~ ✓ done 2026-09-13 — line coverage held to `fork/coverage-floor.json` (python 41.39% ±1, web 56.95% ±3 because sharded browser coverage moves) in the Sonar job
+- ~~D23~~ ✓ done 2026-09-13 — line coverage held to `fork/coverage-floor.json` (python 41.39% ±1, web 56.95% ±3 because sharded browser coverage moves) in the Sonar job
 
 
 #### D6 — Visual regression screenshots `[FE] [fork]`
@@ -284,7 +285,7 @@ the fork's own supply chain has an unwatched corner (F7).
 - ~~E6~~ ✓ done 2026-09-13 — CSP enforced, with an e2e pass behind the same policy (`E2E_CSP=1`)
 
 
-- ~~E7~~ ✓ done 2026-09-13 — pip-audit over the fork's three locks, with reviewed exceptions that expire when unreported
+- ~~E8~~ ✓ done 2026-09-13 — pip-audit over the fork's three locks, with reviewed exceptions that expire when unreported
 
 
 ---
@@ -423,7 +424,7 @@ pre-commit, CI caching, a type ratchet, a bundle budget and a SonarCloud gate.
 The 0.18.0 stable rebase landed the same day upstream tagged it, which is the
 proof the machinery works. Held short of A− by the two typing gaps: mypy still
 ignores most of the backend (I3) and none of `fork/` (I16), and the local
-gates drift from CI (D20).
+gates drift from CI (D22).
 
 - ~~I1~~ ✓ 2026-09-10 — pre-commit, CI caching
 - ~~I2~~ ✓ 2026-09-10 — `make` inner-loop targets

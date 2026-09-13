@@ -62,12 +62,11 @@ function System() {
 
   // stats page
 
-  const [page, setPage] = useHashState<SystemMetric>();
-  const [pageToggle, setPageToggle] = useOptimisticState(
-    page ?? "general",
-    setPage,
-    100,
-  );
+  // useHashState yields "" (not undefined) at a bare /system, so default
+  // with || or no tab is ever marked visited and nothing renders
+  const [hashPage, setPage] = useHashState<SystemMetric>();
+  const page: SystemMetric = hashPage || "general";
+  const [pageToggle, setPageToggle] = useOptimisticState(page, setPage, 100);
   const [lastUpdated, setLastUpdated] = useState<number>(
     Math.floor(Date.now() / 1000),
   );
@@ -116,7 +115,7 @@ function System() {
               key={item}
               className={`flex items-center justify-between gap-2 ${pageToggle == item ? "" : "*:text-muted-foreground"}`}
               value={item}
-              aria-label={t("selectTab", { tab: item })}
+              aria-label={t("selectTab", { tab: t(item + ".title") })}
             >
               {item == "general" && <LuActivity className="size-4" />}
               {item == "enrichments" && <LuSearchCode className="size-4" />}

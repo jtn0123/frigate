@@ -1,4 +1,4 @@
-import { LuSearch } from "react-icons/lu";
+import { LuCommand } from "react-icons/lu";
 import { useTranslation } from "react-i18next";
 import ForkNavButton, {
   type ForkNavVariant,
@@ -24,7 +24,7 @@ export default function CommandPaletteHint({
       data-testid="command-palette-hint"
       onClick={() => setCommandPaletteOpen(true)}
     >
-      <LuSearch className={forkNavIconClass(large)} />
+      <LuCommand className={forkNavIconClass(large)} />
     </ForkNavButton>
   );
 }

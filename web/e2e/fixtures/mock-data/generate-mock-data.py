@@ -135,7 +135,7 @@ def generate_reviews():
             start_time=datetime.fromtimestamp(NOW - 2 * HOUR),
             end_time=datetime.fromtimestamp(NOW - 2 * HOUR + 30),
             has_been_reviewed=False,
-            thumb_path="/clips/front_door/review-alert-001-thumb.jpg",
+            thumb_path="/media/frigate/clips/review/thumb-front_door-review-alert-001.webp",
             data=json.dumps(
                 {
                     "audio": [],
@@ -154,7 +154,7 @@ def generate_reviews():
             start_time=datetime.fromtimestamp(NOW - 3 * HOUR),
             end_time=datetime.fromtimestamp(NOW - 3 * HOUR + 45),
             has_been_reviewed=True,
-            thumb_path="/clips/backyard/review-alert-002-thumb.jpg",
+            thumb_path="/media/frigate/clips/review/thumb-backyard-review-alert-002.webp",
             data=json.dumps(
                 {
                     "audio": [],
@@ -173,7 +173,7 @@ def generate_reviews():
             start_time=datetime.fromtimestamp(NOW - 4 * HOUR),
             end_time=datetime.fromtimestamp(NOW - 4 * HOUR + 20),
             has_been_reviewed=False,
-            thumb_path="/clips/garage/review-detect-001-thumb.jpg",
+            thumb_path="/media/frigate/clips/review/thumb-garage-review-detect-001.webp",
             data=json.dumps(
                 {
                     "audio": [],
@@ -192,7 +192,7 @@ def generate_reviews():
             start_time=datetime.fromtimestamp(NOW - 5 * HOUR),
             end_time=datetime.fromtimestamp(NOW - 5 * HOUR + 15),
             has_been_reviewed=False,
-            thumb_path="/clips/front_door/review-detect-002-thumb.jpg",
+            thumb_path="/media/frigate/clips/review/thumb-front_door-review-detect-002.webp",
             data=json.dumps(
                 {
                     "audio": [],
@@ -212,6 +212,13 @@ def generate_reviews():
     check_pydantic_fields(
         ReviewSegmentResponse, set(result[0].keys()), "ReviewSegment"
     )
+
+    # The response model types the times as datetime, but /review returns the
+    # Peewee rows as-is (epoch seconds) and the UI does math on them. ISO
+    # strings here rendered every card as "Invalid Time" in the e2e suite.
+    for dumped, review in zip(result, reviews):
+        dumped["start_time"] = review.start_time.timestamp()
+        dumped["end_time"] = review.end_time.timestamp()
 
     return result
 
@@ -320,6 +327,14 @@ def generate_events():
 
     check_pydantic_fields(EventResponse, set(result[0].keys()), "Event")
 
+    # /events/explore adds event_count (tracked objects per label); the same
+    # fixture serves both endpoints, and Explore pluralizes its headers on it
+    label_counts = {}
+    for event in result:
+        label_counts[event["label"]] = label_counts.get(event["label"], 0) + 1
+    for event in result:
+        event["event_count"] = label_counts[event["label"]]
+
     return result
 
 
@@ -333,8 +348,8 @@ def generate_exports():
             camera="front_door",
             name="Front Door - Person Alert",
             date=NOW - 1 * HOUR,
-            video_path="/exports/export-001.mp4",
-            thumb_path="/exports/export-001-thumb.jpg",
+            video_path="/media/frigate/exports/export-001.mp4",
+            thumb_path="/media/frigate/clips/export/export-001.webp",
             in_progress=False,
             export_case_id=None,
         ),
@@ -343,8 +358,8 @@ def generate_exports():
             camera="backyard",
             name="Backyard - Car Detection",
             date=NOW - 3 * HOUR,
-            video_path="/exports/export-002.mp4",
-            thumb_path="/exports/export-002-thumb.jpg",
+            video_path="/media/frigate/exports/export-002.mp4",
+            thumb_path="/media/frigate/clips/export/export-002.webp",
             in_progress=False,
             export_case_id="case-001",
         ),
@@ -353,8 +368,8 @@ def generate_exports():
             camera="garage",
             name="Garage - In Progress",
             date=NOW - 0.5 * HOUR,
-            video_path="/exports/export-003.mp4",
-            thumb_path="/exports/export-003-thumb.jpg",
+            video_path="/media/frigate/exports/export-003.mp4",
+            thumb_path="/media/frigate/clips/export/export-003.webp",
             in_progress=True,
             export_case_id=None,
         ),
@@ -394,6 +409,13 @@ def generate_review_summary():
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
     return {
+        # /review/summary always includes this; the severity badges read it
+        "last24Hours": {
+            "reviewed_alert": 1,
+            "reviewed_detection": 0,
+            "total_alert": 2,
+            "total_detection": 2,
+        },
         today: {
             "day": today,
             "reviewed_alert": 1,

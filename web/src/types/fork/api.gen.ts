@@ -10913,8 +10913,8 @@ export interface operations {
     recordings__camera_name__recordings_get: {
         parameters: {
             query?: {
-                after?: number;
-                before?: number;
+                after?: number | null;
+                before?: number | null;
             };
             header?: never;
             path: {

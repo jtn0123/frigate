@@ -2,7 +2,7 @@
 # The one list of paths the fork's Python gates cover. CI (fork-checks.yml),
 # the Makefile and fork/scripts/{check,py-checks}.sh all read it from here, so
 # a directory added to the fork cannot be linted in one place and skipped in
-# another (that drift is what I17 and D20 in fork/GRADE-REPORT.md fixed).
+# another (that drift is what I17 and D22 in fork/GRADE-REPORT.md fixed).
 #
 #   fork/scripts/targets.sh py-lint       # ruff format/check arguments
 #   fork/scripts/targets.sh py-test-dirs     # unittest discovery roots outside frigate/

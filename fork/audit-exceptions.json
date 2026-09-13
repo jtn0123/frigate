@@ -1,5 +1,5 @@
 {
-  "_comment": "Advisories in the fork's own locks that do not apply to how the fork runs them (E7). Every entry needs a reason and a review date; fork/scripts/lock-audit.py fails when an entry stops matching, so stale exceptions cannot linger.",
+  "_comment": "Advisories in the fork's own locks that do not apply to how the fork runs them (E8). Every entry needs a reason and a review date; fork/scripts/lock-audit.py fails when an entry stops matching, so stale exceptions cannot linger.",
   "exceptions": [
     {
       "id": "PYSEC-2025-217",

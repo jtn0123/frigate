@@ -9,7 +9,8 @@ import {
 } from "@/types/log";
 import copy from "copy-to-clipboard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
+import ErrorState from "@/components/fork/ErrorState";
 import LogInfoDialog from "@/components/overlay/LogInfoDialog";
 import { LogChip } from "@/components/indicators/Chip";
 import { LogSettingsButton } from "@/components/filter/LogSettingsButton";
@@ -38,6 +39,14 @@ import { useTranslation } from "react-i18next";
 import WsMessageFeed from "@/components/ws/WsMessageFeed";
 import { onActivate } from "@/utils/fork/a11y";
 
+/** A non-OK log stream response; only its status is shown to the user. */
+class LogStreamStatusError extends Error {
+  constructor(readonly status: number) {
+    super(`log stream responded ${status}`);
+    this.name = "LogStreamStatusError";
+  }
+}
+
 function Logs() {
   const { t } = useTranslation(["views/system"]);
   const [logService, setLogService] = useState<LogType>("frigate");
@@ -49,6 +58,9 @@ function Logs() {
   const [selectedLog, setSelectedLog] = useState<LogLine>();
   const lazyLogRef = useRef<LazyLog>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // UI50: a failed or malformed load used to leave an empty table and a
+  // toast carrying the raw JavaScript error; it now shows an error state
+  const [loadError, setLoadError] = useState<unknown>(undefined);
   const lastFetchedIndexRef = useRef(-1);
 
   useEffect(() => {
@@ -121,8 +133,9 @@ function Logs() {
     [logService, filterLines, t],
   );
 
-  const fetchInitialLogs = useCallback(async () => {
+  const fetchInitialLogs = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
+    setLoadError(undefined);
     try {
       const response = await axios.get(`logs/${logService}`, {
         params: { start: filterSeverity ? 0 : -100 },
@@ -136,17 +149,18 @@ function Logs() {
         setLogs(filteredLines);
         lastFetchedIndexRef.current =
           response.data.totalLines - filteredLines.length;
+        return true;
       }
+      // a 200 without { lines } (e.g. a proxy's HTML page) is not a log
+      setLoadError(new Error("unexpected logs response"));
+      return false;
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unknown error occurred";
-      toast.error(t("logs.toast.error.fetchingLogsFailed", { errorMessage }), {
-        position: "top-center",
-      });
+      setLoadError(error);
+      return false;
     } finally {
       setIsLoading(false);
     }
-  }, [logService, filterLines, filterSeverity, t]);
+  }, [logService, filterLines, filterSeverity]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -195,9 +209,7 @@ function Logs() {
     })
       .then((response): Promise<void> => {
         if (!response.ok) {
-          throw new Error(
-            `Error while fetching log stream, status: ${response.status}`,
-          );
+          throw new LogStreamStatusError(response.status);
         }
         const reader = response.body?.getReader();
         if (!reader) {
@@ -208,15 +220,25 @@ function Logs() {
       .catch((error) => {
         if (error.name !== "AbortError") {
           const errorMessage =
-            error instanceof Error
-              ? error.message
-              : "An unknown error occurred";
+            error instanceof LogStreamStatusError
+              ? `HTTP ${error.status}`
+              : t("errorState.title", { ns: "fork" });
           toast.error(
             t("logs.toast.error.whileStreamingLogs", { errorMessage }),
           );
         }
       });
   }, [logService, filterSeverity, t]);
+
+  const retryLogs = useCallback(() => {
+    setLogs([]);
+    lastFetchedIndexRef.current = -1;
+    void fetchInitialLogs().then((loaded) => {
+      if (loaded && !logSettings.disableStreaming) {
+        fetchLogsStream();
+      }
+    });
+  }, [fetchInitialLogs, fetchLogsStream, logSettings.disableStreaming]);
 
   useEffect(() => {
     if (isWebsocket) {
@@ -228,9 +250,9 @@ function Logs() {
     setIsLoading(true);
     setLogs([]);
     lastFetchedIndexRef.current = -1;
-    void fetchInitialLogs().then(() => {
-      // Start streaming after initial load
-      if (!logSettings.disableStreaming) {
+    void fetchInitialLogs().then((loaded) => {
+      // Start streaming after a successful initial load
+      if (loaded && !logSettings.disableStreaming) {
         fetchLogsStream();
       }
     });
@@ -485,7 +507,7 @@ function Logs() {
       <LogInfoDialog logLine={selectedLog} setLogLine={setSelectedLog} />
 
       <div className="relative flex h-11 w-full items-center justify-between">
-        <ScrollArea className="w-full whitespace-nowrap">
+        <ScrollArea className="min-w-0 flex-1 whitespace-nowrap">
           <div ref={tabsRef} className="flex flex-row">
             <ToggleGroup
               type="single"
@@ -505,11 +527,14 @@ function Logs() {
                   className={`flex items-center justify-between gap-2 ${logService == item ? "" : "text-muted-foreground"}`}
                   value={item}
                   data-nav-item={item}
-                  aria-label={`Select ${item}`}
+                  aria-label={t("selectItem", {
+                    ns: "common",
+                    item:
+                      item === "websocket" ? t("logs.websocket.label") : item,
+                  })}
                 >
-                  <div
-                    className={item !== "websocket" ? "smart-capitalize" : ""}
-                  >
+                  {/* go2rtc and nginx are written lowercase */}
+                  <div className={item === "frigate" ? "smart-capitalize" : ""}>
                     {item === "websocket" ? t("logs.websocket.label") : item}
                   </div>
                 </ToggleGroupItem>
@@ -588,7 +613,18 @@ function Logs() {
           </div>
 
           <div ref={lazyLogWrapperRef} className="size-full">
-            {isLoading ? (
+            {loadError ? (
+              <ErrorState
+                className="m-auto"
+                error={loadError}
+                description={
+                  isAxiosError(loadError)
+                    ? undefined
+                    : t("errorState.description", { ns: "fork" })
+                }
+                onRetry={retryLogs}
+              />
+            ) : isLoading ? (
               <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
             ) : (
               <EnhancedScrollFollow

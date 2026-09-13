@@ -2,7 +2,7 @@
 
 Everything that reaches the published image is scanned by Dependabot and
 CodeQL; the fork's side images (the audio companion and the backend test image)
-install from their own locks, which nothing looked at until E7.
+install from their own locks, which nothing looked at until E8.
 
 Advisories that do not apply to how the fork runs a package are listed with a
 reason in fork/audit-exceptions.json. An exception that no longer matches a

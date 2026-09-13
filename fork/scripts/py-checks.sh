@@ -10,7 +10,7 @@
 # report is copied out to that path.
 #
 # Either way the fork's own test roots (fork/scripts/targets.sh py-test-dirs)
-# run alongside the frigate suite, so `make check` covers what CI covers (D20).
+# run alongside the frigate suite, so `make check` covers what CI covers (D22).
 # Passing unittest args runs only the targeted frigate tests.
 set -uo pipefail
 
