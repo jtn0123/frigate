@@ -520,12 +520,15 @@ def reolink_detect(
 
         stream_info = None
         if isinstance(enc_data, dict):
-            if enc_data.get("value", {}).get("Enc"):
-                stream_info = enc_data["value"]["Enc"]
+            value = enc_data.get("value")
+            if isinstance(value, dict) and value.get("Enc"):
+                stream_info = value["Enc"]
             elif enc_data.get("Enc"):
                 stream_info = enc_data["Enc"]
 
-        if not stream_info or not stream_info.get("mainStream"):
+        if not isinstance(stream_info, dict) or not isinstance(
+            stream_info.get("mainStream"), dict
+        ):
             return JSONResponse(
                 content={
                     "success": False,

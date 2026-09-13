@@ -45,6 +45,34 @@ class TestCameraRedirects(unittest.TestCase):
         self.assertTrue(json.loads(response.body)["success"])
 
     @patch("frigate.api.camera.query_reolink")
+    def test_malformed_camera_payload_is_a_safe_failure(self, query):
+        for data in ({"value": None}, {"Enc": [1]}, {"Enc": {"mainStream": 1}}):
+            with self.subTest(data=data):
+                query.return_value = (200, data)
+                response = reolink_detect(
+                    self.request, "camera.local", "user", "secret"
+                )
+                self.assertFalse(json.loads(response.body)["success"])
+                self.assertNotIn("secret", response.body.decode())
+
+    @patch("frigate.api.camera.query_reolink")
+    def test_transport_and_json_errors_are_safe_failures(self, query):
+        from urllib3.exceptions import HTTPError, TimeoutError
+
+        for error in (
+            HTTPError("secret"),
+            TimeoutError("secret"),
+            ValueError("secret"),
+        ):
+            with self.subTest(error=type(error)):
+                query.side_effect = error
+                response = reolink_detect(
+                    self.request, "camera.local", "user", "secret"
+                )
+                self.assertFalse(json.loads(response.body)["success"])
+                self.assertNotIn("secret", response.body.decode())
+
+    @patch("frigate.api.camera.query_reolink")
     def test_unlisted_destinations_cannot_make_requests(self, query):
         for host in (
             "127.0.0.1",
