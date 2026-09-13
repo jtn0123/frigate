@@ -16,7 +16,8 @@ are unaffected by the discovery allowlist.
 Connections use the fixed configured IP, preventing DNS rebinding. The configured
 server name is used only for HTTP Host, TLS SNI, and certificate verification.
 Proxy environment variables are not used and redirects are never followed.
-HTTPS is the default and certificate verification cannot be disabled. A private
+HTTPS requires TLS 1.2 or newer by default and certificate verification cannot
+be disabled. A private
 camera CA can be configured without trusting it globally.
 
 Example (replace these addresses and names with your camera settings):
@@ -98,7 +99,8 @@ python3 fork/scripts/test_rootless_runtime.py frigate-rootless-check
 CI builds this runtime from the existing dependency test image plus current
 backend and service files. It runs an isolated synthetic camera with networking
 disabled, all Linux capabilities dropped, and `no-new-privileges`. It checks
-recording, decoded API clip playback, preview, every process UID, private cache
+real CPU inference on a deterministic tensor, recording, decoded API clip
+playback, preview, every process UID, private cache
 and camera-file permissions, and clean shutdown. It does not prove accelerator
 hardware compatibility or replace a full release image build and deployment
 migration validation.

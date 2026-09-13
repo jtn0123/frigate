@@ -212,9 +212,9 @@ existing installations require mount permissions and discovery target setup.
 This supersedes the earlier statement that both PR blockers still await source
 implementation. Scan and deployment/hardware validation remain distinct gates.
 
-Local validation of the implemented redesign: 1,148 backend tests pass, including
-20 focused camera/security tests. Mypy passes across 388 files. API schema check,
+Local validation of the implemented redesign: 1,150 backend tests pass, including
+22 focused camera/security tests. Mypy passes across 388 files. API schema check,
 Ruff, shell syntax checks, and the synthetic non-root runtime check pass.
-The latter verifies recording, API clip decoding, preview, all process UIDs,
+The latter verifies real CPU inference, recording, API clip decoding, preview, all process UIDs,
 private permissions, and clean service shutdown. CI and a fresh Sonar scan are
 pending on the follow-up commit.

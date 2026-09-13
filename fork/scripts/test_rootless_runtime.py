@@ -26,10 +26,10 @@ cameras:
       output_args:
         record: preset-record-generic
     detect:
-      enabled: false
+      enabled: true
       width: 640
       height: 360
-      fps: 5
+      fps: 2
     record:
       enabled: true
       continuous:
@@ -128,6 +128,23 @@ print(json.dumps(connection.execute(
                 time.sleep(1)
             if not recordings:
                 raise RuntimeError("Synthetic camera did not produce a recording")
+            # Exercise the actual CPU backend deterministically. Motion-based
+            # scheduling depends on scene thresholds, not runtime privileges.
+            execute(
+                "python3",
+                "-c",
+                """
+import numpy as np
+from frigate.detectors.plugins.cpu_tfl import CpuTfl, CpuDetectorConfig
+from frigate.detectors.detector_config import ModelConfig
+config = CpuDetectorConfig(type='cpu', model=ModelConfig(
+    path='/cpu_model.tflite', width=320, height=320))
+detector = CpuTfl(config)
+result = detector.detect_raw(np.zeros((1, 320, 320, 3), dtype=np.uint8))
+assert result.shape == (20, 6) and np.isfinite(result).all()
+""",
+            )
+            print("CPU inference passed", flush=True)
             start, end = recordings[0]
             execute(
                 "curl",
