@@ -431,6 +431,7 @@ function PreviewContent({
   } else if (isCurrentHour(review.start_time)) {
     return (
       <InProgressPreview
+        defaultImageUrl={`${baseUrl}${review.thumb_path.replace("/media/frigate/", "")}`}
         camera={review.camera}
         startTime={review.start_time}
         endTime={review.end_time}
