@@ -27,6 +27,9 @@ def download_options():
         "docker/main/install_memryx.sh",
         ".devcontainer/post_create.sh",
         "docker/main/Dockerfile",
+        "docker/rocm/Dockerfile",
+        "docker/synaptics/Dockerfile",
+        "docker/memryx/user_installation.sh",
         "docker/tensorrt/Dockerfile.arm64",
         "docker/tensorrt/build_jetson_ffmpeg.sh",
     ]

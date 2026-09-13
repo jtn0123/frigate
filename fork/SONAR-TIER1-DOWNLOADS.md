@@ -2,18 +2,23 @@
 
 Baseline: next at 0b139bdc6, post-PR39 scan, 122 Tier 1 findings.
 
-This batch addresses 16 unique Tier 1 findings in source:
+This batch addresses 26 unique Tier 1 findings in source:
 
 | Area | Findings |
 | --- | ---: |
 | Main Dockerfile | 10 |
 | TensorRT ARM64 Dockerfile | 1 |
 | Jetson FFmpeg build script | 5 |
+| ROCm downloads and package repository | 3 |
+| Synaptics downloads | 2 |
+| MemryX repository key | 1 |
+| Main and Raspberry Pi package repositories | 3 |
+| Documentation demo link | 1 |
 
 The tracked IDs are in sonar-tier1-downloads-issues.csv. Closure counts require
-another Sonar scan; 16 source changes do not establish 16 server closures.
+another Sonar scan; 26 addressed findings do not establish 26 server closures.
 
-All 16 artifact downloads now enforce HTTPS for the initial URL and every
+All 21 artifact downloads now enforce HTTPS for the initial URL and every
 redirect, verify certificates, and fail on HTTP errors. Curl and CA certificates
 are installed in each affected build stage. Output names are preserved.
 The TensorFlow model uses the same object under the HTTPS Google Storage bucket
@@ -25,7 +30,7 @@ cannot be hidden by a successful downstream pipeline command.
 
 - The previous unrestricted curl behavior followed a local HTTPS redirect to
   HTTP and accepted its artifact, demonstrating the transport weakness.
-- Regression tests exercise options read from 56 source download commands:
+- Regression tests exercise options read from 61 source download commands:
   direct HTTPS, HTTPS redirects, rejected HTTP downgrades, rejected initial
   HTTP, and HTTP error responses. All passed.
 - The actual Docker download-tools stage built successfully. The replacement
@@ -38,6 +43,18 @@ cannot be hidden by a successful downstream pipeline command.
 This validates download transport and endpoints, not complete NVIDIA/Jetson
 compilation or camera/GPU runtime behavior. Dependency pinning and archive
 contents are separate concerns and were not counted as resolved by this batch.
+
+## Additional transport validation
+
+The follow-up adds 10 tracked findings to the first 16. ROCm, Synaptics and
+MemryX downloads reject protocol downgrades. Explicit Debian package sources
+and the public documentation demo link use HTTPS. The related ROCm backports
+source was updated for consistency without counting it as an extra finding.
+
+All six follow-up endpoint checks passed over HTTPS. A real Docker-based APT
+update downloaded and verified repository metadata for bookworm (including
+non-free components), bookworm-backports, and trixie using only HTTPS sources.
+No driver installer, full ROCm build, or live deployment was run.
 
 ## Reviewed without speculative changes
 
