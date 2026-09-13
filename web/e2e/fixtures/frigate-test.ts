@@ -24,6 +24,7 @@ import {
 import { WsMocker } from "../helpers/ws-mocker";
 import { installErrorCollector, type ErrorCollector } from "./error-collector";
 import { GLOBAL_ALLOWLIST } from "./error-allowlist";
+import { startBrowserCoverage, saveBrowserCoverage } from "./browser-coverage";
 
 export class FrigateApp {
   public api: ApiMocker;
@@ -115,8 +116,13 @@ export const test = base.extend<FrigateFixtures>({
     // Reference the collector so its `use()` runs and teardown fires
     void errorCollector;
     const app = new FrigateApp(page, testInfo.project.name);
+    await startBrowserCoverage(page);
     await app.installDefaults();
-    await use(app);
+    try {
+      await use(app);
+    } finally {
+      await saveBrowserCoverage(page, testInfo);
+    }
   },
 });
 

@@ -1,3 +1,4 @@
+import { AIModelsResponse } from "@/types/aiModels";
 import { FrigateConfig } from "@/types/frigateConfig";
 import {
   CameraDetectThreshold,
@@ -5,7 +6,7 @@ import {
   InferenceThreshold,
 } from "@/types/graph";
 import { FrigateStats, PotentialProblem } from "@/types/stats";
-import { useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import useSWR from "swr";
 import useDeepMemo from "./use-deep-memo";
 import { capitalizeAll, capitalizeFirstLetter } from "@/utils/stringUtil";
@@ -21,6 +22,15 @@ export default function useStats(stats: FrigateStats | undefined) {
   const { t } = useTranslation(["views/system"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const isAdmin = useIsAdmin();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+  const { data: models, error: modelError } = useSWR<AIModelsResponse, unknown>(
+    isAdmin ? "ai/models" : null,
+    { refreshInterval: 10000 },
+  );
 
   // Pass isAdmin as revalidateOnFocus so non-admins never send the jobState snapshot pull
   const { payload: replayJob } = useJobStatus("debug_replay", isAdmin);
@@ -37,7 +47,54 @@ export default function useStats(stats: FrigateStats | undefined) {
   const potentialProblems = useMemo<PotentialProblem[]>(() => {
     const problems: PotentialProblem[] = [];
 
-    if (!memoizedStats) {
+    if (
+      isAdmin &&
+      (modelError ||
+        !models ||
+        now / 1000 - models.updated > 90 ||
+        models.telemetry_status !== "connected" ||
+        models.audio.status !== "connected" ||
+        models.audio.pause_reason ||
+        models.models.some((model) =>
+          ["stale", "missing", "unavailable"].includes(model.status),
+        ))
+    ) {
+      problems.push({
+        text: t("models.readiness.attention"),
+        color: "text-warning",
+        relevantLink: "/system#models",
+      });
+    }
+    if (isAdmin && models?.server?.status !== "connected") {
+      problems.push({
+        text: t("models.server.unavailable"),
+        color: "text-warning",
+        relevantLink: "/system#models",
+      });
+    }
+    if (
+      isAdmin &&
+      models?.server?.scopes.some(
+        (scope) => scope.memory_pressure != null && scope.memory_pressure > 1,
+      )
+    ) {
+      problems.push({
+        text: t("models.server.pressureWarning"),
+        color: "text-warning",
+        relevantLink: "/system#models",
+      });
+    }
+    if (
+      !memoizedStats ||
+      !Number.isFinite(memoizedStats.service.last_updated) ||
+      now / 1000 - memoizedStats.service.last_updated > 90 ||
+      memoizedStats.service.last_updated > now / 1000 + 5
+    ) {
+      problems.push({
+        text: t("models.readiness.stale"),
+        color: "text-warning",
+        relevantLink: "/system#health",
+      });
       return problems;
     }
 
@@ -181,7 +238,16 @@ export default function useStats(stats: FrigateStats | undefined) {
     }
 
     return problems;
-  }, [config, memoizedStats, t, replayActive]);
+  }, [
+    config,
+    memoizedStats,
+    t,
+    replayActive,
+    isAdmin,
+    models,
+    modelError,
+    now,
+  ]);
 
   return { potentialProblems };
 }

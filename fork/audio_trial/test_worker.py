@@ -1,5 +1,6 @@
 """Exercise service boundaries without models, cameras, or network access."""
 
+import io
 import json
 import tempfile
 import unittest
@@ -16,6 +17,11 @@ class WorkerTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.state_patch = patch.object(worker, "STATE", self.root)
         self.state_patch.start()
+        self.telemetry_patch = patch.dict(
+            "os.environ", {"TELEMETRY_DIR": str(self.root / "telemetry")}
+        )
+        self.telemetry_patch.start()
+        self.addCleanup(self.telemetry_patch.stop)
         self.queue = Queue(str(self.root / "queue.sqlite"))
         self.queue.enqueue(
             [
@@ -36,6 +42,184 @@ class WorkerTests(unittest.TestCase):
         self.queue.db.close()
         self.state_patch.stop()
         self.temp.cleanup()
+
+    def test_recording_download_encodes_camera_and_bounds_audio_conversion(self):
+        job = {**self.job, "camera": "front door/entry"}
+        with (
+            patch.object(
+                worker.urllib.request, "urlopen", return_value=io.BytesIO(b"clip")
+            ) as request,
+            patch.object(worker.subprocess, "run") as convert,
+        ):
+            audio = worker.download_audio(job, self.root)
+        self.assertIn("front%20door%2Fentry", request.call_args.args[0])
+        self.assertEqual((self.root / "clip.mp4").read_bytes(), b"clip")
+        self.assertEqual(audio, self.root / "audio.wav")
+        self.assertEqual(convert.call_args.kwargs["timeout"], 30)
+        self.assertIn("16000", convert.call_args.args[0])
+
+    def test_recording_download_stops_after_deadline(self):
+        with (
+            patch.object(
+                worker.urllib.request, "urlopen", return_value=io.BytesIO(b"clip")
+            ),
+            patch.object(worker.time, "monotonic", side_effect=[0, 61]),
+            patch.object(worker.subprocess, "run") as convert,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "download limit"):
+                worker.download_audio(self.job, self.root)
+        convert.assert_not_called()
+
+    def test_recording_conversion_failure_is_not_a_successful_audio_job(self):
+        with (
+            patch.object(
+                worker.urllib.request, "urlopen", return_value=io.BytesIO(b"clip")
+            ),
+            patch.object(
+                worker.subprocess,
+                "run",
+                side_effect=worker.subprocess.TimeoutExpired("ffmpeg", 30),
+            ),
+        ):
+            with self.assertRaises(worker.subprocess.TimeoutExpired):
+                worker.download_audio(self.job, self.root)
+
+    def test_existing_builtin_transcription_prevents_duplicate_worker_processing(self):
+        with patch.object(
+            worker,
+            "read_json",
+            return_value={
+                "cameras": {"doorbell": {"audio_transcription": {"enabled": True}}}
+            },
+        ):
+            self.assertIn("transcription", worker.health())
+
+    def test_interruption_retains_completed_transcript_and_marks_active_stage_failed(
+        self,
+    ):
+        output = self.root / "medium.json"
+        output.with_suffix(".checkpoint.json").write_text(
+            json.dumps(
+                {
+                    "transcript": "preserved",
+                    "stages": {
+                        "transcription": {"status": "complete"},
+                        "translation": {"status": "running"},
+                    },
+                }
+            )
+        )
+        with (
+            patch.object(
+                worker,
+                "wait_for_inference",
+                side_effect=RuntimeError("camera pressure"),
+            ),
+            patch.object(worker.subprocess, "Popen") as process,
+            patch.object(worker, "stop_inference") as stop,
+            patch.object(worker, "METRICS", None),
+        ):
+            result = worker.infer(self.root / "audio.wav", output, "medium")
+        self.assertEqual(result["transcript"], "preserved")
+        self.assertTrue(result["interrupted"])
+        self.assertEqual(result["stages"]["translation"]["error"], "Interrupted")
+        stop.assert_called_once_with(process.return_value)
+
+    def test_stage_cleanup_and_log_failures_do_not_discard_inference(self):
+        output = self.root / "result.json"
+        original_open = Path.open
+
+        def open_file(path, *args, **kwargs):
+            if path.name == "inference.log":
+                raise PermissionError("unwritable log")
+            return original_open(path, *args, **kwargs)
+
+        def launch(*args, **kwargs):
+            output.write_text(json.dumps({"transcript": "kept"}))
+            return Mock(poll=Mock(return_value=0), returncode=0)
+
+        with (
+            patch.object(
+                worker, "STAGE_FILE", Mock(unlink=Mock(side_effect=OSError()))
+            ),
+            patch.object(Path, "open", open_file),
+            patch.object(worker.subprocess, "Popen", side_effect=launch),
+            patch.object(worker, "METRICS", None),
+        ):
+            self.assertEqual(
+                worker.infer(self.root / "audio.wav", output, "medium"),
+                {"transcript": "kept"},
+            )
+
+    def test_optional_operator_report_failure_does_not_fail_job(self):
+        with (
+            patch.object(worker, "atomic_json", side_effect=OSError("disk full")),
+            patch.object(worker, "METRICS", None),
+        ):
+            worker.write_status(self.queue, "processing")
+        self.assertEqual(self.queue.recent()[0]["state"], "running")
+
+    def test_ready_backlog_drains_without_wait_and_polls_once(self):
+        queue = Mock()
+        queue.claim.side_effect = [{"id": "one"}, {"id": "two"}, None]
+        stop = Mock()
+        stop.is_set.side_effect = [False, False, False, True]
+        with (
+            patch.object(worker, "Queue", return_value=queue),
+            patch.object(worker, "STOP", stop),
+            patch.object(worker, "health", return_value="") as health,
+            patch.object(worker, "read_json", return_value=[]) as read,
+            patch.object(worker, "write_status"),
+            patch.object(worker, "process_job") as process,
+            patch.object(worker.signal, "signal"),
+        ):
+            worker.main()
+        self.assertEqual(process.call_count, 2)
+        self.assertEqual(health.call_count, 3)
+        read.assert_called_once()
+        stop.wait.assert_called_once_with(10)
+
+    def test_pressure_keeps_cooldown_and_never_claims(self):
+        queue = Mock()
+        stop = Mock()
+        stop.is_set.side_effect = [False, True]
+        with (
+            patch.object(worker, "Queue", return_value=queue),
+            patch.object(worker, "STOP", stop),
+            patch.object(worker, "health", return_value="camera pressure"),
+            patch.object(worker, "read_json", return_value=[]),
+            patch.object(worker, "write_status"),
+            patch.object(worker.signal, "signal"),
+        ):
+            worker.main()
+        queue.claim.assert_not_called()
+        stop.wait.assert_called_once_with(10)
+
+    def test_publication_retries_after_mount_recovers(self):
+        with patch("queue_store.publish", side_effect=OSError("unavailable")):
+            self.queue.finish(self.job, 1001, {"transcript": "preserved"})
+        self.assertEqual(
+            self.queue.db.execute("SELECT COUNT(*) FROM publications").fetchone()[0], 1
+        )
+        self.queue.flush_publications()
+        files = list((self.root / "telemetry/results").glob("*.json"))
+        self.assertEqual(len(files), 1)
+        self.assertIn("preserved", files[0].read_text())
+
+    def test_inflight_medium_checkpoint_recovers_as_second_opinion(self):
+        self.queue.checkpoint(self.job, 1001, {"transcript": "preserved"})
+        recovered = Queue(str(self.root / "queue.sqlite"))
+        self.addCleanup(recovered.db.close)
+        row = recovered.claim(1100)
+        self.assertEqual(row["state"], "second_opinion")
+        self.assertEqual(json.loads(row["result"])["transcript"], "preserved")
+
+    def test_deferred_second_opinion_expires_without_losing_medium(self):
+        self.queue.defer(self.job, 1001, {"transcript": "preserved"})
+        self.assertIsNone(self.queue.claim(5000))
+        result = json.loads(self.queue.recent()[0]["result"])
+        self.assertEqual(result["transcript"], "preserved")
+        self.assertIn("expired", result["large_status"])
 
     @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
     @patch.object(worker, "health", return_value="")

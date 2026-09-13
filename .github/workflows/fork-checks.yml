@@ -135,6 +135,8 @@ jobs:
       # `npm run e2e:build` without tsc; built once and shared by every shard.
       - run: node_modules/.bin/vite build --base=/
         working-directory: ./web
+        env:
+          E2E_COVERAGE: "1"
       - uses: actions/upload-artifact@v4
         with:
           name: e2e-dist
@@ -164,6 +166,15 @@ jobs:
         working-directory: ./web
       - run: npm run e2e -- --shard=${{ matrix.shard }}/3
         working-directory: ./web
+        env:
+          E2E_COVERAGE: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-coverage-${{ matrix.shard }}
+          path: web/coverage-browser
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -220,15 +231,45 @@ jobs:
           path: coverage-py/coverage.xml
           retention-days: 7
 
+  audio_companion:
+    name: Audio companion - actual image and offline startup
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build locked runtime
+        run: docker build --platform linux/amd64 -t frigate-audio-check fork/audio_trial
+      - name: Recover after forced container termination
+        run: python3 fork/scripts/audio-recovery-check.py frigate-audio-check
+      - name: Benchmark safety and scoring regressions
+        run: |
+          docker run --rm --network none --read-only --tmpfs /tmp \
+            -v "$PWD/fork/audio_trial/benchmarks:/benchmarks:ro" \
+            frigate-audio-check python -m unittest discover -s /benchmarks -p 'test_*.py'
+      - name: Runtime dependency and regression checks
+        run: |
+          docker run --rm --network none frigate-audio-check pip check
+          docker run --rm --network none --read-only --tmpfs /tmp frigate-audio-check python -m unittest discover -s /app -p 'test_*.py' -v
+      - name: Nonroot read-only offline startup and shutdown
+        run: |
+          timeout 120 docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp --tmpfs /state:uid=1000,gid=1000 --tmpfs /telemetry:uid=1000,gid=1000 \
+            --tmpfs /host-cgroup:uid=1000,gid=1000 frigate-audio-check python startup_check.py
   sonar:
     name: Sonar - Coverage + quality gate
-    needs: [web_unit, python_tests]
+    needs: [web_unit, python_tests, web_e2e]
     # Fork PRs have no secret. Never use pull_request_target to scan their code.
     # The Free plan supports next (Sonar's main branch) and PRs targeting it.
     if: >-
+      !cancelled() && needs.web_unit.result == 'success' &&
+      needs.python_tests.result == 'success' && (
       (github.event_name != 'pull_request' && github.ref == 'refs/heads/next') ||
       (github.event_name == 'pull_request' && github.base_ref == 'next' &&
-       github.event.pull_request.head.repo.full_name == github.repository)
+       github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -249,6 +290,23 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
+      - uses: ./.github/actions/fork-web-setup
+        if: needs.web_e2e.result == 'success'
+      - uses: actions/download-artifact@v4
+        if: needs.web_e2e.result == 'success'
+        with:
+          name: e2e-dist
+          path: web/dist
+      - uses: actions/download-artifact@v4
+        if: needs.web_e2e.result == 'success'
+        with:
+          pattern: browser-coverage-*
+          path: web/coverage-browser
+          merge-multiple: true
+      - name: Merge measured browser and unit coverage
+        if: needs.web_e2e.result == 'success'
+        run: node scripts/fork/merge-browser-coverage.mjs
+        working-directory: ./web
       - name: Verify coverage reports
         run: python3 fork/scripts/sonar-coverage-check.py
       - name: Check Sonar authentication
@@ -272,17 +330,7 @@ jobs:
     name: Checks passed
     if: always()
     needs:
-      [
-        secrets_scan,
-        changes,
-        web_lint,
-        web_unit,
-        web_build,
-        web_e2e,
-        python_checks,
-        python_tests,
-        sonar,
-      ]
+      [secrets_scan, changes, web_lint, web_unit, web_build, web_e2e, python_checks, python_tests, audio_companion, sonar]
     runs-on: ubuntu-latest
     steps:
       # Skipped jobs are fine (their files did not change); failed or

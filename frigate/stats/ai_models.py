@@ -99,7 +99,15 @@ def audio_models() -> tuple[list[dict], dict]:
         # benchmark files; none of those files or their text belongs in the API.
         queue = data.get("queue", {})
         reason = data.get("pause_reason", "")
-        allowed_reasons = {"", "memory", "detector", "frames", "health", "poll"}
+        allowed_reasons = {
+            "",
+            "memory",
+            "detector",
+            "frames",
+            "health",
+            "poll",
+            "transcription",
+        }
         return models, {
             "status": "stale" if stale else "connected",
             "updated": updated,
@@ -117,13 +125,24 @@ def audio_models() -> tuple[list[dict], dict]:
         return [], {"status": "invalid"}
 
 
-def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict], dict]:
-    """Combine detector and enabled-feature inventory with audio telemetry."""
+def stats_fresh(stats: dict, now: float | None = None) -> bool:
+    """Require a recent source sample, including when a cached API is queried."""
+    updated = number(stats.get("service", {}).get("last_updated"))
+    return updated is not None and 0 <= (now or time.time()) - updated <= 90
+
+
+def detector_models(config: FrigateConfig, stats: dict, fresh: bool) -> list[dict]:
+    """Collect measurements for the configured detector processes."""
     models = []
     for name, detector in config.detectors.items():
         measurement = stats.get("detectors", {}).get(name, {})
         model = detector.model or config.model
         path = model.path
+        ram = process_memory(measurement.get("pid")) if fresh else None
+        available = fresh and ram is not None
+        status = "loaded" if available else "unavailable"
+        if not fresh:
+            status = "stale"
         models.append(
             {
                 "id": "detector:" + name,
@@ -131,14 +150,25 @@ def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict]
                 "role": "object_detection",
                 "location": "frigate",
                 "device": f"{detector.type} / {getattr(detector, 'device', 'AUTO')}",
-                "status": "loaded" if measurement.get("pid") else "unknown",
+                "status": status,
                 "resource_scope": "process",
                 "disk_bytes": disk_size(path),
-                "ram_bytes": process_memory(measurement.get("pid")),
-                "cpu_percent": number(measurement.get("cpu")),
-                "latency_ms": number(measurement.get("inference_speed")),
+                "ram_bytes": ram,
+                "cpu_percent": number(measurement.get("cpu")) if available else None,
+                "latency_ms": number(measurement.get("inference_speed"))
+                if available
+                else None,
             }
         )
+    return models
+
+
+def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict], dict]:
+    """Combine detector and enabled-feature inventory with audio telemetry."""
+    fresh = stats_fresh(stats)
+    models = detector_models(config, stats, fresh)
+    if not fresh:
+        stats = {}
     # Enrichments share processes; report those resources as shared, not additive.
     process = stats.get("processes", {}).get("embeddings", {})
     for enabled, key, role, feature_name, feature_path in (
@@ -187,7 +217,7 @@ def collect_local_models(config: FrigateConfig, stats: dict) -> tuple[list[dict]
                 "role": role,
                 "location": "frigate",
                 "device": "CPU" if role == "sound_detection" else "configured",
-                "status": "enabled",
+                "status": "enabled" if fresh else "stale",
                 "resource_scope": "shared_process",
                 "disk_bytes": disk_size(feature_path),
                 "ram_bytes": process_memory(shared.get("pid")),

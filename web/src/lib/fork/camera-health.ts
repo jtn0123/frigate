@@ -7,7 +7,7 @@ import type {
 } from "@/types/stats";
 
 export type CameraHealthState =
-  "ok" | "degraded" | "offline" | "disabled" | "starting";
+  "ok" | "degraded" | "offline" | "disabled" | "starting" | "unknown";
 
 /** Why a camera is degraded or offline: it is losing frames or detections. */
 export type CameraHealthReason =
@@ -78,7 +78,7 @@ function classifyStream(
   notes: CameraHealthNote[],
 ): CameraHealth {
   if (!stats) {
-    return { state: "offline", reasons: ["noStats"], notes };
+    return { state: "unknown", reasons: ["noStats"], notes };
   }
   if (!stats.camera_fps) {
     return { state: "offline", reasons: ["noFrames"], notes };

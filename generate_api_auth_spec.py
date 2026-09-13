@@ -64,6 +64,7 @@ from frigate.api import (
     preview,
     record,
     review,
+    review_audio,
 )
 from frigate.api import app as main_app
 from frigate.api.auth import require_admin_by_default
@@ -152,6 +153,7 @@ def build_app() -> FastAPI:
         chat.router,
         classification.router,
         review.router,
+        review_audio.router,
         main_app.router,
         preview.router,
         notification.router,

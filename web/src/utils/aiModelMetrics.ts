@@ -50,10 +50,11 @@ export function appendHistory(
   return [
     ...history.filter(
       (point) =>
-        point.updated > sample.updated - 1800 && point.updated < sample.updated,
+        point.updated > sample.updated - 86400 &&
+        point.updated < sample.updated,
     ),
     sample,
-  ].slice(-180);
+  ].slice(-8640);
 }
 
 export function graphPoints(
@@ -66,7 +67,7 @@ export function graphPoints(
       x: sample.updated * 1000,
       y: value != null && Number.isFinite(value) ? value : null,
     };
-    return index > 0 && sample.updated - history[index - 1].updated > 25
+    return index > 0 && sample.updated - history[index - 1].updated > 90
       ? [{ x: (history[index - 1].updated + 10) * 1000, y: null }, point]
       : [point];
   });

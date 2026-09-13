@@ -461,26 +461,30 @@ class TestHttpApp(BaseTestHttp):
         assert "# TYPE frigate_detection_total_fps gauge" in event.text
         assert "frigate_detection_total_fps 13.7" in event.text
         assert (
-            "# HELP frigate_camera_events_total Count of camera events since exporter started"
+            "# HELP frigate_camera_events_retained Current retained camera events; decreases when events expire"
             in event.text
         )
-        assert "# TYPE frigate_camera_events_total counter" in event.text
+        assert "# TYPE frigate_camera_events_retained gauge" in event.text
         assert (
-            'frigate_camera_events_total{camera="front_door",label="Mock"} 3.0'
-            in event.text
-        )
-        assert (
-            'frigate_camera_events_total{camera="front_door",label="inside"} 2.0'
+            'frigate_camera_events_retained{camera="front_door",label="Mock"} 3.0'
             in event.text
         )
         assert (
-            'frigate_camera_events_total{camera="front_door",label="outside"} 2.0'
+            'frigate_camera_events_retained{camera="front_door",label="inside"} 2.0'
             in event.text
         )
         assert (
-            'frigate_camera_events_total{camera="porch",label="Mock"} 2.0' in event.text
+            'frigate_camera_events_retained{camera="front_door",label="outside"} 2.0'
+            in event.text
         )
-        assert 'frigate_camera_events_total{camera="porch",label="inside"} 2.0'
+        assert (
+            'frigate_camera_events_retained{camera="porch",label="Mock"} 2.0'
+            in event.text
+        )
+        assert (
+            'frigate_camera_events_retained{camera="porch",label="inside"} 2.0'
+            in event.text
+        )
 
 
 class TestHttpEventSearch(BaseTestHttp):

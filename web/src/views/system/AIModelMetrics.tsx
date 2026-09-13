@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AIModelsResponse } from "@/types/aiModels";
 import { wrapAsync } from "@/utils/promise";
 import { cn } from "@/lib/utils";
+import AIModelReadiness from "./AIModelReadiness";
+import ServerPressure from "./ServerPressure";
 import AIModelGraphs from "@/views/system/AIModelGraphs";
 import {
   appendHistory,
@@ -29,6 +31,21 @@ export default function AIModelMetrics({
     isActive ? "ai/models" : null,
     { refreshInterval: 10000, revalidateOnFocus: true },
   );
+  const { data: storedHistory } = useSWR<{ samples: AIModelsResponse[] }>(
+    isActive ? "ai/models/history" : null,
+    { revalidateOnFocus: true },
+  );
+  useEffect(() => {
+    if (storedHistory?.samples)
+      setHistory((previous) =>
+        [...storedHistory.samples, ...previous]
+          .sort((a, b) => a.updated - b.updated)
+          .reduce(
+            (samples, sample) => appendHistory(samples, sample),
+            [] as AIModelsResponse[],
+          ),
+      );
+  }, [storedHistory]);
   useEffect(() => {
     if (data) {
       setLastUpdated(data.updated);
@@ -57,7 +74,7 @@ export default function AIModelMetrics({
       : numeric(value / 1024 ** 2, "MiB");
   };
 
-  if (error)
+  if (error && !data)
     return (
       <ErrorState
         className="mt-4"
@@ -75,36 +92,12 @@ export default function AIModelMetrics({
           {t("models.description")}
         </p>
       </div>
-      <AIModelGraphs history={history} data={data} />
-      <details className="rounded-xl border border-secondary p-4">
-        <summary className="cursor-pointer text-sm font-medium">
-          {t("models.missing.title")}
-        </summary>
-        <p className="mt-3 text-sm text-muted-foreground">
-          {t("models.missing.intro")}
-        </p>
-        <dl className="mt-3 grid gap-3 text-sm md:grid-cols-2">
-          {[
-            "remoteCollector",
-            "awaitingRequest",
-            "awaitingRun",
-            "sharedGpu",
-            "notInstrumented",
-            "fileInventory",
-            "stale",
-            "includedInRun",
-          ].map((reason) => (
-            <div key={reason}>
-              <dt className="font-medium">
-                {t(`models.missing.${reason}.label`)}
-              </dt>
-              <dd className="text-muted-foreground">
-                {t(`models.missing.${reason}.detail`)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </details>
+      {error && (
+        <ErrorState compact error={error} onRetry={wrapAsync(() => mutate())} />
+      )}
+      <AIModelReadiness
+        data={error ? { ...data, telemetry_status: "stale" } : data}
+      />
       <section
         className="rounded-xl border border-secondary p-4"
         aria-label={t("models.queueTitle")}
@@ -200,21 +193,28 @@ export default function AIModelMetrics({
                   <dt className="text-xs text-muted-foreground">
                     {t(`models.${key}`)}
                   </dt>
-                  <dd
-                    className="mt-1 break-words text-sm tabular-nums"
-                    title={
-                      model[fields[key]] == null
-                        ? t(
+                  <dd className="mt-1 break-words text-sm tabular-nums">
+                    {model[fields[key]] == null ? (
+                      <details>
+                        <summary className="min-h-11 cursor-pointer rounded-sm py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-selected">
+                          <span className="sr-only">
+                            {t(`models.${key}`)}:{" "}
+                          </span>
+                          <span>
+                            {t(
+                              `models.missing.${missingReason(model, fields[key])}.label`,
+                            )}
+                          </span>
+                        </summary>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {t(
                             `models.missing.${missingReason(model, fields[key])}.detail`,
-                          )
-                        : undefined
-                    }
-                  >
-                    {model[fields[key]] == null
-                      ? t(
-                          `models.missing.${missingReason(model, fields[key])}.label`,
-                        )
-                      : value}
+                          )}
+                        </p>
+                      </details>
+                    ) : (
+                      value
+                    )}
                   </dd>
                 </div>
               ))}
@@ -235,6 +235,44 @@ export default function AIModelMetrics({
           </article>
         ))}
       </div>
+      <ServerPressure server={data.server} />
+      {data.models.length > 0 && (
+        <details className="rounded-xl border border-secondary p-4">
+          <summary className="cursor-pointer font-medium">
+            {t("models.graphs.title")}
+          </summary>
+          <AIModelGraphs history={history} data={data} />
+        </details>
+      )}
+      <details className="rounded-xl border border-secondary p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          {t("models.missing.title")}
+        </summary>
+        <p className="mt-3 text-sm text-muted-foreground">
+          {t("models.missing.intro")}
+        </p>
+        <dl className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+          {[
+            "remoteCollector",
+            "awaitingRequest",
+            "awaitingRun",
+            "sharedGpu",
+            "notInstrumented",
+            "fileInventory",
+            "stale",
+            "includedInRun",
+          ].map((reason) => (
+            <div key={reason}>
+              <dt className="font-medium">
+                {t(`models.missing.${reason}.label`)}
+              </dt>
+              <dd className="text-muted-foreground">
+                {t(`models.missing.${reason}.detail`)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </details>
       <section className="rounded-xl border border-secondary p-4">
         <h3 className="font-medium">{t("models.sharedGpu")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">

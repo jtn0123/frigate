@@ -53,6 +53,11 @@ const inventory = {
 };
 
 test.describe("AI model status @medium @mobile", () => {
+  test.beforeEach(async ({ frigateApp }) => {
+    await frigateApp.page.route("**/api/ai/models/history", (route) =>
+      route.fulfill({ json: { status: "connected", samples: [] } }),
+    );
+  });
   test("shows measured and unavailable resources with shared GPU context", async ({
     frigateApp,
   }, testInfo) => {
@@ -69,6 +74,10 @@ test.describe("AI model status @medium @mobile", () => {
       fullPage: true,
     });
     await frigateApp.page.getByLabel("Select models").click();
+    await frigateApp.page
+      .locator("summary")
+      .filter({ hasText: "Model history" })
+      .click();
     const medium = frigateApp.page.getByRole("article", {
       name: "Whisper Medium",
     });
@@ -137,6 +146,10 @@ test.describe("AI model status @medium @mobile", () => {
       });
     });
     await frigateApp.goto("/system#models");
+    await frigateApp.page
+      .locator("summary")
+      .filter({ hasText: "Model history" })
+      .click();
     const waiting = frigateApp.page.getByText(
       "The first reading is shown now. A trend appears after the next sample.",
       { exact: true },
@@ -178,6 +191,10 @@ test.describe("AI model status @medium @mobile", () => {
       }),
     );
     await frigateApp.goto("/system#models");
+    await frigateApp.page
+      .locator("summary")
+      .filter({ hasText: "Model history" })
+      .click();
     await expect(
       frigateApp.page.getByText("Worker readings are stale", { exact: true }),
     ).toBeVisible();

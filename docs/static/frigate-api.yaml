@@ -30,6 +30,27 @@ paths:
       security:
         - frigateAdminAuth: []
       x-required-role: admin
+  /ai/models/history:
+    get:
+      tags:
+        - App
+      summary: Ai Models History
+      description: |-
+        **Access:** Admin role required.
+
+        Return one day of minute samples, never event transcripts.
+      operationId: ai_models_history_ai_models_history_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                title: Response Ai Models History Ai Models History Get
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /auth/first_time_login:
     get:
       tags:
@@ -2369,6 +2390,38 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: all_cameras
+  /review/{review_id}/audio:
+    get:
+      tags:
+        - Review
+      summary: Review Audio
+      description: |-
+        **Access:** Authenticated user with access to the referenced camera.
+
+        Authorize the review before opening its stored machine-generated results.
+      operationId: review_audio_review__review_id__audio_get
+      parameters:
+        - name: review_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Review Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: camera
   /:
     get:
       tags:
@@ -2467,7 +2520,7 @@ paths:
         - App
       summary: Metrics
       description: |-
-        **Access:** Any authenticated user.
+        **Access:** Admin role required.
 
         Expose Prometheus metrics endpoint and update metrics with latest stats
       operationId: metrics_metrics_get
@@ -2478,8 +2531,8 @@ paths:
             application/json:
               schema: {}
       security:
-        - frigateUserAuth: []
-      x-required-role: any
+        - frigateAdminAuth: []
+      x-required-role: admin
   /genai/models:
     get:
       tags:
@@ -7448,6 +7501,23 @@ components:
         shared_gpus:
           type: object
           title: Shared Gpus
+        source_updated:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Source Updated
+        telemetry_status:
+          type: string
+          title: Telemetry Status
+          default: unknown
+        server:
+          type: object
+          title: Server
+          default: {}
+        history_status:
+          type: string
+          title: History Status
+          default: unavailable
       type: object
       required:
         - updated

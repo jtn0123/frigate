@@ -2,3 +2,5 @@
 !Dockerfile
 !*.py
 !labels.json
+!requirements.lock
+!models.lock.json

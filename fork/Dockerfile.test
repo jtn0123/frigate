@@ -13,6 +13,8 @@ RUN pip3 install --break-system-packages -q --require-hashes --only-binary :all:
   && pip3 install --break-system-packages -q --require-hashes --only-binary :all: -r /tmp/requirements-sonar.txt \
   && python3 /tmp/dev/dev-lock-check.py
 COPY fork/scripts /opt/frigate/fork/scripts
+COPY fork/audio_trial /opt/frigate/fork/audio_trial
+COPY fork/monitoring /opt/frigate/fork/monitoring
 COPY .coveragerc /opt/frigate/.coveragerc
 COPY testing-scripts /opt/frigate/testing-scripts
 COPY frigate /opt/frigate/frigate

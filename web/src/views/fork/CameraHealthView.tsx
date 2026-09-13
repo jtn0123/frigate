@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
@@ -35,6 +35,7 @@ const STATE_DOT: Record<CameraHealthState, string> = {
   offline: "text-danger",
   disabled: "text-muted-foreground",
   starting: "text-selected",
+  unknown: "text-warning",
 };
 
 const STATE_BADGE: Record<CameraHealthState, string> = {
@@ -43,6 +44,7 @@ const STATE_BADGE: Record<CameraHealthState, string> = {
   offline: "border-danger/40 bg-danger/15 text-danger",
   disabled: "border-transparent bg-secondary text-muted-foreground",
   starting: "border-transparent bg-secondary text-selected",
+  unknown: "border-warning/40 bg-secondary text-warning",
 };
 
 function formatFps(value: number | undefined) {
@@ -61,6 +63,18 @@ export default function CameraHealthView() {
   });
   const stats = useAutoFrigateStats();
   const history = useFpsHistory(stats);
+  const [lastTick, setLastTick] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setLastTick(Date.now()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+  // Evaluate against the current clock when new stats arrive between timer ticks.
+  const now = Math.max(lastTick, Date.now());
+  const fresh =
+    stats &&
+    Number.isFinite(stats.service.last_updated) &&
+    now / 1000 - stats.service.last_updated <= 90 &&
+    stats.service.last_updated <= now / 1000 + 5;
 
   const cameras = useMemo(
     () =>
@@ -79,8 +93,19 @@ export default function CameraHealthView() {
 
   return (
     <div className="scrollbar-container mt-4 flex flex-col gap-3 overflow-y-auto">
+      {!fresh && (
+        <output className="text-sm text-warning">
+          {t("models.readiness.stale", { ns: "views/system" })}
+        </output>
+      )}
       <div className="text-sm text-muted-foreground">
         {t("cameraHealth.description")}
+        {stats?.service.last_updated && (
+          <span className="ml-2">
+            {t("lastRefreshed", { ns: "views/system" })}
+            <TimeAgo time={stats.service.last_updated * 1000} dense />
+          </span>
+        )}
       </div>
       <div
         className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
@@ -92,7 +117,7 @@ export default function CameraHealthView() {
             cameraName={camera.name}
             label={resolveCameraName(config, camera)}
             enabled={camera.enabled}
-            stats={stats}
+            stats={fresh ? stats : undefined}
             fpsSeries={cameraFpsSeries(history, camera.name)}
           />
         ))}

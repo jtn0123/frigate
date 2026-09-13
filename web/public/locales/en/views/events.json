@@ -91,5 +91,30 @@
     "crop": "Crop to filter",
     "cropAria": "Toggle cropping previews to the filtered areas",
     "cropDesc": "Zoom previews into the selected filter areas instead of showing the full frame."
+  },
+  "audioAnalysis": {
+    "title": "AI audio analysis",
+    "unverified": "Unverified machine output. Translation and sound suggestions can be wrong; compare them with the recording.",
+    "original": "Original speech",
+    "translation": "English translation",
+    "sounds": "Possible sounds (not confidence scores)",
+    "noSpeech": "No transcript available for this chunk.",
+    "partial": "Some analysis stages failed. Completed results are preserved.",
+    "loading": "Loading audio analysis…",
+    "empty": "No stored audio analysis. The companion processes eligible closed reviews and retains results for seven days.",
+    "unavailable": "Stored audio analysis could not be read.",
+    "play": "Play chunk at {{time}}",
+    "deferred": "Second opinion queued. It will retry when resources and the hourly budget allow, for up to one hour.",
+    "expired": "Second opinion expired while waiting. The initial analysis is preserved.",
+    "secondFailed": "Second opinion failed. The initial analysis is preserved.",
+    "secondOpinion": "Compare Large second opinion",
+    "states": {
+      "pending": "Audio analysis queued.",
+      "running": "Audio analysis is running.",
+      "failed": "Audio analysis failed.",
+      "expired": "Audio analysis expired while waiting.",
+      "done": "Audio analysis complete.",
+      "second_opinion": "Second opinion queued."
+    }
   }
 }

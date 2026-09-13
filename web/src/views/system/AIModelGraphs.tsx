@@ -5,6 +5,9 @@ import { useTheme } from "@/context/theme-provider";
 import { AIModelsResponse } from "@/types/aiModels";
 import { graphPoints, readMetric } from "@/utils/aiModelMetrics";
 
+import MetricHistoryTable from "./MetricHistoryTable";
+import { useGraphColors } from "@/hooks/use-graph-colors";
+
 type Series = { name: string; data: { x: number; y: number | null }[] }[];
 
 function HistoryChart({
@@ -18,6 +21,7 @@ function HistoryChart({
 }>) {
   const { t, i18n } = useTranslation(["views/system"]);
   const { theme, systemTheme } = useTheme();
+  const colors = useGraphColors();
   const resolvedTheme = theme === "system" ? systemTheme : theme;
   const times = series.flatMap((item) => item.data.map((point) => point.x));
   const first = times.length ? Math.min(...times) : undefined;
@@ -36,11 +40,15 @@ function HistoryChart({
       theme: {
         mode: resolvedTheme === "dark" ? "dark" : "light",
       },
-      colors: ["#3b82f6", "#f59e0b", "#10b981"],
-      stroke: { width: single ? 0 : 2, curve: "straight" },
+      colors: colors.slice(0, 3),
+      stroke: {
+        width: single ? 0 : 2,
+        curve: "straight",
+        dashArray: [0, 5, 2],
+      },
       markers: { size: 2 },
       dataLabels: { enabled: false },
-      grid: { borderColor: "#88888825", strokeDashArray: 3 },
+      grid: { borderColor: colors[3], strokeDashArray: 3 },
       xaxis: {
         type: "datetime",
         min: first == null ? undefined : first - 10000,
@@ -54,7 +62,7 @@ function HistoryChart({
         labels: {
           formatter: (value) =>
             Number.isFinite(value)
-              ? `${value.toLocaleString(i18n.language, { maximumFractionDigits: 1 })} ${unit}`
+              ? `${value.toLocaleString(i18n.language, { maximumSignificantDigits: 3 })} ${unit}`
               : "",
         },
       },
@@ -66,7 +74,7 @@ function HistoryChart({
       },
       legend: { show: true, position: "bottom" },
     }),
-    [resolvedTheme, unit, i18n.language, first, last, single],
+    [colors, resolvedTheme, unit, i18n.language, first, last, single],
   );
   const count = series.reduce(
     (sum, item) => sum + item.data.filter((point) => point.y != null).length,
@@ -85,6 +93,7 @@ function HistoryChart({
           {t("models.graphs.noSamples")}
         </div>
       )}
+      <MetricHistoryTable title={title} series={series} unit={unit} />
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import AudioReviewResults from "./AudioReviewResults";
 import {
   useId,
   useCallback,
@@ -618,6 +619,7 @@ function ReviewGroup({
 
       {open && (
         <div className="space-y-0.5">
+          <AudioReviewResults reviewId={review.id} onSeek={onSeek} />
           {shouldFetchEvents && isValidating && !fetchedEvents ? (
             <ActivityIndicator />
           ) : (

@@ -1,8 +1,10 @@
 """Run a read-only Frigate audio trial with a single shared CPU queue."""
 
+import hashlib
 import json
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -11,10 +13,11 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from contextlib import ExitStack
 from pathlib import Path
 
 from queue_store import Queue, health_reason, retry_reasons
-from telemetry import STAGE_FILE, Telemetry
+from telemetry import STAGE_FILE, Telemetry, atomic_json, best_effort
 
 logger = logging.getLogger(__name__)
 STOP = threading.Event()
@@ -53,6 +56,15 @@ def memory_available() -> int:
 def health(large: bool = False) -> str:
     """Fail closed if health or the shared memory limit cannot be checked."""
     try:
+        config = read_json("/config")
+        if any(
+            config.get("cameras", {})
+            .get(camera, {})
+            .get("audio_transcription", {})
+            .get("enabled")
+            for camera in CAMERAS
+        ):
+            return "transcription ownership conflict"
         return health_reason(read_json("/stats"), memory_available(), large)
     except (OSError, ValueError, KeyError, RuntimeError):
         return "health check unavailable"
@@ -82,31 +94,60 @@ def stop_inference(process: subprocess.Popen) -> None:
         process.wait()
 
 
+def wait_for_inference(process) -> None:
+    """Prioritize camera health and bound a child process lifetime."""
+    start = time.monotonic()
+    busy_checks = 0
+    while process.poll() is None:
+        if STOP.wait(3):
+            raise RuntimeError("worker stopping")
+        if METRICS:
+            METRICS.sample(process.pid)
+        reason = running_health_reason()
+        busy_checks = busy_checks + 1 if reason else 0
+        if busy_checks >= 3:
+            raise RuntimeError("camera processing needs priority")
+        if time.monotonic() - start > 180:
+            raise RuntimeError("inference time limit")
+    if process.returncode:
+        raise RuntimeError(f"inference exited {process.returncode}")
+
+
 def infer(audio: Path, output: Path, model: str) -> dict:
     """Bound inference time and stop optional work during sustained camera stress."""
-    STAGE_FILE.unlink(missing_ok=True)
-    with (STATE / "inference.log").open("w") as log, output.open("w") as result_file:
+    best_effort(STAGE_FILE.unlink)(missing_ok=True)
+    checkpoint = output.with_suffix(".checkpoint.json")
+    with ExitStack() as stack:
+        log = best_effort((STATE / "inference.log").open)("w")
+        if log is not None:
+            stack.enter_context(log)
+        result_file = stack.enter_context(output.open("w"))
         process = subprocess.Popen(
-            [sys.executable, "infer.py", str(audio), "--model", model],
+            [
+                sys.executable,
+                "infer.py",
+                str(audio),
+                "--model",
+                model,
+                "--job-key",
+                output.parent.name,
+            ],
             stdout=result_file,
-            stderr=log,
+            stderr=log if log is not None else subprocess.DEVNULL,
         )
-        start = time.monotonic()
-        busy_checks = 0
         try:
-            while process.poll() is None:
-                if STOP.wait(3):
-                    raise RuntimeError("worker stopping")
-                if METRICS:
-                    METRICS.sample(process.pid)
-                reason = running_health_reason()
-                busy_checks = busy_checks + 1 if reason else 0
-                if busy_checks >= 3:
-                    raise RuntimeError("camera processing needs priority")
-                if time.monotonic() - start > 180:
-                    raise RuntimeError("inference time limit")
-            if process.returncode:
-                raise RuntimeError(f"inference exited {process.returncode}")
+            wait_for_inference(process)
+        except RuntimeError:
+            if checkpoint.exists():
+                result = json.loads(checkpoint.read_text())
+                result["status"] = "partial analysis; interrupted; unverified"
+                result["interrupted"] = True
+                for stage in result.get("stages", {}).values():
+                    if stage["status"] == "running":
+                        stage["status"] = "failed"
+                        stage["error"] = "Interrupted"
+                return result
+            raise
         finally:
             stop_inference(process)
             if METRICS:
@@ -169,17 +210,16 @@ def write_status(queue: Queue, status: str) -> None:
         "cameras": CAMERAS,
         "jobs": rows,
     }
-    temporary = STATE / "status.tmp"
-    temporary.write_text(json.dumps(report, ensure_ascii=False, indent=2))
-    temporary.replace(STATE / "status.json")
+    best_effort(atomic_json)(STATE / "status.json", report)
     if METRICS:
         METRICS.queue = dict(
             queue.db.execute("SELECT state,COUNT(*) FROM jobs GROUP BY state")
         )
         for state in ("pending", "running", "done", "failed", "expired"):
             METRICS.queue.setdefault(state, 0)
+        METRICS.queue["pending"] += METRICS.queue.get("second_opinion", 0)
         oldest = queue.db.execute(
-            "SELECT MIN(created) FROM jobs WHERE state='pending'"
+            "SELECT MIN(created) FROM jobs WHERE state IN ('pending','second_opinion')"
         ).fetchone()[0]
         METRICS.oldest_wait = max(0, time.time() - oldest) if oldest else 0
         try:
@@ -190,6 +230,7 @@ def write_status(queue: Queue, status: str) -> None:
             (
                 code
                 for word, code in (
+                    ("transcription", "transcription"),
                     ("memory", "memory"),
                     ("detector", "detector"),
                     ("frames", "frames"),
@@ -208,13 +249,22 @@ def process_job(queue: Queue, job: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="audio-") as directory:
         root = Path(directory)
         audio = download_audio(job, root)
-        result = infer(audio, root / "medium.json", "medium")
+        stages = STATE / "checkpoints" / hashlib.sha256(job["id"].encode()).hexdigest()
+        stages.mkdir(parents=True, exist_ok=True)
+        result = (
+            json.loads(job["result"])
+            if job.get("result")
+            else infer(audio, stages / "medium.json", "medium")
+        )
+        if result.get("interrupted"):
+            queue.finish(job, time.time(), result)
+            return
         reasons = retry_reasons(result)
         result["retry_reasons"] = reasons
         result["large_status"] = "not needed"
         if reasons:
             result["large_status"] = "second opinion pending; may be interrupted"
-            queue.finish(job, time.time(), result)
+            queue.checkpoint(job, time.time(), result)
             # Retry timestamps are saved before execution, so crashes consume budget.
             budget_path = STATE / "large-budget.json"
             history = (
@@ -224,8 +274,12 @@ def process_job(queue: Queue, job: dict) -> None:
             reason = health(large=True)
             if len(history) >= 2:
                 result["large_status"] = "hourly retry limit"
+                queue.defer(job, time.time(), result)
+                return
             elif reason:
                 result["large_status"] = "deferred: " + reason
+                queue.defer(job, time.time(), result)
+                return
             else:
                 history.append(time.time())
                 budget_temporary = budget_path.with_suffix(".tmp")
@@ -233,7 +287,7 @@ def process_job(queue: Queue, job: dict) -> None:
                 budget_temporary.replace(budget_path)
                 try:
                     result["large_second_opinion"] = infer(
-                        audio, root / "large.json", "large-v3"
+                        audio, stages / "large.json", "large-v3"
                     )
                     result["large_status"] = (
                         "second opinion; not independently verified"
@@ -241,6 +295,46 @@ def process_job(queue: Queue, job: dict) -> None:
                 except (OSError, ValueError, RuntimeError) as error:
                     result["large_status"] = "retry failed: " + str(error)
         queue.finish(job, time.time(), result)
+        shutil.rmtree(stages, ignore_errors=True)
+
+
+def poll_reviews(queue: Queue) -> None:
+    """Fetch settled review segments and prune obsolete inference checkpoints."""
+    for stale in (STATE / "checkpoints").glob("*"):
+        if stale.is_dir() and stale.stat().st_mtime < time.time() - 7 * 86400:
+            shutil.rmtree(stale, ignore_errors=True)
+    params = urllib.parse.urlencode(
+        {
+            "cameras": ",".join(CAMERAS),
+            "after": time.time() - 600,
+            "limit": 500,
+        }
+    )
+    queue.enqueue(read_json("/review?" + params), time.time(), CAMERAS)
+
+
+def process_pending(queue: Queue) -> bool:
+    """Process at most one job and report whether the queue should drain again."""
+    reason = health()
+    write_status(queue, "paused: " + reason if reason else "listening")
+    job = None if reason else queue.claim(time.time())
+    if job:
+        write_status(queue, "processing " + job["id"])
+        try:
+            process_job(queue, job)
+            logger.info("Completed audio job %s", job["id"])
+        except (
+            OSError,
+            ValueError,
+            RuntimeError,
+            subprocess.SubprocessError,
+        ) as error:
+            # Do not put audio contents, URLs, or model output in logs.
+            queue.fail(job, time.time(), type(error).__name__)
+            logger.warning("Audio job %s failed: %s", job["id"], type(error).__name__)
+        write_status(queue, "listening")
+        return True
+    return False
 
 
 def main() -> None:
@@ -251,40 +345,22 @@ def main() -> None:
     queue = Queue(str(STATE / "queue.sqlite"))
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: STOP.set())
+    next_poll = 0.0
     while not STOP.is_set():
+        completed_job = False
         try:
-            params = urllib.parse.urlencode(
-                {
-                    "cameras": ",".join(CAMERAS),
-                    "after": time.time() - 600,
-                    "limit": 500,
-                }
-            )
-            queue.enqueue(read_json("/review?" + params), time.time(), CAMERAS)
-            reason = health()
-            write_status(queue, "paused: " + reason if reason else "listening")
-            job = None if reason else queue.claim(time.time())
-            if job:
-                write_status(queue, "processing " + job["id"])
-                try:
-                    process_job(queue, job)
-                    logger.info("Completed audio job %s", job["id"])
-                except (
-                    OSError,
-                    ValueError,
-                    RuntimeError,
-                    subprocess.SubprocessError,
-                ) as error:
-                    # Do not put audio contents, URLs, or model output in logs.
-                    queue.fail(job, time.time(), type(error).__name__)
-                    logger.warning(
-                        "Audio job %s failed: %s", job["id"], type(error).__name__
-                    )
-                write_status(queue, "listening")
+            queue.flush_publications()
+            if time.monotonic() >= next_poll:
+                poll_reviews(queue)
+                next_poll = time.monotonic() + 10
+            completed_job = process_pending(queue)
         except (OSError, ValueError, KeyError, RuntimeError) as error:
             logger.warning("Poll unavailable: %s", type(error).__name__)
             write_status(queue, "paused: poll unavailable")
-        STOP.wait(10)
+        # Drain ready jobs immediately, rechecking camera health before each one.
+        # Empty, deferred, and unhealthy queues retain an interruptible cooldown.
+        if not completed_job:
+            STOP.wait(10)
 
 
 if __name__ == "__main__":
