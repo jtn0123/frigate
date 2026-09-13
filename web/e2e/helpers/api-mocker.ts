@@ -172,6 +172,10 @@ export class ApiMocker {
       route.fulfill({ json: [] }),
     );
 
+    await this.page.route("**/api/recordings/storage", (route) =>
+      route.fulfill({ json: {} }),
+    );
+
     // Recordings summary
     await this.page.route("**/api/recordings/summary**", (route) =>
       route.fulfill({ json: {} }),

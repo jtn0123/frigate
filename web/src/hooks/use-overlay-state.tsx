@@ -254,7 +254,7 @@ export function useSearchEffect(
     // on a transition, so a callback that navigated (including asynchronously,
     // after this effect's render) may not be reflected in loc yet. The history
     // entry is the live value; stripping the param must not roll it back.
-    const liveState =
+    const liveState: unknown =
       (window.history.state as { usr?: unknown } | null)?.usr ?? loc.state;
     void navigate(loc.pathname + loc.hash, {
       state: liveState,
