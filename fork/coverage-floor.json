@@ -1,0 +1,6 @@
+{
+  "_comment": "Coverage may not fall below these percentages (D21). Set from the Fork - Checks run named in the commit that changed them; lowering one needs a reason in that commit message.",
+  "tolerance_points": 0.5,
+  "python": null,
+  "web": null
+}

@@ -1,9 +1,18 @@
-"""Validate and normalize test coverage paths before Sonar analysis."""
+"""Validate coverage paths before Sonar analysis, and hold coverage to a floor.
 
+Sonar's quality gate judges new code only, so a change that deletes tests, or a
+new module with none, passes every other gate. fork/coverage-floor.json records
+what the suites measured when the floor was last set; this fails the job when
+either side falls below it by more than the recorded tolerance (D21).
+"""
+
+import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from defusedxml.ElementTree import parse
+
+FLOOR_PATH = Path("fork/coverage-floor.json")
 
 
 def resolve_source(root: Path, filename: str, prefixes: list[str]) -> str:
@@ -46,6 +55,65 @@ def prepare_reports(root: Path) -> tuple[int, int]:
     return len(classes), count
 
 
+def python_line_rate(xml_path: Path) -> float:
+    """Measured Python line coverage as a percentage of measurable lines."""
+    lines = parse(xml_path).findall(".//line")
+    if not lines:
+        raise ValueError("Python coverage report has no measured lines")
+    covered = sum(1 for line in lines if int(line.attrib.get("hits", "0")) > 0)
+    return 100 * covered / len(lines)
+
+
+def web_line_rate(lcov_path: Path) -> float:
+    """Measured web line coverage from the lcov DA records."""
+    total = covered = 0
+    for line in lcov_path.read_text().splitlines():
+        if not line.startswith("DA:"):
+            continue
+        _, _, hits = line[3:].partition(",")
+        total += 1
+        covered += int(hits) > 0
+    if not total:
+        raise ValueError("JavaScript coverage report has no measured lines")
+    return 100 * covered / total
+
+
+def check_floor(root: Path, measured: dict[str, float]) -> list[str]:
+    """Report every side that fell below its recorded floor."""
+    floor = json.loads((root / FLOOR_PATH).read_text())
+    tolerance = float(floor.get("tolerance_points", 0))
+    below = []
+    for side, value in sorted(measured.items()):
+        recorded = floor.get(side)
+        if recorded is None:
+            print(f"{side} coverage {value:.2f}% (no floor recorded yet)")
+            continue
+        print(
+            f"{side} coverage {value:.2f}% (floor {recorded}%, tolerance {tolerance})"
+        )
+        if value < float(recorded) - tolerance:
+            below.append(
+                f"{side} coverage fell to {value:.2f}%, below the {recorded}% floor"
+            )
+    return below
+
+
 if __name__ == "__main__":
-    python_count, web_count = prepare_reports(Path.cwd())
+    root = Path.cwd()
+    python_count, web_count = prepare_reports(root)
     print(f"Validated coverage paths: {python_count} Python, {web_count} web files")
+    below = check_floor(
+        root,
+        {
+            "python": python_line_rate(root / "coverage-py/coverage.xml"),
+            "web": web_line_rate(root / "web/coverage/lcov.info"),
+        },
+    )
+    if below:
+        for line in below:
+            print(f"::error::{line}")
+        print(
+            "Add tests, or lower the floor in fork/coverage-floor.json in the same "
+            "commit that explains why",
+        )
+        raise SystemExit(1)
