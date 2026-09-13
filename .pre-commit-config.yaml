@@ -19,10 +19,10 @@ repos:
         entry: bash -c 'cd web && npx eslint --cache --cache-strategy content --cache-location .cache/eslint/ --fix "${@#web/}"' --
         language: system
         files: ^web/.*\.(ts|tsx|js|jsx)$
-        exclude: ^web/(dist|node_modules)/
+        exclude: ^web/(dist|node_modules/)|web/src/types/fork/api\.gen\.ts$
       - id: prettier-web
         name: prettier (web)
         entry: bash -c 'cd web && npx prettier --write "${@#web/}"' --
         language: system
         files: ^web/.*\.(ts|tsx|js|jsx|css|html|json)$
-        exclude: ^web/(dist|node_modules|public/locales)/
+        exclude: ^web/(dist|node_modules|public/locales/)|web/src/types/fork/api\.gen\.ts$

@@ -1,6 +1,5 @@
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import ErrorState from "@/components/fork/ErrorState";
-import { FrigateStats } from "@/types/stats";
 import { useEffect, useMemo, useRef, useState } from "react";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -20,7 +19,6 @@ import useOptimisticState from "@/hooks/use-optimistic-state";
 import CameraMetrics from "@/views/system/CameraMetrics";
 import { useHashState } from "@/hooks/use-overlay-state";
 import { Toaster } from "@/components/ui/sonner";
-import { FrigateConfig } from "@/types/frigateConfig";
 import EnrichmentMetrics from "@/views/system/EnrichmentMetrics";
 import AIModelMetrics from "@/views/system/AIModelMetrics";
 import { useTranslation } from "react-i18next";
@@ -39,7 +37,7 @@ type SystemMetric = (typeof allMetrics)[number];
 
 function System() {
   const { t } = useTranslation(["views/system"]);
-  const { data: config } = useSWR<FrigateConfig>("config", {
+  const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
 
@@ -94,7 +92,7 @@ function System() {
     data: statsSnapshot,
     error: statsError,
     mutate: refreshStats,
-  } = useSWR<FrigateStats>("stats", {
+  } = useApi("/stats", {
     revalidateOnFocus: false,
   });
 

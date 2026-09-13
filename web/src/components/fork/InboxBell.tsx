@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import useSWR from "swr";
+import { useApi } from "@/api/fork/client";
 import { isDesktop } from "react-device-detect";
 import {
   LuBell,
@@ -57,8 +57,6 @@ import {
   setQuietHours,
   type InboxItem,
 } from "@/lib/fork/inbox-store";
-import { FrigateConfig } from "@/types/frigateConfig";
-
 type InboxBellProps = {
   variant: ForkNavVariant;
   large?: boolean;
@@ -146,7 +144,7 @@ type InboxPanelBodyProps = {
 function InboxPanelBody({ onNavigate }: Readonly<InboxPanelBodyProps>) {
   const { t } = useTranslation(["fork"]);
   const navigate = useNavigate();
-  const { data: config } = useSWR<FrigateConfig>("config", {
+  const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
   const { items, settings } = useInbox();
@@ -290,7 +288,7 @@ function InboxPanelBody({ onNavigate }: Readonly<InboxPanelBodyProps>) {
 
 function InboxSettingsSection() {
   const { t } = useTranslation(["fork"]);
-  const { data: config } = useSWR<FrigateConfig>("config", {
+  const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
   const cameras = useAllowedCameras();
