@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def write_private_file(path: Path, content: str) -> None:
-    """Replace a file atomically with owner-only content, without following symlinks."""
+    """Durably replace a file with owner-only content, without following symlinks."""
     temporary_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -14,7 +14,14 @@ def write_private_file(path: Path, content: str) -> None:
         ) as temporary:
             temporary_path = Path(temporary.name)
             temporary.write(content)
+            temporary.flush()
+            os.fsync(temporary.fileno())
         os.replace(temporary_path, path)
+        directory_descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)

@@ -123,7 +123,7 @@ auth:
   # Optional: Enable authentication
   enabled: True
   # Optional: Reset the admin user password on startup (default: shown below)
-  # New password is printed in the logs
+  # New password is saved to /config/admin_password (owner access only)
   reset_admin_password: False
   # Optional: Cookie to store the JWT token for native auth (default: shown below)
   cookie_name: frigate_token

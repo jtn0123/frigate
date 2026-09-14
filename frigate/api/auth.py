@@ -36,6 +36,7 @@ from frigate.api.media_auth import (
 from frigate.config import AuthConfig, ProxyConfig
 from frigate.const import CONFIG_DIR, JWT_SECRET_ENV_VAR, PASSWORD_HASH_ALGORITHM
 from frigate.models import User
+from frigate.util.admin_password import remove_admin_password
 
 _CONFIG_AUTH = "config/auth"
 _AUTHENTICATION_REQUIRED = "Authentication required"
@@ -1102,6 +1103,9 @@ async def update_password(
         .where(User.username == username)
         .execute
     )
+
+    if username == "admin":
+        await asyncio.to_thread(remove_admin_password, Path(CONFIG_DIR))
 
     response = JSONResponse(content={"success": True})
 
