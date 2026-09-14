@@ -33,6 +33,7 @@ import {
   LiveStreamMetadata,
   VideoResolutionType,
 } from "@/types/live";
+import type { components } from "@/types/fork/api.gen";
 import { RecordingStartingPoint } from "@/types/record";
 import React, {
   useCallback,
@@ -904,35 +905,32 @@ function FrigateCameraFeatures({
     recordingRequestPending.current = true;
     setIsRecordingPending(true);
     try {
-      const response = await axios.post(
-        `events/${camera.name}/on_demand/create`,
-        {
-          include_recording: true,
-          duration: null,
-        },
-      );
+      const response = await axios.post<
+        components["schemas"]["EventCreateResponse"]
+      >(`events/${camera.name}/on_demand/create`, {
+        include_recording: true,
+        duration: null,
+      });
 
       if (!response.data.success || !response.data.event_id) {
         throw new Error("Recording creation was not confirmed");
       }
-      if (response.data.success) {
-        recordingEventIdRef.current = response.data.event_id;
-        setIsRecording(true);
-        const toastId = toast.success(
-          <div className="flex flex-col space-y-3">
-            <div className="font-semibold">{t("manualRecording.started")}</div>
-            {!camera.record.enabled ||
-              (camera.record.alerts.retain.days == 0 && (
-                <div>{t("manualRecording.recordDisabledTips")}</div>
-              ))}
-          </div>,
-          {
-            position: "top-center",
-            duration: 10000,
-          },
-        );
-        setActiveToastId(toastId);
-      }
+      recordingEventIdRef.current = response.data.event_id;
+      setIsRecording(true);
+      const toastId = toast.success(
+        <div className="flex flex-col space-y-3">
+          <div className="font-semibold">{t("manualRecording.started")}</div>
+          {!camera.record.enabled ||
+            (camera.record.alerts.retain.days == 0 && (
+              <div>{t("manualRecording.recordDisabledTips")}</div>
+            ))}
+        </div>,
+        {
+          position: "top-center",
+          duration: 10000,
+        },
+      );
+      setActiveToastId(toastId);
     } catch (error) {
       toast.error(t("manualRecording.failedToStart"), {
         position: "top-center",
@@ -952,12 +950,11 @@ function FrigateCameraFeatures({
     }
     try {
       if (recordingEventIdRef.current) {
-        const response = await axios.put(
-          `events/${recordingEventIdRef.current}/end`,
-          {
-            end_time: Math.ceil(Date.now() / 1000),
-          },
-        );
+        const response = await axios.put<
+          components["schemas"]["GenericResponse"]
+        >(`events/${recordingEventIdRef.current}/end`, {
+          end_time: Math.ceil(Date.now() / 1000),
+        });
         if (!response.data.success) {
           throw new Error("Recording stop was not confirmed");
         }
