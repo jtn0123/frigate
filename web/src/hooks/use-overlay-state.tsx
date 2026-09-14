@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useCallback,
   useContext,
   useEffect,
@@ -206,6 +207,12 @@ export function useSearchEffect(
   const [pendingRemoval, setPendingRemoval] = useState(false);
   const processedRef = useRef<string | null>(null);
 
+  // the strip navigate below has to read the location as it is when that
+  // navigate actually runs: an async callback can write location state after
+  // this effect's closure was created, and that state must not be clobbered
+  const locationRef = useRef(location);
+  locationRef.current = location;
+
   const currentParam = searchParams.get(key);
 
   // Process the param via callback (once per unique param value)
@@ -219,7 +226,10 @@ export function useSearchEffect(
 
     if (shouldRemove) {
       processedRef.current = currentParam;
-      setPendingRemoval(true);
+      // react-router v7 wraps navigation in startTransition, so this flag has
+      // to land in the same transition or it flushes before the callback's
+      // navigation is reflected in location.state
+      startTransition(() => setPendingRemoval(true));
     }
   }, [currentParam, callback, key]);
 
@@ -232,17 +242,21 @@ export function useSearchEffect(
     }
 
     setPendingRemoval(false);
-    navigate(location.pathname + location.hash, {
-      state: location.state,
+    const loc = locationRef.current;
+    // react-router updates window.history synchronously but only re-renders
+    // on a transition, so a callback that navigated (including asynchronously,
+    // after this effect's render) may not be reflected in loc yet. The history
+    // entry is the live value; stripping the param must not roll it back.
+    // location.state is loosely typed upstream, so name the type here rather
+    // than let it widen into the assignment
+    const liveState: unknown =
+      (window.history.state as { usr?: unknown } | null)?.usr ?? loc.state;
+    navigate(loc.pathname + loc.hash, {
+      state: liveState,
       replace: true,
     });
-  }, [
-    pendingRemoval,
-    navigate,
-    location.pathname,
-    location.hash,
-    location.state,
-  ]);
+    // locationRef is stable so we don't need it in deps
+  }, [pendingRemoval, navigate]);
 
   // Reset tracking when param is removed from the URL
   useEffect(() => {
