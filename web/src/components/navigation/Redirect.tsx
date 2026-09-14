@@ -8,7 +8,7 @@ export function Redirect({ to }: Readonly<RedirectProps>) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    navigate(to);
+    void navigate(to);
   }, [to, navigate]);
   return <div />;
 }

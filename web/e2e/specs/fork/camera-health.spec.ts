@@ -369,3 +369,28 @@ test.describe("Camera health cards @high", () => {
     },
   );
 });
+
+test("camera health selection survives reload and browser history @high @mobile", async ({
+  frigateApp,
+}, testInfo) => {
+  await gotoHealth(frigateApp);
+  const { page } = frigateApp;
+  await page
+    .getByRole("combobox", { name: "Camera", exact: true })
+    .selectOption("front_door");
+  await expect(page).toHaveURL(/camera=front_door#health/);
+  await expect(page.getByTestId("camera-health-front_door")).toBeVisible();
+  await expect(page.getByTestId("camera-health-backyard")).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("health-filter-after.png"),
+    fullPage: true,
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("combobox", { name: "Camera", exact: true }),
+  ).toHaveValue("front_door");
+  await page.goBack();
+  await expect(page.getByTestId("camera-health-backyard")).toBeVisible();
+  await page.goForward();
+  await expect(page.getByTestId("camera-health-backyard")).toHaveCount(0);
+});

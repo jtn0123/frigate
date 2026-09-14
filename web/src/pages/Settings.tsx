@@ -1,3 +1,4 @@
+import { useUnsavedNavigation } from "@/hooks/use-unsaved-navigation";
 import { sortedStrings } from "@/utils/stringSort";
 import { wrapAsync } from "@/utils/promise";
 import {
@@ -757,6 +758,7 @@ export default function Settings() {
   const { data: fullSchema } = useSWR<RJSFSchema>("config/schema.json");
 
   const hasPendingChanges = Object.keys(pendingDataBySection).length > 0;
+  useUnsavedNavigation(unsavedChanges || hasPendingChanges);
   const hasPendingValidationErrors = useMemo(
     () =>
       Object.values(sectionStatusByKey).some(
@@ -1929,7 +1931,7 @@ export default function Settings() {
           >
             <MobilePageHeader
               className="top-0 mb-0"
-              onClose={() => navigate(-1)}
+              onClose={() => void navigate(-1)}
               actions={
                 <div className="flex items-center gap-2">
                   {CAMERA_SELECT_BUTTON_PAGES.includes(pageToggle) && (

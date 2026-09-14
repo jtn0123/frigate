@@ -38,6 +38,17 @@ test.describe("Settings save @high", () => {
       await expect(
         page.getByRole("button", { name: /^Restart$/i }).first(),
       ).toBeVisible();
+      const prompts: string[] = [];
+      page.on("dialog", async (prompt) => {
+        prompts.push(prompt.message());
+        await prompt.dismiss();
+      });
+      await page
+        .getByRole("link", { name: "Export", exact: true })
+        .first()
+        .click();
+      await expect(page).toHaveURL(/\/export$/);
+      expect(prompts).toEqual([]);
     });
   });
 

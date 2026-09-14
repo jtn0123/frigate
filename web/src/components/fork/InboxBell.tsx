@@ -155,7 +155,7 @@ function InboxPanelBody({ onNavigate }: Readonly<InboxPanelBodyProps>) {
     (item: InboxItem) => {
       markInboxRead(item.id);
       onNavigate();
-      navigate(`/review?id=${encodeURIComponent(item.id)}`);
+      void navigate(`/review?id=${encodeURIComponent(item.id)}`);
     },
     [navigate, onNavigate],
   );

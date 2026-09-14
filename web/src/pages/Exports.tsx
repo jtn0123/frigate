@@ -1,3 +1,5 @@
+import { useManagedRead } from "@/hooks/fork/use-managed-read";
+import { usePendingAction } from "@/hooks/fork/use-pending-action";
 import { baseUrl } from "@/api/baseUrl";
 import { useJobStatus } from "@/api/ws";
 import { wrapAsync } from "@/utils/promise";
@@ -90,7 +92,11 @@ function Exports() {
 
   // Data
 
-  const { data: cases, mutate: updateCases } = useSWR<ExportCase[]>("cases");
+  const {
+    data: cases,
+    mutate: updateCases,
+    error: casesError,
+  } = useManagedRead<ExportCase[]>("cases");
 
   // The HTTP fetch hydrates the page on first paint and on focus. Once the
   // WebSocket is connected, the `job_state` topic delivers progress updates
@@ -128,7 +134,7 @@ function Exports() {
     data: rawExports,
     mutate: updateExports,
     error: exportsError,
-  } = useSWR<Export[]>(
+  } = useManagedRead<Export[]>(
     exportSearchParams && Object.keys(exportSearchParams).length > 0
       ? ["exports", exportSearchParams]
       : "exports",
@@ -259,20 +265,21 @@ function Exports() {
     async (ids: string[]): Promise<void> => {
       const idSet = new Set(ids);
       const removeDeleted = (current: Export[] | undefined) =>
-        current ? current.filter((exp) => !idSet.has(exp.id)) : current;
+        (current ?? []).filter((exp) => !idSet.has(exp.id));
 
-      await updateExports(removeDeleted, { revalidate: false });
-
-      try {
-        await axios.post("exports/delete", { ids });
-        await updateExports();
-        await updateCases();
-      } catch (err) {
-        // On failure, pull fresh state from the server so any items that
-        // weren't actually deleted reappear in the UI.
-        await updateExports();
-        throw err;
-      }
+      await updateExports(
+        async (current) => {
+          await axios.post("exports/delete", { ids });
+          return removeDeleted(current);
+        },
+        {
+          optimisticData: removeDeleted,
+          rollbackOnError: true,
+          revalidate: false,
+        },
+      );
+      void updateExports().catch(() => undefined);
+      void updateCases().catch(() => undefined);
     },
     [updateExports, updateCases],
   );
@@ -383,48 +390,25 @@ function Exports() {
     ExportCase | undefined
   >();
 
-  const onHandleDelete = useCallback(() => {
-    if (!deleteClip) {
-      return;
-    }
-
-    deleteExports([deleteClip.file])
-      .then(() => setDeleteClip(undefined))
-      .catch((error) => {
-        const errorMessage =
-          error?.response?.data?.message ||
-          error?.response?.data?.detail ||
-          "Unknown error";
-        toast.error(
-          t("bulkToast.error.deleteFailed", { errorMessage: errorMessage }),
-          { position: "top-center" },
-        );
+  const deletion = usePendingAction();
+  const onHandleDelete = () => {
+    if (!deleteClip) return;
+    void deletion
+      .run(() => deleteExports([deleteClip.file]))
+      .then((deleted) => {
+        if (deleted) setDeleteClip(undefined);
       });
-  }, [deleteClip, deleteExports, t]);
+  };
 
   const onHandleRename = useCallback(
-    (id: string, update: string) => {
-      axios
-        .patch(`export/${id}/rename`, {
-          name: update,
-        })
-        .then((response) => {
-          if (response.status === 200) {
-            setDeleteClip(undefined);
-            mutate();
-          }
-        })
-        .catch((error) => {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.response?.data?.detail ||
-            "Unknown error";
-          toast.error(t("toast.error.renameExportFailed", { errorMessage }), {
-            position: "top-center",
-          });
-        });
+    async (id: string, update: string): Promise<void> => {
+      await axios.patch(`export/${id}/rename`, { name: update });
+      // Reconcile in the background after the server accepted the write. A
+      // refresh failure must not turn a successful rename into a failed save.
+      void updateExports().catch(() => undefined);
+      toast.success(t("navigation.saved", { ns: "fork" }));
     },
-    [mutate, setDeleteClip, t],
+    [updateExports, t],
   );
 
   // Keyboard Listener
@@ -599,7 +583,9 @@ function Exports() {
 
       <AlertDialog
         open={deleteClip != undefined}
-        onOpenChange={() => setDeleteClip(undefined)}
+        onOpenChange={() => {
+          if (!deletion.pending) setDeleteClip(undefined);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -607,17 +593,25 @@ function Exports() {
             <AlertDialogDescription>
               {t("deleteExport.desc", { exportName: deleteClip?.exportName })}
             </AlertDialogDescription>
+            {deletion.failed && (
+              <p role="alert" className="text-sm text-danger">
+                {t("navigation.actionFailed", { ns: "fork" })}
+              </p>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>
+            <AlertDialogCancel disabled={deletion.pending}>
               {t("button.cancel", { ns: "common" })}
             </AlertDialogCancel>
             <Button
-              aria-label="Delete Export"
+              disabled={deletion.pending}
+              aria-label={t("deleteExport.label")}
               variant="destructive"
               onClick={() => onHandleDelete()}
             >
-              {t("button.delete", { ns: "common" })}
+              {deletion.pending
+                ? t("navigation.working", { ns: "fork" })
+                : t("button.delete", { ns: "common" })}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -858,10 +852,12 @@ function Exports() {
         )}
       </div>
 
-      {exportsError ? (
+      {exportsError || casesError ? (
         <ErrorState
-          error={exportsError}
-          onRetry={wrapAsync(() => updateExports())}
+          error={exportsError || casesError}
+          onRetry={wrapAsync(() =>
+            Promise.all([updateExports(), updateCases()]),
+          )}
         />
       ) : selectedCase ? (
         <CaseView
@@ -918,7 +914,7 @@ type AllExportsViewProps = {
   onSelectExport: (e: Export) => void;
   setSelectedCaseId: (id: string) => void;
   setSelected: (e: Export) => void;
-  renameClip: (id: string, update: string) => void;
+  renameClip: (id: string, update: string) => Promise<void>;
   setDeleteClip: (d: DeleteClipType | undefined) => void;
   onAssignToCase: (e: Export) => void;
 };
@@ -1064,7 +1060,7 @@ type CaseViewProps = {
   isLoading: boolean;
   onSelectExport: (e: Export) => void;
   setSelected: (e: Export) => void;
-  renameClip: (id: string, update: string) => void;
+  renameClip: (id: string, update: string) => Promise<void>;
   setDeleteClip: (d: DeleteClipType | undefined) => void;
   onAssignToCase: (e: Export) => void;
   onRemoveFromCase: (e: Export) => void;
