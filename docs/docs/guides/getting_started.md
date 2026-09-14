@@ -132,7 +132,7 @@ services:
       - "8554:8554" # RTSP feeds
 ```
 
-Now you should be able to start Frigate by running `docker compose up -d` from within the folder containing `docker-compose.yml`. On startup, an admin user and password will be created and outputted in the logs. You can see this by running `docker logs frigate`. Frigate should now be accessible at `https://server_ip:8971` where you can login with the `admin` user and finish configuration using the Settings UI.
+Now you should be able to start Frigate by running `docker compose up -d` from within the folder containing `docker-compose.yml`. On startup, an admin user is created and its password is saved in the owner-only file `/config/admin_password`. Retrieve it with `docker exec frigate cat /config/admin_password`. Frigate automatically deletes the generated credential file after you change the admin password. Frigate should now be accessible at `https://server_ip:8971` where you can login with the `admin` user and finish configuration using the Settings UI.
 
 ## Configuring Frigate
 
