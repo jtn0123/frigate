@@ -45,7 +45,7 @@
     "placeholder": "Search pages, cameras, settings, and actions",
     "empty": "No results found.",
     "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
-    "footerHintMac": "⌘K or / to open, arrows to move, Enter to run",
+    "footerHintMac": "\u2318K or / to open, arrows to move, Enter to run",
     "groups": {
       "recent": "Recent",
       "pages": "Pages",
@@ -271,5 +271,25 @@
   },
   "statusAlerts": {
     "label": "System warnings"
+  },
+  "navigation": {
+    "unsaved": "You have unsaved changes. Leave this page and discard them?",
+    "camera": "Camera",
+    "allCameras": "All cameras",
+    "range": "History range",
+    "range15": "Last 15 minutes",
+    "range60": "Last hour",
+    "range1440": "Last 24 hours",
+    "loading": "Loading page\u2026",
+    "copyView": "Copy link to this view",
+    "copied": "Link copied",
+    "copyFailed": "Copy this address to share the current view",
+    "refreshing": "Refreshing measurements\u2026",
+    "historyUnavailable": "History could not be loaded. Current measurements are shown below.",
+    "saving": "Saving\u2026",
+    "saved": "Saved",
+    "working": "Working\u2026",
+    "actionFailed": "The action failed. Try again.",
+    "renameFailed": "The export could not be renamed. Your input is still here. Try again."
   }
 }

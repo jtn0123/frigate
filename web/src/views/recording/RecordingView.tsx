@@ -371,11 +371,11 @@ export function RecordingView({
   const handleBack = useCallback(() => {
     // if we came from a direct share link, there is no history to go back to, so navigate to the homepage instead
     if (recording?.navigationSource === "shared-link") {
-      navigate("/");
+      void navigate("/");
       return;
     }
 
-    navigate(-1);
+    void navigate(-1);
   }, [navigate, recording?.navigationSource]);
 
   useEffect(() => {
@@ -648,7 +648,7 @@ export function RecordingView({
               aria-label="Go to the main camera live view"
               size="sm"
               onClick={() => {
-                navigate(`/#${mainCamera}`);
+                void navigate(`/#${mainCamera}`);
               }}
             >
               <FaVideo className="size-5 text-secondary-foreground" />

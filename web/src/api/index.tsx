@@ -37,6 +37,7 @@ export function ApiProvider({ children, options }: Readonly<ApiProviderType>) {
           return axios.get(path, { params }).then((res) => res.data);
         },
         onError: (error, _key) => {
+          if (axios.isCancel(error)) return;
           const publicShare = isPublicSharePath(window.location.pathname);
           if (
             error.response &&

@@ -359,7 +359,9 @@ export default function LiveContextMenu({
           <ContextMenuItem
             disabled={!isEnabled}
             onClick={
-              isEnabled ? () => navigate(`?debug=true#${camera}`) : undefined
+              isEnabled
+                ? () => void navigate(`?debug=true#${camera}`)
+                : undefined
             }
           >
             <div className="flex w-full cursor-pointer items-center justify-start gap-2">

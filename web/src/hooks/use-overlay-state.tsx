@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useCallback,
   useContext,
   useEffect,
@@ -15,7 +16,14 @@ export function useOverlayState<S>(
   key: string,
   defaultValue: S | undefined = undefined,
   preserveSearch: boolean = true,
-): [S | undefined, (value: S, replace?: boolean) => void] {
+): [
+  S | undefined,
+  (
+    value: S,
+    replace?: boolean,
+    additionalState?: Record<string, unknown>,
+  ) => void,
+] {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -23,17 +31,22 @@ export function useOverlayState<S>(
   locationRef.current = location;
 
   const setOverlayStateValue = useCallback(
-    (value: S, replace: boolean = false) => {
+    (
+      value: S,
+      replace: boolean = false,
+      additionalState?: Record<string, unknown>,
+    ) => {
       const loc = locationRef.current;
       const currentValue = loc.state?.[key] as S | undefined;
 
-      if (Object.is(currentValue, value)) {
+      if (Object.is(currentValue, value) && additionalState === undefined) {
         return;
       }
 
-      const newLocationState = { ...loc.state };
+      // Related fields must be written together, before the next transition.
+      const newLocationState = { ...loc.state, ...additionalState };
       newLocationState[key] = value;
-      navigate(loc.pathname + (preserveSearch ? loc.search : ""), {
+      void navigate(loc.pathname + (preserveSearch ? loc.search : ""), {
         state: newLocationState,
         replace,
       });
@@ -89,7 +102,7 @@ export function usePersistedOverlayState<S extends string>(
       setPersistedValue(value);
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      navigate(loc.pathname, { state: newLocationState, replace });
+      void navigate(loc.pathname, { state: newLocationState, replace });
     },
     // locationRef is stable so we don't need it in deps
     [key, navigate, setPersistedValue],
@@ -146,7 +159,7 @@ export function useUserPersistedOverlayState<S extends string>(
       setPersistedValue(value);
       const newLocationState = { ...loc.state };
       newLocationState[key] = value;
-      navigate(loc.pathname, { state: newLocationState, replace });
+      void navigate(loc.pathname, { state: newLocationState, replace });
     },
     // locationRef is stable so we don't need it in deps
     [key, navigate, setPersistedValue],
@@ -178,10 +191,17 @@ export function useHashState<S extends string>(): [
   const setHash = useCallback(
     (value: S | undefined) => {
       const loc = locationRef.current;
+      const state: unknown = loc.state;
       if (!value) {
-        navigate(loc.pathname);
+        void navigate(
+          { pathname: loc.pathname, search: loc.search },
+          { state },
+        );
       } else {
-        navigate(`${loc.pathname}#${value}`, { state: loc.state });
+        void navigate(
+          { pathname: loc.pathname, search: loc.search, hash: `#${value}` },
+          { state },
+        );
       }
     },
     // locationRef is stable so we don't need it in deps
@@ -206,6 +226,12 @@ export function useSearchEffect(
   const [pendingRemoval, setPendingRemoval] = useState(false);
   const processedRef = useRef<string | null>(null);
 
+  // the strip navigate below has to read the location as it is when that
+  // navigate actually runs: an async callback can write location state after
+  // this effect's closure was created, and that state must not be clobbered
+  const locationRef = useRef(location);
+  locationRef.current = location;
+
   const currentParam = searchParams.get(key);
 
   // Process the param via callback (once per unique param value)
@@ -219,7 +245,10 @@ export function useSearchEffect(
 
     if (shouldRemove) {
       processedRef.current = currentParam;
-      setPendingRemoval(true);
+      // react-router v7 wraps navigation in startTransition, so this flag has
+      // to land in the same transition or it flushes before the callback's
+      // navigation is reflected in location.state
+      startTransition(() => setPendingRemoval(true));
     }
   }, [currentParam, callback, key]);
 
@@ -232,17 +261,21 @@ export function useSearchEffect(
     }
 
     setPendingRemoval(false);
-    navigate(location.pathname + location.hash, {
-      state: location.state,
+    const loc = locationRef.current;
+    // react-router updates window.history synchronously but only re-renders
+    // on a transition, so a callback that navigated (including asynchronously,
+    // after this effect's render) may not be reflected in loc yet. The history
+    // entry is the live value; stripping the param must not roll it back.
+    // location.state is loosely typed upstream, so name the type here rather
+    // than let it widen into the assignment
+    const liveState: unknown =
+      (window.history.state as { usr?: unknown } | null)?.usr ?? loc.state;
+    void navigate(loc.pathname + loc.hash, {
+      state: liveState,
       replace: true,
     });
-  }, [
-    pendingRemoval,
-    navigate,
-    location.pathname,
-    location.hash,
-    location.state,
-  ]);
+    // locationRef is stable so we don't need it in deps
+  }, [pendingRemoval, navigate]);
 
   // Reset tracking when param is removed from the URL
   useEffect(() => {

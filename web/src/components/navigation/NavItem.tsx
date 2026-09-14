@@ -1,3 +1,5 @@
+import { useRouteDataPreload } from "@/hooks/fork/use-route-data-preload";
+import { preloadRoute } from "@/utils/routePreload";
 import { NavLink } from "react-router-dom";
 import {
   Tooltip,
@@ -38,6 +40,11 @@ export default function NavItem({
   large,
 }: Readonly<NavItemProps>) {
   const { t } = useTranslation(["common"]);
+  const preloadData = useRouteDataPreload();
+  const preload = () => {
+    preloadRoute(item.url);
+    preloadData(item.url);
+  };
   if (item.enabled == false) {
     return;
   }
@@ -45,6 +52,8 @@ export default function NavItem({
   const content = (
     <NavLink
       to={item.url}
+      onMouseEnter={preload}
+      onFocus={preload}
       onClick={onClick}
       aria-label={t(item.title)}
       className={({ isActive }) =>

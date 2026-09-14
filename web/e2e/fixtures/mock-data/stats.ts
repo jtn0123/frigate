@@ -45,6 +45,13 @@ export const BASE_STATS = {
   service: {
     last_updated: Date.now() / 1000,
     storage: {
+      "/dev/shm": {
+        free: 384,
+        total: 512,
+        used: 128,
+        mount_type: "tmpfs",
+        min_shm: 256,
+      },
       "/media/frigate/recordings": {
         free: 50000000000,
         total: 100000000000,

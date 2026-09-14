@@ -254,7 +254,7 @@ function CommandPaletteInner() {
   );
 
   const items = useMemo<PaletteItem[]>(() => {
-    const go = (to: string) => () => navigate(to);
+    const go = (to: string) => () => void navigate(to);
     const list: PaletteItem[] = [];
 
     for (const page of pages) {
