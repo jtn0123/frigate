@@ -65,8 +65,6 @@ function walk(dir) {
 }
 
 function lintFile(file) {
-  if (file.includes("/specs/settings/")) return [];
-
   const errors = [];
   const text = readFileSync(file, "utf8");
   const lines = text.split("\n");

@@ -1,4 +1,6 @@
 import * as React from "react";
+import { forkFlags } from "@/fork/flags";
+import { useOverlayHistoryBack } from "@/hooks/fork/use-overlay-history-back";
 
 interface UseHistoryBackOptions {
   enabled: boolean;
@@ -10,7 +12,7 @@ interface UseHistoryBackOptions {
  * Hook that manages browser history for overlay components (dialogs, sheets, etc.)
  * When enabled, pressing the browser back button will close the overlay instead of navigating away.
  */
-export function useHistoryBack({
+function useUpstreamHistoryBack({
   enabled,
   open,
   onClose,
@@ -72,3 +74,8 @@ export function useHistoryBack({
     }
   }, [enabled, open]);
 }
+
+// fork: one back press closes only the top-most overlay (flag `phoneFixes`)
+export const useHistoryBack = forkFlags.phoneFixes
+  ? useOverlayHistoryBack
+  : useUpstreamHistoryBack;

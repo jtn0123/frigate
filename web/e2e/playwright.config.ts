@@ -13,8 +13,11 @@ const DESKTOP_UA =
 const CSP_TAG = /@csp/;
 const skipCsp = process.env.E2E_CSP ? [] : [CSP_TAG];
 
+// fork: the phones this fork targets are Android flagships (Galaxy S24 Ultra,
+// current Pixels) in Chrome, so the mobile project runs as one. With an
+// iPhone UA every `isIOS` branch ran instead of the Android paths.
 const MOBILE_UA =
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+  "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36";
 
 export default defineConfig({
   globalSetup: "./global-setup.ts",
@@ -56,7 +59,9 @@ export default defineConfig({
       grepInvert: [/@desktop-only/, ...skipCsp],
       use: {
         ...devices["Desktop Chrome"],
-        viewport: { width: 390, height: 844 },
+        // 412 x 915 CSS px at 3.5x: Pixel 9 Pro XL / Galaxy S Ultra class
+        viewport: { width: 412, height: 915 },
+        deviceScaleFactor: 3.5,
         userAgent: MOBILE_UA,
         isMobile: true,
         hasTouch: true,

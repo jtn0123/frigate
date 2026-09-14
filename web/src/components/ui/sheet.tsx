@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useHistoryBack } from "@/hooks/use-history-back";
+import { overlayBackDefault } from "@/lib/fork/phone";
 
 // Enhanced Sheet with History Support
 interface HistorySheetProps extends SheetPrimitive.DialogProps {
@@ -12,7 +13,7 @@ interface HistorySheetProps extends SheetPrimitive.DialogProps {
 }
 
 const Sheet = ({
-  enableHistoryBack = false,
+  enableHistoryBack = overlayBackDefault,
   open,
   onOpenChange,
   ...props

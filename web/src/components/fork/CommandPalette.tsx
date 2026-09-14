@@ -58,6 +58,11 @@ import { WHATS_NEW_EVENT } from "@/lib/fork/updates";
 import { isForkEnabled } from "@/fork/flags";
 import { ReviewSegment } from "@/types/review";
 import { ENV } from "@/env";
+import { phoneFixes } from "@/lib/fork/phone";
+
+// Face Library, Classification and Chat are left out of the phone nav bar
+// for space; with phoneFixes the palette is how phones reach them.
+const allPages = isDesktop || phoneFixes;
 
 type PaletteGroup =
   "pages" | "cameras" | "cameraGroups" | "settings" | "actions";
@@ -221,21 +226,21 @@ function CommandPaletteInner() {
         label: t("menu.faceLibrary", { ns: "common" }),
         to: "/faces",
         icon: TbFaceId,
-        enabled: isDesktop && isAdmin && !!config?.face_recognition.enabled,
+        enabled: allPages && isAdmin && !!config?.face_recognition.enabled,
       },
       {
         id: "page:classification",
         label: t("menu.classification", { ns: "common" }),
         to: "/classification",
         icon: MdCategory,
-        enabled: isDesktop && isAdmin,
+        enabled: allPages && isAdmin,
       },
       {
         id: "page:chat",
         label: t("menu.chat", { ns: "common" }),
         to: "/chat",
         icon: MdChat,
-        enabled: isDesktop && isAdmin && hasChatAgent,
+        enabled: allPages && isAdmin && hasChatAgent,
       },
       {
         id: "page:playground",

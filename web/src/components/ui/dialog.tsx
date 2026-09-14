@@ -4,6 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHistoryBack } from "@/hooks/use-history-back";
+import { overlayBackDefault } from "@/lib/fork/phone";
 
 // Enhanced Dialog with History Support
 interface HistoryDialogProps extends DialogPrimitive.DialogProps {
@@ -11,7 +12,7 @@ interface HistoryDialogProps extends DialogPrimitive.DialogProps {
 }
 
 const Dialog = ({
-  enableHistoryBack = false,
+  enableHistoryBack = overlayBackDefault,
   open,
   onOpenChange,
   ...props

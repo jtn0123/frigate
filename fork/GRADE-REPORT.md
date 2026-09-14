@@ -9,8 +9,10 @@
 **How IDs work in this file.** IDs are stable across regrades because commits,
 `FORK.md` and `fork/PLAN.md` refer to them. Done items are struck through
 with ✓ and kept as one line. New items take the next free number in their
-category. This branch's D20, D21, E7 and C13 became D22, D23, E8 and C14 when
-`next` took those numbers first while it was open; the trunk keeps the number. Product features live in the **UX feature track** (UI1…) at the
+category. This branch's D20, D21, E7 and C13 became D25, D26, E8 and C14 when
+`next` took those numbers first while it was open (D20/D21 were renumbered
+twice, to D22/D23 and then D25/D26, as `next` kept claiming the next free
+numbers); the trunk keeps the number. Product features live in the **UX feature track** (UI1…) at the
 end. `fork/PLAN.md` and then `fork/PLAN2.md` decide the order work happens in;
 this file says what each item is.
 
@@ -30,7 +32,7 @@ this file says what each item is.
 | **Overall** | | **B−** | **B** | **B+** | **B+** | **27** + UX track |
 
 **What this branch shipped (2026-09-13).** Thirteen of the fifteen items at the
-top of the priority list, one of them (G9) half: A5, B5, C9, D22, D23, E6, E8,
+top of the priority list, one of them (G9) half: A5, B5, C9, D25, D26, E6, E8,
 F7, G8, I3 (first wave), I16, I17, and G9's image half. B2 and D6 were
 deliberately left. Security reaches A (CSP enforced and re-checked by the
 suite, the fork's own locks scanned) and testing B+, but the overall grade
@@ -207,9 +209,9 @@ PRs into `next`. Volume grew too: 100 backend test files / 1,113 test
 functions, 249 web unit cases, 278 e2e cases across 41 specs, plus 94 test
 functions in the fork's own tooling. Nine reliability items found on the
 owner's server (D10–D18) are fixed with tests. Held at B rather than B+: no
-coverage floor is enforced anywhere (D23), the tracking pipeline still has no
+coverage floor is enforced anywhere (D26), the tracking pipeline still has no
 unit tests (D4), there are no visual regression baselines (D6), and the fork's
-tooling tests only execute on CI's coverage path (D22).
+tooling tests only execute on CI's coverage path (D25).
 
 - ~~D1~~ ✓ 2026-09-10 — vitest set-up, CI step
 - ~~D2~~ ✓ 2026-09-11 — e2e for Settings save, camera wizard, zone editing, motion search
@@ -225,7 +227,7 @@ tooling tests only execute on CI's coverage path (D22).
 - ~~D17~~ ✓ 2026-09-11 — ctranslate2 loaded before onnxruntime (ROCm transcription crash loop)
 - ~~D18~~ ✓ 2026-09-11 — Ollama per-image token cost measured, not guessed
 
-- ~~D23~~ ✓ done 2026-09-13 — line coverage held to `fork/coverage-floor.json` (python 41.39% ±1, web 56.95% ±3 because sharded browser coverage moves) in the Sonar job
+- ~~D26~~ ✓ done 2026-09-13 — line coverage held to `fork/coverage-floor.json` (python 41.39% ±1, web 56.95% ±3 because sharded browser coverage moves) in the Sonar job
 
 
 #### D6 — Visual regression screenshots `[FE] [fork]`
@@ -424,7 +426,7 @@ pre-commit, CI caching, a type ratchet, a bundle budget and a SonarCloud gate.
 The 0.18.0 stable rebase landed the same day upstream tagged it, which is the
 proof the machinery works. Held short of A− by the two typing gaps: mypy still
 ignores most of the backend (I3) and none of `fork/` (I16), and the local
-gates drift from CI (D22).
+gates drift from CI (D25).
 
 - ~~I1~~ ✓ 2026-09-10 — pre-commit, CI caching
 - ~~I2~~ ✓ 2026-09-10 — `make` inner-loop targets

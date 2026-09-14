@@ -20,6 +20,9 @@ import { useRestart } from "@/api/ws";
 import { useResizeObserver } from "@/hooks/resize-observer";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { wrapAsync } from "@/utils/promise";
+import { isMobile } from "react-device-detect";
+import { phoneFixes } from "@/lib/fork/phone";
+import { phoneEditorOptions } from "@/lib/fork/monaco-phone";
 
 type SaveOptions = "saveonly" | "restart";
 
@@ -169,6 +172,8 @@ function ConfigEditor() {
         model: modelRef.current,
         scrollBeyondLastLine: false,
         theme: (systemTheme || theme) == "dark" ? "vs-dark" : "vs-light",
+        // fork: wrap lines and drop the minimap and gutters on phones
+        ...(phoneFixes && isMobile ? phoneEditorOptions : {}),
       });
       editorRef.current?.addCommand(
         monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,

@@ -15,6 +15,12 @@ import { fileURLToPath } from "node:url";
 import { test, expect } from "../../fixtures/frigate-test";
 import type { Page } from "@playwright/test";
 import { configFactory } from "../../fixtures/mock-data/config";
+import {
+  expectNoHorizontalOverflow,
+  expectWithinPhoneWidth,
+  openPhoneSettingsSection,
+  settleFrames,
+} from "../../helpers/settings-phone";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_SCHEMA = JSON.parse(
@@ -79,9 +85,10 @@ test.describe("semantic search model_size @medium", () => {
     // The provider path is active: model_size shows "Not applicable".
     await expect(frigateApp.page.getByText(NOT_APPLICABLE)).toBeVisible();
 
-    // Give any clearing effect time to fire, then confirm the section stayed
-    // clean (no phantom unsaved-changes banner, Save disabled).
-    await frigateApp.page.waitForTimeout(1000);
+    // The clearing effect runs right after the widget above commits; let
+    // React flush it, then confirm the section stayed clean (no phantom
+    // unsaved-changes banner, Save disabled).
+    await settleFrames(frigateApp.page);
     await expect(frigateApp.page.getByText(UNSAVED)).toBeHidden();
     await expect(
       frigateApp.page.getByRole("button", { name: "Save", exact: true }),
@@ -126,4 +133,46 @@ test.describe("semantic search model_size @medium", () => {
         },
       });
   });
+
+  test(
+    "phone switches the model from the Enrichments group @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const capture = await installRoutes(page, {
+        enabled: true,
+        model: "jinav2",
+        model_size: "large",
+      });
+      const { title } = await openPhoneSettingsSection(page, {
+        group: "Enrichments",
+        section: "Semantic search",
+      });
+
+      const model = page.getByRole("combobox", {
+        name: /Semantic search model/,
+      });
+      await expectWithinPhoneWidth(model);
+      await expectNoHorizontalOverflow(title);
+
+      await model.click();
+      const option = page.getByRole("option", { name: PROVIDER });
+      await expect(option).toBeInViewport();
+      await option.click();
+
+      await expect(page.getByText(NOT_APPLICABLE)).toBeVisible();
+      await expect(page.getByText(UNSAVED)).toBeVisible();
+      const save = page.getByRole("button", { name: "Save", exact: true });
+      await expectWithinPhoneWidth(save);
+      await save.click();
+
+      await expect
+        .poll(() => capture.capturedConfig(), { timeout: 5_000 })
+        .toMatchObject({
+          config_data: {
+            semantic_search: { model: PROVIDER, model_size: "" },
+          },
+        });
+    },
+  );
 });

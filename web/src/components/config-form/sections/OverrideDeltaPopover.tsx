@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/popover";
 import type { FieldDelta } from "@/hooks/use-config-override";
 import { cn } from "@/lib/utils";
+import { onActivate } from "@/utils/fork/a11y";
 import { useOverrideFieldLabel } from "./useOverrideFieldLabel";
 
 type Props = {
@@ -54,6 +55,12 @@ export function OverrideDeltaPopover({
             className,
           )}
           aria-label={ariaLabel}
+          // fork: the trigger is a div, so give it a button role and keys
+          role="button"
+          tabIndex={0}
+          onKeyDown={onActivate((event) =>
+            (event.currentTarget as HTMLElement).click(),
+          )}
         >
           <span>{badgeLabel}</span>
           <LuChevronDown className="ml-1 size-3" />

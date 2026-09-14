@@ -313,53 +313,56 @@ export default function SettingsNav({ className }: Readonly<SettingsNavProps>) {
           setOpen(true);
         }}
       />
-      {open && (
-        <CommandList
-          className="absolute inset-x-0 top-full z-50 mt-1 max-h-80 rounded-md border border-secondary bg-background shadow-lg"
-          data-testid="settings-nav-results"
-        >
-          <CommandEmpty>{t("settingsNav.noMatches")}</CommandEmpty>
-          {fieldMatches.length > 0 && (
-            <CommandGroup heading={t("settingsNav.inThisSection")}>
-              {fieldMatches.map((field) => (
-                <CommandItem
-                  key={field.key}
-                  value={`field:${field.key}`}
-                  onSelect={() => jumpToField(field)}
-                  className="cursor-pointer"
-                  data-testid="settings-nav-field"
-                >
-                  <LuCornerDownRight className="mr-2 size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{field.label}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-          {sectionMatches.map((group) => (
-            <CommandGroup
-              key={group.label}
-              heading={t(`menu.${group.label}`, { ns: "views/settings" })}
-            >
-              {group.keys.map((key) => (
-                <CommandItem
-                  key={key}
-                  value={`section:${key}`}
-                  onSelect={() => jumpToSection(key)}
-                  className="cursor-pointer"
-                  data-testid="settings-nav-section"
-                  data-section-key={key}
-                >
-                  <span className="truncate">{sectionTitle(key)}</span>
-                  {unsavedDot(key)}
-                  {key === published.page && (
-                    <LuCheck className="ml-auto size-4 shrink-0 text-selected" />
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ))}
-        </CommandList>
-      )}
+      {/* Always rendered (hidden while closed): cmdk points the input's
+          aria-controls at this list, which must exist for it to be valid */}
+      <CommandList
+        className={cn(
+          "absolute inset-x-0 top-full z-50 mt-1 max-h-80 rounded-md border border-secondary bg-background shadow-lg",
+          !open && "hidden",
+        )}
+        data-testid="settings-nav-results"
+      >
+        <CommandEmpty>{t("settingsNav.noMatches")}</CommandEmpty>
+        {fieldMatches.length > 0 && (
+          <CommandGroup heading={t("settingsNav.inThisSection")}>
+            {fieldMatches.map((field) => (
+              <CommandItem
+                key={field.key}
+                value={`field:${field.key}`}
+                onSelect={() => jumpToField(field)}
+                className="cursor-pointer"
+                data-testid="settings-nav-field"
+              >
+                <LuCornerDownRight className="mr-2 size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{field.label}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {sectionMatches.map((group) => (
+          <CommandGroup
+            key={group.label}
+            heading={t(`menu.${group.label}`, { ns: "views/settings" })}
+          >
+            {group.keys.map((key) => (
+              <CommandItem
+                key={key}
+                value={`section:${key}`}
+                onSelect={() => jumpToSection(key)}
+                className="cursor-pointer"
+                data-testid="settings-nav-section"
+                data-section-key={key}
+              >
+                <span className="truncate">{sectionTitle(key)}</span>
+                {unsavedDot(key)}
+                {key === published.page && (
+                  <LuCheck className="ml-auto size-4 shrink-0 text-selected" />
+                )}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
+      </CommandList>
     </Command>
   );
 

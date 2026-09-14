@@ -93,6 +93,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
+import { phoneFixes } from "@/lib/fork/phone";
+import { fullscreenPortalContainer } from "@/lib/fork/fullscreen";
+import { phoneFullscreenRail } from "@/lib/fork/phone-fullscreen";
+import PhoneBoxesToggle from "@/components/fork/PhoneBoxesToggle";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
 
 import {
@@ -533,7 +537,9 @@ export default function LiveCameraView({
         <div
           className={
             fullscreen
-              ? `absolute right-32 top-1 z-40 ${isMobile ? "landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto" : ""}`
+              ? // fork: phones get one frosted rail of matching controls
+                (phoneFullscreenRail ??
+                `absolute right-32 top-1 z-40 ${isMobile ? "landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto" : ""}`)
               : `flex h-12 w-full flex-row items-center justify-between ${isMobile ? "landscape:h-full landscape:w-12 landscape:flex-col" : ""}`
           }
         >
@@ -614,6 +620,10 @@ export default function LiveCameraView({
                 }
                 onClick={toggleFullscreen}
               />
+            )}
+            {/* fork: one-tap detection boxes (Debug View) on phones */}
+            {!fullscreen && (
+              <PhoneBoxesToggle debug={debug} setDebug={setDebug} />
             )}
             {!isIOS && !isFirefox && preferredLiveMode != "jsmpeg" && (
               <CameraFeatureToggle
@@ -1486,7 +1496,8 @@ function FrigateCameraFeatures({
   }
 
   // mobile doesn't show settings in fullscreen view
-  if (fullscreen) {
+  // fork: it does with phoneFixes, rendering the drawer inside the fullscreen element
+  if (fullscreen && !phoneFixes) {
     return;
   }
 
@@ -1494,14 +1505,18 @@ function FrigateCameraFeatures({
     <Drawer>
       <DrawerTrigger>
         <CameraFeatureToggle
-          className="p-2 landscape:size-9"
-          variant="primary"
+          // fork: the md icon margin a landscape phone crosses shrank the cog
+          className={cn("p-2 landscape:size-9", phoneFixes && "landscape:p-0")}
+          variant={fullscreen ? "overlay" : "primary"}
           Icon={FaCog}
           isActive={false}
           title={t("cameraSettings.title", { camera })}
         />
       </DrawerTrigger>
-      <DrawerContent className="max-h-[75dvh] overflow-hidden rounded-2xl">
+      <DrawerContent
+        className="max-h-[75dvh] overflow-hidden rounded-2xl"
+        portalContainer={fullscreenPortalContainer(fullscreen)}
+      >
         <div className="scrollbar-container mt-2 flex h-auto flex-col gap-2 overflow-y-auto px-2 py-4">
           {isAdmin && (
             <>

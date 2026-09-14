@@ -26,6 +26,7 @@ import { isMobile } from "react-device-detect";
 import { isPWA } from "@/utils/isPWA";
 import { useTranslation } from "react-i18next";
 import ForkNavItems from "@/components/fork/ForkNavItems";
+import { phoneShell } from "@/lib/fork/phone-shell";
 
 // not needed for first paint, so it loads after the shell
 const GeneralSettings = lazy(() => import("../menu/GeneralSettings"));
@@ -77,9 +78,11 @@ function Bottombar() {
       className={cn(
         "absolute inset-x-4 bottom-0 flex h-16 flex-row items-center justify-between",
         isMobile &&
-          (isPWA
-            ? "h-[calc(3rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] md:h-[calc(4rem+env(safe-area-inset-bottom))]"
-            : "h-12 md:h-16 md:pb-2"),
+          // fork: phoneShell reserves insets in a tab and stays compact in landscape
+          (phoneShell?.bar ??
+            (isPWA
+              ? "h-[calc(3rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] md:h-[calc(4rem+env(safe-area-inset-bottom))]"
+              : "h-12 md:h-16 md:pb-2")),
       )}
     >
       {navItems.map((item) => (
@@ -168,7 +171,10 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
   return (
     <Drawer>
       <DrawerTrigger asChild>
-        <div
+        {/* fork: a named button, not a div carrying button-only ARIA */}
+        <button
+          type="button"
+          aria-label={t("statusAlerts.label", { ns: "fork" })}
           className={cn(
             "flex flex-col items-center justify-center p-2",
             large && "size-12",
@@ -180,7 +186,7 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
               large ? "size-6" : "size-5",
             )}
           />
-        </div>
+        </button>
       </DrawerTrigger>
       <DrawerContent
         className={cn(

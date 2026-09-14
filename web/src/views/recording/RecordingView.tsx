@@ -63,6 +63,9 @@ import {
 } from "@/types/record";
 import { cn } from "@/lib/utils";
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useFullscreenOrientation } from "@/hooks/fork/use-fullscreen-orientation";
+import { phoneFixes } from "@/lib/fork/phone";
+import PhoneTimelineTabs from "@/components/fork/PhoneTimelineTabs";
 import { useTimezone } from "@/hooks/use-date-utils";
 import { useTimelineZoom } from "@/hooks/use-timeline-zoom";
 import { useTranslation } from "react-i18next";
@@ -466,6 +469,12 @@ export function RecordingView({
     }
   }, [getCameraAspect, mainCamera]);
 
+  // fork: rotate to fit the camera while fullscreen on phones
+  useFullscreenOrientation(
+    phoneFixes && isMobile && fullscreen,
+    mainCameraAspect == "tall" ? "portrait" : "landscape",
+  );
+
   const grow = useMemo(() => {
     if (mainCameraAspect == "wide") {
       return "w-full aspect-wide";
@@ -802,10 +811,15 @@ export function RecordingView({
                 </ToggleGroupItem>
               </ToggleGroup>
             ) : (
-              <MobileTimelineDrawer
-                selected={timelineType ?? "timeline"}
-                onSelect={setTimelineType}
-              />
+              // fork: portrait phones pick the timeline from tabs under the video
+              <div
+                className={cn(phoneFixes && isMobileOnly && "portrait:hidden")}
+              >
+                <MobileTimelineDrawer
+                  selected={timelineType ?? "timeline"}
+                  onSelect={setTimelineType}
+                />
+              </div>
             )}
             <MobileReviewSettingsDrawer
               camera={mainCamera}
@@ -989,6 +1003,13 @@ export function RecordingView({
               )}
             </div>
           </div>
+          {phoneFixes && isMobileOnly && (
+            <PhoneTimelineTabs
+              className="landscape:hidden"
+              value={timelineType ?? "timeline"}
+              onValueChange={(value) => setTimelineType(value, true)}
+            />
+          )}
           <Timeline
             contentRef={contentRef}
             mainCamera={mainCamera}

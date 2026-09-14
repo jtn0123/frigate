@@ -2,17 +2,49 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { cn } from "@/lib/utils";
+import { overlayBackDefault } from "@/lib/fork/phone";
+import { useHistoryOpenState } from "@/hooks/fork/use-overlay-history-back";
+
+type DrawerProps = React.ComponentProps<typeof DrawerPrimitive.Root> & {
+  /** fork: close on the back button (default on for phones) */
+  enableHistoryBack?: boolean;
+};
 
 const Drawer = ({
   shouldScaleBackground = true,
+  enableHistoryBack = overlayBackDefault,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-  <DrawerPrimitive.Root
-    shouldScaleBackground={shouldScaleBackground}
-    {...props}
-  />
-);
+}: DrawerProps) =>
+  enableHistoryBack ? (
+    <HistoryDrawer shouldScaleBackground={shouldScaleBackground} {...props} />
+  ) : (
+    <DrawerPrimitive.Root
+      shouldScaleBackground={shouldScaleBackground}
+      {...props}
+    />
+  );
 Drawer.displayName = "Drawer";
+
+// fork: vaul keeps its open state private, so track it here for the back button
+const HistoryDrawer = ({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof DrawerPrimitive.Root>) => {
+  const [historyOpen, setHistoryOpen] = useHistoryOpenState({
+    open,
+    defaultOpen,
+    onOpenChange,
+  });
+  return (
+    <DrawerPrimitive.Root
+      {...props}
+      open={historyOpen}
+      onOpenChange={setHistoryOpen}
+    />
+  );
+};
 
 const DrawerTrigger = DrawerPrimitive.Trigger;
 
@@ -34,9 +66,12 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    /** fork: render inside this element, e.g. a fullscreen player */
+    portalContainer?: HTMLElement;
+  }
+>(({ className, children, portalContainer, ...props }, ref) => (
+  <DrawerPortal container={portalContainer}>
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}

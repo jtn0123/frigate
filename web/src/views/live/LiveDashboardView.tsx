@@ -40,6 +40,7 @@ import DraggableGridLayout from "./DraggableGridLayout";
 import { IoClose } from "react-icons/io5";
 import { LuLayoutDashboard } from "react-icons/lu";
 import { cn } from "@/lib/utils";
+import { phoneFixes } from "@/lib/fork/phone";
 import { onActivate } from "@/utils/fork/a11y";
 import {
   AudioState,
@@ -444,6 +445,25 @@ export default function LiveDashboardView({
                   <LiveListIcon layout={mobileLayout} />
                 </div>
               </Button>
+              {/* fork: grid fullscreen for phones, beside the layout toggles */}
+              {phoneFixes && (
+                <Button
+                  className="bg-secondary"
+                  aria-label={
+                    fullscreen
+                      ? t("button.exitFullscreen", { ns: "common" })
+                      : t("button.fullscreen", { ns: "common" })
+                  }
+                  size="sm"
+                  onClick={toggleFullscreen}
+                >
+                  {fullscreen ? (
+                    <FaCompress className="size-5 text-secondary-foreground" />
+                  ) : (
+                    <FaExpand className="size-5 text-secondary-foreground" />
+                  )}
+                </Button>
+              )}
             </div>
           )}
           {cameraGroup && cameraGroup !== "default" && isTablet && (

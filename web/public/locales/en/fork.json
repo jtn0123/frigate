@@ -262,6 +262,16 @@
     "exportEnd": "Export end time",
     "overview": "Timeline overview"
   },
+  "phoneDebug": {
+    "overlays": "Overlays",
+    "close": "Close overlay options",
+    "showBoxes": "Show detection boxes",
+    "hideBoxes": "Hide detection boxes",
+    "allOptions": "All options"
+  },
+  "statusAlerts": {
+    "label": "System warnings"
+  },
   "navigation": {
     "unsaved": "You have unsaved changes. Leave this page and discard them?",
     "camera": "Camera",

@@ -3,7 +3,7 @@
 Sonar's quality gate judges new code only, so a change that deletes tests, or a
 new module with none, passes every other gate. fork/coverage-floor.json records
 what the suites measured when the floor was last set; this fails the job when
-either side falls below it by more than the recorded tolerance (D23).
+either side falls below it by more than the recorded tolerance (D26).
 """
 
 import json
