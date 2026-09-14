@@ -124,4 +124,10 @@ demo-down:
 demo-logs:
 	docker compose -f fork/demo/compose.yml logs -f --tail=200
 
-.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast wt promote demo-up demo-down demo-logs
+# Audit the running demo as an Android phone (or ARGS="--profile=desktop").
+# Report in fork/demo/.data/audit/; ARGS="--update-baseline" saves a baseline.
+demo-audit:
+	@test -f fork/demo/.data/tools/node_modules/axe-core/axe.min.js || npm --prefix fork/demo/.data/tools install axe-core@4 --no-audit --no-fund
+	cd web && node scripts/fork/phone-audit.mjs $(ARGS)
+
+.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast wt promote demo-up demo-down demo-logs demo-audit
