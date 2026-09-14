@@ -21,6 +21,9 @@ import RouteErrorBoundary, {
 import CommandPalette from "@/components/fork/CommandPalette";
 import { isPublicSharePath } from "@/lib/fork/share-path";
 import { phoneShell } from "@/lib/fork/phone-shell";
+import { allowAndroidPageZoom } from "@/lib/fork/viewport-zoom";
+
+allowAndroidPageZoom();
 
 const Live = lazy(() => import("@/pages/Live"));
 const Events = lazy(() => import("@/pages/Events"));

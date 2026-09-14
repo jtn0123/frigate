@@ -33,6 +33,7 @@ import {
   AlertDialogTrigger,
 } from "../ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { phoneFixes } from "@/lib/fork/phone";
 import { FaCompress, FaExpand } from "react-icons/fa";
 import { TbCameraDown } from "react-icons/tb";
 import { useTranslation } from "react-i18next";
@@ -212,6 +213,10 @@ export default function VideoControls({
           Object.values(features).filter((feat) => feat).length >
             MIN_ITEMS_WRAP &&
           "min-w-[75%] flex-wrap",
+        // fork: widen each button's hit area on phones without moving the icons
+        phoneFixes &&
+          isMobileOnly &&
+          "[&_button]:relative [&_button]:after:absolute [&_button]:after:-inset-2 [&_button]:after:content-['']",
       )}
       ref={controlsContainerRef}
     >
