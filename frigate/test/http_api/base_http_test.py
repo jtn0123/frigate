@@ -135,6 +135,9 @@ class BaseTestHttp(unittest.TestCase):
         }
 
     def tearDown(self):
+        # close() only closes this thread's connection. Join the queue writer
+        # before deleting its database/WAL files or the next test can get I/O errors.
+        self.db.stop()
         if not self.db.is_closed():
             self.db.close()
 

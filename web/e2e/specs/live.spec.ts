@@ -342,3 +342,103 @@ test.describe("Status bar wording @critical", () => {
     },
   );
 });
+
+test.describe("Manual recording confirmation @critical @desktop-only", () => {
+  test.use({
+    expectedErrors: [/500.*\/api\/events\/manual-regression\/end/],
+  });
+
+  test("failed stop keeps the event available for retry", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    let stops = 0;
+    await page.route("**/api/events/front_door/on_demand/create", (route) =>
+      route.fulfill({ json: { success: true, event_id: "manual-regression" } }),
+    );
+    await page.route("**/api/events/manual-regression/end", (route) => {
+      stops++;
+      return route.fulfill({
+        status: stops === 1 ? 500 : 200,
+        json: { success: stops !== 1 },
+      });
+    });
+    await frigateApp.goto("/#front_door");
+    await page
+      .getByRole("button", { name: "Start on-demand recording", exact: true })
+      .click();
+    const stop = page.getByRole("button", {
+      name: /^(Stop|End on-demand recording)$/,
+    });
+    await stop.click();
+    await expect(
+      page
+        .locator("#pageRoot")
+        .getByText("Failed to end manual on-demand recording.", {
+          exact: true,
+        }),
+    ).toBeVisible();
+    await expect(stop).toBeVisible();
+    await expect(
+      page
+        .locator("#pageRoot")
+        .getByText("Ended manual on-demand recording.", { exact: true }),
+    ).toHaveCount(0);
+    await stop.click();
+    await expect(
+      page
+        .locator("#pageRoot")
+        .getByText("Ended manual on-demand recording.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Start on-demand recording",
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(stops).toBe(2);
+  });
+
+  test("pending start prevents duplicate recording events", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    let starts = 0;
+    let release!: () => void;
+    const responseReady = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(
+      "**/api/events/front_door/on_demand/create",
+      async (route) => {
+        starts++;
+        await responseReady;
+        await route.fulfill({
+          json: { success: true, event_id: "manual-regression" },
+        });
+      },
+    );
+    await page.route("**/api/events/manual-regression/end", (route) =>
+      route.fulfill({ json: { success: true } }),
+    );
+    try {
+      await frigateApp.goto("/#front_door");
+      const start = page.getByRole("button", {
+        name: "Start on-demand recording",
+        exact: true,
+      });
+      await start.click();
+      await expect.poll(() => starts).toBe(1);
+      await expect(start).toBeDisabled();
+      release();
+      await expect(
+        page.getByRole("button", {
+          name: /^(Stop|End on-demand recording)$/,
+        }),
+      ).toBeVisible();
+      expect(starts).toBe(1);
+    } finally {
+      release();
+    }
+  });
+});

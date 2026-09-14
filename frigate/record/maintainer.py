@@ -7,6 +7,7 @@ import os
 import threading
 import time
 from collections import defaultdict
+from contextlib import suppress
 from multiprocessing.synchronize import Event as MpEvent
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,8 @@ from frigate.util.identifiers import random_id as generate_id
 from frigate.util.services import get_video_properties
 
 logger = logging.getLogger(__name__)
+
+RECORDING_CONVERSION_TIMEOUT = 60
 
 STALE_RECORDINGS_INFO_TTL = MAX_SEGMENTS_IN_CACHE * MAX_SEGMENT_DURATION * 2
 
@@ -620,6 +623,7 @@ class RecordingMaintainer(threading.Thread):
         file_name = f"{start_time.strftime('%M.%S.mp4')}"
         file_path = os.path.join(directory, file_name)
 
+        temporary_path = f"{file_path}.tmp"
         try:
             if not os.path.exists(file_path):
                 start_frame = datetime.datetime.now().timestamp()
@@ -637,16 +641,27 @@ class RecordingMaintainer(threading.Thread):
                     "+faststart",
                     "-metadata",
                     f"creation_time={start_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')}",
-                    file_path,
+                    "-f",
+                    "mp4",
+                    temporary_path,
                     stderr=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.DEVNULL,
                 )
-                await p.wait()
+                try:
+                    _, stderr = await asyncio.wait_for(
+                        p.communicate(), timeout=RECORDING_CONVERSION_TIMEOUT
+                    )
+                except (TimeoutError, asyncio.CancelledError):
+                    if p.returncode is None:
+                        with suppress(ProcessLookupError):
+                            p.kill()
+                    await p.communicate()
+                    raise
 
                 if p.returncode != 0:
                     logger.error(f"Unable to convert {cache_path} to {file_path}")
-                    if p.stderr:
-                        logger.error((await p.stderr.read()).decode("ascii"))
+                    if stderr:
+                        logger.error(stderr.decode("utf-8", errors="replace"))
                     return None
                 else:
                     logger.debug(
@@ -662,7 +677,19 @@ class RecordingMaintainer(threading.Thread):
                 except OSError:
                     segment_size = 0
 
-                os.remove(cache_path)
+                # Publish only complete output; failed attempts leave the source
+                # available for a later retry.
+                os.replace(temporary_path, file_path)
+                try:
+                    os.remove(cache_path)
+                except OSError:
+                    # The completed recording still needs a database entry even
+                    # when removing its redundant cached copy fails.
+                    logger.warning(
+                        "Unable to remove cached recording %s",
+                        cache_path,
+                        exc_info=True,
+                    )
 
                 rand_id = generate_id(6)
 
@@ -683,8 +710,16 @@ class RecordingMaintainer(threading.Thread):
                 }
         except Exception:
             logger.error(f"Unable to store recording segment {cache_path}")
-            Path(cache_path).unlink(missing_ok=True)
             logger.exception("Failed to synchronize recordings")
+        finally:
+            try:
+                Path(temporary_path).unlink(missing_ok=True)
+            except OSError:
+                logger.warning(
+                    "Unable to remove partial recording %s",
+                    temporary_path,
+                    exc_info=True,
+                )
 
         # clear end_time cache
         self.end_time_cache.pop(cache_path, None)

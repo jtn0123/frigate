@@ -5,6 +5,7 @@ import errno
 import logging
 import os
 import subprocess as sp
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +33,10 @@ logger = logging.getLogger(__name__)
 
 # Safety threshold - abort if more than 50% of files would be deleted
 SAFETY_THRESHOLD = 0.5
+
+# Give recording conversion and database publication time to settle. Force only
+# bypasses the percentage guard, never this protection for newly written files.
+RECORDING_SYNC_GRACE_SECONDS = 3600
 
 FFPROBE_PATH = (
     f"/usr/lib/ffmpeg/{DEFAULT_FFMPEG_VERSION}/bin/ffprobe"
@@ -97,12 +102,24 @@ def remove_empty_directories(root: Path, paths: Iterable[Path]) -> None:
     logger.debug(f"Removed {count} empty directories")
 
 
+def _is_stale_recording_orphan(path: str, cutoff: float) -> bool:
+    """Keep recent files and files registered since the cleanup scan started."""
+    try:
+        if os.stat(path).st_mtime >= cutoff:
+            return False
+    except OSError:
+        # A concurrent writer or cleanup may have moved or removed the file.
+        return False
+    return not Recordings.select().where(Recordings.path == path).exists()
+
+
 def sync_recordings(
     limited: bool = False, dry_run: bool = False, force: bool = False
 ) -> SyncResult:
     """Sync recordings between the database and disk using the SyncResult format."""
 
     result = SyncResult(media_type="recordings")
+    orphan_cutoff = time.time() - RECORDING_SYNC_GRACE_SECONDS
 
     try:
         logger.debug("Start sync recordings.")
@@ -125,8 +142,10 @@ def sync_recordings(
         num_pages = (recordings_count + page_size - 1) // page_size
         recordings_to_delete: list[dict] = []
 
-        for page in range(num_pages):
-            for recording in recordings_query.paginate(page, page_size):
+        for page in range(1, num_pages + 1):
+            for recording in recordings_query.order_by(Recordings.id).paginate(
+                page, page_size
+            ):
                 if not os.path.exists(recording.path):
                     recordings_to_delete.append(
                         {"id": recording.id, "path": recording.path}
@@ -212,7 +231,7 @@ def sync_recordings(
 
         files_to_delete: list[str] = []
         for file in files_on_disk:
-            if not Recordings.select().where(Recordings.path == file).exists():
+            if _is_stale_recording_orphan(file, orphan_cutoff):
                 files_to_delete.append(file)
 
         result.orphans_found += len(files_to_delete)
@@ -242,6 +261,8 @@ def sync_recordings(
         # Delete orphans
         logger.info(f"Deleting {len(files_to_delete)} orphaned recordings files")
         for file in files_to_delete:
+            if not _is_stale_recording_orphan(file, orphan_cutoff):
+                continue
             try:
                 os.unlink(file)
                 result.orphans_deleted += 1
