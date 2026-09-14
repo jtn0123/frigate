@@ -44,9 +44,18 @@ def summarize_decode(returncode: int, stderr: str, frames: int) -> str:
 
 def safe_decoder_detail(stderr: str) -> str:
     """Strip credentials and query strings from bounded decoder diagnostics."""
-    text = re.sub(r"(\w+://)[^\s/@]+@", r"\1<redacted>@", stderr)
-    text = re.sub(r"(\w+://[^\s?]+)\?[^\s]*", r"\1?<redacted>", text)
-    return "\n".join(text.splitlines()[:6])[:1600]
+    lines = stderr[:16384].splitlines()[:6]
+    return "\n".join(
+        " ".join(
+            "<redacted-url>" if "://" in token else token for token in line.split()
+        )
+        for line in lines
+    )[:1600]
+
+
+def safe_log_value(value: object) -> str:
+    """Keep externally derived fields on one physical log line."""
+    return str(value).replace("\r", "\\r").replace("\n", "\\n")
 
 
 async def decode_stream(binary: str, stream_name: str) -> dict:
@@ -129,14 +138,14 @@ async def collect_diagnostics(binary: str, stream_name: str) -> dict:
     logger.log(
         logging.INFO if result["status"] == "healthy" else logging.WARNING,
         "Live stream diagnostic id=%s stream=%r status=%s codecs=%s frames=%s errors=%s elapsed_ms=%s detail=%s",
-        result["id"],
-        stream_name,
-        result["status"],
-        result["codecs"],
-        result.get("decoded_frames", 0),
-        result.get("decoder_errors", 0),
-        result["elapsed_ms"],
-        result.get("decoder_detail", "").replace("\n", " | "),
+        safe_log_value(result["id"]),
+        safe_log_value(stream_name),
+        safe_log_value(result["status"]),
+        safe_log_value(result["codecs"]),
+        safe_log_value(result.get("decoded_frames", 0)),
+        safe_log_value(result.get("decoder_errors", 0)),
+        safe_log_value(result["elapsed_ms"]),
+        safe_log_value(result.get("decoder_detail", "")),
     )
     return result
 
@@ -176,9 +185,9 @@ async def stream_diagnostics(request: Request, stream_name: str, body: PlaybackF
         result = await asyncio.shield(task)
     logger.info(
         "Live player failure diagnostic_id=%s stream=%r reason=%s media_error_code=%s",
-        result["id"],
-        stream_name,
-        body.reason,
+        safe_log_value(result["id"]),
+        safe_log_value(stream_name),
+        safe_log_value(body.reason),
         body.media_error_code,
     )
     return result

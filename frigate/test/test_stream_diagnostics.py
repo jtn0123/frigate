@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from frigate.api.stream_diagnostics import (
     decode_stream,
     safe_decoder_detail,
+    safe_log_value,
     summarize_decode,
 )
 
@@ -31,6 +32,84 @@ class TestDecodeSummary(unittest.TestCase):
         self.assertNotIn("secret", detail)
         self.assertNotIn("admin", detail)
         self.assertLessEqual(len(detail.splitlines()), 6)
+
+    def test_urls_are_omitted_even_without_credentials(self):
+        self.assertEqual(
+            safe_decoder_detail("Failed rtsp://camera/private-path?secret=1"),
+            "Failed <redacted-url>",
+        )
+
+    def test_log_fields_cannot_add_lines(self):
+        self.assertEqual(
+            safe_log_value("yard\r\nforged entry"), "yard\\r\\nforged entry"
+        )
+
+
+class TestDiagnosticCollection(unittest.IsolatedAsyncioTestCase):
+    async def test_collects_metadata_and_logs_safe_decoder_evidence(self):
+        import httpx
+
+        from frigate.api.stream_diagnostics import collect_diagnostics
+
+        response = httpx.Response(
+            200,
+            request=httpx.Request("GET", "http://localhost/api/streams"),
+            json={
+                "yard": {
+                    "producers": [
+                        {"bytes_recv": 123, "medias": ["video H265", "audio AAC"]}
+                    ]
+                }
+            },
+        )
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.get.return_value = response
+        with (
+            patch(
+                "frigate.api.stream_diagnostics.httpx.AsyncClient", return_value=client
+            ),
+            patch(
+                "frigate.api.stream_diagnostics.decode_stream",
+                new_callable=AsyncMock,
+                return_value={
+                    "status": "decode_error",
+                    "decoded_frames": 4,
+                    "decoder_errors": 1,
+                    "decoder_detail": "bad\r\nframe",
+                },
+            ),
+            self.assertLogs("frigate.api.stream_diagnostics", level="WARNING") as logs,
+        ):
+            result = await collect_diagnostics("ffmpeg", "yard")
+        self.assertEqual(result["producer_count"], 1)
+        self.assertEqual(result["received_bytes"], 123)
+        self.assertEqual(result["codecs"], ["AAC", "H265"])
+        self.assertEqual(result["status"], "decode_error")
+        self.assertNotIn("\r", logs.output[0])
+        self.assertNotIn("\n", logs.output[0])
+
+    async def test_metadata_transport_failure_is_reported_without_raw_error(self):
+        import httpx
+
+        from frigate.api.stream_diagnostics import collect_diagnostics
+
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.get.side_effect = httpx.ConnectError("private connection detail")
+        with (
+            patch(
+                "frigate.api.stream_diagnostics.httpx.AsyncClient", return_value=client
+            ),
+            patch(
+                "frigate.api.stream_diagnostics.decode_stream", new_callable=AsyncMock
+            ) as decode,
+            self.assertLogs("frigate.api.stream_diagnostics", level="WARNING") as logs,
+        ):
+            result = await collect_diagnostics("ffmpeg", "yard")
+        self.assertEqual(result["status"], "unavailable")
+        decode.assert_not_awaited()
+        self.assertNotIn("private connection detail", logs.output[0])
 
 
 class TestDecodeProcess(unittest.IsolatedAsyncioTestCase):
