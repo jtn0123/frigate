@@ -8,11 +8,11 @@
   "rules": {
     "@typescript-eslint/no-floating-promises": 0,
     "@typescript-eslint/no-misused-promises": 0,
-    "@typescript-eslint/no-unnecessary-condition": 1485,
-    "@typescript-eslint/no-unsafe-member-access": 398,
-    "@typescript-eslint/no-unsafe-assignment": 361,
+    "@typescript-eslint/no-unnecessary-condition": 1484,
+    "@typescript-eslint/no-unsafe-member-access": 394,
+    "@typescript-eslint/no-unsafe-assignment": 350,
     "@typescript-eslint/no-unsafe-return": 48,
-    "@typescript-eslint/no-unsafe-argument": 42,
+    "@typescript-eslint/no-unsafe-argument": 40,
     "@typescript-eslint/no-unsafe-call": 26,
     "@typescript-eslint/switch-exhaustiveness-check": 18
   }

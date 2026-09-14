@@ -45,7 +45,7 @@
     "placeholder": "Search pages, cameras, settings, and actions",
     "empty": "No results found.",
     "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
-    "footerHintMac": "⌘K or / to open, arrows to move, Enter to run",
+    "footerHintMac": "\u2318K or / to open, arrows to move, Enter to run",
     "groups": {
       "recent": "Recent",
       "pages": "Pages",
@@ -270,11 +270,27 @@
     "range15": "Last 15 minutes",
     "range60": "Last hour",
     "range1440": "Last 24 hours",
-    "loading": "Loading page…",
+    "loading": "Loading page\u2026",
     "copyView": "Copy link to this view",
     "copied": "Link copied",
     "copyFailed": "Copy this address to share the current view",
-    "refreshing": "Refreshing measurements…",
-    "historyUnavailable": "History could not be loaded. Current measurements are shown below."
+    "refreshing": "Refreshing measurements\u2026",
+    "historyUnavailable": "History could not be loaded. Current measurements are shown below.",
+    "saving": "Saving\u2026",
+    "saved": "Saved",
+    "working": "Working\u2026",
+    "actionFailed": "The action failed. Try again.",
+    "metrics": {
+      "title": "Browser performance",
+      "description": "This browser tab only: the last 100 export metadata requests and page-readiness measurements. Times include the network and server response. Page readiness starts when Exports mounts and ends when its metadata is ready; it does not measure video playback or server CPU. Reloading clears this history.",
+      "requests": "Metadata requests",
+      "p95": "Successful requests, 95th percentile",
+      "failures": "Failed requests",
+      "cancelled": "Cancelled requests",
+      "ready": "Latest Exports metadata ready",
+      "unmeasured": "Not measured yet",
+      "clear": "Clear measurements"
+    },
+    "renameFailed": "The export could not be renamed. Your input is still here. Try again."
   }
 }

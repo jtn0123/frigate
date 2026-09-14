@@ -23,6 +23,9 @@ import { BASE_STATS, statsFactory } from "../fixtures/mock-data/stats";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MOCK_DATA_DIR = resolve(__dirname, "../fixtures/mock-data");
+const EXPORT_PREVIEW = readFileSync(
+  resolve(__dirname, "../fixtures/media/export-preview.webm"),
+);
 
 function loadMockJson(filename: string): unknown {
   return JSON.parse(readFileSync(resolve(MOCK_DATA_DIR, filename), "utf-8"));
@@ -329,6 +332,14 @@ export class MediaMocker {
   }
 
   async install() {
+    // A tiny, decodable video keeps export preview requests inside the fixture.
+    // WebM is supported by every Chromium build used in local and CI tests.
+    await this.page.route("**/exports/*.mp4", (route) =>
+      route.fulfill({
+        contentType: "video/webm",
+        body: EXPORT_PREVIEW,
+      }),
+    );
     // Camera snapshots
     await this.page.route("**/api/*/latest.{jpg,webp}**", (route) =>
       route.fulfill({

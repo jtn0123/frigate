@@ -16,7 +16,14 @@ export function useOverlayState<S>(
   key: string,
   defaultValue: S | undefined = undefined,
   preserveSearch: boolean = true,
-): [S | undefined, (value: S, replace?: boolean) => void] {
+): [
+  S | undefined,
+  (
+    value: S,
+    replace?: boolean,
+    additionalState?: Record<string, unknown>,
+  ) => void,
+] {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -24,15 +31,20 @@ export function useOverlayState<S>(
   locationRef.current = location;
 
   const setOverlayStateValue = useCallback(
-    (value: S, replace: boolean = false) => {
+    (
+      value: S,
+      replace: boolean = false,
+      additionalState?: Record<string, unknown>,
+    ) => {
       const loc = locationRef.current;
       const currentValue = loc.state?.[key] as S | undefined;
 
-      if (Object.is(currentValue, value)) {
+      if (Object.is(currentValue, value) && additionalState === undefined) {
         return;
       }
 
-      const newLocationState = { ...loc.state };
+      // Related fields must be written together, before the next transition.
+      const newLocationState = { ...loc.state, ...additionalState };
       newLocationState[key] = value;
       void navigate(loc.pathname + (preserveSearch ? loc.search : ""), {
         state: newLocationState,

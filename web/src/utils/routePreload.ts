@@ -10,16 +10,20 @@ const pending = new Map<string, Promise<unknown>>();
 
 type Connection = { saveData?: boolean; effectiveType?: string };
 
-/** Warm a page module on explicit link intent, without starting page requests. */
-export function preloadRoute(path: string): void {
+/** Respect the connection before speculative code or metadata requests. */
+export function canPreloadRoute(): boolean {
   const connection = (navigator as Navigator & { connection?: Connection })
     .connection;
-  if (
+  return !(
     navigator.onLine === false ||
     connection?.saveData ||
     ["slow-2g", "2g", "3g"].includes(connection?.effectiveType ?? "")
-  )
-    return;
+  );
+}
+
+/** Warm a page module on explicit link intent. */
+export function preloadRoute(path: string): void {
+  if (!canPreloadRoute()) return;
   const pathname = path.split(/[?#]/)[0];
   const load = loaders[pathname];
   if (!load || pending.has(pathname)) return;

@@ -1,3 +1,4 @@
+import NavigationMetrics from "@/components/fork/NavigationMetrics";
 import useSWR from "swr";
 import { FrigateStats, GpuInfo, GpuStats } from "@/types/stats";
 import { startTransition, useEffect, useMemo, useState } from "react";
@@ -652,6 +653,7 @@ export default function GeneralMetrics({
       />
 
       <div className="scrollbar-container mt-4 flex size-full flex-col overflow-y-auto">
+        <NavigationMetrics />
         <div className="text-sm font-medium text-muted-foreground">
           {t("general.detector.title")}
         </div>

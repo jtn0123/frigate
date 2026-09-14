@@ -414,6 +414,13 @@ test.describe("Export Page - Mobile @high @mobile", () => {
       .filter({ hasText: "Front Door - Person Alert" });
     await expect(dialog).toBeVisible();
     await expect(dialog.locator("video")).toBeVisible();
+    await expect
+      .poll(() =>
+        dialog
+          .locator("video")
+          .evaluate((video: HTMLVideoElement) => video.readyState),
+      )
+      .toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -1,3 +1,5 @@
+import { useRestoredScroll } from "@/hooks/fork/use-restored-scroll";
+import { useHistorySelection } from "@/hooks/fork/use-history-selection";
 import { sortedStrings } from "@/utils/stringSort";
 import SearchThumbnail from "@/components/card/SearchThumbnail";
 import SearchFilterGroup from "@/components/filter/SearchFilterGroup";
@@ -77,6 +79,7 @@ export default function SearchView({
 }: Readonly<SearchViewProps>) {
   const { t } = useTranslation(["views/explore"]);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const summaryRef = useRef<HTMLDivElement | null>(null);
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
   });
@@ -222,9 +225,16 @@ export default function SearchView({
     ],
   );
 
+  useRestoredScroll(contentRef, "explore", !isLoading);
+  useRestoredScroll(
+    summaryRef,
+    "explore-summary",
+    !isLoading && defaultView === "summary",
+  );
+
   // detail
 
-  const [selectedId, setSelectedId] = useState<string>();
+  const [selectedId, setSelectedId] = useHistorySelection("exploreSelectedId");
   const [page, setPage] = useState<SearchTab>("snapshot");
 
   // remove duplicate event ids
@@ -280,7 +290,7 @@ export default function SearchView({
         setSelectedId(item.id);
       }
     },
-    [selectedObjects],
+    [selectedObjects, setSelectedId],
   );
 
   const bulkItems = useMemo(() => {
@@ -313,7 +323,7 @@ export default function SearchView({
         onSelectSearch(value, ctrl || selectedObjects.length > 0);
       }
     },
-    [bulk, selectedObjects, onSelectSearch],
+    [bulk, selectedObjects, onSelectSearch, setSelectedId],
   );
 
   const onSelectAllObjects = useCallback(() => {
@@ -350,10 +360,22 @@ export default function SearchView({
 
   // clear selected item when search results clear
   useEffect(() => {
-    if (!searchResults && !exploreEvents) {
+    if (
+      !isLoading &&
+      selectedId &&
+      (searchResults || exploreEvents) &&
+      !searchDetail
+    ) {
       setSelectedId(undefined);
     }
-  }, [searchResults, exploreEvents]);
+  }, [
+    isLoading,
+    selectedId,
+    searchResults,
+    exploreEvents,
+    searchDetail,
+    setSelectedId,
+  ]);
 
   const hasExistingSearch = useMemo(
     () => searchResults != undefined || searchFilter != undefined,
@@ -381,7 +403,7 @@ export default function SearchView({
 
       setSelectedId(results[newIndex].id);
     }
-  }, [uniqueResults, exploreEvents, searchDetail, defaultView]);
+  }, [uniqueResults, exploreEvents, searchDetail, defaultView, setSelectedId]);
 
   const goToNext = useCallback(() => {
     const results =
@@ -398,7 +420,7 @@ export default function SearchView({
 
       setSelectedId(results[newIndex].id);
     }
-  }, [uniqueResults, exploreEvents, searchDetail, defaultView]);
+  }, [uniqueResults, exploreEvents, searchDetail, defaultView, setSelectedId]);
 
   const onKeyboardShortcut = useCallback(
     (key: string | null, modifiers: KeyModifiers) => {
@@ -546,6 +568,7 @@ export default function SearchView({
       <div className="relative">
         {searchDetail && (
           <SearchDetailDialog
+            enableHistoryBack={false}
             search={searchDetail}
             page={page}
             setSearch={(item) => setSelectedId(item?.id)}
@@ -762,7 +785,10 @@ export default function SearchView({
         Object.keys(searchFilter).length === 0 &&
         !searchTerm &&
         defaultView == "summary" && (
-          <div className="scrollbar-container flex size-full flex-col overflow-y-auto">
+          <div
+            ref={summaryRef}
+            className="scrollbar-container flex size-full flex-col overflow-y-auto"
+          >
             <ExploreView
               setSearchDetail={(item) => setSelectedId(item?.id)}
               setSimilaritySearch={setSimilaritySearch}

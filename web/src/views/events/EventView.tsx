@@ -1,3 +1,4 @@
+import { useRestoredScroll } from "@/hooks/fork/use-restored-scroll";
 import Logo from "@/components/Logo";
 import NewReviewData from "@/components/dynamic/NewReviewData";
 import CalendarFilterButton from "@/components/filter/CalendarFilterButton";
@@ -151,6 +152,12 @@ export default function EventView({
   const { t } = useTranslation(["views/events"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const contentRef = useRef<HTMLDivElement | null>(null);
+
+  useRestoredScroll(
+    contentRef,
+    JSON.stringify([severity, filter]),
+    currentReviewItems !== undefined,
+  );
 
   // review counts
 
