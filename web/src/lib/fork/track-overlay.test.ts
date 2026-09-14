@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { allOnEdge, boxAtTime, isEdgePoint } from "./track-overlay";
+import {
+  allOnEdge,
+  boxAtTime,
+  isEdgePoint,
+  type TimedBox,
+} from "./track-overlay";
 
 // Box is [left, top, width, height]; path points are ground points
 // (bottom-center of the box), all normalized 0-1.
-const boxes = [
+const boxes: TimedBox[] = [
   { timestamp: 100, box: [0.1, 0.2, 0.1, 0.3] },
   { timestamp: 105, box: [0.6, 0.2, 0.2, 0.4] },
 ];

@@ -11,7 +11,11 @@ import { forkFlags } from "@/fork/flags";
 
 export const trackOverlayFixes: boolean = forkFlags.trackOverlay;
 
-export type TimedBox = { timestamp: number; box: number[] };
+/** Box is [left, top, width, height], normalized 0-1. */
+export type TimedBox = {
+  timestamp: number;
+  box: [number, number, number, number];
+};
 export type TimedPoint = { timestamp: number; x: number; y: number };
 
 /** Same tolerance upstream uses for a recorded box (seconds). */
@@ -94,9 +98,6 @@ export function boxAtTime(
   }
 
   const [, , width, height] = closest.box;
-  if (width === undefined || height === undefined) {
-    return undefined;
-  }
   return [ground.x - width / 2, ground.y - height, width, height];
 }
 

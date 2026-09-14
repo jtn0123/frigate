@@ -296,7 +296,7 @@ export default function ObjectTrackOverlay({
           nearbyTimelineEvent?.data?.box ??
           (trackOverlayFixes
             ? boxAtTime(
-                (timelineData ?? []).flatMap((event) =>
+                timelineData.flatMap((event) =>
                   event.data.box
                     ? [{ timestamp: event.timestamp, box: event.data.box }]
                     : [],
