@@ -261,5 +261,12 @@
     "exportStart": "Export start time",
     "exportEnd": "Export end time",
     "overview": "Timeline overview"
+  },
+  "phoneDebug": {
+    "overlays": "Overlays",
+    "close": "Close overlay options",
+    "showBoxes": "Show detection boxes",
+    "hideBoxes": "Hide detection boxes",
+    "allOptions": "All options"
   }
 }

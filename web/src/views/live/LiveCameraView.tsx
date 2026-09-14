@@ -96,6 +96,7 @@ import { cn } from "@/lib/utils";
 import { phoneFixes } from "@/lib/fork/phone";
 import { fullscreenPortalContainer } from "@/lib/fork/fullscreen";
 import { phoneFullscreenRail } from "@/lib/fork/phone-fullscreen";
+import PhoneBoxesToggle from "@/components/fork/PhoneBoxesToggle";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
 
 import {
@@ -619,6 +620,10 @@ export default function LiveCameraView({
                 }
                 onClick={toggleFullscreen}
               />
+            )}
+            {/* fork: one-tap detection boxes (Debug View) on phones */}
+            {!fullscreen && (
+              <PhoneBoxesToggle debug={debug} setDebug={setDebug} />
             )}
             {!isIOS && !isFirefox && preferredLiveMode != "jsmpeg" && (
               <CameraFeatureToggle

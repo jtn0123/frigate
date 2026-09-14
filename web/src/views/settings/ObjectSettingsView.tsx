@@ -26,7 +26,7 @@ import { Link } from "react-router-dom";
 
 import DebugDrawingLayer from "@/components/overlay/DebugDrawingLayer";
 import { Separator } from "@/components/ui/separator";
-import { isDesktop } from "react-device-detect";
+import { isDesktop, isMobileOnly } from "react-device-detect";
 import { Trans, useTranslation } from "react-i18next";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { getTranslatedLabel } from "@/utils/i18n";
@@ -34,6 +34,11 @@ import { useCameraFriendlyName } from "@/hooks/use-camera-friendly-name";
 import { AudioLevelGraph } from "@/components/audio/AudioLevelGraph";
 import { useWs } from "@/api/ws";
 import { cn } from "@/lib/utils";
+import { phoneFixes } from "@/lib/fork/phone";
+import { phoneDebugSheetClass } from "@/lib/fork/phone-debug-sheet";
+import { useOverlayHistoryBack } from "@/hooks/fork/use-overlay-history-back";
+import PhoneDebugSheetControls from "@/components/fork/PhoneDebugSheetControls";
+import PhoneDebugChips from "@/components/fork/PhoneDebugChips";
 
 type ObjectSettingsViewProps = {
   selectedCamera?: string;
@@ -110,6 +115,20 @@ export default function ObjectSettingsView({
     emptyObject,
   );
 
+  // fork: phones get the options in a bottom sheet, with boxes on at first
+  const phoneSheet = phoneFixes && isMobileOnly;
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useOverlayHistoryBack({
+    enabled: phoneSheet,
+    open: sheetOpen,
+    onClose: () => setSheetOpen(false),
+  });
+  useEffect(() => {
+    if (phoneSheet && optionsLoaded && options?.bbox === undefined) {
+      setOptions({ ...options, bbox: true });
+    }
+  }, [phoneSheet, optionsLoaded, options, setOptions]);
+
   const handleSetOption = useCallback(
     (id: string, value: boolean) => {
       const newOptions = { ...options, [id]: value };
@@ -165,7 +184,22 @@ export default function ObjectSettingsView({
   return (
     <div className="mt-1 flex size-full flex-col pb-2 md:flex-row">
       <Toaster position="top-center" closeButton={true} />
-      <div className="scrollbar-container order-last mb-2 mt-2 flex h-full w-full flex-col overflow-y-auto rounded-lg border-[1px] border-secondary-foreground bg-background_alt p-2 md:order-none md:mb-0 md:mr-2 md:mt-0 md:w-3/12">
+      {phoneSheet && (
+        <PhoneDebugSheetControls
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          activeCount={
+            DEBUG_OPTIONS.filter(({ param }) => options?.[param]).length
+          }
+        />
+      )}
+      <div
+        className={cn(
+          "scrollbar-container order-last mb-2 mt-2 flex h-full w-full flex-col overflow-y-auto rounded-lg border-[1px] border-secondary-foreground bg-background_alt p-2 md:order-none md:mb-0 md:mr-2 md:mt-0 md:w-3/12",
+          phoneSheet && phoneDebugSheetClass(sheetOpen),
+        )}
+        data-testid={phoneSheet ? "phone-debug-sheet" : undefined}
+      >
         <Heading as="h4" className="mb-2">
           {t("debug.title")}
         </Heading>
@@ -341,7 +375,22 @@ export default function ObjectSettingsView({
       </div>
 
       {cameraConfig ? (
-        <div className="flex max-h-[70%] md:h-dvh md:max-h-full md:w-7/12 md:grow">
+        <div
+          className={cn(
+            "flex max-h-[70%] md:h-dvh md:max-h-full md:w-7/12 md:grow",
+            phoneSheet &&
+              // min-h-0 + overflow-hidden: an aspect-ratio box otherwise grows to
+              // fit the image, and a 1px rounding change re-requests the frame
+              "max-h-full flex-1 portrait:aspect-[--frame-aspect] portrait:max-h-[50dvh] portrait:min-h-0 portrait:w-full portrait:flex-none portrait:overflow-hidden",
+          )}
+          style={
+            phoneSheet
+              ? ({
+                  "--frame-aspect": `${cameraConfig.detect.width} / ${cameraConfig.detect.height}`,
+                } as React.CSSProperties)
+              : undefined
+          }
+        >
           <div ref={containerRef} className="relative size-full min-h-10">
             <AutoUpdatingCameraImage
               camera={cameraConfig.name}
@@ -361,6 +410,15 @@ export default function ObjectSettingsView({
         </div>
       ) : (
         <Skeleton className="size-full rounded-lg md:rounded-2xl" />
+      )}
+      {phoneSheet && (
+        <PhoneDebugChips
+          className="landscape:hidden"
+          overlays={DEBUG_OPTIONS}
+          options={options}
+          onToggle={handleSetOption}
+          onAllOptions={() => setSheetOpen(true)}
+        />
       )}
     </div>
   );
