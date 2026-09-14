@@ -31,6 +31,31 @@ container does not read that file.
   of the repo or `/Volumes/512Flash/frigate-demo` arrives empty in the
   container.
 
+## Audit
+
+`make demo-audit` drives the running demo in Chrome as an Android phone
+(Galaxy S24 Ultra user agent, 412x915, touch) and visits every page: Live,
+each camera, Review, Explore, Export, every Settings section, the System
+tabs, Logs, Config, Faces and Classification. Per page it records console
+errors and warnings, Chrome's own warnings, exceptions, HTTP errors, axe-core
+WCAG 2.1 AA violations, sideways overflow, tap targets under 24/40 px, broken
+images, request storms, long tasks, layout shift, and whether every menu or
+drawer closes on back without leaving the page.
+
+```
+make demo-audit                                  # phone
+make demo-audit ARGS="--profile=desktop"
+make demo-audit ARGS="--update-baseline"         # save this run as the baseline
+make demo-audit ARGS="--strict"                  # exit 1 on findings new since the baseline
+```
+
+It signs in with `FRIGATE_DEMO_PASSWORD` from `fork/demo/.env`. Reports,
+JSON and screenshots go to `fork/demo/.data/audit/<timestamp>-<profile>/`.
+Findings known to come from upstream or a fresh demo (preview 404s before
+Frigate has written previews, review lookups for objects with no review item)
+are listed separately. axe-core is installed into `fork/demo/.data/tools` on
+first run.
+
 ## Reset
 
 `docker compose -f fork/demo/compose.yml down -v` drops the database and

@@ -13,6 +13,12 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { Event } from "@/types/event";
 import { resolveZoneName } from "@/hooks/use-zone-friendly-name";
+import {
+  allOnEdge,
+  boxAtTime,
+  isEdgePoint,
+  trackOverlayFixes,
+} from "@/lib/fork/track-overlay";
 
 // Use a small tolerance (10ms) for browsers with seek precision by-design issues
 const TOLERANCE = 0.01;
@@ -285,7 +291,20 @@ export default function ObjectTrackOverlay({
               Math.abs(event.timestamp - effectiveCurrentTime) <= TOLERANCE,
           );
 
-        const currentBox = nearbyTimelineEvent?.data?.box;
+        // fork: between recorded moments, place the box on the object's path
+        const currentBox =
+          nearbyTimelineEvent?.data?.box ??
+          (trackOverlayFixes
+            ? boxAtTime(
+                timelineData.flatMap((event) =>
+                  event.data.box
+                    ? [{ timestamp: event.timestamp, box: event.data.box }]
+                    : [],
+                ),
+                allPoints,
+                effectiveCurrentTime,
+              )
+            : undefined);
         const currentAttributeBox = nearbyTimelineEvent?.data?.attribute_box;
 
         return {
@@ -425,10 +444,12 @@ export default function ObjectTrackOverlay({
           timestamp: point.timestamp,
           lifecycle_item: point.lifecycle_item,
         }));
+        // fork: a path pinned to the bottom edge (feet out of frame) says nothing
+        const hidePath = trackOverlayFixes && allOnEdge(objData.pathPoints);
 
         return (
           <g key={objData.objectId}>
-            {absolutePositions.length > 1 && (
+            {!hidePath && absolutePositions.length > 1 && (
               <path
                 d={generateStraightPath(absolutePositions)}
                 fill="none"
@@ -439,13 +460,19 @@ export default function ObjectTrackOverlay({
               />
             )}
 
-            {absolutePositions.map((pos, index) => (
+            {(hidePath ? [] : absolutePositions).map((pos, index) => (
               <Tooltip key={`${objData.objectId}-point-${index}`}>
                 <TooltipTrigger asChild>
                   <circle
                     cx={pos.x}
                     cy={pos.y}
                     r={pointRadius}
+                    opacity={
+                      trackOverlayFixes &&
+                      isEdgePoint(objData.pathPoints[index].y)
+                        ? 0.35
+                        : undefined
+                    }
                     fill={getPointColor(
                       objData.color,
                       pos.lifecycle_item?.class_type,

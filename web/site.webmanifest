@@ -1,6 +1,8 @@
 {
+  "id": "./",
   "name": "Frigate",
   "short_name": "Frigate",
+  "description": "Frigate NVR: live cameras, review and tracked objects",
   "start_url": "/BASE_PATH/",
   "icons": [
     {
@@ -16,8 +18,8 @@
       "purpose": "any"
     },
     {
-      "src": "/BASE_PATH/images/maskable-icon.png",
-      "sizes": "180x180",
+      "src": "/BASE_PATH/images/maskable-icon-512x512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
@@ -25,7 +27,7 @@
       "src": "/BASE_PATH/images/maskable-badge.png",
       "sizes": "96x96",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "monochrome"
     }
   ],
   "theme_color": "#ffffff",

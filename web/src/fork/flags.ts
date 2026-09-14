@@ -38,6 +38,10 @@ export type ForkFlags = {
   viewportLayout: boolean;
   /** Update button and What's new from the fork's GitHub releases. */
   updateNotices: boolean;
+  /** Phone fixes: back closes overlays, insets, landscape, fullscreen. */
+  phoneFixes: boolean;
+  /** Tracking overlay: tap pauses on the moment, box between moments, edge dots faded. */
+  trackOverlay: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -55,6 +59,8 @@ const defaults: ForkFlags = {
   unifiedEventDetail: true,
   viewportLayout: true,
   updateNotices: true,
+  phoneFixes: true,
+  trackOverlay: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {

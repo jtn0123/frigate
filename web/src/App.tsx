@@ -27,6 +27,10 @@ import RouteErrorBoundary, {
 } from "@/components/fork/RouteErrorBoundary";
 import CommandPalette from "@/components/fork/CommandPalette";
 import { isPublicSharePath } from "@/lib/fork/share-path";
+import { phoneShell } from "@/lib/fork/phone-shell";
+import { allowAndroidPageZoom } from "@/lib/fork/viewport-zoom";
+
+allowAndroidPageZoom();
 
 const Live = lazy(() => import("@/pages/Live"));
 const Events = lazy(() => import("@/pages/Events"));
@@ -112,9 +116,11 @@ function DefaultAppView({
         className={cn(
           "absolute right-0 top-0 overflow-hidden",
           isMobile
-            ? isPWA
-              ? "bottom-[calc(3rem+env(safe-area-inset-bottom))] left-0 pt-[env(safe-area-inset-top)] md:bottom-[calc(4rem+env(safe-area-inset-bottom))] landscape:pl-[env(safe-area-inset-left)] landscape:pr-[env(safe-area-inset-right)]"
-              : "bottom-12 left-0 md:bottom-16"
+            ? // fork: phoneShell reserves insets in a tab and stays compact in landscape
+              (phoneShell?.pageRoot ??
+                (isPWA
+                  ? "bottom-[calc(3rem+env(safe-area-inset-bottom))] left-0 pt-[env(safe-area-inset-top)] md:bottom-[calc(4rem+env(safe-area-inset-bottom))] landscape:pl-[env(safe-area-inset-left)] landscape:pr-[env(safe-area-inset-right)]"
+                  : "bottom-12 left-0 md:bottom-16"))
             : "bottom-8 left-[52px]",
         )}
       >

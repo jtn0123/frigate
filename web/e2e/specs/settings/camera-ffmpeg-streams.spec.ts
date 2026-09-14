@@ -12,6 +12,11 @@ import { fileURLToPath } from "node:url";
 import { test, expect } from "../../fixtures/frigate-test";
 import type { Page } from "@playwright/test";
 import { configFactory } from "../../fixtures/mock-data/config";
+import {
+  expectNoHorizontalOverflow,
+  expectWithinPhoneWidth,
+  openPhoneSettingsSection,
+} from "../../helpers/settings-phone";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_SCHEMA = JSON.parse(
@@ -200,4 +205,41 @@ test.describe("camera ffmpeg input source toggle @medium", () => {
       payload?.config_data?.cameras?.front_door?.ffmpeg?.inputs?.[0];
     expect(input?.input_args).not.toBe("preset-rtsp-restream");
   });
+
+  test(
+    "phone opens the ffmpeg inputs from the camera group and picks a restream @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await installRoutes(page, [
+        { path: "rtsp://10.0.0.1:554/video", roles: ["detect"] },
+      ]);
+      const { title } = await openPhoneSettingsSection(page, {
+        group: "Camera configuration",
+        section: "Streams (FFmpeg)",
+      });
+
+      // The first camera is selected by default and the camera picker sits
+      // in the panel header.
+      await expect(
+        page.getByRole("button", { name: "Select a camera" }),
+      ).toBeInViewport();
+      const manual = page.getByRole("radio", { name: MANUAL_RADIO });
+      await expect(manual).toBeChecked();
+      const path = page.getByRole("textbox", { name: "Input path" });
+      await expect(path).toHaveValue("rtsp://10.0.0.1:554/video");
+      await expectWithinPhoneWidth(path);
+      await expectNoHorizontalOverflow(title);
+
+      await page.getByRole("radio", { name: RESTREAM_RADIO }).click();
+      const stream = page.getByRole("combobox", { name: /go2rtc stream/i });
+      await expectWithinPhoneWidth(stream);
+      await stream.click();
+      const option = page.getByRole("option", { name: "dome_main" });
+      await expect(option).toBeInViewport();
+      await option.click();
+      await expect(stream).toContainText("dome_main");
+      await expectNoHorizontalOverflow(title);
+    },
+  );
 });

@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { ASPECT_VERTICAL_LAYOUT, RecordingPlayerError } from "@/types/record";
 import { useTranslation } from "react-i18next";
 import ObjectTrackOverlay from "@/components/overlay/ObjectTrackOverlay";
+import { usePhoneDetailControls } from "@/hooks/fork/use-phone-detail-controls";
+import { phoneFixes } from "@/lib/fork/phone";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 
 // Android native hls does not seek correctly
@@ -237,6 +239,12 @@ export default function HlsVideoPlayer({
   const [mobileCtrlTimeout, setMobileCtrlTimeout] = useState<NodeJS.Timeout>();
   const [controls, setControls] = useState(isMobile);
   const [controlsOpen, setControlsOpen] = useState(false);
+  // fork: on phones, step the controls aside while paused on a detection
+  usePhoneDetailControls(
+    phoneFixes && isMobile && isDetailMode && !isPlaying,
+    controlsOpen,
+    setControls,
+  );
   const [isSnapshotLoading, setIsSnapshotLoading] = useState(false);
   const [zoomScale, setZoomScale] = useState(1.0);
   const [videoDimensions, setVideoDimensions] = useState<{
