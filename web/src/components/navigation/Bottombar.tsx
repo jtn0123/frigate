@@ -26,6 +26,7 @@ import { isMobile } from "react-device-detect";
 import { isPWA } from "@/utils/isPWA";
 import { useTranslation } from "react-i18next";
 import ForkNavItems from "@/components/fork/ForkNavItems";
+import { phoneShell } from "@/lib/fork/phone-shell";
 
 // not needed for first paint, so it loads after the shell
 const GeneralSettings = lazy(() => import("../menu/GeneralSettings"));
@@ -77,9 +78,11 @@ function Bottombar() {
       className={cn(
         "absolute inset-x-4 bottom-0 flex h-16 flex-row items-center justify-between",
         isMobile &&
-          (isPWA
-            ? "h-[calc(3rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] md:h-[calc(4rem+env(safe-area-inset-bottom))]"
-            : "h-12 md:h-16 md:pb-2"),
+          // fork: phoneShell reserves insets in a tab and stays compact in landscape
+          (phoneShell?.bar ??
+            (isPWA
+              ? "h-[calc(3rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] md:h-[calc(4rem+env(safe-area-inset-bottom))]"
+              : "h-12 md:h-16 md:pb-2")),
       )}
     >
       {navItems.map((item) => (

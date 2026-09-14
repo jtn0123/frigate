@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { useHistoryBack } from "@/hooks/use-history-back";
 import { onActivate } from "@/utils/fork/a11y";
+import { phoneShell } from "@/lib/fork/phone-shell";
 
 const MobilePageContext = createContext<{
   open: boolean;
@@ -156,9 +157,11 @@ export function MobilePageContent({
           ref={containerRef}
           className={cn(
             "fixed inset-0 z-50 bg-background",
-            isPWA
-              ? "mb-[calc(3rem+env(safe-area-inset-bottom))] md:mb-[calc(4rem+env(safe-area-inset-bottom))]"
-              : "mb-12 md:mb-16",
+            // fork: phoneShell reserves insets in a tab and stays compact in landscape
+            phoneShell?.mobilePage ??
+              (isPWA
+                ? "mb-[calc(3rem+env(safe-area-inset-bottom))] md:mb-[calc(4rem+env(safe-area-inset-bottom))]"
+                : "mb-12 md:mb-16"),
             className,
           )}
           initial={{ x: "100%" }}

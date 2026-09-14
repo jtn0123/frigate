@@ -93,6 +93,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
+import { phoneFixes } from "@/lib/fork/phone";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
 
 import {
@@ -1494,8 +1495,9 @@ function FrigateCameraFeatures({
     <Drawer>
       <DrawerTrigger>
         <CameraFeatureToggle
-          className="p-2 landscape:size-9"
-          variant="primary"
+          // fork: the md icon margin a landscape phone crosses shrank the cog
+          className={cn("p-2 landscape:size-9", phoneFixes && "landscape:p-0")}
+          variant={fullscreen ? "overlay" : "primary"}
           Icon={FaCog}
           isActive={false}
           title={t("cameraSettings.title", { camera })}
