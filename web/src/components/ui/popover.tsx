@@ -2,8 +2,44 @@ import * as React from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 
 import { cn } from "@/lib/utils";
+import { overlayBackDefault } from "@/lib/fork/phone";
+import { useHistoryOpenState } from "@/hooks/fork/use-overlay-history-back";
 
-const Popover = PopoverPrimitive.Root;
+type PopoverProps = PopoverPrimitive.PopoverProps & {
+  /** fork: close on the back button (default on for phones) */
+  enableHistoryBack?: boolean;
+};
+
+const Popover = ({
+  enableHistoryBack = overlayBackDefault,
+  ...props
+}: PopoverProps) =>
+  enableHistoryBack ? (
+    <HistoryPopover {...props} />
+  ) : (
+    <PopoverPrimitive.Root {...props} />
+  );
+
+// fork: on phones an info popover is dismissed with back like any overlay
+const HistoryPopover = ({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: PopoverPrimitive.PopoverProps) => {
+  const [historyOpen, setHistoryOpen] = useHistoryOpenState({
+    open,
+    defaultOpen,
+    onOpenChange,
+  });
+  return (
+    <PopoverPrimitive.Root
+      {...props}
+      open={historyOpen}
+      onOpenChange={setHistoryOpen}
+    />
+  );
+};
 
 const PopoverTrigger = PopoverPrimitive.Trigger;
 

@@ -5,8 +5,43 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { overlayBackDefault } from "@/lib/fork/phone";
+import { useHistoryOpenState } from "@/hooks/fork/use-overlay-history-back";
 
-const AlertDialog = AlertDialogPrimitive.Root;
+type AlertDialogProps = AlertDialogPrimitive.AlertDialogProps & {
+  /** fork: close on the back button (default on for phones) */
+  enableHistoryBack?: boolean;
+};
+
+const AlertDialog = ({
+  enableHistoryBack = overlayBackDefault,
+  ...props
+}: AlertDialogProps) =>
+  enableHistoryBack ? (
+    <HistoryAlertDialog {...props} />
+  ) : (
+    <AlertDialogPrimitive.Root {...props} />
+  );
+
+const HistoryAlertDialog = ({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: AlertDialogPrimitive.AlertDialogProps) => {
+  const [historyOpen, setHistoryOpen] = useHistoryOpenState({
+    open,
+    defaultOpen,
+    onOpenChange,
+  });
+  return (
+    <AlertDialogPrimitive.Root
+      {...props}
+      open={historyOpen}
+      onOpenChange={setHistoryOpen}
+    />
+  );
+};
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 
