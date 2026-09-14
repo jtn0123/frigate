@@ -118,9 +118,9 @@ ruff==0.15.20 \
     --hash=sha256:ed65ef510e43a137207e0f01cfcf998aeddb1aeeda5c9d35023e910284d7cf21 \
     --hash=sha256:f701305e66b38ea6c91882490eb73459796808e4c6362a1b765255e0cdcd4053
     # via -r docker/main/requirements-dev.txt
-types-peewee==3.17.9.20250401 \
-    --hash=sha256:adbf4bb2f4975a0928c1de62293185400cd83a982e108ef7e0ed99a157e0aa9d \
-    --hash=sha256:e0e59b14d55c7e21835a12edbd4c14d304bb287390d7577e6be7402bfc95f600
+types-peewee==4.0.8.20260712 \
+    --hash=sha256:381e9ddf56c87ff9770d5bd76b8a5af955125795f21a324c58025daa468941dc \
+    --hash=sha256:8d8f0697b63347c93bec011167002a544d4877ba9053c6f551bdaff68b17ab20
     # via -r docker/main/requirements-dev.txt
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \

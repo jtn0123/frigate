@@ -184,7 +184,7 @@ class NoticeRegistry:
             deleted = (
                 Notice.delete()
                 .where(
-                    Notice.kind.in_(camera_kinds),  # type: ignore[call-arg, arg-type, misc]
+                    Notice.kind.in_(camera_kinds),
                     Notice.scope == camera,
                 )
                 .execute()
@@ -316,7 +316,7 @@ class NoticeRegistry:
         """Muted config and stream check rows, newest first."""
         rows = (
             Notice.select()
-            .where(Notice.kind.in_(list(CHECK_KINDS)))  # type: ignore[call-arg, arg-type, misc]
+            .where(Notice.kind.in_(list(CHECK_KINDS)))
             .order_by(Notice.muted_at.desc())
         )
         return [{"id": row.id, "muted_at": row.muted_at} for row in rows]
@@ -417,7 +417,7 @@ class NoticeRegistry:
         )
         Notice.delete().where(
             Notice.kind == kind,
-            Notice.id.not_in(newest),  # type: ignore[call-arg, misc]
+            Notice.id.not_in(newest),
         ).execute()
 
     def _bump_occurrences(self, kind: str, count: int, now: float) -> None:
