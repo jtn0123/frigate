@@ -89,26 +89,20 @@ def review(
     if labels != "all":
         # use matching so segments with multiple labels
         # still match on a search where any label matches
-        label_clauses = []
-        filtered_labels = labels.split(",")
-
-        for label in filtered_labels:
-            label_clauses.append(
-                (ReviewSegment.data["objects"].cast("text") % f'*"{label}"*')
-                | (ReviewSegment.data["audio"].cast("text") % f'*"{label}"*')
-            )
+        label_clauses = [
+            (ReviewSegment.data["objects"].cast("text") % f'*"{label}"*')
+            | (ReviewSegment.data["audio"].cast("text") % f'*"{label}"*')
+            for label in labels.split(",")
+        ]
         clauses.append(reduce(operator.or_, label_clauses))
 
     if zones != "all":
         # use matching so segments with multiple zones
         # still match on a search where any zone matches
-        zone_clauses = []
-        filtered_zones = zones.split(",")
-
-        for zone in filtered_zones:
-            zone_clauses.append(
-                ReviewSegment.data["zones"].cast("text") % f'*"{zone}"*'
-            )
+        zone_clauses = [
+            ReviewSegment.data["zones"].cast("text") % f'*"{zone}"*'
+            for zone in zones.split(",")
+        ]
         clauses.append(reduce(operator.or_, zone_clauses))
 
     if severity:

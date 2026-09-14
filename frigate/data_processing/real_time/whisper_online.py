@@ -633,7 +633,6 @@ class OnlineASRProcessor:
         out = []
         while s:
             beg = None
-            end = None
             sent = s.pop(0).strip()
             fsent = sent
             while cwords:
@@ -641,9 +640,8 @@ class OnlineASRProcessor:
                 w = w.strip()
                 if beg is None and sent.startswith(w):
                     beg = b
-                elif end is None and sent == w:
-                    end = e
-                    out.append((beg, end, fsent))
+                if beg is not None and sent == w:
+                    out.append((beg, e, fsent))
                     break
                 sent = sent[len(w) :].strip()
         return out
@@ -705,8 +703,9 @@ class VACOnlineASRProcessor(OnlineASRProcessor):
         self.logfile = self.online.logfile
         self.init()
 
-    def init(self):
-        self.online.init()
+    def init(self, offset=None):
+        """Reset voice detection and the wrapped transcription offset."""
+        self.online.init(offset=offset)
         self.vac.reset_states()
         self.current_online_chunk_buffer_size = 0
 

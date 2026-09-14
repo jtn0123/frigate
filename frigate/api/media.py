@@ -16,7 +16,6 @@ from urllib.parse import unquote
 
 import cv2
 import numpy as np
-import pytz
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pathvalidate import sanitize_filename
@@ -58,6 +57,7 @@ from frigate.util.image import get_image_from_recording, get_image_quality_param
 from frigate.util.media import get_keyframe_before
 from frigate.util.object import create_empty_regions_grid
 from frigate.util.path import safe_join
+from frigate.util.time import get_timezone
 
 _PRIVATE_YEAR_CACHE_CONTROL = "private, max-age=31536000"
 _PREVIEW_NOT_FOUND = "Preview not found"
@@ -765,7 +765,7 @@ def vod_hour(year_month: str, day: int, hour: int, camera_name: str, tz_name: st
     parts = year_month.split("-")
     start_date = (
         datetime(int(parts[0]), int(parts[1]), day, hour, tzinfo=UTC)
-        - datetime.now(pytz.timezone(tz_name.replace(",", "/"))).utcoffset()
+        - datetime.now(get_timezone(tz_name.replace(",", "/"))).utcoffset()
     )
     end_date = start_date + timedelta(hours=1) - timedelta(milliseconds=1)
     start_ts = start_date.timestamp()

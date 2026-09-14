@@ -33,6 +33,7 @@ import {
   LiveStreamMetadata,
   VideoResolutionType,
 } from "@/types/live";
+import type { components } from "@/types/fork/api.gen";
 import { RecordingStartingPoint } from "@/types/record";
 import React, {
   useCallback,
@@ -893,54 +894,70 @@ function FrigateCameraFeatures({
 
   const recordingEventIdRef = useRef<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingPending, setIsRecordingPending] = useState(false);
+  const recordingRequestPending = useRef(false);
   const [activeToastId, setActiveToastId] = useState<string | number | null>(
     null,
   );
 
   const createEvent = useCallback(async () => {
+    if (recordingRequestPending.current || recordingEventIdRef.current) return;
+    recordingRequestPending.current = true;
+    setIsRecordingPending(true);
     try {
-      const response = await axios.post(
-        `events/${camera.name}/on_demand/create`,
+      const response = await axios.post<
+        components["schemas"]["EventCreateResponse"]
+      >(`events/${camera.name}/on_demand/create`, {
+        include_recording: true,
+        duration: null,
+      });
+
+      if (!response.data.success || !response.data.event_id) {
+        throw new Error("Recording creation was not confirmed");
+      }
+      recordingEventIdRef.current = response.data.event_id;
+      setIsRecording(true);
+      const toastId = toast.success(
+        <div className="flex flex-col space-y-3">
+          <div className="font-semibold">{t("manualRecording.started")}</div>
+          {!camera.record.enabled ||
+            (camera.record.alerts.retain.days == 0 && (
+              <div>{t("manualRecording.recordDisabledTips")}</div>
+            ))}
+        </div>,
         {
-          include_recording: true,
-          duration: null,
+          position: "top-center",
+          duration: 10000,
         },
       );
-
-      if (response.data.success) {
-        recordingEventIdRef.current = response.data.event_id;
-        setIsRecording(true);
-        const toastId = toast.success(
-          <div className="flex flex-col space-y-3">
-            <div className="font-semibold">{t("manualRecording.started")}</div>
-            {!camera.record.enabled ||
-              (camera.record.alerts.retain.days == 0 && (
-                <div>{t("manualRecording.recordDisabledTips")}</div>
-              ))}
-          </div>,
-          {
-            position: "top-center",
-            duration: 10000,
-          },
-        );
-        setActiveToastId(toastId);
-      }
+      setActiveToastId(toastId);
     } catch (error) {
       toast.error(t("manualRecording.failedToStart"), {
         position: "top-center",
       });
+    } finally {
+      recordingRequestPending.current = false;
+      setIsRecordingPending(false);
     }
   }, [camera, t]);
 
-  const endEvent = useCallback(() => {
+  const endEvent = useCallback(async () => {
+    if (recordingRequestPending.current || !recordingEventIdRef.current) return;
+    recordingRequestPending.current = true;
+    setIsRecordingPending(true);
     if (activeToastId) {
       toast.dismiss(activeToastId);
     }
     try {
       if (recordingEventIdRef.current) {
-        void axios.put(`events/${recordingEventIdRef.current}/end`, {
+        const response = await axios.put<
+          components["schemas"]["GenericResponse"]
+        >(`events/${recordingEventIdRef.current}/end`, {
           end_time: Math.ceil(Date.now() / 1000),
         });
+        if (!response.data.success) {
+          throw new Error("Recording stop was not confirmed");
+        }
         recordingEventIdRef.current = null;
         setIsRecording(false);
         toast.success(t("manualRecording.ended"), {
@@ -951,6 +968,9 @@ function FrigateCameraFeatures({
       toast.error(t("manualRecording.failedToEnd"), {
         position: "top-center",
       });
+    } finally {
+      recordingRequestPending.current = false;
+      setIsRecordingPending(false);
     }
   }, [activeToastId, t]);
 
@@ -979,7 +999,7 @@ function FrigateCameraFeatures({
 
   const handleEventButtonClick = useCallback(() => {
     if (isRecording) {
-      endEvent();
+      void endEvent();
     } else {
       void createEvent();
     }
@@ -1028,7 +1048,7 @@ function FrigateCameraFeatures({
       window.removeEventListener("beforeunload", handleBeforeUnload);
 
       if (recordingEventIdRef.current) {
-        endEvent();
+        void endEvent();
       }
     };
     // mount/unmount only
@@ -1156,9 +1176,10 @@ function FrigateCameraFeatures({
           variant={fullscreen ? "overlay" : "primary"}
           Icon={isRecording ? TbRecordMail : TbRecordMailOff}
           isActive={isRecording}
-          title={t("manualRecording." + (isRecording ? "stop" : "start"))}
+          title={t("manualRecording." + (isRecording ? "end" : "start"))}
           onClick={handleEventButtonClick}
-          disabled={!cameraEnabled || debug}
+          loading={isRecordingPending}
+          disabled={!cameraEnabled || debug || isRecordingPending}
         />
         <CameraFeatureToggle
           className="p-2 md:p-0"
@@ -1758,7 +1779,7 @@ function FrigateCameraFeatures({
                     "h-auto w-full whitespace-normal",
                     isRecording && "animate-pulse bg-red-500 hover:bg-red-600",
                   )}
-                  disabled={debug}
+                  disabled={debug || isRecordingPending}
                 >
                   {t("manualRecording." + (isRecording ? "end" : "start"))}
                 </Button>

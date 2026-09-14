@@ -5,7 +5,7 @@ set -euxo pipefail
 apt-get -qq update
 
 apt-get -qq install --no-install-recommends -y \
-    apt-transport-https \
+    apt-transport-https ca-certificates \
     gnupg \
     wget \
     procps vainfo \
@@ -18,7 +18,7 @@ apt-get -qq install --no-install-recommends -y \
 mkdir -p -m 600 /root/.gnupg
 
 # enable non-free repo
-echo "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware" | tee -a /etc/apt/sources.list
+echo "deb https://deb.debian.org/debian bookworm main contrib non-free non-free-firmware" | tee -a /etc/apt/sources.list
 apt update
 
 # ffmpeg -> arm64

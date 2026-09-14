@@ -34,7 +34,10 @@ import {
   SegmentedReviewData,
   ZoomLevel,
 } from "@/types/review";
-import { getChunkedTimeRange } from "@/utils/timelineUtil";
+import {
+  getChunkedTimeRange,
+  getVisibleTimestampBounds,
+} from "@/utils/timelineUtil";
 import { isReplayCamera } from "@/utils/cameraUtil";
 import { getEndOfDayTimestamp } from "@/utils/dateUtil";
 import axios from "axios";
@@ -704,20 +707,10 @@ function DetectionReview({
     };
   }, [contentRef, minimapObserver]);
 
-  const minimapBounds = useMemo(() => {
-    const data = {
-      start: 0,
-      end: 0,
-    };
-    const list = minimap.sort();
-
-    if (list.length > 0) {
-      data.end = Number.parseFloat(list.at(-1) || "0");
-      data.start = Number.parseFloat(list[0]);
-    }
-
-    return data;
-  }, [minimap]);
+  const minimapBounds = useMemo(
+    () => getVisibleTimestampBounds(minimap),
+    [minimap],
+  );
 
   const minimapRef = useCallback(
     (node: HTMLElement | null) => {
