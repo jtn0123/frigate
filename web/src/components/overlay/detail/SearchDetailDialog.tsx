@@ -30,6 +30,8 @@ import {
 import { Event } from "@/types/event";
 import { baseUrl } from "@/api/baseUrl";
 import { cn } from "@/lib/utils";
+import { phoneFixes } from "@/lib/fork/phone";
+import PhoneDetailHeader from "@/components/fork/PhoneDetailHeader";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import {
   FaArrowRight,
@@ -652,16 +654,31 @@ export default function SearchDetailDialog({
             }
           }}
         >
-          <Header className={cn(!isDesktop && "top-0 z-[60] mb-0")}>
-            <Title>{t("trackedObjectDetails")}</Title>
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+          {phoneFixes && !isDesktop ? (
+            // fork: one-line title with previous/next, summary underneath
+            <PhoneDetailHeader
+              title={t("trackedObjectDetails")}
+              onPrevious={onPrevious}
+              onNext={onNext}
+            >
               <EventSummaryHeader {...summaryFromSearchResult(search)} />
               <ShareClipButton eventId={search.id} hasClip={search.has_clip} />
-            </div>
-            <Description className="sr-only">
-              {t("trackedObjectDetails")}
-            </Description>
-          </Header>
+            </PhoneDetailHeader>
+          ) : (
+            <Header className={cn(!isDesktop && "top-0 z-[60] mb-0")}>
+              <Title>{t("trackedObjectDetails")}</Title>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                <EventSummaryHeader {...summaryFromSearchResult(search)} />
+                <ShareClipButton
+                  eventId={search.id}
+                  hasClip={search.has_clip}
+                />
+              </div>
+              <Description className="sr-only">
+                {t("trackedObjectDetails")}
+              </Description>
+            </Header>
+          )}
 
           {!isDesktop && (
             <div className="flex w-full flex-col justify-center gap-4">
