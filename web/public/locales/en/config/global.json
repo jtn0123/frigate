@@ -32,7 +32,7 @@
     },
     "reset_admin_password": {
       "label": "Reset admin password",
-      "description": "If true, reset the admin user's password on startup and print the new password in logs."
+      "description": "If true, reset the admin user's password on startup and save the new password to /config/admin_password (owner access only)."
     },
     "cookie_name": {
       "label": "JWT cookie name",

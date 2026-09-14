@@ -1,5 +1,9 @@
 """Tests for password change authorization."""
 
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
 from fastapi import Request
 
 from frigate.api.auth import get_current_user, hash_password, verify_password
@@ -117,3 +121,39 @@ class TestUpdatePasswordAccess(BaseTestHttp):
 
         resp = self._change_password("neighbor", "neighbor", "neighbor", "wrong-guess")
         assert resp.status_code == 401
+
+    def test_admin_password_change_removes_generated_credential(self):
+        with tempfile.TemporaryDirectory() as directory:
+            credential = Path(directory) / "admin_password"
+            credential.write_text(ADMIN_PASSWORD)
+            with patch("frigate.api.auth.CONFIG_DIR", directory):
+                response = self._change_password("admin", "admin", "admin", "")
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(credential.exists())
+            self.assertTrue(
+                verify_password(NEW_PASSWORD, User.get_by_id("admin").password_hash)
+            )
+
+    def test_rejected_password_change_keeps_generated_credential(self):
+        with tempfile.TemporaryDirectory() as directory:
+            credential = Path(directory) / "admin_password"
+            credential.write_text(ADMIN_PASSWORD)
+            with patch("frigate.api.auth.CONFIG_DIR", directory):
+                response = self._change_password("neighbor", "neighbor", "admin", "")
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(credential.read_text(), ADMIN_PASSWORD)
+
+    def test_other_account_password_change_keeps_admin_credential(self):
+        User.insert(
+            username="neighbor",
+            password_hash=hash_password("neighbor-password", iterations=10),
+            role="neighbor",
+            notification_tokens=[],
+        ).execute()
+        with tempfile.TemporaryDirectory() as directory:
+            credential = Path(directory) / "admin_password"
+            credential.write_text(ADMIN_PASSWORD)
+            with patch("frigate.api.auth.CONFIG_DIR", directory):
+                response = self._change_password("admin", "admin", "neighbor", "")
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(credential.exists())

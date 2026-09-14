@@ -82,6 +82,7 @@ from frigate.stats.util import stats_init
 from frigate.storage import StorageMaintainer
 from frigate.timeline import TimelineProcessor
 from frigate.track.object_processing import TrackedObjectProcessor
+from frigate.util.admin_password import save_admin_password
 from frigate.util.atomic import ensure_private_directory, write_private_file
 from frigate.util.builtin import empty_and_close_queue
 from frigate.util.image import UntrackedSharedMemory
@@ -517,12 +518,14 @@ class FrigateApp:
         self.frigate_watchdog.start()
 
     def init_auth(self) -> None:
+        """Initialize admin access without disclosing credentials in logs."""
         if self.config.auth.enabled:
             if User.select().count() == 0:
                 password = secrets.token_hex(16)
                 password_hash = hash_password(
                     password, iterations=self.config.auth.hash_iterations
                 )
+                password_path = save_admin_password(password, Path(CONFIG_DIR))
                 User.insert(
                     {
                         User.username: "admin",
@@ -539,7 +542,9 @@ class FrigateApp:
                 logger.info("***    Auth is enabled, but no users exist.          ***")
                 logger.info("***    Created a default user:                       ***")
                 logger.info("***    User: admin                                   ***")
-                logger.info(f"***    Password: {password}   ***")
+                logger.info(
+                    "Admin password saved to %s (owner access only)", password_path
+                )
                 logger.info(_LOG_SEPARATOR)
                 logger.info(_LOG_SEPARATOR)
             elif self.config.auth.reset_admin_password:
@@ -547,6 +552,7 @@ class FrigateApp:
                 password_hash = hash_password(
                     password, iterations=self.config.auth.hash_iterations
                 )
+                password_path = save_admin_password(password, Path(CONFIG_DIR))
                 User.replace(
                     username="admin",
                     role="admin",
@@ -557,7 +563,9 @@ class FrigateApp:
                 logger.info(_LOG_SEPARATOR)
                 logger.info(_LOG_SEPARATOR)
                 logger.info("***    Reset admin password set in the config.       ***")
-                logger.info(f"***    Password: {password}   ***")
+                logger.info(
+                    "Admin password saved to %s (owner access only)", password_path
+                )
                 logger.info(_LOG_SEPARATOR)
                 logger.info(_LOG_SEPARATOR)
 
