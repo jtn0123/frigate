@@ -8,6 +8,11 @@
 
 import { test, expect } from "../../fixtures/frigate-test";
 import type { Page } from "@playwright/test";
+import {
+  expectNoHorizontalOverflow,
+  expectWithinPhoneWidth,
+  openPhoneSettingsSection,
+} from "../../helpers/settings-phone";
 
 const STREAM_NAME = "dome_sub";
 const FFMPEG_URL_WITH_TIMEOUT =
@@ -232,4 +237,56 @@ test.describe("go2rtc streams settings — ffmpeg compat mode @medium", () => {
         },
       });
   });
+
+  test(
+    "phone edits a stream URL from the System group and saves @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const capture = await installRawPathsRoute(page, FFMPEG_URL_WITH_TIMEOUT);
+      const { title } = await openPhoneSettingsSection(page, {
+        group: "System",
+        section: "go2rtc streams",
+      });
+
+      await expect(
+        page.getByRole("heading", { name: STREAM_NAME }),
+      ).toBeVisible();
+      await expandStream(page, STREAM_NAME);
+
+      const urlInput = page.getByPlaceholder(
+        "e.g., rtsp://user:pass@192.168.1.100/stream",
+      );
+      await expectWithinPhoneWidth(urlInput);
+      await expectWithinPhoneWidth(
+        page.getByRole("button", { name: "Add stream" }),
+      );
+      await expectNoHorizontalOverflow(title);
+
+      await urlInput.focus();
+      await urlInput.fill(
+        "rtsp://user:pass@192.168.0.20:554/Stream1#timeout=20",
+      );
+      await urlInput.blur();
+
+      // The sticky Save bar stays reachable at the bottom of the panel.
+      const save = page.getByRole("button", { name: "Save", exact: true });
+      await expectWithinPhoneWidth(save);
+      await expect(save).toBeInViewport();
+      await save.click();
+      await expect
+        .poll(() => capture.capturedConfig(), { timeout: 5_000 })
+        .toMatchObject({
+          config_data: {
+            go2rtc: {
+              streams: {
+                [STREAM_NAME]: [
+                  "ffmpeg:rtsp://user:pass@192.168.0.20:554/Stream1#video=copy#audio=copy#timeout=20",
+                ],
+              },
+            },
+          },
+        });
+    },
+  );
 });

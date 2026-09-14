@@ -18,6 +18,11 @@ import { fileURLToPath } from "node:url";
 import { test, expect } from "../../fixtures/frigate-test";
 import type { Page } from "@playwright/test";
 import { configFactory } from "../../fixtures/mock-data/config";
+import {
+  expectNoHorizontalOverflow,
+  expectWithinPhoneWidth,
+  openPhoneSettingsSection,
+} from "../../helpers/settings-phone";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_SCHEMA = JSON.parse(
@@ -201,4 +206,32 @@ test.describe("camera live playback streams @medium", () => {
         },
       });
   });
+
+  test(
+    "phone opens Live playback from the camera group and switches cameras @mobile",
+    { tag: "@mobile-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await installRoutes(page);
+      const { title } = await openPhoneSettingsSection(page, {
+        group: "Camera configuration",
+        section: "Live playback",
+      });
+
+      const streamName = streamNameInputs(page);
+      await expect(streamName).toHaveValue("front_door");
+      await expectWithinPhoneWidth(streamName);
+      const stream = page.getByRole("combobox", { name: "go2rtc stream" });
+      await expect(stream).toContainText("front_door_main");
+      await expectWithinPhoneWidth(stream);
+      await expectNoHorizontalOverflow(title);
+
+      // On a phone the camera picker opens as a bottom drawer.
+      await selectCamera(page, "Backyard");
+      await expect(page.getByRole("dialog")).toBeHidden();
+      await expect(title).toBeInViewport();
+      await expect(streamName).toHaveValue("backyard");
+      await expect(stream).toContainText("backyard_main");
+    },
+  );
 });
