@@ -74,6 +74,37 @@ describe("optional screen wake lock", () => {
     expect(request).toHaveBeenCalledOnce();
   });
 
+  it.each(["resolve", "reject"])(
+    "starts a fresh request after re-entry when the old request will %s",
+    async (outcome) => {
+      const oldLock = sentinel();
+      const newLock = sentinel();
+      let finish!: (value: typeof oldLock) => void;
+      let fail!: (error: Error) => void;
+      request
+        .mockReturnValueOnce(
+          new Promise((resolve, reject) => {
+            finish = resolve;
+            fail = reject;
+          }),
+        )
+        .mockResolvedValueOnce(newLock);
+      wake.enable();
+      wake.disable();
+      wake.enable();
+      expect(request).toHaveBeenCalledOnce();
+      if (outcome === "resolve") finish(oldLock);
+      else fail(new Error("Old request denied"));
+      await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+      expect(oldLock.release).toHaveBeenCalledTimes(
+        outcome === "resolve" ? 1 : 0,
+      );
+      expect(newLock.release).not.toHaveBeenCalled();
+      wake.disable();
+      expect(newLock.release).toHaveBeenCalledOnce();
+    },
+  );
+
   it("reacquires a browser-released lock when the page becomes visible", async () => {
     const lock = sentinel();
     const next = sentinel();
@@ -134,5 +165,24 @@ describe("optional screen wake lock", () => {
     expect(fallback.disable).toHaveBeenCalledOnce();
     finish();
     await vi.waitFor(() => expect(fallback.disable).toHaveBeenCalledTimes(2));
+  });
+
+  it("stops the old legacy request before restarting it for a new session", async () => {
+    Reflect.deleteProperty(navigator, "wakeLock");
+    let finish!: () => void;
+    fallback.enable.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    wake.enable();
+    wake.disable();
+    wake.enable();
+    finish();
+    await vi.waitFor(() => expect(fallback.enable).toHaveBeenCalledTimes(2));
+    expect(fallback.disable).toHaveBeenCalledTimes(2);
+    expect(fallback.disable.mock.invocationCallOrder[1]).toBeLessThan(
+      fallback.enable.mock.invocationCallOrder[1],
+    );
   });
 });

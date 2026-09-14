@@ -297,7 +297,9 @@ test.describe("Android phone @high @mobile", () => {
       await frigateApp.page.routeWebSocket(
         "**/live/mse/api/ws?src=front_door",
         (socket) => {
-          socket.onMessage(() => {
+          socket.onMessage((raw) => {
+            const message = JSON.parse(raw.toString());
+            if (message.type !== "mse") return;
             socket.send(
               JSON.stringify({
                 type: "mse",
