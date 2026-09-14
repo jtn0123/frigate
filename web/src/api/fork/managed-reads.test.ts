@@ -1,12 +1,6 @@
 import axios, { CanceledError } from "axios";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ManagedReads, managedReadsFor } from "./managed-reads";
-import {
-  clearNavigationSamples,
-  navigationSnapshot,
-} from "@/lib/fork/navigation-metrics";
-
-beforeEach(clearNavigationSamples);
 describe("managed page reads", () => {
   it("deduplicates concurrent consumers and aborts only after the last leaves", async () => {
     let signal: AbortSignal | undefined;
@@ -30,7 +24,6 @@ describe("managed page reads", () => {
     releaseB();
     await rejected;
     expect(signal?.aborted).toBe(true);
-    expect(navigationSnapshot()[0]?.outcome).toBe("cancelled");
   });
   it("preserves a read when StrictMode immediately reacquires its key", async () => {
     let finish!: (value: { data: string[] }) => void;
@@ -49,7 +42,6 @@ describe("managed page reads", () => {
     finish({ data: ["case"] });
     await expect(promise).resolves.toEqual(["case"]);
     releaseAgain();
-    expect(navigationSnapshot()[0]?.outcome).toBe("success");
   });
   it("keeps filters separate, passes cancellation and timeout, and permits retry", async () => {
     const get = vi
@@ -71,11 +63,6 @@ describe("managed page reads", () => {
         signal: expect.any(AbortSignal) as AbortSignal,
       }),
     );
-    expect(navigationSnapshot().map((sample) => sample.outcome)).toEqual([
-      "error",
-      "success",
-      "success",
-    ]);
   });
   it("expires speculative freshness and isolates SWR providers", () => {
     const cache = new Map();

@@ -9,13 +9,15 @@ Base: PR #51, commit d3c6a4fb1. Work is isolated on codex/navigation-data.
 3. Case metadata failures now reach the Exports retry panel alongside export-list failures. Both reads are refreshed by Retry; the navigation shell remains available. Existing authentication handling still owns real authorization failures. Cancellation is not reported as a user error.
 4. Review camera/date/label filters live in browser history alongside recording selection. Review and Explore list scroll positions are bounded to 60 history/scope entries in memory. Explore details use one router-owned history entry, reuse it for next/previous, and support Back/Forward. Existing dialog history is disabled only for this router-owned viewer.
 5. Export-link mouse/focus intent preloads only case metadata, respecting authentication readiness, offline status, data saver, and slow connections. It shares the mounted SWR cache, deduplicates concurrent requests, and has a five-second freshness window. Failed speculation can retry on the actual visit. No video, model, recording, or mutation is prefetched.
-6. System > General > Browser performance displays the last 100 browser-local samples: request count, successful-request p95 latency, errors, cancellations, and latest Exports metadata-ready time. It states the scope and has a clear control. No payloads, camera filters, URLs, or credentials are stored in the measurement history. This is not a server CPU/GPU measurement or video-readiness measurement.
 
 ## Architecture and limits
 
 This is an incremental use of the current router/history foundation, not a second data cache or a framework-mode rewrite. SWR remains the only response-cache owner. The managed-read pilot covers exports and cases; existing camera streaming, AI inference, and other pages' fetching remain outside its scope. Browser abort does not promise cancellation of work already started by the server. Changes are local and do not deploy to production.
 
-## Validation
+The browser-performance panel and browser-local timing collection were removed.
+Navigation, request cancellation, preloading, and export recovery remain.
+
+## Original implementation validation
 
 - 329 unit tests passed.
 - Final strict browser run: 521 passed, 90 existing layout skips, zero retries,
@@ -34,3 +36,13 @@ This is an incremental use of the current router/history foundation, not a secon
   configuration and test timeouts were not changed.
 
 No production deployment or new remote PR is included in this change.
+
+## Browser diagnostics removal validation
+
+- Removed the panel, timing hooks, sample store, and their dedicated tests.
+- Preserved all request coordination and export/navigation recovery tests.
+- 326 unit tests passed.
+- Strict navigation-data and System browser tests: 35 passed, 3 existing skips.
+- Type checks, lint, translation extraction, and Vite production compilation passed.
+- Startup gzip size: 393839 / 412650 bytes.
+- No push or deployment performed.

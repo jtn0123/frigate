@@ -1,5 +1,4 @@
 import { useManagedRead } from "@/hooks/fork/use-managed-read";
-import { usePageReady } from "@/hooks/fork/use-page-ready";
 import { usePendingAction } from "@/hooks/fork/use-pending-action";
 import { baseUrl } from "@/api/baseUrl";
 import { useJobStatus } from "@/api/ws";
@@ -147,14 +146,6 @@ function Exports() {
         return 0;
       },
     },
-  );
-
-  usePageReady(
-    "exports",
-    cases !== undefined &&
-      rawExports !== undefined &&
-      !exportsError &&
-      !casesError,
   );
 
   // When one or more active jobs disappear from the WS feed, refresh the

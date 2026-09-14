@@ -280,17 +280,6 @@
     "saved": "Saved",
     "working": "Working\u2026",
     "actionFailed": "The action failed. Try again.",
-    "metrics": {
-      "title": "Browser performance",
-      "description": "This browser tab only: the last 100 export metadata requests and page-readiness measurements. Times include the network and server response. Page readiness starts when Exports mounts and ends when its metadata is ready; it does not measure video playback or server CPU. Reloading clears this history.",
-      "requests": "Metadata requests",
-      "p95": "Successful requests, 95th percentile",
-      "failures": "Failed requests",
-      "cancelled": "Cancelled requests",
-      "ready": "Latest Exports metadata ready",
-      "unmeasured": "Not measured yet",
-      "clear": "Clear measurements"
-    },
     "renameFailed": "The export could not be renamed. Your input is still here. Try again."
   }
 }

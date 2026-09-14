@@ -97,9 +97,9 @@ test.describe("export action recovery @high", () => {
   });
 });
 
-test("metadata preloading is shared and browser timings are inspectable @high @mobile", async ({
+test("metadata preloading is shared with the Exports page @high @mobile", async ({
   frigateApp,
-}, testInfo) => {
+}) => {
   const { page } = frigateApp;
   let casesRequests = 0;
   await page.route("**/api/cases", (route) => {
@@ -114,15 +114,7 @@ test("metadata preloading is shared and browser timings are inspectable @high @m
   await expect(page.getByRole("button", { name: /new case/i })).toBeVisible();
   expect(casesRequests).toBe(1);
   await page.goBack();
-  const metrics = page.getByTestId("navigation-metrics");
-  await metrics.getByText("Browser performance", { exact: true }).click();
-  await expect(metrics).toContainText("Latest Exports metadata ready");
-  await expect(metrics).not.toContainText("Not measured yet");
-  await page.screenshot({
-    path: testInfo.outputPath("browser-performance.png"),
-  });
-  await metrics.getByRole("button", { name: "Clear measurements" }).click();
-  await expect(metrics.getByText("Not measured yet")).toHaveCount(2);
+  await expect(page).toHaveURL(/\/system/);
 });
 
 test("Explore returns from a detail and another page to the same filtered list position @high @mobile", async ({

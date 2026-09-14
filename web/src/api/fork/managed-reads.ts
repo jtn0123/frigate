@@ -1,6 +1,5 @@
 import axios from "axios";
 import { unstable_serialize } from "swr";
-import { recordNavigationSample } from "@/lib/fork/navigation-metrics";
 
 export type ManagedKey = string | [string, Record<string, unknown>];
 type Flight = { controller: AbortController; promise: Promise<unknown> };
@@ -52,31 +51,13 @@ export class ManagedReads {
     }
     const [path, params] = typeof key === "string" ? [key, undefined] : key;
     const controller = new AbortController();
-    const start = performance.now();
     const promise = axios
       .get<T>(path, {
         params,
         signal: controller.signal,
         timeout: 15000,
       })
-      .then(({ data }) => {
-        recordNavigationSample({
-          kind: "request",
-          target: ["cases", "exports"].includes(path) ? path : "other",
-          duration: performance.now() - start,
-          outcome: "success",
-        });
-        return data;
-      })
-      .catch((error: unknown) => {
-        recordNavigationSample({
-          kind: "request",
-          target: ["cases", "exports"].includes(path) ? path : "other",
-          duration: performance.now() - start,
-          outcome: axios.isCancel(error) ? "cancelled" : "error",
-        });
-        throw error;
-      })
+      .then(({ data }) => data)
       .finally(() => {
         if (this.flights.get(id)?.controller === controller)
           this.flights.delete(id);
