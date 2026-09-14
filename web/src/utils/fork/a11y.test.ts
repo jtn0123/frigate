@@ -2,16 +2,23 @@ import type { KeyboardEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { onActivate } from "./a11y";
 
+// The fields onActivate reads; a real React KeyboardEvent has many more
+type KeyEvent = Pick<
+  KeyboardEvent<HTMLElement>,
+  "key" | "target" | "currentTarget" | "preventDefault"
+>;
+
 function keyEvent(key: string, nested = false) {
   const element = document.createElement("div");
   const child = document.createElement("button");
   element.append(child);
-  return {
+  const event: KeyEvent = {
     key,
     target: nested ? child : element,
     currentTarget: element,
     preventDefault: vi.fn(),
-  } as unknown as KeyboardEvent<HTMLElement>;
+  };
+  return event as KeyboardEvent<HTMLElement>;
 }
 
 describe("onActivate", () => {
