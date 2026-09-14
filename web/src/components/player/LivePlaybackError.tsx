@@ -18,12 +18,12 @@ export function LivePlaybackError({
   reason,
   mediaErrorCode,
   onRetry,
-}: {
+}: Readonly<{
   streamName: string;
   reason: LivePlayerError;
   mediaErrorCode?: number;
   onRetry: () => void;
-}) {
+}>) {
   const { t } = useTranslation("views/live");
   const [diagnostics, setDiagnostics] = useState<Diagnostics>();
 
@@ -47,6 +47,13 @@ export function LivePlaybackError({
     return () => controller.abort();
   }, [streamName, reason, mediaErrorCode]);
 
+  let failureMessage = t("playbackError.startup");
+  if (reason === "mse-decode") {
+    failureMessage = t("playbackError.decode");
+  } else if (reason === "stalled") {
+    failureMessage = t("playbackError.stalled");
+  }
+
   return (
     <div
       role="alert"
@@ -54,13 +61,7 @@ export function LivePlaybackError({
     >
       <div className="flex max-w-md flex-col items-center gap-3 text-center">
         <p className="font-semibold">{t("playbackError.title")}</p>
-        <p className="text-sm text-muted-foreground">
-          {reason === "mse-decode"
-            ? t("playbackError.decode")
-            : reason === "stalled"
-              ? t("playbackError.stalled")
-              : t("playbackError.startup")}
-        </p>
+        <p className="text-sm text-muted-foreground">{failureMessage}</p>
         <p className="text-sm" aria-live="polite">
           {diagnostics
             ? t(`playbackError.diagnostics.${diagnostics.status}`)

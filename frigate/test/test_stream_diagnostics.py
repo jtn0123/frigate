@@ -167,14 +167,24 @@ class TestDiagnosticRequests(unittest.IsolatedAsyncioTestCase):
             "streams": {"yard": [], "side": [], "door": []}
         }
 
+    def test_cache_expiry_removes_multiple_old_entries_and_preserves_fresh_result(self):
+        fresh = {"id": "fresh", "status": "healthy"}
+        self.diagnostics._cache.update(
+            {"yard": (69.0, {}), "side": (70.0, {}), "door": (70.1, fresh)}
+        )
+        self.diagnostics._expire_cached_diagnostics(100.0)
+        self.assertEqual(self.diagnostics._cache, {"door": (70.1, fresh)})
+        self.diagnostics._expire_cached_diagnostics(131.0)
+        self.assertFalse(self.diagnostics._cache)
+        self.diagnostics._expire_cached_diagnostics(132.0)
+
     async def test_unknown_stream_cannot_launch_probe(self):
         from fastapi import HTTPException
 
+        body = self.diagnostics.PlaybackFailure()
         with patch.object(self.diagnostics, "collect_diagnostics") as collect:
             with self.assertRaises(HTTPException) as error:
-                await self.diagnostics.stream_diagnostics(
-                    self.request, "unknown", self.diagnostics.PlaybackFailure()
-                )
+                await self.diagnostics.stream_diagnostics(self.request, "unknown", body)
             self.assertEqual(error.exception.status_code, 404)
             collect.assert_not_called()
 
@@ -206,12 +216,11 @@ class TestDiagnosticRequests(unittest.IsolatedAsyncioTestCase):
     async def test_busy_probe_limit_rejects_new_work(self):
         from fastapi import HTTPException
 
+        body = self.diagnostics.PlaybackFailure()
         self.diagnostics._inflight.update({"side": None, "door": None})
         try:
             with self.assertRaises(HTTPException) as error:
-                await self.diagnostics.stream_diagnostics(
-                    self.request, "yard", self.diagnostics.PlaybackFailure()
-                )
+                await self.diagnostics.stream_diagnostics(self.request, "yard", body)
             self.assertEqual(error.exception.status_code, 429)
         finally:
             self.diagnostics._inflight.clear()

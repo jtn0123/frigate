@@ -150,20 +150,30 @@ async def collect_diagnostics(binary: str, stream_name: str) -> dict:
     return result
 
 
+def _expire_cached_diagnostics(now: float) -> None:
+    """Remove expired results without mutating the dictionary during iteration."""
+    expired = tuple(
+        name for name, (created, _) in _cache.items() if now - created >= 30
+    )
+    for name in expired:
+        del _cache[name]
+
+
 @router.post(
     "/go2rtc/streams/{stream_name}/diagnostics",
     dependencies=[Depends(require_go2rtc_stream_access)],
     operation_id="diagnose_live_stream",
+    responses={
+        404: {"description": "Stream not configured"},
+        429: {"description": "Stream diagnostics busy"},
+    },
 )
 async def stream_diagnostics(request: Request, stream_name: str, body: PlaybackFailure):
     """Check a permitted live stream and correlate its result with a player failure."""
     streams = request.app.frigate_config.go2rtc.model_dump().get("streams", {})
     if stream_name not in streams:
         raise HTTPException(status_code=404, detail="Stream not configured")
-    now = time.monotonic()
-    for name, (created, _) in list(_cache.items()):
-        if now - created >= 30:
-            del _cache[name]
+    _expire_cached_diagnostics(time.monotonic())
     cached = _cache.get(stream_name)
     if cached:
         result = cached[1]
