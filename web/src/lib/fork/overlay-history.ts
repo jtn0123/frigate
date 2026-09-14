@@ -69,15 +69,13 @@ export function pushOverlay(entry: OverlayEntry): void {
  * entry is left in place, because going back would undo that.
  */
 export function releaseOverlay(entry: OverlayEntry, urlUnchanged: boolean) {
-  let index = stack.length - 1;
-  while (index >= 0 && stack[index]?.entry !== entry) {
-    index -= 1;
-  }
-  if (index === -1) {
+  // the newest hold for this overlay (no findLast at the ES target)
+  const held = [...stack].reverse().find((item) => item.entry === entry);
+  if (!held) {
     return;
   }
-  const [held] = stack.splice(index, 1);
-  if (held && urlUnchanged && currentState()?.overlayId === held.id) {
+  stack.splice(stack.lastIndexOf(held), 1);
+  if (urlUnchanged && currentState()?.overlayId === held.id) {
     pendingSelfPops += 1;
     window.history.back();
   }
