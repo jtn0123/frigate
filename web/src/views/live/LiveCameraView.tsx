@@ -94,6 +94,8 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { phoneFixes } from "@/lib/fork/phone";
+import { fullscreenPortalContainer } from "@/lib/fork/fullscreen";
+import { phoneFullscreenRail } from "@/lib/fork/phone-fullscreen";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
 
 import {
@@ -534,7 +536,9 @@ export default function LiveCameraView({
         <div
           className={
             fullscreen
-              ? `absolute right-32 top-1 z-40 ${isMobile ? "landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto" : ""}`
+              ? // fork: phones get one frosted rail of matching controls
+                (phoneFullscreenRail ??
+                `absolute right-32 top-1 z-40 ${isMobile ? "landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto" : ""}`)
               : `flex h-12 w-full flex-row items-center justify-between ${isMobile ? "landscape:h-full landscape:w-12 landscape:flex-col" : ""}`
           }
         >
@@ -1487,7 +1491,8 @@ function FrigateCameraFeatures({
   }
 
   // mobile doesn't show settings in fullscreen view
-  if (fullscreen) {
+  // fork: it does with phoneFixes, rendering the drawer inside the fullscreen element
+  if (fullscreen && !phoneFixes) {
     return;
   }
 
@@ -1503,7 +1508,10 @@ function FrigateCameraFeatures({
           title={t("cameraSettings.title", { camera })}
         />
       </DrawerTrigger>
-      <DrawerContent className="max-h-[75dvh] overflow-hidden rounded-2xl">
+      <DrawerContent
+        className="max-h-[75dvh] overflow-hidden rounded-2xl"
+        portalContainer={fullscreenPortalContainer(fullscreen)}
+      >
         <div className="scrollbar-container mt-2 flex h-auto flex-col gap-2 overflow-y-auto px-2 py-4">
           {isAdmin && (
             <>

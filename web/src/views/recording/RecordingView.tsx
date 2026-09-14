@@ -63,6 +63,8 @@ import {
 } from "@/types/record";
 import { cn } from "@/lib/utils";
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useFullscreenOrientation } from "@/hooks/fork/use-fullscreen-orientation";
+import { phoneFixes } from "@/lib/fork/phone";
 import { useTimezone } from "@/hooks/use-date-utils";
 import { useTimelineZoom } from "@/hooks/use-timeline-zoom";
 import { useTranslation } from "react-i18next";
@@ -465,6 +467,12 @@ export function RecordingView({
       return "normal";
     }
   }, [getCameraAspect, mainCamera]);
+
+  // fork: rotate to fit the camera while fullscreen on phones
+  useFullscreenOrientation(
+    phoneFixes && isMobile && fullscreen,
+    mainCameraAspect == "tall" ? "portrait" : "landscape",
+  );
 
   const grow = useMemo(() => {
     if (mainCameraAspect == "wide") {

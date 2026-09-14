@@ -66,9 +66,12 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    /** fork: render inside this element, e.g. a fullscreen player */
+    portalContainer?: HTMLElement;
+  }
+>(({ className, children, portalContainer, ...props }, ref) => (
+  <DrawerPortal container={portalContainer}>
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}
