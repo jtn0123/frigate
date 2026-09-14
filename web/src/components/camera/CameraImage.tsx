@@ -36,15 +36,25 @@ export default function CameraImage({
   const [{ width: containerWidth, height: containerHeight }] =
     useResizeObserver(containerRef);
 
+  // fork: keep the last height unless it moves by more than a few pixels.
+  // A frame scaled to the requested height has a rounded width, and in some
+  // layouts (Motion Tuner, the phone Debug View) that 1 px change resizes the
+  // container, which requests the other height: 267/268/267... about 34
+  // requests a second instead of 5.
+  const lastRequestHeight = useRef(360);
   const requestHeight = useMemo(() => {
     if (!cameraConfig || containerHeight == 0) {
       return 360;
     }
 
-    return Math.min(
+    const next = Math.min(
       cameraConfig.detect.height,
       Math.round(containerHeight * (isDesktop ? 1.1 : 1.25)),
     );
+    if (Math.abs(next - lastRequestHeight.current) > 4) {
+      lastRequestHeight.current = next;
+    }
+    return lastRequestHeight.current;
   }, [cameraConfig, containerHeight]);
 
   const [isPortraitImage, setIsPortraitImage] = useState(false);
