@@ -196,5 +196,21 @@
       "description": "This camera group has no assigned or enabled cameras.",
       "buttonText": "Manage Groups"
     }
+  },
+  "playbackError": {
+    "title": "Live video is unavailable",
+    "decode": "The browser could not decode this video stream.",
+    "stalled": "The live stream stopped delivering playable video.",
+    "startup": "Live video did not start. The stream connection may be unavailable.",
+    "checking": "Checking the stream on the Frigate server…",
+    "retry": "Retry live video",
+    "reference": "Diagnostic reference: {{id}}",
+    "diagnostics": {
+      "healthy": "The server decoded a short sample successfully. Live packaging, browser decoding, or the connection to this device may still be failing.",
+      "decode_error": "The server encountered decoding errors in a short stream sample. Check the diagnostic reference in the Frigate logs.",
+      "stream_unavailable": "The server could not receive playable video from this stream.",
+      "timeout": "The server timed out waiting for video from this stream.",
+      "unavailable": "The server diagnostic could not complete. Check the Frigate logs."
+    }
   }
 }
