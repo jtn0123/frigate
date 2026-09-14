@@ -1,0 +1,279 @@
+diff --git a/internal/mp4/keyframe_request.go b/internal/mp4/keyframe_request.go
+new file mode 100644
+index 0000000..9c2acbb
+--- /dev/null
++++ b/internal/mp4/keyframe_request.go
+@@ -0,0 +1,140 @@
++package mp4
++
++import (
++	"bytes"
++	"encoding/xml"
++	"errors"
++	"html"
++	"io"
++	"net"
++	"net/http"
++	"net/url"
++	"strconv"
++	"sync"
++	"time"
++
++	"github.com/AlexxIT/go2rtc/internal/app"
++	"github.com/AlexxIT/go2rtc/pkg/onvif"
++)
++
++// Explicitly enabled for direct camera streams that implement ONVIF keyframe requests.
++// Credentials stay in the existing RTSP source and never travel through the player.
++type keyframeConfig struct {
++	Port    int    `yaml:"port"`
++	Profile string `yaml:"profile"`
++}
++
++type keyframeRequester struct {
++	endpoint string
++	user     *url.Userinfo
++	profile  string
++	client   *http.Client
++	mu       sync.Mutex
++	busy     bool
++	last     time.Time
++}
++
++var keyframeRequests = map[string]*keyframeRequester{}
++
++func initKeyframeRequests() {
++	var cfg struct {
++		Streams map[string]any `yaml:"streams"`
++		MP4     struct {
++			Keyframe map[string]keyframeConfig `yaml:"keyframe"`
++		} `yaml:"mp4"`
++	}
++	app.LoadConfig(&cfg)
++	for name, settings := range cfg.MP4.Keyframe {
++		source := cfg.Streams[name]
++		if list, ok := source.([]any); ok && len(list) > 0 {
++			source = list[0]
++		}
++		raw, _ := source.(string)
++		requester, err := newKeyframeRequester(raw, settings)
++		if err != nil {
++			log.Warn().Str("stream", name).Msg("[mp4] invalid keyframe request configuration")
++			continue
++		}
++		keyframeRequests[name] = requester
++	}
++}
++
++func newKeyframeRequester(source string, settings keyframeConfig) (*keyframeRequester, error) {
++	u, err := url.Parse(source)
++	if err != nil || u == nil || u.Scheme != "rtsp" || u.Hostname() == "" || settings.Port < 1 || settings.Port > 65535 || settings.Profile == "" {
++		return nil, errors.New("invalid direct camera keyframe configuration")
++	}
++	return &keyframeRequester{
++		endpoint: "http://" + net.JoinHostPort(u.Hostname(), strconv.Itoa(settings.Port)) + "/onvif/media_service",
++		user:     u.User, profile: settings.Profile,
++		client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
++	}, nil
++}
++
++func requestKeyframe(name string) {
++	requester := keyframeRequests[name]
++	if requester == nil || !requester.begin(time.Now()) {
++		return
++	}
++	go func() {
++		defer requester.end()
++		start := time.Now()
++		if err := requester.send(); err != nil {
++			// Transport errors may contain URLs. Never log credentials or camera responses.
++			log.Debug().Str("stream", name).Msg("[mp4] keyframe request failed; waiting for regular keyframe")
++			return
++		}
++		log.Debug().Str("stream", name).Dur("elapsed", time.Since(start)).Msg("[mp4] keyframe requested")
++	}()
++}
++
++func (r *keyframeRequester) begin(now time.Time) bool {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	if r.busy || now.Sub(r.last) < time.Second {
++		return false
++	}
++	r.busy = true
++	r.last = now
++	return true
++}
++
++func (r *keyframeRequester) end() {
++	r.mu.Lock()
++	r.busy = false
++	r.mu.Unlock()
++}
++
++func (r *keyframeRequester) send() error {
++	user := r.user
++	if user != nil {
++		password, _ := user.Password()
++		user = url.UserPassword(html.EscapeString(user.Username()), password)
++	}
++	envelope := onvif.NewEnvelopeWithUser(user)
++	envelope.Append("<trt:SetSynchronizationPoint><trt:ProfileToken>" + html.EscapeString(r.profile) + "</trt:ProfileToken></trt:SetSynchronizationPoint>")
++	response, err := r.client.Post(r.endpoint, "application/soap+xml;charset=utf-8", bytes.NewReader(envelope.Bytes()))
++	if err != nil {
++		return err
++	}
++	defer response.Body.Close()
++	if response.StatusCode != http.StatusOK {
++		return errors.New("keyframe request rejected")
++	}
++	// Bound the reply and require the ONVIF success element, including HTTP 200 faults.
++	decoder := xml.NewDecoder(io.LimitReader(response.Body, 64*1024))
++	for {
++		token, err := decoder.Token()
++		if err != nil {
++			return errors.New("invalid keyframe response")
++		}
++		if element, ok := token.(xml.StartElement); ok {
++			if element.Name.Local == "Fault" {
++				return errors.New("keyframe request fault")
++			}
++			if element.Name.Local == "SetSynchronizationPointResponse" {
++				return nil
++			}
++		}
++	}
++}
+diff --git a/internal/mp4/keyframe_request_test.go b/internal/mp4/keyframe_request_test.go
+new file mode 100644
+index 0000000..4cc6fcc
+--- /dev/null
++++ b/internal/mp4/keyframe_request_test.go
+@@ -0,0 +1,101 @@
++package mp4
++
++import (
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"net/url"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++func TestKeyframeRequestConfiguration(t *testing.T) {
++	r, err := newKeyframeRequester("rtsp://admin:secret@192.0.2.1:554/main", keyframeConfig{8000, "000"})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if r.endpoint != "http://192.0.2.1:8000/onvif/media_service" || strings.Contains(r.endpoint, "secret") {
++		t.Fatal(r.endpoint)
++	}
++	if r.client.Timeout != 2*time.Second {
++		t.Fatal("unbounded timeout")
++	}
++	for _, source := range []string{"", "ffmpeg:rtsp://192.0.2.1/main", "https://192.0.2.1/main", "rtsp:///main"} {
++		if _, err := newKeyframeRequester(source, keyframeConfig{8000, "000"}); err == nil {
++			t.Fatalf("accepted %q", source)
++		}
++	}
++	for _, config := range []keyframeConfig{{0, "000"}, {65536, "000"}, {8000, ""}} {
++		if _, err := newKeyframeRequester("rtsp://192.0.2.1/main", config); err == nil {
++			t.Fatal("invalid config accepted")
++		}
++	}
++}
++
++func TestKeyframeRequestSingleFlightAndCooldown(t *testing.T) {
++	r := &keyframeRequester{}
++	now := time.Now()
++	var accepted atomic.Int32
++	var group sync.WaitGroup
++	for i := 0; i < 32; i++ {
++		group.Add(1)
++		go func() {
++			defer group.Done()
++			if r.begin(now) {
++				accepted.Add(1)
++			}
++		}()
++	}
++	group.Wait()
++	if accepted.Load() != 1 {
++		t.Fatal("duplicate requests")
++	}
++	if r.begin(now.Add(5 * time.Second)) {
++		t.Fatal("overlapping request")
++	}
++	r.end()
++	if r.begin(now.Add(999 * time.Millisecond)) {
++		t.Fatal("cooldown bypassed")
++	}
++	if !r.begin(now.Add(time.Second)) {
++		t.Fatal("request not released")
++	}
++	r.end()
++}
++
++func TestKeyframeRequestSOAP(t *testing.T) {
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
++		body, _ := io.ReadAll(req.Body)
++		if req.Method != "POST" || strings.Contains(string(body), "secret") || !strings.Contains(string(body), "<trt:ProfileToken>a&amp;b</trt:ProfileToken>") || !strings.Contains(string(body), "PasswordDigest") {
++			t.Error("invalid SOAP request")
++		}
++		io.WriteString(w, `<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><SetSynchronizationPointResponse/></s:Body></s:Envelope>`)
++	}))
++	defer server.Close()
++	r := &keyframeRequester{endpoint: server.URL, user: url.UserPassword("admin", "secret"), profile: "a&b", client: server.Client()}
++	if err := r.send(); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestKeyframeRequestFailures(t *testing.T) {
++	for _, body := range []string{`<Fault/>`, `<unexpected/>`, strings.Repeat(" ", 65537)} {
++		t.Run(body[:min(len(body), 12)], func(t *testing.T) {
++			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, body) }))
++			defer server.Close()
++			r := &keyframeRequester{endpoint: server.URL, profile: "000", client: server.Client()}
++			if r.send() == nil {
++				t.Fatal("invalid response accepted")
++			}
++		})
++	}
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { time.Sleep(100 * time.Millisecond) }))
++	defer server.Close()
++	r := &keyframeRequester{endpoint: server.URL, profile: "000", client: &http.Client{Timeout: 20 * time.Millisecond}}
++	if r.send() == nil {
++		t.Fatal("timeout accepted")
++	}
++}
+diff --git a/internal/mp4/mp4.go b/internal/mp4/mp4.go
+index d0a6d97..5ac2614 100644
+--- a/internal/mp4/mp4.go
++++ b/internal/mp4/mp4.go
+@@ -18,6 +18,7 @@ import (
+ 
+ func Init() {
+ 	log = app.GetLogger("mp4")
++	initKeyframeRequests()
+ 
+ 	ws.HandleFunc("mse", handlerWSMSE)
+ 	ws.HandleFunc("mp4", handlerWSMP4)
+diff --git a/internal/mp4/ws.go b/internal/mp4/ws.go
+index c1afac2..1c14da8 100644
+--- a/internal/mp4/ws.go
++++ b/internal/mp4/ws.go
+@@ -35,6 +35,9 @@ func handlerWSMSE(tr *ws.Transport, msg *ws.Message) error {
+ 
+ 	go cons.WriteTo(tr.Writer())
+ 
++	// Subscribe before requesting so an immediate keyframe reaches this viewer.
++	requestKeyframe(tr.Request.URL.Query().Get("src"))
++
+ 	tr.OnClose(func() {
+ 		stream.RemoveConsumer(cons)
+ 	})

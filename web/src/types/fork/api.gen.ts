@@ -263,6 +263,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/go2rtc/streams/{stream_name}/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stream Diagnostics
+         * @description **Access:** Authenticated user with access to the referenced camera.
+         *
+         *     Check a permitted live stream and correlate its result with a player failure.
+         */
+        post: operations["diagnose_live_stream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/go2rtc/streams": {
         parameters: {
             query?: never;
@@ -5113,6 +5135,20 @@ export interface components {
             progress?: number | null;
         };
         /**
+         * PlaybackFailure
+         * @description Structured client playback failure.
+         */
+        PlaybackFailure: {
+            /**
+             * Reason
+             * @default manual
+             * @enum {string}
+             */
+            reason: "startup" | "stalled" | "mse-decode" | "manual";
+            /** Media Error Code */
+            media_error_code?: number | null;
+        };
+        /**
          * PlaybackSourceEnum
          * @enum {string}
          */
@@ -5647,6 +5683,55 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    diagnose_live_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stream_name: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybackFailure"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Stream not configured */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Stream diagnostics busy */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

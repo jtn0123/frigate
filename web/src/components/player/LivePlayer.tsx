@@ -35,6 +35,8 @@ import { ImageShadowOverlay } from "../overlay/ImageShadowOverlay";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { formatList } from "@/utils/stringUtil";
 import { onActivate } from "@/utils/fork/a11y";
+import { useLivePlaybackStatus } from "@/hooks/use-live-playback-status";
+import { LivePlaybackError } from "./LivePlaybackError";
 
 type LivePlayerProps = {
   cameraRef?: (ref: HTMLDivElement | null) => void;
@@ -132,6 +134,12 @@ export default function LivePlayer({
   // camera live state
 
   const [liveReady, setLiveReady] = useState(false);
+  const playback = useLivePlaybackStatus(
+    `${streamName}:${preferredLiveMode}`,
+    Boolean(
+      autoLive && cameraEnabled && windowVisible && !showStillWithoutActivity,
+    ),
+  );
 
   const liveReadyRef = useRef(liveReady);
   const cameraActiveRef = useRef(cameraActive);
@@ -224,9 +232,17 @@ export default function LivePlayer({
     }
   }, [showStillWithoutActivity, autoLive]);
 
+  const { onPlaying: markPlaybackStarted } = playback;
   const playerIsPlaying = useCallback(() => {
     setLiveReady(true);
-  }, []);
+    markPlaybackStarted();
+  }, [markPlaybackStarted]);
+
+  const playerError = (reason: LivePlayerError, code?: number) => {
+    setLiveReady(false);
+    if (showStillWithoutActivity) onError?.(reason);
+    else playback.onError(reason, code);
+  };
 
   // enabled states
 
@@ -261,12 +277,12 @@ export default function LivePlayer({
   }
 
   let player;
-  if (!autoLive || !streamName || !cameraEnabled) {
+  if (!autoLive || !streamName || !cameraEnabled || playback.failure) {
     player = null;
   } else if (preferredLiveMode == "webrtc") {
     player = (
       <WebRtcPlayer
-        key={"webrtc_" + key}
+        key={`webrtc_${key}_${playback.attempt}`}
         className={`size-full rounded-lg md:rounded-2xl ${liveReady ? "" : "hidden"}`}
         camera={streamName}
         playbackEnabled={cameraActive || liveReady}
@@ -278,14 +294,14 @@ export default function LivePlayer({
         iOSCompatFullScreen={iOSCompatFullScreen}
         onPlaying={playerIsPlaying}
         pip={pip}
-        onError={onError}
+        onError={playerError}
       />
     );
   } else if (preferredLiveMode == "mse") {
     if ("MediaSource" in window || "ManagedMediaSource" in window) {
       player = (
         <MSEPlayer
-          key={"mse_" + key}
+          key={`mse_${key}_${playback.attempt}`}
           className={`size-full rounded-lg md:rounded-2xl ${liveReady ? "" : "hidden"}`}
           camera={streamName}
           playbackEnabled={cameraActive || liveReady}
@@ -297,7 +313,7 @@ export default function LivePlayer({
           onPlaying={playerIsPlaying}
           pip={pip}
           setFullResolution={setFullResolution}
-          onError={onError}
+          onError={playerError}
         />
       );
     } else {
@@ -311,7 +327,7 @@ export default function LivePlayer({
     if (cameraActive || !showStillWithoutActivity || liveReady) {
       player = (
         <JSMpegPlayer
-          key={"jsmpeg_" + key}
+          key={`jsmpeg_${key}_${playback.attempt}`}
           className="flex justify-center overflow-hidden rounded-lg md:rounded-2xl"
           camera={cameraConfig.name}
           width={cameraConfig.detect.width}
@@ -371,10 +387,22 @@ export default function LivePlayer({
           />
         )}
       <Suspense fallback={null}>{player}</Suspense>
+      {playback.failure && (
+        <LivePlaybackError
+          streamName={streamName}
+          reason={playback.failure}
+          mediaErrorCode={playback.mediaErrorCode}
+          onRetry={() => {
+            setLiveReady(false);
+            playback.retry();
+          }}
+        />
+      )}
       {cameraEnabled &&
         !offline &&
         (!showStillWithoutActivity || isReEnabling) &&
-        !liveReady && <ActivityIndicator />}
+        !liveReady &&
+        !playback.failure && <ActivityIndicator />}
 
       {((showStillWithoutActivity && !liveReady) || liveReady) &&
         objects.length > 0 && (

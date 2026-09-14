@@ -28,7 +28,7 @@ type MSEPlayerProps = {
   setStats?: (stats: PlayerStatsType) => void;
   onPlaying?: () => void;
   setFullResolution?: React.Dispatch<SetStateAction<VideoResolutionType>>;
-  onError?: (error: LivePlayerError) => void;
+  onError?: (error: LivePlayerError, mediaErrorCode?: number) => void;
 };
 
 function MSEPlayer({
@@ -70,7 +70,6 @@ function MSEPlayer({
   const [wsState, setWsState] = useState<number>(WebSocket.CLOSED);
   const [connectTS, setConnectTS] = useState<number>(0);
   const [bufferTimeout, setBufferTimeout] = useState<NodeJS.Timeout>();
-  const [errorCount, setErrorCount] = useState<number>(0);
   const totalBytesLoaded = useRef(0);
 
   const [fallbackTimeout] = useUserPersistence<number>(
@@ -97,7 +96,11 @@ function MSEPlayer({
   }, [camera]);
 
   const handleError = useCallback(
-    (error: LivePlayerError, description: string = "Unknown error") => {
+    (
+      error: LivePlayerError,
+      description: string = "Unknown error",
+      mediaErrorCode?: number,
+    ) => {
       // eslint-disable-next-line no-console
       console.error(
         `${camera} - MSE error '${error}': ${description} See the documentation: https://docs.frigate.video/configuration/live/#live-player-error-messages`,
@@ -111,7 +114,7 @@ function MSEPlayer({
         // eslint-disable-next-line no-console
         console.error(`${camera} - Supported codecs: ${CODECS.join(", ")}`);
       }
-      onError?.(error);
+      onError?.(error, mediaErrorCode);
     },
     // we know that these deps are correct
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,6 +198,7 @@ function MSEPlayer({
     }
 
     setIsPlaying(false);
+    ondataRef.current = null;
 
     if (wsRef.current) {
       const ws = wsRef.current;
@@ -454,10 +458,23 @@ function MSEPlayer({
           }
           handleError("mse-decode", "Safari reported InvalidStateError.");
           return;
-        } else {
-          throw e; // Re-throw if it's not the error we're handling
         }
+        onDisconnect();
+        handleError(
+          "mse-decode",
+          "Browser rejected the negotiated media codec.",
+        );
+        return;
       }
+
+      sb?.addEventListener("error", () => {
+        if (!wsRef.current) return;
+        onDisconnect();
+        handleError(
+          "mse-decode",
+          "Browser rejected an encoded video fragment.",
+        );
+      });
 
       sb?.addEventListener("updateend", () => {
         if (sb.updating) return;
@@ -475,8 +492,10 @@ function MSEPlayer({
               msRef.current?.setLiveSeekableRange(end, end + 15);
             }
           }
-        } catch (e) {
-          // no-op
+        } catch {
+          if (!wsRef.current) return;
+          onDisconnect();
+          handleError("mse-decode", "Failed to append queued media fragments.");
         }
       });
 
@@ -488,14 +507,24 @@ function MSEPlayer({
 
         if (sb?.updating || bufLen > 0) {
           const b = new Uint8Array(data);
+          if (bufLen + b.byteLength > buf.byteLength) {
+            onDisconnect();
+            handleError(
+              "stalled",
+              "Pending media fragments exceeded the buffer limit.",
+            );
+            return;
+          }
           buf.set(b, bufLen);
           bufLen += b.byteLength;
           // console.debug("VideoRTC.buffer", b.byteLength, bufLen);
         } else {
           try {
             sb?.appendBuffer(data as ArrayBuffer);
-          } catch (e) {
-            // no-op
+          } catch {
+            if (!wsRef.current) return;
+            onDisconnect();
+            handleError("mse-decode", "Failed to append a media fragment.");
           }
         }
       };
@@ -562,15 +591,6 @@ function MSEPlayer({
     }
 
     const bufferThreshold = calculateAdaptiveBufferThreshold();
-
-    // if we have > 3 seconds of buffered data and we're still not playing,
-    // something might be wrong - maybe codec issue, no audio, etc
-    // so mark the player as playing so that error handlers will fire
-    if (!isPlaying && playbackEnabled && bufferTime > 3) {
-      setIsPlaying(true);
-      lastJumpTimeRef.current = Date.now();
-      onPlaying?.();
-    }
 
     // if we have more than 10 seconds of buffer, something's wrong so error out
     if (
@@ -644,7 +664,6 @@ function MSEPlayer({
     onDisconnect,
     handleError,
     onError,
-    onPlaying,
     playbackEnabled,
     fallbackTimeout,
   ]);
@@ -816,38 +835,14 @@ function MSEPlayer({
       onPause={handlePause}
       onProgress={onProgress}
       onError={(e) => {
-        if (
-          // @ts-expect-error code does exist
-          e.target.error.code == MediaError.MEDIA_ERR_NETWORK
-        ) {
-          if (wsRef.current) {
-            onDisconnect();
-          }
-          handleError("startup", "Browser reported a network error.");
-        }
-
-        if (
-          // @ts-expect-error code does exist
-          e.target.error.code == MediaError.MEDIA_ERR_DECODE &&
-          (isSafari || isIOS)
-        ) {
-          if (wsRef.current) {
-            onDisconnect();
-          }
-          handleError("mse-decode", "Safari reported decoding errors.");
-        }
-
-        setErrorCount((prevCount) => prevCount + 1);
-
-        if (wsRef.current) {
-          onDisconnect();
-          if (errorCount >= 3) {
-            // too many mse errors, try jsmpeg
-            handleError("startup", `Max error count ${errorCount} exceeded.`);
-          } else {
-            reconnect(5000);
-          }
-        }
+        const error = e.currentTarget.error;
+        if (!error || !wsRef.current) return;
+        onDisconnect();
+        handleError(
+          error.code === 3 || error.code === 4 ? "mse-decode" : "startup",
+          `Browser media error ${error.code}: ${error.message || "No decoder detail provided"}`,
+          error.code,
+        );
       }}
     />
   );

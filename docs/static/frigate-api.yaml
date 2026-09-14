@@ -334,6 +334,50 @@ paths:
       security:
         - frigateAdminAuth: []
       x-required-role: admin
+  /go2rtc/streams/{stream_name}/diagnostics:
+    post:
+      tags:
+        - Camera
+      summary: Stream Diagnostics
+      description: |-
+        **Access:** Authenticated user with access to the referenced camera.
+
+        Check a permitted live stream and correlate its result with a player failure.
+      operationId: diagnose_live_stream
+      parameters:
+        - name: stream_name
+          in: path
+          required: true
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Stream Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybackFailure'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Stream not configured
+        '429':
+          description: Stream diagnostics busy
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: camera
   /go2rtc/streams:
     get:
       tags:
@@ -8962,6 +9006,27 @@ components:
         - status
       title: MotionSearchStatusResponse
       description: Response containing job status and results.
+    PlaybackFailure:
+      properties:
+        reason:
+          type: string
+          enum:
+            - startup
+            - stalled
+            - mse-decode
+            - manual
+          title: Reason
+          default: manual
+        media_error_code:
+          anyOf:
+            - type: integer
+              maximum: 4.0
+              minimum: 0.0
+            - type: 'null'
+          title: Media Error Code
+      type: object
+      title: PlaybackFailure
+      description: Structured client playback failure.
     PlaybackSourceEnum:
       type: string
       enum:
