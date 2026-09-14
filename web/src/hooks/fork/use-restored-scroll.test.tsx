@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { expect, it } from "vitest";
@@ -37,7 +37,7 @@ function Other() {
     </button>
   );
 }
-it("restores the previous history entry's own scroll container after remount", async () => {
+it("restores the previous history entry's own scroll container after remount", () => {
   render(
     <MemoryRouter initialEntries={[{ pathname: "/", key: "scroll-test" }]}>
       <Routes>
@@ -49,12 +49,8 @@ it("restores the previous history entry's own scroll container after remount", a
   const list = screen.getByTestId("list");
   list.scrollTop = 450;
   fireEvent.scroll(list);
-  await act(async () => {
-    fireEvent.click(screen.getByText("Open"));
-  });
+  fireEvent.click(screen.getByText("Open"));
   expect(screen.queryByTestId("list")).toBeNull();
-  await act(async () => {
-    fireEvent.click(screen.getByText("Back"));
-  });
+  fireEvent.click(screen.getByText("Back"));
   expect(screen.getByTestId("list").scrollTop).toBe(450);
 });

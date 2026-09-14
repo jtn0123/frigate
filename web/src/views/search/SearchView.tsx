@@ -58,6 +58,19 @@ type SearchViewProps = {
   setColumns: (columns: number) => void;
   setDefaultView: (name: string) => void;
 };
+/** Summary data is used only when no text or structured filter is active. */
+function showsExploreSummary(
+  defaultView: string,
+  searchTerm: string,
+  searchFilter?: SearchFilter,
+) {
+  return (
+    defaultView === "summary" &&
+    !searchTerm &&
+    (!searchFilter || Object.keys(searchFilter).length === 0)
+  );
+}
+
 export default function SearchView({
   search,
   searchTerm,
@@ -87,9 +100,7 @@ export default function SearchView({
   const navigate = useNavigate();
 
   const { data: exploreEvents, mutate: mutateExplore } = useSWR<SearchResult[]>(
-    (!searchFilter || Object.keys(searchFilter).length === 0) &&
-      !searchTerm &&
-      defaultView === "summary"
+    showsExploreSummary(defaultView, searchTerm, searchFilter)
       ? ["events/explore", { limit: isMobileOnly ? 5 : 10 }]
       : null,
     { revalidateOnFocus: true },
@@ -294,10 +305,11 @@ export default function SearchView({
   );
 
   const bulkItems = useMemo(() => {
-    const isSummaryView =
-      defaultView === "summary" &&
-      (!searchFilter || Object.keys(searchFilter).length === 0) &&
-      !searchTerm;
+    const isSummaryView = showsExploreSummary(
+      defaultView,
+      searchTerm,
+      searchFilter,
+    );
     return isSummaryView ? (exploreEvents ?? []) : uniqueResults;
   }, [defaultView, searchFilter, searchTerm, exploreEvents, uniqueResults]);
 

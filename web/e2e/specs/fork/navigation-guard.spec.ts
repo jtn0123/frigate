@@ -33,3 +33,27 @@ test("navigation protects unsaved settings and allows a deliberate exit @high @m
   await accepted;
   await expect(page).toHaveURL(/\/export$/);
 });
+
+test("closing a tab with unsaved settings requests confirmation @high @mobile", async ({
+  frigateApp,
+}) => {
+  const { page } = frigateApp;
+  await installSettingsConfigRoutes(page, false);
+  await frigateApp.goto("/settings?page=integrationSemanticSearch");
+  const enabled = page.getByRole("switch", { name: "Enable semantic search" });
+  await enabled.click();
+  await expect(
+    page.getByText("You have unsaved changes").first(),
+  ).toBeVisible();
+  const dismissed = new Promise<string>((resolve) => {
+    page.once("dialog", async (dialog) => {
+      const type = dialog.type();
+      await dialog.dismiss();
+      resolve(type);
+    });
+  });
+  await page.close({ runBeforeUnload: true });
+  expect(await dismissed).toBe("beforeunload");
+  expect(page.isClosed()).toBe(false);
+  await expect(enabled).toBeChecked();
+});

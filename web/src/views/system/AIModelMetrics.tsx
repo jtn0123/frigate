@@ -107,9 +107,9 @@ export default function AIModelMetrics({
         </p>
       </div>
       {isValidating && (
-        <span role="status" className="text-xs text-muted-foreground">
+        <output className="text-xs text-muted-foreground">
           {t("navigation.refreshing", { ns: "fork" })}
-        </span>
+        </output>
       )}
       {error && (
         <ErrorState compact error={error} onRetry={wrapAsync(() => mutate())} />

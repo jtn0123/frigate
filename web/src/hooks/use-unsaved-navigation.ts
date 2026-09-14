@@ -14,7 +14,6 @@ export function useUnsavedNavigation(dirty: boolean) {
       (event: BeforeUnloadEvent) => {
         if (!dirty) return;
         event.preventDefault();
-        event.returnValue = "";
       },
       [dirty],
     ),

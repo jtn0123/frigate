@@ -49,7 +49,8 @@ const allMetrics = [
 ] as const;
 type SystemMetric = (typeof allMetrics)[number];
 function isSystemMetric(value: string): value is SystemMetric {
-  return allMetrics.some((metric) => metric === value);
+  const metricNames: readonly string[] = allMetrics;
+  return metricNames.includes(value);
 }
 
 function System() {
