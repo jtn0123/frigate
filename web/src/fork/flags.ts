@@ -40,6 +40,8 @@ export type ForkFlags = {
   updateNotices: boolean;
   /** Phone fixes: back closes overlays, insets, landscape, fullscreen. */
   phoneFixes: boolean;
+  /** Tracking overlay: tap pauses on the moment, box between moments, edge dots faded. */
+  trackOverlay: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -58,6 +60,7 @@ const defaults: ForkFlags = {
   viewportLayout: true,
   updateNotices: true,
   phoneFixes: true,
+  trackOverlay: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {

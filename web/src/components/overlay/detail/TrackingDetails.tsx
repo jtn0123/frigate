@@ -54,6 +54,7 @@ import { isDesktop, isIOS, isMobileOnly, isSafari } from "react-device-detect";
 import { useApiHost } from "@/api";
 import ImageLoadingIndicator from "@/components/indicators/ImageLoadingIndicator";
 import ObjectTrackOverlay from "../ObjectTrackOverlay";
+import { trackOverlayFixes } from "@/lib/fork/track-overlay";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { VideoResolutionType } from "@/types/live";
 import { VodManifest } from "@/types/playback";
@@ -450,6 +451,10 @@ export function TrackingDetails({
       const relativeTime = timestampToVideoTime(targetTimeRecord);
 
       if (videoRef.current) {
+        // fork: stop on the moment so its box stays on screen
+        if (trackOverlayFixes) {
+          videoRef.current.pause();
+        }
         videoRef.current.currentTime = relativeTime;
       }
     },
