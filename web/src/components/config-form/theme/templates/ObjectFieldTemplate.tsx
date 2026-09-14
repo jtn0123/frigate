@@ -13,6 +13,7 @@ import { LuChevronDown, LuChevronRight, LuExternalLink } from "react-icons/lu";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { onActivate } from "@/utils/fork/a11y";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { requiresRestartForFieldPath } from "@/utils/configUtil";
 import { useDocDomain } from "@/hooks/use-doc-domain";
@@ -539,7 +540,13 @@ export function ObjectFieldTemplate(props: ObjectFieldTemplateProps) {
     <Card className="w-full">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer p-4 transition-colors hover:bg-muted/50">
+          {/* fork: the trigger is a div, so give it a button role and keys */}
+          <CardHeader
+            className="cursor-pointer p-4 transition-colors hover:bg-muted/50"
+            role="button"
+            tabIndex={0}
+            onKeyDown={onActivate(() => setIsOpen(!isOpen))}
+          >
             <div className="flex items-center justify-between">
               {cardHeaderContent}
               {isOpen ? (

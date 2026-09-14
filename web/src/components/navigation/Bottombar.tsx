@@ -171,7 +171,10 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
   return (
     <Drawer>
       <DrawerTrigger asChild>
-        <div
+        {/* fork: a named button, not a div carrying button-only ARIA */}
+        <button
+          type="button"
+          aria-label={t("statusAlerts.label", { ns: "fork" })}
           className={cn(
             "flex flex-col items-center justify-center p-2",
             large && "size-12",
@@ -183,7 +186,7 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
               large ? "size-6" : "size-5",
             )}
           />
-        </div>
+        </button>
       </DrawerTrigger>
       <DrawerContent
         className={cn(

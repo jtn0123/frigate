@@ -268,5 +268,8 @@
     "showBoxes": "Show detection boxes",
     "hideBoxes": "Hide detection boxes",
     "allOptions": "All options"
+  },
+  "statusAlerts": {
+    "label": "System warnings"
   }
 }
