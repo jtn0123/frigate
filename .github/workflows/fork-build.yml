@@ -41,7 +41,8 @@ permissions:
 jobs:
   amd64:
     runs-on: ubuntu-22.04
-    name: AMD64 fork build
+    name: AMD64 and ROCm fork build
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
@@ -60,6 +61,9 @@ jobs:
         uses: ./.github/actions/setup
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          buildkit-config: |
+            [worker.oci]
+              max-parallelism = 2
       # The setup action gives nearly all free space to /var/lib/docker and
       # leaves the root disk about 1 GB; a long build's runner logs filled it
       # ("No space left on device"). The image jobs never use the tool cache.
@@ -80,91 +84,36 @@ jobs:
             VERSION="${BASE_TAG#v}-$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
           fi
           TAGS="${IMAGE}:${SHORT_SHA}-amd64,${IMAGE}:${VERSION}"
+          ROCM_TAGS="${IMAGE}:${SHORT_SHA}-rocm,${IMAGE}:${VERSION}-rocm"
           # Only main moves :main, the tag the server pulls.
           if [[ "${GITHUB_REF}" == refs/heads/main ]]; then
             TAGS="${TAGS},${IMAGE}:main"
+            ROCM_TAGS="${ROCM_TAGS},${IMAGE}:main-rocm"
           fi
           {
             echo "version=${VERSION}"
             echo "image=${IMAGE}:${VERSION}"
             echo "tags=${TAGS}"
+            echo "rocm-tags=${ROCM_TAGS}"
           } >> "$GITHUB_OUTPUT"
-      - name: Build and push amd64
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: docker/main/Dockerfile
-          push: true
-          platforms: linux/amd64
-          target: frigate
-          tags: ${{ steps.tags.outputs.tags }}
-          cache-from: |
-            type=registry,ref=${{ steps.setup.outputs.cache-name }}-amd64
-            type=registry,ref=ghcr.io/blakeblackshear/frigate:cache-amd64
-          cache-to: type=registry,ref=${{ steps.setup.outputs.cache-name }}-amd64,mode=max
-
-  # Same build as upstream's "AMD/ROCm general build" (docker/rocm/rocm.hcl),
-  # for AMD discrete GPUs: ONNX detector on ROCm, VAAPI decode through radeonsi.
-  # It reuses amd64's version, so the tags match with a -rocm suffix, and only
-  # main moves :main-rocm, the tag an AMD server pulls.
-  rocm:
-    runs-on: ubuntu-22.04
-    name: ROCm fork build
-    needs: amd64
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - name: Set up QEMU and Buildx
-        id: setup
-        uses: ./.github/actions/setup
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # See the amd64 job: keep room on the root disk for the runner's logs.
-      - name: Free root disk for runner logs
-        run: |
-          sudo rm -rf /opt/hostedtoolcache
-          df -h / /var/lib/docker
-      # bake --set cannot give one target several cache sources, so the tags
-      # and caches go in an override file layered on top of rocm.hcl.
-      - name: Write bake override
-        env:
-          CACHE: ${{ steps.setup.outputs.cache-name }}
-          VERSION: ${{ needs.amd64.outputs.version }}
-        run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
-          UPSTREAM="ghcr.io/blakeblackshear/frigate"
-          TAGS="\"${IMAGE}:${GITHUB_SHA::7}-rocm\", \"${IMAGE}:${VERSION}-rocm\""
-          if [[ "${GITHUB_REF}" == refs/heads/main ]]; then
-            TAGS="${TAGS}, \"${IMAGE}:main-rocm\""
-          fi
-          FROM="\"type=registry,ref=${CACHE}-rocm\", \"type=registry,ref=${CACHE}-amd64\", \"type=registry,ref=${UPSTREAM}:cache-rocm\", \"type=registry,ref=${UPSTREAM}:cache-amd64\""
-          cat > "${RUNNER_TEMP}/fork-rocm.hcl" <<EOF
-          target "wget" { cache-from = [${FROM}] }
-          target "deps" { cache-from = [${FROM}] }
-          target "rootfs" { cache-from = [${FROM}] }
-          target "rocm" {
-            tags = [${TAGS}]
-            cache-from = [${FROM}]
-            cache-to = ["type=registry,ref=${CACHE}-rocm,mode=max"]
-          }
-          EOF
-          cat "${RUNNER_TEMP}/fork-rocm.hcl"
-      - name: Build and push rocm
+      # A single builder shares dependency and frontend stages across variants.
+      # Bound concurrency to leave memory for Node, compilers, and the runner.
+      - name: Build and push both images
         env:
           HSA_OVERRIDE: 0
+          CACHE: ${{ steps.setup.outputs.cache-name }}
+          AMD64_TAGS: ${{ steps.tags.outputs.tags }}
+          ROCM_TAGS: ${{ steps.tags.outputs.rocm-tags }}
         uses: docker/bake-action@d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b # v7.3.0
         with:
           source: .
           push: true
-          targets: rocm
+          targets: fork
           files: |
             docker/rocm/rocm.hcl
-            ${{ runner.temp }}/fork-rocm.hcl
+            docker/fork.hcl
 
+  # Release readiness includes successful publication of both image variants.
   release:
     name: Publish release
     needs: amd64
