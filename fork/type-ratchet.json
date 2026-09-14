@@ -13,7 +13,7 @@
     "@typescript-eslint/no-unsafe-assignment": 349,
     "@typescript-eslint/no-unsafe-return": 48,
     "@typescript-eslint/no-unsafe-argument": 40,
-    "@typescript-eslint/no-unsafe-call": 26,
+    "@typescript-eslint/no-unsafe-call": 25,
     "@typescript-eslint/switch-exhaustiveness-check": 18
   }
 }

@@ -205,13 +205,16 @@ export default function JSMpegPlayer({
           // "broken close frame" for every stream left. Close with 1000 first.
           // Read it from the player: it may have opened (or reopened) the
           // socket after init, e.g. the single-camera view starts it later
-          const liveSocket = (videoElement.player?.source?.socket ??
+          const player = videoElement.player as
+            | { source?: { socket?: WebSocket }; destroy: () => void }
+            | undefined;
+          const liveSocket = (player?.source?.socket ??
             socket) as WebSocket | null;
           if (liveSocket && liveSocket.readyState <= WebSocket.OPEN) {
             liveSocket.close(1000);
           }
           try {
-            videoElement.player?.destroy();
+            player?.destroy();
             // eslint-disable-next-line no-empty
           } catch (e) {}
 
