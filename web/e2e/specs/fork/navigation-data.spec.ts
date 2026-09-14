@@ -58,7 +58,10 @@ test.describe("export action recovery @high", () => {
       "Your input is still here",
     );
     await expect(input).toHaveValue("Renamed export");
-    await page.screenshot({ path: testInfo.outputPath("rename-recovery.png") });
+    await page.screenshot({
+      animations: "disabled",
+      path: testInfo.outputPath("rename-recovery.png"),
+    });
     await save.click();
     await expect(save).toBeDisabled();
     await expect(save).toHaveText("Saving…");
@@ -66,7 +69,10 @@ test.describe("export action recovery @high", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();
     expect(attempts).toBe(2);
-    await page.screenshot({ path: testInfo.outputPath("rename-pending.png") });
+    await page.screenshot({
+      animations: "disabled",
+      path: testInfo.outputPath("rename-pending.png"),
+    });
     release();
     await expect(dialog).not.toBeVisible();
     await expect(
