@@ -95,7 +95,7 @@ VAAPI_TEST_DEVICE=/dev/dri/renderD128 \
 python3 -u -m unittest frigate.test.test_hevc_keyframe_pipeline
 ```
 
-The test skips when these environment variables are absent. See the local
-performance benchmark report for before/after timing, quality, and dependency
+The test skips when these environment variables are absent. See the
+[performance benchmark report](BENCHMARK.md) for before/after timing, quality, and dependency
 comparisons. Newer FFmpeg and Mesa builds were isolated for evaluation; the
 production dependency versions were retained.
