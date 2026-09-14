@@ -58,6 +58,7 @@ test.describe("export action recovery @high", () => {
       "Your input is still here",
     );
     await expect(input).toHaveValue("Renamed export");
+    await page.screenshot({ path: testInfo.outputPath("rename-recovery.png") });
     await save.click();
     await expect(save).toBeDisabled();
     await expect(save).toHaveText("Saving…");
