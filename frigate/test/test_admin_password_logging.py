@@ -80,7 +80,8 @@ class TestPrivatePasswordFile(unittest.TestCase):
             target = root / "unrelated"
             target.write_text("unchanged")
             (root / "admin_password").symlink_to(target)
-            result = save_admin_password("test-secret", root)
+            save_admin_password("test-secret", root)
+            result = root / "admin_password"
             self.assertFalse(result.is_symlink())
             self.assertEqual(target.read_text(), "unchanged")
             self.assertEqual(result.read_text(), "test-secret\n")

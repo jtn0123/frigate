@@ -525,7 +525,7 @@ class FrigateApp:
                 password_hash = hash_password(
                     password, iterations=self.config.auth.hash_iterations
                 )
-                password_path = save_admin_password(password, Path(CONFIG_DIR))
+                save_admin_password(password, Path(CONFIG_DIR))
                 User.insert(
                     {
                         User.username: "admin",
@@ -543,7 +543,8 @@ class FrigateApp:
                 logger.info("***    Created a default user:                       ***")
                 logger.info("***    User: admin                                   ***")
                 logger.info(
-                    "Admin password saved to %s (owner access only)", password_path
+                    "Admin password saved to %s/admin_password (owner access only)",
+                    CONFIG_DIR,
                 )
                 logger.info(_LOG_SEPARATOR)
                 logger.info(_LOG_SEPARATOR)
@@ -552,7 +553,7 @@ class FrigateApp:
                 password_hash = hash_password(
                     password, iterations=self.config.auth.hash_iterations
                 )
-                password_path = save_admin_password(password, Path(CONFIG_DIR))
+                save_admin_password(password, Path(CONFIG_DIR))
                 User.replace(
                     username="admin",
                     role="admin",
@@ -564,7 +565,8 @@ class FrigateApp:
                 logger.info(_LOG_SEPARATOR)
                 logger.info("***    Reset admin password set in the config.       ***")
                 logger.info(
-                    "Admin password saved to %s (owner access only)", password_path
+                    "Admin password saved to %s/admin_password (owner access only)",
+                    CONFIG_DIR,
                 )
                 logger.info(_LOG_SEPARATOR)
                 logger.info(_LOG_SEPARATOR)

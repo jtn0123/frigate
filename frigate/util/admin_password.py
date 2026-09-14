@@ -8,7 +8,7 @@ from frigate.util.atomic import write_private_file
 logger = logging.getLogger(__name__)
 
 
-def save_admin_password(password: str, config_dir: Path) -> Path:
+def save_admin_password(password: str, config_dir: Path) -> None:
     """Save a password privately before changing the administrator account.
 
     Atomic replacement avoids following existing links or retaining permissive
@@ -16,7 +16,6 @@ def save_admin_password(password: str, config_dir: Path) -> Path:
     """
     destination = config_dir / "admin_password"
     write_private_file(destination, password + "\n")
-    return destination
 
 
 def remove_admin_password(config_dir: Path) -> None:
