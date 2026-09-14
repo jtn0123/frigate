@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import axios from "axios";
 import { LivePlaybackError } from "./LivePlaybackError";
@@ -47,3 +47,57 @@ it("keeps Retry available if backend diagnostics fail", async () => {
   ).toBeVisible();
   expect(screen.getByRole("button")).toBeEnabled();
 });
+
+it.each(["resolve", "reject"] as const)(
+  "ignores an old camera diagnostic that finishes late (%s)",
+  async (outcome) => {
+    let resolveOld!: (value: { data: { status: string } }) => void;
+    let rejectOld!: (error: Error) => void;
+    const oldRequest = new Promise<{ data: { status: string } }>(
+      (resolve, reject) => {
+        resolveOld = resolve;
+        rejectOld = reject;
+      },
+    );
+    vi.mocked(axios.post)
+      .mockReturnValueOnce(oldRequest)
+      .mockResolvedValueOnce({
+        data: { id: "new-camera", status: "healthy" },
+      });
+    const { rerender, unmount } = render(
+      <LivePlaybackError
+        streamName="side"
+        reason="startup"
+        onRetry={vi.fn()}
+      />,
+    );
+    const oldSignal = vi.mocked(axios.post).mock.calls.at(-1)?.[2]?.signal;
+    rerender(
+      <LivePlaybackError
+        streamName="backyard"
+        reason="startup"
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(oldSignal?.aborted).toBe(true);
+    expect(
+      await screen.findByText("playbackError.diagnostics.healthy"),
+    ).toBeVisible();
+    await act(async () => {
+      if (outcome === "resolve")
+        resolveOld({ data: { status: "decode_error" } });
+      else rejectOld(new Error("old request failed"));
+      await oldRequest.catch(() => undefined);
+    });
+    expect(screen.getByText("playbackError.diagnostics.healthy")).toBeVisible();
+    expect(
+      screen.queryByText("playbackError.diagnostics.decode_error"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("playbackError.diagnostics.unavailable"),
+    ).not.toBeInTheDocument();
+    const newSignal = vi.mocked(axios.post).mock.calls.at(-1)?.[2]?.signal;
+    unmount();
+    expect(newSignal?.aborted).toBe(true);
+  },
+);

@@ -213,6 +213,58 @@ class TestDiagnosticRequests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(first, third)
             self.assertFalse(self.diagnostics._inflight)
 
+    async def test_cancelled_viewer_does_not_cancel_shared_probe(self):
+        started = asyncio.Event()
+        release = asyncio.Event()
+        result = {"id": "shared", "status": "healthy"}
+
+        async def probe(*_args):
+            started.set()
+            await release.wait()
+            return result
+
+        body = self.diagnostics.PlaybackFailure()
+        with patch.object(
+            self.diagnostics, "collect_diagnostics", side_effect=probe
+        ) as collect:
+            first = asyncio.create_task(
+                self.diagnostics.stream_diagnostics(self.request, "yard", body)
+            )
+            await started.wait()
+            second = asyncio.create_task(
+                self.diagnostics.stream_diagnostics(self.request, "yard", body)
+            )
+            await asyncio.sleep(0)
+            first.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await first
+            self.assertFalse(self.diagnostics._inflight["yard"].cancelled())
+            release.set()
+            self.assertEqual(await second, result)
+            collect.assert_awaited_once()
+            self.assertFalse(self.diagnostics._inflight)
+            self.assertEqual(self.diagnostics._cache["yard"][1], result)
+
+    async def test_failed_probe_releases_slot_and_allows_successful_retry(self):
+        body = self.diagnostics.PlaybackFailure()
+        recovered = {"id": "recovered", "status": "healthy"}
+        with patch.object(
+            self.diagnostics,
+            "collect_diagnostics",
+            new_callable=AsyncMock,
+            side_effect=[RuntimeError("probe failed"), recovered],
+        ) as collect:
+            with self.assertRaises(RuntimeError):
+                await self.diagnostics.stream_diagnostics(self.request, "yard", body)
+            self.assertFalse(self.diagnostics._inflight)
+            self.assertNotIn("yard", self.diagnostics._cache)
+            result = await self.diagnostics.stream_diagnostics(
+                self.request, "yard", body
+            )
+            self.assertEqual(result, recovered)
+            self.assertEqual(collect.await_count, 2)
+            self.assertFalse(self.diagnostics._inflight)
+
     async def test_busy_probe_limit_rejects_new_work(self):
         from fastapi import HTTPException
 
