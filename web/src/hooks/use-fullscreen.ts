@@ -1,7 +1,5 @@
 import { RefObject, useCallback, useEffect, useMemo, useState } from "react";
-import nosleep from "nosleep.js";
-
-const NoSleep = new nosleep();
+import { ScreenWakeLock } from "@/utils/screen-wake-lock";
 
 function getFullscreenElement(): HTMLElement | null {
   return (
@@ -82,34 +80,45 @@ export function useFullscreen<T extends HTMLElement = HTMLElement>(
 ) {
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
+  const wakeLock = useMemo(() => new ScreenWakeLock(), []);
 
-  const handleFullscreenChange = useCallback((event: Event) => {
-    setFullscreen(event.target === getFullscreenElement());
-  }, []);
+  const handleFullscreenChange = useCallback(
+    (event: Event) => {
+      const active = event.target === getFullscreenElement();
+      setFullscreen(active);
+      if (!active) wakeLock.disable();
+    },
+    [wakeLock],
+  );
 
-  const handleFullscreenError = useCallback((event: Event) => {
-    setFullscreen(false);
-    setError(
-      new Error(
-        `Error attempting full-screen mode: ${event} (${event.target})`,
-      ),
-    );
-  }, []);
+  const handleFullscreenError = useCallback(
+    (event: Event) => {
+      wakeLock.disable();
+      setFullscreen(false);
+      setError(
+        new Error(
+          `Error attempting full-screen mode: ${event} (${event.target})`,
+        ),
+      );
+    },
+    [wakeLock],
+  );
 
   const toggleFullscreen = useCallback(async () => {
     try {
       if (!getFullscreenElement()) {
-        void NoSleep.enable();
+        wakeLock.enable();
         await enterFullScreen(elementRef.current!);
       } else {
         await exitFullscreen();
-        NoSleep.disable();
+        wakeLock.disable();
       }
       setError(null);
     } catch (err) {
+      wakeLock.disable();
       setError(err as Error);
     }
-  }, [elementRef]);
+  }, [elementRef, wakeLock]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -138,6 +147,7 @@ export function useFullscreen<T extends HTMLElement = HTMLElement>(
         handleFullscreenError,
       );
       return () => {
+        wakeLock.disable();
         removeEventListeners(
           currentElement,
           handleFullscreenChange,
@@ -145,7 +155,7 @@ export function useFullscreen<T extends HTMLElement = HTMLElement>(
         );
       };
     }
-  }, [elementRef, handleFullscreenChange, handleFullscreenError]);
+  }, [elementRef, handleFullscreenChange, handleFullscreenError, wakeLock]);
 
   // compatibility
 

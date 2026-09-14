@@ -36,6 +36,7 @@ type SwitchSettingRowProps = {
   description: string;
   checked: boolean | undefined;
   onCheckedChange: (checked: boolean | undefined) => void;
+  disabled: boolean;
 };
 
 function SwitchSettingRow({
@@ -44,6 +45,7 @@ function SwitchSettingRow({
   description,
   checked,
   onCheckedChange,
+  disabled,
 }: Readonly<SwitchSettingRowProps>) {
   // Two switches render (beside the label on mobile, in the control column
   // from md up) and only one is visible. A label's htmlFor can target just
@@ -57,8 +59,12 @@ function SwitchSettingRow({
         <div className="flex items-center justify-between gap-4 md:block">
           <Label
             id={labelId}
-            className="cursor-pointer"
-            onClick={() => onCheckedChange(!(checked ?? false))}
+            className={
+              disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+            }
+            onClick={() => {
+              if (!disabled) onCheckedChange(!(checked ?? false));
+            }}
           >
             {label}
           </Label>
@@ -67,6 +73,7 @@ function SwitchSettingRow({
               id={id}
               aria-labelledby={labelId}
               checked={checked ?? false}
+              disabled={disabled}
               onCheckedChange={onCheckedChange}
             />
           </div>
@@ -78,6 +85,7 @@ function SwitchSettingRow({
           id={`${id}-desktop`}
           aria-labelledby={labelId}
           checked={checked ?? false}
+          disabled={disabled}
           onCheckedChange={onCheckedChange}
         />
       </div>
@@ -192,18 +200,24 @@ export default function UiSettingsView() {
     document.title = t("documentTitle.general");
   }, [t]);
 
-  const [autoLive, setAutoLive] = useUserPersistence("autoLiveView", true);
-  const [cameraNames, setCameraName] = useUserPersistence(
+  const [autoLive, setAutoLive, autoLiveLoaded] = useUserPersistence(
+    "autoLiveView",
+    true,
+  );
+  const [cameraNames, setCameraName, cameraNamesLoaded] = useUserPersistence(
     "displayCameraNames",
     false,
   );
-  const [playbackRate, setPlaybackRate] = useUserPersistence("playbackRate", 1);
-  const [weekStartsOn, setWeekStartsOn] = useUserPersistence("weekStartsOn", 0);
-  const [alertVideos, setAlertVideos] = useUserPersistence("alertVideos", true);
-  const [fallbackTimeout, setFallbackTimeout] = useUserPersistence(
-    "liveFallbackTimeout",
-    3,
+  const [playbackRate, setPlaybackRate, playbackRateLoaded] =
+    useUserPersistence("playbackRate", 1);
+  const [weekStartsOn, setWeekStartsOn, weekStartsOnLoaded] =
+    useUserPersistence("weekStartsOn", 0);
+  const [alertVideos, setAlertVideos, alertVideosLoaded] = useUserPersistence(
+    "alertVideos",
+    true,
   );
+  const [fallbackTimeout, setFallbackTimeout, fallbackTimeoutLoaded] =
+    useUserPersistence("liveFallbackTimeout", 3);
 
   const liveDashboardSwitchRows = [
     {
@@ -212,6 +226,7 @@ export default function UiSettingsView() {
       description: t("general.liveDashboard.automaticLiveView.desc"),
       checked: autoLive,
       onCheckedChange: setAutoLive,
+      disabled: !autoLiveLoaded,
     },
     {
       id: "images-only",
@@ -219,6 +234,7 @@ export default function UiSettingsView() {
       description: t("general.liveDashboard.playAlertVideos.desc"),
       checked: alertVideos,
       onCheckedChange: setAlertVideos,
+      disabled: !alertVideosLoaded,
     },
     {
       id: "camera-names",
@@ -226,6 +242,7 @@ export default function UiSettingsView() {
       description: t("general.liveDashboard.displayCameraNames.desc"),
       checked: cameraNames,
       onCheckedChange: setCameraName,
+      disabled: !cameraNamesLoaded,
     },
   ];
 
@@ -250,6 +267,7 @@ export default function UiSettingsView() {
                 )}
                 control={
                   <Select
+                    disabled={!fallbackTimeoutLoaded}
                     value={fallbackTimeout?.toString()}
                     onValueChange={(value) =>
                       setFallbackTimeout(Number.parseInt(value, 10))
@@ -329,6 +347,7 @@ export default function UiSettingsView() {
               )}
               control={
                 <Select
+                  disabled={!playbackRateLoaded}
                   value={playbackRate?.toString()}
                   onValueChange={(value) =>
                     setPlaybackRate(Number.parseFloat(value))
@@ -365,6 +384,7 @@ export default function UiSettingsView() {
               description={t("general.calendar.firstWeekday.desc")}
               control={
                 <Select
+                  disabled={!weekStartsOnLoaded}
                   value={weekStartsOn?.toString()}
                   onValueChange={(value) =>
                     setWeekStartsOn(Number.parseInt(value, 10))

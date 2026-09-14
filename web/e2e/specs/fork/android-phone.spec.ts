@@ -292,6 +292,21 @@ test.describe("Android phone @high @mobile", () => {
         "**/api/go2rtc/streams/front_door**",
         (route) => route.fulfill({ json: { producers: [], consumers: [] } }),
       );
+      // This checks the PiP control, not decoded playback. Negotiate the
+      // mocked stream rather than leaking a socket to the preview server.
+      await frigateApp.page.routeWebSocket(
+        "**/live/mse/api/ws?src=front_door",
+        (socket) => {
+          socket.onMessage(() => {
+            socket.send(
+              JSON.stringify({
+                type: "mse",
+                value: 'video/mp4; codecs="avc1.640029"',
+              }),
+            );
+          });
+        },
+      );
       await frigateApp.goto("/#front_door");
       await expect(
         frigateApp.page.locator('[aria-label="Picture in Picture"]').first(),
