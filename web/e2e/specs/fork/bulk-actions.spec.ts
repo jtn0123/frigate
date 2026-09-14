@@ -229,11 +229,24 @@ test.describe("Review mark-as-reviewed undo @high", () => {
       const thumb = page.locator(".review-item img").first();
       await expect(thumb).toBeVisible({ timeout: 10_000 });
       // iOS long-press lives on the thumbnail img, not the card wrapper.
-      await thumb.dispatchEvent("touchstart");
+      const bounds = await thumb.boundingBox();
+      expect(bounds).not.toBeNull();
+      const touch = {
+        identifier: 1,
+        clientX: bounds!.x + 5,
+        clientY: bounds!.y + 5,
+      };
+      await thumb.dispatchEvent("touchstart", {
+        touches: [touch],
+        changedTouches: [touch],
+      });
       await expect(page.getByText("1 selected")).toBeVisible({
         timeout: 3_000,
       });
-      await thumb.dispatchEvent("touchend");
+      await thumb.dispatchEvent("touchend", {
+        touches: [],
+        changedTouches: [touch],
+      });
 
       await page.getByRole("button", { name: "Mark as reviewed" }).click();
       await expect.poll(() => viewed.length).toBe(1);

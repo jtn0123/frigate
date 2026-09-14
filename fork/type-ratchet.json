@@ -1,18 +1,18 @@
 {
   "hatches": {
     "explicitAny": 23,
-    "tsExpectError": 16,
+    "tsExpectError": 14,
     "asUnknownAs": 25,
     "noExplicitAnyDisable": 25
   },
   "rules": {
     "@typescript-eslint/no-floating-promises": 0,
     "@typescript-eslint/no-misused-promises": 0,
-    "@typescript-eslint/no-unnecessary-condition": 1487,
-    "@typescript-eslint/no-unsafe-member-access": 396,
-    "@typescript-eslint/no-unsafe-assignment": 362,
+    "@typescript-eslint/no-unnecessary-condition": 1482,
+    "@typescript-eslint/no-unsafe-member-access": 390,
+    "@typescript-eslint/no-unsafe-assignment": 349,
     "@typescript-eslint/no-unsafe-return": 48,
-    "@typescript-eslint/no-unsafe-argument": 42,
+    "@typescript-eslint/no-unsafe-argument": 40,
     "@typescript-eslint/no-unsafe-call": 26,
     "@typescript-eslint/switch-exhaustiveness-check": 18
   }

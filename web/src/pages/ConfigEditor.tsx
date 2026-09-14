@@ -1,3 +1,4 @@
+import { useUnsavedNavigation } from "@/hooks/use-unsaved-navigation";
 import useSWR from "swr";
 import * as monaco from "monaco-editor";
 import { configureMonacoYaml } from "monaco-yaml";
@@ -102,6 +103,14 @@ function ConfigEditor() {
     });
   }, [editorRef, t]);
 
+  const handleSaveOnly = useCallback(async () => {
+    try {
+      await onHandleSaveConfig("saveonly");
+    } catch {
+      // The save handler already shows the error and preserves dirty edits.
+    }
+  }, [onHandleSaveConfig]);
+
   // Ask first: saving before the confirmation meant Cancel still left the new
   // config on disk with nothing to say so.
   const handleSaveAndRestart = useCallback(() => {
@@ -164,7 +173,7 @@ function ConfigEditor() {
       editorRef.current?.addCommand(
         monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
         () => {
-          void onHandleSaveConfig("saveonly");
+          void handleSaveOnly();
         },
       );
     } else if (editorRef.current) {
@@ -182,7 +191,7 @@ function ConfigEditor() {
       }
       schemaConfiguredRef.current = false;
     };
-  }, [rawConfig, apiHost, systemTheme, theme, onHandleSaveConfig]);
+  }, [rawConfig, apiHost, systemTheme, theme, handleSaveOnly]);
 
   // when in safe mode, attempt to validate the existing (invalid) config immediately
   // so that the user sees the validation errors without needing to press save
@@ -214,6 +223,7 @@ function ConfigEditor() {
   // monitoring state
 
   const [hasChanges, setHasChanges] = useState(false);
+  useUnsavedNavigation(hasChanges);
 
   useEffect(() => {
     if (!rawConfig || !modelRef.current) {
@@ -235,24 +245,6 @@ function ConfigEditor() {
       setHasChanges(false);
     }
   }, [rawConfig]);
-
-  useEffect(() => {
-    let listener: ((e: BeforeUnloadEvent) => void) | undefined;
-    if (hasChanges) {
-      listener = (e) => {
-        e.preventDefault();
-        e.returnValue = true;
-        return t("confirm");
-      };
-      window.addEventListener("beforeunload", listener);
-    }
-
-    return () => {
-      if (listener) {
-        window.removeEventListener("beforeunload", listener);
-      }
-    };
-  }, [hasChanges, t]);
 
   // layout change handler
 
@@ -313,7 +305,7 @@ function ConfigEditor() {
               size="sm"
               className="flex items-center gap-2"
               aria-label={t("saveOnly")}
-              onClick={wrapAsync(() => onHandleSaveConfig("saveonly"))}
+              onClick={wrapAsync(handleSaveOnly)}
             >
               <LuSave className="text-secondary-foreground" />
               <span className="hidden md:block">{t("saveOnly")}</span>

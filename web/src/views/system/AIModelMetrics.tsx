@@ -1,3 +1,4 @@
+import { useViewQuery } from "@/hooks/use-view-query";
 import useSWR from "swr";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,13 +26,26 @@ export default function AIModelMetrics({
   isActive,
   setLastUpdated,
 }: Readonly<Props>) {
-  const { t, i18n } = useTranslation(["views/system"]);
+  const { t, i18n } = useTranslation(["views/system", "fork"]);
+  const [view] = useViewQuery();
+  const modelSelection = view.get("model");
+  const rangeSelection = view.get("range");
+  const [historyOpen, setHistoryOpen] = useState(
+    Boolean(modelSelection || rangeSelection),
+  );
+  useEffect(() => {
+    if (modelSelection || rangeSelection) setHistoryOpen(true);
+  }, [modelSelection, rangeSelection]);
   const [history, setHistory] = useState<AIModelsResponse[]>([]);
-  const { data, error, mutate } = useSWR<AIModelsResponse, Error>(
+  const { data, error, mutate, isValidating } = useSWR<AIModelsResponse, Error>(
     isActive ? "ai/models" : null,
     { refreshInterval: 10000, revalidateOnFocus: true },
   );
-  const { data: storedHistory } = useSWR<{ samples: AIModelsResponse[] }>(
+  const {
+    data: storedHistory,
+    error: historyError,
+    mutate: refreshHistory,
+  } = useSWR<{ samples: AIModelsResponse[] }, Error>(
     isActive ? "ai/models/history" : null,
     { revalidateOnFocus: true },
   );
@@ -92,8 +106,21 @@ export default function AIModelMetrics({
           {t("models.description")}
         </p>
       </div>
+      {isValidating && (
+        <output className="text-xs text-muted-foreground">
+          {t("navigation.refreshing", { ns: "fork" })}
+        </output>
+      )}
       {error && (
         <ErrorState compact error={error} onRetry={wrapAsync(() => mutate())} />
+      )}
+      {historyError && (
+        <ErrorState
+          compact
+          error={historyError}
+          title={t("navigation.historyUnavailable", { ns: "fork" })}
+          onRetry={wrapAsync(() => refreshHistory())}
+        />
       )}
       <AIModelReadiness
         data={error ? { ...data, telemetry_status: "stale" } : data}
@@ -237,7 +264,11 @@ export default function AIModelMetrics({
       </div>
       <ServerPressure server={data.server} />
       {data.models.length > 0 && (
-        <details className="rounded-xl border border-secondary p-4">
+        <details
+          className="rounded-xl border border-secondary p-4"
+          open={historyOpen}
+          onToggle={(event) => setHistoryOpen(event.currentTarget.open)}
+        >
           <summary className="cursor-pointer font-medium">
             {t("models.graphs.title")}
           </summary>

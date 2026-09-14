@@ -2,7 +2,7 @@ import { FilterType } from "@/types/filter";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-function getStringifiedArgs(filter: FilterType) {
+export function getStringifiedArgs(filter: FilterType) {
   const search: { [key: string]: string } = {};
 
   Object.entries(filter).forEach(([key, value]) => {

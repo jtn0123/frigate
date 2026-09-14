@@ -1,5 +1,5 @@
 import ActivityIndicator from "@/components/indicators/activity-indicator";
-import useApiFilter from "@/hooks/use-api-filter";
+import { getStringifiedArgs } from "@/hooks/use-api-filter";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 import { useCameraPreviews } from "@/hooks/use-camera-previews";
 import { useTimezone } from "@/hooks/use-date-utils";
@@ -190,8 +190,16 @@ export default function Events() {
 
   // review filter
 
-  const [reviewFilter, setReviewFilter, reviewSearchParams] =
-    useApiFilter<ReviewFilter>();
+  const [reviewFilter, setHistoryFilter] =
+    useOverlayState<ReviewFilter>("reviewFilter");
+  const setReviewFilter = useCallback(
+    (filter: ReviewFilter) => setHistoryFilter(filter, true),
+    [setHistoryFilter],
+  );
+  const reviewSearchParams = useMemo(
+    () => getStringifiedArgs(reviewFilter ?? {}),
+    [reviewFilter],
+  );
 
   useSearchEffect("cameras", (cameras: string) => {
     setReviewFilter({
@@ -251,12 +259,13 @@ export default function Events() {
 
   const onUpdateFilter = useCallback(
     (newFilter: ReviewFilter) => {
-      setReviewFilter(newFilter);
-
-      // update recording start time if filter
-      // was changed on recording page
+      // Write the filter and recording cursor in the same history update.
       if (recording != undefined && newFilter.after != undefined) {
-        setRecording({ ...recording, startTime: newFilter.after }, true);
+        setRecording({ ...recording, startTime: newFilter.after }, true, {
+          reviewFilter: newFilter,
+        });
+      } else {
+        setReviewFilter(newFilter);
       }
     },
     [recording, setRecording, setReviewFilter],
@@ -287,10 +296,6 @@ export default function Events() {
       return true;
     }
 
-    setReviewFilter({
-      ...reviewFilter,
-      ...getReviewDayBounds(new Date(reviewLink.timestamp * 1000)),
-    });
     setRecording(
       {
         camera: reviewLink.camera,
@@ -302,6 +307,12 @@ export default function Events() {
         navigationSource: "shared-link",
       },
       true,
+      {
+        reviewFilter: {
+          ...reviewFilter,
+          ...getReviewDayBounds(new Date(reviewLink.timestamp * 1000)),
+        },
+      },
     );
 
     return true;
@@ -319,8 +330,8 @@ export default function Events() {
     }
 
     return {
-      before: Math.ceil(reviewSearchParams["before"]),
-      after: Math.floor(reviewSearchParams["after"]),
+      before: Math.ceil(Number(reviewSearchParams["before"])),
+      after: Math.floor(Number(reviewSearchParams["after"])),
     };
   }, [last24Hours, reviewSearchParams]);
 

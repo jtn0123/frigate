@@ -1,5 +1,12 @@
+import PageLoading from "@/components/navigation/PageLoading";
 import Providers from "@/context/providers";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 import Wrapper from "@/components/Wrapper";
 import Sidebar from "@/components/navigation/Sidebar";
 
@@ -40,22 +47,21 @@ const Replay = lazy(() => import("@/pages/Replay"));
 const ShareClipPage = lazy(() => import("@/pages/fork/ShareClipPage"));
 
 function App() {
+  return (
+    <Providers>
+      <RouterProvider router={router} />
+    </Providers>
+  );
+}
+
+function AppLayout() {
   const { data: config } = useSWR<FrigateConfig>("config", {
     revalidateOnFocus: false,
   });
-
   return (
-    <Providers>
-      <BrowserRouter basename={window.baseUrl}>
-        <Wrapper>
-          {config?.safe_mode ? (
-            <SafeAppView />
-          ) : (
-            <DefaultAppView config={config} />
-          )}
-        </Wrapper>
-      </BrowserRouter>
-    </Providers>
+    <Wrapper>
+      {config?.safe_mode ? <SafeAppView /> : <DefaultAppView config={config} />}
+    </Wrapper>
   );
 }
 
@@ -68,11 +74,7 @@ function DefaultAppView({
   if (publicShare) {
     return (
       <div className="size-full overflow-hidden">
-        <RouteSuspense
-          fallback={
-            <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
-          }
-        >
+        <RouteSuspense fallback={<PageLoading />}>
           <Routes>
             <Route path="/share/:token" element={<ShareClipPage />} />
           </Routes>
@@ -116,11 +118,7 @@ function DefaultAppView({
             : "bottom-8 left-[52px]",
         )}
       >
-        <RouteSuspense
-          fallback={
-            <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
-          }
-        >
+        <RouteSuspense fallback={<PageLoading />}>
           <Routes>
             <Route element={<ProtectedRoute requiredRoles={mainRouteRoles} />}>
               <Route index element={<Live />} />
@@ -165,5 +163,9 @@ function SafeAppView() {
     </div>
   );
 }
+
+const router = createBrowserRouter([{ path: "*", element: <AppLayout /> }], {
+  basename: window.baseUrl,
+});
 
 export default App;

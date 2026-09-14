@@ -224,7 +224,7 @@ export default function Replay() {
             axios
               .post("debug_replay/stop")
               .catch(() => {})
-              .finally(() => navigate("/review"));
+              .finally(() => void navigate("/review"));
           }}
         >
           {t("page.startError.back")}
@@ -247,7 +247,7 @@ export default function Replay() {
         <p className="max-w-md text-center text-muted-foreground">
           {t("page.noSessionDesc")}
         </p>
-        <Button variant="default" onClick={() => navigate("/review")}>
+        <Button variant="default" onClick={() => void navigate("/review")}>
           {t("page.goToRecordings")}
         </Button>
       </div>
@@ -313,7 +313,7 @@ export default function Replay() {
           className="flex items-center gap-2.5 rounded-lg"
           aria-label={t("label.back", { ns: "common" })}
           size="sm"
-          onClick={() => navigate(-1)}
+          onClick={() => void navigate(-1)}
         >
           <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
           {isDesktop && (
