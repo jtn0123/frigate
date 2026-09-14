@@ -1,0 +1,80 @@
+diff --git a/pkg/h265/rtp.go b/pkg/h265/rtp.go
+index 9c571ec..05ce384 100644
+--- a/pkg/h265/rtp.go
++++ b/pkg/h265/rtp.go
+@@ -45,7 +45,25 @@ func RTPDepay(codec *core.Codec, handler core.HandlerFunc) core.HandlerFunc {
+ 
+ 		seqNum = packet.SequenceNumber
+ 
+-		if nuType == NALUTypeFU {
++		if nuType == 48 { // RFC 7798 aggregation packet, without DONL
++			// AP framing belongs to RTP, not to the encoded access unit.
++			// FFmpeg bundles VPS/SPS/PPS this way before keyframes.
++			for payload := data[2:]; len(payload) > 0; {
++				if len(payload) < 2 {
++					buf = buf[:0]
++					return
++				}
++				size := int(binary.BigEndian.Uint16(payload))
++				payload = payload[2:]
++				if size < 2 || size > len(payload) || (payload[0]>>1)&0x3F >= 48 {
++					buf = buf[:0]
++					return
++				}
++				buf = binary.BigEndian.AppendUint32(buf, uint32(size))
++				buf = append(buf, payload[:size]...)
++				payload = payload[size:]
++			}
++		} else if nuType == NALUTypeFU {
+ 			switch data[2] >> 6 {
+ 			case 0b10: // begin
+ 				nuType = data[2] & 0x3F
+diff --git a/pkg/h265/rtp_aggregation_test.go b/pkg/h265/rtp_aggregation_test.go
+new file mode 100644
+index 0000000..f011297
+--- /dev/null
++++ b/pkg/h265/rtp_aggregation_test.go
+@@ -0,0 +1,43 @@
++package h265
++
++import (
++	"encoding/binary"
++	"testing"
++
++	"github.com/AlexxIT/go2rtc/pkg/core"
++	"github.com/AlexxIT/go2rtc/pkg/h264"
++	"github.com/pion/rtp"
++	"github.com/stretchr/testify/require"
++)
++
++func TestRTPDepayAggregationHeaders(t *testing.T) {
++	vps := []byte{0x40, 1, 12}
++	sps := []byte{0x42, 1, 1}
++	pps := []byte{0x44, 1, 0xc0}
++	payload := []byte{48 << 1, 1}
++	for _, nalu := range [][]byte{vps, sps, pps} {
++		payload = binary.BigEndian.AppendUint16(payload, uint16(len(nalu)))
++		payload = append(payload, nalu...)
++	}
++	var got []byte
++	depay := RTPDepay(&core.Codec{}, func(p *rtp.Packet) { got = append([]byte(nil), p.Payload...) })
++	depay(&rtp.Packet{Header: rtp.Header{SequenceNumber: 1}, Payload: payload})
++	require.Nil(t, got)
++	depay(&rtp.Packet{Header: rtp.Header{SequenceNumber: 2, Marker: true}, Payload: []byte{19 << 1, 1, 0xab}})
++	require.Equal(t, h264.JoinNALU(vps, sps, pps, []byte{19 << 1, 1, 0xab}), got)
++}
++
++func TestRTPDepayRejectsMalformedAggregation(t *testing.T) {
++	for _, payload := range [][]byte{
++		{48 << 1, 1, 0},
++		{48 << 1, 1, 0, 10, 0x40, 1},
++		{48 << 1, 1, 0, 1, 0x40},
++	} {
++		t.Run(string(payload), func(t *testing.T) {
++			called := false
++			depay := RTPDepay(&core.Codec{}, func(_ *rtp.Packet) { called = true })
++			require.NotPanics(t, func() { depay(&rtp.Packet{Header: rtp.Header{Marker: true}, Payload: payload}) })
++			require.False(t, called)
++		})
++	}
++}

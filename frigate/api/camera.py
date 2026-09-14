@@ -27,6 +27,7 @@ from frigate.api.auth import (
 from frigate.api.camera_config import remove_camera_from_config
 from frigate.api.defs.request.app_body import CameraSetBody
 from frigate.api.defs.tags import Tags
+from frigate.api.stream_diagnostics import router as stream_diagnostics_router
 from frigate.config import FrigateConfig
 from frigate.config.env import UnknownVariableError, substitute_frigate_vars
 from frigate.models import User
@@ -47,6 +48,7 @@ _RTSP_SCHEME = "rtsp://"
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.camera])
+router.include_router(stream_diagnostics_router)
 
 
 def _is_valid_host(host: str) -> bool:

@@ -60,18 +60,20 @@ ARG DEBIAN_FRONTEND
 RUN --mount=type=bind,source=docker/main/build_intel_media_driver.sh,target=/deps/build_intel_media_driver.sh \
     /deps/build_intel_media_driver.sh
 
-# go2rtc is fetched per architecture so each download can carry its checksum
-FROM scratch AS go2rtc-amd64
-WORKDIR /rootfs/usr/local/go2rtc/bin
-ADD --link --chmod=755 --checksum=sha256:32d616af226bd731678ffde328b94cfb94e30339bfefc469cfb76323144615a6 \
-    "https://github.com/AlexxIT/go2rtc/releases/download/v1.9.14/go2rtc_linux_amd64" go2rtc
-
-FROM scratch AS go2rtc-arm64
-WORKDIR /rootfs/usr/local/go2rtc/bin
-ADD --link --chmod=755 --checksum=sha256:359fabade8a7a51e81a55fe6df6b0ef81764a5e1d63179577534eaaa71904b50 \
-    "https://github.com/AlexxIT/go2rtc/releases/download/v1.9.14/go2rtc_linux_arm64" go2rtc
-
-FROM go2rtc-${TARGETARCH} AS go2rtc
+# Build the pinned go2rtc release with H.265 RTP aggregation support.
+# The patch and regression tests stay local until included in an upstream release.
+FROM --platform=${BUILDPLATFORM} golang:1.27.1-bookworm AS go2rtc
+ARG TARGETARCH
+WORKDIR /src
+ADD --checksum=sha256:e3d59e553dfd0085889a2956281cfc0fd78bb7b4d6269d1c90c217d2ffcf2c7b \
+    "https://codeload.github.com/AlexxIT/go2rtc/tar.gz/refs/tags/v1.9.14" /tmp/go2rtc.tar.gz
+COPY docker/main/go2rtc/hevc-aggregation.patch /tmp/hevc-aggregation.patch
+COPY docker/main/go2rtc/onvif-keyframe-startup.patch /tmp/onvif-keyframe-startup.patch
+RUN tar -xzf /tmp/go2rtc.tar.gz --strip-components=1 \
+    && git apply /tmp/hevc-aggregation.patch /tmp/onvif-keyframe-startup.patch \
+    && go test ./internal/mp4 ./pkg/h265 ./pkg/h264 ./pkg/mp4 ./pkg/rtsp \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath \
+        -o /rootfs/usr/local/go2rtc/bin/go2rtc .
 
 FROM wget AS tempio
 ARG TARGETARCH
