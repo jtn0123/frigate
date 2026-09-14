@@ -12,6 +12,50 @@ import { test, expect } from "../../fixtures/frigate-test";
 const UI_SETTINGS_URL = "/settings?page=uiSettings";
 const SETTING = "Always Show Camera Names";
 
+test("UI preferences wait for storage before accepting edits @high @mobile", async ({
+  frigateApp,
+}) => {
+  const { page } = frigateApp;
+  await page.addInitScript(() => {
+    const originalGet = IDBObjectStore.prototype.get;
+    const pending: (() => void)[] = [];
+    let released = false;
+    window.addEventListener("release-ui-preferences", () => {
+      released = true;
+      pending.splice(0).forEach((complete) => complete());
+    });
+    IDBObjectStore.prototype.get = function (key) {
+      const request = originalGet.call(this, key);
+      if (typeof key === "string" && key.startsWith("displayCameraNames")) {
+        // Hold the real IndexedDB result until the test releases it. This
+        // exposes clicks during preference hydration without timing sleeps.
+        Object.defineProperty(request, "onsuccess", {
+          set(handler: (event: Event) => void) {
+            request.addEventListener("success", (event) => {
+              const complete = () => handler.call(request, event);
+              if (released) complete();
+              else pending.push(complete);
+            });
+          },
+        });
+      }
+      return request;
+    };
+  });
+  await frigateApp.goto(UI_SETTINGS_URL);
+  const toggle = page.getByRole("switch", { name: SETTING });
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toBeDisabled();
+  await page.getByText(SETTING, { exact: true }).click();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("release-ui-preferences")),
+  );
+  await expect(toggle).toBeEnabled();
+  await page.getByText(SETTING, { exact: true }).click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+});
+
 test.describe("UI Settings switches @medium", () => {
   test(
     "clicking a setting's title toggles its visible switch",
@@ -23,6 +67,7 @@ test.describe("UI Settings switches @medium", () => {
       const toggle = page.getByRole("switch", { name: SETTING });
       await expect(toggle).toBeVisible({ timeout: 10_000 });
       await expect(toggle).toHaveAttribute("aria-checked", "false");
+      await expect(toggle).toBeEnabled();
 
       await page.getByText(SETTING, { exact: true }).click();
       await expect(toggle).toHaveAttribute("aria-checked", "true");
@@ -42,6 +87,7 @@ test.describe("UI Settings switches @medium", () => {
       const toggle = page.getByRole("switch", { name: SETTING });
       await expect(toggle).toBeVisible({ timeout: 10_000 });
       await expect(toggle).toHaveAttribute("aria-checked", "false");
+      await expect(toggle).toBeEnabled();
 
       await page.getByText(SETTING, { exact: true }).click();
       await expect(toggle).toHaveAttribute("aria-checked", "true");
