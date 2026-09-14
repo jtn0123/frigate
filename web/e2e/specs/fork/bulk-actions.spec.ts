@@ -169,12 +169,11 @@ test.describe("Explore bulk actions @high", () => {
       await thumbnails(page).nth(0).tap();
       await expect(page.getByTestId("bulk-count")).toHaveText("1 selected");
 
-      // The iOS long-press path selects after the touch is held for 610ms.
-      await thumbnails(page).nth(1).dispatchEvent("touchstart");
+      // Chrome on Android reports a long press as a contextmenu event.
+      await thumbnails(page).nth(1).dispatchEvent("contextmenu");
       await expect(page.getByTestId("bulk-count")).toHaveText("2 selected", {
         timeout: 3_000,
       });
-      await thumbnails(page).nth(1).dispatchEvent("touchend");
     },
   );
 });
@@ -228,12 +227,12 @@ test.describe("Review mark-as-reviewed undo @high", () => {
 
       const thumb = page.locator(".review-item img").first();
       await expect(thumb).toBeVisible({ timeout: 10_000 });
-      // iOS long-press lives on the thumbnail img, not the card wrapper.
-      await thumb.dispatchEvent("touchstart");
+      // Long-press lives on the thumbnail img, not the card wrapper; Chrome on
+      // Android reports it as a contextmenu event.
+      await thumb.dispatchEvent("contextmenu");
       await expect(page.getByText("1 selected")).toBeVisible({
         timeout: 3_000,
       });
-      await thumb.dispatchEvent("touchend");
 
       await page.getByRole("button", { name: "Mark as reviewed" }).click();
       await expect.poll(() => viewed.length).toBe(1);
