@@ -19,6 +19,7 @@ beforeEach(() => {
 afterEach(() => {
   Reflect.deleteProperty(navigator, "wakeLock");
   Reflect.deleteProperty(document, "fullscreenElement");
+  Reflect.deleteProperty(document, "exitFullscreen");
 });
 
 function player() {
@@ -73,4 +74,39 @@ it("reports a fullscreen failure while releasing its wake lock", async () => {
   await act(() => result.current.toggleFullscreen());
   expect(result.current.error).toBe(failure);
   expect(lock.release).toHaveBeenCalledOnce();
+});
+
+it("exits through the player toggle and releases the wake lock", async () => {
+  const lock = { release: vi.fn().mockResolvedValue(undefined) };
+  request.mockResolvedValue(lock);
+  const { element, result } = player();
+  const exit = vi.fn(async () => {
+    currentFullscreen = null;
+    element.dispatchEvent(new Event("fullscreenchange"));
+  });
+  Object.defineProperty(document, "exitFullscreen", {
+    configurable: true,
+    value: exit,
+  });
+  await act(() => result.current.toggleFullscreen());
+  await act(() => result.current.toggleFullscreen());
+  expect(exit).toHaveBeenCalledOnce();
+  expect(lock.release).toHaveBeenCalledOnce();
+  expect(result.current.fullscreen).toBe(false);
+  expect(result.current.error).toBeNull();
+});
+
+it("handles a browser fullscreen error event and allows its error to be cleared", async () => {
+  const lock = { release: vi.fn().mockResolvedValue(undefined) };
+  request.mockResolvedValue(lock);
+  const { element, result } = player();
+  await act(() => result.current.toggleFullscreen());
+  await act(() => element.dispatchEvent(new Event("fullscreenerror")));
+  expect(lock.release).toHaveBeenCalledOnce();
+  expect(result.current.fullscreen).toBe(false);
+  expect(result.current.error?.message).toContain(
+    "Error attempting full-screen mode",
+  );
+  act(() => result.current.clearError());
+  expect(result.current.error).toBeNull();
 });

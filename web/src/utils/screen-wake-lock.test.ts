@@ -120,4 +120,19 @@ describe("optional screen wake lock", () => {
     wake.enable();
     await vi.waitFor(() => expect(fallback.enable).toHaveBeenCalledOnce());
   });
+
+  it("stops the legacy fallback if its pending request completes after exit", async () => {
+    Reflect.deleteProperty(navigator, "wakeLock");
+    let finish!: () => void;
+    fallback.enable.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    wake.enable();
+    wake.disable();
+    expect(fallback.disable).toHaveBeenCalledOnce();
+    finish();
+    await vi.waitFor(() => expect(fallback.disable).toHaveBeenCalledTimes(2));
+  });
 });
