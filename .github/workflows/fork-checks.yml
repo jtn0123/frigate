@@ -137,6 +137,7 @@ jobs:
         working-directory: ./web
         env:
           E2E_COVERAGE: "1"
+          E2E_STRICT_ERRORS: "1"
       - uses: actions/upload-artifact@v4
         with:
           name: e2e-dist

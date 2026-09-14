@@ -208,7 +208,7 @@ export default function DebugReplayDialog({
         if (response.status === 202 || response.status === 200) {
           setMode("none");
           setRange(undefined);
-          navigate("/replay");
+          void navigate("/replay");
         }
       })
       .catch((error) => {

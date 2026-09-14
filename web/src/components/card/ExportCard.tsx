@@ -2,18 +2,9 @@ import ActivityIndicator from "../indicators/activity-indicator";
 import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isMobile } from "react-device-detect";
 import { FiMoreVertical } from "react-icons/fi";
 import { Skeleton } from "../ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
-import useKeyboardListener from "@/hooks/use-keyboard-listener";
+import ExportRenameDialog from "@/components/fork/ExportRenameDialog";
 import { DeleteClipType, Export, ExportCase, ExportJob } from "@/types/export";
 import { baseUrl } from "@/api/baseUrl";
 import { cn } from "@/lib/utils";
@@ -119,7 +110,7 @@ type ExportCardProps = {
   selectionMode?: boolean;
   onSelect: (selected: Export) => void;
   onContextSelect?: (selected: Export) => void;
-  onRename: (original: string, update: string) => void;
+  onRename: (original: string, update: string) => Promise<void>;
   onDelete: ({ file, exportName }: DeleteClipType) => void;
   onAssignToCase?: (selected: Export) => void;
   onRemoveFromCase?: (selected: Export) => void;
@@ -154,7 +145,7 @@ export function ExportCard({
       })
       .then((response) => {
         if (response.status === 202 || response.status === 200) {
-          navigate("/replay");
+          void navigate("/replay");
         }
       })
       .catch((error) => {
@@ -215,85 +206,18 @@ export function ExportCard({
 
   // editing name
 
-  const [editName, setEditName] = useState<{
-    original: string;
-    update?: string;
-  }>();
-
-  const submitRename = useCallback(() => {
-    if (editName == undefined) {
-      return;
-    }
-
-    onRename(exportedRecording.id, editName.update ?? "");
-    setEditName(undefined);
-  }, [editName, exportedRecording, onRename, setEditName]);
-
-  useKeyboardListener(
-    editName != undefined ? ["Enter"] : [],
-    (key, modifiers) => {
-      if (
-        key == "Enter" &&
-        modifiers.down &&
-        !modifiers.repeat &&
-        editName &&
-        (editName.update?.length ?? 0) > 0
-      ) {
-        submitRename();
-        return true;
-      }
-
-      return false;
-    },
-  );
+  const [editName, setEditName] = useState(false);
 
   return (
     <>
-      <Dialog
-        open={editName != undefined}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditName(undefined);
-          }
-        }}
-      >
-        <DialogContent
-          onOpenAutoFocus={(e) => {
-            if (isMobile) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <DialogTitle>{t("editExport.title")}</DialogTitle>
-          <DialogDescription>{t("editExport.desc")}</DialogDescription>
-          {editName && (
-            <>
-              <Input
-                className="mt-3"
-                type="search"
-                placeholder={editName?.original}
-                value={editName?.update ?? editName?.original}
-                onChange={(e) =>
-                  setEditName({
-                    original: editName.original ?? "",
-                    update: e.target.value,
-                  })
-                }
-              />
-              <DialogFooter>
-                <Button
-                  aria-label={t("editExport.saveExport")}
-                  variant="select"
-                  disabled={(editName?.update?.length ?? 0) == 0}
-                  onClick={() => submitRename()}
-                >
-                  {t("button.save", { ns: "common" })}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {editName && (
+        <ExportRenameDialog
+          id={exportedRecording.id}
+          name={exportedRecording.name}
+          onClose={() => setEditName(false)}
+          onRename={onRename}
+        />
+      )}
 
       <div
         ref={cardRef}
@@ -434,10 +358,7 @@ export function ExportCard({
                     aria-label={t("tooltip.editName")}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditName({
-                        original: exportedRecording.name,
-                        update: undefined,
-                      });
+                      setEditName(true);
                     }}
                   >
                     {t("tooltip.editName")}

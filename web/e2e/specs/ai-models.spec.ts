@@ -203,3 +203,65 @@ test.describe("AI model status @medium @mobile", () => {
     ).toBeVisible();
   });
 });
+
+test("model links preserve range and selection through refresh and history @high @mobile", async ({
+  frigateApp,
+}) => {
+  const { page } = frigateApp;
+  await page.route("**/api/ai/models", (route) =>
+    route.fulfill({ json: inventory }),
+  );
+  await page.route("**/api/ai/models/history", (route) =>
+    route.fulfill({ json: { samples: [] } }),
+  );
+  await frigateApp.goto("/system?model=genai%3Alocal&range=15#models");
+  const model = page.getByRole("combobox", { name: "Model", exact: true });
+  await expect(model).toHaveValue("genai:local");
+  await expect(page.getByLabel("History range")).toHaveValue("15");
+  await model.selectOption("audio:medium");
+  await expect(page).toHaveURL(/model=audio%3Amedium/);
+  await page.goBack();
+  await expect(model).toHaveValue("genai:local");
+  await page.goForward();
+  await expect(model).toHaveValue("audio:medium");
+  await page.reload();
+  await expect(model).toHaveValue("audio:medium");
+  await page.getByLabel("Select general").click();
+  await expect(page).toHaveURL(/range=15#general/);
+  // The data router can update history before React commits the new tab.
+  await expect(page.getByLabel("Select general")).toHaveAttribute(
+    "data-state",
+    "on",
+  );
+  await page.getByLabel("Select AI Models").click();
+  await expect(model).toHaveValue("audio:medium");
+});
+
+test("inactive model tabs stop refreshing @medium @mobile", async ({
+  frigateApp,
+}) => {
+  const { page } = frigateApp;
+  let requests = 0;
+  await page.route("**/api/ai/models", (route) => {
+    requests++;
+    return route.fulfill({ json: inventory });
+  });
+  await page.route("**/api/ai/models/history", (route) =>
+    route.fulfill({ json: { samples: [] } }),
+  );
+  await page.clock.install();
+  await frigateApp.goto("/system#models");
+  await expect(
+    page.getByRole("article", { name: "Whisper Medium" }),
+  ).toBeVisible();
+  const initial = requests;
+  await page.clock.fastForward(11000);
+  await expect.poll(() => requests).toBeGreaterThan(initial);
+  await page.getByLabel("Select general").click();
+  await expect(
+    page.getByRole("article", { name: "Whisper Medium" }),
+  ).toHaveCount(0);
+  const before = requests;
+  await page.clock.fastForward(31000);
+  expect(requests).toBe(before);
+});

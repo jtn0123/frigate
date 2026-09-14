@@ -22,18 +22,24 @@ The following ports are available to access the Frigate web UI.
 
 ## Onboarding
 
-On startup, an admin user and password are generated and printed in the logs. It is recommended to set a new password for the admin account after logging in for the first time under Settings > Users.
+On first startup, Frigate creates the `admin` user and saves its generated password to `/config/admin_password`, readable only by the file owner (mode `0600`). The password is never printed in application logs. From the Docker host, retrieve it with:
+
+```bash
+docker exec frigate cat /config/admin_password
+```
+
+Set a new password under Settings > Users. Frigate then automatically deletes the generated credential file. Restrict access to the config directory and its backups, since this file contains a plaintext credential.
 
 ## Resetting admin password
 
-In the event that you are locked out of your instance, you can tell Frigate to reset the admin password and print it in the logs on next startup.
+In the event that you are locked out of your instance, you can tell Frigate to reset the admin password and save it to `/config/admin_password` on next startup.
 
 <ConfigTabs>
 <TabItem value="ui">
 
 Navigate to <NavPath path="Settings > System > Authentication" />.
 
-- Set **Reset admin password** to on to reset the admin password and print it in the logs on next startup
+- Set **Reset admin password** to on to reset the admin password and save it to `/config/admin_password` on next startup
 
 </TabItem>
 <TabItem value="yaml">
@@ -45,6 +51,8 @@ auth:
 
 </TabItem>
 </ConfigTabs>
+
+After restarting, retrieve the password using the command above. Turn **Reset admin password** off (or set `reset_admin_password: false`) so later restarts do not reset it again. Changing the admin password automatically deletes `/config/admin_password`. If cleanup fails, Frigate logs a warning with manual removal instructions.
 
 ## Password guidance
 

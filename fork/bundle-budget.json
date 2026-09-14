@@ -1,4 +1,4 @@
 {
-  "eagerGzipBytes": 370844,
-  "note": "353185 gzip after E5 (unique eager JS+CSS) + 5%"
+  "eagerGzipBytes": 412650,
+  "note": "393000 measured gzip for React Router 7 data routing and unsaved-edit guards + 5%; previous same-machine PR49 build 372179 bytes"
 }

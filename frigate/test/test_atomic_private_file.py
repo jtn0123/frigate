@@ -1,5 +1,6 @@
 """Private runtime writes must not expose secrets or follow existing symlinks."""
 
+import os
 import stat
 import tempfile
 import unittest
@@ -43,6 +44,39 @@ class TestPrivateRuntimeFile(unittest.TestCase):
                     write_private_file(path, "new")
             self.assertEqual(path.read_text(), "old")
             self.assertEqual(list(Path(directory).iterdir()), [path])
+
+    def test_failed_file_sync_preserves_previous_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config"
+            path.write_text("old")
+            with patch("frigate.util.atomic.os.fsync", side_effect=OSError):
+                with self.assertRaises(OSError):
+                    write_private_file(path, "new")
+            self.assertEqual(path.read_text(), "old")
+            self.assertEqual(list(Path(directory).iterdir()), [path])
+
+    def test_file_contents_and_directory_are_synced_before_return(self):
+        synced = []
+        real_fsync = os.fsync
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config"
+
+            def record_sync(descriptor):
+                mode = os.fstat(descriptor).st_mode
+                if stat.S_ISREG(mode):
+                    self.assertEqual(os.fstat(descriptor).st_size, len("new"))
+                    self.assertFalse(path.exists())
+                    synced.append("file")
+                else:
+                    self.assertTrue(stat.S_ISDIR(mode))
+                    self.assertEqual(path.read_text(), "new")
+                    synced.append("directory")
+                real_fsync(descriptor)
+
+            with patch("frigate.util.atomic.os.fsync", side_effect=record_sync):
+                write_private_file(path, "new")
+            self.assertEqual(synced, ["file", "directory"])
 
 
 class TestPrivateRuntimeDirectory(unittest.TestCase):

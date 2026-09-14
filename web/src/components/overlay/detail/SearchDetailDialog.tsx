@@ -446,6 +446,7 @@ function DialogContentComponent({
 }
 
 type SearchDetailDialogProps = {
+  enableHistoryBack?: boolean;
   search?: SearchResult;
   page: SearchTab;
   setSearch: (search: SearchResult | undefined) => void;
@@ -457,6 +458,7 @@ type SearchDetailDialogProps = {
 };
 
 export default function SearchDetailDialog({
+  enableHistoryBack = true,
   search,
   page,
   setSearch,
@@ -482,6 +484,15 @@ export default function SearchDetailDialog({
 
   // dialog and mobile page
 
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(
+    () => () => {
+      clearTimeout(closeTimer.current);
+    },
+    [],
+  );
   const [isOpen, setIsOpen] = useState(search != undefined);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [showNavigationButtons, setShowNavigationButtons] = useState(false);
@@ -497,7 +508,8 @@ export default function SearchDetailDialog({
         setIsPopoverOpen(false);
         // short timeout to allow the mobile page animation
         // to complete before updating the state
-        setTimeout(() => {
+        clearTimeout(closeTimer.current);
+        closeTimer.current = setTimeout(() => {
           setSearch(undefined);
         }, 300);
       }
@@ -573,7 +585,7 @@ export default function SearchDetailDialog({
       <Overlay
         open={isOpen}
         onOpenChange={handleOpenChange}
-        enableHistoryBack={true}
+        enableHistoryBack={enableHistoryBack}
       >
         {isDesktop && onPrevious && onNext && showNavigationButtons && (
           <DialogPortal>

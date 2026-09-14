@@ -174,7 +174,7 @@ function ThumbnailRow({
     const similaritySearchParams = new URLSearchParams({
       labels: label,
     }).toString();
-    navigate(`/explore?${similaritySearchParams}`);
+    void navigate(`/explore?${similaritySearchParams}`);
   };
 
   return (
@@ -274,7 +274,7 @@ function ExploreThumbnailImage({
   };
 
   const handleAddTrigger = () => {
-    navigate(
+    void navigate(
       `/settings?page=triggers&camera=${event.camera}&event_id=${event.id}`,
     );
   };

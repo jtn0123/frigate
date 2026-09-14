@@ -1,3 +1,7 @@
+import { useViewQuery } from "@/hooks/use-view-query";
+import ErrorState from "@/components/fork/ErrorState";
+import { Skeleton } from "@/components/ui/skeleton";
+import { wrapAsync } from "@/utils/promise";
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -57,9 +61,11 @@ function formatFps(value: number | undefined) {
  */
 export default function CameraHealthView() {
   const { t } = useTranslation(["fork", "views/system"]);
-  const { data: config } = useApi("/config", {
-    revalidateOnFocus: false,
-  });
+  const [params, updateView] = useViewQuery();
+  const selectedCamera = params.get("camera") ?? "";
+  const configRequest = useApi("/config", { revalidateOnFocus: false });
+  const { data: config, mutate } = configRequest;
+  const error: unknown = configRequest.error;
   const stats = useAutoFrigateStats();
   const history = useFpsHistory(stats);
   const [lastTick, setLastTick] = useState(Date.now());
@@ -87,11 +93,40 @@ export default function CameraHealthView() {
   );
 
   if (!config) {
-    return null;
+    return error ? (
+      <ErrorState error={error} onRetry={wrapAsync(() => mutate())} />
+    ) : (
+      <Skeleton className="mt-4 h-64" />
+    );
   }
+  const validSelection = cameras.some(
+    (camera) => camera.name === selectedCamera,
+  );
+  const visibleCameras = validSelection
+    ? cameras.filter((camera) => camera.name === selectedCamera)
+    : cameras;
 
   return (
     <div className="scrollbar-container mt-4 flex flex-col gap-3 overflow-y-auto">
+      {Boolean(error) && (
+        <ErrorState compact error={error} onRetry={wrapAsync(() => mutate())} />
+      )}
+      <label className="flex flex-wrap items-center gap-2 text-sm">
+        {t("navigation.camera")}
+        <select
+          aria-label={t("navigation.camera")}
+          className="rounded-md border border-secondary bg-background px-3 py-2"
+          value={validSelection ? selectedCamera : ""}
+          onChange={(event) => updateView({ camera: event.target.value })}
+        >
+          <option value="">{t("navigation.allCameras")}</option>
+          {cameras.map((camera) => (
+            <option key={camera.name} value={camera.name}>
+              {resolveCameraName(config, camera)}
+            </option>
+          ))}
+        </select>
+      </label>
       {!fresh && (
         <output className="text-sm text-warning">
           {t("models.readiness.stale", { ns: "views/system" })}
@@ -110,7 +145,7 @@ export default function CameraHealthView() {
         className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
         data-testid="camera-health-grid"
       >
-        {cameras.map((camera) => (
+        {visibleCameras.map((camera) => (
           <CameraHealthCard
             key={camera.name}
             cameraName={camera.name}

@@ -14,7 +14,7 @@ class AuthConfig(FrigateBaseModel):
     reset_admin_password: bool = Field(
         default=False,
         title="Reset admin password",
-        description="If true, reset the admin user's password on startup and print the new password in logs.",
+        description="If true, reset the admin user's password on startup and save the new password to /config/admin_password (owner access only).",
     )
     cookie_name: str = Field(
         default="frigate_token",

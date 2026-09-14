@@ -7,6 +7,7 @@
  */
 
 import type { Page, WebSocketRoute } from "@playwright/test";
+import { BASE_STATS } from "../fixtures/mock-data/stats";
 import { cameraActivityPayload } from "../fixtures/mock-data/camera-activity";
 
 export class WsMocker {
@@ -61,7 +62,7 @@ export class WsMocker {
             uptime: 86400,
             version: "0.15.0-test",
             latest_version: "0.15.0",
-            storage: {},
+            storage: BASE_STATS.service.storage,
           },
           detectors: {},
           cpu_usages: {},

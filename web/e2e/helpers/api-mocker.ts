@@ -23,6 +23,9 @@ import { BASE_STATS, statsFactory } from "../fixtures/mock-data/stats";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MOCK_DATA_DIR = resolve(__dirname, "../fixtures/mock-data");
+const EXPORT_PREVIEW = readFileSync(
+  resolve(__dirname, "../fixtures/media/export-preview.webm"),
+);
 
 function loadMockJson(filename: string): unknown {
   return JSON.parse(readFileSync(resolve(MOCK_DATA_DIR, filename), "utf-8"));
@@ -75,6 +78,25 @@ export class ApiMocker {
       }
       return route.fulfill({ json: { success: true } });
     });
+
+    // Empty optional data for pages that do not install richer fixtures.
+    await this.page.route("**/api/config/raw_paths", (route) =>
+      route.fulfill({ json: {} }),
+    );
+    await this.page.route("**/api/review/event/*", (route) =>
+      route.fulfill({ json: null }),
+    );
+    await this.page.route("**/api/*/recordings?**", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await this.page.route("**/api/recordings/unavailable?**", (route) =>
+      route.fulfill({ json: [] }),
+    );
+
+    // No configured chat models in the default fixture.
+    await this.page.route("**/api/genai/models", (route) =>
+      route.fulfill({ json: {} }),
+    );
 
     // Profile endpoint (AuthProvider fetches /profile directly via axios,
     // which resolves to /api/profile due to axios.defaults.baseURL)
@@ -151,6 +173,10 @@ export class ApiMocker {
     // rendered state, breaking tests that navigate to /export.
     await this.page.route("**/api/jobs/export", (route) =>
       route.fulfill({ json: [] }),
+    );
+
+    await this.page.route("**/api/recordings/storage", (route) =>
+      route.fulfill({ json: {} }),
     );
 
     // Recordings summary
@@ -306,6 +332,14 @@ export class MediaMocker {
   }
 
   async install() {
+    // A tiny, decodable video keeps export preview requests inside the fixture.
+    // WebM is supported by every Chromium build used in local and CI tests.
+    await this.page.route("**/exports/*.mp4", (route) =>
+      route.fulfill({
+        contentType: "video/webm",
+        body: EXPORT_PREVIEW,
+      }),
+    );
     // Camera snapshots
     await this.page.route("**/api/*/latest.{jpg,webp}**", (route) =>
       route.fulfill({
