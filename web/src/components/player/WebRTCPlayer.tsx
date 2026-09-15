@@ -2,6 +2,7 @@ import { baseUrl } from "@/api/baseUrl";
 import { LivePlayerError, PlayerStatsType } from "@/types/live";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { wrapAsync } from "@/utils/promise";
+import { closePeerConnection } from "@/lib/fork/peer-connection";
 
 type WebRtcPlayerProps = {
   className?: string;
@@ -195,7 +196,8 @@ export default function WebRtcPlayer({
         wsRef.current = null;
       }
       if (pcRef.current) {
-        pcRef.current.close();
+        // fork (UI70): also stop the microphone, which close() leaves captured
+        closePeerConnection(pcRef.current);
         pcRef.current = undefined;
       }
     };
