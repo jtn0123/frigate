@@ -266,3 +266,12 @@ files. It runs before timed CI work, so graph-resolution defects fail quickly.
 A regression check also keeps the isolated rootfs COPY instructions in sync
 with the main Dockerfile. The intermediate guard-only repeat was canceled when
 this additional failure became known; it is not a completed comparison.
+
+The corrected parallel sweep also confirmed CPU-model variation within the same
+GitHub runner label (EPYC 9V74 and EPYC 7763). Its before/after pairs remain on
+the same VM, but close cross-job concurrency differences cannot establish an
+optimum. `fork-concurrency-benchmark.yml` therefore runs concurrency 2, 1, and 4
+sequentially on one VM, using the shared `fork-benchmark-case` action. Every
+setting retains a fresh builder per phase, a fresh registry per version, and
+identical memory/tool/cache/source settings. The order avoids testing only
+ascending concurrency. Repeated trials are still needed to quantify variance.
