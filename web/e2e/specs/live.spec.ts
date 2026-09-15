@@ -7,6 +7,7 @@
  * now-deleted ptz-overlay.spec.ts.
  */
 
+import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/frigate-test";
 import { LivePage } from "../pages/live.page";
 import { BASE_STATS } from "../fixtures/mock-data/stats";
@@ -440,5 +441,111 @@ test.describe("Manual recording confirmation @critical @desktop-only", () => {
     } finally {
       release();
     }
+  });
+});
+
+// idb-keyval's default database, where user preferences such as dashboard
+// layouts are kept
+async function idbPut(page: Page, entries: Record<string, unknown>) {
+  await page.evaluate(
+    (values) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open("keyval-store");
+        open.onupgradeneeded = () => open.result.createObjectStore("keyval");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction("keyval", "readwrite");
+          const store = tx.objectStore("keyval");
+          for (const [key, value] of Object.entries(values)) {
+            store.put(value, key);
+          }
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    entries,
+  );
+}
+
+async function idbKeys(page: Page) {
+  return page.evaluate(
+    () =>
+      new Promise<string[]>((resolve, reject) => {
+        const open = indexedDB.open("keyval-store");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const request = open.result
+            .transaction("keyval", "readonly")
+            .objectStore("keyval")
+            .getAllKeys();
+          request.onsuccess = () => resolve(request.result.map(String));
+          request.onerror = () => reject(request.error);
+        };
+      }),
+  );
+}
+
+const GROUP_LAYOUTS = {
+  "default-draggable-layout:admin": [
+    { i: "front_door", x: 0, y: 0, w: 4, h: 3 },
+  ],
+  "outdoor-draggable-layout:admin": [{ i: "backyard", x: 0, y: 0, w: 4, h: 3 }],
+};
+
+async function deleteCameraGroup(page: Page, name: string) {
+  await page.getByRole("button", { name: "Edit Camera Groups" }).click();
+  const row = page
+    .getByRole("dialog")
+    .getByText(name, { exact: true })
+    .locator("xpath=../..");
+  // the row's icons are edit, then delete
+  await row.locator("svg").nth(1).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete" })
+    .click();
+}
+
+test.describe("Live camera group delete (UI86) @critical", () => {
+  test(
+    "deleting another group keeps the open group's layout",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await frigateApp.goto("/");
+      await idbPut(page, GROUP_LAYOUTS);
+      const saved = page.waitForResponse(/\/api\/config\/set/);
+      await deleteCameraGroup(page, "outdoor");
+      await saved;
+
+      await expect
+        .poll(() => idbKeys(page))
+        .not.toContain("outdoor-draggable-layout:admin");
+      expect(await idbKeys(page)).toContain("default-draggable-layout:admin");
+    },
+  );
+
+  test.describe("when the save fails", () => {
+    test.use({ expectedErrors: [/500.*\/api\/config\/set/] });
+
+    test(
+      "every layout is kept",
+      { tag: "@desktop-only" },
+      async ({ frigateApp }) => {
+        const { page } = frigateApp;
+        await page.route(/\/api\/config\/set/, (route) =>
+          route.fulfill({ status: 500, json: { success: false } }),
+        );
+        await frigateApp.goto("/");
+        await idbPut(page, GROUP_LAYOUTS);
+        const saved = page.waitForResponse(/\/api\/config\/set/);
+        await deleteCameraGroup(page, "outdoor");
+        await saved;
+
+        const keys = await idbKeys(page);
+        expect(keys).toContain("default-draggable-layout:admin");
+        expect(keys).toContain("outdoor-draggable-layout:admin");
+      },
+    );
   });
 });

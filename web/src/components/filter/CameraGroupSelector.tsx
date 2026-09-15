@@ -74,7 +74,7 @@ import { z } from "zod";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import ActivityIndicator from "../indicators/activity-indicator";
-import { useUserPersistence } from "@/hooks/use-user-persistence";
+import { useDeleteUserKey } from "@/hooks/fork/use-delete-user-key";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";
 import { LuIcon } from "../icons/LuIcon";
@@ -520,9 +520,8 @@ function NewGroupDialog({
   const [editState, setEditState] = useState<"none" | "add" | "edit">("none");
   const [isLoading, setIsLoading] = useState(false);
 
-  const [, , , deleteGridLayout] = useUserPersistence(
-    `${activeGroup}-draggable-layout`,
-  );
+  // fork (UI86): a layout is deleted by the deleted group's own name
+  const deleteUserKey = useDeleteUserKey();
 
   useEffect(() => {
     if (!open) {
@@ -534,15 +533,15 @@ function NewGroupDialog({
 
   const onDeleteGroup = useCallback(
     async (name: string) => {
-      deleteGridLayout();
-      deleteGroup();
-
       await axios
         .put(`config/set?camera_groups.${name}`, { requires_restart: 0 })
         .then((res) => {
           if (res.status === 200) {
+            // fork (UI86): only once the group is gone, and only its own
+            void deleteUserKey(`${name}-draggable-layout`);
             if (activeGroup == name) {
               // deleting current group
+              deleteGroup();
               setGroup("default");
             }
             void updateConfig();
@@ -584,7 +583,7 @@ function NewGroupDialog({
       setGroup,
       setOpen,
       deleteGroup,
-      deleteGridLayout,
+      deleteUserKey,
       t,
     ],
   );
