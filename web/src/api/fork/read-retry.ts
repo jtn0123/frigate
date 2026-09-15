@@ -17,12 +17,22 @@ type RetryConfig = {
   errorRetryInterval: number;
 };
 
-/** Milliseconds until the next attempt, or undefined to stop retrying. */
+/** A uniform value in [0, 1) from Web Crypto rather than Math.random. */
+function randomUnit(): number {
+  const [value = 0] = crypto.getRandomValues(new Uint32Array(1));
+  return value / 2 ** 32;
+}
+
+/**
+ * Milliseconds until the next attempt, or undefined to stop retrying.
+ * `jitter` (0 to 1) spreads retries of many reads over time.
+ */
 export function readRetryDelay(
   key: unknown,
   error: unknown,
   retryCount: number,
   config: RetryConfig,
+  jitter: number = randomUnit(),
 ): number | undefined {
   const shell = typeof key === "string" && SHELL_READ_KEYS.has(key);
   if (shell) {
@@ -39,7 +49,7 @@ export function readRetryDelay(
 
   // SWR's own backoff: interval * 2^n (n capped at 8), jittered 0.5x to 1.5x.
   const backoff =
-    Math.floor((Math.random() + 0.5) * (1 << Math.min(retryCount, 8))) *
+    Math.floor((jitter + 0.5) * (1 << Math.min(retryCount, 8))) *
     config.errorRetryInterval;
   return shell ? Math.min(backoff, SHELL_RETRY_MAX_MS) : backoff;
 }
