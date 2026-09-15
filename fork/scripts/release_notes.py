@@ -111,10 +111,12 @@ def revision_range(value: str) -> str:
 def patch_ids(rev_range: str, cwd: str | None = None) -> dict[str, str]:
     """SHA to stable patch ID for each non-merge commit with a diff in range."""
     # Bytes, not text: a diff can hold content that is not valid UTF-8.
-    # --end-of-options keeps the range from ever being parsed as an option.
+    # The range goes in on stdin, never on the command line, so a value from
+    # --previous or --ref cannot become a git option.
     log = subprocess.run(
         ["git", "log", "--no-merges", "-p", "--no-color", "--no-ext-diff"]
-        + ["--format=commit %H", "--end-of-options", revision_range(rev_range)],
+        + ["--format=commit %H", "--stdin"],
+        input=f"{revision_range(rev_range)}\n".encode(),
         check=True,
         capture_output=True,
         cwd=cwd,
