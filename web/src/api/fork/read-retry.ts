@@ -25,7 +25,7 @@ type RetryConfig = {
 export function keyJitter(key: string): number {
   let hash = 0;
   for (let index = 0; index < key.length; index++) {
-    hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+    hash = (hash * 31 + (key.codePointAt(index) ?? 0)) >>> 0;
   }
   return (hash % 1000) / 1000;
 }
