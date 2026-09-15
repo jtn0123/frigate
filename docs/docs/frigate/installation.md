@@ -36,7 +36,7 @@ Frigate uses the following locations for read/write operations in the container.
 - `/media/frigate/clips`: Used for snapshot storage. In the future, it will likely be renamed from `clips` to `snapshots`. The file structure here cannot be modified and isn't intended to be browsed or managed manually.
 - `/media/frigate/recordings`: Internal system storage for recording segments. The file structure here cannot be modified and isn't intended to be browsed or managed manually.
 - `/media/frigate/exports`: Storage for clips and timelapses that have been exported via the WebUI or API.
-- `/tmp/cache`: Cache location for recording segments. Initial recordings are written here before being checked and converted to mp4 and moved to the recordings folder. Segments generated via the `clip.mp4` endpoints are also concatenated and processed here. It is recommended to use a [`tmpfs`](https://docs.docker.com/storage/tmpfs/) mount for this.
+- `/tmp/cache`: Cache location for recording segments. Initial recordings are written here before being checked and converted to mp4 and moved to the recordings folder. Segments generated via the `clip.mp4` endpoints are also concatenated and processed here. It is recommended to use a [`tmpfs`](https://docs.docker.com/storage/tmpfs/) mount for this. The container runs as UID 65534, and Frigate refuses to start unless `/tmp/cache` is owned by that user, so give the tmpfs `uid=65534,gid=65534,mode=0700`. Only Docker's `--tmpfs` flag and the Compose service-level `tmpfs:` list can set the owner: a `--mount type=tmpfs` or a Compose `type: tmpfs` volume is always owned by root. Images that run as root (the ROCm and other hardware variants) need a root-owned cache instead, so leave out `uid` and `gid` for those.
 - `/dev/shm`: Internal cache for raw decoded frames in shared memory. It is not recommended to modify this directory or map it with docker. The minimum size is impacted by the `shm-size` calculations below.
 
 ### Ports
@@ -61,10 +61,8 @@ services:
     volumes:
       - /path/to/your/config:/config
       - /path/to/your/storage:/media/frigate
-      - type: tmpfs # 1GB In-memory filesystem for recording segment storage
-        target: /tmp/cache
-        tmpfs:
-          size: 1000000000
+    tmpfs: # 1GB In-memory filesystem for recording segment storage, owned by the container user
+      - /tmp/cache:uid=65534,gid=65534,mode=0700,size=1000000000
     ...
 ```
 
@@ -356,7 +354,7 @@ If you can't use Docker Compose, you can run the container with something simila
   docker run -d \
     --name frigate-memx \
     --restart=unless-stopped \
-    --mount type=tmpfs,target=/tmp/cache,tmpfs-size=1000000000 \
+    --tmpfs /tmp/cache:uid=65534,gid=65534,mode=0700,size=1000000000 \
     --shm-size=256m \
     -v /path/to/your/storage:/media/frigate \
     -v /path/to/your/config:/config \
@@ -530,10 +528,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /path/to/your/config:/config
       - /path/to/your/storage:/media/frigate
-      - type: tmpfs # 1GB In-memory filesystem for recording segment storage
-        target: /tmp/cache
-        tmpfs:
-          size: 1000000000
+    tmpfs: # 1GB In-memory filesystem for recording segment storage, owned by the container user
+      - /tmp/cache:uid=65534,gid=65534,mode=0700,size=1000000000
     ports:
       - "8971:8971"
       # - "5000:5000" # Internal unauthenticated access. Expose carefully.
@@ -555,7 +551,7 @@ docker run -d \
   --name frigate \
   --restart=unless-stopped \
   --stop-timeout 30 \
-  --mount type=tmpfs,target=/tmp/cache,tmpfs-size=1000000000 \
+  --tmpfs /tmp/cache:uid=65534,gid=65534,mode=0700,size=1000000000 \
   --device /dev/bus/usb:/dev/bus/usb \
   --device /dev/dri/renderD128 \
   --shm-size=64m \

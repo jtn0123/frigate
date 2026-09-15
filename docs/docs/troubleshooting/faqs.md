@@ -109,7 +109,7 @@ Alternatively, when you create the Frigate Docker container, you can bind a dire
 docker run -d \
   --name frigate \
   --restart=unless-stopped \
-  --mount type=tmpfs,target=/tmp/cache,tmpfs-size=1000000000 \
+  --tmpfs /tmp/cache:uid=65534,gid=65534,mode=0700,size=1000000000 \
   --device /dev/bus/usb:/dev/bus/usb \
   --device /dev/dri/renderD128 \
   --shm-size=64m \

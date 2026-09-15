@@ -37,16 +37,66 @@ cameras:
 version: "0.18-0"
 """
 FFMPEG = "/usr/lib/ffmpeg/8.0/bin/ffmpeg"
+# The cache mount the installation docs give: a tmpfs owned by the container user.
+CACHE_TMPFS = "/tmp/cache:uid=65534,gid=65534,mode=0700,size=1000000000"
+
+
+def docker(*args: str, check: bool = True) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["docker", *args], capture_output=True, check=check, timeout=180
+    )
+
+
+def check_rejects_root_owned_cache(image: str) -> None:
+    """A default (root-owned) tmpfs cache stops startup with the mount to use."""
+    name = "frigate-rootless-cache-check-" + uuid.uuid4().hex[:12]
+    try:
+        print("Checking that a root-owned cache is refused", flush=True)
+        docker(
+            "run",
+            "--detach",
+            "--name",
+            name,
+            "--network",
+            "none",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges",
+            "--tmpfs",
+            "/tmp/cache",
+            image,
+        )
+        deadline = time.monotonic() + 60
+        logs = ""
+        while time.monotonic() < deadline:
+            result = docker("logs", name, check=False)
+            logs = (result.stdout + result.stderr).decode()
+            if "must be a directory" in logs:
+                break
+            time.sleep(1)
+        # Give s6 time to start the services, which it must not do.
+        time.sleep(5)
+        result = docker("logs", name, check=False)
+        logs = (result.stdout + result.stderr).decode()
+        expected = (
+            "Runtime directory /tmp/cache is owned by UID 0, not by UID 65534",
+            f"--tmpfs {CACHE_TMPFS}",
+        )
+        if (
+            not all(message in logs for message in expected)
+            or "Traceback" in logs
+            or "Starting Frigate" in logs
+        ):
+            raise RuntimeError(f"Root-owned cache was not refused clearly:\n{logs}")
+        print("Root-owned cache refused with the mount to use", flush=True)
+    finally:
+        docker("rm", "--force", name, check=False)
 
 
 def run(image: str) -> None:
     """Check startup, recording, playback, private files, and clean shutdown."""
     name = "frigate-rootless-check-" + uuid.uuid4().hex[:12]
-
-    def docker(*args: str, check: bool = True) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ["docker", *args], capture_output=True, check=check, timeout=180
-        )
 
     def execute(*args: str, check: bool = True) -> subprocess.CompletedProcess:
         return docker("exec", name, *args, check=check)
@@ -100,6 +150,8 @@ def run(image: str) -> None:
                 "no-new-privileges",
                 "--shm-size",
                 "256m",
+                "--tmpfs",
+                CACHE_TMPFS,
                 image,
             )
             docker("cp", str(config), f"{name}:/config/config.yml")
@@ -241,4 +293,6 @@ assert pathlib.Path('/tmp/latest.jpg').stat().st_size > 1000
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("image")
-    run(parser.parse_args().image)
+    image = parser.parse_args().image
+    check_rejects_root_owned_cache(image)
+    run(image)

@@ -139,7 +139,12 @@ function migrate_db_from_media_to_config() {
 }
 
 # The cache contains camera frames and is shared only by services running as the container user.
-PYTHONPATH=/opt/frigate python3 -c 'from pathlib import Path; from frigate.util.atomic import ensure_private_directory; ensure_private_directory(Path("/tmp/cache"))'
+# A cache owned by someone else stops the start here, with the fix in the log.
+if ! cache_error="$(PYTHONPATH=/opt/frigate python3 -c 'from pathlib import Path; from frigate.util.atomic import ensure_private_directory; ensure_private_directory(Path("/tmp/cache"))' 2>&1)"; then
+    echo "[ERROR] ${cache_error##*$'\n'}" >&2
+    echo "[ERROR] /tmp/cache must be a directory (not a symlink) owned by UID $(id -u), the user Frigate runs as. Mount it as a tmpfs owned by that user: 'docker run --tmpfs /tmp/cache:uid=$(id -u),gid=$(id -g),mode=0700,size=1000000000', or in Docker Compose a service-level 'tmpfs:' entry '/tmp/cache:uid=$(id -u),gid=$(id -g),mode=0700,size=1000000000'. '--mount type=tmpfs' and a Compose 'type: tmpfs' volume cannot set the owner" >&2
+    exit 1
+fi
 
 # Remove the previous Docker healthcheck shutdown marker.
 rm -f /dev/shm/.frigate-is-stopping
