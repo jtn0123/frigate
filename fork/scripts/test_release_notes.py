@@ -24,6 +24,9 @@ class ReleaseNotesTest(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.repo = self._tmp.name
+        # Each commit gets its own author date, a second after the last, so
+        # commits made within one real second never share an identity.
+        self._date = 1_700_000_000
         self.git("init", "-q", "-b", "dev")
         self.commit("upstream: initial", "frigate/app.py")
         self.git("tag", "v1.0.0")
@@ -36,7 +39,7 @@ class ReleaseNotesTest(unittest.TestCase):
         return subprocess.run(
             ["git", *args],
             cwd=self.repo,
-            env={**os.environ, **GIT_ENV},
+            env={**os.environ, **GIT_ENV, "GIT_AUTHOR_DATE": f"{self._date} +0000"},
             check=True,
             capture_output=True,
             text=True,
@@ -48,6 +51,7 @@ class ReleaseNotesTest(unittest.TestCase):
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "a") as f:
                 f.write(f"{message}\n")
+        self._date += 1
         self.git("add", *files)
         self.git("commit", "-q", "-m", message)
 
@@ -114,6 +118,31 @@ class ReleaseNotesTest(unittest.TestCase):
         self.assertEqual(notes.sections, {"New": ["Add kiosk mode"]})
         self.assertIn("Rebased onto upstream `v1.1.0` (was `v1.0.0`).", markdown)
         self.assertIn("Image: `ghcr.io/example/frigate:2`", markdown)
+
+    def test_a_new_commit_reusing_a_released_subject_is_listed(self) -> None:
+        self.commit("C1: fix lint", "web/src/wall.tsx")
+        self.git("tag", "fork/1")
+        self.commit("C1: fix lint", "web/src/kiosk.tsx")
+
+        notes = self.build(previous="fork/1")
+
+        self.assertEqual(notes.sections, {"Under the hood": ["Fix lint"]})
+        self.assertEqual(notes.released, 1)
+
+    def test_a_conflict_edited_rebase_is_not_listed_again(self) -> None:
+        self.commit("UI1: add a camera wall", "web/src/wall.tsx")
+        self.git("tag", "fork/1")
+        # A conflict resolution changes the patch but keeps the author, the
+        # author date and the subject, as `commit --amend` does here.
+        with open(os.path.join(self.repo, "web/src/wall.tsx"), "a") as f:
+            f.write("resolved\n")
+        self.git("commit", "-q", "-a", "--amend", "--no-edit")
+        self.commit("UI2: add kiosk mode", "web/src/kiosk.tsx")
+
+        notes = self.build(previous="fork/1")
+
+        self.assertEqual(notes.sections, {"New": ["Add kiosk mode"]})
+        self.assertEqual(notes.released, 1)
 
     def test_markdown_ends_with_the_build_marker(self) -> None:
         self.commit("S0: plan only", "fork/PLAN.md")
