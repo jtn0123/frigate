@@ -239,6 +239,7 @@ export default function TriggerView({
         })
         .finally(() => {
           setIsLoading(false);
+          setUnsavedChanges(false);
           setShowCreate(false);
           setSelectedTrigger(null);
         });
@@ -321,6 +322,7 @@ export default function TriggerView({
               { position: "top-center" },
             );
             setIsLoading(false);
+            setUnsavedChanges(false);
           });
       } else {
         // Regular update without rename
@@ -398,6 +400,7 @@ export default function TriggerView({
         .finally(() => {
           setShowDelete(false);
           setIsLoading(false);
+          setUnsavedChanges(false);
         });
     },
     [t, updateConfig, selectedCamera, setUnsavedChanges, config],

@@ -63,3 +63,56 @@ test.describe("Motion tuner unsaved changes @high", () => {
     expect(prompts).toEqual([]);
   });
 });
+
+test.describe("Trigger unsaved changes @high", () => {
+  // The desktop table labels its delete button; the phone list shows an icon only.
+  test.skip(({ frigateApp }) => frigateApp.isMobile, "Desktop trigger table");
+
+  test("a failed trigger delete lets you leave without a prompt", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    await frigateApp.installDefaults({
+      config: {
+        semantic_search: { enabled: true },
+        cameras: {
+          front_door: {
+            semantic_search: {
+              triggers: {
+                doorbell: {
+                  enabled: true,
+                  type: "description",
+                  data: "person at the door",
+                  threshold: 0.8,
+                  actions: [],
+                  friendly_name: "",
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const deletes: string[] = [];
+    await page.route("**/api/trigger/embedding/**", async (route) => {
+      deletes.push(route.request().method());
+      await route.fulfill({
+        status: 500,
+        json: { success: false, message: "Mocked error" },
+      });
+    });
+    await frigateApp.goto("/settings?page=triggers&camera=front_door");
+    await page.getByRole("button", { name: "Delete Trigger" }).click();
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect.poll(() => deletes.length).toBe(1);
+    expect(deletes).toEqual(["DELETE"]);
+    await expect(
+      page.getByRole("button", { name: "Delete", exact: true }),
+    ).toBeHidden();
+
+    const prompts = recordPrompts(page);
+    await clickExport(page);
+    await expect(page).toHaveURL(/\/export$/);
+    expect(prompts).toEqual([]);
+  });
+});
