@@ -78,7 +78,7 @@ class TestImageBuild(unittest.TestCase):
                     self.assertNotIn(":main", ref)
                     self.assertNotIn("ghcr.io", ref)
 
-    def test_benchmark_resolved_graph_matches_release_without_external_caches(self):
+    def test_benchmark_graph_matches_previous_shared_builder_configuration(self):
         with tempfile.TemporaryDirectory() as directory:
             override = Path(directory) / "benchmark.json"
             override.write_text(
@@ -188,6 +188,32 @@ class TestImageBuild(unittest.TestCase):
             self.assertEqual(
                 run.call_args.args[0][-3:], ["buildx", "rm", "frigate-bench-baseline"]
             )
+
+    def test_dependency_benchmark_keeps_limits_and_private_destinations(self):
+        args = argparse.Namespace(
+            context="colima-frigate-build-bench",
+            case="dependency-images",
+            source=Path("/source"),
+            output=Path("/output"),
+            registry="localhost:5007",
+            seed_caches=Path("/seeds.json"),
+            buildkit_image="moby/buildkit@sha256:" + "a" * 64,
+        )
+        with (
+            patch.object(benchmark.subprocess, "run") as run,
+            patch.object(benchmark, "measure", return_value=1.0) as measure,
+        ):
+            benchmark.build_targets(
+                args, Path("/config"), Path("/override"), "app-change", ["benchmark"]
+            )
+        create = run.call_args_list[0].args[0]
+        for limit in ("memory=5g", "memory-swap=5g", "image=" + args.buildkit_image):
+            self.assertIn(limit, create)
+        command = measure.call_args.args[0]
+        self.assertIn("localhost:5007/dependency-images:app-change-rocm", command)
+        self.assertIn("/seeds.json", command)
+        self.assertIn("/source/fork/scripts/dependency_images.py", command)
+        self.assertNotIn("--push", command)
 
     def test_application_copy_follows_rocm_dependencies_and_linker_cache(self):
         instructions = (ROOT / "docker/rocm/Dockerfile").read_text()

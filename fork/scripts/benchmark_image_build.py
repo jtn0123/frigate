@@ -9,7 +9,9 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -74,17 +76,132 @@ def summarize_log(path):
     }
 
 
-def measure(command, cwd, log_path):
-    """Record complete logs and elapsed time, failing on unsuccessful builds."""
-    start = time.monotonic()
-    with log_path.open("w") as log:
-        result = subprocess.run(
-            command, cwd=cwd, stdout=log, stderr=subprocess.STDOUT, timeout=7200
+def save_json(path, value):
+    """Atomically checkpoint measurements before any cleanup starts."""
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w") as output:
+        json.dump(value, output, indent=2)
+        output.flush()
+        os.fsync(output.fileno())
+    temporary.replace(path)
+
+
+def time_reduction(before, after):
+    """Return percent elapsed-time reduction, or None without a valid baseline."""
+    return 100 * (before - after) / before if before > 0 else None
+
+
+def completed_milestones(path):
+    """Find completed final image/cache exports, not dependency image exports."""
+    headings = {}
+    completed = set()
+    if not path.exists():
+        return completed
+    for line in path.read_text(errors="replace").splitlines():
+        match = re.match(
+            r"(#\d+) \[(amd64|rocm)\] exporting (to image|cache to registry)$", line
         )
-    elapsed = time.monotonic() - start
-    if result.returncode:
-        raise RuntimeError(f"Command failed ({result.returncode}): see {log_path}")
-    return elapsed
+        if match:
+            step, target, operation = match.groups()
+            headings[step] = target + (
+                "-image" if operation == "to image" else "-cache"
+            )
+        done = re.match(r"(#\d+) DONE ", line)
+        if done and done[1] in headings:
+            completed.add(headings[done[1]])
+    return completed
+
+
+def measure(command, cwd, log_path):
+    """Persist live checkpoints and final timing independently of cleanup."""
+    start = time.monotonic()
+    report = {
+        "started_at": time.time(),
+        "status": "running",
+        "milestones": {},
+        "milestone_time_reduction_percent": {},
+    }
+    timing = log_path.with_suffix(".timing.json")
+    reference_path = os.environ.get("BENCHMARK_REFERENCE")
+    reference = json.loads(Path(reference_path).read_text()) if reference_path else {}
+    save_json(timing, report)
+    with log_path.open("w") as log:
+        process = subprocess.Popen(
+            command, cwd=cwd, stdout=log, stderr=subprocess.STDOUT
+        )
+        try:
+            while True:
+                try:
+                    process.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    pass
+                elapsed = time.monotonic() - start
+                # The dependency orchestrator writes the final graph to a nested log.
+                phase = log_path.name.split("-benchmark")[0]
+                final_log = log_path.parent / phase / "application.log"
+                observed = final_log if final_log.exists() else log_path
+                for milestone in completed_milestones(observed):
+                    if milestone not in report["milestones"]:
+                        report["milestones"][milestone] = elapsed
+                        before = (
+                            reference.get("milestones", {}).get(milestone)
+                            if reference.get("status") == "success"
+                            else None
+                        )
+                        delta = time_reduction(before, elapsed) if before else None
+                        report["milestone_time_reduction_percent"][milestone] = delta
+                        print(
+                            f"Milestone {milestone}: {elapsed:.1f}s; time reduction vs baseline: {delta}",
+                            flush=True,
+                        )
+                report.update(
+                    seconds=elapsed,
+                    free_disk_bytes=min(
+                        shutil.disk_usage(cwd).free,
+                        shutil.disk_usage(
+                            os.environ.get("BENCHMARK_DOCKER_DISK", cwd)
+                        ).free,
+                    ),
+                )
+                save_json(timing, report)
+                print(
+                    f"Benchmark {log_path.stem}: {elapsed:.1f}s elapsed; completed milestones: {sorted(report['milestones'])}",
+                    flush=True,
+                )
+                if process.returncode is not None:
+                    break
+                if elapsed >= 7200:
+                    raise TimeoutError("Benchmark exceeded 7200 seconds")
+                if report["free_disk_bytes"] < 5 * 1024**3:
+                    raise RuntimeError(
+                        "Benchmark stopped: less than 5 GiB disk reserve"
+                    )
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+            report.update(
+                seconds=time.monotonic() - start,
+                returncode=process.returncode,
+                status="success" if process.returncode == 0 else "failed",
+            )
+            save_json(timing, report)
+    if process.returncode:
+        raise RuntimeError(f"Command failed ({process.returncode}): see {log_path}")
+    if reference.get("status") == "success":
+        report["time_reduction_percent"] = time_reduction(
+            reference["seconds"], report["seconds"]
+        )
+        save_json(timing, report)
+        print(
+            f"Completed phase time reduction: {report['time_reduction_percent']:.2f}%",
+            flush=True,
+        )
+    return report["seconds"]
 
 
 def build_targets(
@@ -99,6 +216,11 @@ def build_targets(
     builder = f"frigate-bench-{args.case}"
     times = {}
     for target in phases:
+        image_options = (
+            ["--driver-opt", "image=" + args.buildkit_image]
+            if getattr(args, "buildkit_image", None)
+            else []
+        )
         # New builders simulate fresh CI jobs. Only exported caches survive.
         subprocess.run(
             docker
@@ -117,7 +239,8 @@ def build_targets(
                 "memory-swap=5g",
                 "--buildkitd-config",
                 str(config),
-            ],
+            ]
+            + image_options,
             check=True,
         )
         try:
@@ -136,6 +259,31 @@ def build_targets(
                 str(args.output / f"{phase}-{target}-metadata.json"),
                 target,
             ]
+            if args.case == "dependency-images":
+                command = [
+                    sys.executable,
+                    str(args.source / "fork/scripts/dependency_images.py"),
+                    "--source",
+                    str(args.source),
+                    "--context",
+                    args.context,
+                    "--builder",
+                    builder,
+                    "--repository",
+                    f"{args.registry}/{args.case}",
+                    "--cache",
+                    f"{args.registry}/{args.case}:cache",
+                    "--amd64-tags",
+                    f"{args.registry}/{args.case}:{phase}-amd64",
+                    "--rocm-tags",
+                    f"{args.registry}/{args.case}:{phase}-rocm",
+                    "--output",
+                    str(args.output / phase),
+                    "--refresh",
+                    "benchmark",
+                ]
+                if args.seed_caches:
+                    command += ["--seed-caches", str(args.seed_caches)]
             times[target] = measure(
                 command, args.source, args.output / f"{phase}-{target}.log"
             )
@@ -149,10 +297,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--parallelism", type=int, choices=(1, 2, 4), default=2)
+    parser.add_argument("--phase", choices=("cold", "app-change"))
     parser.add_argument("--context", default="colima-frigate-build-bench")
     parser.add_argument("--registry", default="localhost:5007")
     parser.add_argument(
-        "--case", choices=("baseline", "shared-gzip", "shared-zstd"), required=True
+        "--buildkit-image", help="Use the same pinned BuildKit image for both cases"
+    )
+    parser.add_argument(
+        "--case",
+        choices=("baseline", "shared-gzip", "shared-zstd", "dependency-images"),
+        required=True,
     )
     parser.add_argument(
         "--seed-caches",
@@ -168,30 +323,40 @@ def main():
     ):
         parser.error("Seed caches must be immutable GHCR digest references")
     if (
-        args.context != "colima-frigate-build-bench"
+        args.context not in ("colima-frigate-build-bench", "frigate-github-bench")
         or args.registry != "localhost:5007"
     ):
         parser.error("Use the dedicated benchmark context and localhost registry")
+    if args.context == "frigate-github-bench" and not (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
+    ):
+        parser.error("GitHub benchmark context requires a GitHub-hosted runner")
     args.output.mkdir(parents=True, exist_ok=True)
     shared = args.case != "baseline"
-    compression = "zstd" if args.case == "shared-zstd" else "gzip"
+    compression = (
+        "zstd" if args.case in ("shared-zstd", "dependency-images") else "gzip"
+    )
     config = args.output / "buildkit.toml"
     config.write_text(
-        "[worker.oci]\n  max-parallelism = 2\n"
+        f"[worker.oci]\n  max-parallelism = {args.parallelism}\n"
         '[registry."localhost:5007"]\n  http = true\n  insecure = true\n'
     )
     results = {
+        "parallelism": args.parallelism,
         "case": args.case,
         "phases": {},
         "source": str(args.source),
         "seed_caches": seed_caches,
     }
+    if (args.output / "results.json").exists():
+        results = json.loads((args.output / "results.json").read_text())
     # The same harmless source change exercises cache invalidation in both cases.
     marker = args.source / "frigate" / "build_benchmark_marker.txt"
     if marker.exists():
         parser.error("Source already contains the benchmark marker")
     try:
-        for phase in ("cold", "app-change"):
+        for phase in [args.phase] if args.phase else ("cold", "app-change"):
             if phase == "app-change":
                 marker.write_text("image build benchmark\n")
             override = args.output / f"{phase}.json"
@@ -213,6 +378,14 @@ def main():
                     for target in phases
                 },
             }
+            if args.case == "dependency-images":
+                results["phases"][phase]["dependency_build"] = json.loads(
+                    (args.output / phase / "results.json").read_text()
+                )
+                results["phases"][phase]["logs"] = {
+                    path.stem: summarize_log(path)
+                    for path in sorted((args.output / phase).glob("*.log"))
+                }
             (args.output / "results.json").write_text(json.dumps(results, indent=2))
             print(json.dumps(results["phases"][phase]), flush=True)
     finally:

@@ -12,24 +12,31 @@ name: Fork - Build image
 
 on:
   workflow_dispatch:
+    inputs:
+      rebuild_dependencies:
+        description: Refresh dependency system packages without layer cache
+        type: boolean
+        default: false
   push:
     branches:
       - main
     tags:
       - "fork/*"
-    # Files that never reach the image: a push touching only these keeps the
+    # Files that never affect the image: a push touching only these keeps the
     # previous :main image, which is byte-for-byte what it would rebuild. The
     # next build's release notes still cover them.
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
-      - "fork/**"
-      - "web/e2e/**"
-      - "web/__test__/**"
-      - ".github/actions/fork-web-setup/**"
-      - ".github/workflows/fork-checks.yml"
-      - ".github/dependabot.yml"
-      - ".pre-commit-config.yaml"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!fork/**"
+      - "fork/scripts/dependency_images.py"
+      - "!web/e2e/**"
+      - "!web/__test__/**"
+      - "!.github/actions/fork-web-setup/**"
+      - "!.github/workflows/fork-checks.yml"
+      - "!.github/dependabot.yml"
+      - "!.pre-commit-config.yaml"
 
 concurrency:
   group: fork-build-${{ github.ref }}
@@ -96,22 +103,28 @@ jobs:
             echo "tags=${TAGS}"
             echo "rocm-tags=${ROCM_TAGS}"
           } >> "$GITHUB_OUTPUT"
-      # A single builder shares dependency and frontend stages across variants.
-      # Bound concurrency to leave memory for Node, compilers, and the runner.
-      - name: Build and push both images
+      - name: Build with versioned runtime dependencies
         env:
-          HSA_OVERRIDE: 0
           CACHE: ${{ steps.setup.outputs.cache-name }}
           AMD64_TAGS: ${{ steps.tags.outputs.tags }}
           ROCM_TAGS: ${{ steps.tags.outputs.rocm-tags }}
-        uses: docker/bake-action@d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b # v7.3.0
+          REBUILD_DEPENDENCIES: ${{ inputs.rebuild_dependencies }}
+        run: |
+          EXTRA=()
+          if [[ "$REBUILD_DEPENDENCIES" == true ]]; then
+            EXTRA+=(--rebuild-dependencies)
+          fi
+          python3 -u fork/scripts/dependency_images.py \
+            --repository "ghcr.io/${GITHUB_REPOSITORY,,}" \
+            --cache "$CACHE" --amd64-tags "$AMD64_TAGS" --rocm-tags "$ROCM_TAGS" \
+            --output "$RUNNER_TEMP/image-build" "${EXTRA[@]}"
+      - name: Preserve build logs and dependency digests
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          source: .
-          push: true
-          targets: fork
-          files: |
-            docker/rocm/rocm.hcl
-            docker/fork.hcl
+          name: image-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/image-build/
+          if-no-files-found: ignore
 
   # Release readiness includes successful publication of both image variants.
   release:
