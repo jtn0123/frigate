@@ -373,6 +373,10 @@ RUN npm run build \
     && mv dist/BASE_PATH/monacoeditorwork/* dist/assets/ \
     && rm -rf dist/BASE_PATH
 
+# Publish just the compiled frontend, without its Node build environment.
+FROM scratch AS web-assets
+COPY --from=web-build /work/dist/ /work/dist/
+
 # Collect final files in a single layer
 FROM scratch AS rootfs
 
@@ -381,11 +385,10 @@ COPY frigate frigate/
 COPY migrations migrations/
 COPY --from=web-build /work/dist/ web/
 
-# Frigate final container
-FROM deps AS frigate
+# Prepare system paths independently of application updates.
+FROM deps AS frigate-runtime
 
 WORKDIR /opt/frigate/
-COPY --from=rootfs / /
 
 RUN --mount=type=bind,source=docker/main/prepare_rootless.sh,target=/tmp/prepare_rootless.sh \
     bash /tmp/prepare_rootless.sh
@@ -393,3 +396,7 @@ RUN --mount=type=bind,source=docker/main/prepare_rootless.sh,target=/tmp/prepare
 ENV HOME=/home/frigate
 ENV S6_READ_ONLY_ROOT=1
 USER 65534:65534
+
+# Frigate final container. The application destination is a real directory.
+FROM frigate-runtime AS frigate
+COPY --link --from=rootfs / /

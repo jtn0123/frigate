@@ -1,0 +1,57 @@
+{
+  "run_url": "https://github.com/jtn0123/frigate/actions/runs/34923899279",
+  "conclusion": "success",
+  "order": [
+    2,
+    1,
+    4
+  ],
+  "rows": [
+    {
+      "parallelism": 1,
+      "before_seconds": {
+        "cold": 501.10220044900007,
+        "app-change": 283.2430650330007
+      },
+      "after_seconds": {
+        "cold": 567.8084661379999,
+        "app-change": 5.937168071999622
+      },
+      "peak_sampled_builder_mib": 3737.6,
+      "equivalence": "passed"
+    },
+    {
+      "parallelism": 2,
+      "before_seconds": {
+        "cold": 428.010477498,
+        "app-change": 294.57260646199984
+      },
+      "after_seconds": {
+        "cold": 503.06558671200037,
+        "app-change": 5.680036600000221
+      },
+      "peak_sampled_builder_mib": 3712.0,
+      "equivalence": "passed"
+    },
+    {
+      "parallelism": 4,
+      "before_seconds": {
+        "cold": 510.35453023099944,
+        "app-change": 378.87175489499987
+      },
+      "after_seconds": {
+        "cold": 486.77037753499917,
+        "app-change": 5.781799222999325
+      },
+      "peak_sampled_builder_mib": 4367.36,
+      "equivalence": "passed"
+    }
+  ],
+  "limitations": [
+    "One trial per setting on the same VM",
+    "Seeded fresh builders, not fully uncached builds",
+    "Build and local registry export only; excludes job setup, validation and production registry publication",
+    "Incremental change is backend only",
+    "No physical GPU execution tested"
+  ]
+}
