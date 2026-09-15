@@ -55,8 +55,9 @@ export function useRestoredScroll(
     element.addEventListener("wheel", cancelRestore, { passive: true });
     element.addEventListener("touchstart", cancelRestore, { passive: true });
     element.addEventListener("keydown", cancelRestore);
+    // onScroll already saved the position. Reading scrollTop here would see
+    // the next key's DOM, clamped to its (often shorter) content.
     return () => {
-      if (!restoring) remember(key, element.scrollTop);
       clearTimeout(timeout);
       observer.disconnect();
       mutations.disconnect();
