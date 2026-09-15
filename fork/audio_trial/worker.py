@@ -265,16 +265,44 @@ def write_status(queue: Queue, status: str) -> None:
         METRICS.sample()
 
 
+def recent_large_runs() -> list[float]:
+    """Read the Large runs started in the last hour, the hourly budget."""
+    budget_path = STATE / "large-budget.json"
+    history = json.loads(budget_path.read_text()) if budget_path.exists() else []
+    return [t for t in history if t > time.time() - 3600]
+
+
+def defer_large(queue: Queue, job: dict, result: dict, refund: bool = False) -> bool:
+    """Save the second opinion for later while the budget or memory is short."""
+    if len(recent_large_runs()) >= 2:
+        result["large_status"] = "hourly retry limit"
+    elif reason := health(large=True):
+        result["large_status"] = "deferred: " + reason
+    else:
+        return False
+    queue.defer(job, time.time(), result, refund)
+    return True
+
+
 def process_job(queue: Queue, job: dict) -> None:
     """Run Medium first and preserve both outputs if a bounded retry is possible."""
+    stored = json.loads(job["result"]) if job.get("result") else None
+    # A waiting second opinion checks the budget and memory before fetching its
+    # clip again, and waiting is not the job's fault, so it keeps its attempt.
+    if (
+        stored is not None
+        and retry_reasons(stored)
+        and defer_large(queue, job, stored, refund=True)
+    ):
+        return
     with tempfile.TemporaryDirectory(prefix="audio-") as directory:
         root = Path(directory)
         audio = download_audio(job, root)
         stages = STATE / "checkpoints" / hashlib.sha256(job["id"].encode()).hexdigest()
         stages.mkdir(parents=True, exist_ok=True)
         result = (
-            json.loads(job["result"])
-            if job.get("result")
+            stored
+            if stored is not None
             else infer(audio, stages / "medium.json", "medium")
         )
         if result.get("interrupted"):
@@ -293,35 +321,22 @@ def process_job(queue: Queue, job: dict) -> None:
         if reasons:
             result["large_status"] = "second opinion pending; may be interrupted"
             queue.checkpoint(job, time.time(), result)
+            # A stored result already passed this check before its download.
+            if stored is None and defer_large(queue, job, result):
+                return
             # Retry timestamps are saved before execution, so crashes consume budget.
             budget_path = STATE / "large-budget.json"
-            history = (
-                json.loads(budget_path.read_text()) if budget_path.exists() else []
-            )
-            history = [t for t in history if t > time.time() - 3600]
-            reason = health(large=True)
-            if len(history) >= 2:
-                result["large_status"] = "hourly retry limit"
-                queue.defer(job, time.time(), result)
-                return
-            elif reason:
-                result["large_status"] = "deferred: " + reason
-                queue.defer(job, time.time(), result)
-                return
-            else:
-                history.append(time.time())
-                budget_temporary = budget_path.with_suffix(".tmp")
-                budget_temporary.write_text(json.dumps(history))
-                budget_temporary.replace(budget_path)
-                try:
-                    result["large_second_opinion"] = infer(
-                        audio, stages / "large.json", "large-v3"
-                    )
-                    result["large_status"] = (
-                        "second opinion; not independently verified"
-                    )
-                except (OSError, ValueError, RuntimeError) as error:
-                    result["large_status"] = "retry failed: " + str(error)
+            history = [*recent_large_runs(), time.time()]
+            budget_temporary = budget_path.with_suffix(".tmp")
+            budget_temporary.write_text(json.dumps(history))
+            budget_temporary.replace(budget_path)
+            try:
+                result["large_second_opinion"] = infer(
+                    audio, stages / "large.json", "large-v3"
+                )
+                result["large_status"] = "second opinion; not independently verified"
+            except (OSError, ValueError, RuntimeError) as error:
+                result["large_status"] = "retry failed: " + str(error)
         queue.finish(job, time.time(), result)
         shutil.rmtree(stages, ignore_errors=True)
 
