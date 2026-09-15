@@ -13,16 +13,24 @@ import shutil
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 
-def bake_override(registry, case, phase, compression, seed_caches=()):
+def bake_override(
+    registry: str,
+    case: str,
+    phase: str,
+    compression: str,
+    seed_caches: Sequence[str] = (),
+) -> dict[str, Any]:
     """Create isolated cache and image destinations for one measurement."""
     imports = [
         f"type=registry,ref={registry}/{case}:cache-{arch}"
         for arch in ("amd64", "rocm")
     ] + [f"type=registry,ref={ref}" for ref in seed_caches]
-    targets = {
+    targets: dict[str, dict[str, Any]] = {
         name: {"cache-from": imports}
         for name in ("wget", "deps", "rootfs", "rocm", "amd64")
     }
@@ -46,11 +54,11 @@ def bake_override(registry, case, phase, compression, seed_caches=()):
     }
 
 
-def summarize_log(path):
+def summarize_log(path: Path) -> dict[str, Any]:
     """Report unique BuildKit operations without counting progress replays twice."""
-    headers = {}
-    durations = {}
-    cached = set()
+    headers: dict[str, str] = {}
+    durations: dict[str, float] = {}
+    cached: set[str] = set()
     for line in path.read_text().splitlines():
         match = re.match(r"(#\d+) (.*)", line)
         if not match:
@@ -76,7 +84,7 @@ def summarize_log(path):
     }
 
 
-def save_json(path, value):
+def save_json(path: Path, value: Any) -> None:
     """Atomically checkpoint measurements before any cleanup starts."""
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("w") as output:
@@ -86,15 +94,15 @@ def save_json(path, value):
     temporary.replace(path)
 
 
-def time_reduction(before, after):
+def time_reduction(before: float, after: float) -> float | None:
     """Return percent elapsed-time reduction, or None without a valid baseline."""
     return 100 * (before - after) / before if before > 0 else None
 
 
-def completed_milestones(path):
+def completed_milestones(path: Path) -> set[str]:
     """Find completed final image/cache exports, not dependency image exports."""
-    headings = {}
-    completed = set()
+    headings: dict[str, str] = {}
+    completed: set[str] = set()
     if not path.exists():
         return completed
     for line in path.read_text(errors="replace").splitlines():
@@ -112,7 +120,7 @@ def completed_milestones(path):
     return completed
 
 
-def check_disk_reserve(log_free, docker_free):
+def check_disk_reserve(log_free: int, docker_free: int) -> None:
     """Protect the small log partition separately from Docker build storage."""
     if log_free < 2 * 1024**3:
         raise RuntimeError("Benchmark stopped: log partition below 2 GiB reserve")
@@ -120,10 +128,10 @@ def check_disk_reserve(log_free, docker_free):
         raise RuntimeError("Benchmark stopped: Docker partition below 5 GiB reserve")
 
 
-def measure(command, cwd, log_path):
+def measure(command: list[str], cwd: Path, log_path: Path) -> float:
     """Persist live checkpoints and final timing independently of cleanup."""
     start = time.monotonic()
-    report = {
+    report: dict[str, Any] = {
         "started_at": time.time(),
         "status": "running",
         "milestones": {},
@@ -209,7 +217,7 @@ def measure(command, cwd, log_path):
             f"Completed phase time reduction: {report['time_reduction_percent']:.2f}%",
             flush=True,
         )
-    return report["seconds"]
+    return float(report["seconds"])
 
 
 def build_targets(
@@ -300,7 +308,7 @@ def build_targets(
     return times
 
 
-def main():
+def main() -> None:
     """Build cold and application-change cases without moving release tags."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
