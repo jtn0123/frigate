@@ -86,6 +86,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.export])
 
+CASE_ATTACH_ADMIN_ONLY = "Only admins can attach exports to an existing case."
+
 
 def _generate_id(length: int = 12) -> str:
     return generate_id(length)
@@ -656,7 +658,7 @@ def export_recordings_batch(
         return JSONResponse(
             content={
                 "success": False,
-                "message": "Only admins can attach exports to an existing case.",
+                "message": CASE_ATTACH_ADMIN_ONLY,
             },
             status_code=403,
         )
@@ -854,7 +856,7 @@ def export_recording(
         return JSONResponse(
             content={
                 "success": False,
-                "message": "Only admins can attach exports to an existing case.",
+                "message": CASE_ATTACH_ADMIN_ONLY,
             },
             status_code=403,
         )
@@ -987,7 +989,7 @@ def export_recording_custom(
         return JSONResponse(
             content={
                 "success": False,
-                "message": "Only admins can attach exports to an existing case.",
+                "message": CASE_ATTACH_ADMIN_ONLY,
             },
             status_code=403,
         )
