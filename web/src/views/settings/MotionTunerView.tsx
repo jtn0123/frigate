@@ -135,6 +135,7 @@ export default function MotionTunerView({
             position: "top-center",
           });
           setChangedValue(false);
+          setUnsavedChanges(false);
           void updateConfig();
         } else {
           toast.error(
@@ -166,13 +167,15 @@ export default function MotionTunerView({
     motionSettings.contour_area,
     motionSettings.improve_contrast,
     selectedCamera,
+    setUnsavedChanges,
     t,
   ]);
 
   const onCancel = useCallback(() => {
     setMotionSettings(origMotionSettings);
     setChangedValue(false);
-  }, [origMotionSettings]);
+    setUnsavedChanges(false);
+  }, [origMotionSettings, setUnsavedChanges]);
 
   useEffect(() => {
     document.title = t("documentTitle.motionTuner");
