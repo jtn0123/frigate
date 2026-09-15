@@ -60,7 +60,7 @@ export default function WebRtcPlayer({
   const videoLoadTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
   const PeerConnection = useCallback(
-    async (media: string) => {
+    async (media: string, cancelled: () => boolean) => {
       if (!videoRef.current) {
         return;
       }
@@ -104,6 +104,12 @@ export default function WebRtcPlayer({
         localTracks.push(...tracks);
       }
 
+      // fork (UI71): the effect was cleaned up while the mic prompt was open
+      if (cancelled()) {
+        closePeerConnection(pc);
+        return;
+      }
+
       videoRef.current.srcObject = new MediaStream(localTracks);
       return pc;
     },
@@ -126,9 +132,16 @@ export default function WebRtcPlayer({
   }
 
   const connect = useCallback(
-    async (aPc: Promise<RTCPeerConnection | undefined>) => {
+    async (
+      aPc: Promise<RTCPeerConnection | undefined>,
+      cancelled: () => boolean,
+    ) => {
       const pc = await aPc;
       if (!pc) {
+        return;
+      }
+      if (cancelled()) {
+        closePeerConnection(pc);
         return;
       }
 
@@ -185,12 +198,18 @@ export default function WebRtcPlayer({
       return;
     }
 
+    // fork (UI71): a connection still waiting on the mic prompt when this
+    // effect is cleaned up must not open a socket nobody closes
+    let cancelled = false;
+    const isCancelled = () => cancelled;
     const aPc = PeerConnection(
       microphoneEnabled ? "video+audio+microphone" : "video+audio",
+      isCancelled,
     );
-    void connect(aPc);
+    void connect(aPc, isCancelled);
 
     return () => {
+      cancelled = true;
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

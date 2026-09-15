@@ -47,7 +47,9 @@ const getUserMedia = vi.fn();
 /** Let the peer connection promise and the connect() continuation run. */
 async function settle() {
   await act(async () => {
-    await Promise.resolve();
+    for (let tick = 0; tick < 5; tick += 1) {
+      await Promise.resolve();
+    }
   });
 }
 
@@ -95,6 +97,35 @@ describe("WebRTC two-way talk", () => {
 
     unmount();
 
+    expect(FakePeerConnection.instances[0].close).toHaveBeenCalledOnce();
+    expect(mic.stop).toHaveBeenCalledOnce();
+  });
+});
+
+describe("WebRTC connection cancelled during the mic prompt", () => {
+  it("closes the connection and opens no socket once playback stopped", async () => {
+    const mic = new FakeTrack("audio");
+    let grant: (stream: { getTracks: () => FakeTrack[] }) => void = () => {};
+    getUserMedia.mockReturnValue(
+      new Promise((resolve) => {
+        grant = resolve;
+      }),
+    );
+    const { rerender } = render(
+      <WebRtcPlayer camera="front_door" microphoneEnabled />,
+    );
+    rerender(
+      <WebRtcPlayer
+        camera="front_door"
+        microphoneEnabled
+        playbackEnabled={false}
+      />,
+    );
+
+    grant({ getTracks: () => [mic] });
+    await settle();
+
+    expect(FakeSocket.instances).toHaveLength(0);
     expect(FakePeerConnection.instances[0].close).toHaveBeenCalledOnce();
     expect(mic.stop).toHaveBeenCalledOnce();
   });
