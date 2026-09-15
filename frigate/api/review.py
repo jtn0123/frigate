@@ -464,6 +464,9 @@ async def set_multiple_reviewed(
 
     user_id = current_user["username"]
 
+    # Authorize every id before writing any, so a request that includes an id
+    # on a camera the user may not access changes nothing.
+    reviews = []
     for review_id in body.ids:
         try:
             review = await asyncio.to_thread(
@@ -473,12 +476,14 @@ async def set_multiple_reviewed(
             continue
 
         await require_camera_access(review.camera, request=request)
+        reviews.append(review)
 
+    for review in reviews:
         try:
             review_status = await asyncio.to_thread(
                 UserReviewStatus.get,
                 UserReviewStatus.user_id == user_id,
-                UserReviewStatus.review_segment == review_id,
+                UserReviewStatus.review_segment == review.id,
             )
             # Update based on the reviewed parameter
             if review_status.has_been_reviewed != body.reviewed:
