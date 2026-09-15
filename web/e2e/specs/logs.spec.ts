@@ -399,3 +399,65 @@ test.describe("Logs — severity filter history (UI82) @medium", () => {
     },
   );
 });
+
+test.describe("Logs — copy reads the log (UI83) @medium @mobile", () => {
+  test.use({ expectedErrors: [/500.*\/api\/logs\/frigate/] });
+
+  /** Serves the n-th log read from `reads`; null answers with a 500. */
+  async function routeLogReads(
+    page: import("@playwright/test").Page,
+    reads: (n: number) => string[] | null,
+  ) {
+    let count = 0;
+    await page.route(/\/api\/logs\/frigate(\?|$)/, (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get("stream") === "true") {
+        return route.fulfill({ status: 200, body: "" });
+      }
+      const lines = reads(count++);
+      if (lines === null) {
+        return route.fulfill({ status: 500, json: { success: false } });
+      }
+      return route.fulfill({ json: logsJsonBody(lines) });
+    });
+  }
+
+  test("Copy copies the log as it is now", async ({ frigateApp, context }) => {
+    const { page } = frigateApp;
+    await grantClipboardPermissions(context);
+    await routeLogReads(page, (n) =>
+      n === 0
+        ? ["[2026-04-06 10:00:00] INFO: Frigate started"]
+        : [
+            "[2026-04-06 10:00:00] INFO: Frigate started",
+            "[2026-04-06 10:05:00] INFO: Newer line",
+          ],
+    );
+    await frigateApp.goto("/logs");
+    await expect(page.getByText(/Frigate started/)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.getByLabel("Copy to Clipboard").click();
+    await expect(page.getByText("Copied logs to clipboard")).toBeVisible();
+    expect(await readClipboard(page)).toContain("Newer line");
+  });
+
+  test("a failed copy keeps the log on screen", async ({ frigateApp }) => {
+    const { page } = frigateApp;
+    await routeLogReads(page, (n) =>
+      n === 0 ? ["[2026-04-06 10:00:00] INFO: Frigate started"] : null,
+    );
+    await frigateApp.goto("/logs");
+    await expect(page.getByText(/Frigate started/)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.getByLabel("Copy to Clipboard").click();
+    await expect(
+      page.getByText("Could not copy logs to clipboard"),
+    ).toBeVisible();
+    await expect(page.getByText(/Frigate started/)).toBeVisible();
+    await expect(page.getByTestId("fork-error-state")).toHaveCount(0);
+  });
+});

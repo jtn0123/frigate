@@ -325,18 +325,27 @@ function Logs() {
     [fetchLogRange, isLoading, prependLines],
   );
 
+  // fork (UI83): copy reads the log itself. Re-running the page's load
+  // copied the lines from before it, and swapped the view for a spinner or,
+  // when the read failed, the error screen.
   const handleCopyLogs = useCallback(() => {
-    if (logs.length) {
-      fetchInitialLogs()
-        .then(() => {
-          copy(logs.join("\n"));
+    if (!logs.length) return;
+    axios
+      .get<{ lines?: string[] }>(`logs/${logService}`, {
+        params: { start: filterSeverity ? 0 : -100 },
+      })
+      .then((response) => {
+        const lines = response.data.lines;
+        if (Array.isArray(lines) && copy(filterLines(lines).join("\n"))) {
           toast.success(t("logs.copy.success"));
-        })
-        .catch(() => {
+        } else {
           toast.error(t("logs.copy.error"));
-        });
-    }
-  }, [logs, fetchInitialLogs, t]);
+        }
+      })
+      .catch(() => {
+        toast.error(t("logs.copy.error"));
+      });
+  }, [logs.length, logService, filterSeverity, filterLines, t]);
 
   const handleDownloadLogs = useCallback(() => {
     axios
