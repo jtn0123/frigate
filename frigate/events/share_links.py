@@ -19,10 +19,10 @@ def expire_share_links(now: float | None = None) -> int:
         ShareLink.delete()
         .where(
             (ShareLink.expires_at < now - EXPIRED_LINK_GRACE)
-            | ShareLink.event_id.not_in(Event.select(Event.id))
+            | ~(ShareLink.event_id << Event.select(Event.id))
         )
         .execute()
     )
     if deleted:
         logger.debug("Deleted %s expired or orphaned share links", deleted)
-    return deleted
+    return int(deleted)
