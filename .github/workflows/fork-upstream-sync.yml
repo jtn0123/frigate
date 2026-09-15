@@ -2,8 +2,9 @@ name: Fork - Upstream sync
 
 # Read-only fetch of blakeblackshear/frigate. Fast-forwards origin/dev.
 # Never pushes next, main or tags. A clean rebase of next (where pull requests
-# land) onto upstream/dev is force-pushed to sync/upstream only; conflicts open
-# or update an issue. main follows next through `make promote`.
+# land as merge commits, which the rebase keeps) onto upstream/dev is
+# force-pushed to sync/upstream only; conflicts or a failed rebase open or
+# update an issue. main follows next through `make promote`.
 
 on:
   schedule:
@@ -72,7 +73,13 @@ jobs:
           ISSUE_TITLE="Upstream moved ${N} commits"
 
           git checkout -B sync/upstream origin/next
-          if git rebase upstream/dev; then
+          # Pull requests land on next as merge commits; keep them as merges
+          # rather than flattening each PR onto upstream/dev. Git redoes each
+          # merge, so one that needed a hand resolution conflicts again and is
+          # reported below instead of being replayed without it.
+          REBASE_LOG="$RUNNER_TEMP/rebase.log"
+          if git rebase --rebase-merges upstream/dev >"$REBASE_LOG" 2>&1; then
+            cat "$REBASE_LOG"
             git push --force-with-lease origin sync/upstream
             # A FORK_SYNC_TOKEN push starts Fork - Checks by itself; a
             # GITHUB_TOKEN push starts no workflows, so dispatch it then.
@@ -87,9 +94,18 @@ jobs:
               gh issue create --title "$ISSUE_TITLE" --body "$BODY"
             fi
           else
+            cat "$REBASE_LOG"
             CONFLICTS=$(git diff --name-only --diff-filter=U || true)
             git rebase --abort || true
-            BODY=$(printf 'Could not rebase next onto upstream/dev (%s).\n\nConflicted files:\n%s\n\nUpstream commits not in next:\n%s\n' "$UPSTREAM" "$CONFLICTS" "$COMMITS")
+            if [ -n "$CONFLICTS" ]; then
+              BODY=$(printf 'Could not rebase next onto upstream/dev (%s).\n\nConflicted files:\n%s\n\nUpstream commits not in next:\n%s\n' "$UPSTREAM" "$CONFLICTS" "$COMMITS")
+            else
+              # No file conflicted, so something else failed: report git's error.
+              echo "::error title=Rebase failed::git rebase failed without a conflict; see its output above"
+              # Indented four spaces, git's output renders as a code block.
+              ERROR=$(tail -n 20 "$REBASE_LOG" | sed 's/^/    /')
+              BODY=$(printf 'Could not rebase next onto upstream/dev (%s), and no file conflicted. git said:\n\n%s\n\nUpstream commits not in next:\n%s\n' "$UPSTREAM" "$ERROR" "$COMMITS")
+            fi
             EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
             if [ -n "$EXISTING" ]; then
               gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
