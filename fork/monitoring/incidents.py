@@ -9,6 +9,10 @@ from typing import Any, TypeGuard
 # One health sample as collect_proxmox.py publishes it.
 Sample = dict[str, Any]
 
+# Streak keys: slow AI processing, and skipped detection frames per camera.
+AI_SLOW = "ai:slow"
+DETECTION = "detection:"
+
 
 def numeric(value: object) -> TypeGuard[float]:
     """Reject missing or nonfinite measurements instead of treating them as zero."""
@@ -31,6 +35,7 @@ class Incidents:
         )
         self.last_source: float | None = None
         self.streaks: dict[str, int] = {}
+        self.measured: set[str] = set()
         self.capture_missing: dict[str, float] = {}
         self.previous_containers: dict[str, dict[str, Any]] = {}
 
@@ -48,7 +53,10 @@ class Incidents:
             self.last_source = source
             self.advance_streaks(sample)
         if fresh:
-            problems.update(key for key, count in self.streaks.items() if count >= 3)
+            # An unmeasured streak keeps its incident open without refreshing it.
+            problems.update(
+                key for key in self.measured if self.streaks.get(key, 0) >= 3
+            )
         self.camera_problems(sample, now, fresh, problems)
         self.container_problems(sample, problems)
         failure_time = sample.get("audio_failure", {}).get("updated")
@@ -76,24 +84,41 @@ class Incidents:
 
     def advance_streaks(self, sample: Sample) -> None:
         """Advance sustained AI warnings only for numeric source readings."""
-        slow = any(
-            numeric(v) and v > 30 for v in sample.get("detector_ms", {}).values()
-        )
-        if any(numeric(v) for v in sample.get("detector_ms", {}).values()):
-            self.streaks["ai:slow"] = self.streaks.get("ai:slow", 0) + 1 if slow else 0
-        for name, camera in sample.get("cameras", {}).items():
-            key = "detection:" + name
+        self.measured = set()
+        readings = [v for v in sample.get("detector_ms", {}).values() if numeric(v)]
+        if readings:
+            slow = any(v > 30 for v in readings)
+            self.streaks[AI_SLOW] = self.streaks.get(AI_SLOW, 0) + 1 if slow else 0
+            self.measured.add(AI_SLOW)
+        cameras = sample.get("cameras")
+        if isinstance(cameras, dict):
+            # A disabled or removed camera must not resume its old streak.
+            for key in [k for k in self.streaks if k.startswith(DETECTION)]:
+                if key.removeprefix(DETECTION) not in cameras:
+                    del self.streaks[key]
+        for name, camera in (cameras or {}).items():
+            key = DETECTION + name
             value = camera.get("skipped_fps")
             if not numeric(value):
                 continue
-            self.streaks[key] = (
-                self.streaks.get(key, 0) + 1 if numeric(value) and value > 0.5 else 0
-            )
+            self.streaks[key] = self.streaks.get(key, 0) + 1 if value > 0.5 else 0
+            self.measured.add(key)
 
     def camera_problems(
         self, sample: Sample, now: float, fresh: bool, problems: set[str]
     ) -> None:
         """Track capture and expected continuous recordings separately."""
+        enabled = {
+            name
+            for name, camera in sample.get("cameras", {}).items()
+            if camera.get("enabled")
+        }
+        # A stats gap or a camera leaving the sample restarts the capture grace.
+        self.capture_missing = {
+            name: since
+            for name, since in self.capture_missing.items()
+            if fresh and name in enabled
+        }
         for name, camera in sample.get("cameras", {}).items():
             if camera.get("enabled"):
                 self.capture_problem(name, camera, now, fresh, problems)
@@ -179,7 +204,10 @@ class Incidents:
                 "monitoring": fresh,
                 "ai": fresh
                 and any(numeric(v) for v in sample.get("detector_ms", {}).values()),
-                "capture": fresh and numeric(camera.get("camera_fps")),
+                # Zero FPS inside a restarted grace period is not a recovery.
+                "capture": fresh
+                and numeric(camera.get("camera_fps"))
+                and camera["camera_fps"] > 0,
                 "detection": fresh and numeric(camera.get("skipped_fps")),
                 "recording": bool(camera) and numeric(camera.get("recording_end")),
                 "recording_unknown": bool(camera)
@@ -192,10 +220,31 @@ class Incidents:
                 is not None,
                 "audio": "audio_failures" in sample,
             }.get(kind, False)
-            if key not in problems and observable:
+            if key not in problems and (
+                observable or self.scope_removed(sample, fresh, kind, scope)
+            ):
                 self.db.execute(
                     "UPDATE incidents SET resolved=? WHERE key=?", (now, key)
                 )
+
+    @staticmethod
+    def scope_removed(
+        sample: dict[str, Any], fresh: bool, kind: str, scope: str
+    ) -> bool:
+        """Treat a camera or container the fresh sample no longer lists as recovered.
+
+        The snapshot lists only enabled cameras and existing containers, so a
+        disabled or removed one never reports a valid reading again.
+        """
+        if not fresh:
+            return False
+        if kind in ("capture", "detection", "recording", "recording_unknown"):
+            listed = sample.get("cameras")
+        elif kind in ("server", "memory", "restart"):
+            listed = sample.get("containers")
+        else:
+            return False
+        return isinstance(listed, dict) and scope not in listed
 
     def report(self, now: float) -> dict[str, Any]:
         """Return bounded incident metadata and recent correlated measurements."""

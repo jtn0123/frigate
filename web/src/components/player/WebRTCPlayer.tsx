@@ -2,6 +2,7 @@ import { baseUrl } from "@/api/baseUrl";
 import { LivePlayerError, PlayerStatsType } from "@/types/live";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { wrapAsync } from "@/utils/promise";
+import { closePeerConnection } from "@/lib/fork/peer-connection";
 
 type WebRtcPlayerProps = {
   className?: string;
@@ -59,7 +60,7 @@ export default function WebRtcPlayer({
   const videoLoadTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
   const PeerConnection = useCallback(
-    async (media: string) => {
+    async (media: string, cancelled: () => boolean) => {
       if (!videoRef.current) {
         return;
       }
@@ -103,6 +104,12 @@ export default function WebRtcPlayer({
         localTracks.push(...tracks);
       }
 
+      // fork (UI71): the effect was cleaned up while the mic prompt was open
+      if (cancelled()) {
+        closePeerConnection(pc);
+        return;
+      }
+
       videoRef.current.srcObject = new MediaStream(localTracks);
       return pc;
     },
@@ -125,9 +132,16 @@ export default function WebRtcPlayer({
   }
 
   const connect = useCallback(
-    async (aPc: Promise<RTCPeerConnection | undefined>) => {
+    async (
+      aPc: Promise<RTCPeerConnection | undefined>,
+      cancelled: () => boolean,
+    ) => {
       const pc = await aPc;
       if (!pc) {
+        return;
+      }
+      if (cancelled()) {
+        closePeerConnection(pc);
         return;
       }
 
@@ -184,18 +198,25 @@ export default function WebRtcPlayer({
       return;
     }
 
+    // fork (UI71): a connection still waiting on the mic prompt when this
+    // effect is cleaned up must not open a socket nobody closes
+    let cancelled = false;
+    const isCancelled = () => cancelled;
     const aPc = PeerConnection(
       microphoneEnabled ? "video+audio+microphone" : "video+audio",
+      isCancelled,
     );
-    void connect(aPc);
+    void connect(aPc, isCancelled);
 
     return () => {
+      cancelled = true;
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
       if (pcRef.current) {
-        pcRef.current.close();
+        // fork (UI70): also stop the microphone, which close() leaves captured
+        closePeerConnection(pcRef.current);
         pcRef.current = undefined;
       }
     };
@@ -234,6 +255,12 @@ export default function WebRtcPlayer({
   }, [volume, videoRef]);
 
   useEffect(() => {
+    // fork (UI72): an idle tile mounts with playback off; only time a
+    // connection that is actually being made
+    if (!playbackEnabled) {
+      return;
+    }
+
     videoLoadTimeoutRef.current = setTimeout(() => {
       handleError("stalled", "WebRTC connection timed out.");
     }, 5000);
@@ -245,7 +272,7 @@ export default function WebRtcPlayer({
     };
     // we know that these deps are correct
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playbackEnabled]);
 
   const handleLoadedData = () => {
     if (videoLoadTimeoutRef.current) {

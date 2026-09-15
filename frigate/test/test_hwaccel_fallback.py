@@ -364,6 +364,50 @@ class TestRememberedFallback(unittest.TestCase):
         self.assertGreater(since.value, 0)
         self.assertTrue(any("decodes in software" in line for line in logs.output))
 
+    @patch("frigate.video.ffmpeg.time.sleep")
+    @patch("frigate.video.ffmpeg.RecordingsDataSubscriber")
+    @patch("frigate.video.ffmpeg.InterProcessRequestor")
+    @patch("frigate.video.ffmpeg.CameraConfigUpdateSubscriber")
+    @patch("frigate.video.ffmpeg.LogPipe")
+    def test_an_ffmpeg_change_while_disabled_tries_hardware_again(self, *_ipc):
+        """D30: re-enabling the camera must not bring the old fallback back."""
+        self.switched()
+        config = camera_config()
+        config.enabled = False
+        flag = SimpleNamespace(value=0)
+        since = SimpleNamespace(value=0.0)
+        with patch("frigate.video.ffmpeg.fallback_state_path", return_value=self.path):
+            watchdog = CameraWatchdog(
+                config,
+                2,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                MagicMock(),
+                hwaccel_fallback=flag,
+                hwaccel_fallback_since=since,
+            )
+        self.assertTrue(watchdog.hwaccel_fallback.active)
+        # One watchdog tick that delivers an ffmpeg update, then stop.
+        watchdog.stop_event.wait.side_effect = [False, True]
+        watchdog._check_config_updates = MagicMock(
+            side_effect=[{}, {"ffmpeg": ["back"]}]
+        )
+        watchdog.start_all_ffmpeg = MagicMock()
+        watchdog.stop_all_ffmpeg = MagicMock()
+
+        watchdog.run()
+
+        self.assertFalse(watchdog.hwaccel_fallback.active)
+        self.assertFalse(os.path.exists(self.path))
+        self.assertEqual(flag.value, 0)
+        self.assertEqual(since.value, 0.0)
+        watchdog.start_all_ffmpeg.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

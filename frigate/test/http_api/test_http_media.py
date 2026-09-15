@@ -532,6 +532,29 @@ class TestHttpMedia(BaseTestHttp):
             assert response.status_code == 200
             assert response.json() == [{"start_time": 1010, "end_time": 1030}]
 
+    def test_recordings_unavailable_defaults_to_the_last_hour(self):
+        """Omitted before/after default to the hour ending now instead of 500."""
+        now = datetime(2024, 6, 1, 12, 0, 0)
+
+        class FixedDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return now
+
+        with AuthTestClient(self.app) as client:
+            with patch("frigate.api.record.datetime", FixedDatetime):
+                response = client.get(
+                    "/recordings/unavailable", params={"cameras": "front_door"}
+                )
+
+        assert response.status_code == 200
+        assert response.json() == [
+            {
+                "start_time": int((now - timedelta(hours=1)).timestamp()),
+                "end_time": int(now.timestamp()),
+            }
+        ]
+
     def test_recordings_default_range_follows_the_request_clock(self):
         """Omitted bounds resolve at request time, not at module import time."""
         uptime = timedelta(hours=2)

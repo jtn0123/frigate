@@ -123,10 +123,8 @@ services:
     volumes:
       - ./config:/config
       - ./storage:/media/frigate
-      - type: tmpfs # 1GB In-memory filesystem for recording segment storage
-        target: /tmp/cache
-        tmpfs:
-          size: 1000000000
+    tmpfs: # 1GB In-memory filesystem for recording segment storage, owned by the container user
+      - /tmp/cache:uid=65534,gid=65534,mode=0700,size=1000000000
     ports:
       - "8971:8971"
       - "8554:8554" # RTSP feeds

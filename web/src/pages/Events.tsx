@@ -31,7 +31,10 @@ import { RecordingView } from "@/views/recording/RecordingView";
 import { useFrigateReviews } from "@/api/ws";
 import { swrKey, useApi } from "@/api/fork/client";
 import axios from "axios";
-import { markReviewedWithUndo } from "@/lib/fork/bulk-actions";
+import {
+  changedReviewIds,
+  markReviewedWithUndo,
+} from "@/lib/fork/bulk-actions";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -550,6 +553,10 @@ export default function Events() {
       }
 
       const severity = currentItems[0].severity;
+      // fork (UI87): note what is unreviewed before the cache is marked
+      const changed = new Set(
+        changedReviewIds(itemsToMarkReviewed ?? currentItems, true),
+      );
       void updateSegments(
         (data: ReviewSegment[] | undefined) => {
           if (!data) {
@@ -574,8 +581,17 @@ export default function Events() {
         currentItems?.filter((seg) => seg.end_time)?.map((seg) => seg.id) ||
         [];
 
-      if (reviewList.length > 0) {
-        await markReviewedWithUndo(reviewList, true, reloadData);
+      // fork (UI87): send only the items this changes, so Undo leaves the
+      // ones that were already reviewed
+      const changedList = reviewList.filter((id) => changed.has(id));
+
+      if (changedList.length > 0) {
+        // fork (UI80): a date range keeps the list key, so undo clears and
+        // refetches the list itself
+        await markReviewedWithUndo(changedList, true, () => {
+          reloadData();
+          void updateSegments(undefined);
+        });
         reloadData();
 
         if (reviewSearchParams["after"] != undefined) {

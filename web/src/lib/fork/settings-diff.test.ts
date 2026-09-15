@@ -120,6 +120,54 @@ describe("computeSettingsDiff", () => {
     ]);
   });
 
+  it("lists only the model path when a Frigate+ model is picked", () => {
+    // /api/config adds colormap, attribute lists, Frigate+ data and a merged
+    // labelmap on every detector; Save All writes none of them.
+    const plusConfig = cfg({
+      model: {
+        path: "plus://old",
+        width: 320,
+        height: 320,
+        labelmap: { 0: "person" },
+        colormap: { person: [255, 0, 0] },
+        all_attributes: ["face"],
+        non_logo_attributes: ["face"],
+        plus: { name: "old", trainDate: "2026-01-01" },
+      },
+      detectors: {
+        coral: { type: "edgetpu", model: { labelmap: { 0: "person" } } },
+      },
+    });
+    const diffs = computeSettingsDiff(
+      {
+        model: { path: "plus://new" },
+        detectors: { coral: { type: "edgetpu" } },
+      },
+      plusConfig,
+      fullSchema,
+    );
+    expect(diffs.find((d) => d.section === "model")?.changes).toEqual([
+      { path: "path", oldValue: "plus://old", newValue: "plus://new" },
+    ]);
+    expect(diffs.find((d) => d.section === "detectors")?.changes).toEqual([]);
+  });
+
+  it("lists the custom model fields a switch to Frigate+ removes", () => {
+    const customConfig = cfg({
+      model: { path: "/config/model.onnx", width: 320, colormap: {} },
+      detectors: config.detectors,
+    });
+    const diffs = computeSettingsDiff(
+      { model: { path: "plus://new" } },
+      customConfig,
+      fullSchema,
+    );
+    expect(diffs.find((d) => d.section === "model")?.changes).toEqual([
+      { path: "path", oldValue: "/config/model.onnx", newValue: "plus://new" },
+      { path: "width", oldValue: 320, newValue: undefined },
+    ]);
+  });
+
   it("does not throw when go2rtc.streams is missing from the config", () => {
     const pending: Record<string, ConfigSectionData> = {
       go2rtc_streams: { front: ["rtsp://front"] },

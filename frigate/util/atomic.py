@@ -32,9 +32,11 @@ def ensure_private_directory(path: Path) -> None:
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        if os.fstat(descriptor).st_uid != os.geteuid():
+        owner = os.fstat(descriptor).st_uid
+        if owner != os.geteuid():
             raise PermissionError(
-                f"Runtime directory is not owned by this user: {path}"
+                f"Runtime directory {path} is owned by UID {owner}, "
+                f"not by UID {os.geteuid()} that this process runs as"
             )
         os.fchmod(descriptor, 0o700)
     finally:

@@ -38,6 +38,17 @@ export function eventTimesFromItems(
   return [...times].sort((a, b) => a - b);
 }
 
+/** Timeline segments (8 px each) a release may be from an event and snap. */
+export const SNAP_SEGMENTS = 4;
+
+/**
+ * Farthest, in seconds, a handlebar release snaps to an event (UI73): a few
+ * segments, so the reach is the same on screen at every zoom level.
+ */
+export function snapMaxDistance(segmentDuration: number): number {
+  return segmentDuration * SNAP_SEGMENTS;
+}
+
 /**
  * Snap `time` to the nearest event. When `maxDistance` is set and the
  * nearest event is farther than that, `time` is left unchanged.

@@ -345,3 +345,177 @@ test.describe("Logs — load errors and tab labels (UI50) @medium @mobile", () =
     },
   );
 });
+
+test.describe("Logs: severity filter history (UI82) @medium", () => {
+  test(
+    "a severity filter does not fetch lines already on screen",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const lines = Array.from(
+        { length: 200 },
+        (_, i) =>
+          `[2026-04-06 10:00:00] frigate.app ${i % 2 ? "WARNING" : "INFO"} : line ${i}`,
+      );
+      const ranges: string[] = [];
+      await page.route(/\/api\/logs\/frigate(\?|$)/, (route) => {
+        const url = new URL(route.request().url());
+        if (url.searchParams.get("stream") === "true") {
+          return route.fulfill({ status: 200, body: "" });
+        }
+        const start = Number(url.searchParams.get("start"));
+        const end = url.searchParams.get("end");
+        if (end !== null) ranges.push(`${start}-${end}`);
+        const slice =
+          end === null ? lines.slice(start) : lines.slice(start, Number(end));
+        return route.fulfill({
+          json: { lines: slice, totalLines: lines.length },
+        });
+      });
+
+      await frigateApp.goto("/logs");
+      await expect(page.getByText("line 199", { exact: true })).toBeVisible({
+        timeout: 10_000,
+      });
+      // exact: each log row is a button whose name includes its severity
+      await page
+        .getByRole("button", { name: "Warning", exact: true })
+        .first()
+        .click();
+      // the filtered read starts at the first line and keeps only warnings
+      await expect(page.getByText("line 198", { exact: true })).toHaveCount(0);
+
+      await page.locator(".react-lazylog").hover();
+      await expect(async () => {
+        await page.mouse.wheel(0, -20_000);
+        await expect(page.getByText("line 1", { exact: true })).toBeVisible({
+          timeout: 1_000,
+        });
+      }).toPass({ timeout: 10_000 });
+      // let the 50 ms debounced scroll handler run: every line is already
+      // on screen, so it must not ask for more
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(ranges).toEqual([]);
+    },
+  );
+});
+
+test.describe("Logs: history reads (UI84) @medium", () => {
+  test(
+    "a slow history read is not requested twice",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const ranges: string[] = [];
+      const newest = Array.from(
+        { length: 100 },
+        (_, i) => `[2026-04-06 10:00:00] INFO: newest line ${900 + i}`,
+      );
+      await page.route(/\/api\/logs\/frigate(\?|$)/, async (route) => {
+        const url = new URL(route.request().url());
+        if (url.searchParams.get("stream") === "true") {
+          return route.fulfill({ status: 200, body: "" });
+        }
+        const end = url.searchParams.get("end");
+        if (end === null) {
+          return route.fulfill({ json: { lines: newest, totalLines: 1000 } });
+        }
+        const start = Number(url.searchParams.get("start"));
+        ranges.push(`${start}-${end}`);
+        // slow enough that the user keeps scrolling while it is in flight
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        return route.fulfill({
+          json: {
+            lines: Array.from(
+              { length: 5 },
+              (_, i) => `[2026-04-06 09:00:00] INFO: older line ${start + i}`,
+            ),
+            totalLines: 1000,
+          },
+        });
+      });
+
+      await frigateApp.goto("/logs");
+      await expect(page.getByText("newest line 999")).toBeVisible({
+        timeout: 10_000,
+      });
+      await page.locator(".react-lazylog").hover();
+      await page.mouse.wheel(0, -20_000);
+      // keep nudging the list at the top until a second read goes out
+      await expect
+        .poll(
+          async () => {
+            await page.mouse.wheel(0, 200);
+            await page.mouse.wheel(0, -400);
+            return ranges.length;
+          },
+          { intervals: [150], timeout: 15_000 },
+        )
+        .toBeGreaterThan(1);
+      // the second read waited for the first and asked for the next range
+      expect(new Set(ranges).size).toBe(ranges.length);
+    },
+  );
+});
+
+test.describe("Logs: copy reads the log (UI83) @medium @mobile", () => {
+  test.use({ expectedErrors: [/500.*\/api\/logs\/frigate/] });
+
+  /** Serves the n-th log read from `reads`; null answers with a 500. */
+  async function routeLogReads(
+    page: import("@playwright/test").Page,
+    reads: (n: number) => string[] | null,
+  ) {
+    let count = 0;
+    await page.route(/\/api\/logs\/frigate(\?|$)/, (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get("stream") === "true") {
+        return route.fulfill({ status: 200, body: "" });
+      }
+      const lines = reads(count++);
+      if (lines === null) {
+        return route.fulfill({ status: 500, json: { success: false } });
+      }
+      return route.fulfill({ json: logsJsonBody(lines) });
+    });
+  }
+
+  test("Copy copies the log as it is now", async ({ frigateApp, context }) => {
+    const { page } = frigateApp;
+    await grantClipboardPermissions(context);
+    await routeLogReads(page, (n) =>
+      n === 0
+        ? ["[2026-04-06 10:00:00] INFO: Frigate started"]
+        : [
+            "[2026-04-06 10:00:00] INFO: Frigate started",
+            "[2026-04-06 10:05:00] INFO: Newer line",
+          ],
+    );
+    await frigateApp.goto("/logs");
+    await expect(page.getByText(/Frigate started/)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.getByLabel("Copy to Clipboard").click();
+    await expect(page.getByText("Copied logs to clipboard")).toBeVisible();
+    expect(await readClipboard(page)).toContain("Newer line");
+  });
+
+  test("a failed copy keeps the log on screen", async ({ frigateApp }) => {
+    const { page } = frigateApp;
+    await routeLogReads(page, (n) =>
+      n === 0 ? ["[2026-04-06 10:00:00] INFO: Frigate started"] : null,
+    );
+    await frigateApp.goto("/logs");
+    await expect(page.getByText(/Frigate started/)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.getByLabel("Copy to Clipboard").click();
+    await expect(
+      page.getByText("Could not copy logs to clipboard"),
+    ).toBeVisible();
+    await expect(page.getByText(/Frigate started/)).toBeVisible();
+    await expect(page.getByTestId("fork-error-state")).toHaveCount(0);
+  });
+});

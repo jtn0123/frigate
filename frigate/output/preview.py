@@ -274,7 +274,9 @@ class PreviewRecorder:
         start_file = f"{file_start}{start_ts}.webp"
 
         for file in sorted(os.listdir(os.path.join(CACHE_DIR, FOLDER_PREVIEW_FRAMES))):
-            if not file.startswith(file_start):
+            # Fork (D33): camera names may contain "-", so compare the whole
+            # name; the prefix of "cam" also matches "cam-1"'s frames.
+            if file.rsplit("-", 1)[0] != f"preview_{config.name}":
                 continue
 
             if file < start_file:

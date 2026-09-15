@@ -176,7 +176,9 @@ async def camera_ptz_info(request: Request, camera_name: str):
         future = asyncio.run_coroutine_threadsafe(
             request.app.onvif.get_camera_info(camera_name), request.app.onvif.loop
         )
-        result = future.result()
+        # Await instead of future.result(): that loop runs on its own thread,
+        # so a slow camera no longer blocks this one.
+        result = await asyncio.wrap_future(future)
         return JSONResponse(content=result)
     else:
         return JSONResponse(

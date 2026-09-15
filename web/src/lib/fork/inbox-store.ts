@@ -47,6 +47,9 @@ export type InboxState = {
 export const INBOX_ITEMS_KEY = "frigateFork.inbox.items";
 export const INBOX_SETTINGS_KEY = "frigateFork.inbox.settings";
 export const INBOX_MAX_ITEMS = 200;
+export const INBOX_DISMISSED_KEY = "frigateFork.inbox.dismissed";
+/** Dismissed or cleared review ids remembered, newest last. */
+export const INBOX_MAX_DISMISSED = 500;
 
 const DEFAULT_SETTINGS: InboxSettings = {
   mutedCameras: [],
@@ -79,10 +82,30 @@ function sanitizeSettings(value: unknown): InboxSettings {
   };
 }
 
+function sanitizeDismissed(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((id): id is string => typeof id === "string")
+    .slice(-INBOX_MAX_DISMISSED);
+}
+
 let state: InboxState = {
   items: sanitizeItems(readJson(INBOX_ITEMS_KEY, [])),
   settings: sanitizeSettings(readJson(INBOX_SETTINGS_KEY, DEFAULT_SETTINGS)),
 };
+
+// A review keeps sending updates while it is active, so dismissed and
+// cleared ids are remembered to keep them from coming back as unread.
+let dismissed: string[] = sanitizeDismissed(readJson(INBOX_DISMISSED_KEY, []));
+
+function dismiss(ids: string[]) {
+  if (ids.length === 0) return;
+  const incoming = new Set(ids);
+  dismissed = [...dismissed.filter((id) => !incoming.has(id)), ...ids].slice(
+    -INBOX_MAX_DISMISSED,
+  );
+  writeJson(INBOX_DISMISSED_KEY, dismissed);
+}
 
 const listeners = new Set<() => void>();
 
@@ -119,6 +142,7 @@ export function reloadInboxFromStorage() {
     items: sanitizeItems(readJson(INBOX_ITEMS_KEY, [])),
     settings: sanitizeSettings(readJson(INBOX_SETTINGS_KEY, DEFAULT_SETTINGS)),
   };
+  dismissed = sanitizeDismissed(readJson(INBOX_DISMISSED_KEY, []));
   emit();
 }
 
@@ -171,9 +195,10 @@ export function ingestReview(review: FrigateReview | undefined): boolean {
   const settings = state.settings;
 
   if (existingIndex === -1) {
-    if (review.type === "end") {
-      // Never saw the start; do not surface an item the user cannot act on
-      // in time, but keep the list honest by ignoring it.
+    // Only a review's start adds it. Updates and ends for a review the inbox
+    // never saw are ignored, and so is anything the user dismissed or
+    // cleared: the collector re-ingests the last message when it remounts.
+    if (review.type !== "new" || dismissed.includes(segment.id)) {
       return false;
     }
     if (settings.mutedCameras.includes(segment.camera)) {
@@ -233,10 +258,12 @@ export function markAllInboxRead() {
 }
 
 export function removeInboxItem(id: string) {
+  dismiss([id]);
   setItems(state.items.filter((item) => item.id !== id));
 }
 
 export function clearInbox() {
+  dismiss(state.items.map((item) => item.id));
   setItems([]);
 }
 
