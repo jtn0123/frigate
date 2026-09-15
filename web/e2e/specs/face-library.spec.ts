@@ -564,7 +564,7 @@ test.describe("Face Library — mobile @high @mobile", () => {
   });
 });
 
-test.describe("Face Library — deleting a face's last images (UI85) @high", () => {
+test.describe("Face Library: deleting a face's last images (UI85) @high", () => {
   test(
     "deleting every image of a face returns to Recent Recognitions",
     { tag: "@desktop-only" },
