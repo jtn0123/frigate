@@ -563,3 +563,55 @@ test.describe("Face Library — mobile @high @mobile", () => {
     await expectBodyInteractive(frigateApp.page);
   });
 });
+
+test.describe("Face Library — deleting a face's last images (UI85) @high", () => {
+  test(
+    "deleting every image of a face returns to Recent Recognitions",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      let aliceGone = false;
+      await page.route("**/api/faces", (route) => {
+        const faces = basicFacesMock();
+        if (aliceGone) delete faces.alice;
+        return route.fulfill({ json: faces });
+      });
+      await page.route(/\/api\/faces\/alice\/delete/, async (route) => {
+        // the backend removes a face's folder once it is empty
+        aliceGone = true;
+        await route.fulfill({ json: { success: true } });
+      });
+      await frigateApp.goto("/faces");
+      const menu = await openLibraryDropdown(frigateApp);
+      await menu
+        .locator('[role="menuitem"]')
+        .filter({ hasText: /alice/i })
+        .first()
+        .click();
+      const trigger = page
+        .getByRole("button")
+        .filter({ hasText: /\(\d+\)/ })
+        .first();
+      await expect(trigger).toContainText("alice");
+
+      const images = page.locator('img[src*="clips/faces/alice/"]');
+      await expect(images).toHaveCount(2);
+      // the card around each image takes the click
+      await images
+        .nth(0)
+        .locator("xpath=..")
+        .click({ modifiers: ["ControlOrMeta"] });
+      await images
+        .nth(1)
+        .locator("xpath=..")
+        .click({ modifiers: ["ControlOrMeta"] });
+      await page.getByRole("button", { name: "Delete Faces" }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Delete" })
+        .click();
+
+      await expect(trigger).toContainText("Recent Recognitions");
+    },
+  );
+});

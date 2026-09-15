@@ -67,6 +67,7 @@ import {
 } from "react-icons/lu";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { useLeaveMissingPage } from "@/hooks/fork/use-leave-missing-page";
 import {
   ClassificationCard,
   GroupedClassificationCard,
@@ -103,9 +104,11 @@ export default function FaceLibrary() {
     [faceData],
   );
   const faceImages = useMemo<string[]>(
-    () => (pageToggle && faceData ? faceData[pageToggle] : []),
+    () => (pageToggle && faceData ? (faceData[pageToggle] ?? []) : []),
     [pageToggle, faceData],
   );
+  // fork (UI85): leave a face the backend removed once it was empty
+  useLeaveMissingPage(pageToggle, faceData, setPageToggle);
 
   const trainImages = useMemo<string[]>(
     () => faceData?.["train"] || [],

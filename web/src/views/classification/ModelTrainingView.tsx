@@ -49,6 +49,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { LuPencil, LuTrash2 } from "react-icons/lu";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { useLeaveMissingPage } from "@/hooks/fork/use-leave-missing-page";
 import ClassificationSelectionDialog from "@/components/overlay/ClassificationSelectionDialog";
 import { TbCategoryPlus } from "react-icons/tb";
 import BlurredIconButton from "@/components/button/BlurredIconButton";
@@ -140,6 +141,8 @@ export default function ModelTrainingView({
     );
 
   const dataset = datasetResponse?.categories || {};
+  // fork (UI85): leave a category the backend removed once it was empty
+  useLeaveMissingPage(pageToggle, datasetResponse?.categories, setPageToggle);
   const trainingMetadata = datasetResponse?.training_metadata;
 
   const [trainFilter, setTrainFilter] = useApiFilter<TrainFilter>();
