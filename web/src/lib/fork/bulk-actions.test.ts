@@ -21,7 +21,40 @@ vi.mock("i18next", () => ({
   },
 }));
 
-import { markReviewedWithUndo } from "./bulk-actions";
+import type { ReviewSegment } from "@/types/review";
+import { changedReviewIds, markReviewedWithUndo } from "./bulk-actions";
+
+function review(id: string, hasBeenReviewed: boolean): ReviewSegment {
+  return {
+    id,
+    camera: "front_door",
+    severity: "alert",
+    start_time: 1_000,
+    end_time: 1_030,
+    thumb_path: "",
+    has_been_reviewed: hasBeenReviewed,
+    data: {
+      audio: [],
+      detections: [],
+      objects: ["person"],
+      significant_motion_areas: [],
+      zones: [],
+    },
+  };
+}
+
+describe("changedReviewIds", () => {
+  const mixed = [review("a", false), review("b", true), review("c", false)];
+
+  it("keeps only the items a mark would change", () => {
+    expect(changedReviewIds(mixed, true)).toEqual(["a", "c"]);
+    expect(changedReviewIds(mixed, false)).toEqual(["b"]);
+  });
+
+  it("is empty when nothing would change", () => {
+    expect(changedReviewIds([review("b", true)], true)).toEqual([]);
+  });
+});
 
 describe("markReviewedWithUndo", () => {
   beforeEach(() => {

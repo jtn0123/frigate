@@ -201,15 +201,48 @@ test.describe("Review mark-as-reviewed undo @high", () => {
       await expect(page.getByText(/2.*selected/i)).toBeVisible();
 
       await page.getByRole("button", { name: "Mark as reviewed" }).click();
-      await expect.poll(() => viewed.length).toBe(1);
-      expect(viewed.at(0)).toMatchObject({ reviewed: true });
-      expect(viewed.at(0)?.ids).toHaveLength(2);
-      await expect(page.getByText("2 items marked as reviewed")).toBeVisible();
+      await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
+      // the alert that was already reviewed is left alone, so Undo cannot
+      // unmark it (UI87)
+      expect(viewed).toEqual([{ ids: ["review-alert-001"], reviewed: true }]);
 
       await page.getByRole("button", { name: "Undo" }).click();
-      await expect.poll(() => viewed.length).toBe(2);
-      expect(viewed.at(1)).toEqual({ ids: viewed.at(0)?.ids, reviewed: false });
       await expect(page.getByText("Change undone")).toBeVisible();
+      expect(viewed.at(1)).toEqual({
+        ids: ["review-alert-001"],
+        reviewed: false,
+      });
+    },
+  );
+
+  test(
+    "marking the whole list with reviewed items shown undoes only the new ones",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const viewed: { ids: string[]; reviewed: boolean }[] = [];
+      await page.route("**/api/reviews/viewed", async (route) => {
+        viewed.push(route.request().postDataJSON());
+        await route.fulfill({ json: { success: true } });
+      });
+      await frigateApp.goto("/review");
+      await page.getByRole("switch", { name: /show reviewed/i }).click();
+      await expect(page.locator(".review-item")).toHaveCount(2, {
+        timeout: 10_000,
+      });
+
+      await page
+        .getByRole("button", { name: "Mark these items as reviewed" })
+        .click();
+      await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
+      expect(viewed).toEqual([{ ids: ["review-alert-001"], reviewed: true }]);
+
+      await page.getByRole("button", { name: "Undo" }).click();
+      await expect(page.getByText("Change undone")).toBeVisible();
+      expect(viewed.at(1)).toEqual({
+        ids: ["review-alert-001"],
+        reviewed: false,
+      });
     },
   );
 

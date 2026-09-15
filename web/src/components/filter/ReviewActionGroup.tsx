@@ -23,7 +23,10 @@ import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import MultiExportDialog from "../overlay/MultiExportDialog";
-import { markReviewedWithUndo } from "@/lib/fork/bulk-actions";
+import {
+  changedReviewIds,
+  markReviewedWithUndo,
+} from "@/lib/fork/bulk-actions";
 
 type ReviewActionGroupProps = {
   selectedReviews: ReviewSegment[];
@@ -48,7 +51,9 @@ export default function ReviewActionGroup({
   );
 
   const onToggleReviewed = useCallback(async () => {
-    const ids = selectedReviews.map((review) => review.id);
+    // fork (UI87): only the ids this changes, so Undo cannot unmark items
+    // that were already reviewed
+    const ids = changedReviewIds(selectedReviews, !allReviewed);
     await markReviewedWithUndo(ids, !allReviewed, pullLatestData);
     setSelectedReviews([]);
     pullLatestData();
