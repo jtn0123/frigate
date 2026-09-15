@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { useMetricTimeFormatter } from "@/hooks/fork/use-metric-time";
 
 type Series = { name: string; data: { x: number; y: number | null }[] }[];
 const PAGE_SIZE = 25;
@@ -11,6 +12,7 @@ export default function MetricHistoryTable({
   unit,
 }: Readonly<{ title: string; series: Series; unit: string }>) {
   const { t, i18n } = useTranslation(["views/system"]);
+  const formatTime = useMetricTimeFormatter();
   const [page, setPage] = useState(0);
   const rows = useMemo(
     () =>
@@ -56,7 +58,7 @@ export default function MetricHistoryTable({
                   className="border-t border-secondary"
                 >
                   <th scope="row" className="p-2 font-normal">
-                    {new Date(row.x).toLocaleString(i18n.language)}
+                    {formatTime(row.x / 1000)}
                   </th>
                   <td className="p-2">{row.name}</td>
                   <td className="p-2 tabular-nums">

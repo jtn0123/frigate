@@ -430,6 +430,7 @@
       "title": "Host and container resources",
       "scope": "CPU uses 100% per logical core. Pressure is time stalled waiting for memory. OOM counts are cumulative since boot or container start. Shared resources must not be added together.",
       "unavailable": "Host collector is missing or stale. Install or check the read-only Proxmox collector to measure both containers.",
+      "partial": "Some containers could not be measured, so they are not listed. The values shown are current.",
       "scopes": {
         "host": "Proxmox host",
         "container": "Container",

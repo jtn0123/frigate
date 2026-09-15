@@ -84,8 +84,11 @@ export class DynamicVideoController {
       this.playerMode = "playback";
     }
 
+    // fork (UI89): a time before the chunk's first segment plays from that
+    // segment, as a time in a gap plays from the next one
+    const firstStart = this.recordings.at(0)?.start_time;
     const seekSeconds = calculateSeekPosition(
-      time,
+      firstStart !== undefined && time < firstStart ? firstStart : time,
       this.recordings,
       this.inpointOffset,
     );
@@ -94,17 +97,15 @@ export class DynamicVideoController {
       this.setNoRecording(true);
       return;
     }
+    this.setNoRecording(false);
 
-    if (seekSeconds != 0) {
-      this.playerController.currentTime = seekSeconds;
+    // fork (UI90): position 0, the first segment's start, is a real seek
+    this.playerController.currentTime = seekSeconds;
 
-      if (play) {
-        void this.waitAndPlay();
-      } else {
-        this.playerController.pause();
-      }
+    if (play) {
+      void this.waitAndPlay();
     } else {
-      // no op
+      this.playerController.pause();
     }
   }
 

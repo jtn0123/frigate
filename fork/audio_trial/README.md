@@ -124,6 +124,8 @@ Older/unprocessed reviews show an explicit unavailable-results message.
 Large requests deferred by memory or the hourly budget remain in the durable
 queue. They retry no sooner than one minute, expire after one hour and reuse the
 saved Medium result. The existing two-per-hour Large budget still applies.
+While a request waits, the budget and memory are checked before its clip is
+downloaded again, and a wait does not use up the job's retry.
 Disable built-in `audio_transcription.enabled` on companion-managed cameras;
 the companion pauses with an ownership warning if both are enabled. This avoids
 duplicate automatic work without changing the built-in configuration for you.

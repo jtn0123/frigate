@@ -81,16 +81,16 @@ check-py: fork-test-image
 	FORK_TEST_IMAGE=$(FORK_TEST_IMAGE) fork/scripts/py-checks.sh
 
 lint:
-	$(RUFF) format --check frigate migrations docker fork/scripts *.py
-	$(RUFF) check frigate migrations docker fork/scripts *.py
+	$(RUFF) format --check frigate migrations docker fork/scripts fork/audio_trial fork/monitoring *.py
+	$(RUFF) check frigate migrations docker fork/scripts fork/audio_trial fork/monitoring *.py
 	cd web && npm run lint
 
 typecheck:
 	cd web && npm run typecheck
 
 format:
-	$(RUFF) format frigate migrations docker fork/scripts *.py
-	$(RUFF) check --fix frigate migrations docker fork/scripts *.py
+	$(RUFF) format frigate migrations docker fork/scripts fork/audio_trial fork/monitoring *.py
+	$(RUFF) check --fix frigate migrations docker fork/scripts fork/audio_trial fork/monitoring *.py
 	cd web && npm run lint:fix
 
 test-web:

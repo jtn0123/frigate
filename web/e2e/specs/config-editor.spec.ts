@@ -252,6 +252,82 @@ test.describe("Config Editor — Save and Restart @medium", () => {
   });
 });
 
+// UI92: the editor effect depended on the theme, so a theme change disposed
+// and recreated the model from the saved config. Typed edits vanished and
+// the change listener stayed on the old model, so later edits never armed
+// the unsaved-changes guard.
+test.describe("Config Editor, theme changes keep edits @medium", () => {
+  test.skip(
+    ({ frigateApp }) => frigateApp.isMobile,
+    "Keyboard editing assumes the desktop editor",
+  );
+
+  async function openEditor(frigateApp: {
+    page: import("@playwright/test").Page;
+    installDefaults: (options: { configRaw: string }) => Promise<void>;
+    goto: (path: string) => Promise<void>;
+  }) {
+    await frigateApp.page.emulateMedia({ colorScheme: "light" });
+    await frigateApp.installDefaults({ configRaw: SAMPLE_CONFIG });
+    await frigateApp.goto("/config");
+    await expect(frigateApp.page.locator(".monaco-editor").first()).toBeVisible(
+      { timeout: 15_000 },
+    );
+  }
+
+  async function expectLeaveBlocked(page: import("@playwright/test").Page) {
+    const dismissed = new Promise<void>((resolve) => {
+      page.once("dialog", async (dialog) => {
+        await dialog.dismiss();
+        resolve();
+      });
+    });
+    await page
+      .getByRole("link", { name: "Export", exact: true })
+      .first()
+      .click();
+    await dismissed;
+    await expect(page).toHaveURL(/\/config$/);
+  }
+
+  test("an edit survives the system switching to dark mode", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    await openEditor(frigateApp);
+    await replaceMonacoValue(page, SAMPLE_CONFIG + "# typed before");
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator(".monaco-editor.vs-dark").first()).toBeVisible();
+
+    expect(await getMonacoVisibleText(page)).toMatch(/typed\s+before/);
+    await expectLeaveBlocked(page);
+  });
+
+  test("edits made after a theme change still arm the unsaved guard", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    await openEditor(frigateApp);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator(".monaco-editor.vs-dark").first()).toBeVisible();
+    // Keys sent while Monaco repaints for the new theme can arrive before it
+    // takes focus, so wait for the editor's input first
+    await page.locator(".monaco-editor").first().click();
+    await expect(
+      page.getByRole("textbox", { name: "Editor content" }),
+    ).toBeFocused();
+    await replaceMonacoValue(page, SAMPLE_CONFIG + "# typed after");
+
+    await expect
+      .poll(() => getMonacoVisibleText(page))
+      .toMatch(/^mqtt:[\s\S]*typed\s+after\s*$/);
+    expect(await getMonacoVisibleText(page)).not.toMatch(/enabled: true\s+qtt/);
+    await expectLeaveBlocked(page);
+  });
+});
+
 test.describe("Config Editor — Copy @medium", () => {
   test.skip(
     ({ frigateApp }) => frigateApp.isMobile,

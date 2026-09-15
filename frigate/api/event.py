@@ -917,7 +917,9 @@ def _review_thumb_paths_for_events(events: list[dict]) -> dict[str, str]:
         .where(
             ReviewSegment.camera << list({e["camera"] for e in events}),
             ReviewSegment.start_time <= window_end,
-            ReviewSegment.end_time >= window_start,
+            # a review segment still in progress has no end time yet
+            (ReviewSegment.end_time.is_null())
+            | (ReviewSegment.end_time >= window_start),
             reduce(
                 operator.or_,
                 [

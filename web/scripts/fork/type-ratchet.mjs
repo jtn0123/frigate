@@ -6,11 +6,22 @@
  * the command to lower the baseline (`--write`) so the ratchet actually
  * tightens.
  *
+ * The baseline itself must not rise above the base branch's, or a change
+ * could raise it to cover its own new hatches. The base is $TYPE_RATCHET_BASE
+ * (default origin/next; empty skips this check); a base without a readable
+ * baseline, such as one a shallow checkout lacks, is reported and skipped.
+ *
  *   node scripts/fork/type-ratchet.mjs           # compare
  *   node scripts/fork/type-ratchet.mjs --write   # rewrite baselines to current
  */
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -156,6 +167,54 @@ function compare(kind, current, baseline) {
   return { risen, fallen };
 }
 
+/** Baseline values higher than the base branch's, as `kind.key: was -> now`. */
+export function raisedAbove(baseline, base) {
+  const raised = [];
+  for (const kind of ["hatches", "rules"]) {
+    for (const [key, now] of Object.entries(baseline[kind] ?? {})) {
+      // A count the base does not track yet (a new rule) has nothing to beat.
+      const was = base?.[kind]?.[key];
+      if (typeof was === "number" && now > was) {
+        raised.push(`${kind}.${key}: ${was} -> ${now}`);
+      }
+    }
+  }
+  return raised;
+}
+
+// git from a fixed install location, not the first match on PATH (Sonar
+// S4036); PATH is only the fallback where none of these exists.
+const GIT_PATHS = [
+  "/usr/bin/git",
+  "/usr/local/bin/git",
+  "/opt/homebrew/bin/git",
+];
+
+function gitBinary() {
+  return GIT_PATHS.find((path) => existsSync(path)) ?? "git";
+}
+
+/** The base branch's baseline, or why it cannot be read. */
+function readBaseBaseline(ref) {
+  if (!ref) {
+    return { skipped: "TYPE_RATCHET_BASE is empty" };
+  }
+  // --end-of-options keeps a ref from $TYPE_RATCHET_BASE from being an option.
+  const result = spawnSync(
+    gitBinary(),
+    ["show", "--end-of-options", `${ref}:fork/type-ratchet.json`],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  if (result.error || result.status !== 0) {
+    return { skipped: `no fork/type-ratchet.json at ${ref}` };
+  }
+  try {
+    return { base: JSON.parse(result.stdout) };
+  } catch {
+    return { skipped: `fork/type-ratchet.json at ${ref} is not JSON` };
+  }
+}
+
 function printTable(title, current, baseline) {
   console.log(title);
   for (const key of Object.keys(baseline)) {
@@ -214,11 +273,28 @@ if (invokedDirectly) {
       console.log(`  ${line}`);
     }
   }
+  const baseRef = process.env.TYPE_RATCHET_BASE ?? "origin/next";
+  const { base, skipped } = readBaseBaseline(baseRef);
+  const raised = base ? raisedAbove(baseline, base) : [];
+  if (skipped) {
+    console.log(`\nBaseline not compared with the base branch: ${skipped}.`);
+  }
+
   if (risen.length) {
     console.error("\nType ratchet failed; counts rose:");
     for (const line of risen) {
       console.error(`  ${line}`);
     }
+  }
+  if (raised.length) {
+    console.error(
+      `\nType ratchet failed; the baseline rose above the one at ${baseRef}:`,
+    );
+    for (const line of raised) {
+      console.error(`  ${line}`);
+    }
+  }
+  if (risen.length || raised.length) {
     process.exit(1);
   }
 }

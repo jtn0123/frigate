@@ -337,15 +337,37 @@ def get_exports(
     return JSONResponse(content=list(exports))
 
 
+def _visible_cases(query, request: Request, allowed_cameras: list[str]):
+    """Limit an ExportCase query to the cases the caller may see.
+
+    Cases have no access list of their own. A caller who can see every camera
+    sees every case; anyone else sees only cases holding an export from a
+    camera they may access, so a case's name and description do not reach a
+    user who cannot open anything in it.
+    """
+    if set(request.app.frigate_config.cameras.keys()).issubset(allowed_cameras):
+        return query
+
+    return query.where(
+        ExportCase.id.in_(
+            Export.select(Export.export_case).where(Export.camera << allowed_cameras)
+        )
+    )
+
+
 @router.get(
     "/cases",
     response_model=ExportCasesResponse,
     dependencies=[Depends(allow_any_authenticated())],
     summary="Get export cases",
-    description="Gets all export cases from the database.",
+    description="Gets the export cases the caller may see: every case for a caller with access to every camera, otherwise the cases holding an export from a camera the caller may access.",
 )
-def get_export_cases():
-    cases = ExportCase.select().order_by(ExportCase.created_at.desc()).iterator()
+def get_export_cases(
+    request: Request,
+    allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
+):
+    cases = _visible_cases(ExportCase.select(), request, allowed_cameras)
+    cases = cases.order_by(ExportCase.created_at.desc()).iterator()
     return JSONResponse(content=[_export_case_to_dict(case) for case in cases])
 
 
@@ -368,9 +390,17 @@ def create_export_case(body: ExportCaseCreateBody):
     summary="Get a single export case",
     description="Gets a specific export case by ID.",
 )
-def get_export_case(case_id: str):
+def get_export_case(
+    case_id: str,
+    request: Request,
+    allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
+):
     try:
-        case = ExportCase.get(ExportCase.id == case_id)
+        case = _visible_cases(
+            ExportCase.select().where(ExportCase.id == case_id),
+            request,
+            allowed_cameras,
+        ).get()
         return JSONResponse(content=_export_case_to_dict(case))
     except DoesNotExist:
         return JSONResponse(

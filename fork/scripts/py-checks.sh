@@ -11,6 +11,9 @@
 set -uo pipefail
 
 image="${FORK_TEST_IMAGE:-frigate-fork-test}"
+# Suites plain `unittest` discovery never reaches (no packages lead to them);
+# both the coverage run and a plain local run discover each one.
+fork_suites="fork/audio_trial fork/audio_trial/benchmarks fork/monitoring"
 logs="$(mktemp -d)"
 trap 'rm -rf "$logs"' EXIT
 
@@ -30,7 +33,7 @@ r = subprocess.call([sys.executable, '-m', 'coverage', 'run', '-m', 'unittest'])
 for pattern in ('test_sonar_coverage.py', 'test_release_notes.py'):
     script_result = subprocess.call([sys.executable, '-m', 'coverage', 'run', '--append', '-m', 'unittest', 'discover', '-s', 'fork/scripts', '-p', pattern])
     r = r or script_result
-for directory in ('fork/audio_trial', 'fork/audio_trial/benchmarks', 'fork/monitoring'):
+for directory in '${fork_suites}'.split():
     result = subprocess.call([sys.executable, '-m', 'coverage', 'run', '--append', '-m', 'unittest', 'discover', '-s', directory])
     r = r or result
 subprocess.call([sys.executable, '-m', 'coverage', 'report'])
@@ -48,8 +51,12 @@ start mypy docker run --rm --entrypoint python3 "$image" -u -m mypy --config-fil
 start api-spec docker run --rm --entrypoint python3 "$image" generate_api_auth_spec.py --check
 if [[ -n "${COVERAGE_XML:-}" ]]; then
   (unittest_with_coverage >"$logs/unittest.log" 2>&1; echo $? >"$logs/unittest.rc") &
-else
+elif (($#)); then
   start unittest docker run --rm "$image" "$@"
+else
+  # shellcheck disable=SC2016 # $d and $rc expand in the container's shell
+  start unittest docker run --rm --entrypoint sh "$image" -c \
+    'rc=0; python3 -u -m unittest || rc=1; for d in '"$fork_suites"'; do python3 -u -m unittest discover -s "$d" || rc=1; done; exit $rc'
 fi
 wait
 

@@ -1,4 +1,8 @@
 import { MutableRefObject, useCallback, useEffect, useMemo } from "react";
+import {
+  handledElsewhere,
+  markShortcutHandled,
+} from "@/lib/fork/keyboard-events";
 
 // Global shortcuts must not fire while the user is typing in a text field,
 // select, or contenteditable region (Monaco, chat composer, and the like).
@@ -38,7 +42,8 @@ export default function useKeyboardListener(
 
   const keyDownListener = useCallback(
     (e: KeyboardEvent) => {
-      if (!e || isEditableTarget(e.target)) {
+      // fork (UI96): skip keys a dialog or menu already handled
+      if (!e || handledElsewhere(e) || isEditableTarget(e.target)) {
         return;
       }
 
@@ -78,7 +83,10 @@ export default function useKeyboardListener(
         }
       } else if (keys.includes(e.key) && listener) {
         const preventDefault = listener(e.key, modifiers);
-        if (preventDefault) e.preventDefault();
+        if (preventDefault) {
+          e.preventDefault();
+          markShortcutHandled(e);
+        }
       } else if (
         listener &&
         (e.key === "Shift" || e.key === "Control" || e.key === "Meta")

@@ -354,8 +354,10 @@ class RecordingCleanup(threading.Thread):
                     # candidate recordings can extend up to continuous_expire_date
                     # (the no-motion no-audio branch of the recordings query),
                     # so reviews must cover that full range to avoid deleting
-                    # segments that overlap recent alerts/detections.
-                    ReviewSegment.start_time < continuous_expire_date,
+                    # segments that overlap recent alerts/detections. A review
+                    # also keeps the pre-capture before its start.
+                    ReviewSegment.start_time
+                    < continuous_expire_date + config.record.event_pre_capture,
                 )
                 .order_by(ReviewSegment.start_time)
                 .namedtuples()

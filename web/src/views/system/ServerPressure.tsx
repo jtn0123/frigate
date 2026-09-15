@@ -18,9 +18,16 @@ export default function ServerPressure({
         <p className="mt-1 text-sm text-muted-foreground">
           {t("models.server.scope")}
         </p>
-        {server?.status !== "connected" && (
+        {/* "partial" means some containers could not be measured; the
+            scopes that are listed are still current */}
+        {server?.status !== "connected" && server?.status !== "partial" && (
           <p className="mt-2 text-sm text-warning">
             {t("models.server.unavailable")}
+          </p>
+        )}
+        {server?.status === "partial" && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t("models.server.partial")}
           </p>
         )}
         <div className="mt-3 grid gap-3 md:grid-cols-2">

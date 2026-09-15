@@ -34,7 +34,8 @@ echo "  ${files//$'\n'/$'\n'  }" >&2
 
 # The workflow and this script affect every job.
 shared='^(\.coveragerc$|sonar-project\.properties$|fork/requirements-sonar\.txt$|\.github/workflows/fork-checks\.yml|\.github/actions/fork-web-setup/|fork/scripts/ci-)'
-web_re="${shared}|^web/|^docs/static/frigate-api\.yaml$"
+# The web jobs read the ratchet and bundle budget baselines under fork/.
+web_re="${shared}|^web/|^docs/static/frigate-api\.yaml$|^fork/(type-ratchet|bundle-budget)\.json$"
 py_re="${shared}|^fork/(audio_trial|monitoring)/|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/py-checks\.sh|scripts/dev-lock-check\.py)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
 
 has() {

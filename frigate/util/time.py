@@ -81,28 +81,40 @@ def get_dst_transitions(
         # If timezone is invalid, return single period with no offset
         return [(start_time, end_time, 0)]
 
+    def offset_at(timestamp: float) -> float:
+        dt = datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC)
+        return dt.astimezone(tz).utcoffset().total_seconds()
+
     periods = []
-    current = start_time
+    previous = start_time
 
     # Get initial offset
-    dt = datetime.datetime.fromtimestamp(current, tz=datetime.UTC)
-    local_dt = dt.astimezone(tz)
-    prev_offset = local_dt.utcoffset().total_seconds()
+    prev_offset = offset_at(previous)
     period_start = start_time
 
-    # Check each day for offset changes
-    while current <= end_time:
-        dt = datetime.datetime.fromtimestamp(current, tz=datetime.UTC)
-        local_dt = dt.astimezone(tz)
-        current_offset = local_dt.utcoffset().total_seconds()
+    # Check each day (and the end) for offset changes
+    while previous < end_time:
+        current = min(previous + 86400, end_time)
+        current_offset = offset_at(current)
 
         if current_offset != prev_offset:
+            # A daily probe only brackets the transition; bisect to the second
+            # it happens, or events up to a day later get the old offset
+            low, high = previous, current
+            while high - low > 1:
+                middle = (low + high) // 2
+                if offset_at(middle) == prev_offset:
+                    low = middle
+                else:
+                    high = middle
+            current = high
+
             # Found a transition - close previous period
             periods.append((period_start, current, prev_offset))
             period_start = current
-            prev_offset = current_offset
+            prev_offset = offset_at(current)
 
-        current += 86400  # Check daily
+        previous = current
 
     # Add final period
     periods.append((period_start, end_time, prev_offset))

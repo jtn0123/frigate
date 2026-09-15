@@ -59,6 +59,7 @@ import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { useNavigate } from "react-router-dom";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import TrainFilterDialog from "@/components/overlay/dialog/TrainFilterDialog";
+import { matchesTrainClass } from "@/lib/fork/classification-train";
 import useApiFilter from "@/hooks/use-api-filter";
 import {
   ClassificationDatasetResponse,
@@ -945,7 +946,11 @@ function TrainGrid({
             return true;
           }
 
-          if (trainFilter.classes && !trainFilter.classes.includes(data.name)) {
+          // fork (UI97): train file names write "-" in a class as "_"
+          if (
+            trainFilter.classes &&
+            !matchesTrainClass(trainFilter.classes, data.name)
+          ) {
             return false;
           }
 

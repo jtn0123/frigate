@@ -358,3 +358,19 @@ test.describe("Review — recording view loading state @high @mobile", () => {
     expect(overlapping).toBe(0);
   });
 });
+
+test.describe("Review, camera group links @high", () => {
+  test("a link to a camera group that no longer exists opens the page", async ({
+    frigateApp,
+  }) => {
+    // UI93: the group effect read the missing group's cameras and threw,
+    // which replaced the page with the error boundary
+    await frigateApp.goto("/review?group=removed_group");
+    const review = new ReviewPage(frigateApp.page, !frigateApp.isMobile);
+    await expect(review.alertsTab).toBeVisible({ timeout: 10_000 });
+    await expect(frigateApp.page).not.toHaveURL(/group=/);
+    expect(
+      await frigateApp.page.getByTestId("fork-error-boundary").count(),
+    ).toBe(0);
+  });
+});

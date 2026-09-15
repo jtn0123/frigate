@@ -8,6 +8,7 @@ import { graphPoints, readMetric } from "@/utils/aiModelMetrics";
 
 import MetricHistoryTable from "./MetricHistoryTable";
 import { useGraphColors } from "@/hooks/use-graph-colors";
+import { useMetricTimeFormatter } from "@/hooks/fork/use-metric-time";
 
 type Series = { name: string; data: { x: number; y: number | null }[] }[];
 
@@ -21,6 +22,7 @@ function HistoryChart({
   unit: string;
 }>) {
   const { t, i18n } = useTranslation(["views/system", "fork"]);
+  const formatTime = useMetricTimeFormatter();
   const { theme, systemTheme } = useTheme();
   const colors = useGraphColors();
   const resolvedTheme = theme === "system" ? systemTheme : theme;
@@ -54,7 +56,10 @@ function HistoryChart({
         type: "datetime",
         min: first == null ? undefined : first - 10000,
         max: last == null ? undefined : last + 10000,
-        labels: { datetimeUTC: false, format: "HH:mm:ss" },
+        labels: {
+          formatter: (_value, timestamp) =>
+            timestamp == null ? "" : formatTime(timestamp / 1000, false),
+        },
         tooltip: { enabled: false },
       },
       yaxis: {
@@ -69,13 +74,21 @@ function HistoryChart({
       },
       tooltip: {
         x: {
-          formatter: (value) =>
-            new Date(value).toLocaleTimeString(i18n.language),
+          formatter: (value) => formatTime(value / 1000, false),
         },
       },
       legend: { show: true, position: "bottom" },
     }),
-    [colors, resolvedTheme, unit, i18n.language, first, last, single],
+    [
+      colors,
+      resolvedTheme,
+      unit,
+      i18n.language,
+      formatTime,
+      first,
+      last,
+      single,
+    ],
   );
   const count = series.reduce(
     (sum, item) => sum + item.data.filter((point) => point.y != null).length,
