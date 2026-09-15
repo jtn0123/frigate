@@ -1839,6 +1839,9 @@ async def label_thumbnail(request: Request, camera_name: str, label: str):
 
     try:
         event_id = await asyncio.to_thread(event_query.scalar)
+        # MAX() over no rows returns None rather than raising DoesNotExist
+        if event_id is None:
+            raise DoesNotExist
 
         return await event_thumbnail(request, event_id, Extension.jpg, 60)
     except DoesNotExist:

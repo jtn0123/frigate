@@ -660,3 +660,23 @@ class TestHttpVodEvent(BaseTestHttp):
 
         assert response.status_code == 404
         assert Event.get(Event.id == "recent").has_clip is True
+
+
+class TestHttpLabelThumbnail(BaseTestHttp):
+    """GET /{camera}/{label}/thumbnail.jpg with no matching event."""
+
+    def setUp(self):
+        super().setUp([Event])
+        self.app = super().create_app()
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+    def test_no_matching_event_serves_a_blank_placeholder(self):
+        with AuthTestClient(self.app) as client:
+            response = client.get("/front_door/person/thumbnail.jpg")
+
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.headers["cache-control"] == "no-store"
