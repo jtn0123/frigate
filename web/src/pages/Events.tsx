@@ -575,7 +575,12 @@ export default function Events() {
         [];
 
       if (reviewList.length > 0) {
-        await markReviewedWithUndo(reviewList, true, reloadData);
+        // fork (UI80): a date range keeps the list key, so undo clears and
+        // refetches the list itself
+        await markReviewedWithUndo(reviewList, true, () => {
+          reloadData();
+          void updateSegments(undefined);
+        });
         reloadData();
 
         if (reviewSearchParams["after"] != undefined) {

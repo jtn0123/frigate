@@ -214,6 +214,63 @@ test.describe("Review mark-as-reviewed undo @high", () => {
   );
 
   test(
+    "Undo on a past day shows the items unreviewed again",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const counts = {
+        reviewed_alert: 1,
+        reviewed_detection: 0,
+        total_alert: 2,
+        total_detection: 2,
+      };
+      // the mock reviews are on 2026-06-05; cover the days around it so the
+      // browser's time zone does not matter
+      await page.route(/\/api\/review\/summary/, (route) =>
+        route.fulfill({
+          json: Object.fromEntries(
+            ["2026-06-04", "2026-06-05", "2026-06-06"].map((day) => [
+              day,
+              { day, ...counts },
+            ]),
+          ),
+        }),
+      );
+      await frigateApp.goto("/review");
+      // a date range, as the calendar sets it (UI80)
+      const reviewStart = 1780677009;
+      await page.evaluate(
+        ({ after, before }) => {
+          const state = history.state ?? {};
+          history.replaceState(
+            {
+              ...state,
+              usr: { ...state.usr, reviewFilter: { after, before } },
+            },
+            "",
+          );
+        },
+        { after: reviewStart - 6 * 3600, before: reviewStart + 3600 },
+      );
+      await page.reload();
+
+      const items = page.locator(".review-item");
+      await expect(items).toHaveCount(1, { timeout: 10_000 });
+      await page
+        .getByRole("button", { name: "Mark these items as reviewed" })
+        .click();
+      await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
+      await expect(items.locator(".bg-green-600")).toHaveCount(1);
+
+      await page.getByRole("button", { name: "Undo" }).click();
+      await expect(page.getByText("Change undone")).toBeVisible();
+      // the list is read again, so the item is no longer marked reviewed
+      await expect(items.locator(".bg-gray-500")).toHaveCount(1);
+      await expect(items.locator(".bg-green-600")).toHaveCount(0);
+    },
+  );
+
+  test(
     "long-press select then Undo reverts mark-reviewed @mobile",
     { tag: "@mobile-only" },
     async ({ frigateApp }) => {
