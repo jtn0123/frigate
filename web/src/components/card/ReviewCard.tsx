@@ -182,6 +182,7 @@ function ReviewCard({
         src={`${baseUrl}${event.thumb_path.replace("/media/frigate/", "")}`}
         alt={t("review.card.thumbnail", { camera: cameraName })}
         loading={isSafari ? "eager" : "lazy"}
+        decoding="async"
         style={
           isIOS
             ? {

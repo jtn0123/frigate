@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 BUILDKIT = "moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8"
 BASELINE = "f0fc3760785792d22b98c847078e86b18910824d"
@@ -19,12 +20,12 @@ SEEDS = [
 ]
 
 
-def run(*command):
+def run(*command: str) -> str:
     """Run a command without interpreting shell metacharacters."""
     return subprocess.run(command, check=True, capture_output=True, text=True).stdout
 
 
-def registry(reset=False):
+def registry(reset: bool = False) -> None:
     """Reset only this job's explicitly named local benchmark registry."""
     if reset:
         run("docker", "rm", "-f", "frigate-bench-registry")
@@ -43,7 +44,7 @@ def registry(reset=False):
     )
 
 
-def prepare(root):
+def prepare(root: Path) -> None:
     """Freeze both source trees, cache seeds, tool versions, and machine details."""
     root.mkdir(parents=True, exist_ok=True)
     if shutil.disk_usage("/var/lib/docker").free < 65 * 1024**3:
@@ -92,7 +93,7 @@ def prepare(root):
     registry()
 
 
-def summary(root):
+def summary(root: Path) -> None:
     """Show measured phase deltas while retaining incomplete/failed checkpoints."""
     lines = [
         "## Native AMD64 build benchmark",
@@ -130,7 +131,7 @@ def summary(root):
             output.write(text)
 
 
-def validate(root):
+def validate(root: Path) -> None:
     """Fail if application contents, dependencies, or runtime configuration differ."""
     for arch in ("amd64", "rocm"):
         inventories = []
@@ -171,11 +172,11 @@ def validate(root):
     )
 
 
-def monitor(root):
+def monitor(root: Path) -> None:
     """Append resource samples without placing probes inside timed build work."""
     with (root / "resources.jsonl").open("a", buffering=1) as output:
         while not (root / "stop-monitor").exists():
-            sample = {
+            sample: dict[str, Any] = {
                 "time": time.time(),
                 "docker_disk_free_bytes": shutil.disk_usage("/var/lib/docker").free,
                 "root_disk_free_bytes": shutil.disk_usage(root).free,
@@ -198,7 +199,7 @@ def monitor(root):
             time.sleep(30)
 
 
-def main():
+def main() -> None:
     """Operate only inside the disposable GitHub-hosted benchmark job."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -211,16 +212,25 @@ def main():
         or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
     ):
         parser.error("Requires a disposable GitHub-hosted runner")
+    # The workflow keeps every benchmark path under RUNNER_TEMP. Confining the
+    # argument to it keeps a mistyped or injected path out of the rest of the
+    # runner, since these operations create, write and read whole trees.
+    runner_temp = os.environ.get("RUNNER_TEMP")
+    if not runner_temp:
+        parser.error("Requires a disposable GitHub-hosted runner")
+    root = args.root.resolve()
+    if not root.is_relative_to(Path(runner_temp).resolve()):
+        parser.error("root must be inside RUNNER_TEMP")
     if args.operation == "prepare":
-        prepare(args.root)
+        prepare(root)
     elif args.operation == "reset":
         registry(reset=True)
     elif args.operation == "monitor":
-        monitor(args.root)
+        monitor(root)
     elif args.operation == "validate":
-        validate(args.root)
+        validate(root)
     else:
-        summary(args.root)
+        summary(root)
 
 
 if __name__ == "__main__":

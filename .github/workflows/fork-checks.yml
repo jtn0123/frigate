@@ -169,6 +169,14 @@ jobs:
         working-directory: ./web
         env:
           E2E_COVERAGE: "1"
+      # One pass behind the enforcing CSP nginx serves, on the first shard
+      # only: it loads the same pages, so sharding it buys nothing (E6).
+      - name: Content-Security-Policy
+        if: matrix.shard == 1
+        run: npm run e2e -- specs/fork/csp.spec.ts
+        working-directory: ./web
+        env:
+          E2E_CSP: "1"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -203,10 +211,20 @@ jobs:
       # (python_tests) fails if the two disagree.
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-dev.lock
-      - run: ruff format --check --diff frigate migrations docker fork/scripts fork/audio_trial fork/monitoring ./*.py
-      - run: ruff check frigate migrations docker fork/scripts fork/audio_trial fork/monitoring ./*.py
+      # Paths come from fork/scripts/targets.sh so CI and `make lint` cannot drift.
+      - run: ruff format --check --diff $(fork/scripts/targets.sh py-lint)
+      - run: ruff check $(fork/scripts/targets.sh py-lint)
+      # The fork's own Python is type-checked with no ignore sections (I16).
+      - run: python3 -m mypy --config-file fork/mypy.ini fork/monitoring fork/audio_trial fork/scripts
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
+      # Dependabot bumps fork/audio_trial/requirements.in; this fails until the
+      # hash-pinned lock the image installs is recompiled from it (F7).
+      - run: python3 fork/scripts/audio-lock-check.py
+      # Known advisories in the fork's own locks, with reviewed exceptions (E8).
+      - run: |
+          python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-audit.txt
+      - run: python3 fork/scripts/lock-audit.py
       - run: python3 -m unittest discover -s fork/scripts -p "test_*.py"
 
   python_tests:

@@ -8,6 +8,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 from collect_proxmox import init_pid, publish_snapshot
 from incidents import Incidents
@@ -44,7 +45,7 @@ print(json.dumps({'time':now,'source_updated':s.get('service',{}).get('last_upda
 """
 
 
-def capture():
+def capture() -> dict[str, Any]:
     """Capture measurements and request completion timings with bounded commands."""
     result = subprocess.run(
         ["pct", "exec", "106", "--", "python3", "-c", SNAPSHOT],
@@ -114,10 +115,10 @@ def capture():
         }
     except (OSError, ValueError, subprocess.SubprocessError):
         sample.setdefault("containers", {})["ollama"] = {"running": None}
-    return sample
+    return dict(sample)
 
 
-def duration_seconds(value):
+def duration_seconds(value: str | None) -> float | None:
     """Parse a bounded Go duration from its start, without unanchored backtracking."""
     units = {
         "ns": 1e-9,
@@ -141,9 +142,9 @@ def duration_seconds(value):
     return total
 
 
-def completion_timings(log):
+def completion_timings(log: str) -> list[dict[str, Any]]:
     """Extract only safe completion fields, including compound Go durations."""
-    requests = []
+    requests: list[dict[str, Any]] = []
     for line in log.splitlines():
         fields = [field.strip() for field in line.split("|")]
         if len(fields) != 5 or not fields[1].isdigit():
@@ -161,7 +162,7 @@ def completion_timings(log):
     return requests[-20:]
 
 
-def main():
+def main() -> None:
     """Persist evidence independently of the browser and publish local alerts."""
     logging.basicConfig(level=logging.INFO)
     directory = Path("/var/lib/frigate-incidents")
@@ -169,7 +170,7 @@ def main():
     monitor = Incidents(directory / "history.sqlite")
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: STOP.set())
-    previous = set()
+    previous: set[str] = set()
     try:
         while not STOP.is_set():
             started = time.monotonic()

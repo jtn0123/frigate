@@ -18,13 +18,10 @@ import { Input } from "@/components/ui/input";
 import { isForkEnabled } from "@/fork/flags";
 import { qrSvg } from "@/lib/fork/qr";
 import { sharePageUrl } from "@/lib/fork/share-path";
+import type { components } from "@/types/fork/api.gen";
 import { toast } from "sonner";
 
-type ShareResponse = {
-  token: string;
-  url: string;
-  expires_at: number;
-};
+type ShareResponse = components["schemas"]["ShareLinkResponse"];
 
 type ShareClipButtonProps = {
   eventId?: string | null;

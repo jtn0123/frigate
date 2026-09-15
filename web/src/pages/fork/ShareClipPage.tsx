@@ -14,14 +14,9 @@ import { sharePageUrl } from "@/lib/fork/share-path";
 import { baseUrl } from "@/api/baseUrl";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import Heading from "@/components/ui/heading";
+import type { components } from "@/types/fork/api.gen";
 
-type ShareInfo = {
-  token: string;
-  camera: string;
-  label: string;
-  expires_at: number;
-  has_clip: boolean;
-};
+type ShareInfo = components["schemas"]["ShareLinkResponse"];
 
 export default function ShareClipPage() {
   const { t } = useTranslation(["fork"]);

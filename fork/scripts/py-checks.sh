@@ -8,9 +8,17 @@
 #
 # With COVERAGE_XML=<path> (CI), unittest runs under coverage and the XML
 # report is copied out to that path.
+#
+# Either way the fork's own test roots (fork/scripts/targets.sh py-test-dirs)
+# run alongside the frigate suite, so `make check` covers what CI covers (D25).
+# Passing unittest args runs only the targeted frigate tests.
 set -uo pipefail
 
 image="${FORK_TEST_IMAGE:-frigate-fork-test}"
+# Discovery roots outside frigate/, shared with CI and the Makefile.
+fork_test_dirs="$(fork/scripts/targets.sh py-test-dirs)"
+# fork/scripts tests that run inside the image, so their coverage reaches Sonar.
+fork_script_tests="$(fork/scripts/targets.sh py-script-tests)"
 logs="$(mktemp -d)"
 trap 'rm -rf "$logs"' EXIT
 
@@ -21,16 +29,34 @@ start() {
   return 0
 }
 
+# The frigate suite plus the fork's own roots, in one container. Unittest args
+# (make test-py TESTS=...) target the frigate suite only.
+unittest_plain() {
+  if (($#)); then
+    docker run --rm "$image" "$@"
+    return $?
+  fi
+  docker run --rm --entrypoint python3 "$image" -c "
+import subprocess, sys
+r = subprocess.call([sys.executable, '-m', 'unittest'])
+for directory in '${fork_test_dirs}'.split():
+    result = subprocess.call([sys.executable, '-m', 'unittest', 'discover', '-s', directory])
+    r = r or result
+sys.exit(r)
+"
+  return $?
+}
+
 # unittest under coverage in a named container, so the report can be copied out.
 unittest_with_coverage() {
   local container="fork-py-cov-$$" rc
   docker run --name "$container" --entrypoint python3 "$image" -c "
 import subprocess, sys
 r = subprocess.call([sys.executable, '-m', 'coverage', 'run', '-m', 'unittest'])
-for pattern in ('test_sonar_coverage.py', 'test_release_notes.py'):
+for pattern in '${fork_script_tests}'.split():
     script_result = subprocess.call([sys.executable, '-m', 'coverage', 'run', '--append', '-m', 'unittest', 'discover', '-s', 'fork/scripts', '-p', pattern])
     r = r or script_result
-for directory in ('fork/audio_trial', 'fork/audio_trial/benchmarks', 'fork/monitoring'):
+for directory in '${fork_test_dirs}'.split():
     result = subprocess.call([sys.executable, '-m', 'coverage', 'run', '--append', '-m', 'unittest', 'discover', '-s', directory])
     r = r or result
 subprocess.call([sys.executable, '-m', 'coverage', 'report'])
@@ -49,7 +75,7 @@ start api-spec docker run --rm --entrypoint python3 "$image" generate_api_auth_s
 if [[ -n "${COVERAGE_XML:-}" ]]; then
   (unittest_with_coverage >"$logs/unittest.log" 2>&1; echo $? >"$logs/unittest.rc") &
 else
-  start unittest docker run --rm "$image" "$@"
+  start unittest unittest_plain "$@"
 fi
 wait
 

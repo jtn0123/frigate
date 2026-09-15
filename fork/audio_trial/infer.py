@@ -4,7 +4,9 @@ import argparse
 import json
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import ctranslate2  # noqa: F401  # Load before ONNX Runtime.
 import numpy as np
@@ -16,7 +18,7 @@ from model_cache import resolve_model
 from telemetry import Stage
 
 
-def classify(path: str) -> list[dict]:
+def classify(path: str) -> list[dict[str, Any]]:
     """Score short windows against sound descriptions, retaining raw similarities."""
     import torch
     from transformers import ClapModel, ClapProcessor
@@ -53,7 +55,7 @@ def classify(path: str) -> list[dict]:
 class Checkpoint:
     """Persist completed stages so retries do not repeat successful inference."""
 
-    def __init__(self, result: dict, path: str | None):
+    def __init__(self, result: dict[str, Any], path: str | None) -> None:
         self.result = result
         self.path = Path(path) if path else None
         if self.path and self.path.exists():
@@ -65,14 +67,14 @@ class Checkpoint:
             result.update(previous)
             result.pop("interrupted", None)
 
-    def save(self):
+    def save(self) -> None:
         """Atomically replace the durable output after each stage transition."""
         if self.path:
             temporary = self.path.with_suffix(".tmp")
             temporary.write_text(json.dumps(self.result, ensure_ascii=False))
             temporary.replace(self.path)
 
-    def run(self, name, operation):
+    def run(self, name: str, operation: Callable[[], Any]) -> Any:
         """Retry a failed stage once, or reuse a completed persisted output."""
         result = self.result
         completed = {
@@ -104,7 +106,7 @@ class Checkpoint:
         return None
 
 
-def load_whisper(size):
+def load_whisper(size: str) -> WhisperModel:
     """Load only the verified local CPU model with the production thread limit."""
     with Stage(size, loading=True):
         return WhisperModel(
@@ -117,9 +119,15 @@ def load_whisper(size):
         )
 
 
-def whisper_text(model, audio, size, language=None, translate=False):
+def whisper_text(
+    model: WhisperModel,
+    audio: Any,
+    size: str,
+    language: str | None = None,
+    translate: bool = False,
+) -> Any:
     """Run one speech stage while retaining the detected language."""
-    options = {
+    options: dict[str, Any] = {
         "language": language,
         "beam_size": 5,
         "vad_filter": True,
@@ -133,7 +141,7 @@ def whisper_text(model, audio, size, language=None, translate=False):
     return text if translate else (text, info.language)
 
 
-def analyze_speech(audio, size, checkpoint):
+def analyze_speech(audio: Any, size: str, checkpoint: "Checkpoint") -> None:
     """Preserve transcription before optional translation begins."""
     model = checkpoint.run("load", lambda: load_whisper(size))
     if model is None:
@@ -158,7 +166,7 @@ def analyze_speech(audio, size, checkpoint):
     checkpoint.save()
 
 
-def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
+def analyze(path: str, size: str, checkpoint: str | None = None) -> dict[str, Any]:
     """Filter nonspeech, transcribe speech, and translate non-English speech."""
     started = time.monotonic()
     audio = decode_audio(path, sampling_rate=16000)

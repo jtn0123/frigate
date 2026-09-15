@@ -15,6 +15,7 @@ import urllib.parse
 import urllib.request
 from contextlib import ExitStack
 from pathlib import Path
+from typing import Any
 
 from failures import AudioFailure, cause, save_failure
 from failures import stage as failure_stage
@@ -29,21 +30,38 @@ CAMERAS = os.environ.get("CAMERAS", "doorbell").split(",")
 METRICS: Telemetry | None = None
 
 
-def read_json(endpoint: str) -> dict | list:
+def read_json(endpoint: str) -> dict[str, Any] | list[Any]:
     """Read Frigate without modifying events, configuration, or notifications."""
     with urllib.request.urlopen(API + endpoint, timeout=10) as response:
-        return json.load(response)
+        data: dict[str, Any] | list[Any] = json.load(response)
+        return data
+
+
+def read_json_object(endpoint: str) -> dict[str, Any]:
+    """An endpoint that must answer with an object; anything else fails closed."""
+    data = read_json(endpoint)
+    if not isinstance(data, dict):
+        raise ValueError(f"{endpoint} did not return an object")
+    return data
+
+
+def read_json_list(endpoint: str) -> list[Any]:
+    """An endpoint that must answer with a list; anything else fails closed."""
+    data = read_json(endpoint)
+    if not isinstance(data, list):
+        raise ValueError(f"{endpoint} did not return a list")
+    return data
 
 
 def memory_available() -> int:
     """Read the LXC's shared memory budget, including sibling Frigate usage."""
     root = Path("/host-cgroup")
-    limit = (root / "memory.max").read_text().strip()
+    configured = (root / "memory.max").read_text().strip()
     current = int((root / "memory.current").read_text())
     # lxcfs renders even bind-mounted meminfo for the calling Docker cgroup.
     # Use the Proxmox-verified parent limit when its ancestor is not visible.
     total = int(os.environ["PARENT_MEMORY_LIMIT_BYTES"])
-    limit = total if limit == "max" else min(total, int(limit))
+    limit = total if configured == "max" else min(total, int(configured))
     # Count reclaimable file cache, but preserve active allocations and a reserve.
     values = {
         key: int(value)
@@ -58,7 +76,7 @@ def memory_available() -> int:
 def health(large: bool = False) -> str:
     """Fail closed if health or the shared memory limit cannot be checked."""
     try:
-        config = read_json("/config")
+        config = read_json_object("/config")
         if any(
             config.get("cameras", {})
             .get(camera, {})
@@ -67,7 +85,7 @@ def health(large: bool = False) -> str:
             for camera in CAMERAS
         ):
             return "transcription ownership conflict"
-        return health_reason(read_json("/stats"), memory_available(), large)
+        return health_reason(read_json_object("/stats"), memory_available(), large)
     except (OSError, ValueError, KeyError, RuntimeError):
         return "health check unavailable"
 
@@ -76,7 +94,7 @@ def running_health_reason() -> str:
     """Check camera pressure and the remaining reserve during inference."""
     # Model memory is already allocated, so check only camera load and reserve.
     try:
-        reason = health_reason(read_json("/stats"), 100 * 1024**3)
+        reason = health_reason(read_json_object("/stats"), 100 * 1024**3)
         if memory_available() < 512 * 1024**2:
             return "memory reserve low"
         return reason
@@ -84,7 +102,7 @@ def running_health_reason() -> str:
         return "health unavailable"
 
 
-def stop_inference(process: subprocess.Popen) -> None:
+def stop_inference(process: "subprocess.Popen[bytes]") -> None:
     """Reap an unfinished inference process, escalating after a bounded wait."""
     if process.poll() is not None:
         return
@@ -96,7 +114,7 @@ def stop_inference(process: subprocess.Popen) -> None:
         process.wait()
 
 
-def wait_for_inference(process) -> None:
+def wait_for_inference(process: "subprocess.Popen[bytes]") -> None:
     """Prioritize camera health and bound a child process lifetime."""
     start = time.monotonic()
     busy_checks = 0
@@ -115,7 +133,7 @@ def wait_for_inference(process) -> None:
         raise RuntimeError(f"inference exited {process.returncode}")
 
 
-def infer(audio: Path, output: Path, model: str) -> dict:
+def infer(audio: Path, output: Path, model: str) -> dict[str, Any]:
     """Bound inference time and stop optional work during sustained camera stress."""
     best_effort(STAGE_FILE.unlink)(missing_ok=True)
     checkpoint = output.with_suffix(".checkpoint.json")
@@ -142,7 +160,7 @@ def infer(audio: Path, output: Path, model: str) -> dict:
             wait_for_inference(process)
         except RuntimeError as error:
             if checkpoint.exists():
-                result = json.loads(checkpoint.read_text())
+                result: dict[str, Any] = json.loads(checkpoint.read_text())
                 result["status"] = "partial analysis; interrupted; unverified"
                 result["interrupted"] = True
                 for name, stage in result.get("stages", {}).items():
@@ -162,7 +180,7 @@ def infer(audio: Path, output: Path, model: str) -> dict:
     return record_failed_stages(result)
 
 
-def record_failed_stages(result: dict) -> dict:
+def record_failed_stages(result: dict[str, Any]) -> dict[str, Any]:
     """Record partial stage failures even when the inference process exits cleanly."""
     for name, stage in result.get("stages", {}).items():
         if stage.get("status") == "failed":
@@ -174,7 +192,7 @@ def record_failed_stages(result: dict) -> dict:
     return result
 
 
-def download_audio(job: dict, directory: Path) -> Path:
+def download_audio(job: dict[str, Any], directory: Path) -> Path:
     """Fetch a bounded recording clip and decode its audio into temporary storage."""
     camera = urllib.parse.quote(job["camera"], safe="")
     endpoint = f"/{camera}/start/{job['start']}/end/{job['end']}/clip.mp4"
@@ -265,7 +283,9 @@ def write_status(queue: Queue, status: str) -> None:
         METRICS.sample()
 
 
-def settle_interrupted(queue: Queue, job: dict, result: dict) -> None:
+def settle_interrupted(
+    queue: Queue, job: dict[str, Any], result: dict[str, Any]
+) -> None:
     """Requeue an interrupted Medium run, or keep its partial result (D36)."""
     if STOP.is_set():
         # A service stop is not the job's fault, so it keeps its retry.
@@ -277,7 +297,7 @@ def settle_interrupted(queue: Queue, job: dict, result: dict) -> None:
         queue.finish(job, time.time(), result)
 
 
-def process_job(queue: Queue, job: dict) -> None:
+def process_job(queue: Queue, job: dict[str, Any]) -> None:
     """Run Medium first and preserve both outputs if a bounded retry is possible."""
     with tempfile.TemporaryDirectory(prefix="audio-") as directory:
         root = Path(directory)
@@ -343,7 +363,7 @@ def poll_reviews(queue: Queue) -> None:
             "limit": 500,
         }
     )
-    queue.enqueue(read_json("/review?" + params), time.time(), CAMERAS)
+    queue.enqueue(read_json_list("/review?" + params), time.time(), CAMERAS)
 
 
 def process_pending(queue: Queue) -> bool:

@@ -314,6 +314,7 @@ function ExploreThumbnailImage({
         >
           <img
             ref={imgRef}
+            decoding="async"
             className={cn(
               "absolute size-full cursor-pointer rounded-lg object-cover transition-all duration-300 ease-in-out lg:rounded-2xl",
               !imgLoaded && "invisible",

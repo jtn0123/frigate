@@ -3,8 +3,10 @@
 //   - unused vars/args/caught errors are allowed when prefixed with "_"
 //   - prettier disagreements are errors (they were warnings before)
 //   - dist, *.d.ts and the vendored src/components/ui are not linted
-// jsx-a11y is new here and reports warnings only while the callsites are
-// brought into line.
+// jsx-a11y rules are errors: every recommended rule reported zero findings
+// once the callsites were brought into line (C2, then the September static
+// analysis rounds), so new inaccessible markup fails the build instead of
+// adding to a warning pile nobody reads (C9).
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -22,11 +24,12 @@ const unusedVarsOptions = {
   caughtErrorsIgnorePattern: "^_",
 };
 
-// Every jsx-a11y recommended rule, downgraded to a warning.
-const jsxA11yWarnings = Object.fromEntries(
+// Every jsx-a11y recommended rule, as an error, keeping each rule's own
+// options. Two rules below need wider options than the preset's defaults.
+const jsxA11yErrors = Object.fromEntries(
   Object.entries(jsxA11y.flatConfigs.recommended.rules).map(([name, level]) => [
     name,
-    Array.isArray(level) ? ["warn", ...level.slice(1)] : "warn",
+    Array.isArray(level) ? ["error", ...level.slice(1)] : "error",
   ]),
 );
 
@@ -42,6 +45,7 @@ export default tseslint.config(
       "src/components/ui/**",
       // fork: vendored QR encoder (uqr), kept byte-for-byte
       "src/lib/fork/qr-encode.ts",
+      // fork: generated from the API spec by scripts/fork/gen-api-types.mjs
       "src/types/fork/api.gen.ts",
     ],
   },
@@ -62,12 +66,12 @@ export default tseslint.config(
       "jsx-a11y": jsxA11y,
     },
     rules: {
-      ...jsxA11yWarnings,
+      ...jsxA11yErrors,
       // The deprecated rule requires both nesting and htmlFor. Either is
       // sufficient; recognize the labelable Radix controls used by our forms.
       "jsx-a11y/label-has-for": "off",
       "jsx-a11y/label-has-associated-control": [
-        "warn",
+        "error",
         {
           controlComponents: [
             "Input",
@@ -80,7 +84,7 @@ export default tseslint.config(
         },
       ],
       "jsx-a11y/control-has-associated-label": [
-        "warn",
+        "error",
         {
           ...jsxA11y.flatConfigs.recommended.rules[
             "jsx-a11y/control-has-associated-label"
