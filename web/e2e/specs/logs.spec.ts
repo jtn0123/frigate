@@ -458,7 +458,7 @@ test.describe("Logs: history reads (UI84) @medium", () => {
   );
 });
 
-test.describe("Logs — copy reads the log (UI83) @medium @mobile", () => {
+test.describe("Logs: copy reads the log (UI83) @medium @mobile", () => {
   test.use({ expectedErrors: [/500.*\/api\/logs\/frigate/] });
 
   /** Serves the n-th log read from `reads`; null answers with a 500. */
