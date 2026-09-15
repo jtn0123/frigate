@@ -110,6 +110,64 @@ test.describe("Zone editing @high", () => {
     });
   });
 
+  // UI91: the name was only sent when it differed from the zone id and a
+  // save merges into the zone, so setting it back to the id kept the old one.
+  test("Setting a zone's name back to its ID removes the saved name @mobile", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    await frigateApp.installDefaults({
+      config: {
+        cameras: {
+          front_door: {
+            zones: {
+              driveway: {
+                coordinates: "0.1,0.1,0.5,0.1,0.5,0.5,0.1,0.5",
+                enabled: true,
+                enabled_in_config: true,
+                filters: {},
+                inertia: 3,
+                loitering_time: 0,
+                objects: [],
+                distances: [],
+                color: [0, 255, 0],
+                friendly_name: "Front Yard",
+              },
+            },
+          },
+        },
+      },
+    });
+    const { saved } = await installZoneRoutes(page);
+    await frigateApp.goto("/settings?page=masksAndZones&camera=front_door");
+
+    const row = page.locator("[data-index]").filter({ hasText: "Front Yard" });
+    if (frigateApp.isMobile) {
+      await row.getByRole("button").last().click();
+      await page.getByRole("menuitem", { name: "Edit" }).click();
+    } else {
+      await row.hover();
+      await row.locator("div.absolute > div").first().click();
+    }
+    await expect(
+      page.getByRole("heading", { name: "Edit Zone" }),
+    ).toBeVisible();
+    await page.getByLabel("Name", { exact: true }).fill("driveway");
+    await page.getByRole("button", { name: /^Save$/i }).click();
+
+    await expect(
+      page.getByText("Zone (driveway) has been saved."),
+    ).toBeVisible();
+    expect(saved).toHaveLength(1);
+    const query = new URL(saved.at(0)?.url ?? "").searchParams;
+    expect(query.has("cameras.front_door.zones.driveway.friendly_name")).toBe(
+      true,
+    );
+    expect(query.get("cameras.front_door.zones.driveway.friendly_name")).toBe(
+      "",
+    );
+  });
+
   test.describe("mobile", () => {
     // Skip on desktop: this case is the mobile unfinished-polygon path.
     test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile validation");
