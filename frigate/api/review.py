@@ -214,7 +214,8 @@ def review_summary(
     labels = params.labels
     zones = params.zones
 
-    clauses = [(ReviewSegment.start_time > day_ago)]
+    # the last 24 hours and the per-day counts share these filters
+    clauses = []
 
     if cameras != "all":
         requested = set(cameras.split(","))
@@ -310,34 +311,10 @@ def review_summary(
                 & (UserReviewStatus.user_id == user_id)
             ),
         )
-        .where(reduce(operator.and_, clauses))
+        .where(reduce(operator.and_, [ReviewSegment.start_time > day_ago, *clauses]))
         .dicts()
         .get()
     )
-
-    clauses = []
-
-    if cameras != "all":
-        requested = set(cameras.split(","))
-        filtered = requested.intersection(allowed_cameras)
-        if not filtered:
-            return JSONResponse(content={})
-        camera_list = list(filtered)
-    else:
-        camera_list = allowed_cameras
-    clauses.append(ReviewSegment.camera << camera_list)
-
-    if labels != "all":
-        # use matching so segments with multiple labels
-        # still match on a search where any label matches
-        label_clauses = []
-        filtered_labels = labels.split(",")
-
-        for label in filtered_labels:
-            label_clauses.append(
-                ReviewSegment.data["objects"].cast("text") % f'*"{label}"*'
-            )
-        clauses.append(reduce(operator.or_, label_clauses))
 
     # Find the time range of available data
     time_range_query = (

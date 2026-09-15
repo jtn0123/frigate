@@ -466,6 +466,30 @@ class TestHttpReview(BaseTestHttp):
             }
             self.assertEqual(response_json, expected_response)
 
+    def test_get_review_summary_days_use_the_same_filters_as_last_24_hours(self):
+        now = datetime.now().timestamp()
+        segments = {
+            "driveway_person": {"objects": ["person"], "zones": ["driveway"]},
+            "porch_person": {"objects": ["person"], "zones": ["porch"]},
+            "driveway_speech": {"audio": ["speech"], "zones": ["driveway"]},
+        }
+        for id, data in segments.items():
+            super().insert_mock_review_segment(id, now, now + 10, data=data)
+
+        with AuthTestClient(self.app) as client:
+            for params, expected in (
+                ({"zones": "driveway"}, 2),
+                ({"labels": "speech"}, 1),
+            ):
+                response = client.get(
+                    "/review/summary", params={**params, "timezone": "utc"}
+                )
+                assert response.status_code == 200
+                response_json = response.json()
+                days = [v for k, v in response_json.items() if k != "last24Hours"]
+                assert response_json["last24Hours"]["total_alert"] == expected
+                assert sum(day["total_alert"] for day in days) == expected, params
+
     ####################################################################################################################
     ###################################  POST reviews/viewed Endpoint   ################################################
     ####################################################################################################################
