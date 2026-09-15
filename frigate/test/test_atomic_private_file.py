@@ -114,6 +114,10 @@ class TestPrivateRuntimeDirectory(unittest.TestCase):
             path = Path(directory) / "cache"
             path.mkdir(mode=0o755)
             with patch("frigate.util.atomic.os.geteuid", return_value=-1):
-                with self.assertRaises(PermissionError):
+                # The prepare step logs this line, so it has to name both UIDs.
+                with self.assertRaisesRegex(
+                    PermissionError,
+                    rf"{path} is owned by UID {os.getuid()}, not by UID -1",
+                ):
                     ensure_private_directory(path)
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755)

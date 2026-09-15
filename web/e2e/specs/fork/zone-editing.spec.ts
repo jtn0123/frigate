@@ -39,6 +39,77 @@ test.describe("Zone editing @high", () => {
     ).toBeDisabled();
   });
 
+  test("Renaming a zone writes the whole rename in one request @mobile", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    await frigateApp.installDefaults({
+      config: {
+        cameras: {
+          front_door: {
+            zones: {
+              driveway: {
+                coordinates: "0.1,0.1,0.5,0.1,0.5,0.5,0.1,0.5",
+                enabled: true,
+                enabled_in_config: true,
+                filters: {},
+                inertia: 3,
+                loitering_time: 0,
+                objects: [],
+                distances: [],
+                color: [0, 255, 0],
+              },
+            },
+          },
+        },
+      },
+    });
+    const { saved } = await installZoneRoutes(page);
+    await frigateApp.goto("/settings?page=masksAndZones&camera=front_door");
+
+    const row = page.locator("[data-index]").filter({ hasText: "driveway" });
+    if (frigateApp.isMobile) {
+      await row.getByRole("button").last().click();
+      await page.getByRole("menuitem", { name: "Edit" }).click();
+    } else {
+      await row.hover();
+      await row.locator("div.absolute > div").first().click();
+    }
+    await expect(
+      page.getByRole("heading", { name: "Edit Zone" }),
+    ).toBeVisible();
+    // an existing zone opens with its ID field already shown
+    await page.getByLabel("ID", { exact: true }).fill("front_drive");
+    await page.getByRole("button", { name: /^Save$/i }).click();
+
+    await expect(
+      page.getByText("Zone (driveway) has been saved."),
+    ).toBeVisible();
+    // Deleting the old zone and writing the new one used to be two requests,
+    // so a failed second write left the camera without the zone.
+    expect(saved).toHaveLength(1);
+    const request = saved.at(0);
+    expect(request?.url).toMatch(/\/api\/config\/set$/);
+    expect(request?.body).toMatchObject({
+      update_topic: "config/cameras/front_door/zones",
+      config_data: {
+        cameras: {
+          front_door: {
+            zones: {
+              driveway: null,
+              front_drive: {
+                coordinates: expect.stringMatching(/^[\d.,]+$/),
+                enabled: true,
+                inertia: 3,
+                loitering_time: 0,
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
   test.describe("mobile", () => {
     // Skip on desktop: this case is the mobile unfinished-polygon path.
     test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile validation");

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   eventTimesFromItems,
+  SNAP_SEGMENTS,
+  snapMaxDistance,
   snapToNearestEvent,
   stepToEvent,
   toUnixTime,
@@ -60,6 +62,24 @@ describe("snapToNearestEvent", () => {
   it("leaves the time alone when farther than maxDistance", () => {
     expect(snapToNearestEvent(250, events, 40)).toBe(250);
     expect(snapToNearestEvent(230, events, 40)).toBe(200);
+  });
+});
+
+describe("snapMaxDistance", () => {
+  it("reaches a few segments at every zoom level", () => {
+    expect(snapMaxDistance(30)).toBe(30 * SNAP_SEGMENTS);
+    expect(snapMaxDistance(5)).toBe(5 * SNAP_SEGMENTS);
+  });
+
+  it("keeps a release hours from any review where it was dropped", () => {
+    const review = 9 * 3600 + 12 * 60;
+    const release = 14 * 3600 + 30 * 60;
+    expect(snapToNearestEvent(release, [review], snapMaxDistance(30))).toBe(
+      release,
+    );
+    expect(snapToNearestEvent(review + 45, [review], snapMaxDistance(30))).toBe(
+      review,
+    );
   });
 });
 

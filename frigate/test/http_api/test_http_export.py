@@ -1103,6 +1103,57 @@ class TestHttpExport(BaseTestHttp):
         start_export_job.assert_not_called()
         assert Export.select().count() == 0
 
+    def test_custom_export_non_admin_cannot_attach_to_existing_case(self):
+        """The custom (timelapse) route takes export_case_id too, so it needs
+        the same admin gate as /export and /exports/batch.
+        """
+        self._insert_recording("rec-front", "front_door", 100, 400)
+        ExportCase.create(
+            id="admins_only_case",
+            name="Admins only",
+            description="",
+            created_at=10,
+            updated_at=10,
+        )
+
+        with patch(
+            "frigate.api.export.start_export_job",
+            side_effect=lambda _config, job: job.id,
+        ) as start_export_job:
+            with AuthTestClient(self.app) as client:
+                response = client.post(
+                    "/export/custom/front_door/start/110/end/150",
+                    headers={"remote-user": "viewer", "remote-role": "viewer"},
+                    json={"export_case_id": "admins_only_case"},
+                )
+
+        assert response.status_code == 403
+        start_export_job.assert_not_called()
+        assert Export.select().count() == 0
+
+    def test_custom_export_admin_can_attach_to_existing_case(self):
+        self._insert_recording("rec-front", "front_door", 100, 400)
+        ExportCase.create(
+            id="shared_case",
+            name="Shared",
+            description="",
+            created_at=10,
+            updated_at=10,
+        )
+
+        with patch(
+            "frigate.api.export.start_export_job",
+            side_effect=lambda _config, job: job.id,
+        ) as start_export_job:
+            with AuthTestClient(self.app) as client:
+                response = client.post(
+                    "/export/custom/front_door/start/110/end/150",
+                    json={"export_case_id": "shared_case"},
+                )
+
+        assert response.status_code == 202
+        assert start_export_job.call_args.args[1].export_case_id == "shared_case"
+
     def test_single_export_non_admin_can_still_export_without_case(self):
         """Regression guard: the admin gate only applies to export_case_id,
         not to single exports in general. Non-admins should still be able

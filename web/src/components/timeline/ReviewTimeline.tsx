@@ -20,7 +20,11 @@ import { useTranslation } from "react-i18next";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { isForkEnabled } from "@/fork/flags";
-import { snapToNearestEvent, stepToEvent } from "@/lib/fork/timeline-scrubber";
+import {
+  snapMaxDistance,
+  snapToNearestEvent,
+  stepToEvent,
+} from "@/lib/fork/timeline-scrubber";
 
 export type ReviewTimelineProps = {
   timelineRef: RefObject<HTMLDivElement | null>;
@@ -370,10 +374,23 @@ export function ReviewTimeline({
       eventTimes &&
       eventTimes.length > 0
     ) {
-      setHandlebarTime((current) => snapToNearestEvent(current, eventTimes));
+      // fork (UI73): only snap when the release lands near an event
+      setHandlebarTime((current) =>
+        snapToNearestEvent(
+          current,
+          eventTimes,
+          snapMaxDistance(segmentDuration),
+        ),
+      );
     }
     wasDraggingHandlebar.current = isDraggingHandlebar;
-  }, [eventTimes, isDraggingHandlebar, scrubberEnabled, setHandlebarTime]);
+  }, [
+    eventTimes,
+    isDraggingHandlebar,
+    scrubberEnabled,
+    segmentDuration,
+    setHandlebarTime,
+  ]);
 
   const minTime = timelineStartAligned - timelineDuration;
   const maxTime = timelineStartAligned;

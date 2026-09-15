@@ -15,11 +15,15 @@ import type { RJSFSchema } from "@rjsf/utils";
 import type { FrigateConfig } from "@/types/frigateConfig";
 import type { ConfigSectionData } from "@/types/configForm";
 import {
+  buildHiddenFieldContext,
   flattenOverrides,
   getBaseCameraSectionValue,
+  getSectionConfig,
   mergeProfileOverrides,
   parseProfileFromSectionPath,
   prepareSectionSavePayload,
+  resolveHiddenFieldEntries,
+  sanitizeSectionData,
 } from "@/utils/configUtil";
 import { maskCredentials } from "@/utils/credentialMask";
 
@@ -131,6 +135,65 @@ function go2rtcDiff(
   };
 }
 
+function isSectionData(value: unknown): value is ConfigSectionData {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * `detectors` or `model` as Save All writes it: without the fields the forms
+ * hide. /api/config adds runtime fields to both (colormap, attribute lists,
+ * Frigate+ data, each detector's merged labelmap) that Save All never writes.
+ */
+function savedForm(
+  key: "detectors" | "model",
+  value: unknown,
+  config: FrigateConfig,
+): ConfigSectionData {
+  return sanitizeSectionData(
+    isSectionData(value) ? value : {},
+    resolveHiddenFieldEntries(
+      getSectionConfig(key, "global").hiddenFields,
+      buildHiddenFieldContext(config, "global"),
+    ),
+  );
+}
+
+function isPlusModel(path: unknown) {
+  return typeof path === "string" && path.startsWith("plus://");
+}
+
+/**
+ * Whether Save All clears `detectors` and `model` before writing them, as
+ * `handleSaveAll` does when a detector is added, removed or renamed, or the
+ * model switches between Frigate+ and a custom one. Otherwise it merges the
+ * pending data into the stored sections and keys it lacks stay as they are.
+ */
+function saveAllClearsDetectorsAndModel(
+  pending: PendingMap,
+  config: FrigateConfig,
+): boolean {
+  const sections = new Map(Object.entries(pending));
+  const detectors = sections.get("detectors");
+  if (detectors) {
+    const pendingNames = Object.keys(detectors);
+    const savedNames = new Set(
+      objectEntries(getUnknown(config, "detectors")).map(([name]) => name),
+    );
+    if (
+      pendingNames.length !== savedNames.size ||
+      pendingNames.some((name) => !savedNames.has(name))
+    ) {
+      return true;
+    }
+  }
+  const model = sections.get("model");
+  if (model) {
+    const path = getUnknown(savedForm("model", model, config), "path");
+    return isPlusModel(path) !== isPlusModel(getUnknown(config, "model.path"));
+  }
+  return false;
+}
+
 function schemaSectionDiff(
   pendingKey: string,
   pendingData: ConfigSectionData,
@@ -195,10 +258,18 @@ export function computeSettingsDiff(
 ): SettingsSectionDiff[] {
   if (!config) return [];
   const out: SettingsSectionDiff[] = [];
+  const clearsDetectorsAndModel = saveAllClearsDetectorsAndModel(
+    pending,
+    config,
+  );
 
   for (const [pendingKey, pendingData] of Object.entries(pending)) {
     if (pendingKey === "detectors" || pendingKey === "model") {
       // Owned by DetectorsAndModelSettingsView; Save All always restarts.
+      const changes = diffValues(
+        savedForm(pendingKey, getUnknown(config, pendingKey), config),
+        savedForm(pendingKey, pendingData, config),
+      );
       out.push({
         pendingKey,
         scope: "global",
@@ -206,7 +277,9 @@ export function computeSettingsDiff(
         profileName: undefined,
         section: pendingKey,
         needsRestart: true,
-        changes: diffValues(getUnknown(config, pendingKey), pendingData),
+        changes: clearsDetectorsAndModel
+          ? changes
+          : changes.filter((change) => change.newValue !== undefined),
       });
       continue;
     }

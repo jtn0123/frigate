@@ -775,8 +775,11 @@ class ReviewSegmentMaintainer(threading.Thread):
                             topic == DetectionTypeEnum.lpr
                             and self.config.cameras[camera].review.detections.enabled
                         ):
-                            current_segment.severity = SeverityEnum.detection
-                            current_segment.last_alert_time = manual_info["end_time"]
+                            # Fork (D32): a plate is a detection; it extends the
+                            # detection time and never downgrades an alert.
+                            current_segment.last_detection_time = manual_info[
+                                "end_time"
+                            ]
                     elif manual_info["state"] == ManualEventState.start:
                         self.indefinite_events[camera][manual_info["event_id"]] = (
                             manual_info["label"]
@@ -792,11 +795,6 @@ class ReviewSegmentMaintainer(threading.Thread):
                                 == SeverityEnum.alert
                             ):
                                 current_segment.severity = SeverityEnum.alert
-                        elif (
-                            topic == DetectionTypeEnum.lpr
-                            and self.config.cameras[camera].review.detections.enabled
-                        ):
-                            current_segment.severity = SeverityEnum.detection
 
                         # temporarily make it so this event can not end
                         current_segment.last_alert_time = sys.maxsize

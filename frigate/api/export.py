@@ -86,6 +86,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.export])
 
+CASE_ATTACH_ADMIN_ONLY = "Only admins can attach exports to an existing case."
+
 
 def _generate_id(length: int = 12) -> str:
     return generate_id(length)
@@ -656,7 +658,7 @@ def export_recordings_batch(
         return JSONResponse(
             content={
                 "success": False,
-                "message": "Only admins can attach exports to an existing case.",
+                "message": CASE_ATTACH_ADMIN_ONLY,
             },
             status_code=403,
         )
@@ -854,7 +856,7 @@ def export_recording(
         return JSONResponse(
             content={
                 "success": False,
-                "message": "Only admins can attach exports to an existing case.",
+                "message": CASE_ATTACH_ADMIN_ONLY,
             },
             status_code=403,
         )
@@ -978,7 +980,20 @@ def export_recording_custom(
     ffmpeg_output_args = body.ffmpeg_output_args
     cpu_fallback = body.cpu_fallback
 
+    # Admin users are trusted: they may attach to a case and skip the ffmpeg
+    # argument validation below.
+    is_admin = request.headers.get("remote-role", "") == "admin"
+
     export_case_id = body.export_case_id
+    if export_case_id is not None and not is_admin:
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": CASE_ATTACH_ADMIN_ONLY,
+            },
+            status_code=403,
+        )
+
     case_validation_error = _validate_export_case(export_case_id)
     if case_validation_error is not None:
         return case_validation_error
@@ -996,9 +1011,6 @@ def export_recording_custom(
         )
 
     # Validate user-provided ffmpeg args to prevent injection.
-    # Admin users are trusted and skip validation.
-    is_admin = request.headers.get("remote-role", "") == "admin"
-
     if not is_admin:
         for args_label, args_value in [
             ("input", ffmpeg_input_args),

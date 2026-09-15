@@ -1,4 +1,5 @@
 import { useUnsavedNavigation } from "@/hooks/use-unsaved-navigation";
+import { usePruneSettingsState } from "@/hooks/fork/use-prune-settings-state";
 import { sortedStrings } from "@/utils/stringSort";
 import { wrapAsync } from "@/utils/promise";
 import {
@@ -696,6 +697,8 @@ export default function Settings() {
     Record<string, string | null>
   >({});
   const [profilesUIEnabled, setProfilesUIEnabled] = useState(false);
+  // Fork (UI78): edits for a deleted profile or camera are dropped
+  usePruneSettingsState(config, setEditingProfile, setPendingDataBySection);
 
   const allProfileNames = useMemo(() => {
     if (!config?.profiles) return [];

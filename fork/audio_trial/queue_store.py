@@ -161,6 +161,16 @@ class Queue:
         self.db.commit()
         self.publish(job)
 
+    def release(self, job: dict, now: float) -> None:
+        """Requeue work stopped by a service shutdown without spending its retry."""
+        self.db.execute(
+            "UPDATE jobs SET state=CASE WHEN result IS NULL THEN 'pending' "
+            "ELSE 'second_opinion' END,attempts=MAX(0,attempts-1),updated=? "
+            "WHERE id=?",
+            (now, job["id"]),
+        )
+        self.db.commit()
+
     def checkpoint(self, job: dict, now: float, result: dict) -> None:
         """Persist Medium while leaving in-flight work recoverable on restart."""
         self.db.execute(

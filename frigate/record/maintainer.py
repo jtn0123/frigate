@@ -36,6 +36,7 @@ from frigate.const import (
 )
 from frigate.models import Recordings, ReviewSegment
 from frigate.record.cache_tracker import CacheFileTracker
+from frigate.record.move_failures import MoveFailures
 from frigate.review.types import SeverityEnum
 from frigate.util.identifiers import random_id as generate_id
 from frigate.util.services import get_video_properties
@@ -105,6 +106,8 @@ class RecordingMaintainer(threading.Thread):
         self.end_time_cache: dict[str, tuple[datetime.datetime, float]] = {}
         self.unexpected_cache_files_logged: bool = False
         self.cache_tracker = CacheFileTracker()
+        # Fork (D31): segments that keep failing to move are dropped
+        self.move_failures = MoveFailures()
 
     async def move_files(self) -> None:
         cache_files = [
@@ -158,6 +161,7 @@ class RecordingMaintainer(threading.Thread):
                 )
 
         files_in_use = self.cache_tracker.files_in_use(cache_files)
+        self.move_failures.keep_only(os.path.join(CACHE_DIR, c) for c in cache_files)
 
         # group recordings by camera (skip in-use for validation/moving)
         grouped_recordings: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -662,6 +666,8 @@ class RecordingMaintainer(threading.Thread):
                     logger.error(f"Unable to convert {cache_path} to {file_path}")
                     if stderr:
                         logger.error(stderr.decode("utf-8", errors="replace"))
+                    if self.move_failures.failed(cache_path):
+                        self.drop_segment(cache_path)
                     return None
                 else:
                     logger.debug(
@@ -711,6 +717,8 @@ class RecordingMaintainer(threading.Thread):
         except Exception:
             logger.error(f"Unable to store recording segment {cache_path}")
             logger.exception("Failed to synchronize recordings")
+            if self.move_failures.failed(cache_path):
+                self.drop_segment(cache_path)
         finally:
             try:
                 Path(temporary_path).unlink(missing_ok=True)

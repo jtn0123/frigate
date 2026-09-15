@@ -239,6 +239,41 @@ class WorkerTests(unittest.TestCase):
         )
 
     @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
+    @patch.object(
+        worker, "infer", return_value={"transcript": "partial", "interrupted": True}
+    )
+    def test_interrupted_inference_retries_once_then_keeps_partial_result(self, *_):
+        worker.process_job(self.queue, self.job)
+        row = self.queue.recent()[0]
+        self.assertEqual((row["state"], row["result"]), ("pending", None))
+        self.assertTrue(any((self.root / "checkpoints").iterdir()))
+        retry = self.queue.claim(1100)
+        self.assertEqual(retry["attempts"], 1)
+        worker.process_job(self.queue, retry)
+        row = self.queue.recent()[0]
+        self.assertEqual(row["state"], "done")
+        self.assertEqual(json.loads(row["result"])["transcript"], "partial")
+
+    @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
+    @patch.object(worker, "infer", return_value={"interrupted": True})
+    @patch.object(worker.STOP, "is_set", return_value=True)
+    def test_shutdown_interruption_does_not_spend_the_retry(self, *_):
+        worker.process_job(self.queue, self.job)
+        row = self.queue.recent()[0]
+        self.assertEqual((row["state"], row["attempts"]), ("pending", 0))
+
+    @patch.object(worker, "health", return_value="")
+    @patch.object(worker, "write_status")
+    @patch.object(worker, "process_job", side_effect=RuntimeError("worker stopping"))
+    @patch.object(worker.STOP, "is_set", return_value=True)
+    def test_shutdown_failure_does_not_spend_the_retry(self, *_):
+        self.queue.db.execute("UPDATE jobs SET state='pending',attempts=0")
+        self.assertTrue(worker.process_pending(self.queue))
+        row = self.queue.recent()[0]
+        self.assertEqual((row["state"], row["attempts"]), ("pending", 0))
+        self.assertFalse((self.root / "last-failure.json").exists())
+
+    @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
     @patch.object(worker, "health", return_value="insufficient spare memory")
     @patch.object(worker, "infer", return_value={"speech_seconds": 3, "transcript": ""})
     def test_memory_pressure_prevents_large_model_load(self, infer, *_):

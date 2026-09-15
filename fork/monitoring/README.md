@@ -90,6 +90,9 @@ segments, not playback integrity or every historical gap. Missing measurements
 cannot establish recovery. Stats older than 90 seconds and dashboard snapshots
 older than 60 seconds show unknown status. Sustained-threshold counters restart
 with the collector; persisted incidents require valid measurements to resolve.
+A camera or container that a fresh sample no longer lists (disabled or removed)
+resolves its incidents and loses its counters, and a stats gap restarts the
+20-second capture grace.
 
 Evidence contains GPU measurements, per-camera rates and recording freshness,
 container restarts/OOM state, safe audio failure stages, and Ollama timings.

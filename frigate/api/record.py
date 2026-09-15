@@ -278,11 +278,8 @@ def no_recordings(
     if not camera_list:
         return JSONResponse(content=[])
 
-    before = params.before or datetime.datetime.now().timestamp()
-    after = (
-        params.after
-        or (datetime.datetime.now() - datetime.timedelta(hours=1)).timestamp()
-    )
+    before = params.before or datetime.now().timestamp()
+    after = params.after or (datetime.now() - timedelta(hours=1)).timestamp()
     scale = params.scale
 
     clauses = [

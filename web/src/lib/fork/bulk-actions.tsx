@@ -10,8 +10,22 @@ import axios from "axios";
 import i18n from "i18next";
 import { toast } from "sonner";
 import { isForkEnabled } from "@/fork/flags";
+import type { ReviewSegment } from "@/types/review";
 
 export const UNDO_TOAST_MS = 8000;
+
+/**
+ * The ids a mark would change. Undo reverts every id it was given, so it
+ * must only get these: an item that was already reviewed stays reviewed.
+ */
+export function changedReviewIds(
+  reviews: readonly ReviewSegment[],
+  reviewed: boolean,
+): string[] {
+  return reviews
+    .filter((review) => review.has_been_reviewed !== reviewed)
+    .map((review) => review.id);
+}
 
 export async function markReviewedWithUndo(
   ids: string[],

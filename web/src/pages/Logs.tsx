@@ -62,6 +62,9 @@ function Logs() {
   // toast carrying the raw JavaScript error; it now shows an error state
   const [loadError, setLoadError] = useState<unknown>(undefined);
   const lastFetchedIndexRef = useRef(-1);
+  // fork (UI84): set while an older range is read, so scrolling cannot ask
+  // for the same range twice
+  const fetchingHistoryRef = useRef(false);
 
   useEffect(() => {
     document.title = t("documentTitle.logs." + logService);
@@ -147,8 +150,11 @@ function Logs() {
       ) {
         const filteredLines = filterLines(response.data.lines);
         setLogs(filteredLines);
-        lastFetchedIndexRef.current =
-          response.data.totalLines - filteredLines.length;
+        // fork (UI82): a severity filter reads from the first line, so
+        // there is nothing older to fetch
+        lastFetchedIndexRef.current = filterSeverity
+          ? 0
+          : response.data.totalLines - filteredLines.length;
         return true;
       }
       // a 200 without { lines } (e.g. a proxy's HTML page) is not a log
@@ -298,42 +304,53 @@ function Logs() {
         if (
           scrollThreshold < pageSize + pageSize / 2 &&
           lastFetchedIndexRef.current > 0 &&
-          !isLoading
+          !fetchingHistoryRef.current
         ) {
           const nextEnd = lastFetchedIndexRef.current;
           const nextStart = Math.max(0, nextEnd - (pageSize || 100));
-          setIsLoading(true);
+          fetchingHistoryRef.current = true;
 
-          void fetchLogRange(nextStart, nextEnd).then((newLines) => {
-            if (newLines.length > 0) {
-              prependLines(newLines);
-              lastFetchedIndexRef.current = nextStart;
+          void fetchLogRange(nextStart, nextEnd)
+            .then((newLines) => {
+              if (newLines.length > 0) {
+                prependLines(newLines);
+                lastFetchedIndexRef.current = nextStart;
 
-              lazyLogRef.current?.listRef.current?.scrollTo(
-                newLines.length *
-                  lazyLogRef.current?.listRef.current?.getItemSize(1),
-              );
-            }
-          });
-
-          setIsLoading(false);
+                lazyLogRef.current?.listRef.current?.scrollTo(
+                  newLines.length *
+                    lazyLogRef.current?.listRef.current?.getItemSize(1),
+                );
+              }
+            })
+            .finally(() => {
+              fetchingHistoryRef.current = false;
+            });
         }
       }, 50),
-    [fetchLogRange, isLoading, prependLines],
+    [fetchLogRange, prependLines],
   );
 
+  // fork (UI83): copy reads the log itself. Re-running the page's load
+  // copied the lines from before it, and swapped the view for a spinner or,
+  // when the read failed, the error screen.
   const handleCopyLogs = useCallback(() => {
-    if (logs.length) {
-      fetchInitialLogs()
-        .then(() => {
-          copy(logs.join("\n"));
+    if (!logs.length) return;
+    axios
+      .get<{ lines?: string[] }>(`logs/${logService}`, {
+        params: { start: filterSeverity ? 0 : -100 },
+      })
+      .then((response) => {
+        const lines = response.data.lines;
+        if (Array.isArray(lines) && copy(filterLines(lines).join("\n"))) {
           toast.success(t("logs.copy.success"));
-        })
-        .catch(() => {
+        } else {
           toast.error(t("logs.copy.error"));
-        });
-    }
-  }, [logs, fetchInitialLogs, t]);
+        }
+      })
+      .catch(() => {
+        toast.error(t("logs.copy.error"));
+      });
+  }, [logs.length, logService, filterSeverity, filterLines, t]);
 
   const handleDownloadLogs = useCallback(() => {
     axios

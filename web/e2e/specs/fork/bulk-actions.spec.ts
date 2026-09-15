@@ -201,15 +201,105 @@ test.describe("Review mark-as-reviewed undo @high", () => {
       await expect(page.getByText(/2.*selected/i)).toBeVisible();
 
       await page.getByRole("button", { name: "Mark as reviewed" }).click();
-      await expect.poll(() => viewed.length).toBe(1);
-      expect(viewed.at(0)).toMatchObject({ reviewed: true });
-      expect(viewed.at(0)?.ids).toHaveLength(2);
-      await expect(page.getByText("2 items marked as reviewed")).toBeVisible();
+      await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
+      // the alert that was already reviewed is left alone, so Undo cannot
+      // unmark it (UI87)
+      expect(viewed).toEqual([{ ids: ["review-alert-001"], reviewed: true }]);
 
       await page.getByRole("button", { name: "Undo" }).click();
-      await expect.poll(() => viewed.length).toBe(2);
-      expect(viewed.at(1)).toEqual({ ids: viewed.at(0)?.ids, reviewed: false });
       await expect(page.getByText("Change undone")).toBeVisible();
+      expect(viewed.at(1)).toEqual({
+        ids: ["review-alert-001"],
+        reviewed: false,
+      });
+    },
+  );
+
+  test(
+    "marking the whole list with reviewed items shown undoes only the new ones",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const viewed: { ids: string[]; reviewed: boolean }[] = [];
+      await page.route("**/api/reviews/viewed", async (route) => {
+        viewed.push(route.request().postDataJSON());
+        await route.fulfill({ json: { success: true } });
+      });
+      await frigateApp.goto("/review");
+      await page.getByRole("switch", { name: /show reviewed/i }).click();
+      await expect(page.locator(".review-item")).toHaveCount(2, {
+        timeout: 10_000,
+      });
+
+      await page
+        .getByRole("button", { name: "Mark these items as reviewed" })
+        .click();
+      await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
+      expect(viewed).toEqual([{ ids: ["review-alert-001"], reviewed: true }]);
+
+      await page.getByRole("button", { name: "Undo" }).click();
+      await expect(page.getByText("Change undone")).toBeVisible();
+      expect(viewed.at(1)).toEqual({
+        ids: ["review-alert-001"],
+        reviewed: false,
+      });
+    },
+  );
+
+  test(
+    "Undo on a past day shows the items unreviewed again",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const counts = {
+        reviewed_alert: 1,
+        reviewed_detection: 0,
+        total_alert: 2,
+        total_detection: 2,
+      };
+      // the mock reviews are on 2026-06-05; cover the days around it so the
+      // browser's time zone does not matter
+      await page.route(/\/api\/review\/summary/, (route) =>
+        route.fulfill({
+          json: Object.fromEntries(
+            ["2026-06-04", "2026-06-05", "2026-06-06"].map((day) => [
+              day,
+              { day, ...counts },
+            ]),
+          ),
+        }),
+      );
+      await frigateApp.goto("/review");
+      // a date range, as the calendar sets it (UI80)
+      const reviewStart = 1780677009;
+      await page.evaluate(
+        ({ after, before }) => {
+          const state = history.state ?? {};
+          history.replaceState(
+            {
+              ...state,
+              usr: { ...state.usr, reviewFilter: { after, before } },
+            },
+            "",
+          );
+        },
+        { after: reviewStart - 6 * 3600, before: reviewStart + 3600 },
+      );
+      await page.reload();
+
+      const items = page.locator(".review-item");
+      await expect(items).toHaveCount(1, { timeout: 10_000 });
+      await page
+        .getByRole("button", { name: "Mark these items as reviewed" })
+        .click();
+      await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
+      await expect(items.locator(".bg-green-600")).toHaveCount(1);
+
+      await page.getByRole("button", { name: "Undo" }).click();
+      await expect(page.getByText("Change undone")).toBeVisible();
+      // the list is read again, so the item is no longer marked reviewed
+      await expect(items.locator(".bg-gray-500")).toHaveCount(1);
+      await expect(items.locator(".bg-green-600")).toHaveCount(0);
     },
   );
 

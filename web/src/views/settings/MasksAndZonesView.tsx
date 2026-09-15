@@ -667,6 +667,14 @@ export default function MasksAndZonesView({
     }
   }, [selectedCamera]);
 
+  // Fork (UI77): an open editor holds unsaved points and fields, so leaving
+  // asks first; closing the editor or leaving the view clears the flag.
+  useEffect(() => {
+    if (editPane === undefined) return;
+    setUnsavedChanges(true);
+    return () => setUnsavedChanges(false);
+  }, [editPane, setUnsavedChanges]);
+
   // Cancel editing when profile selection changes
   useEffect(() => {
     if (editPaneRef.current !== undefined) {
