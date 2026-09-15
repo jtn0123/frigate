@@ -21,6 +21,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ZoneFormValuesType, Polygon } from "@/types/canvas";
 import { reviewQueries } from "@/utils/zoneEdutUtil";
+import { zoneRename } from "@/lib/fork/zone-rename";
 import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import PolygonEditControls from "./PolygonEditControls";
@@ -403,6 +404,11 @@ export default function ZoneEditPane({
       let detectionQueries = "";
 
       const renamingZone = zoneName != polygon.name && polygon.name != "";
+      // Lists and profile overrides that name the zone follow it (UI66)
+      const rename =
+        renamingZone && !editingProfile
+          ? zoneRename(polygon.camera, cameraConfig, polygon.name, zoneName)
+          : undefined;
 
       if (renamingZone) {
         // rename - delete old zone and replace with new
@@ -433,7 +439,7 @@ export default function ZoneEditPane({
 
           try {
             await axios.put(
-              `config/set?${oldPathPrefix}${renameAlertQueries}${renameDetectionQueries}`,
+              `config/set?${oldPathPrefix}${renameAlertQueries}${renameDetectionQueries}${rename?.removals ?? ""}`,
               {
                 requires_restart: 0,
                 update_topic: `config/cameras/${polygon.camera}/zones`,
@@ -535,7 +541,7 @@ export default function ZoneEditPane({
 
       axios
         .put(
-          `config/set?${pathPrefix}.coordinates=${coordinates}${enabledQuery}${inertiaQuery}${loiteringTimeQuery}${speedThresholdQuery}${distancesQuery}${objectQueries}${friendlyNameQuery}${alertQueries}${detectionQueries}`,
+          `config/set?${pathPrefix}.coordinates=${coordinates}${enabledQuery}${inertiaQuery}${loiteringTimeQuery}${speedThresholdQuery}${distancesQuery}${objectQueries}${friendlyNameQuery}${alertQueries}${detectionQueries}${rename?.additions ?? ""}`,
           {
             requires_restart: 0,
             update_topic: updateTopic,
@@ -543,6 +549,22 @@ export default function ZoneEditPane({
         )
         .then((res) => {
           if (res.status === 200) {
+            if (rename?.profileData) {
+              // Profile overrides of the old zone go back under the new name;
+              // the backend accepts them only once the base zone exists.
+              void axios
+                .put("config/set", {
+                  requires_restart: 0,
+                  config_data: rename.profileData,
+                })
+                .then(() => updateConfig())
+                .catch(() => {
+                  toast.error(
+                    t("toast.save.error.noMessage", { ns: "common" }),
+                    { position: "top-center" },
+                  );
+                });
+            }
             toast.success(
               t("masksAndZones.zones.toast.success", {
                 zoneName: friendly_name || zoneName,
