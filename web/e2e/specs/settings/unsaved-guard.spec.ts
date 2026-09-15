@@ -116,3 +116,27 @@ test.describe("Trigger unsaved changes @high", () => {
     expect(prompts).toEqual([]);
   });
 });
+
+test.describe("Masks and zones unsaved changes @high", () => {
+  test("an open zone editor asks before leaving, and not once cancelled @mobile", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    await recordConfigSet(page);
+    await frigateApp.goto("/settings?page=masksAndZones");
+    await page.getByRole("button", { name: "Add Zone" }).click();
+    await expect(page.getByRole("heading", { name: "Add Zone" })).toBeVisible();
+
+    const prompts = recordPrompts(page);
+    await clickExport(page);
+    await expect.poll(() => prompts.length).toBe(1);
+    expect(prompts).toEqual(["confirm"]);
+    await expect(page).toHaveURL(/\/settings/);
+
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Add Zone" })).toBeHidden();
+    await clickExport(page);
+    await expect(page).toHaveURL(/\/export$/);
+    expect(prompts).toEqual(["confirm"]);
+  });
+});
