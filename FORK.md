@@ -35,9 +35,12 @@ Daily (and on `workflow_dispatch`), `.github/workflows/fork-upstream-sync.yml`
 fetches `blakeblackshear/frigate` read-only, fast-forwards `origin/dev`, and
 if `next` does not already contain `upstream/dev` it rebases a copy onto
 `sync/upstream` (never `next` or `main`) and opens or updates an issue. A new
-upstream `v*` tag after `v0.18.0-rc2` gets its own issue. `GITHUB_TOKEN`
-pushes do not trigger workflows, so the bot dispatches "Fork - Checks" on
-`sync/upstream`.
+upstream `v*` tag after `v0.18.0-rc2` gets its own issue. Upstream's commits
+change `.github/workflows`, which `GITHUB_TOKEN` may not push, so the pushes
+use the `FORK_SYNC_TOKEN` secret (contents and workflows write) when it is
+set, and a failed run opens an "Upstream sync failed" issue. A
+`FORK_SYNC_TOKEN` push starts "Fork - Checks" on `sync/upstream` by itself;
+a `GITHUB_TOKEN` push starts no workflows, so then the bot dispatches it.
 
 ## Divergences
 
@@ -145,3 +148,4 @@ pushes do not trigger workflows, so the bot dispatches "Fork - Checks" on
 | UI18 | web: install | `web/public/images/maskable-icon-512x512.png`; hunk in `web/site.webmanifest` | Android launchers need a maskable icon of at least 192 px; the manifest offered a 180 px one and declared the 96 px notification badge `maskable` instead of `monochrome`. Adds a 512 px maskable icon with the bird inside the safe zone, marks the badge `monochrome`, and adds `description` and `id` (`./`, which resolves to `start_url`, so existing installs keep their identity). The splash stays white because the bird is black; no service worker or screenshots | candidate |
 | UI58 | web: phones | `web/src/lib/fork/monaco-phone.ts`; hunk in `web/src/pages/ConfigEditor.tsx` | On a 412 px phone Monaco's minimap and gutters took a third of the width and long YAML lines scrolled sideways. Phones get word wrap, no minimap or folding gutter, and wider scrollbars. Flag `phoneFixes` | candidate |
 | D23 | web tests | `web/e2e/helpers/settings-phone.ts`; hunks in `web/e2e/scripts/lint-specs.mjs` (settings exemption removed) and the five `web/e2e/specs/settings/*.spec.ts` | The spec linter exempted `specs/settings/`, so none of those specs had a phone test and the banned-pattern checks never ran there. Each now has a `@mobile-only` test that opens its screen the way a phone user does and checks the controls fit the 412 px width. Lifting the exemption exposed a Frigate+ test that had never run (an `if (count > 0) … else test.skip` branch around a wrong button label) and a deep-link check that could not fail (wrong heading case); both now assert for real, and fixed `waitForTimeout` waits became real conditions | fork-only |
+| I18 | CI | hunks in `.github/workflows/fork-upstream-sync.yml` (`FORK_SYNC_TOKEN` checkout token, the bot's git identity, "Fork - Checks" dispatched only after a `GITHUB_TOKEN` push, an "Upstream sync failed" issue when a run fails) and the sync paragraph above | The daily sync failed on 2026-09-13 and 09-14 and `dev` fell 168 commits behind upstream: upstream's newer commits change `.github/workflows` (`actions/checkout` 7, `ci.yml`), and GitHub refuses a `GITHUB_TOKEN` push that changes workflow files, so `git push origin dev` failed before any issue was filed and the only sign was a red scheduled run. The pushes now use a `FORK_SYNC_TOKEN` secret (contents and workflows write) when it is set, and a failed run opens or comments on an "Upstream sync failed" issue. The rebase also had no git identity, which a hosted runner needs to replay commits. The owner has to add the secret. Found by a bug hunt | fork-only |
