@@ -2,7 +2,7 @@
 
 ## Versioned dependency images (second benchmark pass)
 
-The proposed follow-up uses two graphs: `docker/fork-dependencies.hcl` publishes
+The implementation uses two graphs: `docker/fork-dependencies.hcl` publishes
 the regular and ROCm runtime dependencies, and `docker/fork-runtime.hcl` adds
 Frigate to those images. `fork/scripts/dependency_images.py` hashes all Docker
 files, patches, installation scripts, lock files, label maps, and their file
@@ -32,16 +32,41 @@ application updates. Runtime images and old dependency digests must be retained 
 the registry for reproducible rebuilds. The two dependency variants use the
 same settings as the fork release: AMD64 and ROCm 7.2.3 with HSA override disabled.
 
-The second comparison measures the previous shared-builder version against this
-proposal. Both use fresh builders, identical immutable seed caches, the same USB
-volume, 4 VM CPUs, 6 GiB VM memory, a 5 GiB builder cap, and two concurrent build
-operations. The candidate's first phase includes building and publishing its
-dependency images and frontend artifact. Its application-change phase reuses
-those images but starts
-with a new builder. Registry lookups, builds, and cache/image export all count
-toward elapsed time. Dependency preparation and application build times are
-also reported separately. Results are pending; the table below is the completed
-first comparison, not a measurement of this follow-up.
+The attempted second USB comparison stopped after its baseline build because
+builder cleanup timed out before the original timing summary was saved. Raw
+logs and manifests were retained, and the temporary VM was later removed to
+recover storage. The completed native CI comparison below is a separate dataset.
+
+### Native paired results (2026-09-15 UTC)
+
+[Actions run 34922902399](https://github.com/jtn0123/frigate/actions/runs/34922902399)
+compares the previous shared-Zstandard graph with versioned dependency images.
+Each pair used the same VM, immutable seed caches, 5 GiB builder cap, and local
+registry. A fresh builder was used for every phase. Initial timings include
+preparing and publishing both runtime dependency images and frontend assets.
+
+| Concurrency | Initial before | Initial after | Backend update before | Backend update after | Update time reduction |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 8.38 min | 7.71 min | 5.38 min | 5.98 sec | 98.15% |
+| 2 | 8.04 min | 8.11 min | 4.45 min | 5.74 sec | 97.85% |
+| 4 | 7.79 min | 8.53 min | 4.23 min | 5.99 sec | 97.64% |
+
+All three pairs passed image-equivalence checks for application hashes,
+packages, binaries, runtime permissions, and image configuration. Dependencies
+and frontend assets were reused on every candidate backend update. Maximum
+sampled builder working memory ranged from 3.59 to 4.67 GiB, within the 5 GiB cap.
+No physical GPU execution or production deployment was tested.
+
+These timings cover builds and exports to a local registry on the GitHub
+runner. Runner setup, validation, and production GHCR publication overhead are
+additional. The initial phase uses fixed seed caches, not a fully uncached build.
+The measured update changes backend source only; frontend changes still require
+a web build. Each cell is a single trial. GitHub assigned different CPU models
+across jobs, so these pairs establish the dependency-reuse benefit but not the
+optimal concurrency. A sequential same-VM comparison is running separately.
+
+Exact timings, resources, digests, and limitations are in
+[`benchmarks/image-build-native-2026-09-15.json`](benchmarks/image-build-native-2026-09-15.json).
 
 Pass `--case dependency-images` and the same `--buildkit-image` digest to
 `fork/scripts/benchmark_image_build.py` for this candidate. Compare against
