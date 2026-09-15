@@ -156,6 +156,11 @@ class ReleaseNotesTest(unittest.TestCase):
         )
         self.assertTrue(markdown.endswith(f"<!-- fork-build: {head} -->"))
 
+    def test_a_range_that_git_would_read_as_an_option_is_refused(self) -> None:
+        for bad in ("", "-p", "--output=/tmp/notes"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                release_notes.patch_ids(bad, cwd=self.repo)
+
     def test_tooling_lines_fold_under_the_hood(self) -> None:
         self.commit("C1: faster camera wall.", "web/src/wall.tsx")
         self.commit("C2: ratchet TypeScript hatches", "web/src/types.ts")

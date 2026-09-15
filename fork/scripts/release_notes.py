@@ -101,12 +101,20 @@ def git(*args: str, cwd: str | None = None) -> str:
     ).stdout
 
 
+def revision_range(value: str) -> str:
+    """Refuse a revision range git would read as an option (argument injection)."""
+    if not value or value.startswith("-"):
+        raise ValueError(f"not a revision range: {value!r}")
+    return value
+
+
 def patch_ids(rev_range: str, cwd: str | None = None) -> dict[str, str]:
     """SHA to stable patch ID for each non-merge commit with a diff in range."""
     # Bytes, not text: a diff can hold content that is not valid UTF-8.
+    # --end-of-options keeps the range from ever being parsed as an option.
     log = subprocess.run(
         ["git", "log", "--no-merges", "-p", "--no-color", "--no-ext-diff"]
-        + ["--format=commit %H", rev_range],
+        + ["--format=commit %H", "--end-of-options", revision_range(rev_range)],
         check=True,
         capture_output=True,
         cwd=cwd,
