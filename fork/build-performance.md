@@ -246,3 +246,12 @@ same 5 GiB builder cap. Actual CPU and runner image metadata are saved because
 separate hosted VMs can differ. A failed high-concurrency build counts as a
 failure, not a fast result. This first sweep selects candidates for repeated
 measurements; it does not establish a statistically reliable optimum.
+
+The first native sweep (Actions run `34920586264`) exposed a benchmark guard
+bug: the same 5 GiB free-space threshold was applied to both the small runner
+log partition and the much larger Docker partition. Concurrency 1 stopped on
+its app update, and concurrency 2 stopped during candidate preparation, while
+Docker still had ample space. These stops are not concurrency build failures.
+The corrected guard retains 2 GiB for runner logs and 5 GiB for Docker, with
+separate readings and an explicit saved error. Hardware, partitions, worker
+limits, and cache settings remain unchanged for the repeat sweep.

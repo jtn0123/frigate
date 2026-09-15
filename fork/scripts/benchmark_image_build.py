@@ -112,6 +112,14 @@ def completed_milestones(path):
     return completed
 
 
+def check_disk_reserve(log_free, docker_free):
+    """Protect the small log partition separately from Docker build storage."""
+    if log_free < 2 * 1024**3:
+        raise RuntimeError("Benchmark stopped: log partition below 2 GiB reserve")
+    if docker_free < 5 * 1024**3:
+        raise RuntimeError("Benchmark stopped: Docker partition below 5 GiB reserve")
+
+
 def measure(command, cwd, log_path):
     """Persist live checkpoints and final timing independently of cleanup."""
     start = time.monotonic()
@@ -156,12 +164,10 @@ def measure(command, cwd, log_path):
                         )
                 report.update(
                     seconds=elapsed,
-                    free_disk_bytes=min(
-                        shutil.disk_usage(cwd).free,
-                        shutil.disk_usage(
-                            os.environ.get("BENCHMARK_DOCKER_DISK", cwd)
-                        ).free,
-                    ),
+                    log_disk_free_bytes=shutil.disk_usage(cwd).free,
+                    docker_disk_free_bytes=shutil.disk_usage(
+                        os.environ.get("BENCHMARK_DOCKER_DISK", cwd)
+                    ).free,
                 )
                 save_json(timing, report)
                 print(
@@ -172,10 +178,12 @@ def measure(command, cwd, log_path):
                     break
                 if elapsed >= 7200:
                     raise TimeoutError("Benchmark exceeded 7200 seconds")
-                if report["free_disk_bytes"] < 5 * 1024**3:
-                    raise RuntimeError(
-                        "Benchmark stopped: less than 5 GiB disk reserve"
-                    )
+                check_disk_reserve(
+                    report["log_disk_free_bytes"], report["docker_disk_free_bytes"]
+                )
+        except (RuntimeError, TimeoutError) as error:
+            report["error"] = str(error)
+            raise
         finally:
             if process.poll() is None:
                 process.terminate()

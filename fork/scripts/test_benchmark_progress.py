@@ -54,3 +54,14 @@ class TestBenchmarkProgress(unittest.TestCase):
             self.assertEqual(
                 benchmark.completed_milestones(log), {"amd64-image", "rocm-image"}
             )
+
+    def test_disk_guard_allows_log_partition_with_four_gib_free(self):
+        benchmark.check_disk_reserve(4 * 1024**3, 70 * 1024**3)
+
+    def test_disk_guard_stops_before_log_partition_fills(self):
+        with self.assertRaisesRegex(RuntimeError, "log partition"):
+            benchmark.check_disk_reserve(1 * 1024**3, 70 * 1024**3)
+
+    def test_disk_guard_stops_before_docker_partition_fills(self):
+        with self.assertRaisesRegex(RuntimeError, "Docker partition"):
+            benchmark.check_disk_reserve(8 * 1024**3, 4 * 1024**3)
