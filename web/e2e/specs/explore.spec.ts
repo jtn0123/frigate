@@ -368,3 +368,26 @@ test.describe("Explore — filter bar on phones @high @mobile", () => {
     },
   );
 });
+
+test.describe("Explore, failed reads @high", () => {
+  // the dropped request itself and the browser's echo of it (one pattern: a
+  // second array entry would be read as Playwright fixture options)
+  test.use({
+    expectedErrors: [
+      /failed: net::ERR_INTERNET_DISCONNECTED .*\/api\/events|Failed to load resource: net::ERR_INTERNET_DISCONNECTED/,
+    ],
+  });
+
+  test("a dropped connection shows the error toast", async ({ frigateApp }) => {
+    // C19: the error handler read error.response, which a network error does
+    // not have, so it threw and no toast appeared
+    await frigateApp.page.route(/\/api\/events(\?|$)/, (route) =>
+      route.abort("internetdisconnected"),
+    );
+    await frigateApp.goto("/explore?labels=person");
+    const toast = frigateApp.page
+      .getByText("Error fetching tracked objects: Network Error")
+      .first();
+    await expect(toast).toBeVisible({ timeout: 10_000 });
+  });
+});
