@@ -305,14 +305,18 @@ class CameraWatchdog(threading.Thread):
         while not self.stop_event.wait(1):
             updates = self._check_config_updates()
 
+            # Fork (D30): changed ffmpeg settings retry hardware decoding even
+            # while the camera is disabled, so re-enabling it starts on the GPU.
+            if "ffmpeg" in updates:
+                self.hwaccel_fallback.reset()
+                self._publish_hwaccel_fallback()
+
             # Handle ffmpeg config changes by restarting all ffmpeg processes
             if "ffmpeg" in updates and self.config.enabled:
                 self.logger.debug(
                     "FFmpeg config updated for %s, restarting ffmpeg processes",
                     self.config.name,
                 )
-                self.hwaccel_fallback.reset()
-                self._publish_hwaccel_fallback()
                 self.stop_all_ffmpeg()
                 self.start_all_ffmpeg()
                 self.latest_valid_segment_time = 0
