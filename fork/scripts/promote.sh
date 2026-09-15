@@ -3,16 +3,32 @@
 # it makes "Fork - Build image" publish ghcr.io/jtn0123/frigate:main plus a
 # versioned tag, and a GitHub Release with notes from release_notes.py.
 #
-#   fork/scripts/promote.sh [--yes]    # make promote
+#   fork/scripts/promote.sh [--yes] [--drop-main-commits]    # make promote
 #
 # Refuses when "Fork - Checks" is not green on next's tip, or when main has
 # commits next lacks (someone pushed main directly; merge them into next
-# first). main is moved with --force-with-lease because next is rebased onto
-# upstream from time to time, so the move is not always a fast-forward.
+# first). A commit is on next when next has a patch-equivalent of it or a
+# rebased copy (same author, author date and subject): rebasing next onto
+# upstream with conflict edits changes the patch. --drop-main-commits lists
+# the commits still missing and promotes over them once you type "drop"
+# (--yes does not skip that); use it only when next has their change in
+# another form, such as upstream's version of a backport. main is moved with
+# --force-with-lease because next is rebased onto upstream from time to time,
+# so the move is not always a fast-forward.
 set -euo pipefail
 
 yes=""
-[[ "${1:-}" == "--yes" ]] && yes=1
+drop=""
+for arg in "$@"; do
+  case "$arg" in
+    --yes) yes=1 ;;
+    --drop-main-commits) drop=1 ;;
+    *)
+      echo "usage: fork/scripts/promote.sh [--yes] [--drop-main-commits]" >&2
+      exit 2
+      ;;
+  esac
+done
 repo="jtn0123/frigate"
 cd "$(git rev-parse --show-toplevel)"
 
@@ -24,13 +40,29 @@ if [[ "$next" == "$main" ]]; then
   exit 0
 fi
 
-# Commits on main with no patch-equivalent on next would be lost by the move.
-missing="$(git cherry origin/next origin/main | sed -n 's/^+ //p')"
+# Commits on main with no patch-equivalent on next would be lost by the move,
+# unless next has a rebased copy: a rebase or cherry-pick keeps the author,
+# author date and subject even when conflict edits change the patch.
+key='%ae%x09%at%x09%s'
+cherry="$(git cherry origin/next origin/main)"
+rebased="$(git log --no-merges --format="$key" origin/main..origin/next)"
+missing=""
+while read -r mark sha; do
+  [[ "$mark" == "+" ]] || continue
+  commit_key="$(git log -1 --format="$key" "$sha")"
+  grep -qxF -- "$commit_key" <<<"$rebased" || missing+="$sha"$'\n'
+done <<<"$cherry"
 if [[ -n "$missing" ]]; then
   echo "main has commits that next lacks:" >&2
   for sha in $missing; do git log -1 --format='  %h %s' "$sha" >&2; done
-  echo "Merge or cherry-pick them into next, then promote again." >&2
-  exit 1
+  if [[ -z "$drop" ]]; then
+    echo "Merge or cherry-pick them into next, then promote again. If next has" >&2
+    echo "their change in another form (upstream's version of a backport, say)," >&2
+    echo "fork/scripts/promote.sh --drop-main-commits drops them from main." >&2
+    exit 1
+  fi
+  read -r -p "Promoting drops these commits from main. Type drop to go on: " answer || answer=""
+  [[ "$answer" == "drop" ]] || { echo "Not promoted." >&2; exit 1; }
 fi
 
 checks="$(gh run list -R "$repo" --workflow "Fork - Checks" --branch next \
