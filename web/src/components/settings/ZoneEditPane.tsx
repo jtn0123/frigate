@@ -20,8 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ZoneFormValuesType, Polygon } from "@/types/canvas";
-import { reviewQueries } from "@/utils/zoneEdutUtil";
-import { zoneRename } from "@/lib/fork/zone-rename";
+import { zoneRename, zoneRenameConfigData } from "@/lib/fork/zone-rename";
 import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import PolygonEditControls from "./PolygonEditControls";
@@ -399,90 +398,12 @@ export default function ZoneEditPane({
         ? `cameras.${polygon.camera}.profiles.${editingProfile}.zones.${polygon.name}`
         : `cameras.${polygon.camera}.zones.${polygon.name}`;
 
-      let mutatedConfig = config;
-      let alertQueries = "";
-      let detectionQueries = "";
-
       const renamingZone = zoneName != polygon.name && polygon.name != "";
       // Lists and profile overrides that name the zone follow it (UI66)
       const rename =
         renamingZone && !editingProfile
           ? zoneRename(polygon.camera, cameraConfig, polygon.name, zoneName)
           : undefined;
-
-      if (renamingZone) {
-        // rename - delete old zone and replace with new
-        let renameAlertQueries = "";
-        let renameDetectionQueries = "";
-
-        // Only handle review queries for base config (not profiles)
-        if (!editingProfile) {
-          const zoneInAlerts =
-            cameraConfig?.review.alerts.required_zones.includes(polygon.name) ??
-            false;
-          const zoneInDetections =
-            cameraConfig?.review.detections.required_zones.includes(
-              polygon.name,
-            ) ?? false;
-
-          ({
-            alertQueries: renameAlertQueries,
-            detectionQueries: renameDetectionQueries,
-          } = reviewQueries(
-            polygon.name,
-            false,
-            false,
-            polygon.camera,
-            cameraConfig?.review.alerts.required_zones || [],
-            cameraConfig?.review.detections.required_zones || [],
-          ));
-
-          try {
-            await axios.put(
-              `config/set?${oldPathPrefix}${renameAlertQueries}${renameDetectionQueries}${rename?.removals ?? ""}`,
-              {
-                requires_restart: 0,
-                update_topic: `config/cameras/${polygon.camera}/zones`,
-              },
-            );
-
-            // Wait for the config to be updated
-            mutatedConfig = await updateConfig();
-          } catch {
-            toast.error(t("toast.save.error.noMessage", { ns: "common" }), {
-              position: "top-center",
-            });
-            setIsLoading(false);
-            return;
-          }
-
-          // make sure new zone name is readded to review
-          ({ alertQueries, detectionQueries } = reviewQueries(
-            zoneName,
-            zoneInAlerts,
-            zoneInDetections,
-            polygon.camera,
-            mutatedConfig?.cameras[polygon.camera]?.review.alerts
-              .required_zones || [],
-            mutatedConfig?.cameras[polygon.camera]?.review.detections
-              .required_zones || [],
-          ));
-        } else {
-          // Profile mode: just delete the old profile zone path
-          try {
-            await axios.put(`config/set?${oldPathPrefix}`, {
-              requires_restart: 0,
-            });
-            mutatedConfig = await updateConfig();
-          } catch {
-            toast.error(t("toast.save.error.noMessage", { ns: "common" }), {
-              position: "top-center",
-            });
-            setIsLoading(false);
-            return;
-          }
-        }
-      }
 
       const coordinates = flattenPoints(
         interpolatePoints(polygon.points, scaledWidth, scaledHeight, 1, 1),
@@ -539,32 +460,23 @@ export default function ZoneEditPane({
         ? undefined
         : `config/cameras/${polygon.camera}/zones`;
 
-      axios
-        .put(
-          `config/set?${pathPrefix}.coordinates=${coordinates}${enabledQuery}${inertiaQuery}${loiteringTimeQuery}${speedThresholdQuery}${distancesQuery}${objectQueries}${friendlyNameQuery}${alertQueries}${detectionQueries}${rename?.additions ?? ""}`,
-          {
+      const zoneQuery = `${pathPrefix}.coordinates=${coordinates}${enabledQuery}${inertiaQuery}${loiteringTimeQuery}${speedThresholdQuery}${distancesQuery}${objectQueries}${friendlyNameQuery}`;
+      // A rename deletes the old zone in the same request (UI74), so a
+      // rejected write leaves the zone as it was
+      const request = renamingZone
+        ? axios.put("config/set", {
             requires_restart: 0,
             update_topic: updateTopic,
-          },
-        )
+            config_data: zoneRenameConfigData(oldPathPrefix, zoneQuery, rename),
+          })
+        : axios.put(`config/set?${zoneQuery}`, {
+            requires_restart: 0,
+            update_topic: updateTopic,
+          });
+
+      request
         .then((res) => {
           if (res.status === 200) {
-            if (rename?.profileData) {
-              // Profile overrides of the old zone go back under the new name;
-              // the backend accepts them only once the base zone exists.
-              void axios
-                .put("config/set", {
-                  requires_restart: 0,
-                  config_data: rename.profileData,
-                })
-                .then(() => updateConfig())
-                .catch(() => {
-                  toast.error(
-                    t("toast.save.error.noMessage", { ns: "common" }),
-                    { position: "top-center" },
-                  );
-                });
-            }
             toast.success(
               t("masksAndZones.zones.toast.success", {
                 zoneName: friendly_name || zoneName,
@@ -611,7 +523,6 @@ export default function ZoneEditPane({
         });
     },
     [
-      config,
       updateConfig,
       polygon,
       scaledWidth,
