@@ -51,19 +51,14 @@ test.describe("Review — deep link @critical", () => {
 
     await frigateApp.goto("/review?id=review-old-001");
 
-    // the list is read for that review's day, not the last 24 hours (UI67)
+    // wait for a list read that covers the review, then check it is that
+    // review's day and not the last 24 hours (UI67)
+    const covering = () =>
+      listRanges.find((range) => range.after <= start && start <= range.before);
     await expect
-      .poll(
-        () =>
-          listRanges.some(
-            (range) =>
-              range.after <= start &&
-              start <= range.before &&
-              range.before < now - 86400,
-          ),
-        { timeout: 10_000 },
-      )
+      .poll(() => covering() !== undefined, { timeout: 10_000 })
       .toBe(true);
+    expect(covering()?.before).toBeLessThan(now - 86400);
   });
 });
 
