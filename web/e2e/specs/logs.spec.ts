@@ -345,3 +345,57 @@ test.describe("Logs — load errors and tab labels (UI50) @medium @mobile", () =
     },
   );
 });
+
+test.describe("Logs — severity filter history (UI82) @medium", () => {
+  test(
+    "a severity filter does not fetch lines already on screen",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const lines = Array.from(
+        { length: 200 },
+        (_, i) =>
+          `[2026-04-06 10:00:00] frigate.app ${i % 2 ? "WARNING" : "INFO"} : line ${i}`,
+      );
+      const ranges: string[] = [];
+      await page.route(/\/api\/logs\/frigate(\?|$)/, (route) => {
+        const url = new URL(route.request().url());
+        if (url.searchParams.get("stream") === "true") {
+          return route.fulfill({ status: 200, body: "" });
+        }
+        const start = Number(url.searchParams.get("start"));
+        const end = url.searchParams.get("end");
+        if (end !== null) ranges.push(`${start}-${end}`);
+        const slice =
+          end === null ? lines.slice(start) : lines.slice(start, Number(end));
+        return route.fulfill({
+          json: { lines: slice, totalLines: lines.length },
+        });
+      });
+
+      await frigateApp.goto("/logs");
+      await expect(page.getByText("line 199", { exact: true })).toBeVisible({
+        timeout: 10_000,
+      });
+      // exact: each log row is a button whose name includes its severity
+      await page
+        .getByRole("button", { name: "Warning", exact: true })
+        .first()
+        .click();
+      // the filtered read starts at the first line and keeps only warnings
+      await expect(page.getByText("line 198", { exact: true })).toHaveCount(0);
+
+      await page.locator(".react-lazylog").hover();
+      await expect(async () => {
+        await page.mouse.wheel(0, -20_000);
+        await expect(page.getByText("line 1", { exact: true })).toBeVisible({
+          timeout: 1_000,
+        });
+      }).toPass({ timeout: 10_000 });
+      // let the 50 ms debounced scroll handler run: every line is already
+      // on screen, so it must not ask for more
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(ranges).toEqual([]);
+    },
+  );
+});

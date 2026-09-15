@@ -147,8 +147,11 @@ function Logs() {
       ) {
         const filteredLines = filterLines(response.data.lines);
         setLogs(filteredLines);
-        lastFetchedIndexRef.current =
-          response.data.totalLines - filteredLines.length;
+        // fork (UI82): a severity filter reads from the first line, so
+        // there is nothing older to fetch
+        lastFetchedIndexRef.current = filterSeverity
+          ? 0
+          : response.data.totalLines - filteredLines.length;
         return true;
       }
       // a 200 without { lines } (e.g. a proxy's HTML page) is not a log
