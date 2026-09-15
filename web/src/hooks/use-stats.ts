@@ -16,6 +16,7 @@ import { useFrigateStats, useJobStatus } from "@/api/ws";
 import { useIsAdmin } from "./use-is-admin";
 import { isForkEnabled } from "@/fork/flags";
 import { softwareDecodingCameras } from "@/lib/fork/camera-health";
+import { isStatsStale } from "@/lib/fork/stats-staleness";
 
 import { useTranslation } from "react-i18next";
 
@@ -44,6 +45,11 @@ export default function useStats(stats: FrigateStats | undefined) {
   );
 
   const memoizedStats = useDeepMemo(stats);
+  // fork (UI68): when these stats reached the browser
+  const statsReceivedAt = useMemo(
+    () => (memoizedStats ? Date.now() : undefined),
+    [memoizedStats],
+  );
 
   const potentialProblems = useMemo<PotentialProblem[]>(() => {
     const problems: PotentialProblem[] = [];
@@ -85,17 +91,21 @@ export default function useStats(stats: FrigateStats | undefined) {
         relevantLink: "/system#models",
       });
     }
+    // fork (UI68): staleness counts from the last message's arrival, so it
+    // follows stats_interval and ignores clock skew, and the checks below
+    // still run on the last stats received
     if (
       !memoizedStats ||
       !Number.isFinite(memoizedStats.service.last_updated) ||
-      now / 1000 - memoizedStats.service.last_updated > 90 ||
-      memoizedStats.service.last_updated > now / 1000 + 5
+      isStatsStale(statsReceivedAt, now, config?.mqtt.stats_interval)
     ) {
       problems.push({
         text: t("models.readiness.stale"),
         color: "text-warning",
         relevantLink: "/system#health",
       });
+    }
+    if (!memoizedStats) {
       return problems;
     }
 
@@ -242,6 +252,7 @@ export default function useStats(stats: FrigateStats | undefined) {
   }, [
     config,
     memoizedStats,
+    statsReceivedAt,
     t,
     replayActive,
     isAdmin,
