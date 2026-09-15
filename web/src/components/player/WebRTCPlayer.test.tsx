@@ -130,3 +130,52 @@ describe("WebRTC connection cancelled during the mic prompt", () => {
     expect(mic.stop).toHaveBeenCalledOnce();
   });
 });
+
+describe("WebRTC startup timeout", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function advanceSeconds(seconds: number) {
+    act(() => {
+      vi.advanceTimersByTime(seconds * 1000);
+    });
+  }
+
+  it("does not report a stall while playback is disabled", () => {
+    const onError = vi.fn();
+    const { rerender } = render(
+      <WebRtcPlayer
+        camera="front_door"
+        playbackEnabled={false}
+        onError={onError}
+      />,
+    );
+    advanceSeconds(6);
+    expect(onError).not.toHaveBeenCalled();
+
+    rerender(<WebRtcPlayer camera="front_door" onError={onError} />);
+    advanceSeconds(5);
+    expect(onError).toHaveBeenCalledExactlyOnceWith("stalled");
+  });
+
+  it("stops timing when playback is disabled before the video loads", () => {
+    const onError = vi.fn();
+    const { rerender } = render(
+      <WebRtcPlayer camera="front_door" onError={onError} />,
+    );
+    advanceSeconds(3);
+    rerender(
+      <WebRtcPlayer
+        camera="front_door"
+        playbackEnabled={false}
+        onError={onError}
+      />,
+    );
+    advanceSeconds(5);
+    expect(onError).not.toHaveBeenCalled();
+  });
+});

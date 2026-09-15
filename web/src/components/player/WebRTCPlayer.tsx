@@ -255,6 +255,12 @@ export default function WebRtcPlayer({
   }, [volume, videoRef]);
 
   useEffect(() => {
+    // fork (UI72): an idle tile mounts with playback off; only time a
+    // connection that is actually being made
+    if (!playbackEnabled) {
+      return;
+    }
+
     videoLoadTimeoutRef.current = setTimeout(() => {
       handleError("stalled", "WebRTC connection timed out.");
     }, 5000);
@@ -266,7 +272,7 @@ export default function WebRtcPlayer({
     };
     // we know that these deps are correct
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playbackEnabled]);
 
   const handleLoadedData = () => {
     if (videoLoadTimeoutRef.current) {
