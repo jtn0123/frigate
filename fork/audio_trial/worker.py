@@ -265,6 +265,18 @@ def write_status(queue: Queue, status: str) -> None:
         METRICS.sample()
 
 
+def settle_interrupted(queue: Queue, job: dict, result: dict) -> None:
+    """Requeue an interrupted Medium run, or keep its partial result (D36)."""
+    if STOP.is_set():
+        # A service stop is not the job's fault, so it keeps its retry.
+        queue.release(job, time.time())
+    elif job["attempts"] < 1:
+        # The retry resumes from the checkpoint kept in `stages`.
+        queue.fail(job, time.time(), "medium: interrupted")
+    else:
+        queue.finish(job, time.time(), result)
+
+
 def process_job(queue: Queue, job: dict) -> None:
     """Run Medium first and preserve both outputs if a bounded retry is possible."""
     with tempfile.TemporaryDirectory(prefix="audio-") as directory:
@@ -278,14 +290,7 @@ def process_job(queue: Queue, job: dict) -> None:
             else infer(audio, stages / "medium.json", "medium")
         )
         if result.get("interrupted"):
-            if STOP.is_set():
-                # A service stop is not the job's fault, so it keeps its retry.
-                queue.release(job, time.time())
-            elif job["attempts"] < 1:
-                # The retry resumes from the checkpoint kept in `stages`.
-                queue.fail(job, time.time(), "medium: interrupted")
-            else:
-                queue.finish(job, time.time(), result)
+            settle_interrupted(queue, job, result)
             return
         reasons = retry_reasons(result)
         result["retry_reasons"] = reasons
