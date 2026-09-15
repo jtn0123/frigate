@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { CameraConfig } from "@/types/frigateConfig";
-import { zoneRename } from "./zone-rename";
+import { type ZoneRenameSource, zoneRename } from "./zone-rename";
 
-function camera(extra: Record<string, unknown> = {}): CameraConfig {
+function camera(extra: Partial<ZoneRenameSource> = {}): ZoneRenameSource {
   return {
     objects: { genai: { required_zones: [] } },
     snapshots: { required_zones: ["driveway", "porch"] },
     mqtt: { required_zones: ["driveway"] },
     onvif: { autotracking: { required_zones: [] } },
     ...extra,
-  } as unknown as CameraConfig;
+  };
 }
 
 describe("zoneRename", () => {

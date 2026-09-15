@@ -1,4 +1,3 @@
-import type { CameraConfig, CameraProfileConfig } from "@/types/frigateConfig";
 import { removeRequiredZoneQuery } from "@/utils/zoneEdutUtil";
 
 /**
@@ -11,7 +10,16 @@ import { removeRequiredZoneQuery } from "@/utils/zoneEdutUtil";
  * the same set.
  */
 
-type ZoneOverride = NonNullable<CameraProfileConfig["zones"]>[string];
+type ZoneNames = { required_zones: unknown };
+
+/** The parts of a camera's config that name its zones; a `CameraConfig` fits. */
+export type ZoneRenameSource = {
+  objects: { genai: ZoneNames };
+  snapshots: ZoneNames;
+  mqtt: ZoneNames;
+  onvif: { autotracking: ZoneNames };
+  profiles?: Record<string, { zones?: Record<string, unknown> }>;
+};
 
 export type ZoneRename = {
   /** config/set fragment for the delete request: the old name leaves every list and profile. */
@@ -27,7 +35,7 @@ function isZoneList(value: unknown): value is string[] {
   return Array.isArray(value);
 }
 
-function requiredZoneLists(camera: CameraConfig): [string, unknown][] {
+function requiredZoneLists(camera: ZoneRenameSource): [string, unknown][] {
   return [
     ["objects.genai", camera.objects.genai.required_zones],
     ["snapshots", camera.snapshots.required_zones],
@@ -38,7 +46,7 @@ function requiredZoneLists(camera: CameraConfig): [string, unknown][] {
 
 export function zoneRename(
   cameraName: string,
-  camera: CameraConfig | undefined,
+  camera: ZoneRenameSource | undefined,
   oldName: string,
   newName: string,
 ): ZoneRename {
@@ -56,7 +64,7 @@ export function zoneRename(
     additions += [...renamed].map((zone) => `&${key}=${zone}`).join("");
   }
 
-  const overrides: Record<string, { zones: Record<string, ZoneOverride> }> = {};
+  const overrides: Record<string, { zones: Record<string, unknown> }> = {};
   for (const [profile, profileConfig] of Object.entries(
     camera.profiles ?? {},
   )) {
