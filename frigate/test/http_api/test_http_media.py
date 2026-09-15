@@ -10,7 +10,7 @@ import pytz
 from fastapi import Request
 
 from frigate.api.auth import get_allowed_cameras_for_filter, get_current_user
-from frigate.models import Recordings
+from frigate.models import Event, Recordings
 from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
 
 
@@ -628,3 +628,35 @@ class TestHttpPreviewThumbnail(BaseTestHttp):
             )
         assert response.status_code == 404, (response.status_code, response.text)
         assert response.json()["message"] == "Image file not found"
+
+
+class TestHttpVodEvent(BaseTestHttp):
+    """GET /vod/event/{event_id} clears has_clip once recordings are gone."""
+
+    def setUp(self):
+        super().setUp([Event, Recordings])
+        self.app = super().create_app()
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+    def test_old_event_without_recordings_loses_has_clip(self):
+        now = datetime.now().timestamp()
+        super().insert_mock_event("old", start_time=now - 600, has_clip=True)
+
+        with AuthTestClient(self.app) as client:
+            response = client.get("/vod/event/old")
+
+        assert response.status_code == 404
+        assert Event.get(Event.id == "old").has_clip is False
+
+    def test_recent_event_without_recordings_keeps_has_clip(self):
+        now = datetime.now().timestamp()
+        super().insert_mock_event("recent", start_time=now - 60, has_clip=True)
+
+        with AuthTestClient(self.app) as client:
+            response = client.get("/vod/event/recent")
+
+        assert response.status_code == 404
+        assert Event.get(Event.id == "recent").has_clip is True
