@@ -278,7 +278,14 @@ def process_job(queue: Queue, job: dict) -> None:
             else infer(audio, stages / "medium.json", "medium")
         )
         if result.get("interrupted"):
-            queue.finish(job, time.time(), result)
+            if STOP.is_set():
+                # A service stop is not the job's fault, so it keeps its retry.
+                queue.release(job, time.time())
+            elif job["attempts"] < 1:
+                # The retry resumes from the checkpoint kept in `stages`.
+                queue.fail(job, time.time(), "medium: interrupted")
+            else:
+                queue.finish(job, time.time(), result)
             return
         reasons = retry_reasons(result)
         result["retry_reasons"] = reasons
@@ -350,6 +357,10 @@ def process_pending(queue: Queue) -> bool:
             RuntimeError,
             subprocess.SubprocessError,
         ) as error:
+            if STOP.is_set():
+                queue.release(job, time.time())
+                logger.info("Audio job %s returned to the queue at shutdown", job["id"])
+                return True
             # Do not put audio contents, URLs, or model output in logs.
             failure = best_effort(save_failure)(STATE, error, time.time())
             reason = (

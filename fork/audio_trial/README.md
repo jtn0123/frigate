@@ -29,7 +29,9 @@ part of this initial trial.
   under Frigate retention. Results and failure records expire after seven days.
 - Delay new work above 30 ms detector inference or 0.5 skipped fps on any camera.
   Terminate analysis after three consecutive busy checks, checked every three
-  seconds plus API response time. Failed jobs retry once.
+  seconds plus API response time. Failed jobs retry once. An interrupted job
+  also retries once from its saved stages, then keeps the partial result; a
+  service stop returns it to the queue without spending that retry.
 - Reserve 5 GiB for Medium and 7.5 GiB for Large before starting. Observe the LXC
   parent cgroup usage against the Proxmox-verified 20 GiB limit, not the worker's
   Docker limit. Update `PARENT_MEMORY_LIMIT_BYTES` if CT 106 is resized. Its ancestor
