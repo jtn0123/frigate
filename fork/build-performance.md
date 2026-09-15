@@ -63,7 +63,7 @@ additional. The initial phase uses fixed seed caches, not a fully uncached build
 The measured update changes backend source only; frontend changes still require
 a web build. Each cell is a single trial. GitHub assigned different CPU models
 across jobs, so these pairs establish the dependency-reuse benefit but not the
-optimal concurrency. A sequential same-VM comparison is running separately.
+optimal concurrency. The sequential same-VM comparison also completed successfully; results follow.
 
 Exact timings, resources, digests, and limitations are in
 [`benchmarks/image-build-native-2026-09-15.json`](benchmarks/image-build-native-2026-09-15.json).
@@ -300,3 +300,30 @@ sequentially on one VM, using the shared `fork-benchmark-case` action. Every
 setting retains a fresh builder per phase, a fresh registry per version, and
 identical memory/tool/cache/source settings. The order avoids testing only
 ascending concurrency. Repeated trials are still needed to quantify variance.
+
+
+### Completed same-VM concurrency comparison
+
+[Run 34923899279](https://github.com/jtn0123/frigate/actions/runs/34923899279)
+completed successfully, testing concurrency 2, 1, then 4 on one VM. All three
+image-equivalence validations passed. Exact timings and sampled builder memory
+are saved in `benchmarks/image-build-same-vm-2026-09-15.json`.
+
+| Concurrency | Initial before | Initial after | Backend update before | Backend update after | Peak sampled builder memory |
+|---|---:|---:|---:|---:|---:|
+| 1 | 8.35 min | 9.46 min | 4.72 min | 5.94 sec | 3.65 GiB |
+| 2 | 7.13 min | 8.38 min | 4.91 min | 5.68 sec | 3.63 GiB |
+| 4 | 8.51 min | 8.11 min | 6.31 min | 5.78 sec | 4.27 GiB |
+
+Keep the existing concurrency of 2. Concurrency 4 reduced candidate initial-build
+elapsed time by 3.24% (16.30 seconds) but increased sampled peak builder memory by
+17.66%. Backend-update times were essentially unchanged. This is one trial per
+setting, so small differences do not establish a general optimum. All builders
+stayed within their 5 GiB cap, and the workflow passed its resource guards.
+
+Dependency reuse reduced backend-update elapsed time by 97.90% to 98.47%.
+Initial dependency preparation was slower at concurrency 1 and 2; the first
+backend-only update recovered that extra cost in both cases. Measurements cover
+build and export to the runner-local registry, excluding job setup, validation,
+and production registry publication. Fresh builders used immutable seed caches;
+these are not fully uncached builds. Physical GPU execution remains untested.
