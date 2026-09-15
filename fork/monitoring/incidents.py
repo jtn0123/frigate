@@ -4,6 +4,10 @@ import json
 import math
 import sqlite3
 
+# Streak keys: slow AI processing, and skipped detection frames per camera.
+AI_SLOW = "ai:slow"
+DETECTION = "detection:"
+
 
 def numeric(value):
     """Reject missing or nonfinite measurements instead of treating them as zero."""
@@ -79,16 +83,16 @@ class Incidents:
         readings = [v for v in sample.get("detector_ms", {}).values() if numeric(v)]
         if readings:
             slow = any(v > 30 for v in readings)
-            self.streaks["ai:slow"] = self.streaks.get("ai:slow", 0) + 1 if slow else 0
-            self.measured.add("ai:slow")
+            self.streaks[AI_SLOW] = self.streaks.get(AI_SLOW, 0) + 1 if slow else 0
+            self.measured.add(AI_SLOW)
         cameras = sample.get("cameras")
         if isinstance(cameras, dict):
             # A disabled or removed camera must not resume its old streak.
-            for key in [k for k in self.streaks if k.startswith("detection:")]:
-                if key.removeprefix("detection:") not in cameras:
+            for key in [k for k in self.streaks if k.startswith(DETECTION)]:
+                if key.removeprefix(DETECTION) not in cameras:
                     del self.streaks[key]
         for name, camera in (cameras or {}).items():
-            key = "detection:" + name
+            key = DETECTION + name
             value = camera.get("skipped_fps")
             if not numeric(value):
                 continue
@@ -103,9 +107,11 @@ class Incidents:
             if camera.get("enabled")
         }
         # A stats gap or a camera leaving the sample restarts the capture grace.
-        for name in list(self.capture_missing):
-            if not fresh or name not in enabled:
-                del self.capture_missing[name]
+        self.capture_missing = {
+            name: since
+            for name, since in self.capture_missing.items()
+            if fresh and name in enabled
+        }
         for name, camera in sample.get("cameras", {}).items():
             if camera.get("enabled"):
                 self.capture_problem(name, camera, now, fresh, problems)
