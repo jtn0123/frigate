@@ -213,17 +213,24 @@ def _resolve_export(
         return MediaAuthResolution.UNRESOLVED_MEDIA, None
 
 
+def role_has_full_access(role: str, roles_dict: dict[str, list[str]]) -> bool:
+    """True for admin and for configured roles with an empty allow-list.
+
+    A role that is not in `auth.roles` gets no access, as in
+    `User.get_allowed_cameras`: a JWT keeps the role it was issued with, so a
+    role later removed from the config must not turn into "every camera".
+    """
+    return role == "admin" or (role in roles_dict and not roles_dict[role])
+
+
 def check_camera_access(role: str, camera: str, frigate_config: FrigateConfig) -> bool:
     """Return True iff `role` may access `camera`.
 
-    Mirrors the gating logic in `require_camera_access`: admin and any role
-    without a non-empty allow-list bypass the check.
+    Mirrors the gating logic in `require_camera_access`: admin and any
+    configured role without a non-empty allow-list bypass the check.
     """
-    if role == "admin":
-        return True
-
     roles_dict = frigate_config.auth.roles
-    if not roles_dict.get(role):
+    if role_has_full_access(role, roles_dict):
         return True
 
     all_camera_names = set(frigate_config.cameras.keys())
@@ -232,10 +239,8 @@ def check_camera_access(role: str, camera: str, frigate_config: FrigateConfig) -
 
 
 def is_role_restricted(role: str, frigate_config: FrigateConfig) -> bool:
-    """True if `role` has a non-empty allow-list (i.e. not full-access)."""
-    if role == "admin":
-        return False
-    return bool(frigate_config.auth.roles.get(role))
+    """True unless `role` is admin or a configured full-access role."""
+    return not role_has_full_access(role, frigate_config.auth.roles)
 
 
 def deny_response_for_media_uri(

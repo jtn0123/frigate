@@ -289,6 +289,17 @@ class TestDenyResponseForMediaUri(unittest.TestCase):
         self.assertIsNone(self._deny("/clips/back_door-1.jpg", "viewer"))
         self.assertIsNone(self._deny("/clips/", "viewer"))
 
+    def test_unconfigured_role_denied(self):
+        # A role missing from roles_dict (a JWT issued before the role was
+        # removed from the config) gets no camera, as in
+        # User.get_allowed_cameras, instead of every camera.
+        self.assertEqual(self._deny("/clips/front_door-1.jpg", "removed_role"), 403)
+        self.assertEqual(
+            self._deny("/recordings/2026-05-11/14/back_door/00.00.mp4", "removed_role"),
+            403,
+        )
+        self.assertEqual(self._deny("/clips/", "removed_role"), 403)
+
     def test_restricted_role_allowed_camera(self):
         self.assertIsNone(self._deny("/clips/front_door-1.jpg", "limited_user"))
         self.assertIsNone(
