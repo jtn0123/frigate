@@ -172,10 +172,29 @@ class Incidents:
                 is not None,
                 "audio": "audio_failures" in sample,
             }.get(kind, False)
-            if key not in problems and observable:
+            if key not in problems and (
+                observable or self.scope_removed(sample, fresh, kind, scope)
+            ):
                 self.db.execute(
                     "UPDATE incidents SET resolved=? WHERE key=?", (now, key)
                 )
+
+    @staticmethod
+    def scope_removed(sample, fresh, kind, scope):
+        """Treat a camera or container the fresh sample no longer lists as recovered.
+
+        The snapshot lists only enabled cameras and existing containers, so a
+        disabled or removed one never reports a valid reading again.
+        """
+        if not fresh:
+            return False
+        if kind in ("capture", "detection", "recording", "recording_unknown"):
+            listed = sample.get("cameras")
+        elif kind in ("server", "memory", "restart"):
+            listed = sample.get("containers")
+        else:
+            return False
+        return isinstance(listed, dict) and scope not in listed
 
     def report(self, now):
         """Return bounded incident metadata and recent correlated measurements."""

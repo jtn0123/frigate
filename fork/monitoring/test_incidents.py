@@ -166,6 +166,40 @@ class IncidentTests(unittest.TestCase):
         active = {r["key"] for r in report["incidents"] if r["resolved"] is None}
         self.assertLessEqual({"server:ollama", "monitoring:partial"}, active)
 
+    def test_disabled_camera_and_removed_container_resolve_their_incidents(self):
+        self.sample["cameras"]["door"]["camera_fps"] = 0
+        self.sample["containers"]["frigate-audio-trial"] = {"running": False}
+        for n in (100, 115, 130):
+            report = self.monitor.observe(
+                {**self.sample, "time": n, "source_updated": n}
+            )
+        active = {r["key"] for r in report["incidents"] if r["resolved"] is None}
+        self.assertLessEqual({"capture:door", "server:frigate-audio-trial"}, active)
+        # The snapshot lists only enabled cameras and existing containers.
+        report = self.monitor.observe(
+            {
+                **self.sample,
+                "time": 145,
+                "source_updated": 145,
+                "cameras": {},
+                "containers": {"frigate": {"running": True}},
+            }
+        )
+        resolved = {r["key"]: r["resolved"] for r in report["incidents"]}
+        self.assertEqual(resolved["capture:door"], 145)
+        self.assertEqual(resolved["server:frigate-audio-trial"], 145)
+
+    def test_unread_camera_list_does_not_resolve_camera_incidents(self):
+        self.sample["cameras"]["door"]["camera_fps"] = 0
+        for n in (100, 115, 130):
+            self.monitor.observe({**self.sample, "time": n, "source_updated": n})
+        report = self.monitor.observe({"time": 145, "source_updated": 145})
+        report = self.monitor.observe(
+            {**self.sample, "time": 400, "cameras": {}, "containers": {}}
+        )
+        active = {r["key"] for r in report["incidents"] if r["resolved"] is None}
+        self.assertIn("capture:door", active)
+
     def test_partial_audio_failure_is_an_incident_without_log_error(self):
         report = self.monitor.observe(
             {
