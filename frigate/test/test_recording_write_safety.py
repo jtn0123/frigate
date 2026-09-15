@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from frigate.record.maintainer import RecordingMaintainer, SegmentInfo
+from frigate.record.move_failures import MoveFailures
 
 
 class TestRecordingWriteSafety(unittest.IsolatedAsyncioTestCase):
@@ -24,6 +25,7 @@ class TestRecordingWriteSafety(unittest.IsolatedAsyncioTestCase):
             ffmpeg=SimpleNamespace(ffmpeg_path="ffmpeg")
         )
         self.maintainer.end_time_cache = {}
+        self.maintainer.move_failures = MoveFailures()
         self.start = datetime.datetime(2026, 9, 13, tzinfo=datetime.UTC)
         self.end = self.start + datetime.timedelta(seconds=10)
         self.info = SegmentInfo(0, 0, 0, 0)
