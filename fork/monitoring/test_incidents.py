@@ -200,6 +200,60 @@ class IncidentTests(unittest.TestCase):
         active = {r["key"] for r in report["incidents"] if r["resolved"] is None}
         self.assertIn("capture:door", active)
 
+    def test_camera_leaving_the_sample_restarts_its_detection_streak(self):
+        for n in (100, 116, 132):
+            self.monitor.observe({**self.sample, "time": n, "source_updated": n})
+        self.monitor.observe(
+            {**self.sample, "time": 148, "source_updated": 148, "cameras": {}}
+        )
+        # Re-enabled: one skipped-frame reading is not three sustained ones.
+        report = self.monitor.observe(
+            {**self.sample, "time": 164, "source_updated": 164}
+        )
+        detection = next(r for r in report["incidents"] if r["key"] == "detection:door")
+        self.assertEqual(detection["resolved"], 148)
+
+    def test_unmeasured_streak_does_not_refresh_its_incident(self):
+        for n in (100, 116, 132):
+            self.monitor.observe({**self.sample, "time": n, "source_updated": n})
+        report = self.monitor.observe(
+            {
+                **self.sample,
+                "time": 148,
+                "source_updated": 148,
+                "detector_ms": {"gpu": None},
+            }
+        )
+        slow = next(r for r in report["incidents"] if r["key"] == "ai:slow")
+        self.assertEqual(slow["updated"], 132)
+        self.assertIsNone(slow["resolved"])
+        # A slow reading after the gap continues the incident without resolving it.
+        report = self.monitor.observe(
+            {**self.sample, "time": 164, "source_updated": 164}
+        )
+        slow = next(r for r in report["incidents"] if r["key"] == "ai:slow")
+        self.assertEqual((slow["updated"], slow["resolved"]), (164, None))
+
+    def test_capture_grace_restarts_after_a_stats_gap(self):
+        self.sample["cameras"]["door"]["camera_fps"] = 0
+        self.monitor.observe(self.sample)
+        self.monitor.observe({"time": 115, "source_updated": None})
+        report = self.monitor.observe(
+            {**self.sample, "time": 400, "source_updated": 400}
+        )
+        self.assertNotIn("capture:door", {r["key"] for r in report["incidents"]})
+        report = self.monitor.observe(
+            {**self.sample, "time": 420, "source_updated": 420}
+        )
+        self.assertIn("capture:door", {r["key"] for r in report["incidents"]})
+        # The next gap restarts the grace, but zero FPS never resolves the outage.
+        self.monitor.observe({"time": 435, "source_updated": None})
+        report = self.monitor.observe(
+            {**self.sample, "time": 700, "source_updated": 700}
+        )
+        capture = next(r for r in report["incidents"] if r["key"] == "capture:door")
+        self.assertIsNone(capture["resolved"])
+
     def test_partial_audio_failure_is_an_incident_without_log_error(self):
         report = self.monitor.observe(
             {

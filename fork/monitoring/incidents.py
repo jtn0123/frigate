@@ -26,6 +26,7 @@ class Incidents:
         )
         self.last_source = None
         self.streaks = {}
+        self.measured = set()
         self.capture_missing = {}
         self.previous_containers = {}
 
@@ -43,7 +44,10 @@ class Incidents:
             self.last_source = source
             self.advance_streaks(sample)
         if fresh:
-            problems.update(key for key, count in self.streaks.items() if count >= 3)
+            # An unmeasured streak keeps its incident open without refreshing it.
+            problems.update(
+                key for key in self.measured if self.streaks.get(key, 0) >= 3
+            )
         self.camera_problems(sample, now, fresh, problems)
         self.container_problems(sample, problems)
         failure_time = sample.get("audio_failure", {}).get("updated")
@@ -71,22 +75,37 @@ class Incidents:
 
     def advance_streaks(self, sample):
         """Advance sustained AI warnings only for numeric source readings."""
-        slow = any(
-            numeric(v) and v > 30 for v in sample.get("detector_ms", {}).values()
-        )
-        if any(numeric(v) for v in sample.get("detector_ms", {}).values()):
+        self.measured = set()
+        readings = [v for v in sample.get("detector_ms", {}).values() if numeric(v)]
+        if readings:
+            slow = any(v > 30 for v in readings)
             self.streaks["ai:slow"] = self.streaks.get("ai:slow", 0) + 1 if slow else 0
-        for name, camera in sample.get("cameras", {}).items():
+            self.measured.add("ai:slow")
+        cameras = sample.get("cameras")
+        if isinstance(cameras, dict):
+            # A disabled or removed camera must not resume its old streak.
+            for key in [k for k in self.streaks if k.startswith("detection:")]:
+                if key.removeprefix("detection:") not in cameras:
+                    del self.streaks[key]
+        for name, camera in (cameras or {}).items():
             key = "detection:" + name
             value = camera.get("skipped_fps")
             if not numeric(value):
                 continue
-            self.streaks[key] = (
-                self.streaks.get(key, 0) + 1 if numeric(value) and value > 0.5 else 0
-            )
+            self.streaks[key] = self.streaks.get(key, 0) + 1 if value > 0.5 else 0
+            self.measured.add(key)
 
     def camera_problems(self, sample, now, fresh, problems):
         """Track capture and expected continuous recordings separately."""
+        enabled = {
+            name
+            for name, camera in sample.get("cameras", {}).items()
+            if camera.get("enabled")
+        }
+        # A stats gap or a camera leaving the sample restarts the capture grace.
+        for name in list(self.capture_missing):
+            if not fresh or name not in enabled:
+                del self.capture_missing[name]
         for name, camera in sample.get("cameras", {}).items():
             if camera.get("enabled"):
                 self.capture_problem(name, camera, now, fresh, problems)
@@ -159,7 +178,10 @@ class Incidents:
                 "monitoring": fresh,
                 "ai": fresh
                 and any(numeric(v) for v in sample.get("detector_ms", {}).values()),
-                "capture": fresh and numeric(camera.get("camera_fps")),
+                # Zero FPS inside a restarted grace period is not a recovery.
+                "capture": fresh
+                and numeric(camera.get("camera_fps"))
+                and camera["camera_fps"] > 0,
                 "detection": fresh and numeric(camera.get("skipped_fps")),
                 "recording": bool(camera) and numeric(camera.get("recording_end")),
                 "recording_unknown": bool(camera)
