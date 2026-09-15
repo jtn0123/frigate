@@ -2284,7 +2284,7 @@ export interface paths {
          * Get export cases
          * @description **Access:** Any authenticated user.
          *
-         *     Gets all export cases from the database.
+         *     Gets the export cases the caller may see: every case for a caller with access to every camera, otherwise the cases holding an export from a camera the caller may access.
          */
         get: operations["get_export_cases_cases_get"];
         put?: never;
