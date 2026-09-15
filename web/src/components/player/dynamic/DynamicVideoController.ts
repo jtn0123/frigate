@@ -95,16 +95,13 @@ export class DynamicVideoController {
       return;
     }
 
-    if (seekSeconds != 0) {
-      this.playerController.currentTime = seekSeconds;
+    // fork (UI90): position 0, the first segment's start, is a real seek
+    this.playerController.currentTime = seekSeconds;
 
-      if (play) {
-        void this.waitAndPlay();
-      } else {
-        this.playerController.pause();
-      }
+    if (play) {
+      void this.waitAndPlay();
     } else {
-      // no op
+      this.playerController.pause();
     }
   }
 
