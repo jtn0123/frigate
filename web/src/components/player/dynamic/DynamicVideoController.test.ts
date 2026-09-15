@@ -93,4 +93,26 @@ describe("DynamicVideoController.seekToTimestamp", () => {
 
     expect(seeks).toEqual([15]);
   });
+
+  it("plays from the first segment for a time before it (UI89)", () => {
+    const { controller, seeks, pause, setNoRecording } = setup();
+
+    controller.seekToTimestamp(HOUR + 30);
+
+    expect(seeks).toEqual([0]);
+    expect(pause).toHaveBeenCalled();
+    expect(setNoRecording).not.toHaveBeenCalledWith(true);
+  });
+
+  it("clears no recordings once a later seek lands (UI89)", () => {
+    const { controller, seeks, setNoRecording } = setup();
+
+    controller.seekToTimestamp(HOUR + 100);
+    expect(setNoRecording).toHaveBeenLastCalledWith(true);
+    expect(seeks).toEqual([]);
+
+    controller.seekToTimestamp(HOUR + 65);
+    expect(seeks).toEqual([5]);
+    expect(setNoRecording).toHaveBeenLastCalledWith(false);
+  });
 });
