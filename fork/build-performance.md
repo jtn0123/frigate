@@ -255,3 +255,14 @@ Docker still had ample space. These stops are not concurrency build failures.
 The corrected guard retains 2 GiB for runner logs and 5 GiB for Docker, with
 separate readings and an explicit saved error. Hardware, partitions, worker
 limits, and cache settings remain unchanged for the repeat sweep.
+
+The same first sweep also caught a real application-graph failure at concurrency
+4: the Dockerfile frontend attempted to resolve the unused internal `deps` stage
+as `docker.io/library/deps:latest`, despite overriding the later runtime stage.
+The application graph now uses dedicated, minimal rootfs and final-image
+Dockerfiles. A real tiny-image preflight verifies both variants can consume
+published runtime/frontend image contexts and preserve expected application
+files. It runs before timed CI work, so graph-resolution defects fail quickly.
+A regression check also keeps the isolated rootfs COPY instructions in sync
+with the main Dockerfile. The intermediate guard-only repeat was canceled when
+this additional failure became known; it is not a completed comparison.

@@ -53,6 +53,17 @@ jobs:
         run: echo "BENCH_ROOT=$RUNNER_TEMP/frigate-benchmark" >> "$GITHUB_ENV"
       - name: Freeze sources and environment
         run: python3 fork/scripts/benchmark_ci.py prepare "$BENCH_ROOT"
+      - name: Preflight real application build graph
+        run: python3 -u fork/scripts/smoke_build_graph.py --root "$BENCH_ROOT/graph-smoke" --context frigate-github-bench > "$BENCH_ROOT/graph-smoke.log" 2>&1
+      - name: Preserve graph preflight
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}-p${{ matrix.parallelism }}-preflight
+          path: |
+            ${{ runner.temp }}/frigate-benchmark/graph-smoke.log
+            ${{ runner.temp }}/frigate-benchmark/graph-smoke/passed.json
+          if-no-files-found: ignore
       - name: Start resource sampling
         run: nohup python3 -u fork/scripts/benchmark_ci.py monitor "$BENCH_ROOT" > "$BENCH_ROOT/monitor.log" 2>&1 &
       - name: Measure shared-zstd cold

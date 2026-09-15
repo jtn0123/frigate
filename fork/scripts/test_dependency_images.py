@@ -193,6 +193,23 @@ class TestDependencyImages(unittest.TestCase):
             self.assertIn("docker/fork-dependencies.hcl", run.call_args.args[0])
             self.assertFalse((Path(directory) / "results.json").exists())
 
+    def test_application_rootfs_copies_match_main_image(self):
+        root = Path(__file__).resolve().parents[2]
+        main = (root / "docker/main/Dockerfile").read_text()
+        stage = main.split("FROM scratch AS rootfs", 1)[1].split(
+            "FROM deps AS frigate-runtime", 1
+        )[0]
+        isolated = (root / "docker/fork-rootfs.Dockerfile").read_text()
+
+        def instructions(text):
+            return [
+                line
+                for line in text.splitlines()
+                if line.startswith(("WORKDIR ", "COPY "))
+            ]
+
+        self.assertEqual(instructions(stage), instructions(isolated))
+
     def test_application_graph_has_only_pinned_dependencies_and_application(self):
         digest = "ghcr.io/example/frigate@sha256:" + "a" * 64
         env = os.environ | {
@@ -223,6 +240,13 @@ class TestDependencyImages(unittest.TestCase):
         targets = json.loads(result.stdout)["target"]
         self.assertEqual(set(targets), {"amd64", "rocm", "rootfs"})
         self.assertEqual(
+            targets["rootfs"]["dockerfile"], "docker/fork-rootfs.Dockerfile"
+        )
+        for name in ("amd64", "rocm"):
+            self.assertEqual(
+                targets[name]["dockerfile"], "docker/fork-runtime.Dockerfile"
+            )
+        self.assertEqual(
             targets["rootfs"]["contexts"], {"web-build": "docker-image://" + digest}
         )
         original = subprocess.run(
@@ -245,7 +269,7 @@ class TestDependencyImages(unittest.TestCase):
             targets["rocm"]["args"],
             json.loads(original.stdout)["target"]["rocm"]["args"],
         )
-        for name, base in (("amd64", "frigate-runtime"), ("rocm", "rocm-runtime")):
+        for name, base in (("amd64", "runtime"), ("rocm", "runtime")):
             self.assertEqual(
                 targets[name]["contexts"][base], "docker-image://" + digest
             )

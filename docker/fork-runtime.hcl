@@ -12,26 +12,26 @@ target "_cache" {
 }
 target "rootfs" {
   inherits = ["_cache"]
-  dockerfile = "docker/main/Dockerfile"
+  dockerfile = "docker/fork-rootfs.Dockerfile"
   target = "rootfs"
   platforms = ["linux/amd64"]
   contexts = { web-build = "docker-image://${WEB_ASSETS_IMAGE}" }
 }
 target "amd64" {
   inherits = ["_cache"]
-  dockerfile = "docker/main/Dockerfile"
-  target = "frigate"
+  dockerfile = "docker/fork-runtime.Dockerfile"
+  target = "image"
   platforms = ["linux/amd64"]
-  contexts = { frigate-runtime = "docker-image://${DEPENDENCY_AMD64_IMAGE}", rootfs = "target:rootfs" }
+  contexts = { runtime = "docker-image://${DEPENDENCY_AMD64_IMAGE}", rootfs = "target:rootfs" }
   tags = split(",", AMD64_TAGS)
   cache-to = ["type=registry,ref=${CACHE}-app-amd64,mode=max,compression=zstd,compression-level=3"]
 }
 target "rocm" {
   inherits = ["_cache"]
-  dockerfile = "docker/rocm/Dockerfile"
-  target = "rocm-deps"
+  dockerfile = "docker/fork-runtime.Dockerfile"
+  target = "image"
   platforms = ["linux/amd64"]
-  contexts = { rocm-runtime = "docker-image://${DEPENDENCY_ROCM_IMAGE}", rootfs = "target:rootfs" }
+  contexts = { runtime = "docker-image://${DEPENDENCY_ROCM_IMAGE}", rootfs = "target:rootfs" }
   args = { ROCM = "7.2.3", HSA_OVERRIDE = "0", HSA_OVERRIDE_GFX_VERSION = "" }
   tags = split(",", ROCM_TAGS)
   cache-to = ["type=registry,ref=${CACHE}-app-rocm,mode=max,compression=zstd,compression-level=3"]
