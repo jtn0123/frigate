@@ -25,6 +25,7 @@ vi.mock("node:fs", () => ({
   statSync: mocks.stat,
 }));
 const originalArgv = process.argv;
+const originalBase = process.env.TYPE_RATCHET_BASE;
 const rule = "@typescript-eslint/no-floating-promises";
 let baseline;
 let source;
@@ -43,6 +44,7 @@ async function run(...args) {
 beforeEach(() => {
   vi.resetModules();
   vi.resetAllMocks();
+  delete process.env.TYPE_RATCHET_BASE;
   baseline = { hatches: { explicitAny: 0 }, rules: { [rule]: 0 } };
   source = "const value: string = 'ok';";
   mocks.list.mockImplementation((path) =>
@@ -65,7 +67,83 @@ beforeEach(() => {
 });
 afterEach(() => {
   process.argv = originalArgv;
+  if (originalBase === undefined) {
+    delete process.env.TYPE_RATCHET_BASE;
+  } else {
+    process.env.TYPE_RATCHET_BASE = originalBase;
+  }
   vi.restoreAllMocks();
+});
+
+// ESLint finds nothing; `git show` answers with `git` for the base baseline.
+function withBase(git) {
+  mocks.spawn.mockImplementation((command) =>
+    command === "git" ? git : { status: 0, stdout: "[]", stderr: "" },
+  );
+}
+function gitShows() {
+  return mocks.spawn.mock.calls
+    .filter(([command]) => command === "git")
+    .map(([, args]) => args);
+}
+
+describe("type ratchet against the base branch", () => {
+  it("rejects a baseline raised above the base branch's", async () => {
+    source = "const value: any = {};";
+    baseline.hatches.explicitAny = 1;
+    withBase({
+      status: 0,
+      stdout: JSON.stringify({
+        hatches: { explicitAny: 0 },
+        rules: { [rule]: 0 },
+      }),
+    });
+    await expect(run()).rejects.toThrow("exit:1");
+    expect(gitShows()).toEqual([
+      ["show", "origin/next:fork/type-ratchet.json"],
+    ]);
+    expect(errors).toHaveBeenCalledWith("  hatches.explicitAny: 0 -> 1");
+  });
+  it("accepts a baseline at or below the base given in TYPE_RATCHET_BASE", async () => {
+    process.env.TYPE_RATCHET_BASE = "abc123";
+    withBase({
+      status: 0,
+      stdout: JSON.stringify({
+        // A rule the base does not track yet has nothing to compare with.
+        hatches: { explicitAny: 2 },
+        rules: {},
+      }),
+    });
+    await run();
+    expect(process.exit).not.toHaveBeenCalled();
+    expect(gitShows()).toEqual([["show", "abc123:fork/type-ratchet.json"]]);
+  });
+  it.each([
+    [
+      { status: 128, stdout: "", stderr: "bad revision" },
+      "no fork/type-ratchet.json",
+    ],
+    [{ error: new Error("spawn git ENOENT") }, "no fork/type-ratchet.json"],
+    [{ status: 0, stdout: "not JSON" }, "is not JSON"],
+  ])(
+    "skips the comparison when the base has no usable baseline",
+    async (git, why) => {
+      baseline.hatches.explicitAny = 5;
+      withBase(git);
+      await run();
+      expect(process.exit).not.toHaveBeenCalled();
+      expect(output).toHaveBeenCalledWith(expect.stringContaining(why));
+    },
+  );
+  it("skips the comparison when TYPE_RATCHET_BASE is empty", async () => {
+    process.env.TYPE_RATCHET_BASE = "";
+    withBase({ status: 0, stdout: "{}" });
+    await run();
+    expect(gitShows()).toEqual([]);
+    expect(output).toHaveBeenCalledWith(
+      expect.stringContaining("TYPE_RATCHET_BASE is empty"),
+    );
+  });
 });
 
 describe("type ratchet command", () => {
