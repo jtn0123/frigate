@@ -400,6 +400,64 @@ test.describe("Logs — severity filter history (UI82) @medium", () => {
   );
 });
 
+test.describe("Logs: history reads (UI84) @medium", () => {
+  test(
+    "a slow history read is not requested twice",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const ranges: string[] = [];
+      const newest = Array.from(
+        { length: 100 },
+        (_, i) => `[2026-04-06 10:00:00] INFO: newest line ${900 + i}`,
+      );
+      await page.route(/\/api\/logs\/frigate(\?|$)/, async (route) => {
+        const url = new URL(route.request().url());
+        if (url.searchParams.get("stream") === "true") {
+          return route.fulfill({ status: 200, body: "" });
+        }
+        const end = url.searchParams.get("end");
+        if (end === null) {
+          return route.fulfill({ json: { lines: newest, totalLines: 1000 } });
+        }
+        const start = Number(url.searchParams.get("start"));
+        ranges.push(`${start}-${end}`);
+        // slow enough that the user keeps scrolling while it is in flight
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        return route.fulfill({
+          json: {
+            lines: Array.from(
+              { length: 5 },
+              (_, i) => `[2026-04-06 09:00:00] INFO: older line ${start + i}`,
+            ),
+            totalLines: 1000,
+          },
+        });
+      });
+
+      await frigateApp.goto("/logs");
+      await expect(page.getByText("newest line 999")).toBeVisible({
+        timeout: 10_000,
+      });
+      await page.locator(".react-lazylog").hover();
+      await page.mouse.wheel(0, -20_000);
+      // keep nudging the list at the top until a second read goes out
+      await expect
+        .poll(
+          async () => {
+            await page.mouse.wheel(0, 200);
+            await page.mouse.wheel(0, -400);
+            return ranges.length;
+          },
+          { intervals: [150], timeout: 15_000 },
+        )
+        .toBeGreaterThan(1);
+      // the second read waited for the first and asked for the next range
+      expect(new Set(ranges).size).toBe(ranges.length);
+    },
+  );
+});
+
 test.describe("Logs — copy reads the log (UI83) @medium @mobile", () => {
   test.use({ expectedErrors: [/500.*\/api\/logs\/frigate/] });
 

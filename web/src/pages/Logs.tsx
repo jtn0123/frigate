@@ -62,6 +62,9 @@ function Logs() {
   // toast carrying the raw JavaScript error; it now shows an error state
   const [loadError, setLoadError] = useState<unknown>(undefined);
   const lastFetchedIndexRef = useRef(-1);
+  // fork (UI84): set while an older range is read, so scrolling cannot ask
+  // for the same range twice
+  const fetchingHistoryRef = useRef(false);
 
   useEffect(() => {
     document.title = t("documentTitle.logs." + logService);
@@ -301,28 +304,30 @@ function Logs() {
         if (
           scrollThreshold < pageSize + pageSize / 2 &&
           lastFetchedIndexRef.current > 0 &&
-          !isLoading
+          !fetchingHistoryRef.current
         ) {
           const nextEnd = lastFetchedIndexRef.current;
           const nextStart = Math.max(0, nextEnd - (pageSize || 100));
-          setIsLoading(true);
+          fetchingHistoryRef.current = true;
 
-          void fetchLogRange(nextStart, nextEnd).then((newLines) => {
-            if (newLines.length > 0) {
-              prependLines(newLines);
-              lastFetchedIndexRef.current = nextStart;
+          void fetchLogRange(nextStart, nextEnd)
+            .then((newLines) => {
+              if (newLines.length > 0) {
+                prependLines(newLines);
+                lastFetchedIndexRef.current = nextStart;
 
-              lazyLogRef.current?.listRef.current?.scrollTo(
-                newLines.length *
-                  lazyLogRef.current?.listRef.current?.getItemSize(1),
-              );
-            }
-          });
-
-          setIsLoading(false);
+                lazyLogRef.current?.listRef.current?.scrollTo(
+                  newLines.length *
+                    lazyLogRef.current?.listRef.current?.getItemSize(1),
+                );
+              }
+            })
+            .finally(() => {
+              fetchingHistoryRef.current = false;
+            });
         }
       }, 50),
-    [fetchLogRange, isLoading, prependLines],
+    [fetchLogRange, prependLines],
   );
 
   // fork (UI83): copy reads the log itself. Re-running the page's load
