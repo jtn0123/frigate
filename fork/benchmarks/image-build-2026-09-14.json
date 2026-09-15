@@ -1,0 +1,163 @@
+{
+  "date": "2026-09-14",
+  "source_commit": "4c36f535694f8f60fd1dae01747da79f65d2b3dc",
+  "candidate_changes": [
+    "shared Bake builder",
+    "ROCm application copy after dependencies using COPY --link",
+    "Zstandard level 3 cache export"
+  ],
+  "environment": {
+    "cpus": 4,
+    "memory_bytes": 6198562816,
+    "architecture": "aarch64",
+    "driver": "overlayfs",
+    "docker_version": "29.5.2",
+    "kernel": "6.8.0-117-generic"
+  },
+  "buildx": "v0.36.1-desktop.1",
+  "buildkit": "v0.32.2",
+  "storage": "Both source snapshots and the dedicated Colima VM data disk were on /Volumes/512Flash",
+  "execution": "ARM Mac with AMD64 emulation; native build stages remained native in both cases",
+  "seed_caches": [
+    "ghcr.io/jtn0123/frigate@sha256:39d0cca7a4892ff907cc0294e50f14cb5538975d3294bbc51a22dbd778f7a5dd",
+    "ghcr.io/jtn0123/frigate@sha256:68e29f7eb9910f6239d342418ac4c4c832e5d89556a0d6141a33fd56bbf72b63"
+  ],
+  "comparison": {
+    "timings": [
+      {
+        "phase": "cold",
+        "baseline_seconds": 5378.520905334037,
+        "optimized_seconds": 4313.966914542019,
+        "percent_faster": 19.792690398140277
+      },
+      {
+        "phase": "app-change",
+        "baseline_seconds": 3737.1452966253273,
+        "optimized_seconds": 3321.3894132501446,
+        "percent_faster": 11.124959036262617
+      }
+    ],
+    "update_layers_before": {
+      "amd64": {
+        "changed_layer_bytes": 9275800,
+        "changed_layers": 4,
+        "image_layer_bytes": 2118738703
+      },
+      "rocm": {
+        "changed_layer_bytes": 118336465,
+        "changed_layers": 10,
+        "image_layer_bytes": 3835228948
+      }
+    },
+    "update_layers_after": {
+      "amd64": {
+        "changed_layer_bytes": 9276063,
+        "changed_layers": 4,
+        "image_layer_bytes": 2118738834
+      },
+      "rocm": {
+        "changed_layer_bytes": 118336806,
+        "changed_layers": 10,
+        "image_layer_bytes": 3835229157
+      }
+    },
+    "equivalence": "passed",
+    "base_images": [
+      "docker.io/docker/dockerfile:1.6@sha256:ac85f380a63b13dfcefa89046420e1781752bab202122f8f50032edf31be0021",
+      "docker.io/library/debian:12-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171",
+      "docker.io/library/debian:12@sha256:6ebd97fa83deb272194a2cf015b3d26a4d538e9ad3a7a79d544c8af5b0a01443",
+      "docker.io/library/golang:1.27.1-bookworm@sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b",
+      "docker.io/library/node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5"
+    ],
+    "preserved_gpu_layer": {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:5c02ed58362b1cd5ebe4e16211ba2ba9df164403b1928c5b58c46623089c7fcc",
+      "size": 1607426988
+    }
+  },
+  "resources": {
+    "baseline": {
+      "samples": 634,
+      "minimum_usb_free_gib": 112.89776229858398,
+      "minimum_vm_disk_free_gib": 55.617584228515625,
+      "minimum_vm_memory_available_gib": 2.0162811279296875,
+      "maximum_sampled_builder_working_memory_mib": 3847.168,
+      "maximum_sampling_gap_seconds": 134.03343105316162
+    },
+    "shared-zstd": {
+      "samples": 507,
+      "minimum_usb_free_gib": 73.66656494140625,
+      "minimum_vm_disk_free_gib": 43.65519714355469,
+      "minimum_vm_memory_available_gib": 2.0493202209472656,
+      "maximum_sampled_builder_working_memory_mib": 3893.248,
+      "maximum_sampling_gap_seconds": 39.20026397705078
+    },
+    "limits": {
+      "vm_cpus": 4,
+      "vm_memory_gib": 6,
+      "builder_memory_gib": 5,
+      "builder_swap_gib": 0,
+      "concurrent_buildkit_operations": 2
+    },
+    "resource_guard_triggered": false
+  },
+  "cache_probes": {
+    "image_export": {
+      "direct-image": {
+        "cold": {
+          "variant_run_executed": true
+        },
+        "update1": {
+          "variant_run_executed": true
+        },
+        "update2": {
+          "variant_run_executed": true
+        },
+        "update3": {
+          "variant_run_executed": true
+        }
+      },
+      "linked-image": {
+        "cold": {
+          "variant_run_executed": true
+        },
+        "update1": {
+          "variant_run_executed": true
+        },
+        "update2": {
+          "variant_run_executed": true
+        },
+        "update3": {
+          "variant_run_executed": false
+        }
+      }
+    },
+    "serial_shared_builder": {
+      "serial-image": {
+        "cold": {
+          "variant_run_executed": true
+        },
+        "update1": {
+          "variant_run_executed": false
+        },
+        "update2": {
+          "variant_run_executed": true
+        },
+        "update3": {
+          "variant_run_executed": true
+        }
+      }
+    }
+  },
+  "limitations": [
+    "One successful measurement per case and phase; USB throughput varied",
+    "Cold means a fresh builder with fixed seed caches, not a fully uncached build",
+    "Elapsed times include building and exporting but exclude builder creation/removal and image smoke tests",
+    "The bundle was measured; compression benefit was not isolated",
+    "ROCm dependency commands still reran on the application update and its changed-layer payload did not shrink",
+    "The cache probes reproduced misses; alternate target linking and serial execution did not eliminate them reliably",
+    "Sampled working memory excludes reclaimable cache and is not a continuously measured peak; the baseline had a 134-second sampling gap",
+    "Runtime contents and configuration matched; no AMD GPU execution or production deployment was performed",
+    "Native GitHub CI performance has not been measured for these changes"
+  ]
+}
