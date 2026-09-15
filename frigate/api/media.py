@@ -16,7 +16,7 @@ from urllib.parse import unquote
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Depends, Path, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pathvalidate import sanitize_filename
 from peewee import DoesNotExist, fn
@@ -885,6 +885,7 @@ async def event_snapshot(
                 if event_id in camera_state.tracked_objects:
                     tracked_obj = camera_state.tracked_objects.get(event_id)
                     if tracked_obj is not None:
+                        await require_camera_access(camera_state.name, request=request)
                         snapshot_settings = _resolve_snapshot_settings(
                             camera_state.camera_config.snapshots, params
                         )
@@ -896,12 +897,15 @@ async def event_snapshot(
                             height=snapshot_settings["height"],
                             quality=snapshot_settings["quality"],
                         )
-                        await require_camera_access(camera_state.name, request=request)
+        except HTTPException:
+            raise
         except Exception:
             return JSONResponse(
                 content={"success": False, "message": "Ongoing event not found"},
                 status_code=404,
             )
+    except HTTPException:
+        raise
     except Exception:
         return JSONResponse(
             content={"success": False, "message": "Unknown error occurred"},
@@ -965,6 +969,8 @@ async def event_thumbnail(
                     if tracked_obj is not None:
                         await require_camera_access(camera_state.name, request=request)
                         thumbnail_bytes = tracked_obj.get_thumbnail(extension.value)
+        except HTTPException:
+            raise
         except Exception:
             return JSONResponse(
                 content={"success": False, "message": _EVENT_NOT_FOUND},
