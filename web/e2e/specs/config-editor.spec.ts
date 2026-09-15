@@ -312,9 +312,18 @@ test.describe("Config Editor, theme changes keep edits @medium", () => {
 
     await page.emulateMedia({ colorScheme: "dark" });
     await expect(page.locator(".monaco-editor.vs-dark").first()).toBeVisible();
+    // Keys sent while Monaco repaints for the new theme can arrive before it
+    // takes focus, so wait for the editor's input first
+    await page.locator(".monaco-editor").first().click();
+    await expect(
+      page.getByRole("textbox", { name: "Editor content" }),
+    ).toBeFocused();
     await replaceMonacoValue(page, SAMPLE_CONFIG + "# typed after");
 
-    expect(await getMonacoVisibleText(page)).toMatch(/typed\s+after/);
+    await expect
+      .poll(() => getMonacoVisibleText(page))
+      .toMatch(/^mqtt:[\s\S]*typed\s+after\s*$/);
+    expect(await getMonacoVisibleText(page)).not.toMatch(/enabled: true\s+qtt/);
     await expectLeaveBlocked(page);
   });
 });
