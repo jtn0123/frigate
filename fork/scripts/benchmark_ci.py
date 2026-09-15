@@ -212,16 +212,25 @@ def main() -> None:
         or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
     ):
         parser.error("Requires a disposable GitHub-hosted runner")
+    # The workflow keeps every benchmark path under RUNNER_TEMP. Confining the
+    # argument to it keeps a mistyped or injected path out of the rest of the
+    # runner, since these operations create, write and read whole trees.
+    runner_temp = os.environ.get("RUNNER_TEMP")
+    if not runner_temp:
+        parser.error("Requires a disposable GitHub-hosted runner")
+    root = args.root.resolve()
+    if not root.is_relative_to(Path(runner_temp).resolve()):
+        parser.error("root must be inside RUNNER_TEMP")
     if args.operation == "prepare":
-        prepare(args.root)
+        prepare(root)
     elif args.operation == "reset":
         registry(reset=True)
     elif args.operation == "monitor":
-        monitor(args.root)
+        monitor(root)
     elif args.operation == "validate":
-        validate(args.root)
+        validate(root)
     else:
-        summary(args.root)
+        summary(root)
 
 
 if __name__ == "__main__":
