@@ -17,24 +17,28 @@ type RetryConfig = {
   errorRetryInterval: number;
 };
 
-/** A uniform value in [0, 1) from Web Crypto rather than Math.random. */
-function randomUnit(): number {
-  const [value = 0] = crypto.getRandomValues(new Uint32Array(1));
-  return value / 2 ** 32;
+/**
+ * An offset from 0 to 1 that spreads retries of different reads apart. It is
+ * derived from the key rather than random: the same read always waits the
+ * same time, and reads that failed together retry at different times.
+ */
+export function keyJitter(key: string): number {
+  let hash = 0;
+  for (let index = 0; index < key.length; index++) {
+    hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+  }
+  return (hash % 1000) / 1000;
 }
 
-/**
- * Milliseconds until the next attempt, or undefined to stop retrying.
- * `jitter` (0 to 1) spreads retries of many reads over time.
- */
+/** Milliseconds until the next attempt, or undefined to stop retrying. */
 export function readRetryDelay(
-  key: unknown,
+  key: string,
   error: unknown,
   retryCount: number,
   config: RetryConfig,
-  jitter: number = randomUnit(),
+  jitter: number = keyJitter(key),
 ): number | undefined {
-  const shell = typeof key === "string" && SHELL_READ_KEYS.has(key);
+  const shell = SHELL_READ_KEYS.has(key);
   if (shell) {
     const status = axios.isAxiosError(error)
       ? error.response?.status
@@ -47,7 +51,7 @@ export function readRetryDelay(
     return undefined;
   }
 
-  // SWR's own backoff: interval * 2^n (n capped at 8), jittered 0.5x to 1.5x.
+  // SWR's own backoff: interval * 2^n (n capped at 8), spread 0.5x to 1.5x.
   const backoff =
     Math.floor((jitter + 0.5) * (1 << Math.min(retryCount, 8))) *
     config.errorRetryInterval;

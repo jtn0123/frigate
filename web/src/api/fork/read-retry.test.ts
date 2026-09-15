@@ -28,10 +28,18 @@ describe("readRetryDelay", () => {
     expect(delay("config", httpError(502), 1)).toBe(10_000);
   });
 
-  it("jitters between half and one and a half times the backoff", () => {
-    const value = readRetryDelay("events", httpError(500), 1, config);
-    expect(value).toBeGreaterThanOrEqual(5_000);
-    expect(value).toBeLessThan(15_000);
+  it("spreads reads by key between half and one and a half times the backoff", () => {
+    const keys = ["events", "review", "stats", "exports", "recordings"];
+    const delays = keys.map((key) =>
+      readRetryDelay(key, httpError(500), 1, config),
+    );
+    for (const value of delays) {
+      expect(value).toBeGreaterThanOrEqual(5_000);
+      expect(value).toBeLessThan(15_000);
+    }
+    // the same read always waits the same time; different reads spread out
+    expect(readRetryDelay("events", httpError(500), 1, config)).toBe(delays[0]);
+    expect(new Set(delays).size).toBeGreaterThan(1);
   });
 
   it("stops other reads after errorRetryCount attempts", () => {
