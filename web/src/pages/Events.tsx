@@ -161,7 +161,8 @@ export default function Events() {
           const startTime = resp.data.start_time - REVIEW_PADDING;
           const date = new Date(startTime * 1000);
 
-          setReviewFilter(getReviewDayBounds(date));
+          // One history write: a separate setReviewFilter is overwritten by
+          // this one, which still spreads the state from before it (UI67).
           setRecording(
             {
               camera: resp.data.camera,
@@ -170,6 +171,7 @@ export default function Events() {
               timelineType: notificationTab,
             },
             true,
+            { reviewFilter: getReviewDayBounds(date) },
           );
         }
       })

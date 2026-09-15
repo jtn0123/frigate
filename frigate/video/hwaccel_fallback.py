@@ -121,7 +121,6 @@ class HwaccelFallback:
         # Wall-clock time of the switch, kept across restarts (D14).
         self.since: float | None = None
         self._crashes: deque[float] = deque()
-        self._software_cmd: list[str] | None = None
         if state_path is not None:
             self._restore(time.time() if now is None else now)
 
@@ -131,8 +130,14 @@ class HwaccelFallback:
         return self.since + self.remember if self.since is not None else None
 
     def detect_cmd(self) -> list[str] | None:
-        """The software command while the fallback is active, else None."""
-        return self._software_cmd if self.active else None
+        """The software command while the fallback is active, else None.
+
+        Built from the live config on every call. Turning recording on for a
+        camera whose detect input also records rebuilds its commands without an
+        ffmpeg update, so a command kept from the switch would drop the record
+        output.
+        """
+        return software_detect_cmd(self.config) if self.active else None
 
     def record_crash(self, log_lines: Iterable[str], now: float | None = None) -> bool:
         """Note a detect process exit; True if it just switched to software."""
@@ -156,7 +161,6 @@ class HwaccelFallback:
             # Nothing to fall back from: the command already decodes in software.
             return False
 
-        self._software_cmd = software_cmd
         self.active = True
         self.reason = failure.strip()
         self.since = time.time()
@@ -169,7 +173,6 @@ class HwaccelFallback:
         self.reason = None
         self.since = None
         self._crashes.clear()
-        self._software_cmd = None
         self._forget()
 
     def _restore(self, now: float) -> None:
@@ -202,7 +205,6 @@ class HwaccelFallback:
             self._forget()
             return
 
-        self._software_cmd = software_cmd
         self.active = True
         self.since = float(since)
         reason = saved.get("reason")

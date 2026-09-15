@@ -134,6 +134,43 @@ class TestHwaccelFallback(unittest.TestCase):
         self.assertIsNone(fallback.detect_cmd())
         self.assertIsNone(fallback.reason)
 
+    def test_follows_commands_rebuilt_after_the_switch(self):
+        # One input for detect and record, so the record output rides on the
+        # detect command. Turning recording on rebuilds the camera's commands
+        # without an ffmpeg update; the fallback must build from those.
+        config = FrigateConfig(
+            mqtt={"host": "mqtt"},
+            ffmpeg={"hwaccel_args": "preset-vaapi"},
+            cameras={
+                "back": {
+                    "ffmpeg": {
+                        "hwaccel_args": "preset-vaapi",
+                        "inputs": [
+                            {
+                                "path": "rtsp://10.0.0.1:554/video",
+                                "roles": ["detect", "record"],
+                            }
+                        ],
+                    },
+                    "detect": {"width": 640, "height": 360, "fps": 5},
+                    "record": {"enabled": False},
+                }
+            },
+        ).cameras["back"]
+
+        def records(cmd):
+            return any(arg.endswith(".mp4") for arg in cmd)
+
+        fallback = HwaccelFallback(config, threshold=1)
+        self.assertTrue(fallback.record_crash(VAAPI_CRASH_LOG, now=0))
+        self.assertFalse(records(fallback.detect_cmd()))
+
+        config.record.enabled = True
+        config.recreate_ffmpeg_cmds()
+
+        self.assertNotIn("-hwaccel", fallback.detect_cmd())
+        self.assertTrue(records(fallback.detect_cmd()))
+
 
 class TestWatchdogHooks(unittest.TestCase):
     """The CameraWatchdog hunks, without its IPC and threads."""
