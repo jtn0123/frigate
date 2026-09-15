@@ -346,7 +346,7 @@ test.describe("Logs — load errors and tab labels (UI50) @medium @mobile", () =
   );
 });
 
-test.describe("Logs — severity filter history (UI82) @medium", () => {
+test.describe("Logs: severity filter history (UI82) @medium", () => {
   test(
     "a severity filter does not fetch lines already on screen",
     { tag: "@desktop-only" },
