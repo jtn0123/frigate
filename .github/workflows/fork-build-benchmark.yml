@@ -1,0 +1,183 @@
+name: Fork - Native build benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [perf/native-build-benchmark]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-build-benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    name: Compare concurrency ${{ matrix.parallelism }}
+    strategy:
+      fail-fast: false
+      matrix:
+        parallelism: [1, 2, 4]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    env:
+      MAX_PARALLELISM: ${{ matrix.parallelism }}
+      HSA_OVERRIDE: "0"
+      BENCHMARK_DOCKER_DISK: /var/lib/docker
+      BUILDKIT_IMAGE: moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reserve storage on this disposable runner
+        run: sudo systemctl stop docker
+      - uses: easimon/maximize-build-space@master
+        with:
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          root-reserve-mb: '8192'
+          build-mount-path: /var/lib/docker
+      - name: Start Docker and free runner log space
+        run: |
+          sudo systemctl start docker
+          sudo rm -rf /opt/hostedtoolcache
+          df -h / /var/lib/docker
+      - uses: docker/setup-buildx-action@v3
+        with:
+          version: v0.36.1
+      - name: Configure benchmark path
+        run: echo "BENCH_ROOT=$RUNNER_TEMP/frigate-benchmark" >> "$GITHUB_ENV"
+      - name: Freeze sources and environment
+        run: python3 fork/scripts/benchmark_ci.py prepare "$BENCH_ROOT"
+      - name: Preflight real application build graph
+        run: python3 -u fork/scripts/smoke_build_graph.py --root "$BENCH_ROOT/graph-smoke" --context frigate-github-bench > "$BENCH_ROOT/graph-smoke.log" 2>&1
+      - name: Preserve graph preflight
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}-p${{ matrix.parallelism }}-preflight
+          path: |
+            ${{ runner.temp }}/frigate-benchmark/graph-smoke.log
+            ${{ runner.temp }}/frigate-benchmark/graph-smoke/passed.json
+          if-no-files-found: ignore
+      - name: Start resource sampling
+        run: nohup python3 -u fork/scripts/benchmark_ci.py monitor "$BENCH_ROOT" > "$BENCH_ROOT/monitor.log" 2>&1 &
+      - name: Measure shared-zstd cold
+        run: |
+          python3 -u fork/scripts/benchmark_image_build.py \
+            --source "$BENCH_ROOT/before" --output "$BENCH_ROOT/shared-zstd" \
+            --context frigate-github-bench --case shared-zstd --phase cold \
+            --seed-caches "$BENCH_ROOT/seed-caches.json" --buildkit-image "$BUILDKIT_IMAGE" --parallelism "$MAX_PARALLELISM"
+      - name: Save shared-zstd cold checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}-p${{ matrix.parallelism }}-shared-zstd-cold
+          path: |
+            ${{ runner.temp }}/frigate-benchmark/shared-zstd/
+            ${{ runner.temp }}/frigate-benchmark/resources.jsonl
+            ${{ runner.temp }}/frigate-benchmark/monitor.log
+            ${{ runner.temp }}/frigate-benchmark/environment.json
+            ${{ runner.temp }}/frigate-benchmark/seed-caches.json
+          if-no-files-found: ignore
+      - name: Update measured progress summary
+        if: always()
+        run: python3 fork/scripts/benchmark_ci.py summary "$BENCH_ROOT"
+      - name: Measure shared-zstd app-change
+        run: |
+          python3 -u fork/scripts/benchmark_image_build.py \
+            --source "$BENCH_ROOT/before" --output "$BENCH_ROOT/shared-zstd" \
+            --context frigate-github-bench --case shared-zstd --phase app-change \
+            --seed-caches "$BENCH_ROOT/seed-caches.json" --buildkit-image "$BUILDKIT_IMAGE" --parallelism "$MAX_PARALLELISM"
+      - name: Validate shared-zstd images
+        run: python3 fork/scripts/benchmark_smoke.py "$BENCH_ROOT/shared-zstd" shared-zstd
+      - name: Save shared-zstd app-change checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}-p${{ matrix.parallelism }}-shared-zstd-app-change
+          path: |
+            ${{ runner.temp }}/frigate-benchmark/shared-zstd/
+            ${{ runner.temp }}/frigate-benchmark/resources.jsonl
+            ${{ runner.temp }}/frigate-benchmark/monitor.log
+            ${{ runner.temp }}/frigate-benchmark/environment.json
+            ${{ runner.temp }}/frigate-benchmark/seed-caches.json
+          if-no-files-found: ignore
+      - name: Update measured progress summary
+        if: always()
+        run: python3 fork/scripts/benchmark_ci.py summary "$BENCH_ROOT"
+      - name: Reset isolated registry between versions
+        run: python3 fork/scripts/benchmark_ci.py reset "$BENCH_ROOT"
+      - name: Measure dependency-images cold
+        env:
+          BENCHMARK_REFERENCE: ${{ runner.temp }}/frigate-benchmark/shared-zstd/cold-benchmark.timing.json
+        run: |
+          python3 -u fork/scripts/benchmark_image_build.py \
+            --source "$BENCH_ROOT/after" --output "$BENCH_ROOT/dependency-images" \
+            --context frigate-github-bench --case dependency-images --phase cold \
+            --seed-caches "$BENCH_ROOT/seed-caches.json" --buildkit-image "$BUILDKIT_IMAGE" --parallelism "$MAX_PARALLELISM"
+      - name: Save dependency-images cold checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}-p${{ matrix.parallelism }}-dependency-images-cold
+          path: |
+            ${{ runner.temp }}/frigate-benchmark/dependency-images/
+            ${{ runner.temp }}/frigate-benchmark/resources.jsonl
+            ${{ runner.temp }}/frigate-benchmark/monitor.log
+            ${{ runner.temp }}/frigate-benchmark/environment.json
+            ${{ runner.temp }}/frigate-benchmark/seed-caches.json
+          if-no-files-found: ignore
+      - name: Update measured progress summary
+        if: always()
+        run: python3 fork/scripts/benchmark_ci.py summary "$BENCH_ROOT"
+      - name: Measure dependency-images app-change
+        env:
+          BENCHMARK_REFERENCE: ${{ runner.temp }}/frigate-benchmark/shared-zstd/app-change-benchmark.timing.json
+        run: |
+          python3 -u fork/scripts/benchmark_image_build.py \
+            --source "$BENCH_ROOT/after" --output "$BENCH_ROOT/dependency-images" \
+            --context frigate-github-bench --case dependency-images --phase app-change \
+            --seed-caches "$BENCH_ROOT/seed-caches.json" --buildkit-image "$BUILDKIT_IMAGE" --parallelism "$MAX_PARALLELISM"
+      - name: Validate dependency-images images
+        run: python3 fork/scripts/benchmark_smoke.py "$BENCH_ROOT/dependency-images" dependency-images
+      - name: Save dependency-images app-change checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}-p${{ matrix.parallelism }}-dependency-images-app-change
+          path: |
+            ${{ runner.temp }}/frigate-benchmark/dependency-images/
+            ${{ runner.temp }}/frigate-benchmark/resources.jsonl
+            ${{ runner.temp }}/frigate-benchmark/monitor.log
+            ${{ runner.temp }}/frigate-benchmark/environment.json
+            ${{ runner.temp }}/frigate-benchmark/seed-caches.json
+          if-no-files-found: ignore
+      - name: Update measured progress summary
+        if: always()
+        run: python3 fork/scripts/benchmark_ci.py summary "$BENCH_ROOT"
+      - name: Validate equivalent image contents
+        run: python3 fork/scripts/benchmark_ci.py validate "$BENCH_ROOT"
+      - name: Write measured comparison
+        if: always()
+        run: python3 fork/scripts/benchmark_ci.py summary "$BENCH_ROOT"
+      - name: Stop resource sampler
+        if: always()
+        run: touch "$BENCH_ROOT/stop-monitor"
+      - name: Preserve comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.run_id }}-p${{ matrix.parallelism }}-summary
+          path: |
+            ${{ runner.temp }}/frigate-benchmark/summary.md
+            ${{ runner.temp }}/frigate-benchmark/validation.json
+            ${{ runner.temp }}/frigate-benchmark/resources.jsonl
+          if-no-files-found: ignore
+      - name: Update measured progress summary
+        if: always()
+        run: python3 fork/scripts/benchmark_ci.py summary "$BENCH_ROOT"
