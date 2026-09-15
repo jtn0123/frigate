@@ -240,8 +240,11 @@ export default function LivePlayer({
 
   const playerError = (reason: LivePlayerError, code?: number) => {
     setLiveReady(false);
-    if (showStillWithoutActivity) onError?.(reason);
-    else playback.onError(reason, code);
+    // The parent tries its next mode (MSE, then WebRTC, then jsmpeg). A mode
+    // change resets the playback status, so the error card only stays once the
+    // parent has nothing left to try.
+    onError?.(reason);
+    if (!showStillWithoutActivity) playback.onError(reason, code);
   };
 
   // enabled states

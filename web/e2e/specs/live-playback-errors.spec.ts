@@ -137,6 +137,51 @@ test("Retry resumes decoded live video and stays playing past the startup deadli
   }
 });
 
+test.describe("live mode fallback", () => {
+  // MsePlayer logs the rejected codec before the view falls back
+  test.use({
+    expectedErrors: [/MSE error|negotiated codecs|Supported codecs/],
+  });
+
+  test("a codec the browser rejects falls back to jsmpeg, not the error card @mobile", async ({
+    frigateApp,
+  }) => {
+    const page = frigateApp.page;
+    let jsmpegConnections = 0;
+    await page.route("**/api/config", (route) =>
+      route.fulfill({
+        json: configFactory({
+          go2rtc: { streams: { front_door: "rtsp://camera.invalid/live" } },
+        }),
+      }),
+    );
+    await page.route("**/api/go2rtc/streams/front_door", (route) =>
+      route.fulfill({ json: { producers: [], consumers: [] } }),
+    );
+    await page.routeWebSocket("**/live/mse/api/ws?src=front_door", (socket) => {
+      socket.onMessage((raw) => {
+        const message = JSON.parse(raw.toString());
+        if (message.type !== "mse") return;
+        socket.send(
+          JSON.stringify({ type: "mse", value: 'video/mp4; codecs="bogus"' }),
+        );
+      });
+    });
+    await page.routeWebSocket("**/live/jsmpeg/front_door", () => {
+      jsmpegConnections++;
+    });
+
+    await frigateApp.goto("/#front_door");
+
+    await expect
+      .poll(() => jsmpegConnections, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Live video is unavailable" }),
+    ).not.toBeVisible();
+  });
+});
+
 async function presentedFrames(video: Locator): Promise<number> {
   return video.evaluate(
     (element: HTMLVideoElement) =>

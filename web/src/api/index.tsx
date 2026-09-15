@@ -5,6 +5,7 @@ import axios from "axios";
 import { ReactNode } from "react";
 import { isRedirectingToLogin, setRedirectingToLogin } from "./auth-redirect";
 import { reportReadError } from "./fork/read-error-toast";
+import { readRetryDelay } from "./fork/read-retry";
 import { isPublicSharePath } from "@/lib/fork/share-path";
 
 axios.defaults.baseURL = `${baseUrl}api/`;
@@ -26,12 +27,19 @@ export function ApiProvider({ children, options }: Readonly<ApiProviderType>) {
       value={{
         // Global read policy: collapse duplicate requests for the same key
         // within 2s, throttle refocus revalidation across the ~370 hooks to
-        // once per 10s, and bound error retries instead of retrying forever.
+        // once per 10s, and bound error retries instead of retrying forever
+        // (except the profile and config reads the shell waits on, C17).
         // keepPreviousData is deliberately not set globally: ~25 hooks use a
         // conditional (null) key and rely on data resetting to undefined.
         dedupingInterval: 2000,
         focusThrottleInterval: 10000,
         errorRetryCount: 3,
+        onErrorRetry: (error, key, config, revalidate, opts) => {
+          const delay = readRetryDelay(key, error, opts.retryCount, config);
+          if (delay !== undefined) {
+            setTimeout(() => void revalidate(opts), delay);
+          }
+        },
         fetcher: (key) => {
           const [path, params] = Array.isArray(key) ? key : [key, undefined];
           return axios.get(path, { params }).then((res) => res.data);

@@ -297,9 +297,10 @@ class TestGo2rtcStreamAccess(BaseTestHttp):
             resp = client.get("/go2rtc/streams/front_door")
         assert resp.status_code == 401, f"Expected 401, got {resp.status_code}"
 
-    def test_unconfigured_role_can_access_any_stream(self):
-        """When no camera restrictions are configured for a role the user
-        should have access to all streams (no roles_dict entry ⇒ no restriction)."""
+    def test_unconfigured_role_is_denied_every_stream(self):
+        """A role missing from the config (for example a JWT issued before the
+        role was removed) gets no stream, as the camera lists and the websocket
+        already give it no cameras (fork E9)."""
         no_roles_config = {
             "mqtt": {"host": "mqtt"},
             "cameras": {
@@ -323,11 +324,11 @@ class TestGo2rtcStreamAccess(BaseTestHttp):
         }
         app = self._make_app(no_roles_config)
 
-        # "myuser" role is not listed in roles_dict — should be allowed everywhere
+        # "myuser" role is not listed in roles_dict
         for stream in ("front_door", "back_door"):
             resp = self._get_stream(app, stream, role="myuser")
-            assert resp.status_code not in (401, 403), (
-                f"Unconfigured role should not be blocked on '{stream}'; "
+            assert resp.status_code == 403, (
+                f"Unconfigured role should be blocked on '{stream}'; "
                 f"got {resp.status_code}"
             )
 

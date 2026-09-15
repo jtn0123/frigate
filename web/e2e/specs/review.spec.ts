@@ -14,6 +14,54 @@ import {
   waitForBodyInteractive,
 } from "../helpers/overlay-interaction";
 
+test.describe("Review — deep link @critical", () => {
+  test("?id= opens an older review on its own day", async ({ frigateApp }) => {
+    const page = frigateApp.page;
+    const now = Date.now() / 1000;
+    const start = now - 3 * 86400;
+    await page.route("**/api/review/review-old-001", (route) =>
+      route.fulfill({
+        json: {
+          id: "review-old-001",
+          camera: "front_door",
+          start_time: start,
+          end_time: start + 30,
+          severity: "alert",
+          has_been_reviewed: false,
+          thumb_path: "",
+          data: {
+            detections: [],
+            objects: ["person"],
+            sub_labels: [],
+            significant_motion_areas: [],
+            zones: [],
+            audio: [],
+          },
+        },
+      }),
+    );
+    const listRanges: { after: number; before: number }[] = [];
+    page.on("request", (req) => {
+      const url = new URL(req.url());
+      if (!url.pathname.endsWith("/api/review")) return;
+      const after = Number(url.searchParams.get("after"));
+      const before = Number(url.searchParams.get("before"));
+      if (after && before) listRanges.push({ after, before });
+    });
+
+    await frigateApp.goto("/review?id=review-old-001");
+
+    // wait for a list read that covers the review, then check it is that
+    // review's day and not the last 24 hours (UI67)
+    const covering = () =>
+      listRanges.find((range) => range.after <= start && start <= range.before);
+    await expect
+      .poll(() => covering() !== undefined, { timeout: 10_000 })
+      .toBe(true);
+    expect(covering()?.before).toBeLessThan(now - 86400);
+  });
+});
+
 test.describe("Review — severity tabs @critical", () => {
   test("tabs render with Alerts default-on", async ({ frigateApp }) => {
     await frigateApp.goto("/review");

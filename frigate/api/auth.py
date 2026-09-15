@@ -32,6 +32,7 @@ from frigate.api.media_auth import (
     check_camera_access,
     deny_response_for_media_uri,
     is_role_restricted,
+    role_has_full_access,
 )
 from frigate.config import AuthConfig, ProxyConfig
 from frigate.const import CONFIG_DIR, JWT_SECRET_ENV_VAR, PASSWORD_HASH_ALGORITHM
@@ -1306,8 +1307,8 @@ async def require_go2rtc_stream_access(
     roles_dict = request.app.frigate_config.auth.roles
     allowed_cameras = User.get_allowed_cameras(role, roles_dict, all_camera_names)
 
-    # Admin or full access bypasses
-    if role == "admin" or not roles_dict.get(role):
+    # Admin or full access bypasses; a role missing from the config gets none
+    if role_has_full_access(role, roles_dict):
         return
 
     owner_cameras = _get_stream_owner_cameras(request, stream_name)
