@@ -1,6 +1,6 @@
 import os
 import shutil
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import cv2
 import numpy as np
@@ -105,3 +105,16 @@ class TestHttpLatestFrame(BaseTestHttp):
             # Since we didn't provide camera-error.jpg, it might 500 if glob fails or return 500 if frame is None.
             assert response.status_code in [200, 500]
             assert "X-Frigate-Offline" not in response.headers
+
+    def test_latest_frame_without_error_image_reports_no_valid_frame(self):
+        self.app.detected_frames_processor.get_current_frame.return_value = None
+        self.app.detected_frames_processor.get_current_frame_time.return_value = 1000.0
+        self.app.camera_error_image = None
+
+        # no live frame, no preview frame and no camera-error.jpg on disk
+        with patch("frigate.api.media.glob.glob", return_value=[]):
+            with AuthTestClient(self.app) as client:
+                response = client.get("/front_door/latest.webp")
+
+        assert response.status_code == 500
+        assert response.json()["message"] == "Unable to get valid frame"
