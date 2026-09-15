@@ -15,7 +15,13 @@
  *   node scripts/fork/type-ratchet.mjs --write   # rewrite baselines to current
  */
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -176,15 +182,29 @@ export function raisedAbove(baseline, base) {
   return raised;
 }
 
+// git from a fixed install location, not the first match on PATH (Sonar
+// S4036); PATH is only the fallback where none of these exists.
+const GIT_PATHS = [
+  "/usr/bin/git",
+  "/usr/local/bin/git",
+  "/opt/homebrew/bin/git",
+];
+
+function gitBinary() {
+  return GIT_PATHS.find((path) => existsSync(path)) ?? "git";
+}
+
 /** The base branch's baseline, or why it cannot be read. */
 function readBaseBaseline(ref) {
   if (!ref) {
     return { skipped: "TYPE_RATCHET_BASE is empty" };
   }
-  const result = spawnSync("git", ["show", `${ref}:fork/type-ratchet.json`], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
+  // --end-of-options keeps a ref from $TYPE_RATCHET_BASE from being an option.
+  const result = spawnSync(
+    gitBinary(),
+    ["show", "--end-of-options", `${ref}:fork/type-ratchet.json`],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
   if (result.error || result.status !== 0) {
     return { skipped: `no fork/type-ratchet.json at ${ref}` };
   }

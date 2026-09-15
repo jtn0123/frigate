@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   write: vi.fn(),
   list: vi.fn(),
   stat: vi.fn(),
+  exists: vi.fn(),
 }));
 vi.mock("node:child_process", () => ({
   spawnSync: mocks.spawn,
@@ -14,11 +15,13 @@ vi.mock("node:child_process", () => ({
 }));
 vi.mock("node:fs", () => ({
   default: {
+    existsSync: mocks.exists,
     readFileSync: mocks.read,
     writeFileSync: mocks.write,
     readdirSync: mocks.list,
     statSync: mocks.stat,
   },
+  existsSync: mocks.exists,
   readFileSync: mocks.read,
   writeFileSync: mocks.write,
   readdirSync: mocks.list,
@@ -75,17 +78,38 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// git from PATH ("git") or from a fixed location ("/usr/bin/git").
+const isGit = (command) => command === "git" || command.endsWith("/git");
+
 // ESLint finds nothing; `git show` answers with `git` for the base baseline.
 function withBase(git) {
   mocks.spawn.mockImplementation((command) =>
-    command === "git" ? git : { status: 0, stdout: "[]", stderr: "" },
+    isGit(command) ? git : { status: 0, stdout: "[]", stderr: "" },
   );
 }
 function gitShows() {
   return mocks.spawn.mock.calls
-    .filter(([command]) => command === "git")
+    .filter(([command]) => isGit(command))
     .map(([, args]) => args);
 }
+
+describe("type ratchet's git", () => {
+  it("runs git from a fixed location when one exists, after --end-of-options", async () => {
+    process.env.TYPE_RATCHET_BASE = "origin/next";
+    mocks.exists.mockImplementation((path) => path === "/usr/bin/git");
+    withBase({ status: 0, stdout: JSON.stringify(baseline) });
+
+    await run().catch(() => {});
+
+    const call = mocks.spawn.mock.calls.find(([command]) => isGit(command));
+    expect(call?.[0]).toBe("/usr/bin/git");
+    expect(call?.[1]).toEqual([
+      "show",
+      "--end-of-options",
+      "origin/next:fork/type-ratchet.json",
+    ]);
+  });
+});
 
 describe("type ratchet against the base branch", () => {
   it("rejects a baseline raised above the base branch's", async () => {
@@ -100,7 +124,7 @@ describe("type ratchet against the base branch", () => {
     });
     await expect(run()).rejects.toThrow("exit:1");
     expect(gitShows()).toEqual([
-      ["show", "origin/next:fork/type-ratchet.json"],
+      ["show", "--end-of-options", "origin/next:fork/type-ratchet.json"],
     ]);
     expect(errors).toHaveBeenCalledWith("  hatches.explicitAny: 0 -> 1");
   });
@@ -116,7 +140,9 @@ describe("type ratchet against the base branch", () => {
     });
     await run();
     expect(process.exit).not.toHaveBeenCalled();
-    expect(gitShows()).toEqual([["show", "abc123:fork/type-ratchet.json"]]);
+    expect(gitShows()).toEqual([
+      ["show", "--end-of-options", "abc123:fork/type-ratchet.json"],
+    ]);
   });
   it.each([
     [
