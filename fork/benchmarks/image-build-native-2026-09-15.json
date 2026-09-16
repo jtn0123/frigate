@@ -1,0 +1,100 @@
+{
+  "run": "https://github.com/jtn0123/frigate/actions/runs/34922902399",
+  "candidate": "640c8e277f031d6006b0020f2d9dd32f3088799f",
+  "baseline": "f0fc3760785792d22b98c847078e86b18910824d",
+  "rows": [
+    {
+      "parallelism": 1,
+      "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+      "validation": {
+        "equivalence": "passed",
+        "gpu_execution": "not tested"
+      },
+      "phases": {
+        "cold": {
+          "baseline_seconds": 503.0367695330001,
+          "candidate_seconds": 462.47805939800037,
+          "time_reduction_percent": 8.062772463462833
+        },
+        "app-change": {
+          "baseline_seconds": 322.55532780199997,
+          "candidate_seconds": 5.98088392300042,
+          "time_reduction_percent": 98.14578045764857
+        }
+      },
+      "resources": {
+        "max_sampled_builder_mib": 3739.648,
+        "minimum_docker_free_gib": 39.12643051147461,
+        "minimum_root_free_gib": 5.020599365234375
+      }
+    },
+    {
+      "parallelism": 2,
+      "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+      "validation": {
+        "equivalence": "passed",
+        "gpu_execution": "not tested"
+      },
+      "phases": {
+        "cold": {
+          "baseline_seconds": 482.17060713000006,
+          "candidate_seconds": 486.7852646680001,
+          "time_reduction_percent": -0.9570590719885669
+        },
+        "app-change": {
+          "baseline_seconds": 267.017919089,
+          "candidate_seconds": 5.736713220999945,
+          "time_reduction_percent": 97.85156245671743
+        }
+      },
+      "resources": {
+        "max_sampled_builder_mib": 4782.08,
+        "minimum_docker_free_gib": 40.32902145385742,
+        "minimum_root_free_gib": 4.830780029296875
+      }
+    },
+    {
+      "parallelism": 4,
+      "cpu_model": "AMD EPYC 7763 64-Core Processor",
+      "validation": {
+        "equivalence": "passed",
+        "gpu_execution": "not tested"
+      },
+      "phases": {
+        "cold": {
+          "baseline_seconds": 467.32845145100003,
+          "candidate_seconds": 511.66183571099987,
+          "time_reduction_percent": -9.486557927802142
+        },
+        "app-change": {
+          "baseline_seconds": 253.632875775,
+          "candidate_seconds": 5.989458452000008,
+          "time_reduction_percent": 97.63853229448327
+        }
+      },
+      "resources": {
+        "max_sampled_builder_mib": 3676.16,
+        "minimum_docker_free_gib": 37.235408782958984,
+        "minimum_root_free_gib": 4.559288024902344
+      }
+    }
+  ],
+  "limitations": [
+    "Local registry on hosted runner; production GHCR publication and job setup excluded",
+    "One measurement per graph/phase/concurrency; CPU models differ between jobs",
+    "Before and after within each job used the same VM",
+    "No physical GPU execution or production deployment tested",
+    "Initial phase uses a fresh builder with fixed seed caches, not a completely uncached build",
+    "Update changes only a backend marker; frontend changes still require a web build"
+  ],
+  "buildkit": "moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
+  "limits": {
+    "builder_memory_gib": 5,
+    "builder_swap_gib": 0,
+    "parallelism": 1
+  },
+  "seed_caches": [
+    "ghcr.io/jtn0123/frigate@sha256:39d0cca7a4892ff907cc0294e50f14cb5538975d3294bbc51a22dbd778f7a5dd",
+    "ghcr.io/jtn0123/frigate@sha256:68e29f7eb9910f6239d342418ac4c4c832e5d89556a0d6141a33fd56bbf72b63"
+  ]
+}

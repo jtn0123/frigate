@@ -43,7 +43,6 @@ RUN echo "deb https://deb.debian.org/debian trixie main" > /etc/apt/sources.list
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/frigate
-COPY --from=rootfs / /
 
 ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
     https://bootstrap.pypa.io/get-pip.py get-pip.py
@@ -95,5 +94,10 @@ ARG HSA_OVERRIDE_GFX_VERSION
 ENV HSA_OVERRIDE_GFX_VERSION=$HSA_OVERRIDE_GFX_VERSION
 
 #######################################################################
-FROM rocm-prelim-hsa-override$HSA_OVERRIDE as rocm-deps
+FROM rocm-prelim-hsa-override$HSA_OVERRIDE as rocm-runtime
 
+FROM rocm-runtime AS rocm-deps
+
+# Keep app updates independent of GPU layers, including registry rebases.
+# /opt/frigate is a real directory, so this copy need not follow parent symlinks.
+COPY --link --from=rootfs / /

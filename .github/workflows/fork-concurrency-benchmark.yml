@@ -1,0 +1,58 @@
+name: Fork - Same VM concurrency benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [perf/concurrency-same-runner]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: same-vm-concurrency-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    name: Compare concurrency 2, 1, and 4 on one VM
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    env:
+      HSA_OVERRIDE: "0"
+      BENCHMARK_DOCKER_DISK: /var/lib/docker
+      BUILDKIT_IMAGE: moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reserve storage on this disposable runner
+        run: sudo systemctl stop docker
+      - uses: easimon/maximize-build-space@master
+        with:
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          root-reserve-mb: '8192'
+          build-mount-path: /var/lib/docker
+      - name: Start Docker and free runner log space
+        run: |
+          sudo systemctl start docker
+          sudo rm -rf /opt/hostedtoolcache
+          df -h / /var/lib/docker
+      - uses: docker/setup-buildx-action@v3
+        with:
+          version: v0.36.1
+      - name: Measure concurrency 2 on this VM
+        uses: ./.github/actions/fork-benchmark-case
+        with:
+          parallelism: "2"
+      - name: Measure concurrency 1 on this VM
+        uses: ./.github/actions/fork-benchmark-case
+        with:
+          parallelism: "1"
+      - name: Measure concurrency 4 on this VM
+        uses: ./.github/actions/fork-benchmark-case
+        with:
+          parallelism: "4"
