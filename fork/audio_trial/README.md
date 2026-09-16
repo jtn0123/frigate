@@ -124,6 +124,20 @@ Older/unprocessed reviews show an explicit unavailable-results message.
 Large requests deferred by memory or the hourly budget remain in the durable
 queue. They retry no sooner than one minute, expire after one hour and reuse the
 saved Medium result. The existing two-per-hour Large budget still applies.
+Large-v3 hallucinates subtitle credits on near-silent audio, so a second opinion
+is guarded before it is stored. It is decoded in the expected language instead of
+with free language detection: `AUDIO_TRIAL_LANGUAGE` (default `en`), or the
+`--language` option of `infer.py`. The Medium pass keeps automatic detection.
+A second opinion is rejected when its detected language differs from that
+language (or from a confidently detected Medium language for a Medium pass that
+did produce text), when a segment repeats one of the known credit phrases in
+`hallucination.py`, or when faster-whisper's own statistics distrust the segment
+(no speech probability above 0.6, average log probability below -1.0,
+compression ratio above 2.4). A rejected opinion never becomes a transcript:
+`large_status` reads `second opinion rejected: <reason>` and the raw output is
+kept under `large_rejected_second_opinion` for inspection, separate from the
+`large_second_opinion` key that holds accepted results.
+
 Disable built-in `audio_transcription.enabled` on companion-managed cameras;
 the companion pauses with an ownership warning if both are enabled. This avoids
 duplicate automatic work without changing the built-in configuration for you.

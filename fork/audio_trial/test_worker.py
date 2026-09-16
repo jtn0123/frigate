@@ -239,6 +239,50 @@ class WorkerTests(unittest.TestCase):
         )
 
     @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
+    @patch.object(worker, "health", return_value="")
+    @patch.object(worker, "infer")
+    def test_hallucinated_second_opinion_is_rejected_but_kept_for_inspection(
+        self, infer, *_
+    ):
+        infer.side_effect = [
+            {"speech_seconds": 3, "transcript": "", "language": "nn"},
+            {
+                "transcript": "Субтитры сделал DimaTorzok",
+                "language": "ru",
+                "rejected_segments": [],
+            },
+        ]
+        worker.process_job(self.queue, self.job)
+        result = json.loads(self.queue.recent()[0]["result"])
+        self.assertTrue(
+            result["large_status"].startswith("second opinion rejected:"),
+            result["large_status"],
+        )
+        self.assertNotIn("large_second_opinion", result)
+        self.assertEqual(
+            result["large_rejected_second_opinion"]["transcript"],
+            "Субтитры сделал DimaTorzok",
+        )
+
+    @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
+    @patch.object(worker, "health", return_value="")
+    @patch.object(worker, "infer")
+    def test_genuine_english_second_opinion_is_stored(self, infer, *_):
+        infer.side_effect = [
+            {"speech_seconds": 3, "transcript": "", "language": "nn"},
+            {"transcript": "I have a package for you", "language": "en"},
+        ]
+        worker.process_job(self.queue, self.job)
+        result = json.loads(self.queue.recent()[0]["result"])
+        self.assertEqual(
+            result["large_status"], "second opinion; not independently verified"
+        )
+        self.assertEqual(
+            result["large_second_opinion"]["transcript"], "I have a package for you"
+        )
+        self.assertNotIn("large_rejected_second_opinion", result)
+
+    @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
     @patch.object(
         worker, "infer", return_value={"transcript": "partial", "interrupted": True}
     )

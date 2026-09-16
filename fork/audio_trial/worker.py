@@ -18,6 +18,7 @@ from pathlib import Path
 
 from failures import AudioFailure, cause, save_failure
 from failures import stage as failure_stage
+from hallucination import second_opinion_rejection
 from queue_store import Queue, health_reason, retry_reasons
 from telemetry import STAGE_FILE, Telemetry, atomic_json, best_effort
 
@@ -277,6 +278,20 @@ def settle_interrupted(queue: Queue, job: dict, result: dict) -> None:
         queue.finish(job, time.time(), result)
 
 
+def store_second_opinion(job: dict, result: dict, opinion: dict) -> None:
+    """Keep a rejected second opinion for inspection instead of as a transcript."""
+    rejection = second_opinion_rejection(result, opinion)
+    if rejection is None:
+        result["large_second_opinion"] = opinion
+        result["large_status"] = "second opinion; not independently verified"
+        return
+    # Whisper hallucinates subtitle credits on near-silent audio, so the raw
+    # output is retained under its own key and never offered as speech.
+    result["large_rejected_second_opinion"] = opinion
+    result["large_status"] = "second opinion rejected: " + rejection
+    logger.info("rejected large second opinion for %s: %s", job["id"], rejection)
+
+
 def process_job(queue: Queue, job: dict) -> None:
     """Run Medium first and preserve both outputs if a bounded retry is possible."""
     with tempfile.TemporaryDirectory(prefix="audio-") as directory:
@@ -319,14 +334,11 @@ def process_job(queue: Queue, job: dict) -> None:
                 budget_temporary.write_text(json.dumps(history))
                 budget_temporary.replace(budget_path)
                 try:
-                    result["large_second_opinion"] = infer(
-                        audio, stages / "large.json", "large-v3"
-                    )
-                    result["large_status"] = (
-                        "second opinion; not independently verified"
-                    )
+                    opinion = infer(audio, stages / "large.json", "large-v3")
                 except (OSError, ValueError, RuntimeError) as error:
                     result["large_status"] = "retry failed: " + str(error)
+                else:
+                    store_second_opinion(job, result, opinion)
         queue.finish(job, time.time(), result)
         shutil.rmtree(stages, ignore_errors=True)
 
