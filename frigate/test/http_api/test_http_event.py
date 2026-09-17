@@ -590,3 +590,23 @@ class TestHttpEventSearch(BaseTestHttp):
                 },
             ).json()
         assert all("thumbnail" not in e for e in events)
+
+    def test_review_thumb_path_includes_a_review_in_progress(self):
+        self._insert_events()
+        now = datetime.now().timestamp()
+        super().insert_mock_review_segment(
+            "rev.live", start_time=now - 320, data={"detections": ["ev.a"]}
+        )
+        # an ongoing review segment has no end time yet
+        ReviewSegment.update(end_time=None, thumb_path="/thumbs/rev.live.webp").where(
+            ReviewSegment.id == "rev.live"
+        ).execute()
+
+        with AuthTestClient(self.app) as client:
+            events = client.get(
+                "/events/search",
+                params={"search_type": "similarity", "event_id": "ev.a"},
+            ).json()
+
+        by_id = {e["id"]: e for e in events}
+        assert by_id["ev.a"]["thumb_path"] == "/thumbs/rev.live.webp"

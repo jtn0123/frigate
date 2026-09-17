@@ -7,7 +7,6 @@ import math
 import os
 import re
 import resource
-import shutil
 import signal
 import subprocess as sp
 import time
@@ -28,6 +27,7 @@ from frigate.const import (
     SHM_FRAMES_VAR,
 )
 from frigate.util.builtin import clean_camera_user_pass, escape_special_characters
+from frigate.util.fork_shm import shm_usage  # fork (SV8)
 
 _SECRETS_DIR = "/run/secrets"
 
@@ -1482,14 +1482,15 @@ def get_fs_type(path: str) -> str:
 
 
 def calculate_shm_requirements(config) -> dict:
-    try:
-        storage_stats = shutil.disk_usage("/dev/shm")
-    except OSError:
+    # fork (SV8): statvfs answers with zeros for /dev/shm on some hosts
+    usage = shm_usage()
+
+    if usage is None:
         return {}
 
-    total_mb = round(storage_stats.total / pow(2, 20), 1)
-    used_mb = round(storage_stats.used / pow(2, 20), 1)
-    free_mb = round(storage_stats.free / pow(2, 20), 1)
+    total_mb = round(usage.total / pow(2, 20), 1)
+    used_mb = round(usage.used / pow(2, 20), 1)
+    free_mb = round(usage.free / pow(2, 20), 1)
 
     # required for log files + nginx cache
     min_req_shm = 40 + 10

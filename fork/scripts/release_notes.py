@@ -3,7 +3,10 @@
 
 Only commits the fork adds on top of upstream count, so a rebase onto newer
 upstream never floods the notes with upstream work. Notes since a previous
-release match commit subjects rather than SHAs, which survives those rebases.
+release leave out the commits it had, matched by patch ID rather than SHA,
+which survives those rebases, or by author, author date and subject, which
+survive a conflict edit that changes the patch. A new commit that reuses an
+old subject ("Fix lint") is still listed.
 
 Each subject's ledger ID (`UI6: ...`) picks the section and is then dropped.
 Commits that only touch files the image never ships (tests, CI, docs, fork
@@ -22,6 +25,7 @@ import argparse
 import fnmatch
 import re
 import subprocess
+import sys
 from dataclasses import dataclass, field
 
 # Files that never reach the image, or only shape how the fork is developed.
@@ -72,6 +76,11 @@ class Commit:
     subject: str
     trailer: str
     files: list[str]
+    # `git patch-id --stable`, empty for a commit without a diff.
+    patch_id: str = ""
+    # Author email, author date and subject: what a rebase or cherry-pick
+    # keeps even when a conflict edit changes the patch.
+    identity: tuple[str, str, str] = ("", "", "")
 
 
 @dataclass
@@ -82,12 +91,48 @@ class Notes:
     first: bool
     sections: dict[str, list[str]] = field(default_factory=dict)
     internal: int = 0
+    # Commits left out because the previous release had them.
+    released: int = 0
 
 
 def git(*args: str, cwd: str | None = None) -> str:
     return subprocess.run(
         ["git", *args], check=True, capture_output=True, text=True, cwd=cwd
     ).stdout
+
+
+def revision_range(value: str) -> str:
+    """Refuse a revision range git would read as an option (argument injection)."""
+    if not value or value.startswith("-"):
+        raise ValueError(f"not a revision range: {value!r}")
+    return value
+
+
+def patch_ids(rev_range: str, cwd: str | None = None) -> dict[str, str]:
+    """SHA to stable patch ID for each non-merge commit with a diff in range."""
+    # Bytes, not text: a diff can hold content that is not valid UTF-8.
+    # The range goes in on stdin, never on the command line, so a value from
+    # --previous or --ref cannot become a git option.
+    log = subprocess.run(
+        ["git", "log", "--no-merges", "-p", "--no-color", "--no-ext-diff"]
+        + ["--format=commit %H", "--stdin"],
+        input=f"{revision_range(rev_range)}\n".encode(),
+        check=True,
+        capture_output=True,
+        cwd=cwd,
+    ).stdout
+    out = subprocess.run(
+        ["git", "patch-id", "--stable"],
+        input=log,
+        check=True,
+        capture_output=True,
+        cwd=cwd,
+    ).stdout.decode()
+    ids = {}
+    for line in out.splitlines():
+        patch_id, sha = line.split()
+        ids[sha] = patch_id
+    return ids
 
 
 def fork_commits(ref: str, upstream: str, cwd: str | None = None) -> list[Commit]:
@@ -97,19 +142,25 @@ def fork_commits(ref: str, upstream: str, cwd: str | None = None) -> list[Commit
         "log",
         "--no-merges",
         "--reverse",
-        f"--format={RECORD_SEP}%s%n%(trailers:key=Release-note,valueonly,separator=%x1f)",
+        f"--format={RECORD_SEP}%H%x1f%ae%x1f%at%n%s%n"
+        "%(trailers:key=Release-note,valueonly,separator=%x1f)",
         "--name-only",
         f"{base}..{ref}",
         cwd=cwd,
     )
+    ids = patch_ids(f"{base}..{ref}", cwd)
     commits = []
     for record in out.split(RECORD_SEP)[1:]:
         lines = record.strip("\n").split("\n")
+        sha, email, date = lines[0].split("\x1f")
+        subject = lines[1]
         commits.append(
             Commit(
-                subject=lines[0],
-                trailer=lines[1].strip() if len(lines) > 1 else "",
-                files=[f for f in lines[2:] if f],
+                subject=subject,
+                trailer=lines[2].strip() if len(lines) > 2 else "",
+                files=[f for f in lines[3:] if f],
+                patch_id=ids.get(sha, ""),
+                identity=(email, date, subject),
             )
         )
     return commits
@@ -151,36 +202,59 @@ def section_for(prefix: str) -> str:
     return "Fixes and improvements"
 
 
+def released_before(
+    previous: str | None, upstream: str, cwd: str | None
+) -> tuple[set[str], set[tuple[str, str, str]]]:
+    """Patch ids and identities of the commits the previous release carried."""
+    patches: set[str] = set()
+    identities: set[tuple[str, str, str]] = set()
+    if previous:
+        for commit in fork_commits(previous, upstream, cwd):
+            if commit.patch_id:
+                patches.add(commit.patch_id)
+            identities.add(commit.identity)
+    return patches, identities
+
+
+def note_line(commit: Commit) -> tuple[str, str] | None:
+    """The section and line a commit contributes, or None when it is internal."""
+    prefix, text = ledger_prefix(commit.subject)
+    if commit.trailer.lower() == "none" or (
+        not commit.trailer and is_internal(commit, prefix)
+    ):
+        return None
+    line = commit.trailer or text
+    line = line[0].upper() + line[1:].rstrip(".")
+    section = section_for(prefix)
+    # A Release-note: trailer is written for users, so it is never folded.
+    if not commit.trailer and TOOLING_RE.search(line):
+        section = UNDER_THE_HOOD
+    return section, line
+
+
 def build(
     ref: str, previous: str | None, upstream: str, cwd: str | None = None
 ) -> Notes:
-    seen: set[str] = set()
-    previous_upstream = None
-    if previous:
-        seen = {c.subject for c in fork_commits(previous, upstream, cwd)}
-        previous_upstream = upstream_label(previous, upstream, cwd)
-
+    released_patches, released_identities = released_before(previous, upstream, cwd)
     notes = Notes(
         sha=git("rev-parse", ref, cwd=cwd).strip(),
         upstream=upstream_label(ref, upstream, cwd),
-        previous_upstream=previous_upstream,
+        previous_upstream=(
+            upstream_label(previous, upstream, cwd) if previous else None
+        ),
         first=previous is None,
     )
     for commit in fork_commits(ref, upstream, cwd):
-        if commit.subject in seen:
-            continue
-        prefix, text = ledger_prefix(commit.subject)
-        if commit.trailer.lower() == "none" or (
-            not commit.trailer and is_internal(commit, prefix)
+        if commit.patch_id in released_patches or (
+            commit.identity in released_identities
         ):
+            notes.released += 1
+            continue
+        entry = note_line(commit)
+        if entry is None:
             notes.internal += 1
             continue
-        line = commit.trailer or text
-        line = line[0].upper() + line[1:].rstrip(".")
-        section = section_for(prefix)
-        # A Release-note: trailer is written for users, so it is never folded.
-        if not commit.trailer and TOOLING_RE.search(line):
-            section = UNDER_THE_HOOD
+        section, line = entry
         items = notes.sections.setdefault(section, [])
         if line not in items:
             items.append(line)
@@ -235,7 +309,14 @@ def main() -> None:
     )
     parser.add_argument("--image", help="image reference to print at the end")
     args = parser.parse_args()
-    print(to_markdown(build(args.ref, args.previous, args.upstream), args.image))
+    notes = build(args.ref, args.previous, args.upstream)
+    if args.previous:
+        # The build log shows this; the notes themselves only cover new work.
+        print(
+            f"{notes.released} commit(s) already in {args.previous} left out",
+            file=sys.stderr,
+        )
+    print(to_markdown(notes, args.image))
 
 
 if __name__ == "__main__":

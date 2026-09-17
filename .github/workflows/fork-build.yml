@@ -6,9 +6,11 @@ name: Fork - Build image
 # :main and :<upstream base>-<date>.<run>, and publishes a GitHub Release
 # tagged fork/<that version> with notes from fork/scripts/release_notes.py. The
 # running app finds its own release through the notes' build marker
-# (frigate/fork/updates.py). A pushed fork/* tag builds an image of that tag
-# only. Pulls layer cache from upstream's public build cache so a rebuild is
-# usually well under the 40 minutes a cold build takes.
+# (frigate/fork/updates.py). A build of a commit that already has a release
+# (a re-run) reuses its version and publishes no new release. A pushed fork/*
+# tag builds an image of that tag only. Pulls layer cache from upstream's
+# public build cache so a rebuild is usually well under the 40 minutes a cold
+# build takes.
 
 on:
   workflow_dispatch:
@@ -55,6 +57,7 @@ jobs:
       packages: write
     outputs:
       version: ${{ steps.tags.outputs.version }}
+      released: ${{ steps.tags.outputs.released }}
       image: ${{ steps.tags.outputs.image }}
     steps:
       - uses: actions/checkout@v6
@@ -80,10 +83,24 @@ jobs:
           df -h / /var/lib/docker
       - name: Compute version and tags
         id: tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           SHORT_SHA="${GITHUB_SHA::7}"
-          if [[ "${GITHUB_REF}" == refs/tags/fork/* ]]; then
+          RELEASED=""
+          if [[ "${GITHUB_REF}" == refs/heads/main ]]; then
+            # A re-run, or a dispatch of a commit main already released, finds
+            # the release through its notes' build marker and keeps its version,
+            # so the image tags match it and no second release is published.
+            RELEASED="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+              --jq ".[] | select(.draft | not) | select((.body // \"\") | contains(\"fork-build: ${GITHUB_SHA} -->\")) | .tag_name")"
+            RELEASED="${RELEASED%%$'\n'*}"
+          fi
+          if [[ "${RELEASED}" == fork/* ]]; then
+            VERSION="${RELEASED#fork/}"
+            echo "::notice::${GITHUB_SHA::9} is already released as ${RELEASED}; reusing its version"
+          elif [[ "${GITHUB_REF}" == refs/tags/fork/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/fork/}"
           else
             # The upstream tag this build sits on, e.g. 0.18.0-20260911.42
@@ -99,6 +116,7 @@ jobs:
           fi
           {
             echo "version=${VERSION}"
+            echo "released=${RELEASED}"
             echo "image=${IMAGE}:${VERSION}"
             echo "tags=${TAGS}"
             echo "rocm-tags=${ROCM_TAGS}"
@@ -130,8 +148,10 @@ jobs:
   release:
     name: Publish release
     needs: amd64
-    # Releases describe what the server pulls, so only main builds get one.
-    if: github.ref == 'refs/heads/main'
+    # Releases describe what the server pulls, so only main builds get one, and
+    # only once per commit: a re-run would fail on the existing tag, or on a
+    # later day publish a second latest release saying "No user-facing changes".
+    if: github.ref == 'refs/heads/main' && needs.amd64.outputs.released == ''
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -16,7 +16,9 @@
 # cost 10x under memory pressure (several agents, swap in use), so they queue.
 #
 # Not mirrored: CI's `vite build --base=/BASE_PATH/`. It is the same bundle as
-# the e2e build with a different base path.
+# the e2e build with a different base path. Nor CI's audio companion job, which
+# builds fork/audio_trial's own image; the companion's and fork/monitoring's
+# unit tests run in the test image here, as in CI.
 set -uo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
@@ -57,7 +59,9 @@ e2e_args=()
 
 gate_lint() { (cd web && npm run -s lint); return $?; }
 gate_typecheck() { (cd web && npm run -s typecheck); return $?; }
-gate_ratchet() { (cd web && npm run -s type-ratchet); return $?; }
+# The baseline must not rise above the merge base's (an empty
+# TYPE_RATCHET_BASE skips that comparison).
+gate_ratchet() { (cd web && TYPE_RATCHET_BASE="${TYPE_RATCHET_BASE-$base}" npm run -s type-ratchet); return $?; }
 gate_i18n() { (cd web && npm run -s i18n:extract:ci); return $?; }
 gate_gitleaks() { gitleaks git --no-banner --redact --log-opts="origin/dev..HEAD" .; return $?; }
 

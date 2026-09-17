@@ -17,6 +17,7 @@ from frigate.video.hwaccel_fallback import (
     hwaccel_failure_line,
     software_detect_cmd,
 )
+from frigate.video.watchdog_state import WatchdogState
 
 # What the detect process printed before each exit on the Tapo C120 behind a
 # UHD 730 that prompted this (addresses and pointers vary per run).
@@ -356,7 +357,7 @@ class TestRememberedFallback(unittest.TestCase):
                 None,
                 None,
                 hwaccel_fallback=flag,
-                hwaccel_fallback_since=since,
+                shared=WatchdogState(hwaccel_fallback_since=since),
             )
 
         self.assertTrue(watchdog.hwaccel_fallback.active)
@@ -389,7 +390,7 @@ class TestRememberedFallback(unittest.TestCase):
                 None,
                 MagicMock(),
                 hwaccel_fallback=flag,
-                hwaccel_fallback_since=since,
+                shared=WatchdogState(hwaccel_fallback_since=since),
             )
         self.assertTrue(watchdog.hwaccel_fallback.active)
         # One watchdog tick that delivers an ffmpeg update, then stop.

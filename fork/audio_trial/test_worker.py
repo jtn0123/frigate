@@ -239,6 +239,50 @@ class WorkerTests(unittest.TestCase):
         )
 
     @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
+    @patch.object(worker, "health", return_value="")
+    @patch.object(worker, "infer")
+    def test_hallucinated_second_opinion_is_rejected_but_kept_for_inspection(
+        self, infer, *_
+    ):
+        infer.side_effect = [
+            {"speech_seconds": 3, "transcript": "", "language": "nn"},
+            {
+                "transcript": "Субтитры сделал DimaTorzok",
+                "language": "ru",
+                "rejected_segments": [],
+            },
+        ]
+        worker.process_job(self.queue, self.job)
+        result = json.loads(self.queue.recent()[0]["result"])
+        self.assertTrue(
+            result["large_status"].startswith("second opinion rejected:"),
+            result["large_status"],
+        )
+        self.assertNotIn("large_second_opinion", result)
+        self.assertEqual(
+            result["large_rejected_second_opinion"]["transcript"],
+            "Субтитры сделал DimaTorzok",
+        )
+
+    @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
+    @patch.object(worker, "health", return_value="")
+    @patch.object(worker, "infer")
+    def test_genuine_english_second_opinion_is_stored(self, infer, *_):
+        infer.side_effect = [
+            {"speech_seconds": 3, "transcript": "", "language": "nn"},
+            {"transcript": "I have a package for you", "language": "en"},
+        ]
+        worker.process_job(self.queue, self.job)
+        result = json.loads(self.queue.recent()[0]["result"])
+        self.assertEqual(
+            result["large_status"], "second opinion; not independently verified"
+        )
+        self.assertEqual(
+            result["large_second_opinion"]["transcript"], "I have a package for you"
+        )
+        self.assertNotIn("large_rejected_second_opinion", result)
+
+    @patch.object(worker, "download_audio", return_value=Path("audio.wav"))
     @patch.object(
         worker, "infer", return_value={"transcript": "partial", "interrupted": True}
     )
@@ -295,6 +339,46 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(
             json.loads(self.queue.recent()[0]["result"])["large_status"],
             "hourly retry limit",
+        )
+
+    def claim_waiting_second_opinion(self):
+        self.queue.defer(self.job, 1001, {"speech_seconds": 3, "transcript": ""})
+        job = self.queue.claim(1100)
+        self.assertEqual((job["state"], job["attempts"]), ("second_opinion", 1))
+        return job
+
+    @patch.object(worker, "download_audio")
+    @patch.object(worker, "health", return_value="insufficient spare memory")
+    @patch.object(worker, "infer")
+    def test_waiting_second_opinion_is_not_downloaded_or_counted(
+        self, infer, _health, download
+    ):
+        worker.process_job(self.queue, self.claim_waiting_second_opinion())
+        download.assert_not_called()
+        infer.assert_not_called()
+        row = self.queue.recent()[0]
+        self.assertEqual((row["state"], row["attempts"]), ("second_opinion", 1))
+        self.assertEqual(
+            json.loads(row["result"])["large_status"],
+            "deferred: insufficient spare memory",
+        )
+
+    @patch.object(worker, "download_audio")
+    @patch.object(worker, "health", return_value="")
+    @patch.object(worker, "infer")
+    def test_spent_budget_skips_the_download_of_a_second_opinion(
+        self, infer, _health, download
+    ):
+        (self.root / "large-budget.json").write_text(
+            json.dumps([worker.time.time()] * 2)
+        )
+        worker.process_job(self.queue, self.claim_waiting_second_opinion())
+        download.assert_not_called()
+        infer.assert_not_called()
+        row = self.queue.recent()[0]
+        self.assertEqual((row["state"], row["attempts"]), ("second_opinion", 1))
+        self.assertEqual(
+            json.loads(row["result"])["large_status"], "hourly retry limit"
         )
 
     @patch.object(worker, "memory_available", return_value=8 * 1024**3)

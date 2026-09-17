@@ -13,6 +13,10 @@ import subprocess
 import sys
 
 case = sys.argv[2]
+# The case names the images to pull and run, so only the benchmark's own cases
+# may reach the docker command line.
+if case not in ("shared-zstd", "dependency-images"):
+    sys.exit(f"unknown benchmark case: {case}")
 root = pathlib.Path(sys.argv[1])
 base = ["docker", "--context", "frigate-github-bench"]
 images = []

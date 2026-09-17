@@ -452,6 +452,15 @@ export default function ZoneEditPane({
       let friendlyNameQuery = "";
       if (friendly_name && friendly_name !== zoneName) {
         friendlyNameQuery = `&${pathPrefix}.friendly_name=${encodeURIComponent(friendly_name)}`;
+      } else if (
+        // fork (UI91): saves merge into the zone, so a saved name is kept
+        // unless removed when the field goes back to the zone id
+        (editingProfile
+          ? cameraConfig?.profiles?.[editingProfile]?.zones?.[zoneName]
+          : cameraConfig?.zones[zoneName]
+        )?.friendly_name
+      ) {
+        friendlyNameQuery = `&${pathPrefix}.friendly_name`;
       }
 
       const enabledQuery = `&${pathPrefix}.enabled=${enabled ? "True" : "False"}`;

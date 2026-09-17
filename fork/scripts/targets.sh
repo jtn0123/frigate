@@ -32,6 +32,7 @@ py_script_tests=(
   test_release_notes.py
   test_lock_audit.py
   test_audio_lock.py
+  test_benchmark_guards.py
 )
 
 main() {

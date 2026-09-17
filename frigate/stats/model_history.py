@@ -11,6 +11,15 @@ HISTORY_PATH = Path(CONFIG_DIR) / "ai-model-history.sqlite"
 RETENTION = 86400
 
 
+def history_sample(sample: dict) -> dict:
+    """Drop what the history graphs never read.
+
+    `server` carries the stability incidents and samples, which made each
+    stored minute large; only the live response shows it.
+    """
+    return {key: value for key, value in sample.items() if key != "server"}
+
+
 def save_sample(sample: dict, path: Path = HISTORY_PATH) -> None:
     """Store at most one sample per minute and prune beyond one day."""
     with sqlite3.connect(path, timeout=2) as db:
@@ -20,7 +29,7 @@ def save_sample(sample: dict, path: Path = HISTORY_PATH) -> None:
         now = sample["updated"]
         db.execute(
             "INSERT OR REPLACE INTO samples VALUES (?, ?)",
-            (int(now // 60), json.dumps(sample, allow_nan=False)),
+            (int(now // 60), json.dumps(history_sample(sample), allow_nan=False)),
         )
         db.execute(
             "DELETE FROM samples WHERE minute <= ?", (int((now - RETENTION) // 60),)
@@ -36,4 +45,5 @@ def read_history(path: Path = HISTORY_PATH) -> list[dict]:
             "SELECT data FROM samples WHERE minute > ? ORDER BY minute",
             (int((time.time() - RETENTION) // 60),),
         )
-        return [json.loads(row[0]) for row in rows]
+        # Rows stored before the trim still carry `server` for up to a day
+        return [history_sample(json.loads(row[0])) for row in rows]

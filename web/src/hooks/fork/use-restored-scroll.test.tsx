@@ -40,11 +40,19 @@ function Other() {
 function Tabs() {
   const ref = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState("alerts");
+  // Clicking a tab empties the list a render before the URL, and so the
+  // scope, catches up. "Empty" is that first render on its own.
+  const [emptied, setEmptied] = useState(false);
   useRestoredScroll(ref, tab);
+  const height = emptied ? 0 : tab === "alerts" ? 1000 : 100;
   return (
     <>
+      <button onClick={() => setEmptied(true)}>Empty</button>
       <button
-        onClick={() => setTab(tab === "alerts" ? "detections" : "alerts")}
+        onClick={() => {
+          setEmptied(false);
+          setTab(tab === "alerts" ? "detections" : "alerts");
+        }}
       >
         Switch
       </button>
@@ -53,7 +61,7 @@ function Tabs() {
         data-testid="tabs"
         style={{ overflowY: "auto", height: 100 }}
       >
-        <div data-height={tab === "alerts" ? 1000 : 100}>{tab}</div>
+        <div data-height={height}>{emptied ? "" : tab}</div>
       </div>
     </>
   );
@@ -67,6 +75,11 @@ function clampLikeABrowser(element: HTMLElement) {
       0,
       Number(element.firstElementChild?.getAttribute("data-height") ?? 0) - 100,
     );
+  Object.defineProperty(element, "scrollHeight", {
+    configurable: true,
+    get: () =>
+      Number(element.firstElementChild?.getAttribute("data-height") ?? 0),
+  });
   Object.defineProperty(element, "scrollTop", {
     configurable: true,
     get: () => {
@@ -90,6 +103,30 @@ it("keeps a scope's position when the next scope renders shorter content", () =>
   list.scrollTop = 450;
   fireEvent.scroll(list);
   expect(list.scrollTop).toBe(450);
+
+  fireEvent.click(screen.getByText("Switch"));
+  expect(list.textContent).toBe("detections");
+  fireEvent.click(screen.getByText("Switch"));
+
+  expect(list.textContent).toBe("alerts");
+  expect(list.scrollTop).toBe(450);
+});
+
+it("keeps a scope's position when the list empties before the scope changes", () => {
+  render(
+    <MemoryRouter initialEntries={[{ pathname: "/", key: "empty-test" }]}>
+      <Tabs />
+    </MemoryRouter>,
+  );
+  const list = screen.getByTestId("tabs");
+  clampLikeABrowser(list);
+  list.scrollTop = 450;
+  fireEvent.scroll(list);
+
+  // The click empties the list first; the browser clamps and fires a scroll.
+  fireEvent.click(screen.getByText("Empty"));
+  expect(list.scrollTop).toBe(0);
+  fireEvent.scroll(list);
 
   fireEvent.click(screen.getByText("Switch"));
   expect(list.textContent).toBe("detections");

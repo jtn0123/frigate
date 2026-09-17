@@ -72,9 +72,14 @@ function ReviewCard({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const bypassDialogRef = useRef(false);
 
+  // fork (UI99): the memo comparator cannot see writes to the event prop, so
+  // the card keeps its own deleted and reviewed state
+  const [deleted, setDeleted] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
+
   const onMarkAsReviewed = useCallback(async () => {
     await axios.post(`reviews/viewed`, { ids: [event.id] });
-    event.has_been_reviewed = true;
+    setReviewed(true);
     setOptionsOpen(false);
   }, [event]);
 
@@ -121,7 +126,7 @@ function ReviewCard({
 
   const onDelete = useCallback(async () => {
     await axios.post(`reviews/delete`, { ids: [event.id] });
-    event.id = "";
+    setDeleted(true);
     setOptionsOpen(false);
   }, [event]);
 
@@ -266,7 +271,7 @@ function ReviewCard({
     </div>
   );
 
-  if (event.id == "") {
+  if (deleted || event.id == "") {
     return;
   }
 
@@ -312,7 +317,7 @@ function ReviewCard({
                 </div>
               </div>
             </ContextMenuItem>
-            {!event.has_been_reviewed && (
+            {!event.has_been_reviewed && !reviewed && (
               <ContextMenuItem onClick={wrapAsync(onMarkAsReviewed)}>
                 <div className="flex w-full cursor-pointer items-center justify-start gap-2 p-2">
                   <FaCircleCheck className="text-secondary-foreground" />
@@ -384,7 +389,7 @@ function ReviewCard({
             <FaCompactDisc className="text-secondary-foreground" />
             <div className="text-primary">{t("recording.button.export")}</div>
           </div>
-          {!event.has_been_reviewed && (
+          {!event.has_been_reviewed && !reviewed && (
             <div
               className="flex w-full items-center justify-start gap-2 p-2"
               onClick={wrapAsync(onMarkAsReviewed)}

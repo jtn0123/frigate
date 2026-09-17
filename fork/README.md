@@ -17,6 +17,7 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
   "Fork - Checks" is green on `next`, after previewing the release notes.
 - `scripts/py-checks.sh` runs mypy, the API spec check and unittest in the test
   image at the same time (`make check-py`, CI "Python - mypy, API spec, unittest").
+  unittest includes the `audio_trial` and `monitoring` suites, as in CI.
 - `scripts/ci-changes.sh` tells "Fork - Checks" whether web or Python files
   changed, so docs-only commits skip both suites.
 - `scripts/wt.sh` creates a section worktree with node_modules and its own e2e

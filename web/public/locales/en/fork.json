@@ -126,6 +126,12 @@
     "note": {
       "softwareDecoding": "Decodes in software because hardware decoding kept failing"
     },
+    "outage": {
+      "down": "Unreachable since",
+      "earlier_one": "Was unreachable once in the last 24 h",
+      "earlier_other": "Was unreachable {{count}} times in the last 24 h",
+      "earlier": "cameraHealth.outage.earlier"
+    },
     "softwareDecodingProblem": "{{camera}}: hardware decoding kept failing, now decoding in software",
     "restarts": {
       "summary_one": "{{count}} feed restart in the last 24 h ({{kinds}})",
@@ -291,5 +297,10 @@
     "working": "Working\u2026",
     "actionFailed": "The action failed. Try again.",
     "renameFailed": "The export could not be renamed. Your input is still here. Try again."
+  },
+  "storage": {
+    "shm": {
+      "unknown": "Size unknown on this host"
+    }
   }
 }

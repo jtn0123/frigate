@@ -185,11 +185,15 @@ class Queue:
         self.db.commit()
         self.publish(job)
 
-    def defer(self, job: dict, now: float, result: dict) -> None:
-        """Atomically save a durable second opinion without repeating Medium."""
+    def defer(self, job: dict, now: float, result: dict, refund: bool = False) -> None:
+        """Atomically save a durable second opinion without repeating Medium.
+
+        `refund` returns the attempt spent by a claim that only waited.
+        """
         self.db.execute(
-            "UPDATE jobs SET state='second_opinion',result=?,updated=? WHERE id=?",
-            (json.dumps(result, ensure_ascii=False), now, job["id"]),
+            "UPDATE jobs SET state='second_opinion',result=?,"
+            "attempts=MAX(0,attempts-?),updated=? WHERE id=?",
+            (json.dumps(result, ensure_ascii=False), int(refund), now, job["id"]),
         )
         self.db.execute(
             PUBLICATION_SQL,

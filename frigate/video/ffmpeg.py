@@ -1,5 +1,6 @@
 """Manages ffmpeg processes for camera frame capture."""
 
+import json
 import logging
 import queue
 import subprocess as sp
@@ -31,8 +32,14 @@ from frigate.util.image import (
     SharedMemoryFrameManager,
 )
 from frigate.util.process import FrigateProcess
+from frigate.video.camera_outage import (
+    CameraOutageTracker,
+    outage_message,
+    push_enabled,
+)
 from frigate.video.hwaccel_fallback import HwaccelFallback, fallback_state_path
 from frigate.video.restart_log import RestartLog
+from frigate.video.watchdog_state import WatchdogState
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +121,7 @@ class CameraWatchdog(threading.Thread):
         detection_frame,
         stop_event,
         hwaccel_fallback=None,
-        restart_events=None,
-        hwaccel_fallback_since=None,
+        shared: WatchdogState | None = None,
     ):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(f"watchdog.{config.name}")
@@ -145,7 +151,9 @@ class CameraWatchdog(threading.Thread):
             config, state_path=fallback_state_path(config.name)
         )
         self.hwaccel_fallback_flag = hwaccel_fallback
-        self.hwaccel_fallback_since = hwaccel_fallback_since
+        # Fork: manager proxies the stats process reads (D11, D14, SV6).
+        shared = shared or WatchdogState()
+        self.hwaccel_fallback_since = shared.hwaccel_fallback_since
         self._publish_hwaccel_fallback()
         since, expires = self.hwaccel_fallback.since, self.hwaccel_fallback.expires
         if since is not None and expires is not None:
@@ -157,8 +165,17 @@ class CameraWatchdog(threading.Thread):
                 "this camera's ffmpeg settings change."
             )
         # Fork (D11): restart history for Camera Health, throttled ffmpeg dumps.
-        self.restart_log = RestartLog(config.name, self.logger, restart_events)
+        self.restart_log = RestartLog(config.name, self.logger, shared.restart_events)
         self._crash_logged: threading.Thread | None = None
+        # Fork (SV6): one notification when the camera has delivered nothing
+        # for a while, and one when it comes back.
+        self.outage_tracker = CameraOutageTracker(
+            config.name,
+            self.logger,
+            history=shared.outage_events,
+            since=shared.outage_since,
+            notify=self._notify_outage,
+        )
 
         self.config_subscriber = CameraConfigUpdateSubscriber(
             None,
@@ -178,6 +195,9 @@ class CameraWatchdog(threading.Thread):
         self.latest_invalid_segment_time: float = 0
         self.latest_cache_segment_time: float = 0
         self.record_enable_time: datetime | None = None
+        # Fork (SV3): when the watchdog last restarted the record process, so
+        # the stale check waits for the new process to write a segment.
+        self.record_restart_time: datetime | None = None
 
         # `valid` segments are published with the segment's start time, so the
         # gap between consecutive publishes can reach 2 * segment_time. Pad the
@@ -213,6 +233,42 @@ class CameraWatchdog(threading.Thread):
             self.requestor.send_data(f"{self.config.name}/status/record", status)
             self._last_record_status = status
             self._last_status_update_time = now
+
+    def _notify_outage(self, event: dict[str, Any]) -> None:
+        """Fork (SV6): push an outage event, when the fork flag asks for it.
+
+        `camera_monitoring` is the topic web push and MQTT already carry, so
+        this needs no new delivery path; it is opt-in because it reuses the
+        user's alert notifications.
+        """
+        if not push_enabled():
+            return
+
+        self.requestor.send_data(
+            "camera_monitoring",
+            json.dumps(
+                {
+                    "camera": self.config.name,
+                    "state": event["state"],
+                    "message": outage_message(event),
+                }
+            ),
+        )
+
+    def _check_outage(self, now: float, enabled: bool) -> None:
+        """Fork (SV6): fold one watchdog tick into the outage tracker."""
+        last_frame_time = (
+            float(self.capture_thread.current_frame.value)
+            if self.capture_thread is not None
+            else 0.0
+        )
+        self.outage_tracker.update(
+            now,
+            enabled=enabled,
+            last_frame_time=last_frame_time,
+            record_enabled=self.config.record.enabled,
+            last_segment_time=self.latest_valid_segment_time,
+        )
 
     def _check_hwaccel_fallback(self) -> None:
         """Fork (D10): stop decoding on the GPU if that keeps killing detect."""
@@ -327,6 +383,8 @@ class CameraWatchdog(threading.Thread):
                 continue
 
             enabled = self.config.enabled
+            self._check_outage(datetime.now().timestamp(), enabled)  # fork (SV6)
+
             if enabled != self.was_enabled:
                 if enabled:
                     self.logger.debug(f"Enabling camera {self.config.name}")
@@ -458,6 +516,15 @@ class CameraWatchdog(threading.Thread):
                         now_utc - self.record_enable_time
                     ) < timedelta(seconds=90)
 
+                    # Fork (SV3): a record process the watchdog just restarted
+                    # needs a full stale window to write its first segment.
+                    # Without this the same stall is still true one second
+                    # later and ffmpeg is killed again and again.
+                    if self.record_restart_time is not None and (
+                        now_utc - self.record_restart_time
+                    ) < timedelta(seconds=self.record_stale_threshold):
+                        in_grace_period = True
+
                     latest_cache_dt = (
                         datetime.fromtimestamp(self.latest_cache_segment_time, tz=UTC)
                         if self.latest_cache_segment_time > 0
@@ -508,6 +575,7 @@ class CameraWatchdog(threading.Thread):
                             f"{reason} for {self.config.name} in the last {self.record_stale_threshold}s. Restarting the ffmpeg record process..."
                         )
                         self.restart_log.record("record", "stalled", reason)
+                        self.record_restart_time = now_utc  # fork (SV3)
                         p["process"] = start_or_restart_ffmpeg(
                             p["cmd"],
                             self.logger,
@@ -719,8 +787,12 @@ class CameraCapture(FrigateProcess):
             self.camera_metrics.detection_frame,
             self.stop_event,
             self.camera_metrics.hwaccel_fallback,
-            self.camera_metrics.restart_events,
-            hwaccel_fallback_since=self.camera_metrics.hwaccel_fallback_since,
+            WatchdogState(
+                restart_events=self.camera_metrics.restart_events,
+                hwaccel_fallback_since=self.camera_metrics.hwaccel_fallback_since,
+                outage_events=self.camera_metrics.outage_events,
+                outage_since=self.camera_metrics.outage_since,
+            ),
         )
         camera_watchdog.start()
         camera_watchdog.join()

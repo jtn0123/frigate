@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import sqlite3
 import tempfile
 import time
 import unittest
@@ -61,6 +62,49 @@ class MonitoringTruthTests(unittest.TestCase):
             samples = read_history(path)
             self.assertEqual(len(samples), 1)
             self.assertEqual(samples[0]["models"][0]["id"], "large")
+
+    def test_history_keeps_only_what_the_graphs_read(self):
+        from frigate.api.ai_models import AIModelsResponse
+
+        stability = {
+            "status": "connected",
+            "incidents": [{"kind": "ai", "scope": "detector"}] * 100,
+            "samples": [{"time": 1, "detector_ms": 12}] * 120,
+        }
+        now = time.time()
+        sample = {
+            "updated": now,
+            "models": [{"id": "medium"}],
+            "audio": {"status": "connected", "pending": 2},
+            "shared_gpus": {},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "history.sqlite"
+            save_sample(
+                {
+                    **sample,
+                    "server": {
+                        "status": "connected",
+                        "scopes": [],
+                        "stability": stability,
+                    },
+                },
+                path,
+            )
+            with sqlite3.connect(path) as db:
+                stored = db.execute("SELECT data FROM samples").fetchone()[0]
+                # A row saved before the trim is trimmed when read
+                db.execute(
+                    "INSERT INTO samples VALUES (?, ?)",
+                    (
+                        int(now // 60) - 1,
+                        json.dumps({**sample, "server": {"stability": stability}}),
+                    ),
+                )
+            samples = read_history(path)
+        self.assertNotIn("incidents", stored)
+        self.assertEqual(samples, [sample, sample])
+        AIModelsResponse.model_validate({**sample, "models": []})
 
     def test_metrics_rejects_viewer_before_collection(self):
         app = FastAPI()

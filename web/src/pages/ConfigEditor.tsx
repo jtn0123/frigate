@@ -120,6 +120,13 @@ function ConfigEditor() {
     setRestartDialogOpen(true);
   }, []);
 
+  // fork (UI92): switch the theme in place; recreating the editor for it
+  // dropped the typed edits and the listener that tracks them
+  const editorTheme = (systemTheme || theme) == "dark" ? "vs-dark" : "vs-light";
+  useEffect(() => {
+    monaco.editor.setTheme(editorTheme);
+  }, [editorTheme]);
+
   const saveThenRestart = useCallback(async (): Promise<boolean> => {
     try {
       await onHandleSaveConfig("saveonly");
@@ -163,6 +170,9 @@ function ConfigEditor() {
     } else {
       modelRef.current.setValue(rawConfig);
     }
+    const contentListener = modelRef.current.onDidChangeContent(() => {
+      setHasChanges(modelRef.current?.getValue() != rawConfig);
+    });
 
     const container = configRef.current;
 
@@ -171,7 +181,6 @@ function ConfigEditor() {
         language: "yaml",
         model: modelRef.current,
         scrollBeyondLastLine: false,
-        theme: (systemTheme || theme) == "dark" ? "vs-dark" : "vs-light",
         // fork: wrap lines and drop the minimap and gutters on phones
         ...(phoneFixes && isMobile ? phoneEditorOptions : {}),
       });
@@ -186,6 +195,7 @@ function ConfigEditor() {
     }
 
     return () => {
+      contentListener.dispose();
       if (editorRef.current) {
         editorRef.current.dispose();
         editorRef.current = null;
@@ -196,7 +206,7 @@ function ConfigEditor() {
       }
       schemaConfiguredRef.current = false;
     };
-  }, [rawConfig, apiHost, systemTheme, theme, handleSaveOnly]);
+  }, [rawConfig, apiHost, handleSaveOnly]);
 
   // when in safe mode, attempt to validate the existing (invalid) config immediately
   // so that the user sees the validation errors without needing to press save
@@ -229,20 +239,6 @@ function ConfigEditor() {
 
   const [hasChanges, setHasChanges] = useState(false);
   useUnsavedNavigation(hasChanges);
-
-  useEffect(() => {
-    if (!rawConfig || !modelRef.current) {
-      return;
-    }
-
-    modelRef.current.onDidChangeContent(() => {
-      if (modelRef.current?.getValue() != rawConfig) {
-        setHasChanges(true);
-      } else {
-        setHasChanges(false);
-      }
-    });
-  }, [rawConfig]);
 
   useEffect(() => {
     if (rawConfig && modelRef.current) {

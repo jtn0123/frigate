@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 from frigate.video.ffmpeg import CameraWatchdog
 from frigate.video.restart_log import (
+    COALESCE_WINDOW_SECONDS,
     HISTORY_MAX,
     RestartLog,
     classify_exit,
@@ -141,10 +142,77 @@ class TestRestartLog(unittest.TestCase):
         self.log.record("record", "stalled", "new", now=90000)
         self.assertEqual([e["message"] for e in self.history], ["new"])
 
+        step = COALESCE_WINDOW_SECONDS + 1
         for i in range(HISTORY_MAX + 5):
-            self.log.record("detect", "other", str(i), now=90001 + i)
+            self.log.record("detect", "other", str(i), now=90001 + i * step)
         self.assertEqual(len(self.history), HISTORY_MAX)
         self.assertEqual(self.history[-1]["message"], str(HISTORY_MAX + 4))
+
+
+class TestBurstsAreOneIncident(unittest.TestCase):
+    """Fork (SV5): a burst of restarts is one incident with a count."""
+
+    def setUp(self):
+        self.logger = logging.getLogger("watchdog.back")
+        self.history: list[dict] = []
+        self.log = RestartLog("back", self.logger, self.history)
+
+    def test_a_single_restart_counts_once(self):
+        event = self.log.record("record", "stalled", "no new segments", now=1000)
+
+        self.assertEqual(event["count"], 1)
+        self.assertEqual(self.history, [event])
+
+    def test_restarts_seconds_apart_are_one_incident(self):
+        self.log.record("record", "stalled", "no new segments", now=1000)
+        self.log.record("record", "stalled", "no new segments", now=1001)
+        event = self.log.record("record", "stalled", "no new segments", now=1009)
+
+        self.assertEqual(len(self.history), 1)
+        self.assertEqual(event["count"], 3)
+        # The incident keeps the time of its first restart.
+        self.assertEqual(event["time"], 1000)
+        self.assertEqual(self.history[0], event)
+
+    def test_a_restart_past_the_window_is_a_new_incident(self):
+        self.log.record("record", "stalled", "no new segments", now=1000)
+        self.log.record(
+            "record", "stalled", "no new segments", now=1000 + COALESCE_WINDOW_SECONDS
+        )
+        self.log.record(
+            "record",
+            "stalled",
+            "no new segments",
+            now=1001 + COALESCE_WINDOW_SECONDS,
+        )
+
+        self.assertEqual([e["count"] for e in self.history], [2, 1])
+
+    def test_a_different_role_or_kind_is_its_own_incident(self):
+        self.log.record("record", "stalled", "no new segments", now=1000)
+        self.log.record("detect", "stalled", "no frames", now=1001)
+        self.log.record("detect", "connection", "Connection refused", now=1002)
+
+        self.assertEqual(len(self.history), 3)
+        self.assertEqual([e["count"] for e in self.history], [1, 1, 1])
+
+    def test_the_event_keeps_the_fields_consumers_read(self):
+        self.log.record("record", "stalled", "no new segments", now=1000)
+        event = self.log.record("record", "stalled", "no new segments", now=1002)
+
+        self.assertEqual(
+            set(event.keys()), {"time", "role", "kind", "message", "count"}
+        )
+        self.assertEqual(event["role"], "record")
+        self.assertEqual(event["kind"], "stalled")
+        self.assertEqual(event["message"], "no new segments")
+
+    def test_exits_seconds_apart_are_one_incident_too(self):
+        self.log.note_exit("detect", FakeLogPipe(VAAPI_EXIT), now=1000)
+        event = self.log.note_exit("detect", FakeLogPipe(VAAPI_EXIT), now=1003)
+
+        self.assertEqual(len(self.history), 1)
+        self.assertEqual(event["count"], 2)
 
 
 class TestWatchdogResetHook(unittest.TestCase):
