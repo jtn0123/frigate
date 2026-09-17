@@ -33,10 +33,10 @@ The structural debt did not move: the same god files, the same 107
 | F | Dependencies & Tech Currency | C+ | B− | B− | 5 |
 | G | Performance & Scalability | C+ | B− | C+ | 10 |
 | H | Documentation & Onboarding | C | C+ | C+ | 5 |
-| I | Developer Experience & Tooling | C+ | B | B | 9 |
-| **Overall** | | **B−** | **B** | **B** | **68** + UX track |
+| I | Developer Experience & Tooling | C+ | B | B | 8 |
+| **Overall** | | **B−** | **B** | **B** | **67** + UX track |
 
-**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E15, E16, B5, I29
+**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E15, E16, B5, G14
 
 **Type safety at a glance.** Frontend: TypeScript `strict` gates the build and
 `fork/type-ratchet.json` holds every escape hatch (`explicitAny` 23,
@@ -668,6 +668,7 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - ~~I13~~ ✓ done 2026-09-11. Releases from `main` with generated notes
 - ~~I14~~ ✓ done 2026-09-11. SonarCloud findings in scripts, CI and backend files
 - ~~I28~~ ✓ done 2026-09-17. The red pushes were a merge that skipped pull request analysis (I26's findings) and scans without browser coverage, not the new-code period; every push to `next` now runs the web jobs, a failed gate names its conditions, evidence and decision in `fork/SONAR-CI.md`
+- ~~I29~~ ✓ done 2026-09-17. Ruleset "main: require quality checks" (id 23612078): `Checks passed` is a required status on `refs/heads/main`. `make promote` pushes a commit that already ran Fork - Checks on `next`, so it still works; a direct push of an unchecked commit is rejected
 - ~~I32~~ ✓ done 2026-09-17. `check.sh` warns when HEAD is more than 20 commits behind `origin/next`; `.codex-output/` and `fork/demo/screenshots/compare/` ignored
 - I15 to I26: see `FORK.md` (I16, I17 unused)
 
@@ -678,13 +679,6 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - **Update 2026-09-17:** The workflow part shipped: the run stops in its first step when the secret is empty and names the token to create, the "Upstream sync failed" issue carries the same steps, and the new-tag base is `v0.18.0`. Still open for the owner: create the fine-grained token (Contents and Workflows read and write on `jtn0123/frigate`) and save it as `FORK_SYNC_TOKEN`; steps in `fork/README.md`, "Owner setup".
 - **Effort:** S
 - **Grade lift:** B → B+ (I28 is done)
-
-#### I29 — Require the check on `main` too `[fork]`
-- **Where:** repository rulesets ("next: require quality checks" covers `refs/heads/next` only; `main` has only the no-deletion rule)
-- **What's wrong:** `fork/scripts/promote.sh` enforces green checks by convention; a direct push to `main` builds and publishes the image the server pulls.
-- **Fix:** Add `Checks passed` as a required status on `main`, or restrict updates to fast-forwards from `next`.
-- **Effort:** S
-- **Grade lift:** B → B
 
 #### I30 — The Sonar token expires on 2026-10-11 `[fork]`
 - **Where:** `SONAR_TOKEN` secret (expiry noted in `fork/SONAR-CI.md`)
