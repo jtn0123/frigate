@@ -212,6 +212,14 @@ def measure(command, cwd, log_path):
     return report["seconds"]
 
 
+# The BuildKit image both benchmark workflows pin; the script accepts only this
+# reference so an arbitrary value cannot reach the builder's command line.
+PINNED_BUILDKIT_IMAGE = (
+    "moby/buildkit@sha256:"
+    "28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8"
+)
+
+
 def build_targets(
     args: argparse.Namespace,
     config: Path,
@@ -335,6 +343,8 @@ def main():
         or args.registry != "localhost:5007"
     ):
         parser.error("Use the dedicated benchmark context and localhost registry")
+    if args.buildkit_image and args.buildkit_image not in (PINNED_BUILDKIT_IMAGE,):
+        parser.error("Use the pinned BuildKit image from the benchmark workflows")
     if args.context == "frigate-github-bench" and not (
         os.environ.get("GITHUB_ACTIONS") == "true"
         and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"

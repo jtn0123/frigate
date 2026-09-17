@@ -124,7 +124,11 @@ def main() -> None:
     parser.add_argument("--cache", required=True)
     parser.add_argument("--amd64-tags", required=True)
     parser.add_argument("--rocm-tags", required=True)
-    parser.add_argument("--context")
+    parser.add_argument(
+        "--context",
+        choices=("colima-frigate-build-bench", "frigate-github-bench"),
+        help="Docker context; omit to use the current one",
+    )
     parser.add_argument("--builder")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed-caches", type=Path)
@@ -140,6 +144,13 @@ def main() -> None:
     )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    # argparse already rejects other values; the membership test keeps the
+    # context name out of the docker command line unless it is a known one.
+    if args.context and args.context not in (
+        "colima-frigate-build-bench",
+        "frigate-github-bench",
+    ):
+        parser.error("Unknown docker context")
     docker = ["docker"] + (["--context", args.context] if args.context else [])
     bake = docker + ["buildx", "bake"]
     if args.builder:
