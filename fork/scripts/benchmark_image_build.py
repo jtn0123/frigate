@@ -218,6 +218,33 @@ PINNED_BUILDKIT_IMAGE = (
     "moby/buildkit@sha256:"
     "28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8"
 )
+KNOWN_CONTEXTS = ("colima-frigate-build-bench", "frigate-github-bench")
+KNOWN_CASES = ("baseline", "shared-gzip", "shared-zstd", "dependency-images")
+BENCHMARK_REGISTRY = "localhost:5007"
+
+
+def known(value: str | None, allowed: tuple[str, ...]) -> str | None:
+    """Return the allowed constant equal to value, or None.
+
+    The docker command line is built from the returned constant, never from the
+    command line text itself.
+    """
+    return next((constant for constant in allowed if constant == value), None)
+
+
+def pin_arguments(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Replace the docker-bound arguments with their constants, or exit."""
+    context = known(args.context, KNOWN_CONTEXTS)
+    if context is None or args.registry != BENCHMARK_REGISTRY:
+        parser.error("Use the dedicated benchmark context and localhost registry")
+    buildkit_image = known(args.buildkit_image, (PINNED_BUILDKIT_IMAGE,))
+    if args.buildkit_image and buildkit_image is None:
+        parser.error("Use the pinned BuildKit image from the benchmark workflows")
+    # From here on the namespace holds constants, not command line text.
+    args.context = context
+    args.case = known(args.case, KNOWN_CASES)
+    args.registry = BENCHMARK_REGISTRY
+    args.buildkit_image = buildkit_image
 
 
 def build_targets(
@@ -322,7 +349,7 @@ def main():
     )
     parser.add_argument(
         "--case",
-        choices=("baseline", "shared-gzip", "shared-zstd", "dependency-images"),
+        choices=KNOWN_CASES,
         required=True,
     )
     parser.add_argument(
@@ -338,13 +365,7 @@ def main():
         for ref in seed_caches
     ):
         parser.error("Seed caches must be immutable GHCR digest references")
-    if (
-        args.context not in ("colima-frigate-build-bench", "frigate-github-bench")
-        or args.registry != "localhost:5007"
-    ):
-        parser.error("Use the dedicated benchmark context and localhost registry")
-    if args.buildkit_image and args.buildkit_image not in (PINNED_BUILDKIT_IMAGE,):
-        parser.error("Use the pinned BuildKit image from the benchmark workflows")
+    pin_arguments(parser, args)
     if args.context == "frigate-github-bench" and not (
         os.environ.get("GITHUB_ACTIONS") == "true"
         and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
