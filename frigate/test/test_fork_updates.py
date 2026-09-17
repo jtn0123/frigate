@@ -1,5 +1,6 @@
 """Tests for the fork update checker (fork UI42)."""
 
+import threading
 import unittest
 from typing import Any
 
@@ -167,6 +168,76 @@ class TestForkUpdates(unittest.TestCase):
 
         self.assertEqual(state["status"], "available")
         self.assertEqual(state["error"], "unreachable")
+
+
+class BlockingFetch:
+    """A fetch that says when it started and waits until it is let go."""
+
+    def __init__(self) -> None:
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.calls = 0
+
+    def __call__(self) -> list[dict[str, Any]]:
+        self.calls += 1
+        self.started.set()
+        if not self.release.wait(timeout=10):
+            raise AssertionError("the test never released the fetch")
+        return RELEASES
+
+
+class TestForkUpdatesConcurrency(unittest.TestCase):
+    """B6: the GitHub request runs outside the checker's lock."""
+
+    def test_a_second_caller_is_not_blocked_by_a_slow_fetch(self) -> None:
+        fetch = BlockingFetch()
+        checker = ForkUpdateChecker(
+            f"0.18.0-{SHA_OLD[:9]}", fetch=fetch, clock=FakeClock()
+        )
+        states: dict[str, dict[str, Any]] = {}
+
+        def call(name: str, force: bool = False) -> None:
+            states[name] = checker.state(force=force)
+
+        first = threading.Thread(target=call, args=("first",))
+        first.start()
+        self.addCleanup(first.join, 10)
+        self.addCleanup(fetch.release.set)
+        self.assertTrue(fetch.started.wait(timeout=10))
+
+        # The fetch is still in progress; these return the cached state.
+        for name, force in (("second", False), ("forced", True)):
+            caller = threading.Thread(target=call, args=(name, force))
+            caller.start()
+            caller.join(timeout=10)
+            self.assertFalse(caller.is_alive(), f"{name} caller was blocked")
+
+        self.assertTrue(first.is_alive())
+        self.assertIsNone(states["second"]["checked_at"])
+        self.assertEqual(states["second"]["releases"], [])
+        self.assertEqual(states["forced"], states["second"])
+        self.assertEqual(fetch.calls, 1, "one refresh at a time")
+
+        fetch.release.set()
+        first.join(timeout=10)
+
+        self.assertFalse(first.is_alive())
+        self.assertEqual(states["first"]["status"], "available")
+        self.assertEqual(checker.state()["latest_tag"], "fork/3")
+        self.assertEqual(fetch.calls, 1)
+
+    def test_an_unexpected_fetch_error_does_not_end_refreshing_for_good(self) -> None:
+        fetch = FakeFetch(RuntimeError("bug"))
+        checker = ForkUpdateChecker(
+            f"0.18.0-{SHA_OLD[:9]}", fetch=fetch, clock=FakeClock()
+        )
+
+        with self.assertRaises(RuntimeError):
+            checker.state()
+
+        fetch.result = RELEASES
+        self.assertEqual(checker.state()["status"], "available")
+        self.assertEqual(fetch.calls, 2)
 
 
 if __name__ == "__main__":
