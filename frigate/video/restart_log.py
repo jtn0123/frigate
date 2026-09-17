@@ -22,6 +22,9 @@ from frigate.video.hwaccel_fallback import hwaccel_failure_line
 HISTORY_SECONDS = 24 * 3600
 HISTORY_MAX = 200
 REPEAT_WINDOW_SECONDS = 3600
+# Fork (SV5): restarts of the same role and kind this close together are one
+# incident, so a burst does not inflate the Camera Health counts.
+COALESCE_WINDOW_SECONDS = 10
 
 # ffmpeg messages that mean the input went away rather than the decoder failing.
 CONNECTION_MARKERS: tuple[str, ...] = (
@@ -81,9 +84,37 @@ class RestartLog:
     def record(
         self, role: str, kind: str, message: str, now: float | None = None
     ) -> dict[str, Any]:
-        """Add one restart to the shared history, dropping entries past 24 h."""
+        """Add one restart to the shared history, dropping entries past 24 h.
+
+        Fork (SV5): a restart that follows one of the same role and kind
+        within `COALESCE_WINDOW_SECONDS` counts up that incident instead of
+        adding another, so the history keeps one entry per stall rather than
+        one per ffmpeg kill. The incident keeps the time and message of its
+        first restart, and carries how many restarts it stands for in
+        `count`.
+        """
         now = time.time() if now is None else now
-        event = {"time": round(now, 1), "role": role, "kind": kind, "message": message}
+        last = self.history[-1] if self.history else None
+
+        if (
+            last is not None
+            and last["role"] == role
+            and last["kind"] == kind
+            and 0 <= now - last["time"] <= COALESCE_WINDOW_SECONDS
+        ):
+            # The history may be a manager list, so replace the entry rather
+            # than mutating the copy this read returned.
+            event = {**last, "count": last.get("count", 1) + 1}
+            self.history[-1] = event
+            return event
+
+        event = {
+            "time": round(now, 1),
+            "role": role,
+            "kind": kind,
+            "message": message,
+            "count": 1,
+        }
         self.history.append(event)
         while len(self.history) > HISTORY_MAX or (
             self.history and self.history[0]["time"] < now - HISTORY_SECONDS

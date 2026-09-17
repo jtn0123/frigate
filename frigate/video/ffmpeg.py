@@ -178,6 +178,9 @@ class CameraWatchdog(threading.Thread):
         self.latest_invalid_segment_time: float = 0
         self.latest_cache_segment_time: float = 0
         self.record_enable_time: datetime | None = None
+        # Fork (SV3): when the watchdog last restarted the record process, so
+        # the stale check waits for the new process to write a segment.
+        self.record_restart_time: datetime | None = None
 
         # `valid` segments are published with the segment's start time, so the
         # gap between consecutive publishes can reach 2 * segment_time. Pad the
@@ -458,6 +461,15 @@ class CameraWatchdog(threading.Thread):
                         now_utc - self.record_enable_time
                     ) < timedelta(seconds=90)
 
+                    # Fork (SV3): a record process the watchdog just restarted
+                    # needs a full stale window to write its first segment.
+                    # Without this the same stall is still true one second
+                    # later and ffmpeg is killed again and again.
+                    if self.record_restart_time is not None and (
+                        now_utc - self.record_restart_time
+                    ) < timedelta(seconds=self.record_stale_threshold):
+                        in_grace_period = True
+
                     latest_cache_dt = (
                         datetime.fromtimestamp(self.latest_cache_segment_time, tz=UTC)
                         if self.latest_cache_segment_time > 0
@@ -508,6 +520,7 @@ class CameraWatchdog(threading.Thread):
                             f"{reason} for {self.config.name} in the last {self.record_stale_threshold}s. Restarting the ffmpeg record process..."
                         )
                         self.restart_log.record("record", "stalled", reason)
+                        self.record_restart_time = now_utc  # fork (SV3)
                         p["process"] = start_or_restart_ffmpeg(
                             p["cmd"],
                             self.logger,
