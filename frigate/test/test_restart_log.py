@@ -201,7 +201,7 @@ class TestBurstsAreOneIncident(unittest.TestCase):
         event = self.log.record("record", "stalled", "no new segments", now=1002)
 
         self.assertEqual(
-            {"time", "role", "kind", "message", "count"}, set(event.keys())
+            set(event.keys()), {"time", "role", "kind", "message", "count"}
         )
         self.assertEqual(event["role"], "record")
         self.assertEqual(event["kind"], "stalled")
