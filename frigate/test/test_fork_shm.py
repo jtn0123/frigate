@@ -7,6 +7,7 @@ from collections import namedtuple
 from unittest.mock import patch
 
 from frigate.util.fork_shm import (
+    SHM_PATH,
     ShmUsage,
     directory_usage,
     parse_mount_total,
@@ -143,3 +144,8 @@ class TestShmUsage(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestShmPath(unittest.TestCase):
+    def test_shm_path_is_the_kernel_mount_point(self) -> None:
+        self.assertEqual(SHM_PATH, "/dev/shm")

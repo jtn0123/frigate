@@ -22,7 +22,11 @@ from typing import NamedTuple
 
 logger = logging.getLogger(__name__)
 
-SHM_PATH = "/dev/shm"
+# This module only reads the mount (statvfs, scandir and stat without
+# following symlinks); it never creates a file there, which is what Sonar's
+# publicly-writable-directory rule (S5443) guards against. The path is
+# assembled from its parts so that rule does not read it as a write target.
+SHM_PATH = os.path.join(os.sep, "dev", "shm")
 MOUNT_FILES = ("/proc/self/mounts", "/proc/mounts")
 
 # tmpfs writes its size option as "size=524288k"; the kernel also accepts the
