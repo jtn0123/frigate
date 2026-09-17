@@ -270,9 +270,11 @@ class CameraWatchdog(threading.Thread):
             last_segment_time=self.latest_valid_segment_time,
         )
 
-    def _check_hwaccel_fallback(self) -> None:
+    def _check_hwaccel_fallback(self, lines: list[str] | None = None) -> None:
         """Fork (D10): stop decoding on the GPU if that keeps killing detect."""
-        if not self.hwaccel_fallback.record_crash(self.logpipe.deque.copy()):
+        if lines is None:
+            lines = list(self.logpipe.deque.copy())
+        if not self.hwaccel_fallback.record_crash(lines):
             return
         self.logger.warning(
             f"{self.config.name}: hardware-accelerated decoding ended the detect stream "
@@ -284,6 +286,19 @@ class CameraWatchdog(threading.Thread):
             f"camera. Last error: {self.hwaccel_fallback.reason}"
         )
         self._publish_hwaccel_fallback()
+
+    def _hwaccel_fallback_expired(self) -> bool:
+        """Fork (B5): end a remembered switch that ran out while running."""
+        if not self.hwaccel_fallback.maybe_expire():
+            return False
+        self._publish_hwaccel_fallback()
+        self.logger.info(
+            "%s: detect decoded in software for %.0f days, so hardware decoding "
+            "is tried again",
+            self.config.name,
+            self.hwaccel_fallback.remember / 86400,
+        )
+        return True
 
     def _publish_hwaccel_fallback(self) -> None:
         """Fork (D10, D14): mirror the fallback state into the camera stats."""
@@ -306,6 +321,7 @@ class CameraWatchdog(threading.Thread):
         terminate: bool = True,
         drain_output: bool = True,
         cause: str | None = None,
+        lines: list[str] | None = None,
     ) -> None:
         if terminate:
             self.ffmpeg_detect_process.terminate()
@@ -343,7 +359,7 @@ class CameraWatchdog(threading.Thread):
                     f"Capture thread for {self.config.name} did not exit in time"
                 )
 
-        self.restart_log.note_exit("detect", self.logpipe, cause)
+        self.restart_log.note_exit("detect", self.logpipe, cause, lines=lines)
         self.logger.info("Restarting ffmpeg...")
         self.start_ffmpeg_detect()
 
@@ -367,8 +383,12 @@ class CameraWatchdog(threading.Thread):
                 self.hwaccel_fallback.reset()
                 self._publish_hwaccel_fallback()
 
+            # Fork (B5): a switch that ran out restarts ffmpeg the same way. A
+            # camera being enabled or disabled this tick is handled below.
+            hwaccel_expired = self._hwaccel_fallback_expired() and self.was_enabled
+
             # Handle ffmpeg config changes by restarting all ffmpeg processes
-            if "ffmpeg" in updates and self.config.enabled:
+            if ("ffmpeg" in updates or hwaccel_expired) and self.config.enabled:
                 self.logger.debug(
                     "FFmpeg config updated for %s, restarting ffmpeg processes",
                     self.config.name,
@@ -472,8 +492,10 @@ class CameraWatchdog(threading.Thread):
                         f"Ffmpeg process crashed unexpectedly for {self.config.name}."
                     )
                 if can_restart:
-                    self._check_hwaccel_fallback()
-                    self.reset_capture_thread(terminate=False)
+                    # fork (B5): one snapshot, so both classify the same lines
+                    lines = list(self.logpipe.deque.copy())
+                    self._check_hwaccel_fallback(lines)
+                    self.reset_capture_thread(terminate=False, lines=lines)
                     last_restart_time = now
             elif self.camera_fps.value >= (self.config.detect.fps + 10):
                 self.fps_overflow_count += 1

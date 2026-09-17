@@ -129,6 +129,16 @@ class TestRestartLog(unittest.TestCase):
 
         self.assertEqual(len(pipe.dumped), 1)
 
+    def test_explicit_lines_win_over_a_pipe_that_changed_since(self):
+        """B5: the caller's snapshot decides the kind, not a later read."""
+        pipe = FakeLogPipe(NETWORK_EXIT)
+
+        event = self.log.note_exit("detect", pipe, now=1000, lines=list(VAAPI_EXIT))
+
+        self.assertEqual(event["kind"], "hwaccel")
+        self.assertIn("Failed to sync surface", event["message"])
+        self.assertEqual(len(pipe.deque), 0, "the pipe is still emptied")
+
     def test_watchdog_initiated_restarts_are_stalled(self):
         event = self.log.note_exit(
             "detect", FakeLogPipe([]), cause="no frames for 20 seconds", now=5
@@ -241,6 +251,16 @@ class TestWatchdogResetHook(unittest.TestCase):
         self.assertEqual(watchdog.history[0]["kind"], "hwaccel")
         self.assertEqual(watchdog.history[0]["role"], "detect")
         watchdog.start_ffmpeg_detect.assert_called_once()
+
+    def test_crash_uses_the_snapshot_it_is_given(self):
+        """B5: the fallback check and the restart log see the same lines."""
+        watchdog = self.watchdog(NETWORK_EXIT)
+
+        CameraWatchdog.reset_capture_thread(
+            watchdog, terminate=False, lines=list(VAAPI_EXIT)
+        )
+
+        self.assertEqual(watchdog.history[0]["kind"], "hwaccel")
 
     def test_stall_carries_the_watchdog_cause(self):
         watchdog = self.watchdog([])

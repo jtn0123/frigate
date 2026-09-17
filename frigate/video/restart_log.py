@@ -128,14 +128,19 @@ class RestartLog:
         logpipe: Any,
         cause: str | None = None,
         now: float | None = None,
+        lines: list[str] | None = None,
     ) -> dict[str, Any]:
         """Record one exit and log it; empties `logpipe` either way.
 
         `cause` is set when the watchdog stopped ffmpeg itself (no frames,
         fps limit); otherwise the reason comes from ffmpeg's own output.
+        `lines` is the caller's snapshot of that output (B5), so an exit gets
+        the same classification everywhere even if ffmpeg wrote more since;
+        without it the pipe is read here.
         """
         now = time.time() if now is None else now
-        lines = list(logpipe.deque.copy())
+        if lines is None:
+            lines = list(logpipe.deque.copy())
         if cause is not None:
             kind, message = "stalled", cause
         else:
