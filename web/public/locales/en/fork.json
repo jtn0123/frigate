@@ -297,5 +297,10 @@
     "working": "Working\u2026",
     "actionFailed": "The action failed. Try again.",
     "renameFailed": "The export could not be renamed. Your input is still here. Try again."
+  },
+  "storage": {
+    "shm": {
+      "unknown": "Size unknown on this host"
+    }
   }
 }

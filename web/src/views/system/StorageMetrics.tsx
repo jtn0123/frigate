@@ -136,6 +136,11 @@ export default function StorageMetrics({
     );
   }
 
+  // fork (SV8): some hosts report no size for /dev/shm at all, and a missing
+  // size must not read as a size below the recommended minimum
+  const shm = stats.service.storage["/dev/shm"];
+  const shmTooSmall = !!shm["total"] && shm["total"] < (shm["min_shm"] ?? 0);
+
   return (
     <div className="scrollbar-container mt-4 flex size-full flex-col overflow-y-auto">
       <div className="text-sm font-medium text-muted-foreground">
@@ -215,8 +220,7 @@ export default function StorageMetrics({
                   </PopoverContent>
                 </Popover>
               )}
-              {stats.service.storage["/dev/shm"]["total"] <
-                (stats.service.storage["/dev/shm"]["min_shm"] ?? 0) && (
+              {shmTooSmall && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <button
@@ -254,11 +258,20 @@ export default function StorageMetrics({
               )}
             </div>
           </div>
-          <StorageGraph
-            graphId="general-shared-memory"
-            used={stats.service.storage["/dev/shm"]["used"]}
-            total={stats.service.storage["/dev/shm"]["total"]}
-          />
+          {shm["total"] ? (
+            <StorageGraph
+              graphId="general-shared-memory"
+              used={shm["used"]}
+              total={shm["total"]}
+            />
+          ) : (
+            <div
+              className="text-sm text-muted-foreground"
+              data-testid="shm-size-unknown"
+            >
+              {t("storage.shm.unknown", { ns: "fork" })}
+            </div>
+          )}
         </div>
       </div>
       <div className="mt-4 text-sm font-medium text-muted-foreground">
