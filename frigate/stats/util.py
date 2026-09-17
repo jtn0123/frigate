@@ -393,6 +393,11 @@ def stats_snapshot(
         for event in restarts:
             restart_kinds[event["kind"]] = restart_kinds.get(event["kind"], 0) + 1
 
+        # fork (SV6): unreachable/recovered events in the last 24 h
+        outages = [
+            e for e in camera_stats.outage_events[:] if e["time"] > time.time() - 86400
+        ]
+
         connection_quality = {
             "connection_quality": quality_str,
             "expected_fps": expected_fps,
@@ -414,6 +419,10 @@ def stats_snapshot(
             "hwaccel_fallback": bool(camera_stats.hwaccel_fallback.value),  # fork (D10)
             # fork (D14): when detect switched to software, kept across restarts
             "hwaccel_fallback_since": camera_stats.hwaccel_fallback_since.value or None,
+            # fork (SV6): when this camera went unreachable, or None
+            "outage_since": camera_stats.outage_since.value or None,
+            "outages_24h": len([e for e in outages if e["state"] == "down"]),
+            "recent_outages": outages[-10:],
             "restarts_24h": len(restarts),  # fork (D11)
             "restart_kinds_24h": restart_kinds,  # fork (D11)
             "recent_restarts": restarts[-10:],  # fork (D11)

@@ -215,6 +215,42 @@ function CameraRestarts({
   );
 }
 
+/**
+ * Fork (SV6): the camera has delivered neither frames nor recording segments
+ * for longer than the backend's threshold. The backend logs and notifies once
+ * per outage; the card keeps saying so for as long as it lasts.
+ */
+function CameraOutage({
+  cameraStats,
+}: Readonly<{
+  cameraStats: CameraStats | undefined;
+}>) {
+  const { t } = useTranslation(["fork"]);
+  const since = cameraStats?.outage_since ?? 0;
+  const count = cameraStats?.outages_24h ?? 0;
+
+  if (!since && count === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className={
+        since ? "text-xs text-danger" : "text-xs text-muted-foreground"
+      }
+      data-testid="camera-health-outage"
+    >
+      {since ? (
+        <>
+          {t("cameraHealth.outage.down")} <TimeAgo time={since * 1000} dense />
+        </>
+      ) : (
+        t("cameraHealth.outage.earlier", { count })
+      )}
+    </div>
+  );
+}
+
 type CameraHealthCardProps = {
   cameraName: string;
   label: string;
@@ -331,6 +367,7 @@ function CameraHealthCard({
           </div>
         ))}
       </dl>
+      <CameraOutage cameraStats={cameraStats} />
       <CameraRestarts cameraStats={cameraStats} />
       {/* Pinned to the bottom so charts and buttons line up across a row. */}
       <div className="mt-auto flex flex-col gap-3">

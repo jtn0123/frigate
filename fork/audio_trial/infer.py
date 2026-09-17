@@ -12,6 +12,7 @@ from failures import cause
 from faster_whisper import WhisperModel
 from faster_whisper.audio import decode_audio
 from faster_whisper.vad import VadOptions, get_speech_timestamps
+from hallucination import configured_language, filter_segments
 from model_cache import resolve_model
 from telemetry import Stage
 
@@ -117,8 +118,8 @@ def load_whisper(size):
         )
 
 
-def whisper_text(model, audio, size, language=None, translate=False):
-    """Run one speech stage while retaining the detected language."""
+def whisper_text(model, audio, size, language=None, translate=False, record=None):
+    """Run one speech stage, dropping segments Whisper's own statistics distrust."""
     options = {
         "language": language,
         "beam_size": 5,
@@ -129,17 +130,25 @@ def whisper_text(model, audio, size, language=None, translate=False):
         options["task"] = "translate"
     with Stage(size):
         segments, info = model.transcribe(audio, **options)
-        text = " ".join(segment.text.strip() for segment in segments).strip()
+        kept, rejected = filter_segments(segments)
+    text = " ".join(kept).strip()
+    if record is not None:
+        record["rejected_segments"] = record.get("rejected_segments", []) + rejected
+        if not translate:
+            record["language_probability"] = getattr(info, "language_probability", None)
     return text if translate else (text, info.language)
 
 
-def analyze_speech(audio, size, checkpoint):
+def analyze_speech(audio, size, checkpoint, language=None):
     """Preserve transcription before optional translation begins."""
     model = checkpoint.run("load", lambda: load_whisper(size))
     if model is None:
         return
     result = checkpoint.result
-    speech = checkpoint.run("transcription", lambda: whisper_text(model, audio, size))
+    speech = checkpoint.run(
+        "transcription",
+        lambda: whisper_text(model, audio, size, language, record=result),
+    )
     if speech is None:
         return
     result["transcript"], result["language"] = speech
@@ -151,14 +160,18 @@ def analyze_speech(audio, size, checkpoint):
         result["translation"] = (
             checkpoint.run(
                 "translation",
-                lambda: whisper_text(model, audio, size, result["language"], True),
+                lambda: whisper_text(
+                    model, audio, size, result["language"], True, result
+                ),
             )
             or ""
         )
     checkpoint.save()
 
 
-def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
+def analyze(
+    path: str, size: str, checkpoint: str | None = None, language: str | None = None
+) -> dict:
     """Filter nonspeech, transcribe speech, and translate non-English speech."""
     started = time.monotonic()
     audio = decode_audio(path, sampling_rate=16000)
@@ -173,14 +186,20 @@ def analyze(path: str, size: str, checkpoint: str | None = None) -> dict:
         "transcript": "",
         "translation": "",
         "language": None,
+        "language_probability": None,
+        "rejected_segments": [],
         "sounds": [],
         "status": "no clear speech",
         "sound_scores_are_probabilities": False,
         "stages": {},
     }
     progress = Checkpoint(result, checkpoint)
+    # The second opinion runs on near-silent clips, where free language
+    # detection invents a language and then a subtitle credit in it.
+    if language is None and size != "medium":
+        language = configured_language()
     if speech_seconds >= 0.4:
-        analyze_speech(audio, size, progress)
+        analyze_speech(audio, size, progress, language)
     if size == "medium":
         result["sounds"] = progress.run("sounds", lambda: classify(path)) or []
     if any(stage["status"] == "failed" for stage in result["stages"].values()):
@@ -202,6 +221,7 @@ if __name__ == "__main__":
     parser.add_argument("audio")
     parser.add_argument("--model", choices=["medium", "large-v3"], default="medium")
     parser.add_argument("--job-key", type=job_key_argument)
+    parser.add_argument("--language")
     args = parser.parse_args()
     checkpoint = None
     if args.job_key is not None:
@@ -215,4 +235,9 @@ if __name__ == "__main__":
             / f"{args.job_key:064x}"
             / filename
         )
-    print(json.dumps(analyze(args.audio, args.model, checkpoint), ensure_ascii=False))
+    print(
+        json.dumps(
+            analyze(args.audio, args.model, checkpoint, args.language),
+            ensure_ascii=False,
+        )
+    )
