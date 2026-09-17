@@ -43,4 +43,12 @@ has() {
   grep -Eq "$pattern" <<<"$files"
   return $?
 }
-emit "$(has "$web_re" && echo true || echo false)" "$(has "$py_re" && echo true || echo false)"
+web="$(has "$web_re" && echo true || echo false)"
+python="$(has "$py_re" && echo true || echo false)"
+# Sonar judges next on the whole branch, and most web coverage is measured by
+# the E2E suite. A Python-only push to next that skipped it would report the web
+# code as untested and fail the gate, so there the web jobs run as well.
+if [[ "${GITHUB_EVENT_NAME:-}" == "push" && "${GITHUB_REF:-}" == "refs/heads/next" && "$python" == "true" ]]; then
+  web=true
+fi
+emit "$web" "$python"

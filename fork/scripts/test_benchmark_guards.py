@@ -1,5 +1,6 @@
 """The benchmark scripts accept only the values their workflows pass to docker."""
 
+import argparse
 import importlib.util
 import os
 import re
@@ -80,6 +81,36 @@ class TestBuildKitImagePin(unittest.TestCase):
         self.assertEqual(exit.exception.code, 2)
 
 
+class TestPinnedArguments(unittest.TestCase):
+    def pin(self, **overrides):
+        values = {
+            "context": "colima-frigate-build-bench",
+            "registry": "localhost:5007",
+            "case": "shared-zstd",
+            "buildkit_image": None,
+        } | overrides
+        args = argparse.Namespace(**values)
+        benchmark_image_build.pin_arguments(argparse.ArgumentParser(), args)
+        return args
+
+    def test_accepted_values_are_replaced_by_the_constants(self):
+        # Copies built at run time, so identity proves the constant was used.
+        image = "".join(list(benchmark_image_build.PINNED_BUILDKIT_IMAGE))
+        args = self.pin(buildkit_image=image, case="".join(list("shared-zstd")))
+        self.assertIs(args.buildkit_image, benchmark_image_build.PINNED_BUILDKIT_IMAGE)
+        self.assertIs(args.context, benchmark_image_build.KNOWN_CONTEXTS[0])
+        self.assertIs(args.case, benchmark_image_build.KNOWN_CASES[2])
+        self.assertIs(args.registry, benchmark_image_build.BENCHMARK_REGISTRY)
+
+    def test_no_buildkit_image_stays_unset(self):
+        self.assertIsNone(self.pin().buildkit_image)
+
+    def test_other_context_or_registry_is_refused(self):
+        for overrides in ({"context": "default"}, {"registry": "ghcr.io"}):
+            with self.assertRaises(SystemExit):
+                self.pin(**overrides)
+
+
 class TestDependencyImagesContext(unittest.TestCase):
     def test_unknown_context_is_refused_before_docker_runs(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -106,6 +137,44 @@ class TestDependencyImagesContext(unittest.TestCase):
                 dependency_images.main()
         self.assertEqual(exit.exception.code, 2)
         run.assert_not_called()
+
+    def test_known_context_reaches_docker_as_the_constant(self):
+        class Reached(Exception):
+            pass
+
+        with tempfile.TemporaryDirectory() as directory:
+            argv = [
+                "dependency_images.py",
+                "--repository",
+                "example.invalid/image",
+                "--cache",
+                "example.invalid/cache",
+                "--amd64-tags",
+                "a",
+                "--rocm-tags",
+                "b",
+                "--output",
+                directory,
+                "--context",
+                "".join(list("frigate-github-bench")),
+            ]
+            with (
+                patch.object(sys, "argv", argv),
+                # The thin test image has no docker or web directory to hash.
+                patch.object(dependency_images, "dependency_key", return_value="key"),
+                patch.object(dependency_images, "web_key", return_value="key"),
+                patch.object(
+                    dependency_images.subprocess, "run", side_effect=Reached
+                ) as run,
+                patch.object(
+                    dependency_images.subprocess, "check_output", side_effect=Reached
+                ) as check_output,
+                self.assertRaises(Reached),
+            ):
+                dependency_images.main()
+        command = (run.call_args or check_output.call_args).args[0]
+        self.assertEqual(command[:2], ["docker", "--context"])
+        self.assertIs(command[2], dependency_images.KNOWN_CONTEXTS[1])
 
     def test_known_contexts_are_the_workflow_ones(self):
         for context in dependency_images.KNOWN_CONTEXTS:
