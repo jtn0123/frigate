@@ -611,13 +611,7 @@ untouched.
 - ~~H1~~ ✓ done 2026-09-10
 - ~~H2~~ ✓ done 2026-09-10 (its gate list is stale again → H7)
 - ~~H6~~ ✓ done 2026-09-17. Fork block at the top of `README.md`: what the fork is, ledger, Releases, images, branch model, where upstream lives
-
-#### H7 — Teach agents and contributors the fork's workflow `[fork]`
-- **Where:** `AGENTS.md` (`CLAUDE.md` is a symlink; 450 lines, no mention of `next`, `make promote`, `FORK.md`, ledger IDs, the type ratchet or Sonar); `CONTRIBUTING.md:44-52,73` ("rebase on the latest `dev`"; gate list omits Sonar, type ratchet, bundle budget, `e2e:lint`)
-- **What's wrong:** An agent reading only these files targets the wrong branch and misses four gates. Most work here is done by agents.
-- **Fix:** A "Fork workflow" section: PRs go to `next` with merge commits, `main` moves only through `make promote`, `dev` mirrors upstream, take an unused ledger ID and add a `FORK.md` row, run `make check-fast` then `make check`, use `make wt`. Point `CONTRIBUTING.md`'s gate list at `make check`.
-- **Effort:** S
-- **Grade lift:** C+ → B− (with H6)
+- ~~H7~~ ✓ done 2026-09-17. "Fork workflow" section in `AGENTS.md` (worktrees, `next`, `make promote`, ledger IDs, gates); `CONTRIBUTING.md` points at it and `make check`
 
 #### H8 — Reconcile the plans and the base version `[fork]`
 - **Where:** `fork/PLAN.md:13` (says I12, means I13; 4b D2 unticked; "in progress on `polish2`"), `fork/PLAN2.md:9-18,482` (status dated 09-11, PR #29 "in review", "Dependencies: not started"), `FORK.md:10-13,42` ("rebased onto upstream/dev", "one item = one commit", "after v0.18.0-rc2"), `fork/SONAR-CI.md:12` (says Playwright coverage does not count); rc2 base in `fork/demo/Dockerfile:4`, `fork/demo/README.md:20`, `fork/README.md:25`, `.github/workflows/fork-upstream-sync.yml:126` while `Makefile:64` and `fork/Dockerfile.test:4` use 0.18.0
