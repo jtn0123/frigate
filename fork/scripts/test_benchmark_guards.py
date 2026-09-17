@@ -21,6 +21,31 @@ def load(name: str):
     return module
 
 
+def run_measured(
+    arguments: list[str], env: dict[str, str], directory: str
+) -> subprocess.CompletedProcess:
+    """Run a python script, folding its coverage into the current measurement.
+
+    Under the CI coverage run the child writes its own data file, which is then
+    merged into the parent's data so the script counts as covered.
+    """
+    command = [sys.executable]
+    if os.environ.get("COVERAGE_RUN"):
+        child_data = Path(directory) / "child.coverage"
+        command += ["-m", "coverage", "run"]
+        env = env | {"COVERAGE_FILE": str(child_data)}
+    result = subprocess.run(
+        command + arguments, env=env, capture_output=True, text=True
+    )
+    if os.environ.get("COVERAGE_RUN"):
+        import coverage
+
+        data = coverage.CoverageData(str(child_data))
+        data.read()
+        coverage.Coverage.current().get_data().update(data)
+    return result
+
+
 benchmark_image_build = load("benchmark_image_build")
 dependency_images = load("dependency_images")
 
@@ -98,11 +123,8 @@ class TestBenchmarkSmoke(unittest.TestCase):
             "PATH": "",
         }
         with tempfile.TemporaryDirectory() as directory:
-            result = subprocess.run(
-                [sys.executable, str(HERE / "benchmark_smoke.py"), directory, "nope"],
-                env=env,
-                capture_output=True,
-                text=True,
+            result = run_measured(
+                [str(HERE / "benchmark_smoke.py"), directory, "nope"], env, directory
             )
         self.assertEqual(result.returncode, 1)
         self.assertIn("unknown benchmark case: nope", result.stderr)
