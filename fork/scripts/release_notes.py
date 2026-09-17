@@ -202,23 +202,46 @@ def section_for(prefix: str) -> str:
     return "Fixes and improvements"
 
 
-def build(
-    ref: str, previous: str | None, upstream: str, cwd: str | None = None
-) -> Notes:
-    released_patches: set[str] = set()
-    released_identities: set[tuple[str, str, str]] = set()
-    previous_upstream = None
+def released_before(
+    previous: str | None, upstream: str, cwd: str | None
+) -> tuple[set[str], set[tuple[str, str, str]]]:
+    """Patch ids and identities of the commits the previous release carried."""
+    patches: set[str] = set()
+    identities: set[tuple[str, str, str]] = set()
     if previous:
         for commit in fork_commits(previous, upstream, cwd):
             if commit.patch_id:
-                released_patches.add(commit.patch_id)
-            released_identities.add(commit.identity)
-        previous_upstream = upstream_label(previous, upstream, cwd)
+                patches.add(commit.patch_id)
+            identities.add(commit.identity)
+    return patches, identities
 
+
+def note_line(commit: Commit) -> tuple[str, str] | None:
+    """The section and line a commit contributes, or None when it is internal."""
+    prefix, text = ledger_prefix(commit.subject)
+    if commit.trailer.lower() == "none" or (
+        not commit.trailer and is_internal(commit, prefix)
+    ):
+        return None
+    line = commit.trailer or text
+    line = line[0].upper() + line[1:].rstrip(".")
+    section = section_for(prefix)
+    # A Release-note: trailer is written for users, so it is never folded.
+    if not commit.trailer and TOOLING_RE.search(line):
+        section = UNDER_THE_HOOD
+    return section, line
+
+
+def build(
+    ref: str, previous: str | None, upstream: str, cwd: str | None = None
+) -> Notes:
+    released_patches, released_identities = released_before(previous, upstream, cwd)
     notes = Notes(
         sha=git("rev-parse", ref, cwd=cwd).strip(),
         upstream=upstream_label(ref, upstream, cwd),
-        previous_upstream=previous_upstream,
+        previous_upstream=(
+            upstream_label(previous, upstream, cwd) if previous else None
+        ),
         first=previous is None,
     )
     for commit in fork_commits(ref, upstream, cwd):
@@ -227,18 +250,11 @@ def build(
         ):
             notes.released += 1
             continue
-        prefix, text = ledger_prefix(commit.subject)
-        if commit.trailer.lower() == "none" or (
-            not commit.trailer and is_internal(commit, prefix)
-        ):
+        entry = note_line(commit)
+        if entry is None:
             notes.internal += 1
             continue
-        line = commit.trailer or text
-        line = line[0].upper() + line[1:].rstrip(".")
-        section = section_for(prefix)
-        # A Release-note: trailer is written for users, so it is never folded.
-        if not commit.trailer and TOOLING_RE.search(line):
-            section = UNDER_THE_HOOD
+        section, line = entry
         items = notes.sections.setdefault(section, [])
         if line not in items:
             items.append(line)
