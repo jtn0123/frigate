@@ -62,6 +62,7 @@ def watchdog(steps, stale_age=1000):
         _send_detect_status=MagicMock(),
         _send_record_status=MagicMock(),
         _check_hwaccel_fallback=MagicMock(),
+        _check_outage=MagicMock(),  # fork (SV6)
         reset_capture_thread=MagicMock(),
         was_enabled=True,
         was_record_enabled_in_config=True,
