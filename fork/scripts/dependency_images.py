@@ -145,9 +145,10 @@ def main() -> None:
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     # Only a known context name may reach the docker command line.
-    if args.context and args.context not in KNOWN_CONTEXTS:
+    context = next((known for known in KNOWN_CONTEXTS if known == args.context), None)
+    if args.context and context is None:
         parser.error("Unknown docker context")
-    docker = ["docker"] + (["--context", args.context] if args.context else [])
+    docker = ["docker"] + (["--context", context] if context else [])
     bake = docker + ["buildx", "bake"]
     if args.builder:
         bake += ["--builder", args.builder]
