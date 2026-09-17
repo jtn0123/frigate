@@ -115,11 +115,16 @@ class RestartLog:
             "message": message,
             "count": 1,
         }
-        self.history.append(event)
-        while len(self.history) > HISTORY_MAX or (
-            self.history and self.history[0]["time"] < now - HISTORY_SECONDS
-        ):
-            del self.history[0]
+        # Fork (B7): one read and one write instead of a round trip per dropped
+        # entry. Safe because one watchdog thread per camera owns its list.
+        entries = [*self.history[:], event]
+        start = max(0, len(entries) - HISTORY_MAX)
+        while start < len(entries) and entries[start]["time"] < now - HISTORY_SECONDS:
+            start += 1
+        if start:
+            self.history[:] = entries[start:]
+        else:
+            self.history.append(event)
         return event
 
     def note_exit(
@@ -147,6 +152,13 @@ class RestartLog:
             kind, message = classify_exit(lines)
         event = self.record(role, kind, message, now)
 
+        # Fork (B7): a signature past the window would get its full output
+        # again anyway, so drop it; messages vary and the dict only grew.
+        self._dumped = {
+            signature: dumped
+            for signature, dumped in self._dumped.items()
+            if now - dumped[0] < REPEAT_WINDOW_SECONDS
+        }
         signature = (role, kind, _VOLATILE.sub("#", message))
         last = self._dumped.get(signature)
         if last is None or now - last[0] >= REPEAT_WINDOW_SECONDS:
