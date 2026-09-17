@@ -91,8 +91,20 @@ jobs:
         working-directory: ./web
       - run: npm run typecheck
         working-directory: ./web
+      # A pull request's ratchet baseline must not rise above its base's, so a
+      # PR cannot raise it to cover new hatches. The checkout is shallow, so
+      # the base commit is fetched; if that fails, the ratchet says so and
+      # skips the comparison. Pushes skip it: an upstream rebase landing on
+      # next may have to raise the baseline.
+      - name: Fetch the pull request base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git fetch --no-tags --depth=1 origin "$BASE_SHA" || echo "::warning::could not fetch ${BASE_SHA}"
       - run: npm run type-ratchet
         working-directory: ./web
+        env:
+          TYPE_RATCHET_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
       - run: npm run i18n:extract:ci
         working-directory: ./web
 

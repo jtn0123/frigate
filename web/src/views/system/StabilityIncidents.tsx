@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { AIModelsResponse } from "@/types/aiModels";
 import TimeAgo from "@/components/dynamic/TimeAgo";
+import { useMetricTimeFormatter } from "@/hooks/fork/use-metric-time";
 
 type Stability = NonNullable<AIModelsResponse["server"]>["stability"];
 
@@ -8,6 +9,7 @@ export default function StabilityIncidents({
   data,
 }: Readonly<{ data: Stability }>) {
   const { t } = useTranslation("views/system");
+  const formatTime = useMetricTimeFormatter();
   const active = data?.incidents.filter((row) => row.resolved == null) ?? [];
   const fresh =
     data?.status === "connected" &&
@@ -136,7 +138,7 @@ export default function StabilityIncidents({
                     <td>
                       {row.time == null
                         ? t("models.notMeasured")
-                        : new Date(row.time * 1000).toLocaleTimeString()}
+                        : formatTime(row.time, false)}
                     </td>
                     <td>
                       {row.detector_ms?.toFixed(1) ?? t("models.notMeasured")}

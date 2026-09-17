@@ -1,4 +1,5 @@
 import datetime
+import sqlite3
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
@@ -17,6 +18,7 @@ for name in _MOCKED_MODULES:
 
 # Now import the class under test
 from frigate.config import FrigateConfig  # noqa: E402
+from frigate.const import INSERT_MANY_RECORDINGS  # noqa: E402
 from frigate.record.maintainer import RecordingMaintainer  # noqa: E402
 
 # Restore original modules (or remove mock if there was no original)
@@ -74,6 +76,38 @@ class TestMaintainer(unittest.IsolatedAsyncioTestCase):
                             len(matching),
                             f"Expected a single warning for unexpected files, got {len(matching)}",
                         )
+
+    async def test_one_failing_segment_keeps_the_others_recordings(self):
+        # Regression: a segment whose move raised (a locked database while
+        # reading reviews, makedirs failing) made gather raise, and the
+        # segments already copied to RECORD_DIR never got a database row.
+        config = MagicMock(spec=FrigateConfig)
+        config.cameras = {}
+        maintainer = RecordingMaintainer(config, MagicMock())
+        maintainer.requestor = MagicMock()
+        maintainer.recordings_publisher = MagicMock()
+        moved = {"id": "moved"}
+
+        async def validate(camera, reviews, recording):
+            if recording["cache_path"].endswith("20210101000000+0000.mp4"):
+                raise sqlite3.OperationalError("database is locked")
+            return moved
+
+        maintainer.validate_and_move_segment = validate
+        files = ["cam@20210101000000+0000.mp4", "cam@20210101000010+0000.mp4"]
+
+        with (
+            patch("os.listdir", return_value=files),
+            patch("os.path.isfile", return_value=True),
+            patch("frigate.record.cache_tracker.psutil.process_iter", return_value=[]),
+            patch("frigate.record.maintainer.logger.error") as error,
+        ):
+            await maintainer.move_files()
+
+        maintainer.requestor.send_data.assert_called_once_with(
+            INSERT_MANY_RECORDINGS, [moved]
+        )
+        error.assert_called_once()
 
     async def test_drops_quiet_segment_when_only_motion_retention(self):
         # Regression: when motion retention is enabled but a segment has no

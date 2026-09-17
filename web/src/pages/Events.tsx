@@ -245,6 +245,12 @@ export default function Events() {
 
   useSearchEffect("group", (reviewGroup) => {
     if (config && reviewGroup && reviewGroup != "default") {
+      // fork (UI93): a saved link can name a group that no longer exists
+      if (
+        !Object.prototype.hasOwnProperty.call(config.camera_groups, reviewGroup)
+      ) {
+        return true;
+      }
       const group = config.camera_groups[reviewGroup];
       const isBirdseyeOnly =
         group.cameras.length == 1 && group.cameras[0] == "birdseye";

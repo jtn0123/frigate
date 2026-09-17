@@ -22,6 +22,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useApi } from "@/api/fork/client";
 import useSWRInfinite from "swr/infinite";
+import type { AxiosError } from "axios";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { JINA_EMBEDDING_MODELS } from "@/lib/const";
 import { useDateLocale } from "@/hooks/use-date-locale";
@@ -222,16 +223,16 @@ export default function Explore() {
     revalidateFirstPage: true,
     revalidateOnFocus: true,
     revalidateAll: false,
-    onError: (error) => {
+    onError: (error: AxiosError<{ message?: string } | undefined>) => {
       toast.error(
         t("fetchingTrackedObjectsFailed", {
-          errorMessage: error.response.data.message,
+          errorMessage: error.response?.data?.message ?? error.message,
         }),
         {
           position: "top-center",
         },
       );
-      if (error.response.status === 404) {
+      if (error.response?.status === 404) {
         // reset all filters if 404
         setSearchFilter({});
       }

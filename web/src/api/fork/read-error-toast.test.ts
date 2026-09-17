@@ -2,8 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const toastError = vi.hoisted(() => vi.fn());
 vi.mock("sonner", () => ({ toast: { error: toastError } }));
+// Keep the resource in the title so a test can read what the toast names
+vi.mock("i18next", () => ({
+  t: (key: string, options?: { resource?: string }) =>
+    `${key} ${options?.resource ?? ""}`,
+}));
 
 import {
+  readErrorKeyId,
   registerToaster,
   reportReadError,
   resetReadErrorCooldowns,
@@ -58,6 +64,37 @@ describe("reportReadError", () => {
     expect(toastError.mock.calls.at(0)?.at(1)).toMatchObject({
       description: "Event not found",
     });
+  });
+});
+
+describe("readErrorKeyId prefixed keys (C18)", () => {
+  beforeEach(() => {
+    toastError.mockReset();
+    resetReadErrorCooldowns();
+    registerToaster();
+  });
+
+  it("reads the path out of useSWRInfinite and useSWRSubscription keys", () => {
+    expect(
+      readErrorKeyId('$inf$@"events/search",#limit:50,sort:"date_desc",'),
+    ).toBe("events/search");
+    expect(readErrorKeyId('$sub$@"events",#camera:"front",')).toBe("events");
+    expect(readErrorKeyId("$inf$events/search")).toBe("events/search");
+  });
+
+  it("names the endpoint in the toast and shares its cooldown", () => {
+    // Explore's search is a useSWRInfinite key; the toast used to read
+    // `Failed to load $inf$@"events/search",#...` and each page of the key
+    // had its own cooldown.
+    reportReadError(httpError(500, "boom"), '$inf$@"events/search",#limit:50,');
+    reportReadError(
+      httpError(500, "boom"),
+      '$inf$@"events/search",#limit:50,before:1789000000,',
+    );
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(toastError.mock.calls.at(0)?.at(0)).toBe(
+      "readError.withStatus events/search",
+    );
   });
 });
 

@@ -356,3 +356,46 @@ test.describe("Chat — mobile @medium @mobile", () => {
     await expect(input).toBeFocused();
   });
 });
+
+test.describe("Chat, editing while a reply streams @medium", () => {
+  test("a message cannot be edited until the reply finishes", async ({
+    frigateApp,
+  }) => {
+    // UI98: an edit sent while a reply streamed was refused and the editor
+    // closed anyway, so the edit was lost
+    await installChatStreamOverride(
+      frigateApp,
+      [
+        { type: "content", delta: "Hel" },
+        { type: "content", delta: "lo" },
+        {
+          type: "messages",
+          messages: [
+            { role: "system", content: "sys" },
+            { role: "user", content: "hello chat" },
+            { role: "assistant", content: "Hello" },
+          ],
+        },
+        { type: "done" },
+      ],
+      { chunkDelayMs: 1_500 },
+    );
+    await frigateApp.goto("/chat");
+    const input = frigateApp.page.getByPlaceholder(/ask/i);
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill("hello chat");
+    await input.press("Enter");
+
+    const edit = frigateApp.page.getByRole("button", { name: "Edit" });
+    await expect(frigateApp.page.getByText("Hel", { exact: true })).toBeVisible(
+      { timeout: 5_000 },
+    );
+    expect(await edit.count()).toBe(0);
+
+    // the reply finished, so the message can be edited again
+    await expect(
+      frigateApp.page.getByText("Hello", { exact: true }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(edit).toBeVisible();
+  });
+});

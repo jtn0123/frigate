@@ -8,6 +8,7 @@ from typing import Any
 
 from frigate.config import FrigateConfig
 from frigate.db.sqlitevecq import SqliteVecQueueDatabase
+from frigate.events.share_links import expire_share_links
 from frigate.models import Event, Timeline
 from frigate.util.file import delete_event_snapshot, delete_event_thumbnail
 
@@ -328,5 +329,7 @@ class EventCleanup(threading.Thread):
                     self.db.delete_embeddings_description(event_ids=chunk)
                     self.db.delete_embeddings_thumbnail(event_ids=chunk)
                     logger.debug(f"Deleted {len(chunk)} embeddings")
+
+            expire_share_links()
 
         logger.info("Exiting event cleanup...")

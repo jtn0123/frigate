@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   write: vi.fn(),
   list: vi.fn(),
   stat: vi.fn(),
+  exists: vi.fn(),
 }));
 vi.mock("node:child_process", () => ({
   spawnSync: mocks.spawn,
@@ -14,17 +15,20 @@ vi.mock("node:child_process", () => ({
 }));
 vi.mock("node:fs", () => ({
   default: {
+    existsSync: mocks.exists,
     readFileSync: mocks.read,
     writeFileSync: mocks.write,
     readdirSync: mocks.list,
     statSync: mocks.stat,
   },
+  existsSync: mocks.exists,
   readFileSync: mocks.read,
   writeFileSync: mocks.write,
   readdirSync: mocks.list,
   statSync: mocks.stat,
 }));
 const originalArgv = process.argv;
+const originalBase = process.env.TYPE_RATCHET_BASE;
 const rule = "@typescript-eslint/no-floating-promises";
 let baseline;
 let source;
@@ -43,6 +47,7 @@ async function run(...args) {
 beforeEach(() => {
   vi.resetModules();
   vi.resetAllMocks();
+  delete process.env.TYPE_RATCHET_BASE;
   baseline = { hatches: { explicitAny: 0 }, rules: { [rule]: 0 } };
   source = "const value: string = 'ok';";
   mocks.list.mockImplementation((path) =>
@@ -65,7 +70,106 @@ beforeEach(() => {
 });
 afterEach(() => {
   process.argv = originalArgv;
+  if (originalBase === undefined) {
+    delete process.env.TYPE_RATCHET_BASE;
+  } else {
+    process.env.TYPE_RATCHET_BASE = originalBase;
+  }
   vi.restoreAllMocks();
+});
+
+// git from PATH ("git") or from a fixed location ("/usr/bin/git").
+const isGit = (command) => command === "git" || command.endsWith("/git");
+
+// ESLint finds nothing; `git show` answers with `git` for the base baseline.
+function withBase(git) {
+  mocks.spawn.mockImplementation((command) =>
+    isGit(command) ? git : { status: 0, stdout: "[]", stderr: "" },
+  );
+}
+function gitShows() {
+  return mocks.spawn.mock.calls
+    .filter(([command]) => isGit(command))
+    .map(([, args]) => args);
+}
+
+describe("type ratchet's git", () => {
+  it("runs git from a fixed location when one exists, after --end-of-options", async () => {
+    process.env.TYPE_RATCHET_BASE = "origin/next";
+    mocks.exists.mockImplementation((path) => path === "/usr/bin/git");
+    withBase({ status: 0, stdout: JSON.stringify(baseline) });
+
+    await run().catch(() => {});
+
+    const call = mocks.spawn.mock.calls.find(([command]) => isGit(command));
+    expect(call?.[0]).toBe("/usr/bin/git");
+    expect(call?.[1]).toEqual([
+      "show",
+      "--end-of-options",
+      "origin/next:fork/type-ratchet.json",
+    ]);
+  });
+});
+
+describe("type ratchet against the base branch", () => {
+  it("rejects a baseline raised above the base branch's", async () => {
+    source = "const value: any = {};";
+    baseline.hatches.explicitAny = 1;
+    withBase({
+      status: 0,
+      stdout: JSON.stringify({
+        hatches: { explicitAny: 0 },
+        rules: { [rule]: 0 },
+      }),
+    });
+    await expect(run()).rejects.toThrow("exit:1");
+    expect(gitShows()).toEqual([
+      ["show", "--end-of-options", "origin/next:fork/type-ratchet.json"],
+    ]);
+    expect(errors).toHaveBeenCalledWith("  hatches.explicitAny: 0 -> 1");
+  });
+  it("accepts a baseline at or below the base given in TYPE_RATCHET_BASE", async () => {
+    process.env.TYPE_RATCHET_BASE = "abc123";
+    withBase({
+      status: 0,
+      stdout: JSON.stringify({
+        // A rule the base does not track yet has nothing to compare with.
+        hatches: { explicitAny: 2 },
+        rules: {},
+      }),
+    });
+    await run();
+    expect(process.exit).not.toHaveBeenCalled();
+    expect(gitShows()).toEqual([
+      ["show", "--end-of-options", "abc123:fork/type-ratchet.json"],
+    ]);
+  });
+  it.each([
+    [
+      { status: 128, stdout: "", stderr: "bad revision" },
+      "no fork/type-ratchet.json",
+    ],
+    [{ error: new Error("spawn git ENOENT") }, "no fork/type-ratchet.json"],
+    [{ status: 0, stdout: "not JSON" }, "is not JSON"],
+  ])(
+    "skips the comparison when the base has no usable baseline",
+    async (git, why) => {
+      baseline.hatches.explicitAny = 5;
+      withBase(git);
+      await run();
+      expect(process.exit).not.toHaveBeenCalled();
+      expect(output).toHaveBeenCalledWith(expect.stringContaining(why));
+    },
+  );
+  it("skips the comparison when TYPE_RATCHET_BASE is empty", async () => {
+    process.env.TYPE_RATCHET_BASE = "";
+    withBase({ status: 0, stdout: "{}" });
+    await run();
+    expect(gitShows()).toEqual([]);
+    expect(output).toHaveBeenCalledWith(
+      expect.stringContaining("TYPE_RATCHET_BASE is empty"),
+    );
+  });
 });
 
 describe("type ratchet command", () => {
