@@ -256,12 +256,9 @@ test.describe("Config Editor — Save and Restart @medium", () => {
 // and recreated the model from the saved config. Typed edits vanished and
 // the change listener stayed on the old model, so later edits never armed
 // the unsaved-changes guard.
+// Keyboard editing assumes the desktop editor, so every test here is tagged
+// desktop-only.
 test.describe("Config Editor, theme changes keep edits @medium", () => {
-  test.skip(
-    ({ frigateApp }) => frigateApp.isMobile,
-    "Keyboard editing assumes the desktop editor",
-  );
-
   async function openEditor(frigateApp: {
     page: import("@playwright/test").Page;
     installDefaults: (options: { configRaw: string }) => Promise<void>;
@@ -290,42 +287,52 @@ test.describe("Config Editor, theme changes keep edits @medium", () => {
     await expect(page).toHaveURL(/\/config$/);
   }
 
-  test("an edit survives the system switching to dark mode", async ({
-    frigateApp,
-  }) => {
-    const { page } = frigateApp;
-    await openEditor(frigateApp);
-    await replaceMonacoValue(page, SAMPLE_CONFIG + "# typed before");
+  test(
+    "an edit survives the system switching to dark mode",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openEditor(frigateApp);
+      await replaceMonacoValue(page, SAMPLE_CONFIG + "# typed before");
 
-    await page.emulateMedia({ colorScheme: "dark" });
-    await expect(page.locator(".monaco-editor.vs-dark").first()).toBeVisible();
+      await page.emulateMedia({ colorScheme: "dark" });
+      await expect(
+        page.locator(".monaco-editor.vs-dark").first(),
+      ).toBeVisible();
 
-    expect(await getMonacoVisibleText(page)).toMatch(/typed\s+before/);
-    await expectLeaveBlocked(page);
-  });
+      expect(await getMonacoVisibleText(page)).toMatch(/typed\s+before/);
+      await expectLeaveBlocked(page);
+    },
+  );
 
-  test("edits made after a theme change still arm the unsaved guard", async ({
-    frigateApp,
-  }) => {
-    const { page } = frigateApp;
-    await openEditor(frigateApp);
+  test(
+    "edits made after a theme change still arm the unsaved guard",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openEditor(frigateApp);
 
-    await page.emulateMedia({ colorScheme: "dark" });
-    await expect(page.locator(".monaco-editor.vs-dark").first()).toBeVisible();
-    // Keys sent while Monaco repaints for the new theme can arrive before it
-    // takes focus, so wait for the editor's input first
-    await page.locator(".monaco-editor").first().click();
-    await expect(
-      page.getByRole("textbox", { name: "Editor content" }),
-    ).toBeFocused();
-    await replaceMonacoValue(page, SAMPLE_CONFIG + "# typed after");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await expect(
+        page.locator(".monaco-editor.vs-dark").first(),
+      ).toBeVisible();
+      // Keys sent while Monaco repaints for the new theme can arrive before it
+      // takes focus, so wait for the editor's input first
+      await page.locator(".monaco-editor").first().click();
+      await expect(
+        page.getByRole("textbox", { name: "Editor content" }),
+      ).toBeFocused();
+      await replaceMonacoValue(page, SAMPLE_CONFIG + "# typed after");
 
-    await expect
-      .poll(() => getMonacoVisibleText(page))
-      .toMatch(/^mqtt:[\s\S]*typed\s+after\s*$/);
-    expect(await getMonacoVisibleText(page)).not.toMatch(/enabled: true\s+qtt/);
-    await expectLeaveBlocked(page);
-  });
+      await expect
+        .poll(() => getMonacoVisibleText(page))
+        .toMatch(/^mqtt:[\s\S]*typed\s+after\s*$/);
+      expect(await getMonacoVisibleText(page)).not.toMatch(
+        /enabled: true\s+qtt/,
+      );
+      await expectLeaveBlocked(page);
+    },
+  );
 });
 
 test.describe("Config Editor — Copy @medium", () => {
