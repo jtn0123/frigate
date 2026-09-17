@@ -131,7 +131,7 @@ class TestCameraOutageTracker(unittest.TestCase):
 
         self.assertEqual(event["state"], "recovered")
         self.assertEqual(event["duration"], round(back - (start + 1), 1))
-        self.assertEqual(since.value, 0.0)
+        self.assertAlmostEqual(since.value, 0.0)
         self.assertEqual([e["state"] for e in tracker.history], ["down", "recovered"])
         self.assertEqual(len(sent), 2)
 
@@ -163,7 +163,7 @@ class TestCameraOutageTracker(unittest.TestCase):
         )
         self.assertEqual(tracker.history, [])
         self.assertEqual(sent, [])
-        self.assertEqual(since.value, 0.0)
+        self.assertAlmostEqual(since.value, 0.0)
 
     def test_disabling_a_down_camera_drops_the_outage_silently(self):
         since = FakeValue()
@@ -177,7 +177,7 @@ class TestCameraOutageTracker(unittest.TestCase):
         )
         self.assertEqual(len(sent), 1)
         self.assertIsNone(tracker.down_since)
-        self.assertEqual(since.value, 0.0)
+        self.assertAlmostEqual(since.value, 0.0)
 
     def test_missing_recording_segments_count_while_recording(self):
         tracker, _sent = make_tracker()

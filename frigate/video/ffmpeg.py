@@ -34,6 +34,7 @@ from frigate.util.image import (
 from frigate.util.process import FrigateProcess
 from frigate.video.camera_outage import (
     CameraOutageTracker,
+    OutageState,
     outage_message,
     push_enabled,
 )
@@ -122,8 +123,7 @@ class CameraWatchdog(threading.Thread):
         hwaccel_fallback=None,
         restart_events=None,
         hwaccel_fallback_since=None,
-        outage_events=None,
-        outage_since=None,
+        outage: OutageState | None = None,
     ):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(f"watchdog.{config.name}")
@@ -172,8 +172,8 @@ class CameraWatchdog(threading.Thread):
         self.outage_tracker = CameraOutageTracker(
             config.name,
             self.logger,
-            history=outage_events,
-            since=outage_since,
+            history=outage.events if outage else None,
+            since=outage.since if outage else None,
             notify=self._notify_outage,
         )
 
@@ -789,8 +789,9 @@ class CameraCapture(FrigateProcess):
             self.camera_metrics.hwaccel_fallback,
             self.camera_metrics.restart_events,
             hwaccel_fallback_since=self.camera_metrics.hwaccel_fallback_since,
-            outage_events=self.camera_metrics.outage_events,
-            outage_since=self.camera_metrics.outage_since,
+            outage=OutageState(
+                self.camera_metrics.outage_events, self.camera_metrics.outage_since
+            ),
         )
         camera_watchdog.start()
         camera_watchdog.join()
