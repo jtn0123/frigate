@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import re
 import secrets
 import threading
@@ -20,9 +21,16 @@ from frigate.api.auth import (
     get_current_user,
     require_camera_access,
 )
+from frigate.api.defs.response.fork_share_response import (
+    ShareLinkListResponse,
+    ShareLinkResponse,
+)
+from frigate.api.defs.response.generic_response import GenericResponse
 from frigate.api.defs.tags import Tags
 from frigate.api.media import recording_clip
-from frigate.models import Event, ShareLink
+from frigate.api.media_auth import check_camera_access
+from frigate.config import FrigateConfig
+from frigate.models import Event, ShareLink, User
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +41,14 @@ DEFAULT_EXPIRES_HOURS = 24
 MAX_EXPIRES_HOURS = 168
 EVENT_NOT_FOUND = "Event not found"
 SHARE_NOT_FOUND = "Share link not found"
+SHARING_DISABLED = "Clip sharing is disabled"
+# One user may hold this many unexpired links at a time.
+MAX_ACTIVE_LINKS_PER_USER = 50
+# Requests on the internal port carry this user name and no account.
+INTERNAL_USER = "anonymous"
+# Snapshot: the config's environment_vars block lands in os.environ after
+# import, and a config edit must not be able to switch sharing back on.
+_CLIP_SHARING_ENV = os.environ.get("FRIGATE_FORK_CLIP_SHARING")
 # A public link serves at most this much of the event's recordings. An event
 # that never closed has no end, so without the cap its clip would grow with
 # every request.
@@ -58,6 +74,13 @@ def _as_unix(value) -> float:
     if isinstance(value, datetime):
         return value.timestamp()
     return float(value)
+
+
+def clip_sharing_enabled() -> bool:
+    """Return False when FRIGATE_FORK_CLIP_SHARING switches sharing off."""
+    if _CLIP_SHARING_ENV is None:
+        return True
+    return _CLIP_SHARING_ENV.strip().lower() not in ("false", "0", "no", "off")
 
 
 def _share_url(token: str) -> str:
@@ -136,8 +159,30 @@ def _error(message: str, status_code: int) -> JSONResponse:
     )
 
 
-def _load_shared(token: str) -> tuple[ShareLink, Event] | JSONResponse:
+def _creator_may_share(link: ShareLink, config: FrigateConfig) -> bool:
+    """Return whether the link's creator still exists and may see its camera.
+
+    Only Frigate's own accounts can be checked: with auth disabled the names
+    come from a proxy, and the internal port has no account at all.
+    """
+    if not config.auth.enabled or link.created_by == INTERNAL_USER:
+        return True
+
+    try:
+        creator: User = User.get_by_id(link.created_by)
+    except DoesNotExist:
+        return False
+
+    return check_camera_access(creator.role, link.camera, config)
+
+
+def _load_shared(
+    token: str, config: FrigateConfig
+) -> tuple[ShareLink, Event] | JSONResponse:
     """Resolve a public token to its link and event, or to the error to send."""
+    if not clip_sharing_enabled():
+        return _error(SHARE_NOT_FOUND, 404)
+
     link, status = _get_valid_link(token)
     if link is None or status in ("invalid", "missing"):
         return _error(SHARE_NOT_FOUND, 404)
@@ -154,15 +199,88 @@ def _load_shared(token: str) -> tuple[ShareLink, Event] | JSONResponse:
     if event.camera != link.camera:
         return _error(SHARE_NOT_FOUND, 404)
 
+    # a link lives no longer than its creator's access to the camera
+    if not _creator_may_share(link, config):
+        return _error(SHARE_NOT_FOUND, 404)
+
     return link, event
 
 
-@router.post("/fork/share", dependencies=[Depends(allow_any_authenticated())])
+def _link_payload(link: ShareLink) -> dict:
+    return {
+        "token": link.token,
+        "url": _share_url(link.token),
+        "event_id": link.event_id,
+        "camera": link.camera,
+        "created_by": link.created_by,
+        "created_at": link.created_at,
+        "expires_at": link.expires_at,
+    }
+
+
+@router.get(
+    "/fork/share",
+    response_model=ShareLinkListResponse,
+    dependencies=[Depends(allow_any_authenticated())],
+)
+async def list_shares(request: Request):
+    """List the caller's unexpired share links; an admin sees everyone's."""
+    current_user = await get_current_user(request)
+    if isinstance(current_user, JSONResponse):
+        return current_user
+
+    def _select() -> list[dict]:
+        query = ShareLink.select().where(ShareLink.expires_at > time.time())
+        if current_user["role"] != "admin":
+            query = query.where(ShareLink.created_by == current_user["username"])
+        return [
+            _link_payload(link) for link in query.order_by(ShareLink.created_at.desc())
+        ]
+
+    return await asyncio.to_thread(_select)
+
+
+@router.delete(
+    "/fork/share/{token}",
+    response_model=GenericResponse,
+    dependencies=[Depends(allow_any_authenticated())],
+)
+async def delete_share(request: Request, token: str):
+    """Revoke a share link. Only its creator or an admin may, others get 404."""
+    current_user = await get_current_user(request)
+    if isinstance(current_user, JSONResponse):
+        return current_user
+
+    if not TOKEN_RE.fullmatch(token):
+        return _error(SHARE_NOT_FOUND, 404)
+
+    def _delete() -> int:
+        query = ShareLink.delete().where(ShareLink.token == token)
+        if current_user["role"] != "admin":
+            # someone else's link reads as unknown, so its existence stays private
+            query = query.where(ShareLink.created_by == current_user["username"])
+        return int(query.execute())
+
+    if not await asyncio.to_thread(_delete):
+        return _error(SHARE_NOT_FOUND, 404)
+
+    logger.info("User %s revoked a clip share link", current_user["username"])
+    return {"success": True, "message": "Share link revoked"}
+
+
+@router.post(
+    "/fork/share",
+    response_model=ShareLinkResponse,
+    dependencies=[Depends(allow_any_authenticated())],
+)
 async def create_share(request: Request, body: ShareCreateBody):
     """Create an expiring public link for an event clip."""
     current_user = await get_current_user(request)
     if isinstance(current_user, JSONResponse):
         return current_user
+
+    if not clip_sharing_enabled():
+        return _error(SHARING_DISABLED, 403)
 
     try:
         event: Event = await asyncio.to_thread(Event.get, Event.id == body.event_id)
@@ -185,7 +303,15 @@ async def create_share(request: Request, body: ShareCreateBody):
     expires_at = now + body.expires_in_hours * 3600
     username = current_user["username"]
 
-    def _insert() -> ShareLink:
+    def _insert() -> ShareLink | None:
+        active = (
+            ShareLink.select()
+            .where((ShareLink.created_by == username) & (ShareLink.expires_at > now))
+            .count()
+        )
+        if active >= MAX_ACTIVE_LINKS_PER_USER:
+            return None
+
         return ShareLink.create(
             token=token,
             event_id=event.id,
@@ -196,6 +322,9 @@ async def create_share(request: Request, body: ShareCreateBody):
         )
 
     link = await asyncio.to_thread(_insert)
+    if link is None:
+        return _error("Too many active share links", 429)
+
     logger.info(
         "Created clip share for event %s camera %s expires_at %s",
         event.id,
@@ -212,11 +341,12 @@ async def create_share(request: Request, body: ShareCreateBody):
 
 @router.get(
     "/fork/share/{token}",
+    response_model=ShareLinkResponse,
     dependencies=[Depends(allow_public())],
 )
-async def get_share(token: str):
+async def get_share(request: Request, token: str):
     """Return metadata for a public share link."""
-    shared = await asyncio.to_thread(_load_shared, token)
+    shared = await asyncio.to_thread(_load_shared, token, request.app.frigate_config)
     if isinstance(shared, JSONResponse):
         return shared
     link, event = shared
@@ -231,11 +361,19 @@ async def get_share(token: str):
 
 @router.get(
     "/fork/share/{token}/clip.mp4",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": f"The shared clip, at most {MAX_SHARE_CLIP_SECONDS} seconds long",
+            "content": {"video/mp4": {}},
+        },
+        429: {"model": GenericResponse, "description": "Too many clip requests"},
+    },
     dependencies=[Depends(allow_public())],
 )
 async def get_share_clip(request: Request, token: str):
     """Stream the shared event clip without a login."""
-    shared = await asyncio.to_thread(_load_shared, token)
+    shared = await asyncio.to_thread(_load_shared, token, request.app.frigate_config)
     if isinstance(shared, JSONResponse):
         return shared
     _link, event = shared

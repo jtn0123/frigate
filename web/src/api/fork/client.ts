@@ -23,6 +23,7 @@ export const PATH_TO_KEY = {
   "/events": "events",
   "/stats": "stats",
   "/stats/history": "stats/history",
+  "/fork/share": "fork/share",
 } as const;
 
 export type MigratedPath = keyof typeof PATH_TO_KEY;

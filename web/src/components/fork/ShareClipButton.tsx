@@ -4,8 +4,10 @@
 
 import { useCallback, useState } from "react";
 import axios from "axios";
+import { useSWRConfig } from "swr";
 import { useTranslation } from "react-i18next";
 import { LuShare2 } from "react-icons/lu";
+import { swrKey } from "@/api/fork/client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,16 +17,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import ActiveShareLinks from "@/components/fork/ActiveShareLinks";
 import { isForkEnabled } from "@/fork/flags";
 import { qrSvg } from "@/lib/fork/qr";
 import { sharePageUrl } from "@/lib/fork/share-path";
 import { toast } from "sonner";
+import type { components } from "@/types/fork/api.gen";
 
-type ShareResponse = {
-  token: string;
-  url: string;
-  expires_at: number;
-};
+type ShareResponse = components["schemas"]["ShareLinkResponse"];
 
 type ShareClipButtonProps = {
   eventId?: string | null;
@@ -39,6 +39,8 @@ export default function ShareClipButton({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [share, setShare] = useState<ShareResponse | null>(null);
+  const [revoked, setRevoked] = useState(false);
+  const { mutate } = useSWRConfig();
 
   const createShare = useCallback(async () => {
     if (!eventId) {
@@ -50,13 +52,15 @@ export default function ShareClipButton({
         event_id: eventId,
       });
       setShare(response.data);
+      // the new link belongs in the active list below
+      void mutate(swrKey("/fork/share"));
     } catch {
       toast.error(t("clipShare.createFailed"));
       setOpen(false);
     } finally {
       setLoading(false);
     }
-  }, [eventId, t]);
+  }, [eventId, mutate, t]);
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
@@ -65,6 +69,7 @@ export default function ShareClipButton({
         void createShare();
       } else {
         setShare(null);
+        setRevoked(false);
       }
     },
     [createShare],
@@ -81,6 +86,15 @@ export default function ShareClipButton({
       toast.error(t("clipShare.copyFailed"));
     }
   }, [share, t]);
+
+  const onRevoked = useCallback(
+    (token: string) => {
+      if (token === share?.token) {
+        setRevoked(true);
+      }
+    },
+    [share],
+  );
 
   if (!isForkEnabled("clipSharing") || !hasClip || !eventId) {
     return null;
@@ -112,10 +126,16 @@ export default function ShareClipButton({
               {t("clipShare.creating")}
             </p>
           )}
-          {share && (
+          {share && revoked && (
+            <p className="text-sm text-muted-foreground" role="status">
+              {t("clipShare.revokedNotice")}
+            </p>
+          )}
+          {share && !revoked && (
             <div className="flex flex-col gap-3">
               <div
                 className="mx-auto size-44 rounded-md bg-white p-2"
+                role="img"
                 aria-label={t("clipShare.qr")}
                 data-testid="share-clip-qr"
                 dangerouslySetInnerHTML={{ __html: qrSvg(absoluteUrl) }}
@@ -137,6 +157,12 @@ export default function ShareClipButton({
                 </Button>
               </div>
             </div>
+          )}
+          {open && (
+            <ActiveShareLinks
+              currentToken={revoked ? undefined : share?.token}
+              onRevoked={onRevoked}
+            />
           )}
         </DialogContent>
       </Dialog>

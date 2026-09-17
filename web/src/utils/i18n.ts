@@ -33,7 +33,10 @@ void i18n
     fallbackLng: "en", // use en if detected lng is not available
 
     backend: {
-      loadPath: `locales/{{lng}}/{{ns}}.json?v=${import.meta.env.VITE_GIT_COMMIT_HASH || "unknown"}`,
+      // fork: rooted at the base path. A relative path resolves against the
+      // page, so /share/<token> (the one nested route) asked for
+      // /share/locales/... and rendered untranslated keys
+      loadPath: `${window.baseUrl || "/"}locales/{{lng}}/{{ns}}.json?v=${import.meta.env.VITE_GIT_COMMIT_HASH || "unknown"}`,
     },
 
     ns: [
