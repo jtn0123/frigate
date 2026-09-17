@@ -51,6 +51,7 @@ from frigate.api.defs.response.event_response import (
 )
 from frigate.api.defs.response.generic_response import GenericResponse
 from frigate.api.defs.tags import Tags
+from frigate.api.fork_bulk import explore_recent_events
 from frigate.comms.event_metadata_updater import EventMetadataTypeEnum
 from frigate.config.classification import ObjectClassificationType
 from frigate.const import CLIPS_DIR
@@ -390,40 +391,8 @@ def events_explore(
     limit: int = 10,
     allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
 ):
-    # get distinct labels for all events
-    distinct_labels = (
-        Event.select(Event.label)
-        .where(Event.camera << allowed_cameras)
-        .distinct()
-        .order_by(Event.label)
-    )
-
-    label_counts = {}
-
-    def event_generator():
-        for label_obj in distinct_labels.iterator():
-            label = label_obj.label
-
-            # get most recent events for this label
-            label_events = (
-                Event.select()
-                .where((Event.label == label) & (Event.camera << allowed_cameras))
-                .order_by(Event.start_time.desc())
-                .limit(limit)
-                .iterator()
-            )
-
-            # count total events for this label
-            label_counts[label] = (
-                Event.select()
-                .where((Event.label == label) & (Event.camera << allowed_cameras))
-                .count()
-            )
-
-            yield from label_events
-
     def process_events():
-        for event in event_generator():
+        for event in explore_recent_events(allowed_cameras, limit):
             processed_event = {
                 "id": event.id,
                 "camera": event.camera,
@@ -456,7 +425,7 @@ def events_explore(
                         "recognized_license_plate_score",
                     ]
                 },
-                "event_count": label_counts[event.label],
+                "event_count": event.event_count,
             }
             yield processed_event
 
