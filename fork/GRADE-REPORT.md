@@ -33,11 +33,11 @@ HTTP caching. Feature work is outrunning the cleanup track.
 | E | Security | B+ | B+ | B+ | 6 |
 | F | Dependencies & Tech Currency | C+ | B− | B− | 5 |
 | G | Performance & Scalability | C+ | B− | C+ | 10 |
-| H | Documentation & Onboarding | C | C+ | C+ | 7 |
-| I | Developer Experience & Tooling | C+ | B | B | 11 |
-| **Overall** | | **B−** | **B** | **B** | **73** + UX track |
+| H | Documentation & Onboarding | C | C+ | C+ | 5 |
+| I | Developer Experience & Tooling | C+ | B | B | 9 |
+| **Overall** | | **B−** | **B** | **B** | **69** + UX track |
 
-**Top 5 highest-leverage open fixes:** I27, E15, I28, E16, C9
+**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E15, E16, C9, I29
 
 **Type safety at a glance.** Frontend: TypeScript `strict` gates the build and
 `fork/type-ratchet.json` holds every escape hatch (`explicitAny` 23,
@@ -674,6 +674,7 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - ~~I13~~ ✓ done 2026-09-11. Releases from `main` with generated notes
 - ~~I14~~ ✓ done 2026-09-11. SonarCloud findings in scripts, CI and backend files
 - ~~I28~~ ✓ done 2026-09-17. The red pushes were a merge that skipped pull request analysis (I26's findings) and scans without browser coverage, not the new-code period; every push to `next` now runs the web jobs, a failed gate names its conditions, evidence and decision in `fork/SONAR-CI.md`
+- ~~I32~~ ✓ done 2026-09-17. `check.sh` warns when HEAD is more than 20 commits behind `origin/next`; `.codex-output/` and `fork/demo/screenshots/compare/` ignored
 - I15 to I26: see `FORK.md` (I16, I17 unused)
 
 #### I27 — Give the upstream-sync bot its token `[fork]`
@@ -682,7 +683,7 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - **Fix:** Owner creates a fine-grained token (contents + workflows write) as `FORK_SYNC_TOKEN`. In the workflow, fail in the first step with a clear message when the secret is empty.
 - **Update 2026-09-17:** The workflow part shipped: the run stops in its first step when the secret is empty and names the token to create, the "Upstream sync failed" issue carries the same steps, and the new-tag base is `v0.18.0`. Still open for the owner: create the fine-grained token (Contents and Workflows read and write on `jtn0123/frigate`) and save it as `FORK_SYNC_TOKEN`; steps in `fork/README.md`, "Owner setup".
 - **Effort:** S
-- **Grade lift:** B → B+ (with I28)
+- **Grade lift:** B → B+ (I28 is done)
 
 #### I29 — Require the check on `main` too `[fork]`
 - **Where:** repository rulesets ("next: require quality checks" covers `refs/heads/next` only; `main` has only the no-deletion rule)
@@ -703,13 +704,6 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - **Where:** `.pre-commit-config.yaml` (ruff `files:` pattern skips `fork/scripts`, `fork/audio_trial`, `fork/monitoring`; no actionlint or shellcheck hook, although I12 and I14 were exactly those findings)
 - **What's wrong:** Failures in the fork's own Python and workflows show up only in CI, 9 minutes later.
 - **Fix:** Add `fork` to the ruff pattern; add actionlint and shellcheck hooks.
-- **Effort:** S
-- **Grade lift:** B → B
-
-#### I32 — Warn about a stale checkout, and ignore local evidence folders `[fork]`
-- **Where:** `fork/scripts/check.sh`; `.gitignore` (`.codex-output/`, 3.4 MB of agent logs, and `fork/demo/screenshots/compare/`, 6.1 MB of PNGs, are untracked and not ignored)
-- **What's wrong:** On 2026-09-17 the primary clone's `main` was 328 commits behind `origin/next` with nothing saying so; the first pass of this audit graded week-old code. One `git add -A` would commit 9.5 MB of scratch files.
-- **Fix:** `check.sh` prints a warning when HEAD is more than 20 commits behind `origin/next`; add both paths to `.gitignore`.
 - **Effort:** S
 - **Grade lift:** B → B
 
