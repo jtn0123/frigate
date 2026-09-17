@@ -341,6 +341,46 @@ class WorkerTests(unittest.TestCase):
             "hourly retry limit",
         )
 
+    def claim_waiting_second_opinion(self):
+        self.queue.defer(self.job, 1001, {"speech_seconds": 3, "transcript": ""})
+        job = self.queue.claim(1100)
+        self.assertEqual((job["state"], job["attempts"]), ("second_opinion", 1))
+        return job
+
+    @patch.object(worker, "download_audio")
+    @patch.object(worker, "health", return_value="insufficient spare memory")
+    @patch.object(worker, "infer")
+    def test_waiting_second_opinion_is_not_downloaded_or_counted(
+        self, infer, _health, download
+    ):
+        worker.process_job(self.queue, self.claim_waiting_second_opinion())
+        download.assert_not_called()
+        infer.assert_not_called()
+        row = self.queue.recent()[0]
+        self.assertEqual((row["state"], row["attempts"]), ("second_opinion", 1))
+        self.assertEqual(
+            json.loads(row["result"])["large_status"],
+            "deferred: insufficient spare memory",
+        )
+
+    @patch.object(worker, "download_audio")
+    @patch.object(worker, "health", return_value="")
+    @patch.object(worker, "infer")
+    def test_spent_budget_skips_the_download_of_a_second_opinion(
+        self, infer, _health, download
+    ):
+        (self.root / "large-budget.json").write_text(
+            json.dumps([worker.time.time()] * 2)
+        )
+        worker.process_job(self.queue, self.claim_waiting_second_opinion())
+        download.assert_not_called()
+        infer.assert_not_called()
+        row = self.queue.recent()[0]
+        self.assertEqual((row["state"], row["attempts"]), ("second_opinion", 1))
+        self.assertEqual(
+            json.loads(row["result"])["large_status"], "hourly retry limit"
+        )
+
     @patch.object(worker, "memory_available", return_value=8 * 1024**3)
     @patch.object(worker, "read_json", return_value={})
     @patch.object(worker.STOP, "wait", return_value=False)

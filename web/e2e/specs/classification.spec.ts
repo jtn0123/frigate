@@ -211,6 +211,55 @@ test.describe("Classification — admin only @medium", () => {
   });
 });
 
+test.describe("Classification, train filter @medium", () => {
+  // The filter popover is a desktop control.
+  test(
+    "filtering by a class with a dash shows its train images",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      // UI97: the backend writes "half-open" as "half_open" in train file
+      // names, so the filter compared the two and hid every attempt
+      await frigateApp.installDefaults({
+        config: { classification: { custom: CUSTOM_MODELS } },
+      });
+      await installDatasetRoute(frigateApp, "object_classifier");
+      await installDatasetRoute(frigateApp, "state_classifier", {
+        categories: { "half-open": [], closed: [] },
+      });
+      await frigateApp.page.route(
+        /\/api\/classification\/state_classifier\/train/,
+        (route) =>
+          route.fulfill({
+            json: [
+              "1767225600.0-abc123-1767225600.5-half_open-0.91.webp",
+              "1767225601.0-def456-1767225601.5-closed-0.88.webp",
+            ],
+          }),
+      );
+      await frigateApp.goto("/classification");
+      await frigateApp.page
+        .getByRole("radio", { name: /state/i })
+        .first()
+        .click();
+      await frigateApp.page.getByText("state_classifier").first().click();
+
+      const halfOpen = frigateApp.page.locator('img[src*="-half_open-"]');
+      const closed = frigateApp.page.locator('img[src*="-closed-"]');
+      await expect(closed).toHaveCount(1, { timeout: 10_000 });
+
+      await frigateApp.page
+        .getByRole("button", { name: "More Filters" })
+        .click();
+      await frigateApp.page.getByRole("switch", { name: "half-open" }).click();
+      await frigateApp.page.getByRole("button", { name: "Apply" }).click();
+
+      await expect(closed).toHaveCount(0);
+      await expect(halfOpen).toHaveCount(1);
+      expect(await halfOpen.getAttribute("src")).toContain("half_open");
+    },
+  );
+});
+
 test.describe("Classification — mobile @medium @mobile", () => {
   test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile-only");
 

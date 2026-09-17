@@ -41,8 +41,18 @@ export function useRestoredScroll(
     const cancelRestore = () => {
       restoring = false;
     };
+    // Clicking the other tab empties the list before the URL changes, so the
+    // browser clamps scrollTop toward 0 and fires a scroll event while this
+    // key is still current. A scroll into shorter content is the clamp, not
+    // the user, so it must not overwrite the position the user scrolled to.
+    let contentHeight = element.scrollHeight;
     const onScroll = () => {
-      if (!restoring) remember(key, element.scrollTop);
+      if (restoring) return;
+      const height = element.scrollHeight;
+      const shrank = height < contentHeight;
+      contentHeight = height;
+      if (shrank && element.scrollTop < (positions.get(key) ?? 0)) return;
+      remember(key, element.scrollTop);
     };
     const observer = new ResizeObserver(restore);
     observer.observe(element);

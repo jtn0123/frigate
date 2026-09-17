@@ -301,13 +301,26 @@ class RecordingMaintainer(threading.Thread):
 
         self._expire_stale_recordings_info(grouped_recordings)
 
-        recordings_to_insert: list[dict[str, Any] | None] = await asyncio.gather(*tasks)
+        # one segment must not abort the cycle: an exception propagating out
+        # of gather would abandon the other segments' in-flight probes
+        results: list[dict[str, Any] | None | BaseException] = await asyncio.gather(
+            *tasks, return_exceptions=True
+        )
+
+        recordings_to_insert: list[dict[str, Any]] = []
+
+        for result in results:
+            if isinstance(result, BaseException):
+                logger.error(
+                    "Failed to validate and move a recording segment", exc_info=result
+                )
+                continue
+
+            if result is not None:
+                recordings_to_insert.append(result)
 
         # fire and forget recordings entries
-        self.requestor.send_data(
-            INSERT_MANY_RECORDINGS,
-            [r for r in recordings_to_insert if r is not None],
-        )
+        self.requestor.send_data(INSERT_MANY_RECORDINGS, recordings_to_insert)
 
     def _expire_stale_recordings_info(
         self, grouped_recordings: defaultdict[str, list[dict[str, Any]]]

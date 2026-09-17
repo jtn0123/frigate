@@ -251,7 +251,7 @@ export default function ChatPage() {
             messageRole="user"
             content={msg.content}
             messageIndex={i}
-            onEditSubmit={handleEditSubmit}
+            onEditSubmit={isLoading ? undefined : handleEditSubmit}
             isComplete
             showStats={showStats}
           />

@@ -768,7 +768,7 @@ async def _execute_tool_internal(
     elif tool_name == "start_camera_watch":
         return await _execute_start_camera_watch(request, arguments)
     elif tool_name == "stop_camera_watch":
-        return _execute_stop_camera_watch()
+        return _execute_stop_camera_watch(request)
     elif tool_name == "get_profile_status":
         return _execute_get_profile_status(request)
     elif tool_name == "get_recap":
@@ -822,6 +822,7 @@ async def _execute_start_camera_watch(
             dispatcher=request.app.dispatcher,
             labels=labels,
             zones=zones,
+            username=request.headers.get("remote-user", ""),
         )
     except RuntimeError as e:
         logger.exception("Failed to start VLM watch job: %s", e)
@@ -837,7 +838,17 @@ async def _execute_start_camera_watch(
     }
 
 
-def _execute_stop_camera_watch() -> dict[str, Any]:
+def _execute_stop_camera_watch(request: Request) -> dict[str, Any]:
+    job = get_vlm_watch_job()
+    if job is None:
+        return {"success": False, "message": _NO_ACTIVE_WATCH_JOB_TO_CANCEL}
+
+    # Same rule as DELETE /vlm/monitor: admin cancels any job, anyone else
+    # only a job they started.
+    role = request.headers.get("remote-role", "viewer")
+    if role != "admin" and request.headers.get("remote-user", "") != job.username:
+        return {"success": False, "message": "Not authorized to cancel this watch job."}
+
     cancelled = stop_vlm_watch_job()
     if cancelled:
         return {"success": True, "message": "Watch job cancelled."}

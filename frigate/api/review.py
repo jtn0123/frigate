@@ -214,7 +214,8 @@ def review_summary(
     labels = params.labels
     zones = params.zones
 
-    clauses = [(ReviewSegment.start_time > day_ago)]
+    # the last 24 hours and the per-day counts share these filters
+    clauses = []
 
     if cameras != "all":
         requested = set(cameras.split(","))
@@ -310,34 +311,10 @@ def review_summary(
                 & (UserReviewStatus.user_id == user_id)
             ),
         )
-        .where(reduce(operator.and_, clauses))
+        .where(reduce(operator.and_, [ReviewSegment.start_time > day_ago, *clauses]))
         .dicts()
         .get()
     )
-
-    clauses = []
-
-    if cameras != "all":
-        requested = set(cameras.split(","))
-        filtered = requested.intersection(allowed_cameras)
-        if not filtered:
-            return JSONResponse(content={})
-        camera_list = list(filtered)
-    else:
-        camera_list = allowed_cameras
-    clauses.append(ReviewSegment.camera << camera_list)
-
-    if labels != "all":
-        # use matching so segments with multiple labels
-        # still match on a search where any label matches
-        label_clauses = []
-        filtered_labels = labels.split(",")
-
-        for label in filtered_labels:
-            label_clauses.append(
-                ReviewSegment.data["objects"].cast("text") % f'*"{label}"*'
-            )
-        clauses.append(reduce(operator.or_, label_clauses))
 
     # Find the time range of available data
     time_range_query = (
@@ -487,6 +464,9 @@ async def set_multiple_reviewed(
 
     user_id = current_user["username"]
 
+    # Authorize every id before writing any, so a request that includes an id
+    # on a camera the user may not access changes nothing.
+    reviews = []
     for review_id in body.ids:
         try:
             review = await asyncio.to_thread(
@@ -496,12 +476,14 @@ async def set_multiple_reviewed(
             continue
 
         await require_camera_access(review.camera, request=request)
+        reviews.append(review)
 
+    for review in reviews:
         try:
             review_status = await asyncio.to_thread(
                 UserReviewStatus.get,
                 UserReviewStatus.user_id == user_id,
-                UserReviewStatus.review_segment == review_id,
+                UserReviewStatus.review_segment == review.id,
             )
             # Update based on the reviewed parameter
             if review_status.has_been_reviewed != body.reviewed:

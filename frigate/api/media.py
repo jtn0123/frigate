@@ -16,7 +16,7 @@ from urllib.parse import unquote
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Depends, Path, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pathvalidate import sanitize_filename
 from peewee import DoesNotExist, fn
@@ -247,14 +247,14 @@ async def latest_frame(
 
                 frame = request.app.camera_error_image
 
-        height = int(params.height or str(frame.shape[0]))
-        width = int(height * frame.shape[1] / frame.shape[0])
-
         if frame is None:
             return JSONResponse(
                 content={"success": False, "message": "Unable to get valid frame"},
                 status_code=500,
             )
+
+        height = int(params.height or str(frame.shape[0]))
+        width = int(height * frame.shape[1] / frame.shape[0])
 
         if height < 1 or width < 1:
             return JSONResponse(
@@ -812,9 +812,8 @@ async def vod_event(
     # If the recordings are not found and the event started more than 5 minutes ago, set has_clip to false
     if (
         event.start_time < datetime.now().timestamp() - 300
-        and type(vod_response) is tuple
-        and len(vod_response) == 2
-        and vod_response[1] == 404
+        and isinstance(vod_response, JSONResponse)
+        and vod_response.status_code == 404
     ):
         await asyncio.to_thread(
             Event.update(has_clip=False).where(Event.id == event_id).execute
@@ -886,6 +885,7 @@ async def event_snapshot(
                 if event_id in camera_state.tracked_objects:
                     tracked_obj = camera_state.tracked_objects.get(event_id)
                     if tracked_obj is not None:
+                        await require_camera_access(camera_state.name, request=request)
                         snapshot_settings = _resolve_snapshot_settings(
                             camera_state.camera_config.snapshots, params
                         )
@@ -897,12 +897,15 @@ async def event_snapshot(
                             height=snapshot_settings["height"],
                             quality=snapshot_settings["quality"],
                         )
-                        await require_camera_access(camera_state.name, request=request)
+        except HTTPException:
+            raise
         except Exception:
             return JSONResponse(
                 content={"success": False, "message": "Ongoing event not found"},
                 status_code=404,
             )
+    except HTTPException:
+        raise
     except Exception:
         return JSONResponse(
             content={"success": False, "message": "Unknown error occurred"},
@@ -966,6 +969,8 @@ async def event_thumbnail(
                     if tracked_obj is not None:
                         await require_camera_access(camera_state.name, request=request)
                         thumbnail_bytes = tracked_obj.get_thumbnail(extension.value)
+        except HTTPException:
+            raise
         except Exception:
             return JSONResponse(
                 content={"success": False, "message": _EVENT_NOT_FOUND},
@@ -1840,6 +1845,9 @@ async def label_thumbnail(request: Request, camera_name: str, label: str):
 
     try:
         event_id = await asyncio.to_thread(event_query.scalar)
+        # MAX() over no rows returns None rather than raising DoesNotExist
+        if event_id is None:
+            raise DoesNotExist
 
         return await event_thumbnail(request, event_id, Extension.jpg, 60)
     except DoesNotExist:

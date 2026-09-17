@@ -16,6 +16,7 @@ import {
   MetricField,
   missingReason,
 } from "@/utils/aiModelMetrics";
+import { useMetricTimeFormatter } from "@/hooks/fork/use-metric-time";
 
 type Props = {
   isActive: boolean;
@@ -27,6 +28,7 @@ export default function AIModelMetrics({
   setLastUpdated,
 }: Readonly<Props>) {
   const { t, i18n } = useTranslation(["views/system", "fork"]);
+  const formatTime = useMetricTimeFormatter();
   const [view] = useViewQuery();
   const modelSelection = view.get("model");
   const rangeSelection = view.get("range");
@@ -211,9 +213,7 @@ export default function AIModelMetrics({
                   "lastUsed",
                   model.last_used == null
                     ? unknown
-                    : new Date(model.last_used * 1000).toLocaleString(
-                        i18n.language,
-                      ),
+                    : formatTime(model.last_used),
                 ],
               ].map(([key, value]) => (
                 <div key={key}>

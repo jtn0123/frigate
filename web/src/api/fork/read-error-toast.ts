@@ -44,9 +44,12 @@ export function registerToaster(): () => void {
 export function readErrorKeyId(key: unknown): string {
   if (typeof key === "string") {
     // SWR hands onError the serialised key; array keys arrive as
-    // `@"path",#param:"value",` so pull the path back out.
-    const captured = /^@"([^"]*)"/.exec(key)?.at(1);
-    return captured !== undefined ? captured : key;
+    // `@"path",#param:"value",` so pull the path back out. useSWRInfinite
+    // and useSWRSubscription prefix their keys with `$inf$` and `$sub$`
+    // (C18), so drop that first.
+    const serialized = key.replace(/^\$(inf|sub)\$/, "");
+    const captured = /^@"([^"]*)"/.exec(serialized)?.at(1);
+    return captured ?? serialized;
   }
   if (Array.isArray(key) && key.length > 0) {
     return String(key.at(0));

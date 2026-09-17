@@ -138,6 +138,8 @@ compression ratio above 2.4). A rejected opinion never becomes a transcript:
 kept under `large_rejected_second_opinion` for inspection, separate from the
 `large_second_opinion` key that holds accepted results.
 
+While a request waits, the budget and memory are checked before its clip is
+downloaded again, and a wait does not use up the job's retry.
 Disable built-in `audio_transcription.enabled` on companion-managed cameras;
 the companion pauses with an ownership warning if both are enabled. This avoids
 duplicate automatic work without changing the built-in configuration for you.
