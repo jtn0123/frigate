@@ -19,8 +19,7 @@ volume roughly tripled (71 vitest files, 54 e2e specs, 1,343 backend tests),
 the client/server contract is typed from the OpenAPI spec (A5), the security
 scans were triaged (E4, E5), and SonarCloud gates new code at 80% coverage.
 The structural debt did not move: the same god files, the same 107
-`exhaustive-deps` suppressions, jsx-a11y still advisory, no service layer, no
-HTTP caching. Feature work is outrunning the cleanup track.
+`exhaustive-deps` suppressions, no service layer, no HTTP caching. Feature work is outrunning the cleanup track.
 
 ## Summary
 
@@ -28,16 +27,16 @@ HTTP caching. Feature work is outrunning the cleanup track.
 |----|----------|----------|-------|-----|------------|
 | A | Architecture & Design | B− | B− | B | 5 |
 | B | Backend Quality | B− | B | B | 7 |
-| C | Frontend Quality | C | C+ | B− | 15 |
+| C | Frontend Quality | C | C+ | B− | 14 |
 | D | Testing & Reliability | C+ | B− | B | 7 |
 | E | Security | B+ | B+ | B+ | 6 |
 | F | Dependencies & Tech Currency | C+ | B− | B− | 5 |
 | G | Performance & Scalability | C+ | B− | C+ | 10 |
 | H | Documentation & Onboarding | C | C+ | C+ | 5 |
 | I | Developer Experience & Tooling | C+ | B | B | 9 |
-| **Overall** | | **B−** | **B** | **B** | **69** + UX track |
+| **Overall** | | **B−** | **B** | **B** | **68** + UX track |
 
-**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E15, E16, C9, I29
+**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E15, E16, B5, I29
 
 **Type safety at a glance.** Frontend: TypeScript `strict` gates the build and
 `fork/type-ratchet.json` holds every escape hatch (`explicitAny` 23,
@@ -181,27 +180,22 @@ every listener and observer cleaned up, `ErrorState` and `Skeleton` on new
 views, deliberate a11y (`role="slider"` with `aria-valuenow` on the timeline
 handle, keyboard map in `utils/timelineKeys.ts`), and no hard-coded strings in
 new components. Floating promises are errors and the type ratchet holds. It
-stops at B− because the app-level debt is untouched after 422 commits: every
-jsx-a11y rule is still `warn` (`web/eslint.config.js:25-31`), `handleSaveAll`
-is 296 untested inline lines (`pages/Settings.tsx:910-1205`), 39 files exceed
-800 lines, 107 `exhaustive-deps` suppressions remain, and 11 defects found in
-fork code by this audit are open (C20 to C29).
+stops at B− because the app-level debt is untouched after 422 commits:
+`handleSaveAll` is 296 untested inline lines (`pages/Settings.tsx:910-1205`), 39 files exceed
+800 lines, 107 `exhaustive-deps` suppressions remain, and 10 defects found in
+fork code by this audit are open (C20 to C29). The jsx-a11y findings were
+already at zero (cleared by 8e154085e on 2026-09-12); C9 turned the rules
+into errors so they stay there.
 
 - ~~C1~~ ✓ done 2026-09-10. `components/fork/RouteErrorBoundary.tsx`, chunk-load recovery
 - ~~C2~~ ✓ done 2026-09-10. jsx-a11y lint, 42 role/tabIndex sites, 27 real buttons (residue tracked as C9)
 - ~~C5~~ ✓ done 2026-09-10. SWR read-error toasts + `ErrorState`
+- ~~C9~~ ✓ done 2026-09-17. All 32 enabled jsx-a11y rules plus `control-has-associated-label` are errors (`web/eslint.config.js`); 0 sites needed fixing because 8e154085e had cleared the 83 findings. Six per-site suppressions remain: `media-has-caption` on the four camera `<video>` players, the paste target in `ImageEntry.tsx:137`, the click map in `LiveBirdseyeView.tsx:286`. `web/src/components/ui/**` is outside eslint
 - ~~C8~~ ✓ done 2026-09-10. Sandbox gated to dev
 - ~~C10~~ ✓ done 2026-09-11. TypeScript hatch ratchet, fork-strict typecheck
 - ~~C11~~ ✓ done 2026-09-11. Floating and misused promises are errors (269 → 0)
 - ~~C12~~ ✓ done 2026-09-11. SonarCloud findings in fork web code (3 props types still not `Readonly`: `EventSummaryHeader.tsx:37`, `updates/ReleaseNotesDialog.tsx:38,78`)
 - C13 to C19: see `FORK.md`
-
-#### C9 — Ratchet the jsx-a11y warnings to errors `[fork, upstreamable]`
-- **Where:** `web/eslint.config.js:25-31,65` (every recommended jsx-a11y rule mapped to `warn`, `label-has-for` off). Zero progress since 2026-09-10.
-- **What's wrong:** Warnings do not block regressions; new inaccessible markup lands silently while the fork adds UI every day.
-- **Fix:** One rule per commit: fix every site, then set that rule to `error`. No `eslint-disable`; a site that needs a rewrite keeps its rule at `warn` and is listed in `fork/PLAN.md` Follow-ups. Start with the rules that already have few or zero hits so they lock immediately.
-- **Effort:** M
-- **Grade lift:** B− → B (accessibility becomes enforced, not advisory)
 
 #### C3 — Extract the Settings "Save All" transaction into a tested module `[fork]`
 - **Where:** `web/src/pages/Settings.tsx:910-1205` (`handleSaveAll`, about 296 lines: per-section payloads, detector/model PUT, go2rtc diff and delete at `:809-840`, restart flags, `Promise.allSettled`, `mutate("config")`); duplicate go2rtc credential diff in `web/src/lib/fork/settings-diff.ts:110-134`
