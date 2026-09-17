@@ -685,6 +685,7 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - ~~I12~~ ✓ done 2026-09-11. actionlint SC2016
 - ~~I13~~ ✓ done 2026-09-11. Releases from `main` with generated notes
 - ~~I14~~ ✓ done 2026-09-11. SonarCloud findings in scripts, CI and backend files
+- ~~I28~~ ✓ done 2026-09-17. The red pushes were a merge that skipped pull request analysis (I26's findings) and scans without browser coverage, not the new-code period; every push to `next` now runs the web jobs, a failed gate names its conditions, evidence and decision in `fork/SONAR-CI.md`
 - I15 to I26: see `FORK.md` (I16, I17 unused)
 
 #### I27 — Give the upstream-sync bot its token `[fork]`
@@ -694,13 +695,6 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - **Update 2026-09-17:** The workflow part shipped: the run stops in its first step when the secret is empty and names the token to create, the "Upstream sync failed" issue carries the same steps, and the new-tag base is `v0.18.0`. Still open for the owner: create the fine-grained token (Contents and Workflows read and write on `jtn0123/frigate`) and save it as `FORK_SYNC_TOKEN`; steps in `fork/README.md`, "Owner setup".
 - **Effort:** S
 - **Grade lift:** B → B+ (with I28)
-
-#### I28 — `next` goes red after green PRs `[fork]`
-- **Where:** `.github/workflows/fork-checks.yml` `sonar` job; `fork/SONAR-CI.md`
-- **What's wrong:** 6 of the last 12 pushes to `next` failed the Sonar quality gate although each PR passed it: PR analysis compares with the target branch, branch analysis uses a 30-day new-code period. `make promote` requires green checks on `next`, so this blocks releases and trains everyone to ignore a red branch.
-- **Fix:** Align the branch's new-code definition with the PR gate (reference branch `main`, or previous version), or make the branch scan report-only and keep gating PRs. Record the choice in `fork/SONAR-CI.md`.
-- **Effort:** M
-- **Grade lift:** B → B+ (with I27)
 
 #### I29 — Require the check on `main` too `[fork]`
 - **Where:** repository rulesets ("next: require quality checks" covers `refs/heads/next` only; `main` has only the no-deletion rule)

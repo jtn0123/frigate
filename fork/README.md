@@ -19,7 +19,9 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
   image at the same time (`make check-py`, CI "Python - mypy, API spec, unittest").
   unittest includes the `audio_trial` and `monitoring` suites, as in CI.
 - `scripts/ci-changes.sh` tells "Fork - Checks" whether web or Python files
-  changed, so docs-only commits skip both suites.
+  changed, so docs-only pull requests skip both suites. A push to `next`
+  always runs the web jobs: Sonar's branch gate needs their browser coverage
+  (see `SONAR-CI.md`).
 - `scripts/wt.sh` creates a section worktree with node_modules and its own e2e
   port (`make wt NAME=<name>`).
 - `demo/` overlays this checkout on the rc2 image with three looping sample
