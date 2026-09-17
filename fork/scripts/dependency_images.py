@@ -116,6 +116,10 @@ def image_digest(docker: list[str], reference: str) -> str | None:
     return validate_digest(repository + "@" + manifest["digest"])
 
 
+# The docker contexts the benchmark and build workflows use.
+KNOWN_CONTEXTS = ("colima-frigate-build-bench", "frigate-github-bench")
+
+
 def main() -> None:
     """Publish dependencies when missing, then build against their exact digests."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -124,7 +128,7 @@ def main() -> None:
     parser.add_argument("--cache", required=True)
     parser.add_argument("--amd64-tags", required=True)
     parser.add_argument("--rocm-tags", required=True)
-    parser.add_argument("--context")
+    parser.add_argument("--context", help="Docker context; omit to use the current one")
     parser.add_argument("--builder")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed-caches", type=Path)
@@ -140,6 +144,9 @@ def main() -> None:
     )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    # Only a known context name may reach the docker command line.
+    if args.context and args.context not in KNOWN_CONTEXTS:
+        parser.error("Unknown docker context")
     docker = ["docker"] + (["--context", args.context] if args.context else [])
     bake = docker + ["buildx", "bake"]
     if args.builder:

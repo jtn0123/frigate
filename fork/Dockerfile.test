@@ -24,6 +24,8 @@ COPY frigate /opt/frigate/frigate
 COPY migrations /opt/frigate/migrations
 COPY generate_api_auth_spec.py /opt/frigate/generate_api_auth_spec.py
 COPY docs/static/frigate-api.yaml /opt/frigate/docs/static/frigate-api.yaml
+# The benchmark guard test checks the BuildKit pin against these workflows
+COPY .github/workflows/fork-build-benchmark.yml .github/workflows/fork-concurrency-benchmark.yml /opt/frigate/.github/workflows/
 RUN mkdir -p /config /media/frigate \
   && chown -R 1000:1000 /opt/frigate /config /media/frigate
 USER 1000:1000
