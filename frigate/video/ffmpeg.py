@@ -1,5 +1,6 @@
 """Manages ffmpeg processes for camera frame capture."""
 
+import json
 import logging
 import queue
 import subprocess as sp
@@ -31,6 +32,11 @@ from frigate.util.image import (
     SharedMemoryFrameManager,
 )
 from frigate.util.process import FrigateProcess
+from frigate.video.camera_outage import (
+    CameraOutageTracker,
+    outage_message,
+    push_enabled,
+)
 from frigate.video.hwaccel_fallback import HwaccelFallback, fallback_state_path
 from frigate.video.restart_log import RestartLog
 
@@ -116,6 +122,8 @@ class CameraWatchdog(threading.Thread):
         hwaccel_fallback=None,
         restart_events=None,
         hwaccel_fallback_since=None,
+        outage_events=None,
+        outage_since=None,
     ):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(f"watchdog.{config.name}")
@@ -159,6 +167,15 @@ class CameraWatchdog(threading.Thread):
         # Fork (D11): restart history for Camera Health, throttled ffmpeg dumps.
         self.restart_log = RestartLog(config.name, self.logger, restart_events)
         self._crash_logged: threading.Thread | None = None
+        # Fork (SV6): one notification when the camera has delivered nothing
+        # for a while, and one when it comes back.
+        self.outage_tracker = CameraOutageTracker(
+            config.name,
+            self.logger,
+            history=outage_events,
+            since=outage_since,
+            notify=self._notify_outage,
+        )
 
         self.config_subscriber = CameraConfigUpdateSubscriber(
             None,
@@ -213,6 +230,42 @@ class CameraWatchdog(threading.Thread):
             self.requestor.send_data(f"{self.config.name}/status/record", status)
             self._last_record_status = status
             self._last_status_update_time = now
+
+    def _notify_outage(self, event: dict[str, Any]) -> None:
+        """Fork (SV6): push an outage event, when the fork flag asks for it.
+
+        `camera_monitoring` is the topic web push and MQTT already carry, so
+        this needs no new delivery path; it is opt-in because it reuses the
+        user's alert notifications.
+        """
+        if not push_enabled():
+            return
+
+        self.requestor.send_data(
+            "camera_monitoring",
+            json.dumps(
+                {
+                    "camera": self.config.name,
+                    "state": event["state"],
+                    "message": outage_message(event),
+                }
+            ),
+        )
+
+    def _check_outage(self, now: float, enabled: bool) -> None:
+        """Fork (SV6): fold one watchdog tick into the outage tracker."""
+        last_frame_time = (
+            float(self.capture_thread.current_frame.value)
+            if self.capture_thread is not None
+            else 0.0
+        )
+        self.outage_tracker.update(
+            now,
+            enabled=enabled,
+            last_frame_time=last_frame_time,
+            record_enabled=self.config.record.enabled,
+            last_segment_time=self.latest_valid_segment_time,
+        )
 
     def _check_hwaccel_fallback(self) -> None:
         """Fork (D10): stop decoding on the GPU if that keeps killing detect."""
@@ -327,6 +380,8 @@ class CameraWatchdog(threading.Thread):
                 continue
 
             enabled = self.config.enabled
+            self._check_outage(datetime.now().timestamp(), enabled)  # fork (SV6)
+
             if enabled != self.was_enabled:
                 if enabled:
                     self.logger.debug(f"Enabling camera {self.config.name}")
@@ -721,6 +776,8 @@ class CameraCapture(FrigateProcess):
             self.camera_metrics.hwaccel_fallback,
             self.camera_metrics.restart_events,
             hwaccel_fallback_since=self.camera_metrics.hwaccel_fallback_since,
+            outage_events=self.camera_metrics.outage_events,
+            outage_since=self.camera_metrics.outage_since,
         )
         camera_watchdog.start()
         camera_watchdog.join()

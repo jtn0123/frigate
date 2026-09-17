@@ -36,6 +36,11 @@ export type CameraStats = {
   restarts_24h?: number;
   restart_kinds_24h?: Partial<Record<CameraRestartKind, number>>;
   recent_restarts?: CameraRestart[];
+  /** Fork (SV6): when this camera went unreachable (epoch seconds), or null. */
+  outage_since?: number | null;
+  /** Fork (SV6): outages that started in the last 24 h, and the last 10 events. */
+  outages_24h?: number;
+  recent_outages?: CameraOutage[];
   ffmpeg_cpu?: string;
   capture_cpu?: string;
   detect_cpu?: string;
@@ -49,6 +54,16 @@ export type CameraRestart = {
   role: string;
   kind: CameraRestartKind;
   message: string;
+};
+
+/** Fork (SV6): a camera went unreachable, or came back. */
+export type CameraOutage = {
+  time: number;
+  camera: string;
+  state: "down" | "recovered";
+  reason: string;
+  since: number;
+  duration?: number;
 };
 
 export type CpuStats = {
