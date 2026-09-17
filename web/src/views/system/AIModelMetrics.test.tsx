@@ -119,4 +119,17 @@ describe("AIModelMetrics times", () => {
     const axis = options?.xaxis?.labels?.formatter;
     expect(axis?.("", TIME * 1000)).toBe(LOCAL);
   });
+
+  // fork (UI94): the app spells the month and the full year wherever it puts
+  // a date beside a time, so telemetry does too
+  it("writes dates the way the rest of the app writes them", () => {
+    render(
+      <MemoryRouter>
+        <AIModelMetrics isActive setLastUpdated={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    const card = screen.getByRole("article", { name: "Model One" });
+    expect(within(card).getByText(/Jan 1, 2026/)).toBeInTheDocument();
+  });
 });

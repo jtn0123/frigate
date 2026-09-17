@@ -30,7 +30,10 @@ export function useMetricTimeFormatter(): (
     (unixSeconds: number, withDate = true) =>
       formatUnixTimestampToDateTime(unixSeconds, {
         ...(timezone ? { timezone } : {}),
-        ...(withDate ? { date_style: "short" as const } : {}),
+        // "medium" spells the month and the full year, as the rest of the
+        // app does when it shows a date beside a time. "short" would print
+        // a two-digit year ("1/1/26")
+        ...(withDate ? { date_style: "medium" as const } : {}),
         time_format: timeFormat,
         time_style: "medium",
         locale,
