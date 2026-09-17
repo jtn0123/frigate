@@ -411,6 +411,18 @@ pushed range; `pre-commit install` (ruff, gitleaks, eslint, prettier; needs
 
 ## Follow-ups
 
+- `fork/audio_trial/model_cache.py` skips re-hashing a pinned snapshot when its
+  size, mtime, ctime and inode are unchanged, so a same-size rewrite inside one
+  filesystem timestamp tick goes undetected
+  (`test_pinned_snapshot_detects_corruption_even_with_cached_validation` is
+  flaky in the Docker test image for that reason). Fix with the "racy clean"
+  rule: store the validation time and re-hash unless every file's mtime is
+  strictly older than it. Found 2026-09-16.
+
+- `fork/scripts/test_sonar_coverage.py` needs `defusedxml`; install
+  `fork/requirements-sonar.txt` into the local Python the way CI does or the
+  `scripts` gate fails on a fresh Mac.
+
 - The `release` job in `fork-build.yml` has not run yet; it first runs on the
   owner's first `make promote`. Check that run (version tag, `gh release
   create`) and the notes it publishes.
