@@ -610,13 +610,7 @@ untouched.
 
 - ~~H1~~ ✓ done 2026-09-10
 - ~~H2~~ ✓ done 2026-09-10 (its gate list is stale again → H7)
-
-#### H6 — Say this is a fork, at the top of the README `[fork]`
-- **Where:** `README.md` (87 lines; no match for "fork", "jtn0123" or "ghcr")
-- **What's wrong:** A visitor cannot tell this differs from upstream or find the image.
-- **Fix:** A short block above the upstream text: what the fork is, link to `FORK.md` and Releases, image tags `ghcr.io/jtn0123/frigate:main` and `:main-rocm`, the `next`/`main` branch model.
-- **Effort:** S
-- **Grade lift:** C+ → B− (with H7)
+- ~~H6~~ ✓ done 2026-09-17. Fork block at the top of `README.md`: what the fork is, ledger, Releases, images, branch model, where upstream lives
 
 #### H7 — Teach agents and contributors the fork's workflow `[fork]`
 - **Where:** `AGENTS.md` (`CLAUDE.md` is a symlink; 450 lines, no mention of `next`, `make promote`, `FORK.md`, ledger IDs, the type ratchet or Sonar); `CONTRIBUTING.md:44-52,73` ("rebase on the latest `dev`"; gate list omits Sonar, type ratchet, bundle budget, `e2e:lint`)
