@@ -1,7 +1,11 @@
+import os
+import shutil
+import tempfile
 from datetime import datetime
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
+from fastapi import HTTPException
 from playhouse.shortcuts import model_to_dict
 
 from frigate.api.auth import get_allowed_cameras_for_filter, get_current_user
@@ -610,3 +614,232 @@ class TestHttpEventSearch(BaseTestHttp):
 
         by_id = {e["id"]: e for e in events}
         assert by_id["ev.a"]["thumb_path"] == "/thumbs/rev.live.webp"
+
+
+class TestHttpEventsBulkDelete(BaseTestHttp):
+    """DELETE /events/ (G14): chunked fetch, one access check per camera."""
+
+    def setUp(self):
+        super().setUp([Event, Recordings, ReviewSegment, Timeline])
+        self.minimal_config["cameras"]["back_door"] = self.minimal_config["cameras"][
+            "front_door"
+        ]
+        self.app = super().create_app()
+        self.clips_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.clips_dir, ignore_errors=True)
+        clips_patch = patch("frigate.api.fork_bulk.CLIPS_DIR", self.clips_dir)
+        clips_patch.start()
+        self.addCleanup(clips_patch.stop)
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+    def _insert_events(self, count: int, prefix: str = "event") -> list[str]:
+        """Insert events alternating between the cameras, with a timeline row each."""
+        ids = [f"{prefix}_{index}" for index in range(count)]
+        events = [
+            {
+                "id": event_id,
+                "label": "person",
+                "camera": "front_door" if index % 2 == 0 else "back_door",
+                "start_time": 1000.0 + index,
+                "end_time": 1020.0 + index,
+                "top_score": 100,
+                "score": 0,
+                "false_positive": False,
+                "zones": [],
+                "thumbnail": "",
+                "region": [],
+                "box": [],
+                "area": 0,
+                "has_clip": True,
+                "has_snapshot": True,
+                "data": {},
+            }
+            for index, event_id in enumerate(ids)
+        ]
+        timeline = [
+            {
+                "timestamp": event["start_time"],
+                "camera": event["camera"],
+                "source": "tracked_object",
+                "source_id": event["id"],
+                "class_type": "visible",
+                "data": {},
+            }
+            for event in events
+        ]
+
+        for start in range(0, count, 100):
+            Event.insert_many(events[start : start + 100]).execute()
+            Timeline.insert_many(timeline[start : start + 100]).execute()
+
+        return ids
+
+    def _delete(self, client: AuthTestClient, ids: list[str]):
+        return client.request("DELETE", "/events/", json={"event_ids": ids})
+
+    def _count_statements(self, client: AuthTestClient, ids: list[str]) -> int:
+        """Number of SQL statements one bulk delete runs."""
+        real_execute_sql = self.db.execute_sql
+        statements: list[str] = []
+
+        def counting_execute_sql(sql, *args, **kwargs):
+            statements.append(sql)
+            return real_execute_sql(sql, *args, **kwargs)
+
+        with patch.object(self.db, "execute_sql", counting_execute_sql):
+            response = self._delete(client, ids)
+
+        assert response.status_code == 200
+        assert response.json()["deleted_events"] == ids
+        return len(statements)
+
+    def test_no_ids(self):
+        with AuthTestClient(self.app) as client:
+            response = self._delete(client, [])
+
+        assert response.status_code == 404
+        assert response.json() == {
+            "success": False,
+            "message": "No event IDs provided.",
+        }
+
+    def test_more_than_a_thousand_ids(self):
+        ids = self._insert_events(1200)
+        kept = self._insert_events(3, prefix="kept")
+        embeddings = Mock()
+        self.app.embeddings = embeddings
+
+        with AuthTestClient(self.app) as client:
+            response = self._delete(client, ids)
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "success": True,
+            "deleted_events": ids,
+            "not_found_events": [],
+        }
+        assert [event.id for event in Event.select().order_by(Event.id)] == kept
+        assert Timeline.select().count() == len(kept)
+
+        # embeddings go in the same chunks of at most 500 ids
+        for delete in (
+            embeddings.db.delete_embeddings_thumbnail,
+            embeddings.db.delete_embeddings_description,
+        ):
+            chunks = [call.kwargs["event_ids"] for call in delete.call_args_list]
+            assert [len(chunk) for chunk in chunks] == [500, 500, 200]
+            assert [event_id for chunk in chunks for event_id in chunk] == ids
+
+    def test_mixed_found_missing_and_repeated_ids(self):
+        ids = self._insert_events(3)
+        requested = [ids[0], "missing_1", ids[2], ids[0], "missing_2"]
+
+        with AuthTestClient(self.app) as client:
+            response = self._delete(client, requested)
+
+        # what deleting the ids one at a time reported: a repeated id is
+        # deleted the first time and not found the second time
+        assert response.status_code == 200
+        assert response.json() == {
+            "success": True,
+            "deleted_events": [ids[0], ids[2]],
+            "not_found_events": ["missing_1", ids[0], "missing_2"],
+        }
+        assert [event.id for event in Event.select()] == [ids[1]]
+        assert [row.source_id for row in Timeline.select(Timeline.source_id)] == [
+            ids[1]
+        ]
+
+    def test_snapshot_files_are_removed(self):
+        ids = self._insert_events(2)
+        files = [
+            os.path.join(self.clips_dir, f"front_door-{ids[0]}{suffix}")
+            for suffix in (".jpg", "-clean.png", "-clean.webp")
+        ]
+        other = os.path.join(self.clips_dir, "front_door-another_event.jpg")
+
+        for file in [*files, other]:
+            with open(file, "w") as f:
+                f.write("x")
+
+        with AuthTestClient(self.app) as client:
+            # the second event has no files on disk, which is not an error
+            response = self._delete(client, ids)
+
+        assert response.status_code == 200
+        assert os.listdir(self.clips_dir) == ["front_door-another_event.jpg"]
+
+    def test_forbidden_camera_rejects_the_request(self):
+        ids = self._insert_events(40)
+        checked: list[str] = []
+
+        async def deny_back_door(camera_name, request=None):
+            checked.append(camera_name)
+            if camera_name == "back_door":
+                raise HTTPException(
+                    status_code=403, detail="Access denied to camera 'back_door'."
+                )
+
+        with (
+            patch("frigate.api.event.require_camera_access", deny_back_door),
+            AuthTestClient(self.app) as client,
+        ):
+            response = self._delete(client, [*ids, "missing"])
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Access denied to camera 'back_door'."
+        # one check per distinct camera, in request order, and nothing deleted
+        assert checked == ["front_door", "back_door"]
+        assert Event.select().count() == 40
+        assert Timeline.select().count() == 40
+
+    def test_access_is_checked_once_per_camera(self):
+        ids = self._insert_events(40)
+        checked: list[str] = []
+
+        async def allow(camera_name, request=None):
+            checked.append(camera_name)
+
+        with (
+            patch("frigate.api.event.require_camera_access", allow),
+            AuthTestClient(self.app) as client,
+        ):
+            response = self._delete(client, ids)
+
+        assert response.status_code == 200
+        assert checked == ["front_door", "back_door"]
+        assert Event.select().count() == 0
+
+    def test_statement_count_follows_chunks_not_events(self):
+        with AuthTestClient(self.app) as client:
+            few = self._count_statements(client, self._insert_events(10, "few"))
+            many = self._count_statements(client, self._insert_events(400, "many"))
+            chunks = self._count_statements(client, self._insert_events(1200, "big"))
+
+        # one SELECT and two DELETEs per chunk of 500 ids
+        assert (few, many, chunks) == (3, 3, 9), (few, many, chunks)
+
+    def test_single_event_route(self):
+        ids = self._insert_events(2)
+
+        with AuthTestClient(self.app) as client:
+            deleted = client.delete(f"/events/{ids[0]}")
+            missing = client.delete("/events/missing")
+
+        assert deleted.status_code == 200
+        assert deleted.json() == {
+            "success": True,
+            "message": f"Event {ids[0]} deleted",
+        }
+        assert missing.status_code == 404
+        assert missing.json() == {
+            "success": False,
+            "message": "Event missing not found",
+        }
+        assert [event.id for event in Event.select()] == [ids[1]]
+        assert [row.source_id for row in Timeline.select(Timeline.source_id)] == [
+            ids[1]
+        ]

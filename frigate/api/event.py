@@ -7,7 +7,6 @@ import json
 import logging
 import os
 from functools import reduce
-from pathlib import Path
 from urllib.parse import unquote
 
 import numpy as np
@@ -51,12 +50,17 @@ from frigate.api.defs.response.event_response import (
 )
 from frigate.api.defs.response.generic_response import GenericResponse
 from frigate.api.defs.tags import Tags
-from frigate.api.fork_bulk import explore_recent_events
+from frigate.api.fork_bulk import (
+    delete_events_data,
+    explore_recent_events,
+    get_events_for_delete,
+    split_found_ids,
+)
 from frigate.comms.event_metadata_updater import EventMetadataTypeEnum
 from frigate.config.classification import ObjectClassificationType
 from frigate.const import CLIPS_DIR
 from frigate.embeddings import EmbeddingsContext
-from frigate.models import Event, ReviewSegment, Timeline, Trigger
+from frigate.models import Event, ReviewSegment, Trigger
 from frigate.track.object_processing import TrackedObject
 from frigate.util.file import get_event_thumbnail_bytes, load_event_snapshot_image
 from frigate.util.identifiers import random_id as generate_id
@@ -1719,24 +1723,7 @@ def generate_description_embedding(
 
 def _delete_event_data(event: Event, context: EmbeddingsContext | None) -> None:
     """Remove an event's media files, database rows, and embeddings."""
-    media_name = f"{event.camera}-{event.id}"
-    if event.has_snapshot:
-        snapshot_paths = [
-            Path(f"{os.path.join(CLIPS_DIR, media_name)}.jpg"),
-            Path(f"{os.path.join(CLIPS_DIR, media_name)}-clean.png"),
-            Path(f"{os.path.join(CLIPS_DIR, media_name)}-clean.webp"),
-        ]
-        for media in snapshot_paths:
-            media.unlink(missing_ok=True)
-
-    event.delete_instance()
-    Timeline.delete().where(Timeline.source_id == event.id).execute()
-
-    # embeddings are always cleaned up, even when semantic search is disabled,
-    # so that they don't outlive their events
-    if context is not None:
-        context.db.delete_embeddings_thumbnail(event_ids=[event.id])
-        context.db.delete_embeddings_description(event_ids=[event.id])
+    delete_events_data([event], context)
 
 
 async def delete_single_event(event_id: str, request: Request) -> dict:
@@ -1782,15 +1769,19 @@ async def delete_events(request: Request, body: EventsDeleteBody):
             status_code=404,
         )
 
-    deleted_events = []
-    not_found_events = []
+    # one chunked fetch and one batched delete instead of a query per id
+    events = await asyncio.to_thread(get_events_for_delete, body.event_ids)
+    deleted_events, not_found_events = split_found_ids(body.event_ids, events)
 
-    for event_id in body.event_ids:
-        result = await delete_single_event(event_id, request)
-        if result["success"]:
-            deleted_events.append(event_id)
-        else:
-            not_found_events.append(event_id)
+    # checked once per camera, before anything is deleted
+    for camera in dict.fromkeys(events[i].camera for i in deleted_events):
+        await require_camera_access(camera, request=request)
+
+    await asyncio.to_thread(
+        delete_events_data,
+        [events[event_id] for event_id in deleted_events],
+        request.app.embeddings,
+    )
 
     response = {
         "success": True,
