@@ -69,9 +69,8 @@ def check(expiry: date, today: date) -> tuple[int, str]:
     return 0, f"SONAR_TOKEN expires {expiry.isoformat()}, in {days} days"
 
 
-def main(argv: list[str]) -> int:
-    """Check the env file named in argv, or the repository's."""
-    path = Path(argv[1]) if len(argv) > 1 else DEFAULT_FILE
+def main(path: Path = DEFAULT_FILE) -> int:
+    """Check the repository's env file (tests pass their own)."""
     try:
         expiry = read_expiry(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as err:
@@ -83,4 +82,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(main())

@@ -68,7 +68,7 @@ class TestMain(unittest.TestCase):
                 path.write_text(text, encoding="utf-8")
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
-                code = _MODULE.main(["sonar-token-expiry.py", str(path)])
+                code = _MODULE.main(path)
         return code, out.getvalue()
 
     def test_a_far_date_passes_quietly(self):
