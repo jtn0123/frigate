@@ -16,6 +16,7 @@ from queue import Empty, Queue
 from typing import Any
 
 from frigate.util.builtin import clean_camera_user_pass
+from frigate.util.log_filters import FfmpegLogFilter
 
 LOG_HANDLER = logging.StreamHandler()
 LOG_HANDLER.setFormatter(
@@ -120,6 +121,8 @@ class LogPipe(threading.Thread):
         self.logger = logging.getLogger(log_name)
         self.level = level
         self.deque: deque[str] = deque(maxlen=100)
+        # Fork (SV9): not every ffmpeg line is worth this pipe's level.
+        self.noise_filter = FfmpegLogFilter()
         self.fdRead, self.fdWrite = os.pipe()
         self.pipeReader = os.fdopen(self.fdRead)
         self.start()
@@ -142,7 +145,8 @@ class LogPipe(threading.Thread):
 
     def dump(self) -> None:
         while len(self.deque) > 0:
-            self.logger.log(self.level, self.deque.popleft())
+            line = self.deque.popleft()
+            self.logger.log(self.noise_filter.level_for(line, self.level), line)
 
     def close(self) -> None:
         """Close the write end of the pipe."""
