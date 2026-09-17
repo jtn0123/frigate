@@ -329,6 +329,10 @@ jobs:
         working-directory: ./web
       - name: Verify coverage reports
         run: python3 fork/scripts/sonar-coverage-check.py
+      # Warns from 14 days before the date in fork/sonar-token.env and fails
+      # once it has passed, so an expired token is named as the cause.
+      - name: Check the documented SONAR_TOKEN expiry
+        run: python3 fork/scripts/sonar-token-expiry.py
       - name: Check Sonar authentication
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

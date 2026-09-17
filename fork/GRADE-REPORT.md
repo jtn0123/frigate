@@ -707,6 +707,7 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - **Where:** `SONAR_TOKEN` secret (expiry noted in `fork/SONAR-CI.md`)
 - **What's wrong:** On that day the `sonar` job, and with it the required check, fails for every PR.
 - **Fix:** Rotate now; add a CI step that warns when the documented expiry is within 14 days.
+- **Update 2026-09-17:** The reminder shipped: `fork/scripts/sonar-token-expiry.py` reads the date from `fork/sonar-token.env`, and the `sonar` job warns from 14 days before it (2026-09-27) and fails with a clear error once it has passed. Still open for the owner: rotate the token before 2026-10-11 and update the date; steps in `fork/README.md`, "Owner setup".
 - **Effort:** S
 - **Grade lift:** B → B
 

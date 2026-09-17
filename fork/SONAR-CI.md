@@ -129,5 +129,8 @@ quality gate with 82.9% new-code coverage, 0% new duplication, and A ratings.
 No coverage conditions were ignored. The scanner validated 312 Python and
 508 frontend report entries. The test image now runs as UID/GID 1000.
 The Sonar token was stored in GitHub Actions on September 12 and expires
-October 11, 2026 (as displayed by Sonar). Rotate it before that date.
+October 11, 2026 (as displayed by Sonar). Rotate it before that date. The date
+is recorded in `fork/sonar-token.env`; the `sonar` job warns from 14 days
+before it and fails once it has passed (`fork/scripts/sonar-token-expiry.py`,
+I30). Rotation steps: `fork/README.md`, "Owner setup".
 Automatic Analysis is off; ongoing next scans start once this workflow merges.
