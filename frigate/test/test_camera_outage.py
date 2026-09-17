@@ -130,7 +130,7 @@ class TestCameraOutageTracker(unittest.TestCase):
         event = tracker.update(back, last_frame_time=back)
 
         self.assertEqual(event["state"], "recovered")
-        self.assertEqual(event["duration"], round(back - (start + 1), 1))
+        self.assertAlmostEqual(event["duration"], round(back - (start + 1), 1))
         self.assertAlmostEqual(since.value, 0.0)
         self.assertEqual([e["state"] for e in tracker.history], ["down", "recovered"])
         self.assertEqual(len(sent), 2)

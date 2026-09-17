@@ -19,7 +19,7 @@ import logging
 import os
 import time
 from collections.abc import Callable, MutableSequence
-from typing import Any, NamedTuple
+from typing import Any
 
 # Keep the same shape as the restart history (frigate/video/restart_log.py).
 HISTORY_SECONDS = 24 * 3600
@@ -77,13 +77,6 @@ def describe_duration(seconds: float) -> str:
         return "1 hour" if hours == 1 else f"{hours} hours"
 
     return f"{hours}h {minutes}m"
-
-
-class OutageState(NamedTuple):
-    """The shared outage history and "down since" value a watchdog writes to."""
-
-    events: MutableSequence[dict[str, Any]] | None = None
-    since: Any | None = None
 
 
 class CameraOutageTracker:

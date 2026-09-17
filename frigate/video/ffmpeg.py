@@ -34,12 +34,12 @@ from frigate.util.image import (
 from frigate.util.process import FrigateProcess
 from frigate.video.camera_outage import (
     CameraOutageTracker,
-    OutageState,
     outage_message,
     push_enabled,
 )
 from frigate.video.hwaccel_fallback import HwaccelFallback, fallback_state_path
 from frigate.video.restart_log import RestartLog
+from frigate.video.watchdog_state import WatchdogState
 
 logger = logging.getLogger(__name__)
 
@@ -121,9 +121,7 @@ class CameraWatchdog(threading.Thread):
         detection_frame,
         stop_event,
         hwaccel_fallback=None,
-        restart_events=None,
-        hwaccel_fallback_since=None,
-        outage: OutageState | None = None,
+        shared: WatchdogState | None = None,
     ):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger(f"watchdog.{config.name}")
@@ -153,7 +151,9 @@ class CameraWatchdog(threading.Thread):
             config, state_path=fallback_state_path(config.name)
         )
         self.hwaccel_fallback_flag = hwaccel_fallback
-        self.hwaccel_fallback_since = hwaccel_fallback_since
+        # Fork: manager proxies the stats process reads (D11, D14, SV6).
+        shared = shared or WatchdogState()
+        self.hwaccel_fallback_since = shared.hwaccel_fallback_since
         self._publish_hwaccel_fallback()
         since, expires = self.hwaccel_fallback.since, self.hwaccel_fallback.expires
         if since is not None and expires is not None:
@@ -165,15 +165,15 @@ class CameraWatchdog(threading.Thread):
                 "this camera's ffmpeg settings change."
             )
         # Fork (D11): restart history for Camera Health, throttled ffmpeg dumps.
-        self.restart_log = RestartLog(config.name, self.logger, restart_events)
+        self.restart_log = RestartLog(config.name, self.logger, shared.restart_events)
         self._crash_logged: threading.Thread | None = None
         # Fork (SV6): one notification when the camera has delivered nothing
         # for a while, and one when it comes back.
         self.outage_tracker = CameraOutageTracker(
             config.name,
             self.logger,
-            history=outage.events if outage else None,
-            since=outage.since if outage else None,
+            history=shared.outage_events,
+            since=shared.outage_since,
             notify=self._notify_outage,
         )
 
@@ -787,10 +787,11 @@ class CameraCapture(FrigateProcess):
             self.camera_metrics.detection_frame,
             self.stop_event,
             self.camera_metrics.hwaccel_fallback,
-            self.camera_metrics.restart_events,
-            hwaccel_fallback_since=self.camera_metrics.hwaccel_fallback_since,
-            outage=OutageState(
-                self.camera_metrics.outage_events, self.camera_metrics.outage_since
+            WatchdogState(
+                restart_events=self.camera_metrics.restart_events,
+                hwaccel_fallback_since=self.camera_metrics.hwaccel_fallback_since,
+                outage_events=self.camera_metrics.outage_events,
+                outage_since=self.camera_metrics.outage_since,
             ),
         )
         camera_watchdog.start()
