@@ -144,4 +144,12 @@ describe("useStats model server (UI88)", () => {
     const problems = renderStats(statsAt(Date.now() / 1000));
     expect(problems()).not.toContain(SERVER_UNAVAILABLE);
   });
+
+  // fork (UI95): the panel calls a partial snapshot current, so the status
+  // bar must not call the collector missing or stale
+  it("does not call a partial snapshot missing or stale", () => {
+    mock.models = modelsWithServer("partial");
+    const problems = renderStats(statsAt(Date.now() / 1000));
+    expect(problems()).not.toContain(SERVER_UNAVAILABLE);
+  });
 });

@@ -74,7 +74,15 @@ export default function useStats(stats: FrigateStats | undefined) {
     }
     // fork (UI88): only once ai/models has loaded; the readiness check above
     // already covers a failed or pending fetch
-    if (isAdmin && models && models.server?.status !== "connected") {
+    // fork (UI95): "partial" means some containers could not be measured; the
+    // collector is there and the scopes it lists are current, so the status
+    // bar stays quiet, as the panel does
+    if (
+      isAdmin &&
+      models &&
+      models.server?.status !== "connected" &&
+      models.server?.status !== "partial"
+    ) {
       problems.push({
         text: t("models.server.unavailable"),
         color: "text-warning",
