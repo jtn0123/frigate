@@ -34,6 +34,7 @@ from frigate.api.defs.query.media_query_parameters import (
     MediaMjpegFeedQueryParams,
 )
 from frigate.api.defs.tags import Tags
+from frigate.api.fork_preview_frames import select_preview_frames
 from frigate.camera.state import CameraState
 from frigate.config import FrigateConfig
 from frigate.config.camera.snapshots import SnapshotsConfig
@@ -41,7 +42,6 @@ from frigate.const import (
     CACHE_DIR,
     INSTALL_DIR,
     MAX_SEGMENT_DURATION,
-    PREVIEW_FRAME_TYPE,
 )
 from frigate.models import Event, Previews, Recordings, Regions, ReviewSegment
 from frigate.output.preview import get_most_recent_preview_frame
@@ -1459,32 +1459,15 @@ async def preview_gif(
         # need to generate from existing images
         preview_dir = os.path.join(CACHE_DIR, "preview_frames")
 
-        if not os.path.isdir(preview_dir):
-            return JSONResponse(
-                content={"success": False, "message": _PREVIEW_NOT_FOUND},
-                status_code=404,
-            )
-
-        file_start = f"preview_{camera_name}-"
-        start_file = f"{file_start}{start_ts}.{PREVIEW_FRAME_TYPE}"
-        end_file = f"{file_start}{end_ts}.{PREVIEW_FRAME_TYPE}"
-
-        camera_files = [
-            entry.name
-            for entry in os.scandir(preview_dir)
-            if entry.name.startswith(file_start)
-        ]
-        camera_files.sort()
+        # the directory holds every camera's frames, so it is scanned in a
+        # thread; a missing directory selects nothing
+        camera_files = await asyncio.to_thread(
+            select_preview_frames, preview_dir, camera_name, start_ts, end_ts
+        )
 
         selected_previews = []
 
         for file in camera_files:
-            if file < start_file:
-                continue
-
-            if file > end_file:
-                break
-
             selected_previews.append(f"file '{os.path.join(preview_dir, file)}'")
             selected_previews.append("duration 0.12")
 
@@ -1648,32 +1631,15 @@ async def preview_mp4(
         # need to generate from existing images
         preview_dir = os.path.join(CACHE_DIR, "preview_frames")
 
-        if not os.path.isdir(preview_dir):
-            return JSONResponse(
-                content={"success": False, "message": _PREVIEW_NOT_FOUND},
-                status_code=404,
-            )
-
-        file_start = f"preview_{camera_name}-"
-        start_file = f"{file_start}{start_ts}.{PREVIEW_FRAME_TYPE}"
-        end_file = f"{file_start}{end_ts}.{PREVIEW_FRAME_TYPE}"
-
-        camera_files = [
-            entry.name
-            for entry in os.scandir(preview_dir)
-            if entry.name.startswith(file_start)
-        ]
-        camera_files.sort()
+        # the directory holds every camera's frames, so it is scanned in a
+        # thread; a missing directory selects nothing
+        camera_files = await asyncio.to_thread(
+            select_preview_frames, preview_dir, camera_name, start_ts, end_ts
+        )
 
         selected_previews = []
 
         for file in camera_files:
-            if file < start_file:
-                continue
-
-            if file > end_file:
-                break
-
             selected_previews.append(f"file '{os.path.join(preview_dir, file)}'")
             selected_previews.append("duration 0.12")
 
