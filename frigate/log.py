@@ -146,7 +146,14 @@ class LogPipe(threading.Thread):
     def dump(self) -> None:
         while len(self.deque) > 0:
             line = self.deque.popleft()
-            self.logger.log(self.noise_filter.level_for(line, self.level), line)
+            level = self.noise_filter.level_for(line, self.level)
+
+            if level is not None:
+                self.logger.log(level, line)
+
+        # Fork (SV10): one line for the repeats that were left out.
+        for summary in self.noise_filter.summaries():
+            self.logger.warning(summary)
 
     def close(self) -> None:
         """Close the write end of the pipe."""
