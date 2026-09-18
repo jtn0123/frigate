@@ -43,16 +43,72 @@ class TestNginxShareConf(unittest.TestCase):
     def test_limit_zones_are_defined_in_the_http_block(self):
         http = self.conf[self.conf.index("http {") : self.conf.index("server {")]
         self.assertIn(
-            "limit_req_zone $binary_remote_addr zone=fork_share:1m rate=5r/s;", http
+            "limit_req_zone $fork_share_token zone=fork_share:1m rate=5r/s;", http
         )
         self.assertIn(
-            "limit_conn_zone $binary_remote_addr zone=fork_share_conn:1m;", http
+            "limit_conn_zone $fork_share_token zone=fork_share_conn:1m;", http
         )
+
+    def test_strict_zones_are_not_keyed_on_the_client_address(self):
+        # behind a proxy every viewer has one address, so one bucket (E20)
+        for zone in ("fork_share", "fork_share_conn"):
+            key = re.search(rf"limit_\w+_zone (\S+) zone={zone}:", self.conf).group(1)
+            self.assertEqual(key, "$fork_share_token", zone)
+
+    def test_address_zones_are_a_second_looser_limit(self):
+        http = self.conf[self.conf.index("http {") : self.conf.index("server {")]
+        rate = re.search(
+            r"limit_req_zone \$binary_remote_addr zone=fork_share_addr:1m "
+            r"rate=(\d+)r/s;",
+            http,
+        )
+        self.assertIsNotNone(rate)
+        self.assertGreater(int(rate.group(1)), 5)
+        self.assertIn(
+            "limit_conn_zone $binary_remote_addr zone=fork_share_addr_conn:1m;", http
+        )
+        token_conns = re.search(r"limit_conn fork_share_conn (\d+);", self.public)
+        addr_conns = re.search(r"limit_conn fork_share_addr_conn (\d+);", self.public)
+        self.assertGreater(int(addr_conns.group(1)), int(token_conns.group(1)))
+
+    def test_share_token_key_is_the_token_segment(self):
+        self.assertIn("map $uri $fork_share_token {", self.conf)
+        body = block(self.conf, "$fork_share_token {")
+        self.assertIn(" $fork_share_segment;", body)
+        self.assertRegex(body, r'default "";')
+        token = map_regex(self.conf, "$fork_share_token")
+        # the limits run after the location's rewrite took /api off $uri
+        for uri in (
+            f"/api/fork/share/{SHARE_ID}",
+            f"/api/fork/share/{SHARE_ID}/clip.mp4",
+            f"/fork/share/{SHARE_ID}",
+            f"/fork/share/{SHARE_ID}/clip.mp4",
+        ):
+            match = token.search(uri)
+            self.assertIsNotNone(match, uri)
+            self.assertEqual(match["fork_share_segment"], SHARE_ID)
+        for uri in (
+            "/api/fork/share",
+            "/api/fork/share/",
+            "/api/config",
+            "/x/fork/share/a",
+        ):
+            self.assertIsNone(token.search(uri), uri)
+
+    def test_two_tokens_get_two_buckets(self):
+        token = map_regex(self.conf, "$fork_share_token")
+        first = token.search(f"/fork/share/{SHARE_ID}/clip.mp4")
+        second = token.search(f"/fork/share/other-{SHARE_ID}/clip.mp4")
+        self.assertNotEqual(first["fork_share_segment"], second["fork_share_segment"])
 
     def test_public_location_is_rate_limited_with_429(self):
         self.assertIn("limit_req zone=fork_share burst=10 nodelay;", self.public)
+        self.assertRegex(
+            self.public, r"limit_req zone=fork_share_addr burst=\d+ nodelay;"
+        )
         self.assertIn("limit_req_status 429;", self.public)
         self.assertIn("limit_conn fork_share_conn ", self.public)
+        self.assertIn("limit_conn fork_share_addr_conn ", self.public)
         self.assertIn("limit_conn_status 429;", self.public)
 
     def test_limit_refusals_stay_out_of_the_error_log(self):
@@ -60,6 +116,20 @@ class TestNginxShareConf(unittest.TestCase):
         self.assertIn("error_log /dev/stdout warn;", self.conf)
         self.assertIn("limit_req_log_level info;", self.public)
         self.assertIn("limit_conn_log_level info;", self.public)
+
+    def test_share_locations_only_log_crit_and_above(self):
+        # an upstream timeout or early close is an "error" line that carries
+        # the request line, token included (E21)
+        for name, location in (("public", self.public), ("authed", self.authed)):
+            levels = re.findall(r"^\s*error_log (\S+) (\w+);", location, re.MULTILINE)
+            self.assertEqual(levels, [("/dev/stdout", "crit")], name)
+
+    def test_error_log_is_unchanged_outside_the_share_locations(self):
+        rest = self.conf.replace(self.public, "").replace(self.authed, "")
+        self.assertEqual(
+            re.findall(r"^\s*error_log (\S+) (\w+);", rest, re.MULTILINE),
+            [("/dev/stdout", "warn")],
+        )
 
     def test_only_get_and_head_skip_auth(self):
         self.assertIn("auth_request off;", self.public)
