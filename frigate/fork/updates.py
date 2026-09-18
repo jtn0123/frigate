@@ -151,33 +151,62 @@ class ForkUpdateChecker:
         self._releases: list[ForkRelease] = []
         self._checked_at: float | None = None
         self._error: str | None = None
+        # Fork (B6): True while one caller is fetching, outside the lock.
+        self._refreshing = False
 
     def state(self, force: bool = False) -> dict[str, Any]:
-        """Current update state, refetching when stale or when forced."""
+        """Current update state, refetching when stale or when forced.
+
+        The fetch runs outside the lock (B6), so a slow GitHub never holds up
+        other callers: while one caller refreshes, the others get the cached
+        state right away, which may be stale or still empty.
+        """
         with self._lock:
             now = self._clock()
             age = None if self._checked_at is None else now - self._checked_at
-            if (
+            refresh = not self._refreshing and (
                 age is None
                 or age >= CHECK_INTERVAL_SECONDS
                 or (force and age >= MIN_REFRESH_SECONDS)
-            ):
-                self._refresh(now)
+            )
+            if refresh:
+                self._refreshing = True
+
+        if refresh:
+            self._refresh(now)
+
+        with self._lock:
             return summarize(
                 self._version, self._releases, self._checked_at, self._error
             )
 
     def _refresh(self, now: float) -> None:
+        """Fetch without the lock, then store the result and end the refresh."""
+        fetched = False
+        releases: list[ForkRelease] | None = None
+        try:
+            releases = self._fetch_releases()
+            fetched = True
+        finally:
+            with self._lock:
+                # Also after an unexpected error, or no caller refreshes again.
+                self._refreshing = False
+                if fetched:
+                    if releases is not None:
+                        self._releases = releases
+                    self._error = None if releases is not None else "unreachable"
+                    self._checked_at = now
+
+    def _fetch_releases(self) -> list[ForkRelease] | None:
+        """The published releases, or None when GitHub cannot be reached."""
         try:
             raw = self._fetch()
         except (RequestException, ValueError) as err:
             logger.debug("Fork update check failed: %s", err)
-            self._error = "unreachable"
-        else:
-            parsed = (parse_release(item) for item in raw if isinstance(item, dict))
-            self._releases = [r for r in parsed if r is not None]
-            self._error = None
-        self._checked_at = now
+            return None
+
+        parsed = (parse_release(item) for item in raw if isinstance(item, dict))
+        return [r for r in parsed if r is not None]
 
 
 _checker: ForkUpdateChecker | None = None

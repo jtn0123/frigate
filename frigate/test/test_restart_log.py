@@ -1,6 +1,7 @@
 """Fork (D11): camera ffmpeg restart history and throttled ffmpeg dumps."""
 
 import logging
+import multiprocessing
 import unittest
 from collections import deque
 from types import SimpleNamespace
@@ -10,6 +11,7 @@ from frigate.video.ffmpeg import CameraWatchdog
 from frigate.video.restart_log import (
     COALESCE_WINDOW_SECONDS,
     HISTORY_MAX,
+    REPEAT_WINDOW_SECONDS,
     RestartLog,
     classify_exit,
 )
@@ -129,6 +131,16 @@ class TestRestartLog(unittest.TestCase):
 
         self.assertEqual(len(pipe.dumped), 1)
 
+    def test_explicit_lines_win_over_a_pipe_that_changed_since(self):
+        """B5: the caller's snapshot decides the kind, not a later read."""
+        pipe = FakeLogPipe(NETWORK_EXIT)
+
+        event = self.log.note_exit("detect", pipe, now=1000, lines=list(VAAPI_EXIT))
+
+        self.assertEqual(event["kind"], "hwaccel")
+        self.assertIn("Failed to sync surface", event["message"])
+        self.assertEqual(len(pipe.deque), 0, "the pipe is still emptied")
+
     def test_watchdog_initiated_restarts_are_stalled(self):
         event = self.log.note_exit(
             "detect", FakeLogPipe([]), cause="no frames for 20 seconds", now=5
@@ -147,6 +159,59 @@ class TestRestartLog(unittest.TestCase):
             self.log.record("detect", "other", str(i), now=90001 + i * step)
         self.assertEqual(len(self.history), HISTORY_MAX)
         self.assertEqual(self.history[-1]["message"], str(HISTORY_MAX + 4))
+
+    def test_a_manager_list_is_trimmed_the_same_way(self):
+        """B7: the shared history is a ListProxy; the trim is one slice write."""
+        manager = multiprocessing.Manager()
+        self.addCleanup(manager.shutdown)
+        history = manager.list()
+        log = RestartLog("back", self.logger, history)
+
+        log.record("record", "stalled", "old", now=0)
+        log.record("record", "stalled", "older than a day by now", now=50)
+        log.record("detect", "other", "new", now=90000)
+
+        self.assertEqual([e["message"] for e in history], ["new"])
+
+    def test_only_leading_old_entries_are_dropped(self):
+        # As before B7: trimming stops at the first entry that is recent enough.
+        self.history.extend(
+            [
+                {"time": 0, "role": "detect", "kind": "other", "message": "a"},
+                {"time": 80000, "role": "detect", "kind": "other", "message": "b"},
+                {"time": 10, "role": "detect", "kind": "other", "message": "c"},
+            ]
+        )
+
+        self.log.record("record", "stalled", "d", now=90000)
+
+        self.assertEqual([e["message"] for e in self.history], ["b", "c", "d"])
+
+    def test_signatures_past_the_repeat_window_are_forgotten(self):
+        """B7: `_dumped` no longer grows with every distinct message."""
+        for i in range(5):
+            lines = [f"Error in module {chr(97 + i)}"]
+            self.log.note_exit("detect", FakeLogPipe(lines), now=1000 + i * 100)
+        self.assertEqual(len(self.log._dumped), 5)
+
+        self.log.note_exit(
+            "detect", FakeLogPipe(NETWORK_EXIT), now=1200 + REPEAT_WINDOW_SECONDS
+        )
+
+        # The exits at 1000, 1100 and 1200 are an hour old or more.
+        self.assertEqual(len(self.log._dumped), 3)
+        self.assertIn(("detect", "connection"), {key[:2] for key in self.log._dumped})
+
+    def test_pruning_keeps_the_repeat_count_inside_the_window(self):
+        self.log.note_exit("detect", FakeLogPipe(VAAPI_EXIT), now=1000)
+        self.log.note_exit("detect", FakeLogPipe(NETWORK_EXIT), now=1000)
+        pipe = FakeLogPipe(VAAPI_EXIT)
+
+        with self.assertLogs(self.logger, level="WARNING") as logs:
+            self.log.note_exit("detect", pipe, now=999 + REPEAT_WINDOW_SECONDS)
+
+        self.assertIn("That is 2 times since", logs.output[0])
+        self.assertEqual(pipe.dumped, [])
 
 
 class TestBurstsAreOneIncident(unittest.TestCase):
@@ -241,6 +306,16 @@ class TestWatchdogResetHook(unittest.TestCase):
         self.assertEqual(watchdog.history[0]["kind"], "hwaccel")
         self.assertEqual(watchdog.history[0]["role"], "detect")
         watchdog.start_ffmpeg_detect.assert_called_once()
+
+    def test_crash_uses_the_snapshot_it_is_given(self):
+        """B5: the fallback check and the restart log see the same lines."""
+        watchdog = self.watchdog(NETWORK_EXIT)
+
+        CameraWatchdog.reset_capture_thread(
+            watchdog, terminate=False, lines=list(VAAPI_EXIT)
+        )
+
+        self.assertEqual(watchdog.history[0]["kind"], "hwaccel")
 
     def test_stall_carries_the_watchdog_cause(self):
         watchdog = self.watchdog([])

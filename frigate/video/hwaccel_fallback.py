@@ -18,19 +18,24 @@ Fork (D14): the switch is remembered in a small file per camera for
 right away instead of letting it crash three more times first. Hardware
 decoding is tried again once the entry expires, or as soon as the camera's
 ffmpeg settings change (the file records a hash of the configured command).
+
+Fork (B5): the expiry also applies to a process that stays up. The watchdog
+asks `maybe_expire` on every tick, and the state file is written with
+`write_private_file`, which syncs it and never leaves its temporary file behind.
 """
 
 import hashlib
 import json
 import logging
 import os
-import tempfile
 import time
 from collections import deque
 from collections.abc import Iterable
+from pathlib import Path
 
 from frigate.config import CameraConfig
 from frigate.const import CONFIG_DIR
+from frigate.util.atomic import write_private_file
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +172,22 @@ class HwaccelFallback:
         self._save()
         return True
 
+    def maybe_expire(self, now: float | None = None) -> bool:
+        """End the switch once it is `remember` seconds old (B5).
+
+        `now` is wall-clock time, like `since`. Returns True if the switch just
+        ended: the caller then restarts detect, which gets the configured
+        command again, and crashes are counted from zero.
+        """
+        expires = self.expires
+        if not self.active or expires is None:
+            return False
+        if (time.time() if now is None else now) < expires:
+            return False
+
+        self.reset()
+        return True
+
     def reset(self) -> None:
         """Forget crashes and go back to the configured command (config changed)."""
         self.active = False
@@ -216,14 +237,11 @@ class HwaccelFallback:
             "reason": self.reason,
             "config": _fingerprint(_configured_detect_cmd(self.config)),
         }
-        directory = os.path.dirname(self.state_path)
         try:
-            os.makedirs(directory, exist_ok=True)
-            # Write then rename, so a crash mid-write never leaves half a file.
-            fd, tmp_path = tempfile.mkstemp(dir=directory, suffix=".tmp")
-            with os.fdopen(fd, "w", encoding="utf-8") as file:
-                json.dump(state, file)
-            os.replace(tmp_path, self.state_path)
+            os.makedirs(os.path.dirname(self.state_path), exist_ok=True)
+            # Write, sync, then rename, so a crash mid-write never leaves half
+            # a file and a failed write never leaves the temporary one (B5).
+            write_private_file(Path(self.state_path), json.dumps(state))
         except OSError as err:
             logger.warning(
                 f"{self.config.name}: could not remember the software-decoding "
