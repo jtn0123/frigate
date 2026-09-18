@@ -1,7 +1,7 @@
 # Codebase Grade Report
 
-**Project:** frigate, fork `jtn0123/frigate`, branch `next` @ 66774e9b6 (base upstream v0.18.0; `main` is promoted from `next`)
-**Audited:** 2026-09-18 (third regrade; earlier: baseline of upstream `dev` and first regrade, both 2026-09-10 @ 752bc3047, second regrade 2026-09-17 @ edfdfcfa5)
+**Project:** frigate, fork `jtn0123/frigate`, branch `next` @ 323c215e4 (base upstream v0.18.0; `main` is promoted from `next`)
+**Audited:** 2026-09-18, twice: a full audit @ 66774e9b6 and a delta regrade @ 323c215e4 after #72 to #78 (third regrade; earlier: baseline of upstream `dev` and first regrade, both 2026-09-10 @ 752bc3047, second regrade 2026-09-17 @ edfdfcfa5)
 **Stack:** Python 3.11 / FastAPI 0.116 / peewee 3.17 + SQLite (WAL) / pydantic 2.10 / ZMQ multiprocess pipeline, go2rtc + ffmpeg binaries; React 19 / TypeScript 5.9 (strict) / Vite 6 / Tailwind 3 / Radix + shadcn / SWR / react-router 7 / i18next 24; vitest + Playwright; SonarCloud, CodeQL, gitleaks; Debian 12 Docker image (plus ROCm), nginx front
 **Focus:** frontend (`web/`). This fork exists for UI/UX work, with a growing stability track in the backend.
 
@@ -14,16 +14,26 @@ D47, E7 to E14, I15 to I26, SV1 to SV10, UI43 to UI99) are defined there and
 are not repeated here. This file defines the audit items and says which are
 still open.
 
-**What changed since 2026-09-17.** Six PRs (#65 to #70), 20 commits, about
-4,600 lines, 17 audit items closed: the three backend time-and-scale defects
-(B5, B6, B7), the share feature's operational half (E15, E16), three hot
-query paths (G13, G14, G15), the a11y lint lock (C9), the fork's front-door
-docs (H6, H7) and the CI gate fixes (I28, I29, I32). Each closed item came
-with tests (about 67 new backend tests). This audit re-checked every open
-item against the code and reviewed the merged code itself, which added 11 new
-items, all small: the fixes were sound but not flawless (B10 is a defect in
-the B5 fix). The structural debt from the 09-17 audit is unchanged, and the
-merge train itself exposed a process cost (I35, I36).
+**What changed since 2026-09-17.** Two rounds. Round one (#65 to #70) closed
+17 audit items: the three backend time-and-scale defects (B5, B6, B7), the
+share feature's operational half (E15, E16), three hot query paths (G13,
+G14, G15), the a11y lint lock (C9), the fork's front-door docs (H6, H7) and
+the CI gate fixes (I28, I29, I32). The full audit that followed re-checked
+every open item, reviewed the merged code and found 11 new small items,
+including a defect in the B5 fix (B10). Round two (#73 to #78) closed all 11
+plus C20 and the code half of E17 the same day, each with tests, and the
+four re-raised workflow alerts were dismissed again, so GitHub code scanning
+is at 0 open alerts. The delta regrade re-measured what round two touched.
+No grade moved: every item closed in round two was small by design, and the
+things that hold each grade (listed per category) are the older, larger
+items. The structural debt from the 09-17 audit is unchanged.
+
+**Process change.** Landing round one took six serial rebases because every
+PR appended to `FORK.md` and the `next` ruleset required an up-to-date
+branch. New ledger rows are now files under `fork/ledger/` (I35), the
+up-to-date requirement was switched off (owner decision, `Checks passed`
+stays required), and every push to `next` gets its own check run (I36). In
+round two, three PRs merged back to back with no rebase.
 
 ## Summary
 
@@ -40,9 +50,7 @@ merge train itself exposed a process cost (I35, I36).
 | I | Developer Experience & Tooling | C+ | B | B | B | 8 |
 | **Overall** | | **B−** | **B** | **B** | **B** | **58** + UX track |
 
-**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E18, G17, D48, I31
-
-Update 2026-09-18 (later the same day): B10, B11, C20, C30, C31, D51, E20, E21, E22, I35, I36 and I37 landed on `next` in #73 to #76, and E17's code half with them. The category prose below was written before they did.
+**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E17 + E18 (together: Security to A−), G17, D48, I31
 
 **Type safety at a glance.** Frontend: TypeScript `strict` gates the build and
 `fork/type-ratchet.json` holds every escape hatch (`explicitAny` 23,
@@ -122,7 +130,8 @@ bulk deletes check camera access before deleting anything, no exception text
 reaches a response, the share API re-validates token, expiry and camera on
 every request, and the new fork files have zero f-string log calls. The
 review found one real defect in the B5 fix (B10, a recording restart every 7
-days) and three edge cases (B11). What keeps it from A− is mostly upstream's:
+days) and three edge cases (B11); all four were fixed with tests in #76 the
+same day. What keeps it from A− is mostly upstream's:
 108 of 189 routes have no `response_model`, and the logging rule is still
 not enforced.
 
@@ -179,7 +188,8 @@ stops at B− because the app-level debt is untouched after 422 commits:
 09-17 audit found in fork code are all still open (C20 to C29; only half of
 C27 moved). The share UI merged since is B-level work (typed API, loading,
 error and empty states, plural i18n keys, unit and e2e tests) that shipped
-with four small defects of its own (C30, C31). The jsx-a11y findings were
+with four small defects of its own (C30, C31), fixed in #75 along with C20.
+Nine of the ten 09-17 defects (C21 to C29) are still open. The jsx-a11y findings were
 already at zero (cleared by 8e154085e on 2026-09-12); C9 turned the rules
 into errors so they stay there.
 
@@ -302,8 +312,8 @@ SonarCloud gates new code at 80% (83.5% now; 50.2% overall with browser
 coverage merged). Not B+: the tracking pipeline is still untested (D4), no
 visual regression or tablet project (D6, D3), unit line coverage is 13.4%
 (web) and 40% (Python) with no floor of their own, two flaky e2e tests
-pass on the CI retry, and a third flaky test surfaced during the merges
-(D51).
+pass on the CI retry. The third flaky test, which surfaced during the
+merges, was a real gap and is fixed (D51).
 
 - ~~D1~~ ✓ done 2026-09-10. `web/__test__/test-setup.ts`, CI step
 - ~~D2~~ ✓ done 2026-09-11. e2e for Settings save, camera wizard, zone editing, motion search
@@ -374,19 +384,22 @@ pass on the CI retry, and a third flaky test surfaced during the merges
 
 ## E — Security — B+
 
-Holds at B+, one small PR from A−. The two blockers named on 09-17 are gone:
-the public share feature now has its operational half (E15, E16). A review
-of that code checked the places where such features usually fail and found
-them right: 192-bit tokens validated by regex before the lookup, revoke
-scoped to the creator (404 for anyone else) or an admin, the list scoped to
-the caller, the clip slot released on every path including cancellation, the
-kill switch read once at import and covering create and both public routes,
-tokens masked in the access log and absent from Python logs, non-GET methods
-routed to the authenticated location. It is not A− yet because fork code
-still carries an open CodeQL alert with no guard in the code (E17), the
-`ffprobe` argument half of E18 is open, the review found three low-severity
-gaps in the share path's operations (E20 to E22), there is no `SECURITY.md`,
-and CSP is report-only.
+Holds at B+, at the top of it. GitHub code scanning is at 0 open alerts for
+the first time: the prototype-pollution alert in fork code is fixed (E17,
+CodeQL #51 closed by #74) and the four re-raised workflow alerts were
+dismissed again with the E4 reasoning after confirming both workflows are
+still disabled. The public share feature has its operational half (E15,
+E16) and the three gaps the audit found in it are closed (E20 per-token
+limits, E21 error log, E22 playlist files). The code review of that feature
+found the hard parts right: 192-bit tokens validated before the lookup,
+revoke and list scoped to the creator or an admin, the clip slot released
+on every path, a kill switch covering create and both public routes, tokens
+masked in the logs. It is not A− yet for four reasons, three of them small:
+SonarCloud still shows 10 untriaged vulnerabilities on `next` and a security
+rating of D (all ten are in upstream files, E17), the `ffprobe` path
+argument is unhardened (E18), there is no `SECURITY.md` or triage record, so
+today's dismissals again live only in GitHub (E19), and CSP is report-only
+(E6).
 
 - ~~E1~~ ✓ done 2026-09-10. `security_headers.conf`, HSTS, CSP report-only
 - ~~E2~~ ✓ done 2026-09-10. One auth gate per route, startup assertion + test
@@ -400,12 +413,12 @@ and CSP is report-only.
 - ~~E22~~ ✓ done 2026-09-18. `_SlotStream.release` unlinks the clip playlist when a share client leaves before the body starts (#76)
 - E7 to E14: see `FORK.md`
 
-#### E17 — Close the open code-scanning findings `[fork]`
-- **Where:** `actions/missing-workflow-permissions` alerts #35, #36, #37 (`ci.yml`) and #38 (`release.yml`); SonarCloud reports 10 open vulnerabilities on `next`. Done 2026-09-18 (#74): `setPath` and `mergeInto` in `web/src/lib/fork/zone-rename.ts` skip `__proto__`, `constructor` and `prototype`, with tests; confirm CodeQL #51 closed on its next run
-- **What's wrong:** The Security tab is only a signal while it is at zero.
-- **Fix:** Re-dismiss the four workflow alerts with the E4 reasoning (owner, or on request); triage the 10 Sonar vulnerabilities (fix or mark with a reason) and record them in E19's file.
+#### E17 — Triage SonarCloud's 10 open vulnerabilities `[fork]`
+- **Where:** SonarCloud, branch `next` (security rating D): `frigate/const.py:15,16` (2 critical, `python:S5443`, fixed `/tmp` paths), `.devcontainer/features/onnxruntime-gpu/install.sh:10` (major), `docker/{synaptics,rockchip,rpi}/Dockerfile` and `docker/tensorrt/Dockerfile.{amd64,arm64}` (5 minor, `docker:S6471`, images the fork does not build), `web/src/types/cameraWizard.ts:33,37` (2 minor, `typescript:S5332`). Done 2026-09-18: the prototype-pollution guard (#74, CodeQL #51 fixed) and the dismissal of workflow alerts #35 to #38; GitHub code scanning is at 0 open
+- **What's wrong:** All ten are in upstream files, but nobody has said so where the number is shown, so the project's security rating reads D and a real finding would not stand out.
+- **Fix:** Mark each in SonarCloud as accepted or false positive with a one-line reason (the `/tmp` paths live inside the container's tmpfs; the Dockerfiles are for boards this fork does not ship), and record the verdicts in E19's file.
 - **Effort:** S
-- **Grade lift:** B+ → A− (with the rest of E18)
+- **Grade lift:** B+ → A− (with E18)
 
 #### E18 — Harden the `ffprobe` path argument `[fork, upstreamable]`
 - **Where:** `frigate/util/services.py:1023` (`ffprobe_stream` passes the user-supplied path as a bare positional argument)
@@ -567,9 +580,9 @@ Holds at C+, a strong one. The entry points are now right: the root
 complete ledger. The rest still loses ground to the pace of work:
 `fork/PLAN.md` and `PLAN2.md` carry statuses from 2026-09-11, `FORK.md`'s own
 rules describe a rebase model the fork does not use, the rc2 base survives in
-three files, `FORK.md` grew 15% in a day to 145 KB with every row appended at
-the end (which is also a tooling cost, I35), nothing guards this report
-against drift, and H3, H4 and H5 are untouched.
+three files, `FORK.md` is 145 KB of unsorted rows (new rows now go to
+`fork/ledger/`, I35, and `make ledger` prints a sorted view), nothing guards
+this report against drift, and H3, H4 and H5 are untouched.
 
 - ~~H1~~ ✓ done 2026-09-10
 - ~~H2~~ ✓ done 2026-09-10 (its gate list is stale again → H7)
@@ -586,7 +599,7 @@ against drift, and H3, H4 and H5 are untouched.
 #### H9 — Keep this report honest automatically, and index `fork/` `[fork]`
 - **Where:** `fork/GRADE-REPORT.md` vs `FORK.md` (no test ties a ledger ID marked done to an open heading here); `fork/SONAR-*.md` (12 files, about 1,600 lines) and 5 CSVs at the top of `fork/`; `fork/README.md` (115 lines; omits `make demo-audit`, `fork/monitoring`, `fork/benchmarks`, `Dockerfile.rootless-test` and about half of the 26 scripts); `FORK.md` (145 KB, 201 unsorted rows, cells up to 2,523 characters)
 - **What's wrong:** The report only stays true if someone remembers to edit it, and the working folder is hard to navigate.
-- **Fix:** A test next to `fork/scripts/test_release_notes.py` that fails when an audit item marked done in `FORK.md` is still an open heading here; move the Sonar write-ups to `fork/archive/sonar/` keeping `SONAR-CI.md`; extend `fork/README.md`; the ledger's shape is I35's job.
+- **Fix:** A test next to `fork/scripts/test_release_notes.py` that fails when an audit item marked done in `FORK.md` is still an open heading here; move the Sonar write-ups to `fork/archive/sonar/` keeping `SONAR-CI.md`; extend `fork/README.md` (it does not mention `fork/ledger/` or `make ledger` yet).
 - **Effort:** M
 - **Grade lift:** C+ → B−
 
@@ -615,19 +628,20 @@ against drift, and H3, H4 and H5 are untouched.
 
 ## I — Developer Experience & Tooling — B
 
-Holds at B. The tooling is strong: `make check`/`check-fast`, ready worktrees,
-hash-locked dev dependencies, a required "Checks passed" status on `next` and
-now on `main` (I29), releases with notes generated from commits, ROCm images,
-and ratchets for types and bundle size. The Sonar gate, red on 5 of 12 pushes
-before I28, has been green on 6 of 7 since (the seventh was cancelled, I36).
-It does not reach B+ for two reasons. The automation still fails quietly: the
-upstream-sync bot has failed every day since 2026-09-13 for a secret only the
-owner can create, the Sonar token expires on 2026-10-11, pre-commit and the
-mypy ratchet have not moved, and 79 remote branches have piled up. And
-landing six PRs on 09-17/18 showed that the process itself is serial: every
-PR appends to the same two ledger files, so each merge puts every other open
-PR into conflict, and the up-to-date rule then costs a rebase and a 12-minute
-run per PR, one after another (I35).
+Holds at B, one owner action from B+. The tooling is strong: `make
+check`/`check-fast`, ready worktrees, hash-locked dev dependencies, a
+required "Checks passed" status on `next` and on `main` (I29), releases with
+notes generated from commits, ROCm images, and ratchets for types and bundle
+size. The Sonar gate has been green on every finished `next` run since I28
+(9 of the last 12; the other 3 were cancelled by the concurrency rule that
+I36 replaced). The serial-merge cost the last audit found is gone: ledger
+rows are files (I35), the up-to-date rule is off, and three PRs merged back
+to back without a rebase; the gate scripts now trigger their own checks
+(I37). It is not B+ because the automation that is left still fails
+quietly: the upstream-sync bot has failed every day since 2026-09-13 for a
+secret only the owner can create (I27, issue #71), the Sonar token expires
+on 2026-10-11 (I30), pre-commit and the mypy ratchet have not moved (I31,
+I3), and 86 remote branches have piled up (I34, 79 this morning).
 
 - ~~I1~~ ✓ done 2026-09-10. Pre-commit, CI caching
 - ~~I2~~ ✓ done 2026-09-10. `make` inner-loop targets
@@ -655,7 +669,7 @@ run per PR, one after another (I35).
 - **Update 2026-09-17:** The workflow part shipped: the run stops in its first step when the secret is empty and names the token to create, the "Upstream sync failed" issue carries the same steps, and the new-tag base is `v0.18.0`. Still open for the owner: create the fine-grained token (Contents and Workflows read and write on `jtn0123/frigate`) and save it as `FORK_SYNC_TOKEN`; steps in `fork/README.md`, "Owner setup".
 - **Update 2026-09-18:** Unchanged. The last 5 scheduled runs failed in the first step with the clear message, the latest today at 12:14Z.
 - **Effort:** S
-- **Grade lift:** B → B+ (with I35)
+- **Grade lift:** B → B+
 
 #### I30 — The Sonar token expires on 2026-10-11 `[fork]`
 - **Where:** `SONAR_TOKEN` secret (expiry noted in `fork/SONAR-CI.md`)
@@ -680,7 +694,7 @@ run per PR, one after another (I35).
 - **Grade lift:** B → B
 
 #### I34 — Prune merged branches `[fork]`
-- **Where:** 79 remote branches (45 on 09-17), 48 of them already merged into `origin/next`; `deleteBranchOnMerge` is off; 51 local worktrees, 2 prunable
+- **Where:** 86 remote branches (45 on 09-17), most of them already merged into `origin/next`; `deleteBranchOnMerge` is off; 51 local worktrees, 2 prunable
 - **What's wrong:** Finished `section/*` and agent branches accumulate and hide the live ones.
 - **Fix:** Enable "automatically delete head branches"; delete merged remotes once; `git worktree prune`.
 - **Effort:** S
