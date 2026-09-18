@@ -315,7 +315,9 @@ function ExploreThumbnailImage({
           <img
             ref={imgRef}
             className={cn(
-              "absolute size-full cursor-pointer rounded-lg object-cover transition-all duration-300 ease-in-out lg:rounded-2xl",
+              // fork: inset-0, a button centers its content, so without a top
+              // the image started half its height down and left its card
+              "absolute inset-0 size-full cursor-pointer rounded-lg object-cover transition-all duration-300 ease-in-out lg:rounded-2xl",
               !imgLoaded && "invisible",
               selected &&
                 "shadow-selected outline outline-[3px] -outline-offset-[2.8px] outline-selected",

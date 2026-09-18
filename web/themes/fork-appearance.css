@@ -77,3 +77,18 @@ html[data-density="compact"]
     --border: 0 0% 20%;
   }
 }
+
+/* Reduce motion: when the system asks for it, CSS transitions and animations
+   end at once. Spinners keep turning, since a frozen spinner reads as a hang.
+   The framer-motion slide-ins (MobilePage, PhoneTimelineTabs) read the same
+   setting with useReducedMotion. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

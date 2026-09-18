@@ -94,6 +94,7 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { phoneFixes } from "@/lib/fork/phone";
+import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 import { fullscreenPortalContainer } from "@/lib/fork/fullscreen";
 import { phoneFullscreenRail } from "@/lib/fork/phone-fullscreen";
 import PhoneBoxesToggle from "@/components/fork/PhoneBoxesToggle";
@@ -1510,7 +1511,10 @@ function FrigateCameraFeatures({
           variant={fullscreen ? "overlay" : "primary"}
           Icon={FaCog}
           isActive={false}
-          title={t("cameraSettings.title", { camera })}
+          // fork: the camera's name, not the config object ("[object Object] Settings")
+          title={t("cameraSettings.title", {
+            camera: resolveCameraName(undefined, camera),
+          })}
         />
       </DrawerTrigger>
       <DrawerContent

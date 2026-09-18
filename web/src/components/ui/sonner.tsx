@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Toaster as Sonner } from "sonner";
 import { registerToaster } from "@/api/fork/read-error-toast";
+import { phoneTouch } from "@/lib/fork/phone";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
@@ -13,6 +14,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      // fork: sonner's default is bottom-right, which on a phone is on top of
+      // the bottom bar; a page's own position still wins
+      position={phoneTouch ? "top-center" : undefined}
       toastOptions={{
         classNames: {
           toast:

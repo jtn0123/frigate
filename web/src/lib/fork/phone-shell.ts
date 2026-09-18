@@ -35,6 +35,9 @@ export const phoneShell: PhoneShellClasses | undefined = phoneFixes
       bar: cn(
         "h-[calc(3rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)]",
         "landscape:left-[calc(1rem+env(safe-area-inset-left))] landscape:right-[calc(1rem+env(safe-area-inset-right))]",
+        // 8 px side insets in portrait: seven 48 px targets need 384 px, and
+        // upstream's 16 px insets leave 380 px on a 412 px phone
+        !tablet && "portrait:inset-x-2",
         tablet && "md:h-[calc(4rem+env(safe-area-inset-bottom))]",
       ),
       pageRoot: cn(

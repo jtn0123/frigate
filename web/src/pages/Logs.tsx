@@ -38,6 +38,8 @@ import { isInIframe } from "@/utils/isIFrame";
 import { useTranslation } from "react-i18next";
 import WsMessageFeed from "@/components/ws/WsMessageFeed";
 import { onActivate } from "@/utils/fork/a11y";
+import { phoneScrollEndPad, phoneScrollFade } from "@/lib/fork/phone-scroll";
+import { phoneTouch } from "@/lib/fork/phone";
 
 /** A non-OK log stream response; only its status is shown to the user. */
 class LogStreamStatusError extends Error {
@@ -524,9 +526,14 @@ function Logs() {
       <LogInfoDialog logLine={selectedLog} setLogLine={setSelectedLog} />
 
       <div className="relative flex h-11 w-full items-center justify-between">
-        <ScrollArea className="min-w-0 flex-1 whitespace-nowrap">
-          <div ref={tabsRef} className="flex flex-row">
+        {/* fork: fade the cut-off right edge of the tab strip on a phone */}
+        <ScrollArea
+          className={cn("min-w-0 flex-1 whitespace-nowrap", phoneScrollFade)}
+        >
+          <div ref={tabsRef} className={cn("flex flex-row", phoneScrollEndPad)}>
             <ToggleGroup
+              // fork: 44 px tabs on a phone
+              className={phoneTouch ? "*:min-h-11" : undefined}
               type="single"
               size="sm"
               value={logService}

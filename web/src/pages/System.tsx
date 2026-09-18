@@ -9,6 +9,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { isDesktop } from "react-device-detect";
 
 import { wrapAsync } from "@/utils/promise";
+import { cn } from "@/lib/utils";
+import { phoneFixes, phoneTouch } from "@/lib/fork/phone";
 import {
   LuActivity,
   LuCpu,
@@ -101,9 +103,14 @@ function System() {
   return (
     <div className="flex size-full flex-col p-2">
       <Toaster position="top-center" />
-      <div className="relative flex min-h-11 w-full flex-wrap items-center justify-between gap-1">
+      {/* fork: shrink-0, on a phone the column squeezed this header back to
+          min-h-11 and its wrapped second row drew over the title below */}
+      <div className="relative flex min-h-11 w-full shrink-0 flex-wrap items-center justify-between gap-1">
         <ToggleGroup
-          className="*:rounded-md *:px-3 *:py-4"
+          className={cn(
+            "*:rounded-md *:px-3 *:py-4",
+            phoneTouch && "*:min-h-11",
+          )}
           type="single"
           size="sm"
           value={page}
@@ -126,7 +133,8 @@ function System() {
               {item == "storage" && <LuHardDrive className="size-4" />}
               {item == "cameras" && <FaVideo className="size-4" />}
               {item == "health" && <LuHeartPulse className="size-4" />}
-              {isDesktop && (
+              {/* fork: a phone names the open tab, the rest stay icons */}
+              {(isDesktop || (phoneFixes && page == item)) && (
                 <div className="smart-capitalize">{t(item + ".title")}</div>
               )}
             </ToggleGroupItem>

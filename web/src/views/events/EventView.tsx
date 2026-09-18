@@ -83,6 +83,7 @@ import scrollIntoView from "scroll-into-view-if-needed";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { phoneTouch } from "@/lib/fork/phone";
 import { FilterList, LAST_24_HOURS_KEY } from "@/types/filter";
 import { GiSoundWaves } from "react-icons/gi";
 import useKeyboardListener from "@/hooks/use-keyboard-listener";
@@ -379,7 +380,11 @@ export default function EventView({
             <Logo className="absolute inset-x-1/2 h-8 -translate-x-1/2" />
           )}
           <ToggleGroup
-            className="*:rounded-md *:px-3 *:py-4"
+            // fork: 44 px tabs on a phone
+            className={cn(
+              "*:rounded-md *:px-3 *:py-4",
+              phoneTouch && "*:min-h-11",
+            )}
             type="single"
             size="sm"
             value={severityToggle}
@@ -920,8 +925,19 @@ function DetectionReview({
             )}
         </div>
       </div>
-      <div className="flex w-[65px] flex-row md:w-[110px]">
-        <div className="no-scrollbar relative w-[55px] md:w-[100px]">
+      {/* fork: 10 px wider on a phone, for the 10 px timeline labels */}
+      <div
+        className={cn(
+          "flex w-[65px] flex-row md:w-[110px]",
+          phoneTouch && "w-[75px]",
+        )}
+      >
+        <div
+          className={cn(
+            "no-scrollbar relative w-[55px] md:w-[100px]",
+            phoneTouch && "w-[65px]",
+          )}
+        >
           {loading ? (
             <Skeleton className="size-full" />
           ) : (
@@ -1697,7 +1713,12 @@ function MotionReview({
         </div>
       </div>
       {!selectedMotionPreviewCamera && (
-        <div className="no-scrollbar w-[55px] overflow-y-auto md:w-[100px]">
+        <div
+          className={cn(
+            "no-scrollbar w-[55px] overflow-y-auto md:w-[100px]",
+            phoneTouch && "w-[65px]",
+          )}
+        >
           {motionData ? (
             <MotionReviewTimeline
               segmentDuration={segmentDuration}

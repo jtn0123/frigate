@@ -3,6 +3,8 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
+import { cn } from "@/lib/utils";
+import { phoneTouch } from "@/lib/fork/phone";
 
 type MinimapSegmentProps = {
   isFirstSegmentInMinimap: boolean;
@@ -128,7 +130,11 @@ export function Timestamp({
       {!isFirstSegmentInMinimap && !isLastSegmentInMinimap && shouldDisplay && (
         <div
           key={`${segmentKey}_timestamp`}
-          className="pointer-events-none select-none text-[8px] text-neutral_variant dark:text-neutral"
+          className={cn(
+            "pointer-events-none select-none text-[8px] text-neutral_variant dark:text-neutral",
+            // fork: 8 px time labels are below what a phone can show legibly
+            phoneTouch && "text-[10px]",
+          )}
         >
           {formattedTimestamp}
         </div>

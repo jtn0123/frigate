@@ -9,11 +9,12 @@
 import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
 import { viewerProfile } from "../../fixtures/mock-data/profile";
+import { openPaletteOnPhone } from "../../helpers/phone-palette";
 
 async function openPalette(frigateApp: FrigateApp) {
   const { page } = frigateApp;
   if (frigateApp.isMobile) {
-    await page.getByTestId("command-palette-hint").click();
+    await openPaletteOnPhone(page);
   } else {
     await page.keyboard.press("Control+k");
   }
@@ -196,16 +197,15 @@ test.describe("Command palette @high", () => {
   });
 
   test(
-    "bottombar hint opens the palette on a phone @mobile",
+    "the Settings drawer opens the palette on a phone @mobile",
     { tag: "@mobile-only" },
     async ({ frigateApp }) => {
       await frigateApp.goto("/");
-      const hint = frigateApp.page.getByTestId("command-palette-hint");
-      await expect(hint).toHaveAttribute("aria-label", "Open command palette");
-      await hint.click();
+      // not on the bottom bar, where it cost the other entries their size
       await expect(
-        frigateApp.page.getByTestId("command-palette"),
-      ).toBeVisible();
+        frigateApp.page.getByTestId("command-palette-hint"),
+      ).toHaveCount(0);
+      await openPaletteOnPhone(frigateApp.page);
       await frigateApp.page.keyboard.type("garage");
       await option(frigateApp, "Garage")
         .filter({ hasText: "Live view" })

@@ -31,6 +31,7 @@ import { Event } from "@/types/event";
 import { baseUrl } from "@/api/baseUrl";
 import { cn } from "@/lib/utils";
 import { phoneFixes } from "@/lib/fork/phone";
+import { phoneHitArea } from "@/lib/fork/phone-target";
 import PhoneDetailHeader from "@/components/fork/PhoneDetailHeader";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import {
@@ -1397,6 +1398,8 @@ function ObjectDetailsTab({
                           <TooltipTrigger asChild>
                             <button
                               type="button"
+                              // fork: 44 px hit area on a phone
+                              className={phoneHitArea}
                               aria-label={t("details.editSubLabel.title")}
                               onClick={() => setIsSubLabelDialogOpen(true)}
                             >
@@ -1685,7 +1688,11 @@ function ObjectDetailsTab({
               <TooltipTrigger asChild>
                 <button
                   aria-label={t("button.edit", { ns: "common" })}
-                  className="text-primary/40 hover:text-primary/80"
+                  // fork: 44 px hit area on a phone
+                  className={cn(
+                    "text-primary/40 hover:text-primary/80",
+                    phoneHitArea,
+                  )}
                   onClick={() => {
                     originalDescRef.current = desc ?? "";
                     setIsEditingDesc(true);

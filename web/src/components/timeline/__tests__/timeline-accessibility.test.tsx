@@ -18,7 +18,11 @@ vi.mock("@/hooks/use-timeline-utils", () => ({
     segmentHeight: 8,
   }),
 }));
-vi.mock("@/fork/flags", () => ({ isForkEnabled: () => false }));
+// the timeline also reads `forkFlags` (through lib/fork/phone), so keep the rest
+vi.mock("@/fork/flags", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/fork/flags")>()),
+  isForkEnabled: () => false,
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
