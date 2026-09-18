@@ -233,7 +233,29 @@
     "missing": "This share link was not found.",
     "expired": "This share link has expired.",
     "noClip": "The clip is no longer available.",
-    "play": "Play clip"
+    "play": "Play clip",
+    "activeTitle": "Active links",
+    "activeLoading": "Loading your share links...",
+    "activeFailed": "Could not load your share links",
+    "activeEmpty": "You have no active share links.",
+    "retry": "Retry",
+    "linkName": "{{camera}} \u00b7 {{event}}",
+    "thisLink": "(this link)",
+    "createdBy": "by {{user}}",
+    "expiresIn": {
+      "minutes_one": "Expires in {{count}} minute",
+      "minutes_other": "Expires in {{count}} minutes",
+      "hours_one": "Expires in {{count}} hour",
+      "hours_other": "Expires in {{count}} hours",
+      "days_one": "Expires in {{count}} day",
+      "days_other": "Expires in {{count}} days"
+    },
+    "revoke": "Revoke",
+    "revoking": "Revoking...",
+    "revokeLabel": "Revoke the share link for {{name}}",
+    "revoked": "Share link revoked",
+    "revokeFailed": "Could not revoke the share link",
+    "revokedNotice": "This link was revoked and no longer works."
   },
   "updates": {
     "button_one": "{{count}} update available",

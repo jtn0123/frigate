@@ -3,10 +3,7 @@
 //   - unused vars/args/caught errors are allowed when prefixed with "_"
 //   - prettier disagreements are errors (they were warnings before)
 //   - dist, *.d.ts and the vendored src/components/ui are not linted
-// jsx-a11y rules are errors: every recommended rule reported zero findings
-// once the callsites were brought into line (C2, then the September static
-// analysis rounds), so new inaccessible markup fails the build instead of
-// adding to a warning pile nobody reads (C9).
+// jsx-a11y recommended rules are errors (C9); see jsxA11yStillWarn below.
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -24,13 +21,24 @@ const unusedVarsOptions = {
   caughtErrorsIgnorePattern: "^_",
 };
 
-// Every jsx-a11y recommended rule, as an error, keeping each rule's own
-// options. Two rules below need wider options than the preset's defaults.
-const jsxA11yErrors = Object.fromEntries(
-  Object.entries(jsxA11y.flatConfigs.recommended.rules).map(([name, level]) => [
-    name,
-    Array.isArray(level) ? ["error", ...level.slice(1)] : "error",
-  ]),
+// C9: jsx-a11y rules that still have findings stay at "warn", each with its
+// count, until every site is fixed. Empty since 2026-09-17: a rule only goes
+// back in here together with a note on why its sites cannot be fixed yet.
+const jsxA11yStillWarn = new Set([]);
+
+// Every enabled jsx-a11y recommended rule is an error, keeping its options.
+// Rules the preset turns off stay off.
+const jsxA11ySeverity = (name) =>
+  jsxA11yStillWarn.has(name) ? "warn" : "error";
+const jsxA11yRules = Object.fromEntries(
+  Object.entries(jsxA11y.flatConfigs.recommended.rules)
+    .filter(([, level]) => (Array.isArray(level) ? level[0] : level) !== "off")
+    .map(([name, level]) => [
+      name,
+      Array.isArray(level)
+        ? [jsxA11ySeverity(name), ...level.slice(1)]
+        : jsxA11ySeverity(name),
+    ]),
 );
 
 export default tseslint.config(
@@ -45,7 +53,6 @@ export default tseslint.config(
       "src/components/ui/**",
       // fork: vendored QR encoder (uqr), kept byte-for-byte
       "src/lib/fork/qr-encode.ts",
-      // fork: generated from the API spec by scripts/fork/gen-api-types.mjs
       "src/types/fork/api.gen.ts",
     ],
   },
@@ -66,12 +73,12 @@ export default tseslint.config(
       "jsx-a11y": jsxA11y,
     },
     rules: {
-      ...jsxA11yErrors,
+      ...jsxA11yRules,
       // The deprecated rule requires both nesting and htmlFor. Either is
       // sufficient; recognize the labelable Radix controls used by our forms.
       "jsx-a11y/label-has-for": "off",
       "jsx-a11y/label-has-associated-control": [
-        "error",
+        jsxA11ySeverity("jsx-a11y/label-has-associated-control"),
         {
           controlComponents: [
             "Input",
@@ -84,7 +91,7 @@ export default tseslint.config(
         },
       ],
       "jsx-a11y/control-has-associated-label": [
-        "error",
+        jsxA11ySeverity("jsx-a11y/control-has-associated-label"),
         {
           ...jsxA11y.flatConfigs.recommended.rules[
             "jsx-a11y/control-has-associated-label"

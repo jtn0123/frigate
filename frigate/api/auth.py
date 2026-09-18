@@ -36,6 +36,7 @@ from frigate.api.media_auth import (
 )
 from frigate.config import AuthConfig, ProxyConfig
 from frigate.const import CONFIG_DIR, JWT_SECRET_ENV_VAR, PASSWORD_HASH_ALGORITHM
+from frigate.events.share_links import delete_user_share_links
 from frigate.models import User
 from frigate.util.admin_password import remove_admin_password
 
@@ -1031,6 +1032,8 @@ def delete_user(request: Request, username: str):
         )
 
     User.delete_by_id(username)
+    # fork E16: a removed user's public clip links go with the account
+    delete_user_share_links(username)
     request.app.config_publisher.publisher.publish(_CONFIG_AUTH, None)
     return JSONResponse(content={"success": True})
 

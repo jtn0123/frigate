@@ -97,6 +97,15 @@ on 2026-10-11. To rotate it:
    request's own `sonar` job proves the new token works.
 4. Revoke the old token on the same SonarCloud page.
 
+Server switches (container environment, read once at startup):
+
+- `FRIGATE_FORK_CLIP_SHARING=false` (also `0`, `no`, `off`) turns clip share
+  links (UI11) off on the server: `POST /api/fork/share` answers 403 and every
+  public `/api/fork/share/<token>` read answers 404, including links made
+  before. Listing and revoking links still works. Setting it in the config's
+  `environment_vars` block has no effect, so a config edit cannot turn sharing
+  back on. The `clipSharing` UI flag only hides the button.
+
 Caches live in `web/.cache/` (eslint, tsc) and are safe to delete. Each
 worktree builds its own test image (`frigate-fork-test-<dir>`), so parallel
 worktrees never test each other's sources.

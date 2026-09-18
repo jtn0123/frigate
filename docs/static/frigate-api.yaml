@@ -7324,6 +7324,28 @@ paths:
         - frigateAdminAuth: []
       x-required-role: admin
   /fork/share:
+    get:
+      tags:
+        - Share
+      summary: List Shares
+      description: |-
+        **Access:** Any authenticated user.
+
+        List the caller's unexpired share links; an admin sees everyone's.
+      operationId: list_shares_fork_share_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShareLinkListItem'
+                title: Response List Shares Fork Share Get
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
     post:
       tags:
         - Share
@@ -7356,6 +7378,38 @@ paths:
         - frigateUserAuth: []
       x-required-role: camera
   /fork/share/{token}:
+    delete:
+      tags:
+        - Share
+      summary: Delete Share
+      description: |-
+        **Access:** Any authenticated user.
+
+        Revoke a share link. Only its creator or an admin may, others get 404.
+      operationId: delete_share_fork_share__token__delete
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
     get:
       tags:
         - Share
@@ -7406,10 +7460,15 @@ paths:
             title: Token
       responses:
         '200':
-          description: Successful Response
+          description: The shared clip, at most 600 seconds long
+          content:
+            video/mp4: {}
+        '429':
+          description: Too many clip requests
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
         '422':
           description: Validation Error
           content:
@@ -9294,48 +9353,89 @@ components:
       required:
         - event_id
       title: ShareCreateBody
+    ShareLinkListItem:
+      properties:
+        token:
+          type: string
+          title: Token
+          description: Secret token that identifies the link
+        url:
+          type: string
+          title: Url
+          description: Path of the public share page for the link
+        event_id:
+          type: string
+          title: Event Id
+          description: ID of the shared event
+        camera:
+          type: string
+          title: Camera
+          description: Camera the shared event belongs to
+        created_by:
+          type: string
+          title: Created By
+          description: Username that created the link
+        created_at:
+          type: number
+          title: Created At
+          description: Unix timestamp when the link was created
+        expires_at:
+          type: number
+          title: Expires At
+          description: Unix timestamp when the link expires
+      type: object
+      required:
+        - token
+        - url
+        - event_id
+        - camera
+        - created_by
+        - created_at
+        - expires_at
+      title: ShareLinkListItem
+      description: An active clip share link as listed for its creator or an 
+        admin.
     ShareLinkResponse:
       properties:
         token:
           type: string
           title: Token
-          description: Share token; the credential for the link
+          description: Secret token that identifies the link
         url:
           type: string
           title: Url
-          description: Path the browser opens, relative to the base path
+          description: Path of the public share page for the link
         expires_at:
           type: number
           title: Expires At
-          description: Unix timestamp when the link stops working
+          description: Unix timestamp when the link expires
         event_id:
           type: string
           title: Event Id
-          description: Event the clip belongs to
+          description: ID of the shared event
         camera:
           type: string
           title: Camera
-          description: Camera name for the event
+          description: Camera the shared event belongs to
         label:
-          anyOf:
-            - type: string
-            - type: 'null'
+          type: string
           title: Label
-          description: Object label for the event
+          description: Label of the shared event
         start_time:
           type: number
           title: Start Time
-          description: Unix timestamp the event started
+          description: Unix timestamp when the event started
         end_time:
           anyOf:
             - type: number
             - type: 'null'
           title: End Time
-          description: Unix timestamp the event ended, if it has
+          description: Unix timestamp when the event ended, null while it is 
+            ongoing
         has_clip:
           type: boolean
           title: Has Clip
-          description: Whether a clip exists for the event
+          description: Whether the event has a clip to play
       type: object
       required:
         - token
@@ -9343,10 +9443,11 @@ components:
         - expires_at
         - event_id
         - camera
+        - label
         - start_time
         - has_clip
       title: ShareLinkResponse
-      description: A clip share link and the event it points at.
+      description: A clip share link together with the event it points at.
     StartExportResponse:
       properties:
         success:

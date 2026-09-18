@@ -26,3 +26,11 @@ def expire_share_links(now: float | None = None) -> int:
     if deleted:
         logger.debug("Deleted %s expired or orphaned share links", deleted)
     return int(deleted)
+
+
+def delete_user_share_links(username: str) -> int:
+    """Delete every link a user created, for when the account is removed."""
+    deleted = ShareLink.delete().where(ShareLink.created_by == username).execute()
+    if deleted:
+        logger.info("Deleted %s share links of a removed user", deleted)
+    return int(deleted)

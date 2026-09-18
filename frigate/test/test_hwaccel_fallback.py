@@ -1,5 +1,6 @@
 """Fork (D10): software-decoding fallback when hwaccel keeps crashing detect."""
 
+import json
 import logging
 import os
 import tempfile
@@ -332,6 +333,69 @@ class TestRememberedFallback(unittest.TestCase):
 
         self.assertTrue(fallback.active)
 
+    def test_a_failed_write_leaves_no_temporary_file(self):
+        """B5: the temporary file is removed when the write fails."""
+        fallback = HwaccelFallback(camera_config(), threshold=1, state_path=self.path)
+
+        with (
+            patch("frigate.util.atomic.os.fsync", side_effect=OSError("disk full")),
+            self.assertLogs("frigate.video.hwaccel_fallback", level="WARNING"),
+        ):
+            self.assertTrue(fallback.record_crash(VAAPI_CRASH_LOG, now=0))
+
+        self.assertTrue(fallback.active)
+        self.assertEqual(os.listdir(os.path.dirname(self.path)), [])
+
+    def test_the_file_is_private_and_holds_the_same_fields(self):
+        """B5: the shared writer keeps the mode and the JSON content."""
+        fallback = self.switched()
+
+        with open(self.path, encoding="utf-8") as file:
+            saved = json.load(file)
+
+        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o600)
+        self.assertEqual(set(saved), {"since", "reason", "config"})
+        self.assertEqual(saved["since"], fallback.since)
+        self.assertEqual(saved["reason"], fallback.reason)
+        self.assertEqual(os.listdir(os.path.dirname(self.path)), ["back.json"])
+
+    def test_the_switch_expires_in_a_process_that_stays_up(self):
+        """B5: expiry is not only checked when the watchdog is created."""
+        fallback = self.switched()
+        since = fallback.since
+
+        self.assertFalse(fallback.maybe_expire(now=since + REMEMBER_SECONDS - 1))
+        self.assertTrue(fallback.active)
+        self.assertTrue(os.path.exists(self.path))
+
+        self.assertTrue(fallback.maybe_expire(now=since + REMEMBER_SECONDS))
+
+        self.assertFalse(fallback.active)
+        self.assertIsNone(fallback.detect_cmd())
+        self.assertIsNone(fallback.since)
+        self.assertIsNone(fallback.reason)
+        self.assertFalse(os.path.exists(self.path))
+        # Only the expiry itself is reported.
+        self.assertFalse(fallback.maybe_expire(now=since + REMEMBER_SECONDS + 1))
+
+    def test_a_crash_after_expiry_counts_from_zero(self):
+        fallback = HwaccelFallback(camera_config(), threshold=2, state_path=self.path)
+        self.assertFalse(fallback.record_crash(VAAPI_CRASH_LOG, now=0))
+        self.assertTrue(fallback.record_crash(VAAPI_CRASH_LOG, now=10))
+
+        self.assertTrue(fallback.maybe_expire(now=fallback.since + REMEMBER_SECONDS))
+
+        # Inside the crash window of the two above, which no longer count.
+        self.assertFalse(fallback.record_crash(VAAPI_CRASH_LOG, now=20))
+        self.assertFalse(fallback.active)
+        self.assertTrue(fallback.record_crash(VAAPI_CRASH_LOG, now=30))
+        self.assertTrue(os.path.exists(self.path))
+
+    def test_never_expires_while_hardware_decoding_is_in_use(self):
+        fallback = HwaccelFallback(camera_config(), state_path=self.path)
+
+        self.assertFalse(fallback.maybe_expire(now=10 * REMEMBER_SECONDS))
+
     @patch("frigate.video.ffmpeg.RecordingsDataSubscriber")
     @patch("frigate.video.ffmpeg.InterProcessRequestor")
     @patch("frigate.video.ffmpeg.CameraConfigUpdateSubscriber")
@@ -408,6 +472,51 @@ class TestRememberedFallback(unittest.TestCase):
         self.assertEqual(flag.value, 0)
         self.assertEqual(since.value, 0.0)
         watchdog.start_all_ffmpeg.assert_not_called()
+
+    @patch("frigate.video.ffmpeg.time.sleep")
+    @patch("frigate.video.ffmpeg.RecordingsDataSubscriber")
+    @patch("frigate.video.ffmpeg.InterProcessRequestor")
+    @patch("frigate.video.ffmpeg.CameraConfigUpdateSubscriber")
+    @patch("frigate.video.ffmpeg.LogPipe")
+    def test_the_watchdog_goes_back_to_hardware_when_the_switch_expires(self, *_ipc):
+        """B5: a watchdog that stays up ends the switch and restarts ffmpeg."""
+        self.switched()
+        flag = SimpleNamespace(value=0)
+        since = SimpleNamespace(value=0.0)
+        with patch("frigate.video.ffmpeg.fallback_state_path", return_value=self.path):
+            watchdog = CameraWatchdog(
+                camera_config(),
+                2,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                MagicMock(),
+                hwaccel_fallback=flag,
+                shared=WatchdogState(hwaccel_fallback_since=since),
+            )
+        self.assertTrue(watchdog.hwaccel_fallback.active)
+        # One watchdog tick, with the switch now a week old, then stop.
+        watchdog.hwaccel_fallback.since -= REMEMBER_SECONDS
+        watchdog.stop_event.wait.side_effect = [False, True]
+        watchdog._check_config_updates = MagicMock(return_value={})
+        watchdog.start_all_ffmpeg = MagicMock()
+        watchdog.stop_all_ffmpeg = MagicMock()
+
+        with self.assertLogs("watchdog.back", level="INFO") as logs:
+            watchdog.run()
+
+        self.assertFalse(watchdog.hwaccel_fallback.active)
+        self.assertFalse(os.path.exists(self.path))
+        self.assertEqual(flag.value, 0)
+        self.assertEqual(since.value, 0.0)
+        expiry_lines = [line for line in logs.output if "tried again" in line]
+        self.assertEqual(len(expiry_lines), 1)
+        # Started at the top of run(), then restarted once by the expiry.
+        self.assertEqual(watchdog.start_all_ffmpeg.call_count, 2)
 
 
 if __name__ == "__main__":

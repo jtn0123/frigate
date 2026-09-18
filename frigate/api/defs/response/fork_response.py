@@ -1,27 +1,12 @@
-"""Fork: response models for the fork's own endpoints (fork_share, fork_updates).
+"""Fork: response models for the fork's own `fork_updates` endpoint.
 
 The fork asks upstream to declare `response_model` on its routes (B2 in
-fork/GRADE-REPORT.md); these two routers are fork-owned end to end, so their
-shapes are exact in the OpenAPI spec and in the generated frontend types.
+fork/GRADE-REPORT.md); this router is fork-owned end to end, so its shape is
+exact in the OpenAPI spec and in the generated frontend types. The share
+router's models live in `fork_share_response.py`.
 """
 
 from pydantic import BaseModel, Field
-
-
-class ShareLinkResponse(BaseModel):
-    """A clip share link and the event it points at."""
-
-    token: str = Field(description="Share token; the credential for the link")
-    url: str = Field(description="Path the browser opens, relative to the base path")
-    expires_at: float = Field(description="Unix timestamp when the link stops working")
-    event_id: str = Field(description="Event the clip belongs to")
-    camera: str = Field(description="Camera name for the event")
-    label: str | None = Field(default=None, description="Object label for the event")
-    start_time: float = Field(description="Unix timestamp the event started")
-    end_time: float | None = Field(
-        default=None, description="Unix timestamp the event ended, if it has"
-    )
-    has_clip: bool = Field(description="Whether a clip exists for the event")
 
 
 class ForkReleaseModel(BaseModel):

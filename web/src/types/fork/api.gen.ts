@@ -3949,7 +3949,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Shares
+         * @description **Access:** Any authenticated user.
+         *
+         *     List the caller's unexpired share links; an admin sees everyone's.
+         */
+        get: operations["list_shares_fork_share_get"];
         put?: never;
         /**
          * Create Share
@@ -3980,7 +3986,13 @@ export interface paths {
         get: operations["get_share_fork_share__token__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Share
+         * @description **Access:** Any authenticated user.
+         *
+         *     Revoke a share link. Only its creator or an admin may, others get 404.
+         */
+        delete: operations["delete_share_fork_share__token__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5356,53 +5368,94 @@ export interface components {
             expires_in_hours: number;
         };
         /**
-         * ShareLinkResponse
-         * @description A clip share link and the event it points at.
+         * ShareLinkListItem
+         * @description An active clip share link as listed for its creator or an admin.
          */
-        ShareLinkResponse: {
+        ShareLinkListItem: {
             /**
              * Token
-             * @description Share token; the credential for the link
+             * @description Secret token that identifies the link
              */
             token: string;
             /**
              * Url
-             * @description Path the browser opens, relative to the base path
+             * @description Path of the public share page for the link
              */
             url: string;
             /**
-             * Expires At
-             * @description Unix timestamp when the link stops working
-             */
-            expires_at: number;
-            /**
              * Event Id
-             * @description Event the clip belongs to
+             * @description ID of the shared event
              */
             event_id: string;
             /**
              * Camera
-             * @description Camera name for the event
+             * @description Camera the shared event belongs to
+             */
+            camera: string;
+            /**
+             * Created By
+             * @description Username that created the link
+             */
+            created_by: string;
+            /**
+             * Created At
+             * @description Unix timestamp when the link was created
+             */
+            created_at: number;
+            /**
+             * Expires At
+             * @description Unix timestamp when the link expires
+             */
+            expires_at: number;
+        };
+        /**
+         * ShareLinkResponse
+         * @description A clip share link together with the event it points at.
+         */
+        ShareLinkResponse: {
+            /**
+             * Token
+             * @description Secret token that identifies the link
+             */
+            token: string;
+            /**
+             * Url
+             * @description Path of the public share page for the link
+             */
+            url: string;
+            /**
+             * Expires At
+             * @description Unix timestamp when the link expires
+             */
+            expires_at: number;
+            /**
+             * Event Id
+             * @description ID of the shared event
+             */
+            event_id: string;
+            /**
+             * Camera
+             * @description Camera the shared event belongs to
              */
             camera: string;
             /**
              * Label
-             * @description Object label for the event
+             * @description Label of the shared event
              */
-            label?: string | null;
+            label: string;
             /**
              * Start Time
-             * @description Unix timestamp the event started
+             * @description Unix timestamp when the event started
              */
             start_time: number;
             /**
              * End Time
-             * @description Unix timestamp the event ended, if it has
+             * @description Unix timestamp when the event ended, null while it is ongoing
              */
             end_time?: number | null;
             /**
              * Has Clip
-             * @description Whether a clip exists for the event
+             * @description Whether the event has a clip to play
              */
             has_clip: boolean;
         };
@@ -11248,6 +11301,26 @@ export interface operations {
             };
         };
     };
+    list_shares_fork_share_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareLinkListItem"][];
+                };
+            };
+        };
+    };
     create_share_fork_share_post: {
         parameters: {
             query?: never;
@@ -11312,7 +11385,7 @@ export interface operations {
             };
         };
     };
-    get_share_clip_fork_share__token__clip_mp4_get: {
+    delete_share_fork_share__token__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -11329,7 +11402,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GenericResponse"];
                 };
             };
             /** @description Validation Error */
@@ -11339,6 +11412,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_share_clip_fork_share__token__clip_mp4_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shared clip, at most 600 seconds long */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/mp4": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too many clip requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenericResponse"];
                 };
             };
         };
