@@ -9,6 +9,7 @@ import threading
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -152,17 +153,30 @@ class _SlotStream:
     chunk is read, so the slot is released from here instead: when the body is
     exhausted, fails or is cancelled, and as a last resort when the stream is
     garbage collected without having been read.
+
+    E22: the concat list recording_clip wrote to the cache has the same gap,
+    its generator is what unlinks it, so it is removed here too. By then
+    ffmpeg has either read the list or will never start.
     """
 
-    def __init__(self, body: AsyncIterator[bytes]) -> None:
+    def __init__(self, body: AsyncIterator[bytes], playlist: str | None = None) -> None:
         self._body = body
+        self._playlist = playlist
         self._released = False
 
     def release(self) -> None:
-        """Give the slot back, once."""
-        if not self._released:
-            self._released = True
-            _clip_slots.release()
+        """Give the slot back and remove the concat list, once."""
+        if self._released:
+            return
+        self._released = True
+        _clip_slots.release()
+
+        if self._playlist is None:
+            return
+        try:
+            Path(self._playlist).unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Unable to remove clip playlist", exc_info=True)
 
     def __aiter__(self) -> "_SlotStream":
         return self
@@ -437,7 +451,9 @@ async def get_share_clip(request: Request, token: str):
 
     if isinstance(response, StreamingResponse):
         # ffmpeg runs for as long as the body is read, so the slot goes with it
-        response.body_iterator = _SlotStream(response.body_iterator)
+        response.body_iterator = _SlotStream(
+            response.body_iterator, getattr(response, "playlist_path", None)
+        )
     else:
         _clip_slots.release()
 
