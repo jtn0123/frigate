@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from collections import deque
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from frigate.config import FrigateConfig
 from frigate.video.ffmpeg import CameraWatchdog
@@ -491,8 +491,10 @@ class TestRememberedFallback(unittest.TestCase):
         watchdog.hwaccel_fallback.since -= REMEMBER_SECONDS
         watchdog.stop_event.wait.side_effect = [False, True]
         watchdog._check_config_updates = MagicMock(return_value={})
-        watchdog.start_all_ffmpeg = MagicMock()
-        watchdog.stop_all_ffmpeg = MagicMock()
+        calls = MagicMock()
+        watchdog.start_all_ffmpeg = calls.start_all
+        watchdog.stop_all_ffmpeg = calls.stop_all
+        watchdog.reset_capture_thread = calls.reset_detect
 
         with self.assertLogs("watchdog.back", level="INFO") as logs:
             watchdog.run()
@@ -503,8 +505,88 @@ class TestRememberedFallback(unittest.TestCase):
         self.assertEqual(since.value, 0.0)
         expiry_lines = [line for line in logs.output if "tried again" in line]
         self.assertEqual(len(expiry_lines), 1)
-        # Started at the top of run(), then restarted once by the expiry.
-        self.assertEqual(watchdog.start_all_ffmpeg.call_count, 2)
+        # B10: started at the top of run() and stopped when it ends; in between
+        # the expiry restarts detect only.
+        self.assertEqual(
+            calls.mock_calls,
+            [
+                call.start_all(),
+                call.reset_detect(cause="hwaccel retry"),
+                call.stop_all(),
+            ],
+        )
+
+    @patch("frigate.video.ffmpeg.CameraCaptureRunner")
+    @patch("frigate.video.ffmpeg.start_or_restart_ffmpeg")
+    @patch("frigate.video.ffmpeg.time.sleep")
+    @patch("frigate.video.ffmpeg.RecordingsDataSubscriber")
+    @patch("frigate.video.ffmpeg.InterProcessRequestor")
+    @patch("frigate.video.ffmpeg.CameraConfigUpdateSubscriber")
+    @patch("frigate.video.ffmpeg.LogPipe")
+    def test_an_expired_switch_leaves_the_record_process_running(
+        self, _logpipe, _subscriber, _requestor, _recordings, _sleep, start, runner
+    ):
+        """B10: the weekly retry restarts detect and never touches recording."""
+        self.switched()
+        config = camera_config()
+        start.side_effect = lambda *_args, **_kwargs: MagicMock()
+        runner.return_value.is_alive.return_value = False
+        with patch("frigate.video.ffmpeg.fallback_state_path", return_value=self.path):
+            watchdog = CameraWatchdog(
+                config,
+                2,
+                None,
+                SimpleNamespace(value=0.0),
+                SimpleNamespace(value=0.0),
+                SimpleNamespace(value=0),
+                None,
+                None,
+                None,
+                MagicMock(),
+                hwaccel_fallback=SimpleNamespace(value=0),
+                shared=WatchdogState(hwaccel_fallback_since=SimpleNamespace(value=0.0)),
+            )
+        watchdog.hwaccel_fallback.since -= REMEMBER_SECONDS
+        watchdog.stop_event.wait.side_effect = [False, True]
+        watchdog._check_config_updates = MagicMock(return_value={})
+        seen = {}
+
+        def first_start():
+            CameraWatchdog.start_all_ffmpeg(watchdog)
+            seen["detect"] = watchdog.ffmpeg_detect_process
+            seen["record"] = watchdog.ffmpeg_other_processes[0]["process"]
+
+        def reset_detect(**kwargs):
+            seen["record_enable_time"] = watchdog.record_enable_time
+            CameraWatchdog.reset_capture_thread(watchdog, **kwargs)
+
+        def at_shutdown():
+            # run() stops everything when it ends; look before that happens.
+            seen["others_at_end"] = list(watchdog.ffmpeg_other_processes)
+            seen["detect_at_end"] = watchdog.ffmpeg_detect_process
+            seen["record_enable_time_at_end"] = watchdog.record_enable_time
+
+        watchdog.start_all_ffmpeg = MagicMock(side_effect=first_start)
+        watchdog.stop_all_ffmpeg = MagicMock(side_effect=at_shutdown)
+        watchdog.reset_capture_thread = MagicMock(side_effect=reset_detect)
+
+        with self.assertLogs("watchdog.back", level="INFO") as logs:
+            watchdog.run()
+
+        watchdog.start_all_ffmpeg.assert_called_once()
+        watchdog.stop_all_ffmpeg.assert_called_once()
+        self.assertEqual(len(seen["others_at_end"]), 1)
+        self.assertIs(seen["others_at_end"][0]["process"], seen["record"])
+        seen["record"].terminate.assert_not_called()
+        watchdog.reset_capture_thread.assert_called_once_with(cause="hwaccel retry")
+        self.assertIsNotNone(seen["record_enable_time"])
+        self.assertIs(seen["record_enable_time_at_end"], seen["record_enable_time"])
+        seen["detect"].terminate.assert_called_once()
+        self.assertIsNot(seen["detect_at_end"], seen["detect"])
+        # The detect process came back on the configured, hardware command.
+        self.assertEqual(start.call_args.args[0], detect_cmd(config))
+        self.assertTrue(any("retry hardware decoding" in line for line in logs.output))
+        self.assertFalse(any("FFmpeg config updated" in line for line in logs.output))
 
 
 if __name__ == "__main__":

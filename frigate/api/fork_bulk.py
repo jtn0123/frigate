@@ -121,18 +121,11 @@ def split_found_ids(
 
 
 def delete_events_data(events: list[Event], context: EmbeddingsContext | None) -> None:
-    """Remove the events' media files, database rows, and embeddings in batches."""
-    for event in events:
-        media_name = f"{event.camera}-{event.id}"
-        if event.has_snapshot:
-            snapshot_paths = [
-                Path(f"{os.path.join(CLIPS_DIR, media_name)}.jpg"),
-                Path(f"{os.path.join(CLIPS_DIR, media_name)}-clean.png"),
-                Path(f"{os.path.join(CLIPS_DIR, media_name)}-clean.webp"),
-            ]
-            for media in snapshot_paths:
-                media.unlink(missing_ok=True)
+    """Remove the events' database rows, embeddings, and media files in batches.
 
+    The rows go before the files (B11), as in delete_reviews_data, so that a
+    failed query cannot leave events whose snapshots are already gone.
+    """
     for ids in chunked([event.id for event in events]):
         Event.delete().where(Event.id << ids).execute()
         Timeline.delete().where(Timeline.source_id << ids).execute()
@@ -142,6 +135,20 @@ def delete_events_data(events: list[Event], context: EmbeddingsContext | None) -
         if context is not None:
             context.db.delete_embeddings_thumbnail(event_ids=list(ids))
             context.db.delete_embeddings_description(event_ids=list(ids))
+
+    for event in events:
+        media_name = f"{event.camera}-{event.id}"
+        if event.has_snapshot:
+            snapshot_paths = [
+                Path(f"{os.path.join(CLIPS_DIR, media_name)}.jpg"),
+                Path(f"{os.path.join(CLIPS_DIR, media_name)}-clean.png"),
+                Path(f"{os.path.join(CLIPS_DIR, media_name)}-clean.webp"),
+            ]
+            for media in snapshot_paths:
+                try:
+                    media.unlink(missing_ok=True)
+                except OSError:
+                    logger.warning("Unable to delete snapshot %s", media, exc_info=True)
 
 
 def _recordings_for_reviews(review_ids: list[str]) -> dict[str, str]:

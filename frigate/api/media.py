@@ -598,10 +598,14 @@ def recording_clip(
         "pipe:",
     ]
 
-    return StreamingResponse(
+    response = StreamingResponse(
         _run_clip_download(ffmpeg_cmd, file_path),
         media_type=_VIDEO_MP4,
     )
+    # Fork (E22): the generator only unlinks the list once the body is read, so
+    # the public share route removes it when a client leaves before that.
+    response.playlist_path = file_path
+    return response
 
 
 @router.get(
