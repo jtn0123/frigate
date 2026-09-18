@@ -26,17 +26,19 @@ The structural debt did not move: the same god files, the same 107
 | ID | Category | Baseline | 09-10 | Now | Open items |
 |----|----------|----------|-------|-----|------------|
 | A | Architecture & Design | B− | B− | B | 5 |
-| B | Backend Quality | B− | B | B | 7 |
+| B | Backend Quality | B− | B | B | 4 |
 | C | Frontend Quality | C | C+ | B− | 14 |
 | D | Testing & Reliability | C+ | B− | B | 7 |
-| E | Security | B+ | B+ | B+ | 6 |
+| E | Security | B+ | B+ | B+ | 4 |
 | F | Dependencies & Tech Currency | C+ | B− | B− | 5 |
-| G | Performance & Scalability | C+ | B− | C+ | 10 |
+| G | Performance & Scalability | C+ | B− | C+ | 7 |
 | H | Documentation & Onboarding | C | C+ | C+ | 5 |
 | I | Developer Experience & Tooling | C+ | B | B | 8 |
-| **Overall** | | **B−** | **B** | **B** | **67** + UX track |
+| **Overall** | | **B−** | **B** | **B** | **59** + UX track |
 
-**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E15, E16, B5, G14
+**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), C20, G16, D48, I31
+
+Update 2026-09-18: B5, B6, B7, E15, E16, G13, G14 and G15 landed on `next` in #67, #68 and #69. The B, E and G grades and prose above predate them; regrade those three categories.
 
 **Type safety at a glance.** Frontend: TypeScript `strict` gates the build and
 `fork/type-ratchet.json` holds every escape hatch (`explicitAny` 23,
@@ -119,27 +121,9 @@ lock held across a 10 s HTTP call (B6), an unbounded dict (B7), plus 112 of
 
 - ~~B1~~ ✓ done 2026-09-10. HTTPException renders `{success, message, detail}`
 - ~~B3~~ ✓ done 2026-09-10. 25 `except Exception: pass` sites log; bare `except:` narrowed
-
-#### B5 — The remembered software-decoding fallback never expires, and an exit is classified twice `[fork]`
-- **Where:** `frigate/video/hwaccel_fallback.py:127-130,143-144,211-232`; `frigate/video/ffmpeg.py:158,281,346,475`; `frigate/video/restart_log.py:138`
-- **What's wrong:** (1) `expires` is read only at construction (`ffmpeg.py:158`) and `record_crash` returns early once `active`, so "hardware decoding is tried again after 7 days" is false for any process that stays up; the GPU is retried only after a restart or config change. (2) `_check_hwaccel_fallback` snapshots `logpipe.deque` at `ffmpeg.py:475`, then `note_exit` re-reads it after up to 30 s of `communicate`/`kill`, so the fallback counter and the restart log can disagree about the same crash. (3) `_save` leaks its `mkstemp` file when the write fails and never fsyncs, although `frigate/util/atomic.py:8-27` (`write_private_file`) already does both.
-- **Fix:** In the watchdog tick, reset the fallback and restart detect when `time.time() >= expires`. Take one `lines = list(self.logpipe.deque)` at the top of the exit path and pass it to both classifiers. Replace `_save`'s body with `write_private_file`. Tests with the injected clock for the expiry, and a failing-write test that asserts no `.tmp` remains.
-- **Effort:** S
-- **Grade lift:** B → B+ (with B6 and B7: the fork's backend would have no known defects)
-
-#### B6 — The update checker holds its lock across a 10 s network call `[fork]`
-- **Where:** `frigate/fork/updates.py:125-135,149-165,179-190`; sync route `frigate/api/fork_updates.py:32`
-- **What's wrong:** `state()` takes `self._lock` and calls `fetch_releases()` (`timeout=10`) while holding it. With GitHub slow, every concurrent poller parks a threadpool worker behind the same lock. The checker is also a module global, so its 6 h cache is per process.
-- **Fix:** Fetch outside the lock (mark refreshing, release, fetch, re-acquire to store) and serve the stale value meanwhile; hang the checker on `app.state` as `ai_models_lock` does (`frigate/api/ai_models.py:72-73`).
-- **Effort:** S
-- **Grade lift:** B → B
-
-#### B7 — `RestartLog._dumped` grows without bound `[fork]`
-- **Where:** `frigate/video/restart_log.py:82`
-- **What's wrong:** Keys are `(role, kind, normalized message)`; entries are overwritten but never evicted, so a flaky camera with varied ffmpeg error text leaks slowly in a process that runs for months. `record` also makes 3 to 5 manager round trips per restart (`:97-122`) on an undocumented single-writer assumption.
-- **Fix:** Prune keys older than `REPEAT_WINDOW_SECONDS` inside `note_exit` (or a 64-entry LRU); trim history with one `self.history[:] = kept`; comment the single-writer invariant.
-- **Effort:** S
-- **Grade lift:** B → B
+- ~~B5~~ ✓ done 2026-09-18. `HwaccelFallback.maybe_expire` ends an expired switch on the next watchdog tick and restarts ffmpeg; one log snapshot feeds both classifiers; `_save` uses `write_private_file` (#67)
+- ~~B6~~ ✓ done 2026-09-18. `frigate/fork/updates.py` fetches outside the lock behind a `_refreshing` flag and serves the stale value meanwhile (#67)
+- ~~B7~~ ✓ done 2026-09-18. `RestartLog` prunes dump keys past the repeat window and trims history in one write (#67)
 
 #### B8 — Make the logging and exception rules enforceable `[fork]`
 - **Where:** `pyproject.toml:21` (ignores `G004` while selecting `G`), `:28` (stale `ASYNC230` per-file ignore for `frigate/api/camera.py`, whose blocking code moved to `camera_config.py`); f-string log calls in `frigate/video/ffmpeg.py` (19), `hwaccel_fallback.py` (3), `restart_log.py` (2), `camera_outage.py` (2), `fork_share.py` (1); silent swallow `frigate/genai/plugins/ollama.py:288-289`; one broad try around three probes `:322-333`
@@ -396,21 +380,9 @@ revoked. CSP is still report-only, and one CodeQL alert in fork code is open.
 - ~~E3~~ ✓ done 2026-09-10. `safe_join` in `preview_thumbnail`
 - ~~E4~~ ✓ done 2026-09-10. CodeQL triage: 29 dismissed with written comments, 9 fixed (residue → E17, E18, E19)
 - ~~E5~~ ✓ done 2026-09-11. Shipped dependency advisories patched; 145 remaining alerts are in `docs/` (125), unbuilt TensorRT manifests (16), dev-only vitest (2) and the build stage (2 → F7)
+- ~~E15~~ ✓ done 2026-09-18. clip window clamped to 600 s, `BoundedSemaphore(4)` and nginx `limit_req` on the public route, tokens masked in the access log, camera mismatch is a 404 (#68)
+- ~~E16~~ ✓ done 2026-09-18. `GET /fork/share`, `DELETE /fork/share/{token}`, 50-link cap, links removed with their user, `FRIGATE_FORK_CLIP_SHARING=false` switch, `ActiveShareLinks.tsx` (#68)
 - E7 to E14: see `FORK.md`
-
-#### E15 — Bound what a public share link can serve `[fork]`
-- **Where:** `frigate/api/fork_share.py:168-171,204-215`; `frigate/api/media.py:477-514,552-603`; `docker/main/rootfs/usr/local/nginx/conf/nginx.conf:24,319-328`
-- **What's wrong:** (1) When `event.end_time is None` the clip ends at `datetime.now()`, evaluated per request, so a link to an event that never closed serves everything that camera recorded since, without authentication, and it grows. (2) The route is `allow_public()`; every GET writes a playlist and spawns ffmpeg, and nothing limits it (slowapi is bound only to login at `frigate/api/auth.py:908,917,1044`; no `limit_req` in any nginx conf). One leaked link can exhaust the NVR's CPU. (3) The token is written to the nginx access log, which `/api/logs/nginx` serves.
-- **Fix:** Clamp `end_ts = min(now, start + MAX_SHARE_CLIP_SECONDS)` and refuse to create a share for a longer span; `asyncio.Semaphore(2)` around the clip route (pattern at `frigate/api/stream_diagnostics.py:21`) plus `limit_req`/`limit_conn` on `^/api/fork/share/`; mask the token in that location's log format. Tests for the clamp and the 429.
-- **Effort:** S
-- **Grade lift:** B+ → A− (with E16)
-
-#### E16 — List, revoke and switch off share links on the server `[fork]`
-- **Where:** `frigate/api/fork_share.py:77-127` (three routes, none destructive; no quota); `web/src/fork/flags.ts` (`clipSharing` is frontend-only); router always mounted in `frigate/api/fastapi_app.py`; pruning only at 7 days past expiry (`frigate/events/share_links.py:15-29`)
-- **What's wrong:** Any viewer can publish footage for up to 7 days; the link survives that user being deleted or losing camera access; an admin can neither see nor kill it; turning the feature "off" only hides a button.
-- **Fix:** `GET /fork/share` (own links; admin sees all), `DELETE /fork/share/{token}` for creator or admin, a per-user cap on active links, a server-side setting that disables creation and public reads, delete a user's links with the user, and re-check the creator's camera access at read time (also compare `link.camera` to `event.camera`). A small "Active links" list in the share dialog.
-- **Effort:** M
-- **Grade lift:** B+ → A− (with E15)
 
 #### E17 — Close the open code-scanning findings `[fork]`
 - **Where:** CodeQL #51 `js/prototype-pollution-utility` at `web/src/lib/fork/zone-rename.ts:34-57` (open since 2026-09-15); 4 `actions/missing-workflow-permissions` alerts re-raised under new numbers in `ci.yml`/`release.yml`; SonarCloud reports 10 open vulnerabilities on `next`
@@ -517,27 +489,9 @@ ETag/304 handling anywhere in `frigate/api/`. No list is virtualized, 25 of
 - ~~G5~~ ✓ done 2026-09-10. Lazy players, `manualChunks`, memoized cards (partly undone → C20)
 - ~~G6~~ ✓ done 2026-09-10. `frigate/record/cache_tracker.py`
 - ~~G7~~ ✓ done 2026-09-10. `web/scripts/fork/bundle-budget.mjs` in CI and `make check`
-
-#### G13 — `/events/explore` is 2N+1 queries and reads blobs it throws away `[upstream]`
-- **Where:** `frigate/api/event.py:389-425`
-- **What's wrong:** One `DISTINCT label` query, then per label an unprojected `Event.select()` (pulls the `thumbnail` BLOB and `data` for every row) and a separate `.count()`. With 20 labels that is 41 queries on the Explore home view.
-- **Fix:** One windowed query (`ROW_NUMBER() OVER (PARTITION BY label ORDER BY start_time DESC)`) with an explicit column list, plus one `GROUP BY label` count. Test asserts the query count.
-- **Effort:** M
-- **Grade lift:** C+ → B− (with G14, G15)
-
-#### G14 — Bulk deletes are sequential, unchunked and not atomic `[upstream]`
-- **Where:** `frigate/api/event.py:1774-1781,1800-1830` (`DELETE /events/` loops `delete_single_event`, two thread hops and 3+ queries per event); `frigate/api/review.py:519-561` (one `Recordings` query per review at `:537-550`, files unlinked at `:553`, then an unchunked `Recordings.id << recording_ids` at `:557`)
-- **What's wrong:** The fork's Explore multi-select (UI10) makes 500-event deletes a normal action: about 1,000 thread hops. In `delete_reviews` a large id list can exceed SQLite's variable limit after the files are already gone, leaving rows that point at missing files.
-- **Fix:** Fetch in chunks of 500, check camera access once per distinct camera, delete rows in batched statements inside one `to_thread`, and delete rows before unlinking files.
-- **Effort:** M
-- **Grade lift:** C+ → B− (with G13, G15)
-
-#### G15 — Preview endpoints scan a directory on the event loop `[upstream]`
-- **Where:** `frigate/api/media.py:1381,1474` (`preview_gif`), `:1554,1663` (`preview_mp4`): `os.scandir(preview_dir)` plus a sort over every camera's preview frames, inline in `async def`
-- **What's wrong:** Thousands of dirents per request block every other API request; ruff's `ASYNC240` is waived for "metadata calls", which this is not.
-- **Fix:** `await asyncio.to_thread(...)` the selection and glob by the `preview_{camera}-` prefix.
-- **Effort:** S
-- **Grade lift:** C+ → B− (with G13, G14)
+- ~~G13~~ ✓ done 2026-09-18. `explore_recent_events` is one windowed query with an explicit column list: 45 SELECTs became 1 for 22 labels (#69)
+- ~~G14~~ ✓ done 2026-09-18. `frigate/api/fork_bulk.py` fetches and deletes in chunks of 500; 1,200 event ids went from 3,600 statements to 9, 1,100 reviews from 1,104 to 23; camera access is checked before anything is deleted (#69)
+- ~~G15~~ ✓ done 2026-09-18. `select_preview_frames` runs in a thread and matches the whole camera name (#69)
 
 #### G17 — Eager bundle grew 29% and the budget followed it `[fork]`
 - **Where:** `fork/bundle-budget.json` (`eagerGzipBytes` 412,650; measured 393 kB, was 305 kB after G1/G5); `fork/ROUTER7-BUNDLE-BUDGET.md`; shell-level fork imports in `web/src/App.tsx` and the navigation (command palette, inbox, update notices, appearance)
