@@ -32,11 +32,13 @@ files="$(git diff --name-only --no-renames "$base" HEAD)"
 echo "changed since ${base}:" >&2
 echo "  ${files//$'\n'/$'\n'  }" >&2
 
-# The workflow and this script affect every job.
-shared='^(\.coveragerc$|sonar-project\.properties$|fork/requirements-sonar\.txt$|\.github/workflows/fork-checks\.yml|\.github/actions/fork-web-setup/|fork/scripts/ci-)'
+# The workflow and the shell scripts behind the gates affect every job: a pull
+# request that breaks check.sh or the Sonar expiry file must not go green by
+# skipping the suites (I37). The Python scripts only need the Python jobs.
+shared='^(\.coveragerc$|sonar-project\.properties$|fork/requirements-sonar\.txt$|fork/sonar-token\.env$|\.github/workflows/fork-checks\.yml|\.github/actions/fork-web-setup/|fork/scripts/[^/]+\.sh$)'
 # The web jobs read the ratchet and bundle budget baselines under fork/.
 web_re="${shared}|^web/|^docs/static/frigate-api\.yaml$|^fork/(type-ratchet|bundle-budget)\.json$"
-py_re="${shared}|^fork/(audio_trial|monitoring)/|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/py-checks\.sh|scripts/dev-lock-check\.py)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
+py_re="${shared}|^fork/(audio_trial|monitoring|ledger)/|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|requirements-dev\.lock)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
 
 has() {
   local pattern="$1"

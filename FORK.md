@@ -11,6 +11,10 @@ Rules that keep this fork rebasable (see the `next` branch):
   `next`, which is rebased onto `upstream/dev` when upstream moves. `main` is
   the release branch and only moves with `make promote`. One report item = one
   commit.
+- A new ledger row is a file, `fork/ledger/<ID>.md`, holding one row of the
+  table below; this file's table is only edited to update a row it already
+  has. Appending here made every pair of open pull requests conflict (I35).
+  `make ledger` prints both together, sorted by ID.
 - Add files rather than editing them. When an upstream file must change, keep
   the hunk small and self-contained.
 - Fork-only UI behaviour is gated in `web/src/fork/flags.ts`.
