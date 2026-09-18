@@ -32,7 +32,18 @@ base="$(git merge-base HEAD "$base_ref")" || {
 }
 # A stale checkout is graded against old code without anything saying so. No
 # fetch here: the remote-tracking ref is used as it is, and a missing one (or a
-# FORK_BASE that is not origin/next) only skips the warning.
+# FORK_BASE that is not origin/next) only skips the warning. The ref itself
+# goes stale in a clone nobody fetches, which would count 0 behind, so ask the
+# remote where next is (read-only, gives up after 5 slow seconds, and offline
+# only skips this warning too).
+tracked="$(git rev-parse -q --verify refs/remotes/origin/next 2>/dev/null)" || tracked=""
+if [[ -n "$tracked" ]]; then
+  remote="$(GIT_TERMINAL_PROMPT=0 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 \
+    ls-remote origin refs/heads/next 2>/dev/null | cut -f1)" || remote=""
+  if [[ -n "$remote" && "$remote" != "$tracked" ]]; then
+    echo "warning: origin/next has moved since the last fetch; run 'git fetch origin' before trusting this run" >&2
+  fi
+fi
 stale_limit=20
 behind="$(git rev-list --count HEAD..refs/remotes/origin/next 2>/dev/null)" || behind=0
 if ((behind > stale_limit)); then
