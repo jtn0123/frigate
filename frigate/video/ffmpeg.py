@@ -383,12 +383,24 @@ class CameraWatchdog(threading.Thread):
                 self.hwaccel_fallback.reset()
                 self._publish_hwaccel_fallback()
 
-            # Fork (B5): a switch that ran out restarts ffmpeg the same way. A
-            # camera being enabled or disabled this tick is handled below.
+            # Fork (B5): a switch that ran out restarts detect. A camera being
+            # enabled or disabled this tick is handled below.
             hwaccel_expired = self._hwaccel_fallback_expired() and self.was_enabled
 
+            # Fork (B10): only detect decodes, so only detect restarts, the way
+            # the switch itself did. Recording keeps running, with no gap.
+            if hwaccel_expired and self.config.enabled:
+                self.logger.info(
+                    "Restarting the detect ffmpeg process for %s to retry "
+                    "hardware decoding",
+                    self.config.name,
+                )
+                self.reset_capture_thread(cause="hwaccel retry")
+                last_restart_time = datetime.now().timestamp()
+                continue
+
             # Handle ffmpeg config changes by restarting all ffmpeg processes
-            if ("ffmpeg" in updates or hwaccel_expired) and self.config.enabled:
+            if "ffmpeg" in updates and self.config.enabled:
                 self.logger.debug(
                     "FFmpeg config updated for %s, restarting ffmpeg processes",
                     self.config.name,
