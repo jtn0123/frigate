@@ -1,7 +1,7 @@
 # Codebase Grade Report
 
-**Project:** frigate, fork `jtn0123/frigate`, branch `next` @ edfdfcfa5 (base upstream v0.18.0; `main` is promoted from `next`)
-**Audited:** 2026-09-17 (second regrade; earlier: baseline of upstream `dev` and first regrade, both 2026-09-10 @ 752bc3047)
+**Project:** frigate, fork `jtn0123/frigate`, branch `next` @ 66774e9b6 (base upstream v0.18.0; `main` is promoted from `next`)
+**Audited:** 2026-09-18 (third regrade; earlier: baseline of upstream `dev` and first regrade, both 2026-09-10 @ 752bc3047, second regrade 2026-09-17 @ edfdfcfa5)
 **Stack:** Python 3.11 / FastAPI 0.116 / peewee 3.17 + SQLite (WAL) / pydantic 2.10 / ZMQ multiprocess pipeline, go2rtc + ffmpeg binaries; React 19 / TypeScript 5.9 (strict) / Vite 6 / Tailwind 3 / Radix + shadcn / SWR / react-router 7 / i18next 24; vitest + Playwright; SonarCloud, CodeQL, gitleaks; Debian 12 Docker image (plus ROCm), nginx front
 **Focus:** frontend (`web/`). This fork exists for UI/UX work, with a growing stability track in the backend.
 
@@ -14,31 +14,33 @@ D47, E7 to E14, I15 to I26, SV1 to SV10, UI43 to UI99) are defined there and
 are not repeated here. This file defines the audit items and says which are
 still open.
 
-**What changed since 2026-09-10.** 422 commits, about 78k lines added. Test
-volume roughly tripled (71 vitest files, 54 e2e specs, 1,343 backend tests),
-the client/server contract is typed from the OpenAPI spec (A5), the security
-scans were triaged (E4, E5), and SonarCloud gates new code at 80% coverage.
-The structural debt did not move: the same god files, the same 107
-`exhaustive-deps` suppressions, no service layer, no HTTP caching. Feature work is outrunning the cleanup track.
+**What changed since 2026-09-17.** Six PRs (#65 to #70), 20 commits, about
+4,600 lines, 17 audit items closed: the three backend time-and-scale defects
+(B5, B6, B7), the share feature's operational half (E15, E16), three hot
+query paths (G13, G14, G15), the a11y lint lock (C9), the fork's front-door
+docs (H6, H7) and the CI gate fixes (I28, I29, I32). Each closed item came
+with tests (about 67 new backend tests). This audit re-checked every open
+item against the code and reviewed the merged code itself, which added 11 new
+items, all small: the fixes were sound but not flawless (B10 is a defect in
+the B5 fix). The structural debt from the 09-17 audit is unchanged, and the
+merge train itself exposed a process cost (I35, I36).
 
 ## Summary
 
-| ID | Category | Baseline | 09-10 | Now | Open items |
-|----|----------|----------|-------|-----|------------|
-| A | Architecture & Design | B− | B− | B | 5 |
-| B | Backend Quality | B− | B | B | 4 |
-| C | Frontend Quality | C | C+ | B− | 14 |
-| D | Testing & Reliability | C+ | B− | B | 7 |
-| E | Security | B+ | B+ | B+ | 4 |
-| F | Dependencies & Tech Currency | C+ | B− | B− | 5 |
-| G | Performance & Scalability | C+ | B− | C+ | 7 |
-| H | Documentation & Onboarding | C | C+ | C+ | 5 |
-| I | Developer Experience & Tooling | C+ | B | B | 8 |
-| **Overall** | | **B−** | **B** | **B** | **59** + UX track |
+| ID | Category | Baseline | 09-10 | 09-17 | Now | Open items |
+|----|----------|----------|-------|-------|-----|------------|
+| A | Architecture & Design | B− | B− | B | B | 5 |
+| B | Backend Quality | B− | B | B | B+ | 6 |
+| C | Frontend Quality | C | C+ | B− | B− | 16 |
+| D | Testing & Reliability | C+ | B− | B | B | 8 |
+| E | Security | B+ | B+ | B+ | B+ | 7 |
+| F | Dependencies & Tech Currency | C+ | B− | B− | B− | 5 |
+| G | Performance & Scalability | C+ | B− | C+ | B− | 7 |
+| H | Documentation & Onboarding | C | C+ | C+ | C+ | 5 |
+| I | Developer Experience & Tooling | C+ | B | B | B | 11 |
+| **Overall** | | **B−** | **B** | **B** | **B** | **70** + UX track |
 
-**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), C20, G16, D48, I31
-
-Update 2026-09-18: B5, B6, B7, E15, E16, G13, G14 and G15 landed on `next` in #67, #68 and #69. The B, E and G grades and prose above predate them; regrade those three categories.
+**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), I35, B10, E17, C20
 
 **Type safety at a glance.** Frontend: TypeScript `strict` gates the build and
 `fork/type-ratchet.json` holds every escape hatch (`explicitAny` 23,
@@ -49,7 +51,7 @@ stats use types generated from the spec (`web/src/types/fork/api.gen.ts`,
 `config`, `detectors`, `embeddings`, `ptz`, `util`, `video`, tests and
 `whisper_online` (`frigate/mypy.ini:28-55`), so the fork's own new code in
 `frigate/video/` and `frigate/api/` is unchecked; 125 `type: ignore` and 734
-`Any` outside tests; 77 of 189 routes declare a `response_model`.
+`Any` outside tests; 81 of 189 routes declare a `response_model`.
 
 ---
 
@@ -61,8 +63,8 @@ classifier at `frigate/comms/ws.py:310`) is still the strongest part, and the
 fork follows its own rule of adding files instead of editing them: 29 new
 backend modules and 109 fork frontend files against 5 upstream backend files
 with more than 100 changed lines. Held at B because nothing structural moved:
-no service layer while the routers grew (`frigate/api/event.py` 2,394 lines,
-`media.py` 1,917), 39 frontend files over 800 lines
+no service layer (`frigate/api/event.py` 2,354 lines, `media.py` 1,883; G13
+to G15 moved about 75 lines out into new fork modules), 38 frontend files over 800 lines
 (`web/src/pages/Settings.tsx` 2,360), UA sniffing went up (264 `isMobile`,
 401 `isDesktop`), and `frigate/video/ffmpeg.py` (243 changed lines) and
 `frigate/api/camera.py` (279) have become co-owned files.
@@ -71,11 +73,11 @@ no service layer while the routers grew (`frigate/api/event.py` 2,394 lines,
 - ~~A5~~ ✓ done 2026-09-11. Generated `api.gen.ts`, `useApi`/`apiGet` for config/review/events/stats
 
 #### A6 — Split `CameraWatchdog.run` before it grows again `[fork]`
-- **Where:** `frigate/video/ffmpeg.py:350-651` (302 lines, up from about 230 upstream)
+- **Where:** `frigate/video/ffmpeg.py:366-672` (307 lines, up from about 230 upstream; B5 added the expiry branch at `:385-391`)
 - **What's wrong:** One loop interleaves config updates, the hwaccel reset, enable and record transitions, the segment drain, backoff, detect liveness and stall checks, record staleness (SV3) and the outage tick (SV6). It is the largest fork-touched function and the worst rebase-conflict surface in the backend.
 - **Fix:** Extract `_drain_segment_updates()`, `_check_detect_process(now, can_restart)` and `_check_record_processes(now)`; `run` drops to about 90 lines. Behavior unchanged; the existing watchdog tests cover it.
 - **Effort:** M
-- **Grade lift:** B → B (smaller rebase hunks; makes B5 easy to test)
+- **Grade lift:** B → B (smaller rebase hunks; makes B10 easy to test)
 
 #### A1 — Introduce a viewport hook and retire user-agent layout branching `[fork]` (= UI5)
 - **Where:** `web/src/App.tsx`, `components/navigation/{Sidebar,Bottombar,NavItem}.tsx`, `hooks/use-navigation.ts`; 665 `isMobile`/`isDesktop` references (up from 594). No `use-viewport` hook exists; the `viewportLayout` flag in `web/src/fork/flags.ts` has no production consumer.
@@ -99,25 +101,28 @@ no service layer while the routers grew (`frigate/api/event.py` 2,394 lines,
 - **Grade lift:** B → B (testability, conflict surface)
 
 #### A3 — Add a service layer for the largest routers `[upstream]`, backlog
-- **Where:** `frigate/api/event.py` (2,394), `media.py` (1,917), `chat.py` (1,584), `app.py` (1,539), `camera.py` (1,344)
+- **Where:** `frigate/api/event.py` (2,354), `media.py` (1,883), `chat.py` (1,584), `app.py` (1,539), `camera.py` (1,344)
 - **What's wrong:** Handlers hold business logic and query peewee directly; every router grew since the last audit.
-- **Fix:** `frigate/services/<domain>.py`, one router at a time. `frigate/api/camera_config.py` (the extracted camera delete) shows the pattern.
+- **Fix:** `frigate/services/<domain>.py`, one router at a time. `frigate/api/camera_config.py` (the extracted camera delete) and `frigate/api/fork_bulk.py` (G14) show the pattern.
 - **Effort:** L
 - **Grade lift:** B → B+
 
 ---
 
-## B — Backend Quality — B
+## B — Backend Quality — B+
 
-Holds at B. The fork-added backend code is the best in the repo: 91% of its
-public functions have docstrings, zero bare `except`, four broad excepts that
-all log and are justified, no exception text in responses, bounded histories
-(`restart_log.py:22-23`, `camera_outage.py:26-27`), a tested migration
-rollback (`migrations/036`), and every one of the 29 new modules has a test.
-It is held out of B+ by defects that tests did not catch because they are
-about time and scale: the hardware-decoding retry that never fires (B5), a
-lock held across a 10 s HTTP call (B6), an unbounded dict (B7), plus 112 of
-189 routes with no `response_model` and a logging rule no linter enforces.
+Up from B. The three defects that held it there are fixed with tests: the
+hardware-decoding retry now fires (B5), the update check no longer holds its
+lock across an HTTP call (B6), and `RestartLog` is bounded (B7). The code
+merged since the last audit was reviewed line by line and is sound: database
+work and directory scans run off the event loop, id lists are chunked at 500,
+bulk deletes check camera access before deleting anything, no exception text
+reaches a response, the share API re-validates token, expiry and camera on
+every request, and the new fork files have zero f-string log calls. The
+review found one real defect in the B5 fix (B10, a recording restart every 7
+days) and three edge cases (B11). What keeps it from A− is mostly upstream's:
+108 of 189 routes have no `response_model`, and the logging rule is still
+not enforced.
 
 - ~~B1~~ ✓ done 2026-09-10. HTTPException renders `{success, message, detail}`
 - ~~B3~~ ✓ done 2026-09-10. 25 `except Exception: pass` sites log; bare `except:` narrowed
@@ -125,39 +130,53 @@ lock held across a 10 s HTTP call (B6), an unbounded dict (B7), plus 112 of
 - ~~B6~~ ✓ done 2026-09-18. `frigate/fork/updates.py` fetches outside the lock behind a `_refreshing` flag and serves the stale value meanwhile (#67)
 - ~~B7~~ ✓ done 2026-09-18. `RestartLog` prunes dump keys past the repeat window and trims history in one write (#67)
 
-#### B8 — Make the logging and exception rules enforceable `[fork]`
-- **Where:** `pyproject.toml:21` (ignores `G004` while selecting `G`), `:28` (stale `ASYNC230` per-file ignore for `frigate/api/camera.py`, whose blocking code moved to `camera_config.py`); f-string log calls in `frigate/video/ffmpeg.py` (19), `hwaccel_fallback.py` (3), `restart_log.py` (2), `camera_outage.py` (2), `fork_share.py` (1); silent swallow `frigate/genai/plugins/ollama.py:288-289`; one broad try around three probes `:322-333`
-- **What's wrong:** `AGENTS.md` mandates lazy `%s` logging and logged, narrow excepts, but nothing enforces it and the fork's files mix both styles.
-- **Fix:** Enable `G004` for fork-owned files (per-file ignores for upstream files so rebases stay clean) and convert the fork's sites; log at `ollama.py:289`; narrow the probe's try to the two network calls; drop the stale `ASYNC230` ignore.
+#### B10 — The hardware-decoding retry restarts recording too `[fork]`
+- **Where:** `frigate/video/ffmpeg.py:386-402` (added by B5); compare the activation path, which restarts detect only (`reset_capture_thread`, `:497-498`)
+- **What's wrong:** When the 7-day software-decoding switch expires, the watchdog takes the config-change branch: `stop_all_ffmpeg()` and `start_all_ffmpeg()`, a reset of `record_enable_time`, and a debug line that says "FFmpeg config updated". A camera that fell back gets a recording gap every 7 days, and again each week if hardware decoding still fails.
+- **Fix:** On expiry call `reset_capture_thread(cause="hwaccel retry")` so only the detect process restarts; its own log line; a watchdog test asserting the record process object is unchanged across an expiry.
 - **Effort:** S
-- **Grade lift:** B → B (hygiene)
+- **Grade lift:** B+ → B+ (a defect in a stability feature)
+
+#### B11 — Three edge cases in the newly merged code `[fork]`
+- **Where:** `frigate/fork/updates.py:184-198`; `frigate/api/fork_bulk.py:125-138`; `frigate/api/fork_share.py:306-322`
+- **What's wrong:** An exception from `_fetch_releases` other than the two it handles clears `_refreshing` but leaves `_checked_at` unset, so every poll fetches GitHub again with no backoff. Bulk event delete unlinks snapshots before deleting rows, the opposite order to `delete_reviews_data`, so a failed row delete leaves events without media. The active-link count and the insert are not one transaction, so parallel POSTs can pass the 50-link cap by a few.
+- **Fix:** Set `_checked_at` and `_error` in the `finally` for every outcome; delete rows first, then media; count and insert inside `database.atomic()`. One test each.
+- **Effort:** S
+- **Grade lift:** B+ → B+
+
+#### B8 — Make the logging and exception rules enforceable `[fork]`
+- **Where:** `pyproject.toml:21` (ignores `G004` while selecting `G`; the stale `ASYNC230` ignore went with G15); f-string log calls in `frigate/video/ffmpeg.py` (18), `hwaccel_fallback.py` (3), `restart_log.py` (1), none left in `camera_outage.py`, `fork_share.py` or any file added since 09-17; silent swallow `frigate/genai/plugins/ollama.py:288-289`; one broad try around three probes `:322-333`
+- **What's wrong:** `AGENTS.md` mandates lazy `%s` logging and logged, narrow excepts, but nothing enforces it and the fork's files mix both styles.
+- **Fix:** Enable `G004` for fork-owned files (per-file ignores for upstream files so rebases stay clean) and convert the fork's sites; log at `ollama.py:289`; narrow the probe's try to the two network calls.
+- **Effort:** S
+- **Grade lift:** B+ → B+ (hygiene)
 
 #### B9 — Give the fork's own routes response models `[fork]`
-- **Where:** `frigate/api/fork_share.py:77,130,168`, `fork_updates.py:31`, `review_audio.py:87`, `stream_diagnostics.py:162` (`ai_models.py:61,116` already use return annotations)
-- **What's wrong:** The newest routes return raw dicts, so they are untyped in `docs/static/frigate-api.yaml` and in the generated client types that A5 introduced.
+- **Where:** `frigate/api/fork_updates.py:31` (bare `JSONResponse`), `review_audio.py:87`, `stream_diagnostics.py:162`. Done since 09-17: all four JSON routes of `fork_share.py` (`defs/response/fork_share_response.py`)
+- **What's wrong:** Three of the fork's routes still return raw dicts, so they are untyped in `docs/static/frigate-api.yaml` and in the generated client types that A5 introduced.
 - **Fix:** Pydantic models in `frigate/api/defs/response/`, regenerate the spec and `api.gen.ts`, move the frontend callers to `useApi`.
 - **Effort:** S
-- **Grade lift:** B → B (stops B2 getting worse)
+- **Grade lift:** B+ → B+ (stops B2 getting worse)
 
-#### B2 — Declare `response_model` on the remaining 112 routes `[upstream]`, backlog
-- **Where:** `frigate/api/**/*.py` (77 of 189 routes covered; `app.py` 30 routes with none, `media.py` 28, `auth.py` 12, `camera.py` 12)
+#### B2 — Declare `response_model` on the remaining 108 routes `[upstream]`, backlog
+- **Where:** `frigate/api/**/*.py` (81 of 189 routes covered; `app.py` 30 routes with none, `media.py` 28, `camera.py` 12, `auth.py` 10, `chat.py` 6)
 - **What's wrong:** More than half the API is untyped in the OpenAPI spec, which caps what A5's generated types can cover.
 - **Fix:** Add pydantic response models, frontend-heaviest routes first.
 - **Effort:** L
-- **Grade lift:** B → B+
+- **Grade lift:** B+ → A−
 
 #### B4 — Declare indexes on models, not only in migrations `[upstream]`, backlog
 - **Where:** `migrations/011`, `017`, `020`, `022`, `027`, `036` vs `frigate/models.py` (only `UserReviewStatus` has `Meta.indexes`, `:123-124`); `ShareLink` (`:167-175`) lacks the `expires_at` index that `migrations/036:50` creates and the pruning query (`frigate/events/share_links.py:21`) filters on
 - **What's wrong:** Models under-document the real schema; the fork repeated the pattern one migration after it was written up.
 - **Fix:** Matching `class Meta: indexes`, starting with `ShareLink`; migrations stay authoritative.
 - **Effort:** S
-- **Grade lift:** B → B (hygiene)
+- **Grade lift:** B+ → B+ (hygiene)
 
 ---
 
 ## C — Frontend Quality — B−
 
-Up from C+. New fork code is strong: module stores with
+Holds at B− (up from C+ on 09-17). New fork code is strong: module stores with
 `useSyncExternalStore` instead of prop drilling, pure logic split out and
 unit-tested file by file, all storage behind `lib/fork/local-storage.ts`,
 every listener and observer cleaned up, `ErrorState` and `Skeleton` on new
@@ -165,16 +184,19 @@ views, deliberate a11y (`role="slider"` with `aria-valuenow` on the timeline
 handle, keyboard map in `utils/timelineKeys.ts`), and no hard-coded strings in
 new components. Floating promises are errors and the type ratchet holds. It
 stops at B− because the app-level debt is untouched after 422 commits:
-`handleSaveAll` is 296 untested inline lines (`pages/Settings.tsx:910-1205`), 39 files exceed
-800 lines, 107 `exhaustive-deps` suppressions remain, and 10 defects found in
-fork code by this audit are open (C20 to C29). The jsx-a11y findings were
+`handleSaveAll` is 296 untested inline lines (`pages/Settings.tsx:910-1205`), 38 files exceed
+800 lines, 107 `exhaustive-deps` suppressions remain, and the 10 defects the
+09-17 audit found in fork code are all still open (C20 to C29; only half of
+C27 moved). The share UI merged since is B-level work (typed API, loading,
+error and empty states, plural i18n keys, unit and e2e tests) that shipped
+with four small defects of its own (C30, C31). The jsx-a11y findings were
 already at zero (cleared by 8e154085e on 2026-09-12); C9 turned the rules
 into errors so they stay there.
 
 - ~~C1~~ ✓ done 2026-09-10. `components/fork/RouteErrorBoundary.tsx`, chunk-load recovery
 - ~~C2~~ ✓ done 2026-09-10. jsx-a11y lint, 42 role/tabIndex sites, 27 real buttons (residue tracked as C9)
 - ~~C5~~ ✓ done 2026-09-10. SWR read-error toasts + `ErrorState`
-- ~~C9~~ ✓ done 2026-09-17. All 32 enabled jsx-a11y rules plus `control-has-associated-label` are errors (`web/eslint.config.js`); 0 sites needed fixing because 8e154085e had cleared the 83 findings. Six per-site suppressions remain: `media-has-caption` on the four camera `<video>` players, the paste target in `ImageEntry.tsx:137`, the click map in `LiveBirdseyeView.tsx:286`. `web/src/components/ui/**` is outside eslint
+- ~~C9~~ ✓ done 2026-09-17. All 32 enabled jsx-a11y rules plus `control-has-associated-label` are errors (`web/eslint.config.js`); 0 sites needed fixing because 8e154085e had cleared the 83 findings. Seven per-site suppressions remain: `media-has-caption` on the four camera `<video>` players and the share page's (`ShareClipPage.tsx:90`), the paste target in `ImageEntry.tsx:137`, the click map in `LiveBirdseyeView.tsx:286`. `web/src/components/ui/**` is outside eslint
 - ~~C8~~ ✓ done 2026-09-10. Sandbox gated to dev
 - ~~C10~~ ✓ done 2026-09-11. TypeScript hatch ratchet, fork-strict typecheck
 - ~~C11~~ ✓ done 2026-09-11. Floating and misused promises are errors (269 → 0)
@@ -195,6 +217,20 @@ into errors so they stay there.
 - **Effort:** S
 - **Grade lift:** B− → B− (restores a shipped optimization)
 
+#### C30 — The share dialog mints a link every time it opens, and locks you out at the cap `[fork]`
+- **Where:** `web/src/components/fork/ShareClipButton.tsx:45-63,65-76`; `frigate/api/fork_share.py:312` (429 at 50 links); `web/src/components/fork/ActiveShareLinks.tsx:42-45`
+- **What's wrong:** Opening the dialog always POSTs a new public link, and the server does not reuse one per event. At the 50-link cap the POST fails, the catch calls `setOpen(false)`, and the list with the revoke buttons only exists inside that dialog, so nothing can be revoked until a link expires (up to 168 hours). The POST has no cancellation: close and reopen while it is in flight and a stale `setShare` lands, a second link is created and the QR swaps. A failed revoke (404 for a link that just expired) toasts an error and leaves the dead row because nothing revalidates.
+- **Fix:** Keep the dialog open on a create failure and show the list with a "limit reached" message for 429; create behind an explicit button or reuse the event's live link; a request-id ref to drop stale results; `mutate()` on revoke failure and treat 404 as gone. Vitest for each.
+- **Effort:** S–M
+- **Grade lift:** B− → B− (the revoke path E16 added must be reachable when it matters)
+
+#### C31 — The public share page reports every failure as "not found" `[fork]`
+- **Where:** `web/src/pages/fork/ShareClipPage.tsx:48-53,73-91`; `web/src/lib/fork/share-path.ts:18`
+- **What's wrong:** A network error, a 500 and a 429 all render "This share link was not found" with no retry; the `<video>` has no `onError`, so a link that expires mid-view or a rate-limited clip fails silently; the status paragraphs have no `role="status"`/`role="alert"`; the camera name shows raw underscores while `ActiveShareLinks.tsx:113` cleans them. The share-path regex is unanchored, so any future route containing `/share/x` would render the public shell and skip the login redirect.
+- **Fix:** An `error` state with retry, a video `onError` message, the roles, the shared camera-name formatter; anchor the regex after stripping `window.baseUrl`.
+- **Effort:** S
+- **Grade lift:** B− → B−
+
 #### C21 — Inbox store: tabs overwrite each other, a write per message, fragile thumbnails `[fork]`
 - **Where:** `web/src/lib/fork/inbox-store.ts:116-119,140,244`; `web/src/hooks/fork/use-inbox.ts`; `web/src/components/fork/InboxBell.tsx:228`
 - **What's wrong:** `reloadInboxFromStorage` is exported and called only from its test, so two tabs blind-write the same key and wipe each other's read state. Every `reviews` WebSocket message JSON-stringifies up to 200 items synchronously. The thumbnail URL uses an unanchored `.replace("/media/frigate/", "")` with no `onError`.
@@ -204,7 +240,7 @@ into errors so they stay there.
 
 #### C22 — Non-English users get a 404 per fork namespace load, and one string skips `t()` `[fork]`
 - **Where:** `web/public/locales/*/` (58 locale folders, only `en/fork.json` exists); `web/src/utils/i18n.ts:33-37`; `web/src/components/fork/bulk/BulkActionBar.tsx:96` (`"Unknown error"`)
-- **What's wrong:** `i18next-http-backend` requests `locales/{lng}/fork.json`, gets a 404, then falls back to English. Every fork surface is English-only and translators have no target file.
+- **What's wrong:** `i18next-http-backend` requests `locales/{lng}/fork.json`, gets a 404, then falls back to English (the 09-18 change to `i18n.ts` only roots `loadPath` at the base URL for the share page). Every fork surface is English-only and translators have no target file.
 - **Fix:** Seed `fork.json` in the other locales from the extraction script (empty values fall back) and add it to the locale sync; replace the literal with a `fork.json` key.
 - **Effort:** S
 - **Grade lift:** B− → B−
@@ -237,10 +273,10 @@ into errors so they stay there.
 - **Effort:** S
 - **Grade lift:** B− → B− (turns a rebase hazard into a red test)
 
-#### C27 — Small a11y gaps in the share UI `[fork]`
-- **Where:** `web/src/components/fork/ShareClipButton.tsx:117-121`, `web/src/pages/fork/ShareClipPage.tsx:107-111` (QR `div` with `aria-label` and no role); `web/src/components/navigation/ShareViewButton.tsx:11-18` (clipboard failure falls back to `window.prompt`; copied state never resets)
-- **What's wrong:** `aria-label` on a role-less `div` is ignored by screen readers (`Sparkline.tsx:70-71` does it right); `window.prompt` is blocked in sandboxed iframes and unusable with assistive tech.
-- **Fix:** `role="img"` on both QR containers; an inline read-only input with a `role="status"` message and a timed reset.
+#### C27 — Share-view copy falls back to `window.prompt` `[fork]`
+- **Where:** `web/src/components/navigation/ShareViewButton.tsx:10-18` (clipboard failure falls back to `window.prompt`; copied state never resets). Done 2026-09-18 with E16: `role="img"` on both QR containers, with tests
+- **What's wrong:** `window.prompt` is blocked in sandboxed iframes and unusable with assistive tech.
+- **Fix:** An inline read-only input with a `role="status"` message and a timed reset.
 - **Effort:** S
 - **Grade lift:** B− → B−
 
@@ -252,7 +288,7 @@ into errors so they stay there.
 - **Grade lift:** B− → B−
 
 #### C29 — The new System AI/model views need a shared formatter and memoized series `[fork]`
-- **Where:** `web/src/views/system/AIModelMetrics.tsx:82-91` (335 lines, four copies of a disclosure pattern), `AIModelGraphs.tsx:128-131,140-165,216,231`, `ServerPressure.tsx:9-12`, `StabilityIncidents.tsx:64,88-91`; `web/src/hooks/use-hour-rollover.ts` (no test)
+- **Where:** `web/src/views/system/AIModelMetrics.tsx:82-91` (335 lines, four copies of a disclosure pattern), `AIModelGraphs.tsx:31,128-131,140-165,216,231`, `ServerPressure.tsx:9-12`, `StabilityIncidents.tsx:64,88-91`; `web/src/hooks/use-hour-rollover.ts` (no test)
 - **What's wrong:** Three independent GiB/MiB formatters with hard-coded unit strings; `Math.max(...history)` spreads up to 8,640 samples; six chart series are rebuilt on every render; the incidents list key `${kind}:${scope}` is not unique; the hour-rollover timer ladder is the only new module without a test.
 - **Fix:** One `formatBytes(value, locale)` in `utils/`; `reduce` for maxima; `useMemo` the series on `[history, id, range]`; add `row.started` to the key; a fake-timer test for the hook.
 - **Effort:** M
@@ -266,7 +302,7 @@ into errors so they stay there.
 - **Grade lift:** B− → B
 
 #### C6 — Break up the worst god components `[fork]`, backlog
-- **Where:** `pages/Settings.tsx` (2,360), `components/overlay/detail/SearchDetailDialog.tsx` (1,955), `views/live/LiveCameraView.tsx` (1,848), `views/motion-search/MotionSearchView.tsx` (1,646), `pages/Exports.tsx` (1,577); 39 files over 800 lines, 108 over 400; in fork code `CommandPalette.tsx` (475), `SettingsNav.tsx` (442), `CameraHealthView.tsx` (424)
+- **Where:** `pages/Settings.tsx` (2,360), `components/overlay/detail/SearchDetailDialog.tsx` (1,955), `views/live/LiveCameraView.tsx` (1,848), `views/motion-search/MotionSearchView.tsx` (1,646), `pages/Exports.tsx` (1,577); 38 files over 800 lines, 105 over 400; in fork code `CommandPalette.tsx` (475), `SettingsNav.tsx` (442), `CameraHealthView.tsx` (424)
 - **What's wrong:** Fetching, rules and layout fused; guaranteed rebase conflicts.
 - **Fix:** Controller hook + sub-component folder, one file at a time, only when a feature needs it. For the fork's own three: `usePaletteItems()`, `useSettingsAnchors()`, and card sub-components.
 - **Effort:** L
@@ -283,23 +319,26 @@ into errors so they stay there.
 
 ## D — Testing & Reliability — B
 
-Up from B−. Latest green run on `next`: 508 vitest tests in 77 files, 598
-e2e tests passing across 54 specs (25 under `specs/fork/`) in three shards,
-1,343 backend tests in 128 files plus 162 tests for the fork's scripts.
+Holds at B. On `next` now: 1,410 backend tests in 130 files (up 67 in a day,
+all from the closed items), vitest up by the share suites from 508 tests,
+54 e2e specs (25 under `specs/fork/`) in three shards, and by static count
+80 tests for the fork's scripts and 79 for the audio trial. The share feature alone has about 46 tests
+across API, migration, cleanup and nginx config.
 Fixtures are validated against the OpenAPI spec in `globalSetup` (D9), every
 fork backend module is tested including the migration's rollback, and
 SonarCloud gates new code at 80% (83.5% now; 50.2% overall with browser
 coverage merged). Not B+: the tracking pipeline is still untested (D4), no
 visual regression or tablet project (D6, D3), unit line coverage is 13.4%
-(web) and 40% (Python) with no floor of their own, and two flaky e2e tests
-pass on the CI retry.
+(web) and 40% (Python) with no floor of their own, two flaky e2e tests
+pass on the CI retry, and a third flaky test surfaced during the merges
+(D51).
 
 - ~~D1~~ ✓ done 2026-09-10. `web/__test__/test-setup.ts`, CI step
 - ~~D2~~ ✓ done 2026-09-11. e2e for Settings save, camera wizard, zone editing, motion search
 - ~~D5~~ ✓ done 2026-09-10. vitest v8 coverage in CI
 - ~~D8~~ ✓ done 2026-09-10. `coverage run -m unittest` in `fork/scripts/py-checks.sh:25-38`, XML uploaded, fed to Sonar
 - ~~D9~~ ✓ done 2026-09-11. `web/e2e/scripts/validate-fixtures.mjs` (Ajv against 200 schemas)
-- ~~D10~~ ✓ done 2026-09-11. Software-decoding fallback (`frigate/video/hwaccel_fallback.py`, 20 tests; open defect → B5)
+- ~~D10~~ ✓ done 2026-09-11. Software-decoding fallback (`frigate/video/hwaccel_fallback.py`, 20 tests; B5 fixed 2026-09-18, residue → B10)
 - ~~D11~~ ✓ done 2026-09-11. Restart log with reasons (`frigate/video/restart_log.py`, 13 tests)
 - ~~D12~~ ✓ done 2026-09-11. No doubled punctuation (`restart_log.py:158`)
 - ~~D13~~ ✓ done 2026-09-11. Circular-progress timings
@@ -330,8 +369,15 @@ pass on the CI retry.
 - **Effort:** S
 - **Grade lift:** B → B
 
+#### D51 — A flaky model-cache test that points at a real hole `[BE] [fork]`
+- **Where:** `fork/audio_trial/model_cache.py:27-40` (fingerprint is size, `st_mtime_ns`, `st_ctime_ns`, inode); `fork/audio_trial/test_model_cache.py:14-48` (`test_pinned_snapshot_detects_corruption_even_with_cached_validation`, rewrite at `:43`)
+- **What's wrong:** The test overwrites `b"good"` with `b"evil"`: same size, same inode. On a filesystem with coarse timestamps both times can land in the same tick, the fingerprint matches, hashing is skipped, and the expected `ValueError` never fires. It failed once in CI during #67. The same window means a fast same-size swap of a model file goes undetected.
+- **Fix:** Do not trust a fingerprint younger than about 2 s (git's racy-timestamp rule), or always hash, since the files are small; in the test force the change with `os.utime(..., ns=...)` and add the same-tick case.
+- **Effort:** S
+- **Grade lift:** B → B
+
 #### D50 — Six run-time viewport skips remain in the fork's specs `[FE] [fork]`
-- **Where:** `web/e2e/specs/fork/camera-wizard.spec.ts:136`, `motion-search.spec.ts:75,121`, `settings-save.spec.ts:14,46`, `zone-editing.spec.ts:44`
+- **Where:** `web/e2e/specs/fork/camera-wizard.spec.ts:136`, `motion-search.spec.ts:75,121`, `settings-save.spec.ts:14,57`, `zone-editing.spec.ts:173`
 - **What's wrong:** D19 missed them, so they still count among the 95 skips in every run.
 - **Fix:** Convert to `@desktop-only`/`@mobile-only` tags; make `web/e2e/scripts/lint-specs.mjs` reject `test.skip(` under `specs/fork/`.
 - **Effort:** S
@@ -362,18 +408,19 @@ pass on the CI retry.
 
 ## E — Security — B+
 
-Holds at B+, close to A−. The scan backlog is gone: no advisory is open
-against a runtime dependency in the image (`npm audit --omit=dev`: 0), the 3
-critical CodeQL alerts were traced and dismissed with written reasons or fixed
-(the Reolink SSRF got a real allowlist in `frigate/api/camera.py`), secret
-scanning, push protection and gitleaks are on, and every route has one auth
-gate checked at startup. The new public share feature gets the hard parts
-right (192-bit tokens, expiry on both routes, camera access checked at
-creation, nginx allows only GET without auth, 10 tests). It does not reach A−
-because that same feature shipped without its operational half: the clip
-window is unbounded for an event that never closes, the one unauthenticated
-route spawns ffmpeg with no rate limit, and links cannot be listed or
-revoked. CSP is still report-only, and one CodeQL alert in fork code is open.
+Holds at B+, one small PR from A−. The two blockers named on 09-17 are gone:
+the public share feature now has its operational half (E15, E16). A review
+of that code checked the places where such features usually fail and found
+them right: 192-bit tokens validated by regex before the lookup, revoke
+scoped to the creator (404 for anyone else) or an admin, the list scoped to
+the caller, the clip slot released on every path including cancellation, the
+kill switch read once at import and covering create and both public routes,
+tokens masked in the access log and absent from Python logs, non-GET methods
+routed to the authenticated location. It is not A− yet because fork code
+still carries an open CodeQL alert with no guard in the code (E17), the
+`ffprobe` argument half of E18 is open, the review found three low-severity
+gaps in the share path's operations (E20 to E22), there is no `SECURITY.md`,
+and CSP is report-only.
 
 - ~~E1~~ ✓ done 2026-09-10. `security_headers.conf`, HSTS, CSP report-only
 - ~~E2~~ ✓ done 2026-09-10. One auth gate per route, startup assertion + test
@@ -385,16 +432,37 @@ revoked. CSP is still report-only, and one CodeQL alert in fork code is open.
 - E7 to E14: see `FORK.md`
 
 #### E17 — Close the open code-scanning findings `[fork]`
-- **Where:** CodeQL #51 `js/prototype-pollution-utility` at `web/src/lib/fork/zone-rename.ts:34-57` (open since 2026-09-15); 4 `actions/missing-workflow-permissions` alerts re-raised under new numbers in `ci.yml`/`release.yml`; SonarCloud reports 10 open vulnerabilities on `next`
+- **Where:** CodeQL #51 `js/prototype-pollution-utility` at `web/src/lib/fork/zone-rename.ts:34-57` (open since 2026-09-15; `setPath` and `mergeInto` still have no key guard); `actions/missing-workflow-permissions` alerts #35, #36, #37 (`ci.yml`) and #38 (`release.yml`); SonarCloud reports 10 open vulnerabilities on `next`
 - **What's wrong:** The Security tab is only a signal while it is at zero; fork code should not carry an open alert.
 - **Fix:** Skip `__proto__`, `constructor` and `prototype` in `setPath`/`mergeInto` with a unit test; re-dismiss the workflow alerts with the E4 reasoning; triage the 10 Sonar vulnerabilities (fix or mark with a reason) and record them in E19's file.
 - **Effort:** S
+- **Grade lift:** B+ → A− (with the rest of E18)
+
+#### E18 — Harden the `ffprobe` path argument `[fork, upstreamable]`
+- **Where:** `frigate/util/services.py:1023` (`ffprobe_stream` passes the user-supplied path as a bare positional argument)
+- **What's wrong:** A path starting with `-` is parsed as an ffprobe option on the admin-only route. The other half of this item, validating the share token in the browser before requesting, shipped on 2026-09-18 (`lib/fork/share-path.ts:22-26`, called at `ShareClipPage.tsx:35`, tested).
+- **Fix:** Pass `-i` before the path (or reject a leading `-`) with a test.
+- **Effort:** S
 - **Grade lift:** B+ → B+
 
-#### E18 — Two small input hardenings `[fork, upstreamable]`
-- **Where:** `web/src/pages/fork/ShareClipPage.tsx:38-45` (route param interpolated into the request path unvalidated); `frigate/util/services.py:1023` (`ffprobe_stream` passes the user-supplied path as a bare positional argument)
-- **What's wrong:** A crafted `/share/..%2F..%2Fconfig` link makes the victim's browser send an authenticated same-origin GET to another API path (nothing is returned to the attacker, but it should not be possible). A path starting with `-` is parsed as an ffprobe option on the admin-only route.
-- **Fix:** Test the token against `/^[A-Za-z0-9_-]{8,64}$/` before requesting, else show the missing state; pass `-i` before the path (or reject a leading `-`) with a test.
+#### E20 — Behind a proxy every share viewer lands in one rate-limit bucket `[fork]`
+- **Where:** `docker/main/rootfs/usr/local/nginx/conf/nginx.conf:56-57` (`limit_req_zone` and `limit_conn_zone` keyed on `$binary_remote_addr`); no `set_real_ip_from`/`real_ip_header` anywhere; `templates/base_path.gotmpl:10` proxies to `127.0.0.1`
+- **What's wrong:** Public share links are meant to be opened from outside, which usually means a reverse proxy, and `FRIGATE_BASE_PATH` always does. Every viewer then shares one 5 r/s, 8-connection bucket, so one viewer can 429 all the others.
+- **Fix:** Key the zones on the token segment of the URI (a `map` on `$uri`), which is the resource being protected; keep the address key as a second zone. Extend `fork/scripts/test_nginx_share_conf.py`.
+- **Effort:** S
+- **Grade lift:** B+ → B+
+
+#### E21 — The nginx error log can still print a share token `[fork]`
+- **Where:** the public share locations, `nginx.conf:356-379`
+- **What's wrong:** E15 masked the access log and lowered the limit refusals to info, but an upstream timeout or early close is written at `error` level with the raw request line, token included.
+- **Fix:** `error_log ... crit` inside those locations, with a conf test; note the residue in E19's file.
+- **Effort:** S
+- **Grade lift:** B+ → B+
+
+#### E22 — The public clip route can leave playlist files in the cache `[fork]`
+- **Where:** `frigate/api/media.py:552-567` (writes `playlist_*.txt` to `CACHE_DIR` before streaming; unlinked only in the generator's `finally`), reached without auth through `frigate/api/fork_share.py:397`
+- **What's wrong:** If the client disconnects before the response body starts, the generator never runs and the file stays; nothing sweeps `playlist_*`. The pattern is upstream's, but a valid token holder can now repeat it unauthenticated against a tmpfs.
+- **Fix:** Feed the concat list on stdin as `preview_gif` does, or unlink in `_SlotStream.release`; a test that aborts before iteration.
 - **Effort:** S
 - **Grade lift:** B+ → B+
 
@@ -410,13 +478,13 @@ revoked. CSP is still report-only, and one CodeQL alert in fork code is open.
 - **What's wrong:** The policy protects nothing, and with no collector its violations are visible only in a browser console, so there is no evidence to tighten it with. Release notes markdown can load third-party images until it is enforced.
 - **Fix:** A log-only `report-uri` endpoint (or collect in the demo stack) across all pages (monaco workers, blob players, go2rtc WebRTC), tighten, then enforce.
 - **Effort:** M
-- **Grade lift:** A− → A (once E15/E16 are done)
+- **Grade lift:** A− → A (after E17 and E18)
 
 ---
 
 ## F — Dependencies & Tech Currency — B−
 
-Holds at B−. Security patching is good, react-router 7 was taken (PR #49,
+Holds at B−; nothing in this category moved since 09-17. Security patching is good, react-router 7 was taken (PR #49,
 `fork/ROUTER7-BUNDLE-BUDGET.md`), axios is current, the fork's dev tools
 install from hash-pinned locks, and binaries are checksummed. But the gap to
 current majors widened (TypeScript 5.9 vs 7, Vite 6 vs 8, Vitest 3 vs 5 with
@@ -432,7 +500,7 @@ Dependabot is security-only by design, so currency depends on upstream syncs
 - ~~F6~~ ✓ done 2026-09-11. Web minor/patch refresh within majors
 
 #### F7 — Merge the `setuptools` fix `[fork]`
-- **Where:** `docker/main/requirements.txt:3`, `docker/main/requirements.lock:17` (`setuptools == 77.0.3`, fork-introduced; high advisory below 78.1.1); Dependabot PR #50 open
+- **Where:** `docker/main/requirements.txt:3`, `docker/main/requirements.lock:17` (`setuptools == 77.0.3`, fork-introduced; high advisory below 78.1.1); Dependabot PR #50 (to 83.0.0) still open and unmerged; it is the only open high advisory outside `docs/`
 - **What's wrong:** A known-vulnerable build-stage pin with a ready fix sitting unmerged.
 - **Fix:** Merge #50 or regenerate the lock at 78.1.1 or later; confirm scikit-build still builds the wheels.
 - **Effort:** S
@@ -470,17 +538,15 @@ Dependabot is security-only by design, so currency depends on upstream syncs
 
 ## G — Performance & Scalability — C+
 
-Down from B−. The shipped wins hold (bounded search SQL G4, `CacheFileTracker`
-G6, threadpool handlers G3, a CI bundle budget G7), but every open item from
-the last audit is still open, and the trend reversed on two fronts. Eager JS
-went from 305 kB gzip to 393 kB and the budget was raised to fit
-(`fork/bundle-budget.json`: 412,650). Sampling the backend hot paths found
-costs that survived two audits: `/events/explore` issues 2N+1 queries and
-reads thumbnail blobs it discards, both bulk deletes are sequential with
-unchunked `IN` lists, `preview_gif`/`preview_mp4` scan a directory on the
-event loop, and `review_summary` full-scans on every poll with zero
-ETag/304 handling anywhere in `frigate/api/`. No list is virtualized, 25 of
-35 `<img>` are not lazy, and nothing measures real interaction latency.
+Back to B−, a weak one. The backend half of the 09-17 downgrade is fixed:
+`/events/explore` is one windowed query instead of 2N+1 (G13), both bulk
+deletes run in chunks of 500 (G14: 3,600 statements became 9), and the
+preview frame scan left the event loop (G15), each with a query-count test.
+The earlier wins hold (G4, G6, G3, G7). The frontend half did not move at
+all: eager JS is 393 kB gzip against a budget raised to 412,650 to fit it,
+no list is virtualized, 25 of 35 `<img>` are not lazy, and nothing measures
+real interaction latency. On the server, `review_summary` still full-scans
+on every poll and there is zero ETag/304 handling in `frigate/api/`.
 
 - ~~G1~~ ✓ done 2026-09-10. Explicit icon map, lazy settings menus
 - ~~G2~~ ✓ done 2026-09-10. SWR global policy
@@ -495,41 +561,41 @@ ETag/304 handling anywhere in `frigate/api/`. No list is virtualized, 25 of
 
 #### G17 — Eager bundle grew 29% and the budget followed it `[fork]`
 - **Where:** `fork/bundle-budget.json` (`eagerGzipBytes` 412,650; measured 393 kB, was 305 kB after G1/G5); `fork/ROUTER7-BUNDLE-BUDGET.md`; shell-level fork imports in `web/src/App.tsx` and the navigation (command palette, inbox, update notices, appearance)
-- **What's wrong:** The budget is measured + 5%, so each raise legitimizes the growth. Part is react-router 7, but fork features that open on demand (palette, inbox panel, release notes dialog with `react-markdown`) load for every user at startup.
-- **Fix:** Run the visualizer on the eager graph; `React.lazy` the palette body, inbox panel, release notes dialog and QR encoder behind their triggers; then lower the budget to the new measurement and require a written reason in the PR for any raise.
+- **What's wrong:** The budget is measured + 5%, so each raise legitimizes the growth. Part is react-router 7, but fork features that open on demand (palette, a static import at `App.tsx:28`, and the inbox panel) load for every user at startup. `ReleaseNotesDialog` is already lazy (`UpdateNotices.tsx:32`), and `share-path.ts` was split out so the shell does not pull in the QR encoder.
+- **Fix:** Run the visualizer on the eager graph; `React.lazy` the palette body and inbox panel behind their triggers, and confirm `lib/fork/qr` (imported by `ShareClipButton`) only rides lazy chunks; then lower the budget to the new measurement and require a written reason in the PR for any raise.
 - **Effort:** M
-- **Grade lift:** C+ → B−
+- **Grade lift:** B− → B
 
 #### G9 — Virtualize the card grids and lazy-load images `[fork, upstreamable]`
-- **Where:** `web/src/views/search/SearchView.tsx`, `views/events/EventView.tsx`, `views/recording/RecordingView.tsx` (no virtualization library in `package.json`, though the Logs page already uses `virtua`); 25 of 35 `<img>` lack `loading="lazy"`
+- **Where:** `web/src/views/search/SearchView.tsx`, `views/events/EventView.tsx`, `views/recording/RecordingView.tsx` (no virtualization library in `package.json` or anywhere in `src`); 25 of 35 `<img>` lack `loading="lazy"`
 - **What's wrong:** Long Review/Explore sessions grow the DOM and image memory without bound.
-- **Fix:** `virtua` (already a dependency) for the three grids behind a flag; `loading="lazy" decoding="async"` on non-critical images.
+- **Fix:** Add `virtua` (about 3 kB) for the three grids behind a flag; `loading="lazy" decoding="async"` on non-critical images.
 - **Effort:** M
-- **Grade lift:** C+ → B−
+- **Grade lift:** B− → B
 
 #### G10 — Immutable, precompressed static assets `[upstream]`
-- **Where:** `docker/main/rootfs/usr/local/nginx/conf/nginx.conf:337-342` (`/assets/`: `expires 1y` + `Cache-Control "public"`, no `immutable`); `:33-37` (gzip on the fly, no `gzip_static`)
+- **Where:** `docker/main/rootfs/usr/local/nginx/conf/nginx.conf:398-403` (`/assets/`: `expires 1y` + `Cache-Control "public"`, no `immutable`); `:66,141` (gzip on the fly, no `gzip_static`)
 - **What's wrong:** Reloads revalidate every hashed chunk; nginx recompresses the same files per request. Two lines of config, open since the first audit.
 - **Fix:** `Cache-Control: public, max-age=31536000, immutable` for `/assets/`; emit `.gz` at build and enable `gzip_static`.
 - **Effort:** S
-- **Grade lift:** C+ → C+ (repeat-visit latency, server CPU)
+- **Grade lift:** B− → B− (repeat-visit latency, server CPU)
 
 #### G11 — HTTP caching for summary endpoints `[upstream]`
 - **Where:** `frigate/api/review.py:201` (`review_summary`), `frigate/api/record.py:62,123`; zero `ETag`/`304` handling in `frigate/api/`
 - **What's wrong:** Summaries are recomputed and re-sent on every poll and focus even when nothing changed.
 - **Fix:** An ETag from the newest relevant row timestamp with a 304 path; measure in the demo stack first.
 - **Effort:** M
-- **Grade lift:** C+ → B−
+- **Grade lift:** B− → B
 
 #### G8 — Put the Settings form chunk on a diet `[fork, upstreamable]`
 - **Where:** `web/src/components/config-form/ConfigForm.tsx:3` (static `@rjsf/validator-ajv8`, runtime schema compile; rides the lazy Settings chunk, about 246 kB gzip)
 - **What's wrong:** Every Settings visit downloads and compiles a schema validator before the form is usable.
 - **Fix:** Precompile validators at build time (ajv standalone) or load the validator on first validation; measure with G7's script.
 - **Effort:** M
-- **Grade lift:** C+ → C+
+- **Grade lift:** B− → B−
 
 #### G16 — `review_summary` filters cannot use an index `[upstream]`, backlog
-- **Where:** `frigate/api/review.py:238-251` (`data["objects"].cast("text") % '*"label"*'`, OR-ed per label)
+- **Where:** `frigate/api/review.py:238-251` (`data["objects"].cast("text") % '*"label"*'`, OR-ed per label); same pattern at `:93-94,103,627`
 - **What's wrong:** A `LIKE` over a JSON text cast full-scans `reviewsegment` on the most-polled expensive endpoint.
 - **Fix:** Profile first; then a normalized `review_segment_label` side table or a generated column with an index.
 - **Effort:** L
@@ -546,15 +612,16 @@ ETag/304 handling anywhere in `frigate/api/`. No list is virtualized, 25 of
 
 ## H — Documentation & Onboarding — C+
 
-Holds at C+. `FORK.md` is a complete ledger of every shipped change and the
-GitHub Releases have generated notes; that part is excellent. Everything
-around it is losing ground to the pace of work: the root `README.md` never
-says this is a fork or where its image is, `AGENTS.md`/`CLAUDE.md` and
-`CONTRIBUTING.md:73` describe upstream's branch model, this report was 422
-commits stale with about 20 finished items shown open, `fork/PLAN.md` and
-`PLAN2.md` carry statuses from 2026-09-11, three places still name the rc2
-base, `fork/` has 14 unindexed `SONAR-*.md` files, and H3, H4 and H5 are
-untouched.
+Holds at C+, a strong one. The entry points are now right: the root
+`README.md` opens with what the fork is and where its images are (H6), and
+`AGENTS.md` describes the real workflow (H7); both were checked against the
+`Makefile`, `promote.sh` and the workflows and match. `FORK.md` remains a
+complete ledger. The rest still loses ground to the pace of work:
+`fork/PLAN.md` and `PLAN2.md` carry statuses from 2026-09-11, `FORK.md`'s own
+rules describe a rebase model the fork does not use, the rc2 base survives in
+three files, `FORK.md` grew 15% in a day to 145 KB with every row appended at
+the end (which is also a tooling cost, I35), nothing guards this report
+against drift, and H3, H4 and H5 are untouched.
 
 - ~~H1~~ ✓ done 2026-09-10
 - ~~H2~~ ✓ done 2026-09-10 (its gate list is stale again → H7)
@@ -562,21 +629,21 @@ untouched.
 - ~~H7~~ ✓ done 2026-09-17. "Fork workflow" section in `AGENTS.md` (worktrees, `next`, `make promote`, ledger IDs, gates); `CONTRIBUTING.md` points at it and `make check`
 
 #### H8 — Reconcile the plans and the base version `[fork]`
-- **Where:** `fork/PLAN.md:13` (says I12, means I13; 4b D2 unticked; "in progress on `polish2`"), `fork/PLAN2.md:9-18,482` (status dated 09-11, PR #29 "in review", "Dependencies: not started"), `FORK.md:10-13,42` ("rebased onto upstream/dev", "one item = one commit", "after v0.18.0-rc2"), `fork/SONAR-CI.md:12` (says Playwright coverage does not count); rc2 base in `fork/demo/Dockerfile:4`, `fork/demo/README.md:20`, `fork/README.md:25`, `.github/workflows/fork-upstream-sync.yml:126` while `Makefile:64` and `fork/Dockerfile.test:4` use 0.18.0
-- **What's wrong:** A dozen statements contradict the ledger, and the demo runs on a different base than the tests.
-- **Fix:** Archive finished plan sections and keep one current queue; reword `FORK.md`'s rules to the actual practice; one `fork/BASE_VERSION` file read by the Makefile, both Dockerfiles and the sync workflow.
+- **Where:** `fork/PLAN.md:13` (says I12, means I13), `:88` ("In progress on `polish2`", which `:14` says is gone), `:95` (4b unticked); `fork/PLAN2.md:9,482` (status dated 09-11, PR #29 "in review", "Dependencies: Not started"); `FORK.md:10-13` ("rebased onto `upstream/dev`", "One report item = one commit"); rc2 base in `fork/demo/Dockerfile:2,4`, `fork/demo/README.md:20`, `fork/README.md:29` while `Makefile:64`, `fork/Dockerfile.test:4` and `fork-checks.yml` use 0.18.0. Fixed since 09-17: `FORK.md:42`, `fork/SONAR-CI.md:12`, the sync workflow's base
+- **What's wrong:** Statements that contradict the ledger, and the demo runs on a different base than the tests. The base is hard-coded in five places.
+- **Fix:** Archive finished plan sections and keep one current queue; reword `FORK.md`'s rules to the actual practice; one `fork/BASE_VERSION` file read by the Makefile, both Dockerfiles and the workflows.
 - **Effort:** S
 - **Grade lift:** C+ → C+
 
 #### H9 — Keep this report honest automatically, and index `fork/` `[fork]`
-- **Where:** `fork/GRADE-REPORT.md` vs `FORK.md` (117 ledger IDs were unknown to the report; about 20 done items showed as open); `fork/SONAR-*.md` (14 files, about 1,660 lines) and 5 CSVs at the top of `fork/`; `fork/README.md` (54 lines; omits `make demo-audit`, `fork/monitoring`, `fork/benchmarks`, `Dockerfile.rootless-test` and 12 of the scripts); `FORK.md` (126 KB, 184 unsorted rows, cells up to 2,211 characters)
+- **Where:** `fork/GRADE-REPORT.md` vs `FORK.md` (no test ties a ledger ID marked done to an open heading here); `fork/SONAR-*.md` (12 files, about 1,600 lines) and 5 CSVs at the top of `fork/`; `fork/README.md` (115 lines; omits `make demo-audit`, `fork/monitoring`, `fork/benchmarks`, `Dockerfile.rootless-test` and about half of the 26 scripts); `FORK.md` (145 KB, 201 unsorted rows, cells up to 2,523 characters)
 - **What's wrong:** The report only stays true if someone remembers to edit it, and the working folder is hard to navigate.
-- **Fix:** A test next to `fork/scripts/test_release_notes.py` that fails when an audit item marked done in `FORK.md` is still an open heading here; move the Sonar write-ups to `fork/archive/sonar/` keeping `SONAR-CI.md`; extend `fork/README.md`; sort the ledger by ID (or split it per category with an index).
+- **Fix:** A test next to `fork/scripts/test_release_notes.py` that fails when an audit item marked done in `FORK.md` is still an open heading here; move the Sonar write-ups to `fork/archive/sonar/` keeping `SONAR-CI.md`; extend `fork/README.md`; the ledger's shape is I35's job.
 - **Effort:** M
 - **Grade lift:** C+ → B−
 
 #### H3 — Frontend, e2e and patches READMEs `[fork]`
-- **Where:** `web/README.md` (25 lines of Vite template for 157k lines of TypeScript), no `web/e2e/README.md`, no `web/patches/README.md`
+- **Where:** `web/README.md` (a 25-line stub for 157k lines of TypeScript), no `web/e2e/README.md`, no `web/patches/README.md`
 - **What's wrong:** Directory rules (`fork/` folders, flags), the base-path sentinel, e2e mocking and tags, fixture validation, the i18n workflow, generated API types and the patches are undocumented.
 - **Fix:** Write the three READMEs.
 - **Effort:** S
@@ -601,14 +668,18 @@ untouched.
 ## I — Developer Experience & Tooling — B
 
 Holds at B. The tooling is strong: `make check`/`check-fast`, ready worktrees,
-hash-locked dev dependencies, checks in about 9 minutes, a required "Checks
-passed" status on `next`, releases with notes generated from commits, ROCm
-images, and ratchets for types and bundle size. It does not reach B+ because
-the automation is failing quietly: the upstream-sync bot has failed every day
-since 2026-09-13 for a secret that was never created (`dev` is 186 commits
-behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
-12 pushes), `main` has no required check, the Sonar token expires on
-2026-10-11, and the mypy ratchet has not advanced.
+hash-locked dev dependencies, a required "Checks passed" status on `next` and
+now on `main` (I29), releases with notes generated from commits, ROCm images,
+and ratchets for types and bundle size. The Sonar gate, red on 5 of 12 pushes
+before I28, has been green on 6 of 7 since (the seventh was cancelled, I36).
+It does not reach B+ for two reasons. The automation still fails quietly: the
+upstream-sync bot has failed every day since 2026-09-13 for a secret only the
+owner can create, the Sonar token expires on 2026-10-11, pre-commit and the
+mypy ratchet have not moved, and 79 remote branches have piled up. And
+landing six PRs on 09-17/18 showed that the process itself is serial: every
+PR appends to the same two ledger files, so each merge puts every other open
+PR into conflict, and the up-to-date rule then costs a rebase and a 12-minute
+run per PR, one after another (I35).
 
 - ~~I1~~ ✓ done 2026-09-10. Pre-commit, CI caching
 - ~~I2~~ ✓ done 2026-09-10. `make` inner-loop targets
@@ -627,12 +698,34 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - I15 to I26: see `FORK.md` (I16, I17 unused)
 
 #### I27 — Give the upstream-sync bot its token `[fork]`
-- **Where:** repository secrets (only `SONAR_TOKEN` exists; `FORK_SYNC_TOKEN`, which I18 added support for, was never created); `.github/workflows/fork-upstream-sync.yml`; issue #61 open since 2026-09-15
+- **Where:** repository secrets (only `SONAR_TOKEN` exists; `FORK_SYNC_TOKEN`, which I18 added support for, was never created); `.github/workflows/fork-upstream-sync.yml`; issue #71 (its predecessor #61 was closed on 2026-09-18 while the runs were still failing, and the bot opened #71 eleven hours later)
 - **What's wrong:** Every scheduled run since 2026-09-13 fails with "refusing to allow a GitHub App to create or update workflow `.github/workflows/ci.yml` without `workflows` permission". `dev` has been frozen at 2026-09-06 and upstream is 186 commits ahead; conflicts pile up unseen, which is what I6 existed to prevent.
 - **Fix:** Owner creates a fine-grained token (contents + workflows write) as `FORK_SYNC_TOKEN`. In the workflow, fail in the first step with a clear message when the secret is empty.
 - **Update 2026-09-17:** The workflow part shipped: the run stops in its first step when the secret is empty and names the token to create, the "Upstream sync failed" issue carries the same steps, and the new-tag base is `v0.18.0`. Still open for the owner: create the fine-grained token (Contents and Workflows read and write on `jtn0123/frigate`) and save it as `FORK_SYNC_TOKEN`; steps in `fork/README.md`, "Owner setup".
+- **Update 2026-09-18:** Unchanged. The last 5 scheduled runs failed in the first step with the clear message, the latest today at 12:14Z.
 - **Effort:** S
-- **Grade lift:** B → B+ (I28 is done)
+- **Grade lift:** B → B+ (with I35)
+
+#### I35 — The ledger files make every PR conflict with every other `[fork]`
+- **Where:** `FORK.md` (every row appended at the end, line 252; 28 of the 45 non-merge commits since 09-15 touch it) and this file (10 of 45); the `next` ruleset (id 23103518, `Checks passed` with strict up-to-date); no auto-merge, and merge queues are not offered on a user-owned repository
+- **What's wrong:** Any two open PRs conflict in `FORK.md`. With the up-to-date rule, N PRs cost N rebases and N serial runs of 11 to 13 minutes. Landing #65 to #70 took six rebases and most of a day of wall-clock, all of it on two bookkeeping files.
+- **Fix:** One file per item under `fork/ledger/<ID>.md` and a script that renders `FORK.md`'s table from them, verified in `make check` (no shared line, no conflict). Tick this report once per batch, not per PR. A `merge=union` attribute is the cheap alternative, but test first whether GitHub's server-side merge honors it; local merges do. Relaxing the up-to-date rule is only safe after I36.
+- **Effort:** M
+- **Grade lift:** B → B+ (with I27)
+
+#### I36 — A new push to `next` cancels the check of the previous merge `[fork]`
+- **Where:** `.github/workflows/fork-checks.yml:28-30` (`group: fork-checks-${{ github.ref }}`, `cancel-in-progress: true` for pushes as well as PRs)
+- **What's wrong:** Merge ce9770b62 was cancelled 11 minutes in when 66774e9b6 landed. Intermediate merge commits on `next` never get a finished check or a Sonar branch analysis, so a regression cannot be pinned to one merge.
+- **Fix:** `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`.
+- **Effort:** S
+- **Grade lift:** B → B
+
+#### I37 — Three gaps in the fork's own gate scripts `[fork]`
+- **Where:** `fork/scripts/ci-changes.sh:36-39`; `fork/scripts/check.sh:33-40`; `fork/scripts/sonar-token-expiry.py`
+- **What's wrong:** The change detector's patterns do not match `fork/scripts/check.sh`, `promote.sh` or any other `.sh`, nor `fork/sonar-token.env`, so a PR that breaks the gate scripts skips every suite and goes green. The stale-checkout warning (I32) compares against `origin/next` "as of the last fetch", so the stale clone it was written for reports 0 behind. After 2026-10-11 the expiry check fails every PR even if the token was rotated and only the date file was forgotten, and before that its warning is an annotation nobody opens.
+- **Fix:** Add `^fork/scripts/` and `fork/sonar-token.env` to `shared`, with a shellcheck step (joins I31); warn when `FETCH_HEAD` is older than a day, or fetch with a short timeout; after the date, fail only if the token also fails to authenticate, and open an issue at 14 days.
+- **Effort:** S
+- **Grade lift:** B → B
 
 #### I30 — The Sonar token expires on 2026-10-11 `[fork]`
 - **Where:** `SONAR_TOKEN` secret (expiry noted in `fork/SONAR-CI.md`)
@@ -657,15 +750,15 @@ behind), the Sonar gate passes on PRs and then fails on `next` (6 of the last
 - **Grade lift:** B → B
 
 #### I34 — Prune merged branches `[fork]`
-- **Where:** 45 remote branches, 63 PRs merged; several prunable local worktrees
+- **Where:** 79 remote branches (45 on 09-17), 48 of them already merged into `origin/next`; `deleteBranchOnMerge` is off; 51 local worktrees, 2 prunable
 - **What's wrong:** Finished `section/*` and agent branches accumulate and hide the live ones.
 - **Fix:** Enable "automatically delete head branches"; delete merged remotes once; `git worktree prune`.
 - **Effort:** S
 - **Grade lift:** B → B
 
 #### I3 — Continue the mypy ratchet `[upstream]`
-- **Where:** `frigate/mypy.ini:28-55` (`ignore_errors = true` for `api`, `config`, `detectors`, `embeddings`, `ptz`, `util`, `video`, tests, `whisper_online`); no wave landed since 2026-09-11
-- **What's wrong:** The fork now writes most of its backend code inside `frigate/video/` and `frigate/api/`, which are unchecked; defects like B5 live there.
+- **Where:** `frigate/mypy.ini:28-55` (`ignore_errors = true` for `api`, `config`, `detectors`, `embeddings`, `ptz`, `util`, `video`, tests, `whisper_online`); no wave landed since 2026-09-11 (one module, `debug_replay`, in 94c5377d3)
+- **What's wrong:** The fork now writes most of its backend code inside `frigate/video/` and `frigate/api/`, which are unchecked; defects like B5 and B10 live there.
 - **Fix:** Before the package waves, enable strict checking per fork-owned module (`frigate.video.restart_log`, `hwaccel_fallback`, `camera_outage`, `frigate.api.fork_*`, `frigate.fork.*`), which is cheap because that code is already annotated. Then PR-14's waves: `ptz`+`video`, `config`, `util`, `detectors`+`embeddings`, `api` last.
 - **Effort:** L (first step S)
 - **Grade lift:** B → B+
@@ -702,8 +795,8 @@ are UI fixes and features defined in `FORK.md`.
 | ~~UI7~~ | Settings navigation: scrollspy rail, search, diff before Save All | M | ✓ done |
 | ~~UI8~~ | Timeline scrubber: snap, arrow keys, touch targets | M | ✓ done (`lib/fork/timeline-scrubber.ts`; bounded snap and slider role since UI73) |
 | ~~UI9~~ | Shared event summary header (Review + Explore) | M | ✓ done |
-| ~~UI10~~ | Bulk actions in Explore + undo for mark-reviewed | M | ✓ done (open defect → C20; server side → G14) |
-| ~~UI11~~ | Share a clip: expiring link + QR | M | ✓ done (open items → E15, E16, C27) |
+| ~~UI10~~ | Bulk actions in Explore + undo for mark-reviewed | M | ✓ done (open defect → C20) |
+| ~~UI11~~ | Share a clip: expiring link + QR | M | ✓ done (open items → C30, C31, E20 to E22) |
 | ~~UI12~~ | Camera health cards | M | ✓ done |
 | UI13 | Live layout memory + picture-in-picture | M | not started (flag exists, no consumer → A7) |
 | ~~UI14~~ | Notification inbox with quiet hours | M | ✓ done (open defects → C21) |
@@ -734,4 +827,4 @@ are UI fixes and features defined in `FORK.md`.
 | UI39 | Timeline hover previews | M | backlog |
 | UI40 | Server-side camera-offline push | M | backlog (SV6 covers the notification half) |
 | UI41 | Cross-camera stories | L | backlog |
-| ~~UI42~~ | Update notices and What's new from the fork's releases | M | ✓ done (open item → B6) |
+| ~~UI42~~ | Update notices and What's new from the fork's releases | M | ✓ done (open item → B11) |
