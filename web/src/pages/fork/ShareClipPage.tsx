@@ -10,18 +10,13 @@ import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { qrSvg } from "@/lib/fork/qr";
-import { sharePageUrl } from "@/lib/fork/share-path";
+import { isShareToken, sharePageUrl } from "@/lib/fork/share-path";
 import { baseUrl } from "@/api/baseUrl";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import Heading from "@/components/ui/heading";
+import type { components } from "@/types/fork/api.gen";
 
-type ShareInfo = {
-  token: string;
-  camera: string;
-  label: string;
-  expires_at: number;
-  has_clip: boolean;
-};
+type ShareInfo = components["schemas"]["ShareLinkResponse"];
 
 export default function ShareClipPage() {
   const { t } = useTranslation(["fork"]);
@@ -36,7 +31,8 @@ export default function ShareClipPage() {
   }, [t]);
 
   useEffect(() => {
-    if (!token) {
+    // never put anything but a well-formed token into a request path
+    if (!isShareToken(token)) {
       setStatus("missing");
       return;
     }
@@ -106,6 +102,7 @@ export default function ShareClipPage() {
             )}
             <div
               className="mx-auto size-44 rounded-md bg-white p-2"
+              role="img"
               aria-label={t("clipShare.qr")}
               data-testid="share-clip-qr"
               dangerouslySetInnerHTML={{ __html: qrSvg(absoluteUrl) }}
