@@ -1,4 +1,9 @@
+import os
+import shutil
+import tempfile
 from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import Request
 from peewee import DoesNotExist
@@ -795,3 +800,196 @@ class TestHttpReview(BaseTestHttp):
                     UserReviewStatus.user_id == self.user_id,
                     UserReviewStatus.review_segment == review_id,
                 )
+
+
+class TestHttpReviewBulkDelete(BaseTestHttp):
+    """POST /reviews/delete (G14): bounded queries, rows before files."""
+
+    def setUp(self):
+        super().setUp([Event, Recordings, ReviewSegment, UserReviewStatus])
+        self.app = super().create_app()
+        self.recordings_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.recordings_dir, ignore_errors=True)
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+    def _insert_reviews(
+        self, count: int, prefix: str = "review", first_start: float = 10000.0
+    ) -> list[str]:
+        """Insert reviews 100 s apart, each with one overlapping recording file."""
+        ids = [f"{prefix}_{index}" for index in range(count)]
+        reviews = []
+        recordings = []
+
+        for index, review_id in enumerate(ids):
+            start_time = first_start + index * 100
+            path = os.path.join(self.recordings_dir, f"{review_id}.mp4")
+
+            with open(path, "w") as f:
+                f.write("x")
+
+            reviews.append(
+                {
+                    "id": review_id,
+                    "camera": "front_door",
+                    "start_time": start_time,
+                    "end_time": start_time + 20,
+                    "severity": SeverityEnum.alert,
+                    "thumb_path": "",
+                    "data": {},
+                }
+            )
+            recordings.append(
+                {
+                    "id": review_id,
+                    "camera": "front_door",
+                    "path": path,
+                    "start_time": start_time - 5,
+                    "end_time": start_time + 5,
+                    "duration": 10,
+                }
+            )
+
+        for start in range(0, count, 100):
+            ReviewSegment.insert_many(reviews[start : start + 100]).execute()
+            Recordings.insert_many(recordings[start : start + 100]).execute()
+
+        return ids
+
+    def _delete(self, client: AuthTestClient, ids: list[str]):
+        response = client.post("/reviews/delete", json={"ids": ids})
+        assert response.status_code == 200
+        assert response.json() == {
+            "success": True,
+            "message": "Deleted review items.",
+        }
+
+    def _count_statements(self, client: AuthTestClient, ids: list[str]) -> int:
+        """Number of SQL statements one bulk delete runs."""
+        real_execute_sql = self.db.execute_sql
+        statements: list[str] = []
+
+        def counting_execute_sql(sql, *args, **kwargs):
+            statements.append(sql)
+            return real_execute_sql(sql, *args, **kwargs)
+
+        with patch.object(self.db, "execute_sql", counting_execute_sql):
+            self._delete(client, ids)
+
+        return len(statements)
+
+    def test_more_than_a_thousand_ids(self):
+        ids = self._insert_reviews(1100)
+        kept = self._insert_reviews(2, prefix="kept", first_start=900000.0)
+        UserReviewStatus.insert_many(
+            [
+                {"user_id": "admin", "review_segment": review_id}
+                for review_id in (ids[0], ids[-1], kept[0])
+            ]
+        ).execute()
+
+        with AuthTestClient(self.app) as client:
+            self._delete(client, ids)
+
+        assert [row.id for row in ReviewSegment.select()] == kept
+        assert [row.id for row in Recordings.select()] == kept
+        assert [row.review_segment_id for row in UserReviewStatus.select()] == [kept[0]]
+        assert sorted(os.listdir(self.recordings_dir)) == [
+            f"{review_id}.mp4" for review_id in kept
+        ]
+
+    def test_every_overlap_kind_and_only_the_review_camera(self):
+        ReviewSegment.insert(
+            id="review",
+            camera="front_door",
+            start_time=1000,
+            end_time=1100,
+            severity=SeverityEnum.alert,
+            thumb_path="",
+            data={},
+        ).execute()
+        spans = {
+            "starts_inside": ("front_door", 1090, 1150),
+            "ends_inside": ("front_door", 950, 1010),
+            "covers_review": ("front_door", 900, 1200),
+            "before": ("front_door", 900, 990),
+            "after": ("front_door", 1110, 1200),
+            "other_camera": ("back_door", 1000, 1100),
+        }
+        Recordings.insert_many(
+            [
+                {
+                    "id": recording_id,
+                    "camera": camera,
+                    "path": os.path.join(self.recordings_dir, recording_id),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "duration": end_time - start_time,
+                }
+                for recording_id, (camera, start_time, end_time) in spans.items()
+            ]
+        ).execute()
+
+        with AuthTestClient(self.app) as client:
+            self._delete(client, ["review", "missing"])
+
+        assert sorted(row.id for row in Recordings.select()) == [
+            "after",
+            "before",
+            "other_camera",
+        ]
+
+    def test_survives_a_missing_and_an_undeletable_file(self):
+        ids = self._insert_reviews(3)
+        os.remove(os.path.join(self.recordings_dir, f"{ids[0]}.mp4"))
+        # unlink raises an OSError for a directory
+        os.remove(os.path.join(self.recordings_dir, f"{ids[1]}.mp4"))
+        os.mkdir(os.path.join(self.recordings_dir, f"{ids[1]}.mp4"))
+
+        with (
+            self.assertLogs("frigate.api.fork_bulk", level="WARNING") as logs,
+            AuthTestClient(self.app) as client,
+        ):
+            self._delete(client, ids)
+
+        assert len(logs.records) == 1
+        assert logs.records[0].getMessage() == (
+            "Unable to delete recording file "
+            + os.path.join(self.recordings_dir, f"{ids[1]}.mp4")
+        )
+        assert ReviewSegment.select().count() == 0
+        assert Recordings.select().count() == 0
+        # the file after the failed one was still removed
+        assert os.listdir(self.recordings_dir) == [f"{ids[1]}.mp4"]
+
+    def test_rows_are_deleted_before_files(self):
+        ids = self._insert_reviews(3)
+        rows_left_at_unlink: list[int] = []
+        real_unlink = Path.unlink
+
+        def recording_unlink(path, *args, **kwargs):
+            rows_left_at_unlink.append(
+                Recordings.select().count() + ReviewSegment.select().count()
+            )
+            return real_unlink(path, *args, **kwargs)
+
+        with (
+            patch.object(Path, "unlink", recording_unlink),
+            AuthTestClient(self.app) as client,
+        ):
+            self._delete(client, ids)
+
+        assert rows_left_at_unlink == [0, 0, 0]
+        assert os.listdir(self.recordings_dir) == []
+
+    def test_statement_count_does_not_follow_reviews(self):
+        with AuthTestClient(self.app) as client:
+            few = self._count_statements(client, self._insert_reviews(5, "few"))
+            many = self._count_statements(client, self._insert_reviews(100, "many"))
+            chunks = self._count_statements(client, self._insert_reviews(1100, "big"))
+
+        # per 500 ids: a review SELECT and three DELETEs (recordings, reviews,
+        # review status); per 100 reviews: one recordings SELECT
+        assert (few, many, chunks) == (5, 5, 3 + 11 + 3 + 6), (few, many, chunks)

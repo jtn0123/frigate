@@ -4,7 +4,7 @@ import os
 import shutil
 import tempfile
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytz
 from fastapi import Request
@@ -680,3 +680,79 @@ class TestHttpLabelThumbnail(BaseTestHttp):
         assert response.status_code == 200, response.text
         assert response.headers["content-type"] == "image/jpeg"
         assert response.headers["cache-control"] == "no-store"
+
+
+class TestHttpPreviewFromFrames(BaseTestHttp):
+    """Preview GIF and MP4 of the current hour, built from cached frames (G15)."""
+
+    def setUp(self):
+        super().setUp([Recordings])
+        self.app = super().create_app()
+        self.cache_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.cache_dir, ignore_errors=True)
+        cache_patch = patch("frigate.api.media.CACHE_DIR", self.cache_dir)
+        cache_patch.start()
+        self.addCleanup(cache_patch.stop)
+        # within the current hour, so the handlers use the cached frames
+        self.start_ts = float(int(datetime.now().timestamp()))
+        self.end_ts = self.start_ts + 10
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+    def _frame(self, camera: str, timestamp: float) -> str:
+        preview_dir = os.path.join(self.cache_dir, "preview_frames")
+        os.makedirs(preview_dir, exist_ok=True)
+        path = os.path.join(preview_dir, f"preview_{camera}-{timestamp}.webp")
+
+        with open(path, "wb") as f:
+            f.write(b"frame")
+
+        return path
+
+    def _url(self, extension: str) -> str:
+        return (
+            f"/front_door/start/{self.start_ts}/end/{self.end_ts}/preview.{extension}"
+        )
+
+    def test_missing_frames_directory_is_404(self):
+        with AuthTestClient(self.app) as client:
+            for extension in ("gif", "mp4"):
+                response = client.get(self._url(extension))
+                assert response.status_code == 404
+                assert response.json() == {
+                    "success": False,
+                    "message": "Preview not found",
+                }
+
+    def test_no_frames_in_range_is_404(self):
+        self._frame("front_door", self.start_ts - 5)
+        self._frame("back_door", self.start_ts + 1)
+
+        with AuthTestClient(self.app) as client:
+            for extension in ("gif", "mp4"):
+                response = client.get(self._url(extension))
+                assert response.status_code == 404
+                assert response.json()["message"] == "Preview not found"
+
+    def test_gif_is_built_from_the_cameras_frames_in_order(self):
+        second = self._frame("front_door", self.start_ts + 6.5)
+        first = self._frame("front_door", self.start_ts + 2.25)
+        self._frame("front_door", self.end_ts + 1)
+        self._frame("back_door", self.start_ts + 3)
+        ffmpeg = Mock(return_value=Mock(returncode=0, stdout=b"GIF89a"))
+
+        with AuthTestClient(self.app) as client:
+            with patch("frigate.api.media.sp.run", ffmpeg):
+                response = client.get(self._url("gif"))
+
+        assert response.status_code == 200
+        assert response.content == b"GIF89a"
+        assert ffmpeg.call_args.kwargs["input"].decode().split("\n") == [
+            f"file '{first}'",
+            "duration 0.12",
+            f"file '{second}'",
+            "duration 0.12",
+            f"file '{second}'",
+        ]
