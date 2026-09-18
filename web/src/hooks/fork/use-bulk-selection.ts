@@ -13,6 +13,10 @@ import { isForkEnabled } from "@/fork/flags";
 
 export type UseBulkSelectionOptions<T> = {
   items: T[] | null | undefined;
+  /**
+   * Must keep its identity between renders (module-level function or
+   * useCallback): the returned object is memoized on it.
+   */
   getId: (item: T) => string;
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;

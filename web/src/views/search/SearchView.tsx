@@ -71,6 +71,14 @@ function showsExploreSummary(
   );
 }
 
+/**
+ * Module level so its identity never changes: useBulkSelection memoizes its
+ * result on getId, and an inline arrow would defeat that on every render.
+ */
+function getSearchResultId(item: SearchResult) {
+  return item.id;
+}
+
 export default function SearchView({
   search,
   searchTerm,
@@ -315,7 +323,7 @@ export default function SearchView({
 
   const bulk = useBulkSelection({
     items: bulkItems,
-    getId: (item) => item.id,
+    getId: getSearchResultId,
     selectedIds: selectedObjects,
     setSelectedIds: setSelectedObjects,
   });
@@ -325,7 +333,8 @@ export default function SearchView({
     void mutateExplore();
   }, [refresh, mutateExplore]);
 
-  // stable so memoized SearchThumbnails only re-render when selection changes
+  // changes identity only when the selection, the selection mode or the
+  // result list changes, so memoized SearchThumbnails skip every other render
   const onThumbnailClick = useCallback(
     (value: SearchResult, ctrl: boolean, detail: boolean) => {
       if (bulk.onItemClick(value, ctrl)) return;
