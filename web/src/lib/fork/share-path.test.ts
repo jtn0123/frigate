@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { isPublicSharePath, isShareToken, shareExpiry } from "./share-path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  isPublicSharePath,
+  isShareToken,
+  shareCameraName,
+  shareExpiry,
+} from "./share-path";
 
 describe("isShareToken", () => {
   it("accepts what the server issues", () => {
@@ -51,9 +56,44 @@ describe("shareExpiry", () => {
 });
 
 describe("isPublicSharePath", () => {
-  it("matches the share page with or without a base path", () => {
-    expect(isPublicSharePath("/share/abc")).toBe(true);
-    expect(isPublicSharePath("/frigate/share/abc")).toBe(true);
+  afterEach(() => {
+    delete window.baseUrl;
+  });
+
+  it("matches the share route at the root", () => {
+    expect(isPublicSharePath("/share/abcdefgh")).toBe(true);
+    expect(isPublicSharePath("/share/abcdefgh/")).toBe(true);
     expect(isPublicSharePath("/review")).toBe(false);
+    expect(isPublicSharePath("/share")).toBe(false);
+    expect(isPublicSharePath("/share/")).toBe(false);
+  });
+
+  it.each([
+    "/foo/share/abcdefgh",
+    "/settings/share/abcdefgh",
+    "/share/abcdefgh/extra",
+    "/myshare/abcdefgh",
+  ])("does not match the lookalike path %s", (pathname) => {
+    expect(isPublicSharePath(pathname)).toBe(false);
+  });
+
+  it.each(["/frigate/", "/frigate"])(
+    "strips the base path %s before matching",
+    (base) => {
+      window.baseUrl = base;
+      // window.location.pathname carries the base, the router's does not
+      expect(isPublicSharePath("/frigate/share/abcdefgh")).toBe(true);
+      expect(isPublicSharePath("/share/abcdefgh")).toBe(true);
+      expect(isPublicSharePath("/frigate/foo/share/abcdefgh")).toBe(false);
+      expect(isPublicSharePath("/other/share/abcdefgh")).toBe(false);
+      expect(isPublicSharePath("/frigatex/share/abcdefgh")).toBe(false);
+    },
+  );
+});
+
+describe("shareCameraName", () => {
+  it("shows a camera id with spaces for underscores", () => {
+    expect(shareCameraName("front_door_cam")).toBe("front door cam");
+    expect(shareCameraName("garage")).toBe("garage");
   });
 });

@@ -24,7 +24,9 @@ describe("sharePageUrl", () => {
 describe("isPublicSharePath", () => {
   it("matches share pages with and without a basename", () => {
     expect(isPublicSharePath("/share/abc")).toBe(true);
+    window.baseUrl = "/nvr/";
     expect(isPublicSharePath("/nvr/share/abc")).toBe(true);
+    delete window.baseUrl;
     expect(isPublicSharePath("/explore")).toBe(false);
     expect(isPublicSharePath("/review")).toBe(false);
   });
