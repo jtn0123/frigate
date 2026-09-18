@@ -10,11 +10,13 @@ const itemC: Item = { id: "c" };
 const itemD: Item = { id: "d" };
 const items: Item[] = [itemA, itemB, itemC, itemD];
 
+const getId = (item: Item) => item.id;
+
 function useHarness() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   return useBulkSelection({
     items,
-    getId: (item) => item.id,
+    getId,
     selectedIds,
     setSelectedIds,
   });
@@ -81,5 +83,24 @@ describe("useBulkSelection", () => {
     expect(result.current.selectedIds).toEqual([]);
     act(() => press("Escape", "keydown"));
     expect(result.current.active).toBe(false);
+  });
+
+  it("keeps the returned object and onItemClick across an unchanged re-render", () => {
+    const { result, rerender } = renderHook(useHarness);
+    const first = result.current;
+
+    rerender();
+    expect(result.current).toBe(first);
+    expect(result.current.onItemClick).toBe(first.onItemClick);
+    expect(result.current.selectAll).toBe(first.selectAll);
+
+    // a real input change still produces a new object
+    act(() => result.current.setActive(true));
+    expect(result.current).not.toBe(first);
+    expect(result.current.onItemClick).not.toBe(first.onItemClick);
+
+    const afterChange = result.current;
+    rerender();
+    expect(result.current).toBe(afterChange);
   });
 });

@@ -9,6 +9,7 @@ import threading
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -59,6 +60,8 @@ MAX_CONCURRENT_SHARE_CLIPS = 4
 # threading, not asyncio: a slot is given back by whichever thread drops the
 # response stream, and nothing ever waits on it (a full house answers 429).
 _clip_slots = threading.BoundedSemaphore(MAX_CONCURRENT_SHARE_CLIPS)
+# Held while a link is counted against the cap and inserted (B11).
+_create_lock = threading.Lock()
 
 
 class ShareCreateBody(BaseModel):
@@ -105,6 +108,44 @@ def share_clip_range(event: Event, now: float) -> tuple[float, float]:
     return start_ts, min(end_ts, start_ts + MAX_SHARE_CLIP_SECONDS)
 
 
+def _create_link_within_cap(
+    *,
+    token: str,
+    event_id: str,
+    camera: str,
+    created_by: str,
+    created_at: float,
+    expires_at: float,
+) -> ShareLink | None:
+    """Insert the link unless its creator already holds the most allowed.
+
+    B11: the count and the insert are one step, so parallel requests cannot
+    all pass the count first and then go over the cap together. A lock, not a
+    transaction: Frigate's SqliteQueueDatabase rejects atomic(), and every
+    create runs in this one API process.
+    """
+    with _create_lock:
+        active = (
+            ShareLink.select()
+            .where(
+                (ShareLink.created_by == created_by)
+                & (ShareLink.expires_at > created_at)
+            )
+            .count()
+        )
+        if active >= MAX_ACTIVE_LINKS_PER_USER:
+            return None
+
+        return ShareLink.create(
+            token=token,
+            event_id=event_id,
+            camera=camera,
+            created_by=created_by,
+            created_at=created_at,
+            expires_at=expires_at,
+        )
+
+
 class _SlotStream:
     """Response body that gives its clip slot back when the stream ends.
 
@@ -112,17 +153,30 @@ class _SlotStream:
     chunk is read, so the slot is released from here instead: when the body is
     exhausted, fails or is cancelled, and as a last resort when the stream is
     garbage collected without having been read.
+
+    E22: the concat list recording_clip wrote to the cache has the same gap,
+    its generator is what unlinks it, so it is removed here too. By then
+    ffmpeg has either read the list or will never start.
     """
 
-    def __init__(self, body: AsyncIterator[bytes]) -> None:
+    def __init__(self, body: AsyncIterator[bytes], playlist: str | None = None) -> None:
         self._body = body
+        self._playlist = playlist
         self._released = False
 
     def release(self) -> None:
-        """Give the slot back, once."""
-        if not self._released:
-            self._released = True
-            _clip_slots.release()
+        """Give the slot back and remove the concat list, once."""
+        if self._released:
+            return
+        self._released = True
+        _clip_slots.release()
+
+        if self._playlist is None:
+            return
+        try:
+            Path(self._playlist).unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Unable to remove clip playlist", exc_info=True)
 
     def __aiter__(self) -> "_SlotStream":
         return self
@@ -303,25 +357,15 @@ async def create_share(request: Request, body: ShareCreateBody):
     expires_at = now + body.expires_in_hours * 3600
     username = current_user["username"]
 
-    def _insert() -> ShareLink | None:
-        active = (
-            ShareLink.select()
-            .where((ShareLink.created_by == username) & (ShareLink.expires_at > now))
-            .count()
-        )
-        if active >= MAX_ACTIVE_LINKS_PER_USER:
-            return None
-
-        return ShareLink.create(
-            token=token,
-            event_id=event.id,
-            camera=event.camera,
-            created_by=username,
-            created_at=now,
-            expires_at=expires_at,
-        )
-
-    link = await asyncio.to_thread(_insert)
+    link = await asyncio.to_thread(
+        _create_link_within_cap,
+        token=token,
+        event_id=event.id,
+        camera=event.camera,
+        created_by=username,
+        created_at=now,
+        expires_at=expires_at,
+    )
     if link is None:
         return _error("Too many active share links", 429)
 
@@ -407,7 +451,9 @@ async def get_share_clip(request: Request, token: str):
 
     if isinstance(response, StreamingResponse):
         # ffmpeg runs for as long as the body is read, so the slot goes with it
-        response.body_iterator = _SlotStream(response.body_iterator)
+        response.body_iterator = _SlotStream(
+            response.body_iterator, getattr(response, "playlist_path", None)
+        )
     else:
         _clip_slots.release()
 

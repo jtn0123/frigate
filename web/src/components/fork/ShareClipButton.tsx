@@ -1,8 +1,12 @@
 /**
  * Fork: create an expiring clip share link with a QR code (UI11).
+ *
+ * Opening the dialog only lists the active links. A link is made by the
+ * "Create link" button, so looking at the list (or revoking from it at the
+ * 50 link cap) never mints another public link.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import axios from "axios";
 import { useSWRConfig } from "swr";
 import { useTranslation } from "react-i18next";
@@ -25,6 +29,7 @@ import type { components } from "@/types/fork/api.gen";
 import { toast } from "sonner";
 
 type ShareResponse = components["schemas"]["ShareLinkResponse"];
+type CreateError = "limit" | "failed";
 
 type ShareClipButtonProps = {
   eventId?: string | null;
@@ -40,40 +45,58 @@ export default function ShareClipButton({
   const [loading, setLoading] = useState(false);
   const [share, setShare] = useState<ShareResponse | null>(null);
   const [revoked, setRevoked] = useState(false);
+  const [createError, setCreateError] = useState<CreateError | null>(null);
+  // Bumped by every create and every close; a response whose id is no longer
+  // the latest belongs to a dialog the user has left and is dropped.
+  const requestRef = useRef(0);
   const { mutate } = useSWRConfig();
 
   const createShare = useCallback(async () => {
     if (!eventId) {
       return;
     }
+    requestRef.current += 1;
+    const request = requestRef.current;
     setLoading(true);
+    setCreateError(null);
+    let created: ShareResponse | null = null;
+    let failure: CreateError | null = null;
     try {
       const response = await axios.post<ShareResponse>("fork/share", {
         event_id: eventId,
       });
-      setShare(response.data);
-      // the new link belongs in the active list below
-      void mutate(swrKey("/fork/share"));
-    } catch {
-      toast.error(t("clipShare.createFailed"));
-      setOpen(false);
-    } finally {
-      setLoading(false);
+      created = response.data;
+    } catch (error) {
+      failure =
+        axios.isAxiosError(error) && error.response?.status === 429
+          ? "limit"
+          : "failed";
     }
-  }, [eventId, mutate, t]);
+    if (created) {
+      // the link exists even when its dialog is gone, so the list is stale
+      void mutate(swrKey("/fork/share"));
+    }
+    if (request !== requestRef.current) {
+      return;
+    }
+    // The dialog stays open on a failure: at the link cap the list below is
+    // the only place to revoke a link and make room.
+    setLoading(false);
+    setShare(created);
+    setRevoked(false);
+    setCreateError(failure);
+  }, [eventId, mutate]);
 
-  const handleOpenChange = useCallback(
-    (next: boolean) => {
-      setOpen(next);
-      if (next) {
-        void createShare();
-      } else {
-        setShare(null);
-        setRevoked(false);
-      }
-    },
-    [createShare],
-  );
+  const handleOpenChange = useCallback((next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      requestRef.current += 1;
+      setLoading(false);
+      setShare(null);
+      setRevoked(false);
+      setCreateError(null);
+    }
+  }, []);
 
   const copyLink = useCallback(async () => {
     if (!share) {
@@ -92,6 +115,8 @@ export default function ShareClipButton({
       if (token === share?.token) {
         setRevoked(true);
       }
+      // a revoked link makes room under the cap
+      setCreateError((current) => (current === "limit" ? null : current));
     },
     [share],
   );
@@ -121,10 +146,29 @@ export default function ShareClipButton({
             <DialogTitle>{t("clipShare.title")}</DialogTitle>
             <DialogDescription>{t("clipShare.description")}</DialogDescription>
           </DialogHeader>
-          {loading && !share && (
-            <p className="text-sm text-muted-foreground">
-              {t("clipShare.creating")}
+          {createError && (
+            <p
+              className="text-sm text-danger"
+              role="alert"
+              data-testid="share-clip-error"
+            >
+              {createError === "limit"
+                ? t("clipShare.limitReached")
+                : t("clipShare.createFailed")}
             </p>
+          )}
+          {(!share || revoked) && (
+            <Button
+              type="button"
+              variant="select"
+              disabled={loading}
+              data-testid="share-clip-create"
+              onClick={() => {
+                void createShare(); // the outcome is shown in the dialog
+              }}
+            >
+              {loading ? t("clipShare.creating") : t("clipShare.create")}
+            </Button>
           )}
           {share && revoked && (
             <p className="text-sm text-muted-foreground" role="status">

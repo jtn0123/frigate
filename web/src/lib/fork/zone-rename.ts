@@ -31,11 +31,28 @@ function isRecord(value: unknown): value is ConfigData {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Keys that reach `Object.prototype` instead of an own property. Paths come
+ * from a query string and zone names from user input, so neither `setPath`
+ * nor `mergeInto` ever writes through one (E17).
+ */
+function isUnsafeKey(key: string): boolean {
+  return key === "__proto__" || key === "constructor" || key === "prototype";
+}
+
 function setPath(target: ConfigData, path: string[], value: unknown) {
   const last = path.at(-1);
   if (last === undefined) return;
+  // an unsafe segment anywhere drops the whole write, not only that segment,
+  // so the value never lands one level above where the path pointed
+  if (path.some(isUnsafeKey)) return;
   let node = target;
   for (const key of path.slice(0, -1)) {
+    // repeated as plain comparisons next to the write, which is the form
+    // CodeQL's js/prototype-pollution-utility reads as a guard
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      return;
+    }
     const next = node[key];
     if (isRecord(next)) {
       node = next;
@@ -45,11 +62,18 @@ function setPath(target: ConfigData, path: string[], value: unknown) {
       node = created;
     }
   }
+  if (last === "__proto__" || last === "constructor" || last === "prototype") {
+    return;
+  }
   node[last] = value;
 }
 
 function mergeInto(target: ConfigData, source: ConfigData) {
   for (const [key, value] of Object.entries(source)) {
+    // `JSON.parse` makes "__proto__" an own key, so `Object.entries` lists it
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      continue;
+    }
     const existing = target[key];
     if (isRecord(existing) && isRecord(value)) mergeInto(existing, value);
     else target[key] = value;

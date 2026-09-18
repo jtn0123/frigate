@@ -228,15 +228,36 @@ class TestForkUpdatesConcurrency(unittest.TestCase):
 
     def test_an_unexpected_fetch_error_does_not_end_refreshing_for_good(self) -> None:
         fetch = FakeFetch(RuntimeError("bug"))
-        checker = ForkUpdateChecker(
-            f"0.18.0-{SHA_OLD[:9]}", fetch=fetch, clock=FakeClock()
-        )
+        clock = FakeClock()
+        checker = ForkUpdateChecker(f"0.18.0-{SHA_OLD[:9]}", fetch=fetch, clock=clock)
 
         with self.assertRaises(RuntimeError):
             checker.state()
 
         fetch.result = RELEASES
+        clock.now += CHECK_INTERVAL_SECONDS
         self.assertEqual(checker.state()["status"], "available")
+        self.assertEqual(fetch.calls, 2)
+
+    def test_an_unexpected_fetch_error_counts_as_a_check(self) -> None:
+        """B11: the next polls wait for the interval instead of refetching."""
+        fetch = FakeFetch(RuntimeError("bug"))
+        clock = FakeClock()
+        checker = ForkUpdateChecker(f"0.18.0-{SHA_OLD[:9]}", fetch=fetch, clock=clock)
+
+        with self.assertRaises(RuntimeError):
+            checker.state()
+
+        clock.now += CHECK_INTERVAL_SECONDS - 1
+        state = checker.state()
+        self.assertEqual(fetch.calls, 1)
+        self.assertEqual(state["error"], "failed")
+        self.assertEqual(state["status"], "unknown")
+        self.assertIsNotNone(state["checked_at"])
+
+        clock.now += 1
+        with self.assertRaises(RuntimeError):
+            checker.state()
         self.assertEqual(fetch.calls, 2)
 
 

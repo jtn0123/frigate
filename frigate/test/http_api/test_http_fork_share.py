@@ -1,7 +1,13 @@
 """HTTP tests for expiring clip share links (fork UI11)."""
 
 import asyncio
+import os
+import shutil
+import tempfile
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -298,6 +304,47 @@ class TestHttpForkShare(BaseTestHttp):
 
         assert self._free_slots() == fork_share.MAX_CONCURRENT_SHARE_CLIPS
 
+    def test_playlist_is_removed_when_the_stream_is_never_read(self):
+        """E22: a client that leaves before the body starts leaves no file."""
+        now = time.time()
+        self.insert_mock_event("event-share-leak", start_time=now - 30, end_time=now)
+        self.insert_mock_recording("rec-share-leak", start_time=now - 40, end_time=now)
+        self._link("leakToken12345678901234567890123", "event-share-leak")
+        cache_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, cache_dir, ignore_errors=True)
+        request = SimpleNamespace(app=self.app)
+
+        with (
+            patch("frigate.api.media.CACHE_DIR", cache_dir),
+            patch("frigate.api.media.sp.Popen") as popen,
+        ):
+            response = asyncio.run(
+                fork_share.get_share_clip(request, "leakToken12345678901234567890123")
+            )
+            assert isinstance(response, StreamingResponse)
+            playlists = os.listdir(cache_dir)
+            assert len(playlists) == 1 and playlists[0].startswith("playlist_")
+
+            # what dropping the response does; the generator never runs
+            response.body_iterator.release()
+
+        popen.assert_not_called()
+        assert os.listdir(cache_dir) == []
+        assert self._free_slots() == fork_share.MAX_CONCURRENT_SHARE_CLIPS
+
+    def test_playlist_that_cannot_be_removed_is_logged(self):
+        assert fork_share._clip_slots.acquire(blocking=False)
+        stream = fork_share._SlotStream(iter(()), "/tmp/cache/playlist_x.txt")
+
+        with (
+            patch("frigate.api.fork_share.Path.unlink", side_effect=OSError("busy")),
+            self.assertLogs("frigate.api.fork_share", level="WARNING") as logs,
+        ):
+            stream.release()
+
+        assert any("Unable to remove clip playlist" in line for line in logs.output)
+        assert self._free_slots() == fork_share.MAX_CONCURRENT_SHARE_CLIPS
+
     def test_slot_is_returned_once_when_the_stream_is_cancelled(self):
         async def body():
             raise asyncio.CancelledError
@@ -475,6 +522,43 @@ class TestHttpForkShare(BaseTestHttp):
             "message": "Too many active share links",
         }
         assert other_user.status_code == 200
+
+    def test_parallel_creates_cannot_pass_the_cap_together(self):
+        """B11: the count and the insert are one step for parallel requests."""
+        for index in range(fork_share.MAX_ACTIVE_LINKS_PER_USER - 1):
+            self._link(f"manyToken{index:023d}", "event-share-race", created_by="bob")
+        now = time.time()
+        real_create = ShareLink.create
+        counted = threading.Barrier(4, timeout=2)
+
+        def slow_create(**fields):
+            # Without the lock every thread has counted 49 by now and waits
+            # here together; with it they arrive one at a time and time out.
+            try:
+                counted.wait()
+            except threading.BrokenBarrierError:
+                pass
+            return real_create(**fields)
+
+        def create(index: int) -> ShareLink | None:
+            return fork_share._create_link_within_cap(
+                token=f"raceToken{index:023d}",
+                event_id="event-share-race",
+                camera="front_door",
+                created_by="bob",
+                created_at=now,
+                expires_at=now + 3600,
+            )
+
+        with (
+            patch.object(ShareLink, "create", side_effect=slow_create),
+            ThreadPoolExecutor(max_workers=4) as pool,
+        ):
+            links = list(pool.map(create, range(4)))
+
+        assert len([link for link in links if link is not None]) == 1
+        active = ShareLink.select().where(ShareLink.created_by == "bob").count()
+        assert active == fork_share.MAX_ACTIVE_LINKS_PER_USER
 
     def test_deleting_a_user_deletes_their_links(self):
         self.app.config_publisher = Mock()

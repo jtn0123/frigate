@@ -12,7 +12,11 @@ import { toast } from "sonner";
 import { useApi } from "@/api/fork/client";
 import { Button } from "@/components/ui/button";
 import { AuthContext } from "@/context/auth-state";
-import { shareExpiry, type ShareExpiry } from "@/lib/fork/share-path";
+import {
+  shareCameraName,
+  shareExpiry,
+  type ShareExpiry,
+} from "@/lib/fork/share-path";
 import type { components } from "@/types/fork/api.gen";
 
 type ShareLink = components["schemas"]["ShareLinkListItem"];
@@ -38,15 +42,25 @@ export default function ActiveShareLinks({
   const revoke = useCallback(
     async (link: ShareLink) => {
       setRevoking(link.token);
+      let gone = false;
       try {
         await axios.delete(`fork/share/${link.token}`);
-      } catch {
-        toast.error(t("clipShare.revokeFailed"));
-        return;
+      } catch (error) {
+        // 404: the link expired or was revoked elsewhere, which is the outcome
+        // the user asked for
+        gone = axios.isAxiosError(error) && error.response?.status === 404;
+        if (!gone) {
+          toast.error(t("clipShare.revokeFailed"));
+          // the list may be what is out of date, so read it again
+          void mutate();
+          return;
+        }
       } finally {
         setRevoking(null);
       }
-      toast.success(t("clipShare.revoked"));
+      if (!gone) {
+        toast.success(t("clipShare.revoked"));
+      }
       onRevoked?.(link.token);
       await mutate(
         (links) => links?.filter((item) => item.token !== link.token),
@@ -110,7 +124,7 @@ export default function ActiveShareLinks({
           {data.map((link) => {
             const expires = expiryText(shareExpiry(link.expires_at, now));
             const name = t("clipShare.linkName", {
-              camera: link.camera.replaceAll("_", " "),
+              camera: shareCameraName(link.camera),
               event: link.event_id,
             });
             return (

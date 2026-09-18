@@ -21,6 +21,9 @@ COPY fork/scripts /opt/frigate/fork/scripts
 COPY fork/audit-exceptions.json fork/coverage-floor.json /opt/frigate/fork/
 COPY fork/audio_trial /opt/frigate/fork/audio_trial
 COPY fork/monitoring /opt/frigate/fork/monitoring
+# test_ledger.py validates the row files against the ledger's table
+COPY FORK.md /opt/frigate/FORK.md
+COPY fork/ledger /opt/frigate/fork/ledger
 COPY .coveragerc /opt/frigate/.coveragerc
 COPY testing-scripts /opt/frigate/testing-scripts
 COPY frigate /opt/frigate/frigate

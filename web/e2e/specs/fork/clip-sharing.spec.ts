@@ -45,8 +45,10 @@ test.describe("Clip sharing @high", () => {
     frigateApp,
   }) => {
     const { page } = frigateApp;
+    let created = 0;
     await page.route("**/api/fork/share", async (route) => {
       if (route.request().method() === "POST") {
+        created += 1;
         return route.fulfill({ json: SHARE_BODY });
       }
       return route.fallback();
@@ -58,12 +60,69 @@ test.describe("Clip sharing @high", () => {
     await expect(share).toBeVisible({ timeout: 10_000 });
     await share.click();
     await expect(page.getByTestId("share-clip-dialog")).toBeVisible();
+    // opening the dialog lists links; only the button makes one
+    await expect(page.getByTestId("share-clip-active")).toBeVisible();
+    expect(created).toBe(0);
+    await page.getByRole("button", { name: "Create link" }).click();
     await expect(page.getByTestId("share-clip-url")).toHaveValue(
       /\/share\/e2eShareToken/,
     );
     await expect(
       page.getByTestId("share-clip-qr").locator("svg"),
     ).toBeVisible();
+    expect(created).toBe(1);
+  });
+
+  test("at the link cap the dialog stays open so a link can be revoked", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    let links = ACTIVE_LINKS.slice(1);
+    let atCap = true;
+    await page.route("**/api/fork/share", async (route) => {
+      if (route.request().method() !== "POST") {
+        return route.fulfill({ json: links });
+      }
+      if (atCap) {
+        return route.fulfill({
+          status: 429,
+          json: { success: false, message: "Too many active share links" },
+        });
+      }
+      links = [...ACTIVE_LINKS];
+      return route.fulfill({ json: SHARE_BODY });
+    });
+    await page.route("**/api/fork/share/*", async (route) => {
+      if (route.request().method() !== "DELETE") {
+        return route.fallback();
+      }
+      links = [];
+      atCap = false;
+      return route.fulfill({
+        json: { success: true, message: "Share link revoked" },
+      });
+    });
+
+    await frigateApp.goto("/explore?labels=person");
+    await page.locator('img[src*="/thumbnail.webp"]').first().click();
+    await page.getByTestId("share-clip").click();
+    const dialog = page.getByTestId("share-clip-dialog");
+    const create = dialog.getByRole("button", { name: "Create link" });
+    await create.click();
+
+    await expect(dialog.getByRole("alert")).toContainText(
+      "You have reached the limit of active share links.",
+    );
+    const rows = dialog.getByTestId("share-clip-active-row");
+    await expect(rows).toHaveCount(1);
+    await rows.getByRole("button", { name: /Revoke/ }).click();
+    await expect(rows).toHaveCount(0);
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+
+    await create.click();
+    await expect(page.getByTestId("share-clip-url")).toHaveValue(
+      /\/share\/e2eShareToken/,
+    );
   });
 
   test("the share dialog lists active links and revokes one", async ({
@@ -95,6 +154,7 @@ test.describe("Clip sharing @high", () => {
     await page.getByTestId("share-clip").click();
 
     const dialog = page.getByTestId("share-clip-dialog");
+    await dialog.getByRole("button", { name: "Create link" }).click();
     await expect(dialog.getByRole("img", { name: /QR code/ })).toBeVisible();
     const active = dialog.getByTestId("share-clip-active");
     await expect(
@@ -144,6 +204,34 @@ test.describe("Clip sharing @high", () => {
     expect(requests).toEqual([]);
   });
 
+  test("public share page offers a retry when the server fails", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    let failing = true;
+    await page.route(
+      "**/api/fork/share/e2eShareToken123456789012345678",
+      (route) => {
+        if (failing) {
+          return route.fulfill({ status: 500, json: { success: false } });
+        }
+        return route.fulfill({ json: { ...SHARE_BODY, has_clip: false } });
+      },
+    );
+
+    await frigateApp.goto("/share/e2eShareToken123456789012345678");
+    const root = page.getByTestId("share-clip-page");
+    await expect(root.getByRole("alert")).toContainText(
+      "Could not load this share link.",
+    );
+    await expect(root).not.toContainText("This share link was not found.");
+
+    failing = false;
+    await root.getByRole("button", { name: "Retry" }).click();
+    await expect(root).toContainText("The clip is no longer available.");
+    await expect(root.getByRole("alert")).toHaveCount(0);
+  });
+
   test("public share page shows the clip metadata and QR @mobile", async ({
     frigateApp,
   }) => {
@@ -171,7 +259,7 @@ test.describe("Clip sharing @high", () => {
     const root = page.getByTestId("share-clip-page");
     await expect(root).toBeVisible({ timeout: 10_000 });
     await expect(root).toContainText(/person/i);
-    await expect(root).toContainText(/front_door/i);
+    await expect(root).toContainText(/front door/i);
     await expect(
       page.getByTestId("share-clip-qr").locator("svg"),
     ).toBeVisible();
