@@ -33,6 +33,7 @@ py_script_tests=(
   test_lock_audit.py
   test_audio_lock.py
   test_benchmark_guards.py
+  test_sonar_token_expiry.py
 )
 
 main() {

@@ -42,6 +42,8 @@ The repository ships a [Dev Container](https://containers.dev/) in `.devcontaine
 
 ### What CI checks before merge
 
+> **In this fork (`jtn0123/frigate`)**: pull requests target `next`, not `dev`, and `make check` runs every gate locally, including the ones this list omits (type ratchet, bundle budget, e2e spec lint, the fork's script tests; the SonarCloud quality gate runs in CI). See "Fork workflow" in `AGENTS.md` and the rules at the top of `FORK.md`.
+
 Every pull request runs these gates; all of them must pass:
 
 1. `ruff format --check` and `ruff check` on the Python code (`python_checks`).
@@ -70,7 +72,7 @@ Every pull request runs these gates; all of them must pass:
 
 - Be responsive to review feedback. We may ask for changes.
 - Expect honest, direct feedback. We try to be respectful but we also try to be efficient.
-- If your PR goes stale, rebase it on the latest `dev` branch.
+- If your PR goes stale, rebase it on the latest `dev` branch (in this fork: merge or rebase onto the latest `origin/next`).
 
 ## Coding standards
 

@@ -30,6 +30,14 @@ base="$(git merge-base HEAD "$base_ref")" || {
   echo "no merge base with $base_ref (set FORK_BASE)" >&2
   exit 1
 }
+# A stale checkout is graded against old code without anything saying so. No
+# fetch here: the remote-tracking ref is used as it is, and a missing one (or a
+# FORK_BASE that is not origin/next) only skips the warning.
+stale_limit=20
+behind="$(git rev-list --count HEAD..refs/remotes/origin/next 2>/dev/null)" || behind=0
+if ((behind > stale_limit)); then
+  echo "warning: HEAD is $behind commits behind origin/next (as of the last fetch); merge or rebase before trusting this run" >&2
+fi
 export E2E_PORT="${E2E_PORT:-$(cat web/.e2e-port 2>/dev/null || echo 4173)}"
 logs="$(mktemp -d "${TMPDIR:-/tmp}/fork-check.XXXXXX")"
 changed="$({

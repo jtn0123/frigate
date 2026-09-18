@@ -1,3 +1,17 @@
+> **This is a fork: [`jtn0123/frigate`](https://github.com/jtn0123/frigate).**
+> UI/UX polish plus stability work on top of upstream Frigate 0.18.0, kept
+> mergeable with upstream. Everything below this block is upstream's README.
+>
+> - What differs and why: [`FORK.md`](FORK.md), the ledger of every divergence.
+>   Release notes: [GitHub Releases](https://github.com/jtn0123/frigate/releases).
+> - Images: `ghcr.io/jtn0123/frigate:main`, and `ghcr.io/jtn0123/frigate:main-rocm`
+>   for AMD GPUs. Each release also has a versioned tag, listed in its notes.
+> - Branches: pull requests land on `next`, `main` is the released branch and
+>   moves only through `make promote`, and `dev` mirrors upstream.
+> - Upstream lives at [blakeblackshear/frigate](https://github.com/blakeblackshear/frigate).
+>   Problems with upstream behavior belong there; only report here what this
+>   fork changed.
+
 <p align="center">
   <img align="center" alt="logo" src="docs/static/img/branding/frigate.png">
 </p>

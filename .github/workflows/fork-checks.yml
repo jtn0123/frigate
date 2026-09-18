@@ -3,7 +3,9 @@ name: Fork - Checks
 # Same gates as upstream's pull_request.yml, run on pushes to next (where pull
 # requests land) and main (the release branch), with dependency caching and a
 # thin backend test image instead of a full devcontainer build. Web and Python
-# lint and E2E jobs run only when their files changed. Both coverage suites run
+# lint and E2E jobs run only when their files changed, except that a push to
+# next always runs the web jobs (Sonar's branch gate needs the browser coverage;
+# see fork/scripts/ci-changes.sh). Both coverage suites run
 # on every revision so Sonar never mixes reports from different commits.
 # "Checks passed" includes the Sonar quality gate for trusted revisions.
 
@@ -231,7 +233,7 @@ jobs:
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
       # Dependabot bumps fork/audio_trial/requirements.in; this fails until the
-      # hash-pinned lock the image installs is recompiled from it (F7).
+      # hash-pinned lock the image installs is recompiled from it (F10).
       - run: python3 fork/scripts/audio-lock-check.py
       # Known advisories in the fork's own locks, with reviewed exceptions (E8).
       - run: |
@@ -345,6 +347,10 @@ jobs:
         working-directory: ./web
       - name: Verify coverage reports
         run: python3 fork/scripts/sonar-coverage-check.py
+      # Warns from 14 days before the date in fork/sonar-token.env and fails
+      # once it has passed, so an expired token is named as the cause.
+      - name: Check the documented SONAR_TOKEN expiry
+        run: python3 fork/scripts/sonar-token-expiry.py
       - name: Check Sonar authentication
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -361,6 +367,23 @@ jobs:
           args: >-
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=600
+      # The scanner only says FAILED and links the dashboard. Name the failed
+      # conditions in the log, so a red next can be told apart at a glance:
+      # coverage (an incomplete report) or a rating (a finding on the branch).
+      # The project is public, so this read needs no token.
+      - name: Report the failed quality gate conditions
+        if: failure()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          scope="branch=next"
+          if [[ -n "$PR_NUMBER" ]]; then
+            scope="pullRequest=${PR_NUMBER}"
+          fi
+          url="https://sonarcloud.io/api/qualitygates/project_status?projectKey=jtn0123_frigate&${scope}"
+          curl --proto '=https' -sSf --max-time 30 "$url" |
+            jq -r '.projectStatus.conditions[] | select(.status != "OK") | "::error title=Quality gate::\(.metricKey) is \(.actualValue) (fails when \(.comparator) \(.errorThreshold))"' ||
+            echo "::warning::Could not read the quality gate conditions; open the dashboard link above"
 
   checks_passed:
     name: Checks passed
