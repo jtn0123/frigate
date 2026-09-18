@@ -14,17 +14,8 @@ MANIFEST = Path(__file__).with_name("models.lock.json")
 RACY_WINDOW_NS = 2_000_000_000
 
 
-def resolve_model(
-    name: str, root: Path | None = None, state: Path | None = None
-) -> str:
-    """Verify content on first use or metadata change, then use the pinned snapshot."""
-    root = root or Path(os.environ.get("MODEL_ROOT", "/models"))
-    state = state or Path(os.environ.get("STATE_DIR", "/state"))
-    entry = json.loads(MANIFEST.read_text())[name]
-    snapshot = root / entry["path"]
-    files = entry["files"]
-    if not files:
-        raise ValueError("Empty model integrity manifest")
+def _fingerprint(snapshot: Path, root: Path, files: dict) -> tuple[dict, int]:
+    """Return each file's metadata and the newest timestamp among them."""
     fingerprint = {}
     newest_ns = 0
     for relative in files:
@@ -39,24 +30,48 @@ def resolve_model(
             stat.st_ino,
         ]
         newest_ns = max(newest_ns, stat.st_mtime_ns, stat.st_ctime_ns)
-    record = {"files": files, "fingerprint": fingerprint, "snapshot": str(snapshot)}
-    cache = state / f"integrity-{name}.json"
+    return fingerprint, newest_ns
+
+
+def _cached_validation_holds(cache: Path, record: dict, newest_ns: int) -> bool:
+    """Tell whether an earlier verification still vouches for these files."""
     try:
         previous = json.loads(cache.read_text())
     except (OSError, ValueError):
-        previous = None
-    verified_ns = 0
-    if isinstance(previous, dict):
-        stored = previous.pop("verified_ns", 0)
-        verified_ns = stored if isinstance(stored, int) else 0
-    settled = verified_ns - newest_ns >= RACY_WINDOW_NS
-    if previous != record or not settled:
-        for relative, metadata in files.items():
-            expected = metadata["sha256"]
-            with (snapshot / relative).open("rb") as source:
-                actual = hashlib.file_digest(source, "sha256").hexdigest()
-            if actual != expected:
-                raise ValueError("Model cache integrity mismatch")
+        return False
+    if not isinstance(previous, dict):
+        return False
+    verified_ns = previous.pop("verified_ns", 0)
+    if not isinstance(verified_ns, int):
+        return False
+    return previous == record and verified_ns - newest_ns >= RACY_WINDOW_NS
+
+
+def _verify_hashes(snapshot: Path, files: dict) -> None:
+    """Raise unless every file matches the manifest's SHA-256."""
+    for relative, metadata in files.items():
+        with (snapshot / relative).open("rb") as source:
+            actual = hashlib.file_digest(source, "sha256").hexdigest()
+        if actual != metadata["sha256"]:
+            raise ValueError("Model cache integrity mismatch")
+
+
+def resolve_model(
+    name: str, root: Path | None = None, state: Path | None = None
+) -> str:
+    """Verify content on first use or metadata change, then use the pinned snapshot."""
+    root = root or Path(os.environ.get("MODEL_ROOT", "/models"))
+    state = state or Path(os.environ.get("STATE_DIR", "/state"))
+    entry = json.loads(MANIFEST.read_text())[name]
+    snapshot = root / entry["path"]
+    files = entry["files"]
+    if not files:
+        raise ValueError("Empty model integrity manifest")
+    fingerprint, newest_ns = _fingerprint(snapshot, root, files)
+    record = {"files": files, "fingerprint": fingerprint, "snapshot": str(snapshot)}
+    cache = state / f"integrity-{name}.json"
+    if not _cached_validation_holds(cache, record, newest_ns):
+        _verify_hashes(snapshot, files)
         # This cache is only an optimization. Read-only state never bypasses hashes.
         try:
             state.mkdir(parents=True, exist_ok=True)
