@@ -24,11 +24,13 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request supersedes its run in progress. Runs on a
-# branch (next, sync/upstream) queue instead and all finish, so every merge
-# commit gets a finished check and its own Sonar analysis (I36).
+# A newer push to a pull request supersedes its run in progress. A push to a
+# branch (next, sync/upstream) gets a group of its own, so every merge commit
+# gets a finished check and its own Sonar analysis (I36). Sharing one group
+# per branch was not enough: a group holds a single pending run, so the third
+# merge in a row replaced the second while the first was still running.
 concurrency:
-  group: fork-checks-${{ github.ref }}
+  group: fork-checks-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
