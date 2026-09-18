@@ -4,7 +4,6 @@ import asyncio
 import datetime
 import logging
 from functools import reduce
-from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, Request
@@ -34,6 +33,7 @@ from frigate.api.defs.response.review_response import (
     ReviewSummaryResponse,
 )
 from frigate.api.defs.tags import Tags
+from frigate.api.fork_bulk import delete_reviews_data
 from frigate.embeddings import EmbeddingsContext
 from frigate.models import Recordings, ReviewSegment, UserReviewStatus
 from frigate.review.types import SeverityEnum
@@ -517,48 +517,7 @@ async def set_multiple_reviewed(
     dependencies=[Depends(require_role(["admin"]))],
 )
 def delete_reviews(body: ReviewModifyMultipleBody):
-    list_of_ids = body.ids
-    reviews = (
-        ReviewSegment.select(
-            ReviewSegment.camera,
-            ReviewSegment.start_time,
-            ReviewSegment.end_time,
-        )
-        .where(ReviewSegment.id << list_of_ids)
-        .dicts()
-        .iterator()
-    )
-    recording_ids = []
-
-    for review in reviews:
-        start_time = review["start_time"]
-        end_time = review["end_time"]
-        camera_name = review["camera"]
-        recordings = (
-            Recordings.select(Recordings.id, Recordings.path)
-            .where(
-                Recordings.start_time.between(start_time, end_time)
-                | Recordings.end_time.between(start_time, end_time)
-                | (
-                    (start_time > Recordings.start_time)
-                    & (end_time < Recordings.end_time)
-                )
-            )
-            .where(Recordings.camera == camera_name)
-            .dicts()
-            .iterator()
-        )
-
-        for recording in recordings:
-            Path(recording["path"]).unlink(missing_ok=True)
-            recording_ids.append(recording["id"])
-
-    # delete recordings and review segments
-    Recordings.delete().where(Recordings.id << recording_ids).execute()
-    ReviewSegment.delete().where(ReviewSegment.id << list_of_ids).execute()
-    UserReviewStatus.delete().where(
-        UserReviewStatus.review_segment << list_of_ids
-    ).execute()
+    delete_reviews_data(body.ids)
 
     return JSONResponse(
         content=({"success": True, "message": "Deleted review items."}), status_code=200
