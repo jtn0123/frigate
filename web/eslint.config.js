@@ -3,8 +3,7 @@
 //   - unused vars/args/caught errors are allowed when prefixed with "_"
 //   - prettier disagreements are errors (they were warnings before)
 //   - dist, *.d.ts and the vendored src/components/ui are not linted
-// jsx-a11y is new here and reports warnings only while the callsites are
-// brought into line.
+// jsx-a11y recommended rules are errors (C9); see jsxA11yStillWarn below.
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -22,12 +21,24 @@ const unusedVarsOptions = {
   caughtErrorsIgnorePattern: "^_",
 };
 
-// Every jsx-a11y recommended rule, downgraded to a warning.
-const jsxA11yWarnings = Object.fromEntries(
-  Object.entries(jsxA11y.flatConfigs.recommended.rules).map(([name, level]) => [
-    name,
-    Array.isArray(level) ? ["warn", ...level.slice(1)] : "warn",
-  ]),
+// C9: jsx-a11y rules that still have findings stay at "warn", each with its
+// count, until every site is fixed. Empty since 2026-09-17: a rule only goes
+// back in here together with a note on why its sites cannot be fixed yet.
+const jsxA11yStillWarn = new Set([]);
+
+// Every enabled jsx-a11y recommended rule is an error, keeping its options.
+// Rules the preset turns off stay off.
+const jsxA11ySeverity = (name) =>
+  jsxA11yStillWarn.has(name) ? "warn" : "error";
+const jsxA11yRules = Object.fromEntries(
+  Object.entries(jsxA11y.flatConfigs.recommended.rules)
+    .filter(([, level]) => (Array.isArray(level) ? level[0] : level) !== "off")
+    .map(([name, level]) => [
+      name,
+      Array.isArray(level)
+        ? [jsxA11ySeverity(name), ...level.slice(1)]
+        : jsxA11ySeverity(name),
+    ]),
 );
 
 export default tseslint.config(
@@ -62,12 +73,12 @@ export default tseslint.config(
       "jsx-a11y": jsxA11y,
     },
     rules: {
-      ...jsxA11yWarnings,
+      ...jsxA11yRules,
       // The deprecated rule requires both nesting and htmlFor. Either is
       // sufficient; recognize the labelable Radix controls used by our forms.
       "jsx-a11y/label-has-for": "off",
       "jsx-a11y/label-has-associated-control": [
-        "warn",
+        jsxA11ySeverity("jsx-a11y/label-has-associated-control"),
         {
           controlComponents: [
             "Input",
@@ -80,7 +91,7 @@ export default tseslint.config(
         },
       ],
       "jsx-a11y/control-has-associated-label": [
-        "warn",
+        jsxA11ySeverity("jsx-a11y/control-has-associated-label"),
         {
           ...jsxA11y.flatConfigs.recommended.rules[
             "jsx-a11y/control-has-associated-label"
