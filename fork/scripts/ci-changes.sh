@@ -45,10 +45,13 @@ has() {
 }
 web="$(has "$web_re" && echo true || echo false)"
 python="$(has "$py_re" && echo true || echo false)"
-# Sonar judges next on the whole branch, and most web coverage is measured by
-# the E2E suite. A Python-only push to next that skipped it would report the web
-# code as untested and fail the gate, so there the web jobs run as well.
-if [[ "${GITHUB_EVENT_NAME:-}" == "push" && "${GITHUB_REF:-}" == "refs/heads/next" && "$python" == "true" ]]; then
+# Sonar judges next on the whole branch (every line inside its new-code
+# period), and most web coverage is measured by the E2E suite. The scan runs on
+# every push to next, so a push that skipped E2E, whether Python-only or
+# docs-only, would report the web code as untested and fail the coverage
+# condition (58.5% instead of 83.5% on 2026-09-17). There the web jobs always
+# run. A pull request is judged on its own lines, so it keeps the filter.
+if [[ "${GITHUB_EVENT_NAME:-}" == "push" && "${GITHUB_REF:-}" == "refs/heads/next" ]]; then
   web=true
 fi
 emit "$web" "$python"

@@ -47,3 +47,7 @@ fork/demo/.build/
 .scannerwork/
 coverage-py/
 .coverage
+
+# fork: local evidence folders (agent logs, before/after screenshots)
+.codex-output/
+fork/demo/screenshots/compare/
