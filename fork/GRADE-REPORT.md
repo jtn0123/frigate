@@ -30,17 +30,19 @@ merge train itself exposed a process cost (I35, I36).
 | ID | Category | Baseline | 09-10 | 09-17 | Now | Open items |
 |----|----------|----------|-------|-------|-----|------------|
 | A | Architecture & Design | B− | B− | B | B | 5 |
-| B | Backend Quality | B− | B | B | B+ | 6 |
-| C | Frontend Quality | C | C+ | B− | B− | 16 |
-| D | Testing & Reliability | C+ | B− | B | B | 8 |
-| E | Security | B+ | B+ | B+ | B+ | 7 |
+| B | Backend Quality | B− | B | B | B+ | 4 |
+| C | Frontend Quality | C | C+ | B− | B− | 13 |
+| D | Testing & Reliability | C+ | B− | B | B | 7 |
+| E | Security | B+ | B+ | B+ | B+ | 4 |
 | F | Dependencies & Tech Currency | C+ | B− | B− | B− | 5 |
 | G | Performance & Scalability | C+ | B− | C+ | B− | 7 |
 | H | Documentation & Onboarding | C | C+ | C+ | C+ | 5 |
-| I | Developer Experience & Tooling | C+ | B | B | B | 11 |
-| **Overall** | | **B−** | **B** | **B** | **B** | **70** + UX track |
+| I | Developer Experience & Tooling | C+ | B | B | B | 8 |
+| **Overall** | | **B−** | **B** | **B** | **B** | **58** + UX track |
 
-**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), I35, B10, E17, C20
+**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E18, G17, D48, I31
+
+Update 2026-09-18 (later the same day): B10, B11, C20, C30, C31, D51, E20, E21, E22, I35, I36 and I37 landed on `next` in #73 to #76, and E17's code half with them. The category prose below was written before they did.
 
 **Type safety at a glance.** Frontend: TypeScript `strict` gates the build and
 `fork/type-ratchet.json` holds every escape hatch (`explicitAny` 23,
@@ -77,7 +79,7 @@ to G15 moved about 75 lines out into new fork modules), 38 frontend files over 8
 - **What's wrong:** One loop interleaves config updates, the hwaccel reset, enable and record transitions, the segment drain, backoff, detect liveness and stall checks, record staleness (SV3) and the outage tick (SV6). It is the largest fork-touched function and the worst rebase-conflict surface in the backend.
 - **Fix:** Extract `_drain_segment_updates()`, `_check_detect_process(now, can_restart)` and `_check_record_processes(now)`; `run` drops to about 90 lines. Behavior unchanged; the existing watchdog tests cover it.
 - **Effort:** M
-- **Grade lift:** B → B (smaller rebase hunks; makes B10 easy to test)
+- **Grade lift:** B → B (smaller rebase hunks)
 
 #### A1 — Introduce a viewport hook and retire user-agent layout branching `[fork]` (= UI5)
 - **Where:** `web/src/App.tsx`, `components/navigation/{Sidebar,Bottombar,NavItem}.tsx`, `hooks/use-navigation.ts`; 665 `isMobile`/`isDesktop` references (up from 594). No `use-viewport` hook exists; the `viewportLayout` flag in `web/src/fork/flags.ts` has no production consumer.
@@ -129,20 +131,8 @@ not enforced.
 - ~~B5~~ ✓ done 2026-09-18. `HwaccelFallback.maybe_expire` ends an expired switch on the next watchdog tick and restarts ffmpeg; one log snapshot feeds both classifiers; `_save` uses `write_private_file` (#67)
 - ~~B6~~ ✓ done 2026-09-18. `frigate/fork/updates.py` fetches outside the lock behind a `_refreshing` flag and serves the stale value meanwhile (#67)
 - ~~B7~~ ✓ done 2026-09-18. `RestartLog` prunes dump keys past the repeat window and trims history in one write (#67)
-
-#### B10 — The hardware-decoding retry restarts recording too `[fork]`
-- **Where:** `frigate/video/ffmpeg.py:386-402` (added by B5); compare the activation path, which restarts detect only (`reset_capture_thread`, `:497-498`)
-- **What's wrong:** When the 7-day software-decoding switch expires, the watchdog takes the config-change branch: `stop_all_ffmpeg()` and `start_all_ffmpeg()`, a reset of `record_enable_time`, and a debug line that says "FFmpeg config updated". A camera that fell back gets a recording gap every 7 days, and again each week if hardware decoding still fails.
-- **Fix:** On expiry call `reset_capture_thread(cause="hwaccel retry")` so only the detect process restarts; its own log line; a watchdog test asserting the record process object is unchanged across an expiry.
-- **Effort:** S
-- **Grade lift:** B+ → B+ (a defect in a stability feature)
-
-#### B11 — Three edge cases in the newly merged code `[fork]`
-- **Where:** `frigate/fork/updates.py:184-198`; `frigate/api/fork_bulk.py:125-138`; `frigate/api/fork_share.py:306-322`
-- **What's wrong:** An exception from `_fetch_releases` other than the two it handles clears `_refreshing` but leaves `_checked_at` unset, so every poll fetches GitHub again with no backoff. Bulk event delete unlinks snapshots before deleting rows, the opposite order to `delete_reviews_data`, so a failed row delete leaves events without media. The active-link count and the insert are not one transaction, so parallel POSTs can pass the 50-link cap by a few.
-- **Fix:** Set `_checked_at` and `_error` in the `finally` for every outcome; delete rows first, then media; count and insert inside `database.atomic()`. One test each.
-- **Effort:** S
-- **Grade lift:** B+ → B+
+- ~~B10~~ ✓ done 2026-09-18. An expired hwaccel switch restarts detect only (`reset_capture_thread(cause="hwaccel retry")`); recording keeps running (#76)
+- ~~B11~~ ✓ done 2026-09-18. Update check backs off after any fetch error; bulk event delete removes rows before media; the share-link cap is counted and inserted under one lock, because `SqliteQueueDatabase` rejects `atomic()` (#76)
 
 #### B8 — Make the logging and exception rules enforceable `[fork]`
 - **Where:** `pyproject.toml:21` (ignores `G004` while selecting `G`; the stale `ASYNC230` ignore went with G15); f-string log calls in `frigate/video/ffmpeg.py` (18), `hwaccel_fallback.py` (3), `restart_log.py` (1), none left in `camera_outage.py`, `fork_share.py` or any file added since 09-17; silent swallow `frigate/genai/plugins/ollama.py:288-289`; one broad try around three probes `:322-333`
@@ -201,6 +191,9 @@ into errors so they stay there.
 - ~~C10~~ ✓ done 2026-09-11. TypeScript hatch ratchet, fork-strict typecheck
 - ~~C11~~ ✓ done 2026-09-11. Floating and misused promises are errors (269 → 0)
 - ~~C12~~ ✓ done 2026-09-11. SonarCloud findings in fork web code (3 props types still not `Readonly`: `EventSummaryHeader.tsx:37`, `updates/ReleaseNotesDialog.tsx:38,78`)
+- ~~C20~~ ✓ done 2026-09-18. `getId` for `useBulkSelection` is a module-level function, so Explore thumbnails skip renders again; a `renderHook` test pins the identity (#75)
+- ~~C30~~ ✓ done 2026-09-18. The share dialog only lists links on open and creates behind a button; a failure (429 at the cap included) stays in the dialog, stale results are dropped, a failed revoke revalidates (#75)
+- ~~C31~~ ✓ done 2026-09-18. Public share page: error state with Retry, video `onError`, status roles, shared camera-name format; the share-path regex is anchored (#75)
 - C13 to C19: see `FORK.md`
 
 #### C3 — Extract the Settings "Save All" transaction into a tested module `[fork]`
@@ -209,27 +202,6 @@ into errors so they stay there.
 - **Fix:** `web/src/lib/fork/settings-save.ts` with vitest for ordering, partial failure and restart-required; both `Settings.tsx` and `settings-diff.ts` call one go2rtc diff function.
 - **Effort:** M
 - **Grade lift:** B− → B− (risk reduction on the most dangerous screen)
-
-#### C20 — Explore re-renders every thumbnail on every render `[fork]`
-- **Where:** `web/src/views/search/SearchView.tsx:318,338`; `web/src/hooks/fork/use-bulk-selection.ts:73,117,123,138-148`; `components/card/SearchThumbnail.tsx:191`
-- **What's wrong:** An inline `getId` arrow is a dependency of `selectAll`, `onItemClick` and the hook's final `useMemo`, so `bulk` is a new object each render, `onThumbnailClick` changes identity, and `MemoizedSearchThumbnail` never skips. The comment next to it says the callback is stable; it is not. This undoes G5.
-- **Fix:** `const getId = useCallback((i: SearchResult) => i.id, [])`; a render-count test on the hook.
-- **Effort:** S
-- **Grade lift:** B− → B− (restores a shipped optimization)
-
-#### C30 — The share dialog mints a link every time it opens, and locks you out at the cap `[fork]`
-- **Where:** `web/src/components/fork/ShareClipButton.tsx:45-63,65-76`; `frigate/api/fork_share.py:312` (429 at 50 links); `web/src/components/fork/ActiveShareLinks.tsx:42-45`
-- **What's wrong:** Opening the dialog always POSTs a new public link, and the server does not reuse one per event. At the 50-link cap the POST fails, the catch calls `setOpen(false)`, and the list with the revoke buttons only exists inside that dialog, so nothing can be revoked until a link expires (up to 168 hours). The POST has no cancellation: close and reopen while it is in flight and a stale `setShare` lands, a second link is created and the QR swaps. A failed revoke (404 for a link that just expired) toasts an error and leaves the dead row because nothing revalidates.
-- **Fix:** Keep the dialog open on a create failure and show the list with a "limit reached" message for 429; create behind an explicit button or reuse the event's live link; a request-id ref to drop stale results; `mutate()` on revoke failure and treat 404 as gone. Vitest for each.
-- **Effort:** S–M
-- **Grade lift:** B− → B− (the revoke path E16 added must be reachable when it matters)
-
-#### C31 — The public share page reports every failure as "not found" `[fork]`
-- **Where:** `web/src/pages/fork/ShareClipPage.tsx:48-53,73-91`; `web/src/lib/fork/share-path.ts:18`
-- **What's wrong:** A network error, a 500 and a 429 all render "This share link was not found" with no retry; the `<video>` has no `onError`, so a link that expires mid-view or a rate-limited clip fails silently; the status paragraphs have no `role="status"`/`role="alert"`; the camera name shows raw underscores while `ActiveShareLinks.tsx:113` cleans them. The share-path regex is unanchored, so any future route containing `/share/x` would render the public shell and skip the login redirect.
-- **Fix:** An `error` state with retry, a video `onError` message, the roles, the shared camera-name formatter; anchor the regex after stripping `window.baseUrl`.
-- **Effort:** S
-- **Grade lift:** B− → B−
 
 #### C21 — Inbox store: tabs overwrite each other, a write per message, fragile thumbnails `[fork]`
 - **Where:** `web/src/lib/fork/inbox-store.ts:116-119,140,244`; `web/src/hooks/fork/use-inbox.ts`; `web/src/components/fork/InboxBell.tsx:228`
@@ -346,6 +318,7 @@ pass on the CI retry, and a third flaky test surfaced during the merges
 - ~~D15~~ ✓ done 2026-09-11. Frame-rate chart seeded from `/stats/history`
 - ~~D16~~ ✓ done 2026-09-11. Mock `/api/stats/history`
 - ~~D19~~ ✓ done 2026-09-11. Layout-only tests selected by tag (`grepInvert`; residue → D50)
+- ~~D51~~ ✓ done 2026-09-18. The model cache is trusted only once its verification is 2 s newer than every file (racy-timestamp rule); the flaky test forces its timestamp change, two new tests (#73)
 - D17, D18, D20 to D47: see `FORK.md`
 
 #### D4 — Test the core tracking pipeline `[BE] [upstream]`
@@ -366,13 +339,6 @@ pass on the CI retry, and a third flaky test surfaced during the merges
 - **Where:** `web/e2e/specs/live.spec.ts`, `classification.spec.ts` ("filtering by a class with a dash"); `web/e2e/playwright.config.ts:22` (`retries: CI ? 1 : 0`)
 - **What's wrong:** The latest run reported 2 flaky tests; a second run showed 1. The retry turns them green, so nobody sees them.
 - **Fix:** Repair both; read the JSON report in CI and annotate (or fail on `next`) when `flaky > 0`.
-- **Effort:** S
-- **Grade lift:** B → B
-
-#### D51 — A flaky model-cache test that points at a real hole `[BE] [fork]`
-- **Where:** `fork/audio_trial/model_cache.py:27-40` (fingerprint is size, `st_mtime_ns`, `st_ctime_ns`, inode); `fork/audio_trial/test_model_cache.py:14-48` (`test_pinned_snapshot_detects_corruption_even_with_cached_validation`, rewrite at `:43`)
-- **What's wrong:** The test overwrites `b"good"` with `b"evil"`: same size, same inode. On a filesystem with coarse timestamps both times can land in the same tick, the fingerprint matches, hashing is skipped, and the expected `ValueError` never fires. It failed once in CI during #67. The same window means a fast same-size swap of a model file goes undetected.
-- **Fix:** Do not trust a fingerprint younger than about 2 s (git's racy-timestamp rule), or always hash, since the files are small; in the test force the change with `os.utime(..., ns=...)` and add the same-tick case.
 - **Effort:** S
 - **Grade lift:** B → B
 
@@ -429,12 +395,15 @@ and CSP is report-only.
 - ~~E5~~ ✓ done 2026-09-11. Shipped dependency advisories patched; 145 remaining alerts are in `docs/` (125), unbuilt TensorRT manifests (16), dev-only vitest (2) and the build stage (2 → F7)
 - ~~E15~~ ✓ done 2026-09-18. clip window clamped to 600 s, `BoundedSemaphore(4)` and nginx `limit_req` on the public route, tokens masked in the access log, camera mismatch is a 404 (#68)
 - ~~E16~~ ✓ done 2026-09-18. `GET /fork/share`, `DELETE /fork/share/{token}`, 50-link cap, links removed with their user, `FRIGATE_FORK_CLIP_SHARING=false` switch, `ActiveShareLinks.tsx` (#68)
+- ~~E20~~ ✓ done 2026-09-18. Share rate and connection limits are keyed on the token, with a looser per-address pair (#74)
+- ~~E21~~ ✓ done 2026-09-18. `error_log ... crit` in both share locations; residue: the `/share/<token>` page under `location /` still logs at `warn` (#74)
+- ~~E22~~ ✓ done 2026-09-18. `_SlotStream.release` unlinks the clip playlist when a share client leaves before the body starts (#76)
 - E7 to E14: see `FORK.md`
 
 #### E17 — Close the open code-scanning findings `[fork]`
-- **Where:** CodeQL #51 `js/prototype-pollution-utility` at `web/src/lib/fork/zone-rename.ts:34-57` (open since 2026-09-15; `setPath` and `mergeInto` still have no key guard); `actions/missing-workflow-permissions` alerts #35, #36, #37 (`ci.yml`) and #38 (`release.yml`); SonarCloud reports 10 open vulnerabilities on `next`
-- **What's wrong:** The Security tab is only a signal while it is at zero; fork code should not carry an open alert.
-- **Fix:** Skip `__proto__`, `constructor` and `prototype` in `setPath`/`mergeInto` with a unit test; re-dismiss the workflow alerts with the E4 reasoning; triage the 10 Sonar vulnerabilities (fix or mark with a reason) and record them in E19's file.
+- **Where:** `actions/missing-workflow-permissions` alerts #35, #36, #37 (`ci.yml`) and #38 (`release.yml`); SonarCloud reports 10 open vulnerabilities on `next`. Done 2026-09-18 (#74): `setPath` and `mergeInto` in `web/src/lib/fork/zone-rename.ts` skip `__proto__`, `constructor` and `prototype`, with tests; confirm CodeQL #51 closed on its next run
+- **What's wrong:** The Security tab is only a signal while it is at zero.
+- **Fix:** Re-dismiss the four workflow alerts with the E4 reasoning (owner, or on request); triage the 10 Sonar vulnerabilities (fix or mark with a reason) and record them in E19's file.
 - **Effort:** S
 - **Grade lift:** B+ → A− (with the rest of E18)
 
@@ -442,27 +411,6 @@ and CSP is report-only.
 - **Where:** `frigate/util/services.py:1023` (`ffprobe_stream` passes the user-supplied path as a bare positional argument)
 - **What's wrong:** A path starting with `-` is parsed as an ffprobe option on the admin-only route. The other half of this item, validating the share token in the browser before requesting, shipped on 2026-09-18 (`lib/fork/share-path.ts:22-26`, called at `ShareClipPage.tsx:35`, tested).
 - **Fix:** Pass `-i` before the path (or reject a leading `-`) with a test.
-- **Effort:** S
-- **Grade lift:** B+ → B+
-
-#### E20 — Behind a proxy every share viewer lands in one rate-limit bucket `[fork]`
-- **Where:** `docker/main/rootfs/usr/local/nginx/conf/nginx.conf:56-57` (`limit_req_zone` and `limit_conn_zone` keyed on `$binary_remote_addr`); no `set_real_ip_from`/`real_ip_header` anywhere; `templates/base_path.gotmpl:10` proxies to `127.0.0.1`
-- **What's wrong:** Public share links are meant to be opened from outside, which usually means a reverse proxy, and `FRIGATE_BASE_PATH` always does. Every viewer then shares one 5 r/s, 8-connection bucket, so one viewer can 429 all the others.
-- **Fix:** Key the zones on the token segment of the URI (a `map` on `$uri`), which is the resource being protected; keep the address key as a second zone. Extend `fork/scripts/test_nginx_share_conf.py`.
-- **Effort:** S
-- **Grade lift:** B+ → B+
-
-#### E21 — The nginx error log can still print a share token `[fork]`
-- **Where:** the public share locations, `nginx.conf:356-379`
-- **What's wrong:** E15 masked the access log and lowered the limit refusals to info, but an upstream timeout or early close is written at `error` level with the raw request line, token included.
-- **Fix:** `error_log ... crit` inside those locations, with a conf test; note the residue in E19's file.
-- **Effort:** S
-- **Grade lift:** B+ → B+
-
-#### E22 — The public clip route can leave playlist files in the cache `[fork]`
-- **Where:** `frigate/api/media.py:552-567` (writes `playlist_*.txt` to `CACHE_DIR` before streaming; unlinked only in the generator's `finally`), reached without auth through `frigate/api/fork_share.py:397`
-- **What's wrong:** If the client disconnects before the response body starts, the generator never runs and the file stays; nothing sweeps `playlist_*`. The pattern is upstream's, but a valid token holder can now repeat it unauthenticated against a tmpfs.
-- **Fix:** Feed the concat list on stdin as `preview_gif` does, or unlink in `_SlotStream.release`; a test that aborts before iteration.
 - **Effort:** S
 - **Grade lift:** B+ → B+
 
@@ -695,6 +643,9 @@ run per PR, one after another (I35).
 - ~~I28~~ ✓ done 2026-09-17. The red pushes were a merge that skipped pull request analysis (I26's findings) and scans without browser coverage, not the new-code period; every push to `next` now runs the web jobs, a failed gate names its conditions, evidence and decision in `fork/SONAR-CI.md`
 - ~~I29~~ ✓ done 2026-09-17. Ruleset "main: require quality checks" (id 23612078): `Checks passed` is a required status on `refs/heads/main`. `make promote` pushes a commit that already ran Fork - Checks on `next`, so it still works; a direct push of an unchecked commit is rejected
 - ~~I32~~ ✓ done 2026-09-17. `check.sh` warns when HEAD is more than 20 commits behind `origin/next`; `.codex-output/` and `fork/demo/screenshots/compare/` ignored
+- ~~I35~~ ✓ done 2026-09-18. New ledger rows are files under `fork/ledger/`, checked by `fork/scripts/ledger.py`; the up-to-date rule on `next` was switched off the same day (owner decision), `Checks passed` stays required (#73)
+- ~~I36~~ ✓ done 2026-09-18. Only pull request runs are cancelled by a newer push; every merge on `next` gets a finished check (#73)
+- ~~I37~~ ✓ done 2026-09-18. `ci-changes.sh` covers the gate scripts, `check.sh` asks the remote where `next` is, the Sonar expiry check probes the token after the date (#73)
 - I15 to I26: see `FORK.md` (I16, I17 unused)
 
 #### I27 — Give the upstream-sync bot its token `[fork]`
@@ -705,27 +656,6 @@ run per PR, one after another (I35).
 - **Update 2026-09-18:** Unchanged. The last 5 scheduled runs failed in the first step with the clear message, the latest today at 12:14Z.
 - **Effort:** S
 - **Grade lift:** B → B+ (with I35)
-
-#### I35 — The ledger files make every PR conflict with every other `[fork]`
-- **Where:** `FORK.md` (every row appended at the end, line 252; 28 of the 45 non-merge commits since 09-15 touch it) and this file (10 of 45); the `next` ruleset (id 23103518, `Checks passed` with strict up-to-date); no auto-merge, and merge queues are not offered on a user-owned repository
-- **What's wrong:** Any two open PRs conflict in `FORK.md`. With the up-to-date rule, N PRs cost N rebases and N serial runs of 11 to 13 minutes. Landing #65 to #70 took six rebases and most of a day of wall-clock, all of it on two bookkeeping files.
-- **Fix:** One file per item under `fork/ledger/<ID>.md` and a script that renders `FORK.md`'s table from them, verified in `make check` (no shared line, no conflict). Tick this report once per batch, not per PR. A `merge=union` attribute is the cheap alternative, but test first whether GitHub's server-side merge honors it; local merges do. Relaxing the up-to-date rule is only safe after I36.
-- **Effort:** M
-- **Grade lift:** B → B+ (with I27)
-
-#### I36 — A new push to `next` cancels the check of the previous merge `[fork]`
-- **Where:** `.github/workflows/fork-checks.yml:28-30` (`group: fork-checks-${{ github.ref }}`, `cancel-in-progress: true` for pushes as well as PRs)
-- **What's wrong:** Merge ce9770b62 was cancelled 11 minutes in when 66774e9b6 landed. Intermediate merge commits on `next` never get a finished check or a Sonar branch analysis, so a regression cannot be pinned to one merge.
-- **Fix:** `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`.
-- **Effort:** S
-- **Grade lift:** B → B
-
-#### I37 — Three gaps in the fork's own gate scripts `[fork]`
-- **Where:** `fork/scripts/ci-changes.sh:36-39`; `fork/scripts/check.sh:33-40`; `fork/scripts/sonar-token-expiry.py`
-- **What's wrong:** The change detector's patterns do not match `fork/scripts/check.sh`, `promote.sh` or any other `.sh`, nor `fork/sonar-token.env`, so a PR that breaks the gate scripts skips every suite and goes green. The stale-checkout warning (I32) compares against `origin/next` "as of the last fetch", so the stale clone it was written for reports 0 behind. After 2026-10-11 the expiry check fails every PR even if the token was rotated and only the date file was forgotten, and before that its warning is an annotation nobody opens.
-- **Fix:** Add `^fork/scripts/` and `fork/sonar-token.env` to `shared`, with a shellcheck step (joins I31); warn when `FETCH_HEAD` is older than a day, or fetch with a short timeout; after the date, fail only if the token also fails to authenticate, and open an issue at 14 days.
-- **Effort:** S
-- **Grade lift:** B → B
 
 #### I30 — The Sonar token expires on 2026-10-11 `[fork]`
 - **Where:** `SONAR_TOKEN` secret (expiry noted in `fork/SONAR-CI.md`)
@@ -796,7 +726,7 @@ are UI fixes and features defined in `FORK.md`.
 | ~~UI8~~ | Timeline scrubber: snap, arrow keys, touch targets | M | ✓ done (`lib/fork/timeline-scrubber.ts`; bounded snap and slider role since UI73) |
 | ~~UI9~~ | Shared event summary header (Review + Explore) | M | ✓ done |
 | ~~UI10~~ | Bulk actions in Explore + undo for mark-reviewed | M | ✓ done (open defect → C20) |
-| ~~UI11~~ | Share a clip: expiring link + QR | M | ✓ done (open items → C30, C31, E20 to E22) |
+| ~~UI11~~ | Share a clip: expiring link + QR | M | ✓ done |
 | ~~UI12~~ | Camera health cards | M | ✓ done |
 | UI13 | Live layout memory + picture-in-picture | M | not started (flag exists, no consumer → A7) |
 | ~~UI14~~ | Notification inbox with quiet hours | M | ✓ done (open defects → C21) |
@@ -827,4 +757,4 @@ are UI fixes and features defined in `FORK.md`.
 | UI39 | Timeline hover previews | M | backlog |
 | UI40 | Server-side camera-offline push | M | backlog (SV6 covers the notification half) |
 | UI41 | Cross-camera stories | L | backlog |
-| ~~UI42~~ | Update notices and What's new from the fork's releases | M | ✓ done (open item → B11) |
+| ~~UI42~~ | Update notices and What's new from the fork's releases | M | ✓ done |
