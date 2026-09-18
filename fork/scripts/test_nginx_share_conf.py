@@ -117,6 +117,20 @@ class TestNginxShareConf(unittest.TestCase):
         self.assertIn("limit_req_log_level info;", self.public)
         self.assertIn("limit_conn_log_level info;", self.public)
 
+    def test_share_locations_only_log_crit_and_above(self):
+        # an upstream timeout or early close is an "error" line that carries
+        # the request line, token included (E21)
+        for name, location in (("public", self.public), ("authed", self.authed)):
+            levels = re.findall(r"^\s*error_log (\S+) (\w+);", location, re.MULTILINE)
+            self.assertEqual(levels, [("/dev/stdout", "crit")], name)
+
+    def test_error_log_is_unchanged_outside_the_share_locations(self):
+        rest = self.conf.replace(self.public, "").replace(self.authed, "")
+        self.assertEqual(
+            re.findall(r"^\s*error_log (\S+) (\w+);", rest, re.MULTILINE),
+            [("/dev/stdout", "warn")],
+        )
+
     def test_only_get_and_head_skip_auth(self):
         self.assertIn("auth_request off;", self.public)
         self.assertIn("error_page 418 = @fork_share_authed;", self.public)
