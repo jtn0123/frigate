@@ -182,20 +182,21 @@ class ForkUpdateChecker:
 
     def _refresh(self, now: float) -> None:
         """Fetch without the lock, then store the result and end the refresh."""
-        fetched = False
+        # B11: what stays in place when the fetch raises something unexpected.
+        error: str | None = "failed"
         releases: list[ForkRelease] | None = None
         try:
             releases = self._fetch_releases()
-            fetched = True
+            error = None if releases is not None else "unreachable"
         finally:
             with self._lock:
-                # Also after an unexpected error, or no caller refreshes again.
+                # Every outcome ends the refresh and counts as a check, or an
+                # unexpected error would refetch on every poll with no backoff.
                 self._refreshing = False
-                if fetched:
-                    if releases is not None:
-                        self._releases = releases
-                    self._error = None if releases is not None else "unreachable"
-                    self._checked_at = now
+                if releases is not None:
+                    self._releases = releases
+                self._error = error
+                self._checked_at = now
 
     def _fetch_releases(self) -> list[ForkRelease] | None:
         """The published releases, or None when GitHub cannot be reached."""

@@ -59,6 +59,8 @@ MAX_CONCURRENT_SHARE_CLIPS = 4
 # threading, not asyncio: a slot is given back by whichever thread drops the
 # response stream, and nothing ever waits on it (a full house answers 429).
 _clip_slots = threading.BoundedSemaphore(MAX_CONCURRENT_SHARE_CLIPS)
+# Held while a link is counted against the cap and inserted (B11).
+_create_lock = threading.Lock()
 
 
 class ShareCreateBody(BaseModel):
@@ -103,6 +105,44 @@ def share_clip_range(event: Event, now: float) -> tuple[float, float]:
     start_ts = _as_unix(event.start_time)
     end_ts = now if event.end_time is None else _as_unix(event.end_time)
     return start_ts, min(end_ts, start_ts + MAX_SHARE_CLIP_SECONDS)
+
+
+def _create_link_within_cap(
+    *,
+    token: str,
+    event_id: str,
+    camera: str,
+    created_by: str,
+    created_at: float,
+    expires_at: float,
+) -> ShareLink | None:
+    """Insert the link unless its creator already holds the most allowed.
+
+    B11: the count and the insert are one step, so parallel requests cannot
+    all pass the count first and then go over the cap together. A lock, not a
+    transaction: Frigate's SqliteQueueDatabase rejects atomic(), and every
+    create runs in this one API process.
+    """
+    with _create_lock:
+        active = (
+            ShareLink.select()
+            .where(
+                (ShareLink.created_by == created_by)
+                & (ShareLink.expires_at > created_at)
+            )
+            .count()
+        )
+        if active >= MAX_ACTIVE_LINKS_PER_USER:
+            return None
+
+        return ShareLink.create(
+            token=token,
+            event_id=event_id,
+            camera=camera,
+            created_by=created_by,
+            created_at=created_at,
+            expires_at=expires_at,
+        )
 
 
 class _SlotStream:
@@ -303,25 +343,15 @@ async def create_share(request: Request, body: ShareCreateBody):
     expires_at = now + body.expires_in_hours * 3600
     username = current_user["username"]
 
-    def _insert() -> ShareLink | None:
-        active = (
-            ShareLink.select()
-            .where((ShareLink.created_by == username) & (ShareLink.expires_at > now))
-            .count()
-        )
-        if active >= MAX_ACTIVE_LINKS_PER_USER:
-            return None
-
-        return ShareLink.create(
-            token=token,
-            event_id=event.id,
-            camera=event.camera,
-            created_by=username,
-            created_at=now,
-            expires_at=expires_at,
-        )
-
-    link = await asyncio.to_thread(_insert)
+    link = await asyncio.to_thread(
+        _create_link_within_cap,
+        token=token,
+        event_id=event.id,
+        camera=event.camera,
+        created_by=username,
+        created_at=now,
+        expires_at=expires_at,
+    )
     if link is None:
         return _error("Too many active share links", 429)
 

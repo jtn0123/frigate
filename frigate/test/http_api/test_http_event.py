@@ -6,9 +6,11 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from fastapi import HTTPException
+from peewee import OperationalError
 from playhouse.shortcuts import model_to_dict
 
 from frigate.api.auth import get_allowed_cameras_for_filter, get_current_user
+from frigate.api.fork_bulk import delete_events_data
 from frigate.comms.event_metadata_updater import EventMetadataPublisher
 from frigate.models import Event, Recordings, ReviewSegment, Timeline
 from frigate.stats.emitter import StatsEmitter
@@ -771,6 +773,36 @@ class TestHttpEventsBulkDelete(BaseTestHttp):
 
         assert response.status_code == 200
         assert os.listdir(self.clips_dir) == ["front_door-another_event.jpg"]
+
+    def test_a_failed_row_delete_keeps_the_snapshots(self):
+        """B11: rows go first, so a failed query leaves no event without media."""
+        ids = self._insert_events(1)
+        snapshot = os.path.join(self.clips_dir, f"front_door-{ids[0]}.jpg")
+        with open(snapshot, "w") as f:
+            f.write("x")
+
+        with (
+            patch.object(Event, "delete", side_effect=OperationalError("locked")),
+            self.assertRaises(OperationalError),
+        ):
+            delete_events_data(list(Event.select()), None)
+
+        assert os.path.exists(snapshot)
+        assert Event.select().count() == 1
+
+    def test_a_snapshot_that_cannot_be_removed_is_logged(self):
+        ids = self._insert_events(2)
+
+        with (
+            patch("frigate.api.fork_bulk.Path.unlink", side_effect=OSError("busy")),
+            self.assertLogs("frigate.api.fork_bulk", level="WARNING") as logs,
+            AuthTestClient(self.app) as client,
+        ):
+            response = self._delete(client, ids)
+
+        assert response.status_code == 200
+        assert Event.select().count() == 0
+        assert any("Unable to delete snapshot" in line for line in logs.output)
 
     def test_forbidden_camera_rejects_the_request(self):
         ids = self._insert_events(40)

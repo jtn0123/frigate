@@ -1,7 +1,9 @@
 """HTTP tests for expiring clip share links (fork UI11)."""
 
 import asyncio
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock, patch
 
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -475,6 +477,43 @@ class TestHttpForkShare(BaseTestHttp):
             "message": "Too many active share links",
         }
         assert other_user.status_code == 200
+
+    def test_parallel_creates_cannot_pass_the_cap_together(self):
+        """B11: the count and the insert are one step for parallel requests."""
+        for index in range(fork_share.MAX_ACTIVE_LINKS_PER_USER - 1):
+            self._link(f"manyToken{index:023d}", "event-share-race", created_by="bob")
+        now = time.time()
+        real_create = ShareLink.create
+        counted = threading.Barrier(4, timeout=2)
+
+        def slow_create(**fields):
+            # Without the lock every thread has counted 49 by now and waits
+            # here together; with it they arrive one at a time and time out.
+            try:
+                counted.wait()
+            except threading.BrokenBarrierError:
+                pass
+            return real_create(**fields)
+
+        def create(index: int) -> ShareLink | None:
+            return fork_share._create_link_within_cap(
+                token=f"raceToken{index:023d}",
+                event_id="event-share-race",
+                camera="front_door",
+                created_by="bob",
+                created_at=now,
+                expires_at=now + 3600,
+            )
+
+        with (
+            patch.object(ShareLink, "create", side_effect=slow_create),
+            ThreadPoolExecutor(max_workers=4) as pool,
+        ):
+            links = list(pool.map(create, range(4)))
+
+        assert len([link for link in links if link is not None]) == 1
+        active = ShareLink.select().where(ShareLink.created_by == "bob").count()
+        assert active == fork_share.MAX_ACTIVE_LINKS_PER_USER
 
     def test_deleting_a_user_deletes_their_links(self):
         self.app.config_publisher = Mock()
