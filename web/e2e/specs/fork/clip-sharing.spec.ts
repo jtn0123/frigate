@@ -204,6 +204,34 @@ test.describe("Clip sharing @high", () => {
     expect(requests).toEqual([]);
   });
 
+  test("public share page offers a retry when the server fails", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    let failing = true;
+    await page.route(
+      "**/api/fork/share/e2eShareToken123456789012345678",
+      (route) => {
+        if (failing) {
+          return route.fulfill({ status: 500, json: { success: false } });
+        }
+        return route.fulfill({ json: { ...SHARE_BODY, has_clip: false } });
+      },
+    );
+
+    await frigateApp.goto("/share/e2eShareToken123456789012345678");
+    const root = page.getByTestId("share-clip-page");
+    await expect(root.getByRole("alert")).toContainText(
+      "Could not load this share link.",
+    );
+    await expect(root).not.toContainText("This share link was not found.");
+
+    failing = false;
+    await root.getByRole("button", { name: "Retry" }).click();
+    await expect(root).toContainText("The clip is no longer available.");
+    await expect(root.getByRole("alert")).toHaveCount(0);
+  });
+
   test("public share page shows the clip metadata and QR @mobile", async ({
     frigateApp,
   }) => {
@@ -231,7 +259,7 @@ test.describe("Clip sharing @high", () => {
     const root = page.getByTestId("share-clip-page");
     await expect(root).toBeVisible({ timeout: 10_000 });
     await expect(root).toContainText(/person/i);
-    await expect(root).toContainText(/front_door/i);
+    await expect(root).toContainText(/front door/i);
     await expect(
       page.getByTestId("share-clip-qr").locator("svg"),
     ).toBeVisible();

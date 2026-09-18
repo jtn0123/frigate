@@ -235,6 +235,8 @@
     "missing": "This share link was not found.",
     "expired": "This share link has expired.",
     "noClip": "The clip is no longer available.",
+    "loadFailed": "Could not load this share link. Check your connection and try again.",
+    "playFailed": "The clip could not be played. The link may have expired.",
     "play": "Play clip",
     "activeTitle": "Active links",
     "activeLoading": "Loading your share links...",

@@ -12,7 +12,11 @@ import { toast } from "sonner";
 import { useApi } from "@/api/fork/client";
 import { Button } from "@/components/ui/button";
 import { AuthContext } from "@/context/auth-state";
-import { shareExpiry, type ShareExpiry } from "@/lib/fork/share-path";
+import {
+  shareCameraName,
+  shareExpiry,
+  type ShareExpiry,
+} from "@/lib/fork/share-path";
 import type { components } from "@/types/fork/api.gen";
 
 type ShareLink = components["schemas"]["ShareLinkListItem"];
@@ -120,7 +124,7 @@ export default function ActiveShareLinks({
           {data.map((link) => {
             const expires = expiryText(shareExpiry(link.expires_at, now));
             const name = t("clipShare.linkName", {
-              camera: link.camera.replaceAll("_", " "),
+              camera: shareCameraName(link.camera),
               event: link.event_id,
             });
             return (

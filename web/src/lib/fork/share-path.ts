@@ -5,17 +5,40 @@
  * /share/:token without pulling the encoder into the main chunk.
  */
 
+/** `window.baseUrl` with a trailing slash; "/" when Frigate is at the root. */
+function basePath(): string {
+  const rawBase = window.baseUrl || "/";
+  return rawBase.endsWith("/") ? rawBase : `${rawBase}/`;
+}
+
 export function sharePageUrl(
   token: string,
   origin = window.location.origin,
 ): string {
-  const rawBase = window.baseUrl || "/";
-  const base = rawBase.endsWith("/") ? rawBase : `${rawBase}/`;
-  return `${origin}${base}share/${token}`;
+  return `${origin}${basePath()}share/${token}`;
 }
 
+/**
+ * True only when the path IS the share route. Takes `window.location.pathname`
+ * (which carries `window.baseUrl`) as well as the router's pathname (which
+ * does not). Anchored, so a route that merely contains `/share/x` keeps its
+ * login redirect instead of rendering the public shell.
+ */
 export function isPublicSharePath(pathname: string): boolean {
-  return /(?:^|\/)share\/[^/]+/.test(pathname);
+  const base = basePath();
+  const path =
+    base !== "/" && pathname.startsWith(base)
+      ? pathname.slice(base.length - 1)
+      : pathname;
+  return /^\/share\/[^/]+\/?$/.test(path);
+}
+
+/**
+ * Camera name for display. The public page has no config to read a friendly
+ * name from, so this only undoes the underscores of the camera id.
+ */
+export function shareCameraName(camera: string): string {
+  return camera.replaceAll("_", " ");
 }
 
 /** Same shape the server accepts (`TOKEN_RE` in frigate/api/fork_share.py). */
