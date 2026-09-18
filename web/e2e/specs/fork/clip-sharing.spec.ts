@@ -45,8 +45,10 @@ test.describe("Clip sharing @high", () => {
     frigateApp,
   }) => {
     const { page } = frigateApp;
+    let created = 0;
     await page.route("**/api/fork/share", async (route) => {
       if (route.request().method() === "POST") {
+        created += 1;
         return route.fulfill({ json: SHARE_BODY });
       }
       return route.fallback();
@@ -58,12 +60,69 @@ test.describe("Clip sharing @high", () => {
     await expect(share).toBeVisible({ timeout: 10_000 });
     await share.click();
     await expect(page.getByTestId("share-clip-dialog")).toBeVisible();
+    // opening the dialog lists links; only the button makes one
+    await expect(page.getByTestId("share-clip-active")).toBeVisible();
+    expect(created).toBe(0);
+    await page.getByRole("button", { name: "Create link" }).click();
     await expect(page.getByTestId("share-clip-url")).toHaveValue(
       /\/share\/e2eShareToken/,
     );
     await expect(
       page.getByTestId("share-clip-qr").locator("svg"),
     ).toBeVisible();
+    expect(created).toBe(1);
+  });
+
+  test("at the link cap the dialog stays open so a link can be revoked", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    let links = ACTIVE_LINKS.slice(1);
+    let atCap = true;
+    await page.route("**/api/fork/share", async (route) => {
+      if (route.request().method() !== "POST") {
+        return route.fulfill({ json: links });
+      }
+      if (atCap) {
+        return route.fulfill({
+          status: 429,
+          json: { success: false, message: "Too many active share links" },
+        });
+      }
+      links = [...ACTIVE_LINKS];
+      return route.fulfill({ json: SHARE_BODY });
+    });
+    await page.route("**/api/fork/share/*", async (route) => {
+      if (route.request().method() !== "DELETE") {
+        return route.fallback();
+      }
+      links = [];
+      atCap = false;
+      return route.fulfill({
+        json: { success: true, message: "Share link revoked" },
+      });
+    });
+
+    await frigateApp.goto("/explore?labels=person");
+    await page.locator('img[src*="/thumbnail.webp"]').first().click();
+    await page.getByTestId("share-clip").click();
+    const dialog = page.getByTestId("share-clip-dialog");
+    const create = dialog.getByRole("button", { name: "Create link" });
+    await create.click();
+
+    await expect(dialog.getByRole("alert")).toContainText(
+      "You have reached the limit of active share links.",
+    );
+    const rows = dialog.getByTestId("share-clip-active-row");
+    await expect(rows).toHaveCount(1);
+    await rows.getByRole("button", { name: /Revoke/ }).click();
+    await expect(rows).toHaveCount(0);
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+
+    await create.click();
+    await expect(page.getByTestId("share-clip-url")).toHaveValue(
+      /\/share\/e2eShareToken/,
+    );
   });
 
   test("the share dialog lists active links and revokes one", async ({
@@ -95,6 +154,7 @@ test.describe("Clip sharing @high", () => {
     await page.getByTestId("share-clip").click();
 
     const dialog = page.getByTestId("share-clip-dialog");
+    await dialog.getByRole("button", { name: "Create link" }).click();
     await expect(dialog.getByRole("img", { name: /QR code/ })).toBeVisible();
     const active = dialog.getByTestId("share-clip-active");
     await expect(

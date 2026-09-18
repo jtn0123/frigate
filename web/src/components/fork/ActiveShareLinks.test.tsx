@@ -16,7 +16,11 @@ vi.mock("@/api/fork/client", () => ({
   useApi: (...args: unknown[]) => useApi(...args),
 }));
 vi.mock("axios", () => ({
-  default: { delete: (url: string) => axiosDelete(url) },
+  default: {
+    delete: (url: string) => axiosDelete(url),
+    isAxiosError: (error: unknown) =>
+      typeof error === "object" && error !== null && "response" in error,
+  },
 }));
 vi.mock("sonner", () => ({
   toast: {
@@ -169,10 +173,33 @@ describe("ActiveShareLinks", () => {
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith("clipShare.revokeFailed"),
     );
-    expect(mutate).not.toHaveBeenCalled();
+    // the list is read again (no optimistic update), the row is not dropped
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate).toHaveBeenCalledWith();
     expect(onRevoked).not.toHaveBeenCalled();
+    expect(toastSuccess).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", { name: /revokeLabel/ }),
     ).not.toBeDisabled();
+  });
+
+  it("treats a 404 on revoke as already gone: no error, row dropped", async () => {
+    const onRevoked = vi.fn();
+    axiosDelete.mockRejectedValue({ response: { status: 404 } });
+    useApi.mockReturnValue({ data: [link()], isLoading: false, mutate });
+    renderList({ onRevoked });
+
+    fireEvent.click(screen.getByRole("button", { name: /revokeLabel/ }));
+
+    await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
+    expect(toastError).not.toHaveBeenCalled();
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(onRevoked).toHaveBeenCalledWith("tokenAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    const [update, options] = mutate.mock.calls[0] as [
+      (links: ShareLink[]) => ShareLink[],
+      unknown,
+    ];
+    expect(update([link()])).toEqual([]);
+    expect(options).toEqual({ revalidate: true });
   });
 });

@@ -38,15 +38,25 @@ export default function ActiveShareLinks({
   const revoke = useCallback(
     async (link: ShareLink) => {
       setRevoking(link.token);
+      let gone = false;
       try {
         await axios.delete(`fork/share/${link.token}`);
-      } catch {
-        toast.error(t("clipShare.revokeFailed"));
-        return;
+      } catch (error) {
+        // 404: the link expired or was revoked elsewhere, which is the outcome
+        // the user asked for
+        gone = axios.isAxiosError(error) && error.response?.status === 404;
+        if (!gone) {
+          toast.error(t("clipShare.revokeFailed"));
+          // the list may be what is out of date, so read it again
+          void mutate();
+          return;
+        }
       } finally {
         setRevoking(null);
       }
-      toast.success(t("clipShare.revoked"));
+      if (!gone) {
+        toast.success(t("clipShare.revoked"));
+      }
       onRevoked?.(link.token);
       await mutate(
         (links) => links?.filter((item) => item.token !== link.token),
