@@ -172,3 +172,36 @@ test.describe("Triggers prerequisite (UI104) @medium", () => {
     },
   );
 });
+
+test.describe("Generative AI empty state (UI105) @medium", () => {
+  test(
+    "no providers shows guidance, and Add provider adds one",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openSettings(page, "integrationGenerativeAi");
+
+      const empty = page.getByTestId("config-empty-state");
+      await expect(empty).toBeVisible();
+      await expect(empty).toContainText("No providers yet");
+      await expect(empty).toContainText("llama.cpp");
+      // nothing saved and nothing edited: no Save / Reset bar
+      await expect(
+        page.getByRole("button", { name: "Reset to Default" }),
+      ).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
+
+      await empty.getByRole("button", { name: "Add provider" }).click();
+      await expect(empty).toBeHidden();
+      await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
+
+      // undo brings the empty state back without a Save / Reset bar
+      await page.getByRole("button", { name: "Undo" }).click();
+      await expect(page.getByTestId("config-empty-state")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Reset to Default" }),
+      ).toHaveCount(0);
+    },
+  );
+});

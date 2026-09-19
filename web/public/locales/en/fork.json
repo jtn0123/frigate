@@ -341,5 +341,12 @@
     "title": "Triggers need semantic search",
     "description": "Triggers compare new tracked objects with the thumbnails and descriptions in the semantic search index. Turn semantic search on, let it index, then come back to add triggers.",
     "openSettings": "Open semantic search settings"
+  },
+  "configEmptyState": {
+    "genaiProviders": {
+      "title": "No providers yet",
+      "description": "Add a provider to write object descriptions, review summaries and chat answers. Frigate supports OpenAI, Azure OpenAI, Gemini, Ollama and llama.cpp.",
+      "action": "Add provider"
+    }
   }
 }
