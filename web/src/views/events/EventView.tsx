@@ -105,6 +105,8 @@ import PlatformAwareDialog from "@/components/overlay/dialog/PlatformAwareDialog
 import MotionPreviewsPane from "./MotionPreviewsPane";
 import { EmptyCard } from "@/components/card/EmptyCard";
 import { EmptyCardData } from "@/types/card";
+// fork (UI116): the mark-reviewed bar replaces the centered button
+import MarkReviewedBar from "@/components/fork/review/MarkReviewedBar";
 
 type EventViewProps = {
   reviewItems?: SegmentedReviewData;
@@ -609,8 +611,6 @@ function DetectionReview({
   setSelectedReviews,
   pullLatestData,
 }: Readonly<DetectionReviewProps>) {
-  const { t } = useTranslation(["views/events"]);
-
   const reviewTimelineRef = useRef<HTMLDivElement>(null);
 
   // preview
@@ -911,19 +911,13 @@ function DetectionReview({
           {!loading &&
             (currentItems?.filter((seg) => seg.end_time)?.length ?? 0) > 0 &&
             (itemsToReview ?? 0) > 0 && (
-              <div className="col-span-full flex items-center justify-center">
-                <Button
-                  className="text-balance text-white"
-                  aria-label={t("markTheseItemsAsReviewed")}
-                  variant="select"
-                  onClick={() => {
-                    setSelectedReviews([]);
-                    markItemsAsReviewed(currentItems ?? []);
-                  }}
-                >
-                  {t("markTheseItemsAsReviewed")}
-                </Button>
-              </div>
+              <MarkReviewedBar
+                count={currentItems?.length ?? 0}
+                onMarkReviewed={() => {
+                  setSelectedReviews([]);
+                  markItemsAsReviewed(currentItems ?? []);
+                }}
+              />
             )}
         </div>
       </div>

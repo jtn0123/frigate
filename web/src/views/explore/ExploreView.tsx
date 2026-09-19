@@ -2,17 +2,12 @@ import { useCallback, useEffect, useMemo } from "react";
 import { isDesktop, isIOS, isMobileOnly, isSafari } from "react-device-detect";
 import useSWR from "swr";
 import ErrorState from "@/components/fork/ErrorState";
+// fork (UI116): labeled row link in place of the trailing arrow
+import ExploreRowViewAll from "@/components/fork/explore/ExploreRowViewAll";
 import { useApiHost } from "@/api";
 import { cn } from "@/lib/utils";
-import { BsArrowRightCircle } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { wrapAsync } from "@/utils/promise";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { EventType, SearchResult } from "@/types/search";
 import ImageLoadingIndicator from "@/components/indicators/ImageLoadingIndicator";
 import useImageLoaded from "@/hooks/use-image-loaded";
@@ -177,19 +172,33 @@ function ThumbnailRow({
     void navigate(`/explore?${similaritySearchParams}`);
   };
 
+  // fork (UI116): the summary endpoint puts the group's count on the first
+  // result, which the shared SearchResult type does not declare
+  const eventCount = (
+    searchResults?.[0] as { event_count?: number } | undefined
+  )?.event_count;
+
   return (
     <div className="rounded-lg bg-background_alt p-2 md:px-4">
-      <div className="flex flex-row items-center text-lg smart-capitalize">
-        {getTranslatedLabel(label, labelType)}
-        {searchResults && (
-          <span className="ml-3 text-sm text-secondary-foreground">
-            {t("trackedObjectsCount", {
-              // @ts-expect-error we know this is correct
-              count: searchResults[0].event_count,
-            })}
-          </span>
-        )}
-        {isValidating && <ActivityIndicator className="ml-2 size-4" />}
+      {/* fork (UI116): the row header carries a labeled link instead of a
+          bare arrow at the end of the thumbnails */}
+      <div className="flex flex-row items-center justify-between gap-2">
+        <div className="flex flex-row items-center text-lg smart-capitalize">
+          {getTranslatedLabel(label, labelType)}
+          {searchResults && (
+            <span className="ml-3 text-sm text-secondary-foreground">
+              {t("trackedObjectsCount", {
+                count: eventCount,
+              })}
+            </span>
+          )}
+          {isValidating && <ActivityIndicator className="ml-2 size-4" />}
+        </div>
+        <ExploreRowViewAll
+          label={getTranslatedLabel(label, labelType)}
+          count={eventCount}
+          onClick={() => handleSearch(label)}
+        />
       </div>
       <div className="flex flex-row items-center space-x-2 py-2">
         {searchResults?.map((event) => (
@@ -208,28 +217,6 @@ function ThumbnailRow({
             />
           </div>
         ))}
-        <div className="flex cursor-pointer items-center justify-center">
-          <Tooltip>
-            <TooltipTrigger
-              onClick={() => handleSearch(label)}
-              aria-label={t("exploreMore", {
-                label: getTranslatedLabel(label, labelType),
-              })}
-            >
-              <BsArrowRightCircle
-                className="ml-2 text-secondary-foreground transition-all duration-300 hover:text-primary"
-                size={24}
-              />
-            </TooltipTrigger>
-            <TooltipPortal>
-              <TooltipContent>
-                {t("exploreMore", {
-                  label: getTranslatedLabel(label, labelType),
-                })}
-              </TooltipContent>
-            </TooltipPortal>
-          </Tooltip>
-        </div>
       </div>
     </div>
   );

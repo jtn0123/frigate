@@ -66,7 +66,10 @@ export function CameraLineGraph({
     (val: unknown) => {
       const times = updateTimesRef.current;
       const ts = times[Math.round(val as number)];
-      if (Number.isNaN(ts)) {
+      // fork (UI116): an axis tick past the end of updateTimes reads as
+      // undefined, which Number.isNaN does not catch, so the formatter
+      // printed "Invalid time" on every chart.
+      if (ts == null || Number.isNaN(ts)) {
         return "";
       }
       return formatUnixTimestampToDateTime(ts, {
@@ -178,7 +181,10 @@ export function EventsPerSecondsLineGraph({
     (val: unknown) => {
       const times = updateTimesRef.current;
       const ts = times[Math.round(val as number) - 1];
-      if (Number.isNaN(ts)) {
+      // fork (UI116): an axis tick past the end of updateTimes reads as
+      // undefined, which Number.isNaN does not catch, so the formatter
+      // printed "Invalid time" on every chart.
+      if (ts == null || Number.isNaN(ts)) {
         return "";
       }
       return formatUnixTimestampToDateTime(ts, {

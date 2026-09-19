@@ -46,7 +46,7 @@
     "placeholder": "Search pages, cameras, settings, and actions",
     "empty": "No results found.",
     "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
-    "footerHintMac": "\u2318K or / to open, arrows to move, Enter to run",
+    "footerHintMac": "⌘K or / to open, arrows to move, Enter to run",
     "groups": {
       "recent": "Recent",
       "pages": "Pages",
@@ -244,7 +244,7 @@
     "activeFailed": "Could not load your share links",
     "activeEmpty": "You have no active share links.",
     "retry": "Retry",
-    "linkName": "{{camera}} \u00b7 {{event}}",
+    "linkName": "{{camera}} · {{event}}",
     "thisLink": "(this link)",
     "createdBy": "by {{user}}",
     "expiresIn": {
@@ -319,15 +319,15 @@
     "range15": "Last 15 minutes",
     "range60": "Last hour",
     "range1440": "Last 24 hours",
-    "loading": "Loading page\u2026",
+    "loading": "Loading page…",
     "copyView": "Copy link to this view",
     "copied": "Link copied",
     "copyFailed": "Copy this address to share the current view",
-    "refreshing": "Refreshing measurements\u2026",
+    "refreshing": "Refreshing measurements…",
     "historyUnavailable": "History could not be loaded. Current measurements are shown below.",
-    "saving": "Saving\u2026",
+    "saving": "Saving…",
     "saved": "Saved",
-    "working": "Working\u2026",
+    "working": "Working…",
     "actionFailed": "The action failed. Try again.",
     "renameFailed": "The export could not be renamed. Your input is still here. Try again."
   },
@@ -403,5 +403,24 @@
     "override": "Open a camera configuration section (for example Motion detection), pick a camera and the profile at the top right, and change only the settings the profile should override.",
     "activate": "Activate the profile from Frigate's main menu, the Active Profile list here, MQTT, the HTTP API or Home Assistant.",
     "note": "Only one profile is active at a time. Activating or deactivating one applies right away without a restart."
+  },
+  "markReviewed": {
+    "summary_one": "{{count}} item in this view is not reviewed",
+    "summary_other": "{{count}} items in this view are not reviewed",
+    "action_one": "Mark {{count}} item as reviewed",
+    "action_other": "Mark {{count}} items as reviewed",
+    "action": "markReviewed.action",
+    "summary": "markReviewed.summary"
+  },
+  "viewAll": {
+    "label": "View all",
+    "count_one": "View all {{count}}",
+    "count_other": "View all {{count}}",
+    "count": "viewAll.count"
+  },
+  "enrichmentsEmpty": {
+    "title": "No enrichment activity yet",
+    "description": "Enrichments such as semantic search, face recognition and license plate recognition report their inference speed here once they have processed something.",
+    "action": "Open enrichment settings"
   }
 }

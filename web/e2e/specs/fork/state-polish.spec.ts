@@ -169,9 +169,7 @@ test.describe("In-progress export card (UI108) @medium @mobile", () => {
 test.describe("Logs error state font (UI109) @medium @mobile", () => {
   test.use({ expectedErrors: [/500.*\/api\/logs\/frigate/] });
 
-  test("the error state uses the UI font, the log header stays monospace", async ({
-    frigateApp,
-  }) => {
+  test("the error state uses the UI font", async ({ frigateApp }) => {
     await frigateApp.page.route(/\/api\/logs\/frigate(\?|$)/, (route) =>
       route.fulfill({ status: 500, json: { success: false } }),
     );
@@ -186,8 +184,29 @@ test.describe("Logs error state font (UI109) @medium @mobile", () => {
     expect(await font(state.getByRole("button", { name: "Retry" }))).toMatch(
       /Inter/,
     );
+  });
+});
+
+test.describe("Log column header font (UI109) @medium @mobile", () => {
+  // the header only shows once the logs load; UI116 hides it in the error
+  // state, where there is nothing for it to label
+  test("the log header stays monospace", async ({ frigateApp }) => {
+    await frigateApp.page.route(/\/api\/logs\/frigate(\?|$)/, (route) =>
+      route.fulfill({
+        json: {
+          lines: ["[2026-04-06 10:00:00] INFO: Frigate started"],
+          totalLines: 1,
+        },
+      }),
+    );
+    await frigateApp.page.route(/\/api\/logs\/frigate\?stream=true/, (route) =>
+      route.fulfill({ status: 200, body: "" }),
+    );
+    await frigateApp.goto("/logs");
+    const header = frigateApp.page.getByText("Timestamp", { exact: true });
+    await expect(header).toBeVisible({ timeout: 10_000 });
     expect(
-      await font(frigateApp.page.getByText("Timestamp", { exact: true })),
+      await header.evaluate((el) => getComputedStyle(el).fontFamily),
     ).toMatch(/monospace|Menlo|SFMono/);
   });
 });
