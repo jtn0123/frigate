@@ -417,7 +417,13 @@ export function ReviewTimeline({
     if (next === undefined) return;
     event.preventDefault();
     setTime(next);
+    followKeyTime(next);
   };
+
+  // fork (UI106): a key press is an explicit move, so bring the new time into
+  // view even while the rail still counts a recent scroll as the user's
+  const followKeyTime = (time: number) =>
+    scrollToSegment(alignStartDateToTimeline(time), true);
 
   const handleHandlebarKeyDown = (
     event: React.KeyboardEvent<HTMLDivElement>,
@@ -430,12 +436,15 @@ export function ReviewTimeline({
     ) {
       event.preventDefault();
       const direction = event.key === "ArrowRight" ? 1 : -1;
-      setHandlebarTime((current) =>
-        Math.min(
-          maxTime,
-          Math.max(minTime, stepToEvent(current, eventTimes, direction)),
+      const next = Math.min(
+        maxTime,
+        Math.max(
+          minTime,
+          stepToEvent(handlebarTime ?? maxTime, eventTimes, direction),
         ),
       );
+      setHandlebarTime(next);
+      followKeyTime(next);
       return;
     }
     handleTimeKey(event, handlebarTime, setHandlebarTime);
@@ -460,12 +469,21 @@ export function ReviewTimeline({
     return beforeAvailability === false || afterAvailability === false;
   }, [getRecordingAvailability, handlebarTime, segmentDuration]);
 
+  const showZoomControls = onZoomChange && currentZoomLevelIndex !== -1;
+  // fork (UI106): on desktop the zoom controls sit in a bar above the rail,
+  // so they never cover the current-time pill at the bottom
+  const zoomAboveRail = showZoomControls && !isMobile;
+  const zoomButtonClass = zoomAboveRail
+    ? "h-9 w-11 rounded-none bg-background_alt p-0 first:rounded-l-lg last:rounded-r-lg last:border-l-0 hover:bg-accent hover:text-accent-foreground active:scale-95"
+    : "bg-background_alt p-3 hover:bg-accent hover:text-accent-foreground active:scale-95 [@media(hover:none)]:hover:bg-background_alt";
+
   return (
     <>
       <div
         ref={timelineRef}
         className={cn(
           "no-scrollbar relative h-full select-none overflow-y-auto bg-secondary transition-all duration-500 ease-in-out",
+          zoomAboveRail && "mt-12 h-[calc(100%-3rem)]",
           isZooming && zoomDirection === "in" && "animate-timeline-zoom-in",
           isZooming && zoomDirection === "out" && "animate-timeline-zoom-out",
           isDragging && (showHandlebar || showExportHandles)
@@ -667,13 +685,16 @@ export function ReviewTimeline({
         )}
       </div>
 
-      {onZoomChange && currentZoomLevelIndex !== -1 && (
-        <div
-          className={`absolute z-30 flex gap-2 ${
-            isMobile
-              ? "bottom-4 right-1 flex-col-reverse gap-3"
-              : "bottom-2 left-1/2 -translate-x-1/2"
-          }`}
+      {showZoomControls && (
+        <fieldset
+          className={cn(
+            "absolute z-30 flex",
+            zoomAboveRail
+              ? "inset-x-0 top-0 h-12 items-center justify-center bg-secondary"
+              : "bottom-4 right-1 flex-col-reverse gap-3",
+          )}
+          aria-label={t("timelineAccessibility.zoom", { ns: "fork" })}
+          data-testid="timeline-zoom-controls"
         >
           <Tooltip>
             <TooltipTrigger asChild>
@@ -685,7 +706,8 @@ export function ReviewTimeline({
                 }}
                 variant="outline"
                 disabled={currentZoomLevelIndex === 0}
-                className="bg-background_alt p-3 hover:bg-accent hover:text-accent-foreground active:scale-95 [@media(hover:none)]:hover:bg-background_alt"
+                aria-label={t("zoomOut")}
+                className={zoomButtonClass}
                 type="button"
               >
                 <LuZoomOut className={cn("size-5 text-primary-variant")} />
@@ -708,7 +730,8 @@ export function ReviewTimeline({
                 }}
                 variant="outline"
                 disabled={currentZoomLevelIndex === zoomLevels.length - 1}
-                className="bg-background_alt p-3 hover:bg-accent hover:text-accent-foreground active:scale-95 [@media(hover:none)]:hover:bg-background_alt"
+                aria-label={t("zoomIn")}
+                className={zoomButtonClass}
                 type="button"
               >
                 <LuZoomIn className={cn("size-5 text-primary-variant")} />
@@ -718,7 +741,7 @@ export function ReviewTimeline({
               <TooltipContent>{t("zoomIn")}</TooltipContent>
             </TooltipPortal>
           </Tooltip>
-        </div>
+        </fieldset>
       )}
     </>
   );

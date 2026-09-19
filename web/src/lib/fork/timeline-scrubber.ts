@@ -116,3 +116,63 @@ export function stepToEvent(
   }
   return first;
 }
+
+/**
+ * Space, in pixels, kept between a followed segment and the rail's edges
+ * (UI106). The current-time pill is 32 px tall and centered on its segment,
+ * and the rail fades its last 30 px, so a segment on the very last row left
+ * half of the pill cut off.
+ */
+export const FOLLOW_EDGE_MARGIN = 40;
+
+/**
+ * Whether a segment sits far enough inside the scrolled viewport that the
+ * pill drawn on it is fully visible. A rail too short for the margin on both
+ * sides falls back to plain visibility.
+ */
+export function isSegmentWellInView(
+  segmentTop: number,
+  segmentHeight: number,
+  scrollTop: number,
+  viewportHeight: number,
+  margin: number = FOLLOW_EDGE_MARGIN,
+): boolean {
+  const edge = Math.min(
+    margin,
+    Math.max(0, (viewportHeight - segmentHeight) / 2),
+  );
+  return (
+    segmentTop >= scrollTop + edge &&
+    segmentTop + segmentHeight <= scrollTop + viewportHeight - edge
+  );
+}
+
+/**
+ * Scroll the rail so the segment at `segmentIndex` is centered, unless
+ * `ifNeeded` is set and it is already well inside the rail (UI106).
+ */
+export function scrollSegmentIntoView(
+  timeline: HTMLElement,
+  segmentIndex: number,
+  segmentHeight: number,
+  ifNeeded: boolean,
+  behavior: ScrollBehavior,
+): void {
+  const timelineHeight = timeline.clientHeight;
+  const targetScrollTop = segmentIndex * segmentHeight;
+  if (
+    ifNeeded &&
+    isSegmentWellInView(
+      targetScrollTop,
+      segmentHeight,
+      timeline.scrollTop,
+      timelineHeight,
+    )
+  ) {
+    return;
+  }
+  timeline.scrollTo({
+    top: Math.max(0, targetScrollTop - timelineHeight / 2 + segmentHeight / 2),
+    behavior,
+  });
+}

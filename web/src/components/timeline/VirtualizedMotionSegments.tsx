@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import MotionSegment from "./MotionSegment";
 import { ReviewSegment, MotionData } from "@/types/review";
+import { scrollSegmentIntoView } from "@/lib/fork/timeline-scrubber";
 
 type VirtualizedMotionSegmentsProps = {
   timelineRef: React.RefObject<HTMLDivElement | null>;
@@ -114,25 +115,18 @@ export const VirtualizedMotionSegments = forwardRef<
           containerRef.current &&
           timelineRef.current
         ) {
-          const timelineHeight = timelineRef.current.clientHeight;
-          const targetScrollTop = segmentIndex * SEGMENT_HEIGHT;
-          const centeredScrollTop =
-            targetScrollTop - timelineHeight / 2 + SEGMENT_HEIGHT / 2;
-
-          const isVisible =
-            segmentIndex > visibleRange.start + OVERSCAN_COUNT &&
-            segmentIndex < visibleRange.end - OVERSCAN_COUNT;
-
-          if (!ifNeeded || !isVisible) {
-            timelineRef.current.scrollTo({
-              top: Math.max(0, centeredScrollTop),
-              behavior: behavior,
-            });
-          }
+          // fork (UI106): recenter before the pill reaches the rail's edge
+          scrollSegmentIntoView(
+            timelineRef.current,
+            segmentIndex,
+            SEGMENT_HEIGHT,
+            ifNeeded,
+            behavior,
+          );
           updateVisibleRange();
         }
       },
-      [segments, timelineRef, visibleRange, updateVisibleRange],
+      [segments, timelineRef, updateVisibleRange],
     );
 
     useImperativeHandle(ref, () => ({

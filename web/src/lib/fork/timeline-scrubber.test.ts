@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   eventTimesFromItems,
+  FOLLOW_EDGE_MARGIN,
+  isSegmentWellInView,
+  scrollSegmentIntoView,
   SNAP_SEGMENTS,
   snapMaxDistance,
   snapToNearestEvent,
@@ -100,5 +103,92 @@ describe("stepToEvent", () => {
     expect(stepToEvent(400, events, -1)).toBe(200);
     expect(stepToEvent(250, events, -1)).toBe(200);
     expect(stepToEvent(100, events, -1)).toBe(100);
+  });
+});
+
+describe("isSegmentWellInView", () => {
+  // an 800 px rail scrolled to 1000 px shows segments from 1000 to 1800
+  const scrollTop = 1000;
+  const height = 800;
+
+  it("accepts a segment in the middle of the rail", () => {
+    expect(isSegmentWellInView(1400, 8, scrollTop, height)).toBe(true);
+  });
+
+  it("rejects a segment on the last visible row", () => {
+    expect(isSegmentWellInView(1792, 8, scrollTop, height)).toBe(false);
+  });
+
+  it("rejects a segment within the margin of either edge", () => {
+    expect(
+      isSegmentWellInView(
+        scrollTop + FOLLOW_EDGE_MARGIN - 8,
+        8,
+        scrollTop,
+        height,
+      ),
+    ).toBe(false);
+    expect(
+      isSegmentWellInView(
+        scrollTop + height - FOLLOW_EDGE_MARGIN - 4,
+        8,
+        scrollTop,
+        height,
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts a segment right at the margin", () => {
+    expect(
+      isSegmentWellInView(scrollTop + FOLLOW_EDGE_MARGIN, 8, scrollTop, height),
+    ).toBe(true);
+    expect(
+      isSegmentWellInView(
+        scrollTop + height - FOLLOW_EDGE_MARGIN - 8,
+        8,
+        scrollTop,
+        height,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects segments outside the viewport", () => {
+    expect(isSegmentWellInView(0, 8, scrollTop, height)).toBe(false);
+    expect(isSegmentWellInView(4000, 8, scrollTop, height)).toBe(false);
+  });
+
+  it("shrinks the margin on a rail too short for it", () => {
+    // 48 px tall: only the middle segments count, never none of them
+    expect(isSegmentWellInView(20, 8, 0, 48)).toBe(true);
+    expect(isSegmentWellInView(0, 8, 0, 48)).toBe(false);
+  });
+});
+
+describe("scrollSegmentIntoView", () => {
+  const rail = (scrollTop: number) => {
+    const el = document.createElement("div");
+    Object.defineProperty(el, "clientHeight", { value: 400 });
+    el.scrollTop = scrollTop;
+    const scrollTo = vi.fn();
+    el.scrollTo = scrollTo;
+    return { el, scrollTo };
+  };
+
+  it("leaves a segment that is already well in view alone", () => {
+    const { el, scrollTo } = rail(1000);
+    scrollSegmentIntoView(el, 150, 8, true, "smooth");
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("centers a segment near the edge", () => {
+    const { el, scrollTo } = rail(1000);
+    scrollSegmentIntoView(el, 174, 8, true, "auto");
+    expect(scrollTo).toHaveBeenCalledWith({ top: 1196, behavior: "auto" });
+  });
+
+  it("always scrolls when ifNeeded is off, clamped at the top", () => {
+    const { el, scrollTo } = rail(0);
+    scrollSegmentIntoView(el, 2, 8, false, "smooth");
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
   });
 });

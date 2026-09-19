@@ -101,6 +101,11 @@ type RecordingViewProps = {
   refreshData?: () => void;
   onMotionSearch?: (camera: string) => void;
 };
+
+// fork (UI106): the active mode reads as a raised segment of the switch
+const VIEW_SWITCH_ITEM =
+  "data-[state=on]:bg-background data-[state=on]:text-primary data-[state=on]:shadow-sm data-[state=on]:ring-1 data-[state=on]:ring-border/70 data-[state=on]:hover:bg-background data-[state=on]:hover:text-primary";
+
 export function RecordingView({
   startCamera,
   startTime,
@@ -780,7 +785,9 @@ export function RecordingView({
             )}
             {isDesktop ? (
               <ToggleGroup
-                className="*:rounded-md *:px-3 *:py-4"
+                // fork (UI106): one segmented control, the active mode raised
+                className="gap-0.5 rounded-lg bg-secondary p-0.5 *:h-8 *:rounded-md *:px-3"
+                data-testid="recording-view-switch"
                 type="single"
                 size="sm"
                 value={timelineType}
@@ -789,21 +796,30 @@ export function RecordingView({
                 } // don't allow the severity to be unselected
               >
                 <ToggleGroupItem
-                  className={`${timelineType == "timeline" ? "" : "text-muted-foreground"}`}
+                  className={cn(
+                    VIEW_SWITCH_ITEM,
+                    timelineType == "timeline" ? "" : "text-muted-foreground",
+                  )}
                   value="timeline"
                   aria-label={t("timeline.aria")}
                 >
                   <div className="">{t("timeline.label")}</div>
                 </ToggleGroupItem>
                 <ToggleGroupItem
-                  className={`${timelineType == "events" ? "" : "text-muted-foreground"}`}
+                  className={cn(
+                    VIEW_SWITCH_ITEM,
+                    timelineType == "events" ? "" : "text-muted-foreground",
+                  )}
                   value="events"
                   aria-label={t("events.aria")}
                 >
                   <div className="">{t("events.label")}</div>
                 </ToggleGroupItem>
                 <ToggleGroupItem
-                  className={`${timelineType == "detail" ? "" : "text-muted-foreground"}`}
+                  className={cn(
+                    VIEW_SWITCH_ITEM,
+                    timelineType == "detail" ? "" : "text-muted-foreground",
+                  )}
                   value="detail"
                   aria-label="Detail Stream"
                 >
