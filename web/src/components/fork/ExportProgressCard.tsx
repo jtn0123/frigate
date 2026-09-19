@@ -9,6 +9,7 @@
  * one, an indeterminate bar otherwise.
  */
 
+import * as ProgressPrimitive from "@radix-ui/react-progress";
 import { useTranslation } from "react-i18next";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -60,13 +61,14 @@ export default function ExportProgressCard({
           {name}
         </div>
         {rounded === undefined ? (
-          <div
-            role="progressbar"
+          // the Radix root announces a null value as indeterminate
+          <ProgressPrimitive.Root
+            value={null}
             aria-label={t("exportProgress.label", { name })}
             className="relative h-1.5 w-full overflow-hidden rounded-full bg-primary/15"
           >
             <div className="absolute inset-y-0 left-0 w-1/3 animate-pulse rounded-full bg-selected" />
-          </div>
+          </ProgressPrimitive.Root>
         ) : (
           // ui/progress keeps `value` for the bar and does not pass it on,
           // so the root would announce no value

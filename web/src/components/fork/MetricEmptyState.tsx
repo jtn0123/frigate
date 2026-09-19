@@ -36,8 +36,7 @@ export default function MetricEmptyState({
   const { t } = useTranslation(["fork"]);
 
   return (
-    <div
-      role="status"
+    <output
       data-testid="metric-empty-state"
       className={cn(
         "flex h-[136px] w-full items-center justify-center rounded-md border border-dashed border-secondary-highlight px-4 text-center text-sm text-secondary-foreground",
@@ -45,6 +44,6 @@ export default function MetricEmptyState({
       )}
     >
       {t("systemMetrics.waiting")}
-    </div>
+    </output>
   );
 }

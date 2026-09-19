@@ -169,24 +169,28 @@ test.describe("Camera health cards @high", () => {
     await gotoHealth(frigateApp);
     const updated = new Date(start.getTime() + 6000);
     await frigateApp.page.clock.pauseAt(updated);
-    frigateApp.ws.send(
-      "stats",
-      JSON.stringify({
-        ...BASE_STATS,
-        service: {
-          ...BASE_STATS.service,
-          uptime: 600,
-          last_updated: updated.getTime() / 1000,
-        },
-        cameras: {
-          ...BASE_STATS.cameras,
-          front_door: { ...BASE_STATS.cameras.front_door, camera_fps: 0 },
-        },
-      }),
-    );
-    await expect(
-      frigateApp.page.getByTestId("camera-health-front_door"),
-    ).toHaveAttribute("data-state", "offline", { timeout: 1000 });
+    // a push that lands before the connect frame is overwritten by it, so
+    // resend until it shows
+    await expect(async () => {
+      frigateApp.ws.send(
+        "stats",
+        JSON.stringify({
+          ...BASE_STATS,
+          service: {
+            ...BASE_STATS.service,
+            uptime: 600,
+            last_updated: updated.getTime() / 1000,
+          },
+          cameras: {
+            ...BASE_STATS.cameras,
+            front_door: { ...BASE_STATS.cameras.front_door, camera_fps: 0 },
+          },
+        }),
+      );
+      await expect(
+        frigateApp.page.getByTestId("camera-health-front_door"),
+      ).toHaveAttribute("data-state", "offline", { timeout: 1000 });
+    }).toPass({ timeout: 10_000 });
   });
 
   test("right after a start, a camera without frames is starting, not offline (D14)", async ({
