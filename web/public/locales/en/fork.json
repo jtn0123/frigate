@@ -348,5 +348,17 @@
       "description": "Add a provider to write object descriptions, review summaries and chat answers. Frigate supports OpenAI, Azure OpenAI, Gemini, Ollama and llama.cpp.",
       "action": "Add provider"
     }
+  },
+  "cameraTable": {
+    "camera": "Camera",
+    "state": "State",
+    "actions": "Actions",
+    "delete": "Delete {{camera}}"
+  },
+  "cameraStateLegend": {
+    "on": "processes streams.",
+    "off": "pauses processing until Frigate restarts.",
+    "disabled": "stops processing and is saved to the config; turning it back on needs a restart.",
+    "notes": "Disabling does not affect go2rtc restreams. Drag a camera by its handle to reorder it everywhere in the UI."
   }
 }

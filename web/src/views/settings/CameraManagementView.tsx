@@ -28,7 +28,6 @@ import {
   LuPencil,
   LuPlus,
   LuRefreshCcw,
-  LuTrash2,
 } from "react-icons/lu";
 import CloneCameraDialog from "@/components/settings/CloneCameraDialog";
 import { Reorder, useDragControls } from "framer-motion";
@@ -80,6 +79,13 @@ import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import CameraStateLegend from "@/components/fork/settings/CameraStateLegend";
+import DeleteCameraRowButton from "@/components/fork/settings/DeleteCameraRowButton";
+
+// fork: camera state table columns: name, state select, row actions (UI111)
+const CAMERA_GRID_CLASS_NAME =
+  "grid grid-cols-[minmax(0,1fr)_7.5rem_2.5rem] items-center gap-3";
+const CAMERA_ROW_CLASS_NAME = `${CAMERA_GRID_CLASS_NAME} border-b border-secondary/60 py-1.5 last:border-b-0`;
 
 const REORDER_SAVED_INDICATOR_MS = 1500;
 
@@ -99,6 +105,12 @@ export default function CameraManagementView({
 
   const [showWizard, setShowWizard] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  // fork: the camera a row's delete action picked (UI111)
+  const [cameraToDelete, setCameraToDelete] = useState<string>();
+  const openDeleteDialog = useCallback((camera: string) => {
+    setCameraToDelete(camera);
+    setShowDeleteDialog(true);
+  }, []);
   const [showCloneDialog, setShowCloneDialog] = useState(false);
 
   // State for restart dialog when enabling a disabled camera
@@ -249,47 +261,29 @@ export default function CameraManagementView({
           </p>
 
           <div className="w-full max-w-5xl space-y-6">
-            <div className="flex gap-2">
+            {/* fork: Add stays primary, Clone is secondary and Delete moved
+                into each camera's row (UI111) */}
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="select"
                 onClick={() => setShowWizard(true)}
-                className="mb-2 flex max-w-48 items-center gap-2"
+                className="flex items-center gap-2"
               >
                 <LuPlus className="h-4 w-4" />
                 {t("cameraManagement.addCamera")}
               </Button>
               {enabledCameras.length + disabledCameras.length > 0 && (
                 <Button
-                  variant="destructive"
-                  onClick={() => setShowDeleteDialog(true)}
-                  className="mb-2 flex max-w-48 items-center gap-2"
-                >
-                  <LuTrash2 className="h-4 w-4" />
-                  {t("cameraManagement.deleteCamera")}
-                </Button>
-              )}
-            </div>
-
-            {enabledCameras.length + disabledCameras.length > 0 && (
-              <div className="mb-5 space-y-3">
-                <div className="space-y-0.5">
-                  <div className="font-medium">
-                    {t("cameraManagement.clone.sectionTitle")}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {t("cameraManagement.clone.sectionDescription")}
-                  </p>
-                </div>
-                <Button
-                  variant="select"
+                  variant="outline"
                   onClick={() => setShowCloneDialog(true)}
-                  className="flex max-w-48 items-center gap-2"
+                  className="flex items-center gap-2"
+                  title={t("cameraManagement.clone.sectionDescription")}
                 >
                   <LuCopy className="h-4 w-4" />
                   {t("cameraManagement.clone.button")}
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
 
             {(enabledCameras.length > 0 || disabledCameras.length > 0) && (
               <SettingsGroupCard
@@ -299,63 +293,74 @@ export default function CameraManagementView({
                   </Trans>
                 }
               >
-                <div className={SPLIT_ROW_CLASS_NAME}>
-                  <div className="space-y-1.5">
-                    <Label>{t("cameraManagement.streams.label")}</Label>
-                    <p className="hidden text-sm text-muted-foreground md:block">
-                      <Trans ns="views/settings">
-                        cameraManagement.streams.description
-                      </Trans>
-                    </p>
-                  </div>
-                  <div className="max-w-md space-y-1.5">
-                    <div className="space-y-3 rounded-lg bg-secondary p-4">
-                      {orderedCameras.length > 0 && (
-                        <Reorder.Group
-                          as="div"
-                          axis="y"
-                          values={orderedCameras}
-                          onReorder={setOrderedCameras}
-                          className="space-y-2"
-                        >
-                          {orderedCameras.map((camera) => (
-                            <ActiveCameraRow
-                              key={camera}
-                              camera={camera}
-                              onConfigChanged={updateConfig}
-                              onDragEnd={wrapAsync(handleReorderDragEnd)}
-                              setRestartDialogOpen={setRestartDialogOpen}
-                            />
-                          ))}
-                        </Reorder.Group>
-                      )}
-                      {orderedCameras.length > 0 &&
-                        disabledCameras.length > 0 && (
-                          <div className="border-t border-border/40" />
+                {/* fork: a table of name, state and row actions with a
+                    short legend under it (UI111) */}
+                <div className="space-y-3">
+                  <div
+                    role="table"
+                    aria-label={t("cameraManagement.streams.label")}
+                    data-testid="camera-state-table"
+                  >
+                    <div role="rowgroup">
+                      <div
+                        role="row"
+                        className={cn(
+                          CAMERA_GRID_CLASS_NAME,
+                          "border-b border-secondary pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground",
                         )}
-                      {disabledCameras.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {t("cameraManagement.streams.disabledSubheading")}
-                          </p>
-                          {disabledCameras.map((camera) => (
-                            <DisabledCameraRow
-                              key={camera}
-                              camera={camera}
-                              onConfigChanged={updateConfig}
-                              setRestartDialogOpen={setRestartDialogOpen}
-                            />
-                          ))}
-                        </div>
-                      )}
+                      >
+                        <span role="columnheader" className="pl-7">
+                          {t("cameraTable.camera", { ns: "fork" })}
+                        </span>
+                        <span role="columnheader">
+                          {t("cameraTable.state", { ns: "fork" })}
+                        </span>
+                        <span role="columnheader">
+                          <span className="sr-only">
+                            {t("cameraTable.actions", { ns: "fork" })}
+                          </span>
+                        </span>
+                      </div>
                     </div>
-                    <ReorderSaveStatusIndicator status={reorderSaveStatus} />
+                    {orderedCameras.length > 0 && (
+                      <Reorder.Group
+                        as="div"
+                        role="rowgroup"
+                        axis="y"
+                        values={orderedCameras}
+                        onReorder={setOrderedCameras}
+                      >
+                        {orderedCameras.map((camera) => (
+                          <ActiveCameraRow
+                            key={camera}
+                            camera={camera}
+                            onConfigChanged={updateConfig}
+                            onDragEnd={wrapAsync(handleReorderDragEnd)}
+                            setRestartDialogOpen={setRestartDialogOpen}
+                            onDelete={openDeleteDialog}
+                          />
+                        ))}
+                      </Reorder.Group>
+                    )}
+                    {disabledCameras.length > 0 && (
+                      <div role="rowgroup">
+                        <p className="pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {t("cameraManagement.streams.disabledSubheading")}
+                        </p>
+                        {disabledCameras.map((camera) => (
+                          <DisabledCameraRow
+                            key={camera}
+                            camera={camera}
+                            onConfigChanged={updateConfig}
+                            setRestartDialogOpen={setRestartDialogOpen}
+                            onDelete={openDeleteDialog}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground md:hidden">
-                    <Trans ns="views/settings">
-                      cameraManagement.streams.description
-                    </Trans>
-                  </p>
+                  <ReorderSaveStatusIndicator status={reorderSaveStatus} />
+                  <CameraStateLegend />
                 </div>
               </SettingsGroupCard>
             )}
@@ -390,6 +395,7 @@ export default function CameraManagementView({
       <DeleteCameraDialog
         show={showDeleteDialog}
         cameras={[...enabledCameras, ...disabledCameras]}
+        camera={cameraToDelete}
         onClose={() => setShowDeleteDialog(false)}
         onDeleted={() => {
           setShowDeleteDialog(false);
@@ -445,6 +451,7 @@ type ActiveCameraRowProps = {
   onConfigChanged: () => Promise<unknown>;
   onDragEnd: () => void;
   setRestartDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onDelete: (camera: string) => void;
 };
 
 function ActiveCameraRow({
@@ -452,6 +459,7 @@ function ActiveCameraRow({
   onConfigChanged,
   onDragEnd,
   setRestartDialogOpen,
+  onDelete,
 }: Readonly<ActiveCameraRowProps>) {
   const { t } = useTranslation(["views/settings"]);
   const controls = useDragControls();
@@ -463,9 +471,10 @@ function ActiveCameraRow({
       dragListener={false}
       dragControls={controls}
       onDragEnd={onDragEnd}
-      className="flex flex-row items-center justify-between"
+      role="row"
+      className={CAMERA_ROW_CLASS_NAME}
     >
-      <div className="flex items-center gap-1">
+      <div role="cell" className="flex min-w-0 items-center gap-1">
         <button
           type="button"
           onPointerDown={(e) => controls.start(e)}
@@ -480,12 +489,17 @@ function ActiveCameraRow({
           onConfigChanged={onConfigChanged}
         />
       </div>
-      <CameraStatusSelect
-        cameraName={camera}
-        isDisabledInConfig={false}
-        onConfigChanged={onConfigChanged}
-        setRestartDialogOpen={setRestartDialogOpen}
-      />
+      <div role="cell">
+        <CameraStatusSelect
+          cameraName={camera}
+          isDisabledInConfig={false}
+          onConfigChanged={onConfigChanged}
+          setRestartDialogOpen={setRestartDialogOpen}
+        />
+      </div>
+      <div role="cell">
+        <DeleteCameraRowButton camera={camera} onDelete={onDelete} />
+      </div>
     </Reorder.Item>
   );
 }
@@ -494,28 +508,35 @@ type DisabledCameraRowProps = {
   camera: string;
   onConfigChanged: () => Promise<unknown>;
   setRestartDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onDelete: (camera: string) => void;
 };
 
 function DisabledCameraRow({
   camera,
   onConfigChanged,
   setRestartDialogOpen,
+  onDelete,
 }: Readonly<DisabledCameraRowProps>) {
   return (
-    <div className="flex flex-row items-center justify-between">
-      <div className="flex items-center gap-1">
+    <div role="row" className={CAMERA_ROW_CLASS_NAME}>
+      <div role="cell" className="flex min-w-0 items-center gap-1 pl-7">
         <CameraNameLabel camera={camera} className="text-muted-foreground" />
         <CameraDetailsEditor
           cameraName={camera}
           onConfigChanged={onConfigChanged}
         />
       </div>
-      <CameraStatusSelect
-        cameraName={camera}
-        isDisabledInConfig={true}
-        onConfigChanged={onConfigChanged}
-        setRestartDialogOpen={setRestartDialogOpen}
-      />
+      <div role="cell">
+        <CameraStatusSelect
+          cameraName={camera}
+          isDisabledInConfig={true}
+          onConfigChanged={onConfigChanged}
+          setRestartDialogOpen={setRestartDialogOpen}
+        />
+      </div>
+      <div role="cell">
+        <DeleteCameraRowButton camera={camera} onDelete={onDelete} />
+      </div>
     </div>
   );
 }

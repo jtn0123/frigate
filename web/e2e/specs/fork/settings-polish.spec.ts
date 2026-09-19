@@ -205,3 +205,42 @@ test.describe("Generative AI empty state (UI105) @medium", () => {
     },
   );
 });
+
+test.describe("Camera management (UI111) @medium", () => {
+  test(
+    "delete is a row action and the states have a short legend",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openSettings(page, "cameraManagement");
+
+      await expect(
+        page.getByRole("button", { name: "Add New Camera" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Clone settings" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Delete Camera", exact: true }),
+      ).toHaveCount(0);
+
+      const table = page.getByTestId("camera-state-table");
+      await expect(
+        table.getByRole("columnheader", { name: "State" }),
+      ).toBeVisible();
+      await expect(table.getByTestId("camera-row-delete")).toHaveCount(3);
+      await expect(page.getByTestId("camera-state-legend")).toContainText(
+        "pauses processing until Frigate restarts",
+      );
+
+      await table.getByRole("button", { name: "Delete Front Door" }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toContainText("front_door");
+      await expect(
+        dialog.getByRole("button", { name: "Delete Permanently" }),
+      ).toBeVisible();
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
+    },
+  );
+});

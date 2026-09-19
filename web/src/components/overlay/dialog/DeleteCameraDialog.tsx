@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation, Trans } from "react-i18next";
 
 import axios from "axios";
@@ -27,6 +27,8 @@ import { Switch } from "@/components/ui/switch";
 type DeleteCameraDialogProps = {
   show: boolean;
   cameras: string[];
+  /** fork: open straight at the confirm step for this camera (UI111) */
+  camera?: string;
   onClose: () => void;
   onDeleted: () => void;
 };
@@ -34,6 +36,7 @@ type DeleteCameraDialogProps = {
 export default function DeleteCameraDialog({
   show,
   cameras,
+  camera,
   onClose,
   onDeleted,
 }: Readonly<DeleteCameraDialogProps>) {
@@ -42,6 +45,14 @@ export default function DeleteCameraDialog({
   const [selectedCamera, setSelectedCamera] = useState<string>("");
   const [deleteExports, setDeleteExports] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // fork: a row's delete action names the camera, so skip the picker (UI111)
+  useEffect(() => {
+    if (show && camera) {
+      setSelectedCamera(camera);
+      setPhase("confirm");
+    }
+  }, [show, camera]);
 
   const handleClose = useCallback(() => {
     if (isDeleting) return;
@@ -170,12 +181,18 @@ export default function DeleteCameraDialog({
             </div>
             <DialogFooter>
               <Button
-                aria-label={t("button.back", { ns: "common" })}
-                onClick={handleBack}
+                aria-label={
+                  camera
+                    ? t("button.cancel", { ns: "common" })
+                    : t("button.back", { ns: "common" })
+                }
+                onClick={camera ? handleClose : handleBack}
                 type="button"
                 disabled={isDeleting}
               >
-                {t("button.back", { ns: "common" })}
+                {camera
+                  ? t("button.cancel", { ns: "common" })
+                  : t("button.back", { ns: "common" })}
               </Button>
               <Button
                 variant="destructive"
