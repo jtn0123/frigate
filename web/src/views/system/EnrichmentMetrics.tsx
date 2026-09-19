@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { EventsPerSecondsLineGraph } from "@/components/graph/LineGraph";
 import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
 import { useLiveStatsHistory } from "@/hooks/fork/use-live-stats-history";
+import EnrichmentsEmptyState from "@/components/fork/EnrichmentsEmptyState";
 
 type EnrichmentMetricsProps = {
   lastUpdated: number;
@@ -175,7 +176,11 @@ export default function EnrichmentMetrics({
           "mt-4 grid w-full grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4",
         )}
       >
-        {statsHistory.length != 0 ? (
+        {/* fork (UI116): stats without an embeddings section left the tab
+            blank; say why instead */}
+        {statsHistory.length != 0 && groupedEnrichmentMetrics.length === 0 ? (
+          <EnrichmentsEmptyState />
+        ) : statsHistory.length != 0 ? (
           <>
             {groupedEnrichmentMetrics.map((group) => (
               <div

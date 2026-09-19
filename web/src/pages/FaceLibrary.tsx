@@ -107,6 +107,9 @@ export default function FaceLibrary() {
     () => (pageToggle && faceData ? (faceData[pageToggle] ?? []) : []),
     [pageToggle, faceData],
   );
+  // fork (UI116): an empty library shows its own Add Face in the empty state
+  const emptyLibrary = faceData != null && faces.length === 0;
+
   // fork (UI85): leave a face the backend removed once it was empty
   useLeaveMissingPage(pageToggle, faceData, setPageToggle);
 
@@ -452,10 +455,14 @@ export default function FaceLibrary() {
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2">
-            <Button className="flex gap-2" onClick={() => setAddFace(true)}>
-              <LuScanFace className="size-7 rounded-md p-1 text-secondary-foreground" />
-              {isDesktop && t("button.addFace")}
-            </Button>
+            {/* fork (UI116): with an empty library the page already offers
+                Add Face in its empty state, so the header does not repeat it */}
+            {!emptyLibrary && (
+              <Button className="flex gap-2" onClick={() => setAddFace(true)}>
+                <LuScanFace className="size-7 rounded-md p-1 text-secondary-foreground" />
+                {isDesktop && t("button.addFace")}
+              </Button>
+            )}
             {pageToggle != "train" && (
               <Button className="flex gap-2" onClick={() => setUpload(true)}>
                 <LuImagePlus className="size-7 rounded-md p-1 text-secondary-foreground" />
