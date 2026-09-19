@@ -91,6 +91,26 @@ function isEmptyResult(id: string, status: number | undefined): boolean {
   );
 }
 
+/**
+ * Reads whose page draws its own error state (UI103), counted per mount.
+ * A toast on top would say the same thing twice.
+ */
+const inlineErrorKeys = new Map<string, number>();
+
+/** Mark `key`'s failures as shown by the page; returns the release. */
+export function claimReadErrors(key: string): () => void {
+  const id = readErrorKeyId(key);
+  inlineErrorKeys.set(id, (inlineErrorKeys.get(id) ?? 0) + 1);
+  return () => {
+    const count = (inlineErrorKeys.get(id) ?? 1) - 1;
+    if (count > 0) {
+      inlineErrorKeys.set(id, count);
+    } else {
+      inlineErrorKeys.delete(id);
+    }
+  };
+}
+
 /** Test hook: forget every cooldown so the next failure toasts again. */
 export function resetReadErrorCooldowns(): void {
   lastShown.clear();
@@ -103,7 +123,7 @@ export function reportReadError(error: unknown, key: unknown): void {
 
   const id = readErrorKeyId(key);
   const status = (error as { response?: { status?: number } }).response?.status;
-  if (isEmptyResult(id, status)) {
+  if (isEmptyResult(id, status) || inlineErrorKeys.has(id)) {
     return;
   }
 

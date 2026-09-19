@@ -134,6 +134,8 @@ test.describe("Users load error (UI103) @high @mobile", () => {
     await expect(state).toContainText("did not return a valid response");
     await expect(state).toContainText("database locked");
     await expect(state).not.toContainText("Only admins");
+    // the page shows the error itself, so no read-error toast on top
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
 
     recovered = true;
     await state.getByRole("button", { name: "Retry" }).click();
