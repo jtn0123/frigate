@@ -9,6 +9,7 @@
 import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
 import { BASE_STATS } from "../../fixtures/mock-data/stats";
+import { openStatusIssues } from "../../helpers/status-issues";
 
 type CameraOverride = Partial<{
   camera_fps: number;
@@ -243,6 +244,9 @@ test.describe("Camera health cards @high", () => {
       "Decodes in software because hardware decoding kept failing · 1h ago",
     );
     if (!frigateApp.isMobile) {
+      // UI110: the bar lists its warnings behind a chip; the list stays open
+      // below, so the message leaving it is what the last check sees
+      await openStatusIssues(frigateApp.page);
       await expect(message).toBeVisible();
     }
 

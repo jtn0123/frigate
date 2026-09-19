@@ -303,7 +303,12 @@
     "allOptions": "All options"
   },
   "statusAlerts": {
-    "label": "System warnings"
+    "label": "System warnings",
+    "chipLabel_one": "{{count}} system warning, show details",
+    "chipLabel_other": "{{count}} system warnings, show details",
+    "count_one": "{{count}} issue",
+    "count_other": "{{count}} issues",
+    "open": "View details"
   },
   "navigation": {
     "unsaved": "You have unsaved changes. Leave this page and discard them?",

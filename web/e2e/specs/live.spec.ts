@@ -12,6 +12,7 @@ import { test, expect } from "../fixtures/frigate-test";
 import { LivePage } from "../pages/live.page";
 import { BASE_STATS } from "../fixtures/mock-data/stats";
 import { installWsFrameCapture, waitForWsFrame } from "../helpers/ws-frames";
+import { openStatusIssues } from "../helpers/status-issues";
 import {
   expectBodyInteractive,
   waitForBodyInteractive,
@@ -333,6 +334,8 @@ test.describe("Status bar wording @critical", () => {
           service: { ...BASE_STATS.service, last_updated: Date.now() / 1000 },
         }),
       );
+      // UI110: the bar lists its warnings behind a chip
+      await openStatusIssues(frigateApp.page);
       // exact: the default text match ignores case, and "Cpu" would pass
       await expect(
         frigateApp.page.getByText("CPU is slow (75.5 ms)", { exact: true }),
