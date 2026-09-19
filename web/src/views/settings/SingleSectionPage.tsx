@@ -2,11 +2,9 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SectionConfig } from "@/components/config-form/sections";
 import { ConfigSectionTemplate } from "@/components/config-form/sections";
-import { CameraOverridesBadge } from "@/components/config-form/sections/CameraOverridesBadge";
-import { GlobalOverridesBadge } from "@/components/config-form/sections/GlobalOverridesBadge";
-import { ProfileOverridesBadge } from "@/components/config-form/sections/ProfileOverridesBadge";
+// fork (UI117): the badge row lives in one component now
+import SectionOverrideBadges from "@/components/fork/settings/SectionOverrideBadges";
 import type { PolygonType } from "@/types/canvas";
-import { Badge } from "@/components/ui/badge";
 import type { ConfigSectionData } from "@/types/configForm";
 import type { ProfileState } from "@/types/profile";
 import { getSectionConfig } from "@/utils/configUtil";
@@ -162,80 +160,26 @@ export function SingleSectionPage({
               </div>
             )}
           </div>
-          {/* Desktop: badge inline next to title */}
-          <div className="hidden shrink-0 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
-            {level === "global" && showOverrideIndicator && (
-              <CameraOverridesBadge sectionPath={sectionKey} />
-            )}
-            {level === "camera" &&
-              showOverrideIndicator &&
-              sectionStatus.isOverridden &&
-              selectedCamera &&
-              (sectionStatus.overrideSource === "profile" &&
-              currentEditingProfile ? (
-                <ProfileOverridesBadge
-                  sectionPath={sectionKey}
-                  cameraName={selectedCamera}
-                  profileName={currentEditingProfile}
-                  profileFriendlyName={profileState?.profileFriendlyNames.get(
-                    currentEditingProfile,
-                  )}
-                  profileBorderColor={profileColor?.border}
-                />
-              ) : (
-                <GlobalOverridesBadge
-                  sectionPath={sectionKey}
-                  cameraName={selectedCamera}
-                />
-              ))}
-            {sectionStatus.hasChanges && (
-              <Badge
-                variant="secondary"
-                className="cursor-default bg-unsaved text-xs text-black hover:bg-unsaved"
-              >
-                {t("button.modified", {
-                  ns: "common",
-                  defaultValue: "Modified",
-                })}
-              </Badge>
-            )}
-          </div>
         </div>
-        {/* Mobile: badge below title/description */}
-        <div className="flex flex-wrap items-center gap-2 sm:hidden">
-          {level === "global" && showOverrideIndicator && (
-            <CameraOverridesBadge sectionPath={sectionKey} />
-          )}
-          {level === "camera" &&
-            showOverrideIndicator &&
-            sectionStatus.isOverridden &&
-            selectedCamera &&
-            (sectionStatus.overrideSource === "profile" &&
-            currentEditingProfile ? (
-              <ProfileOverridesBadge
-                sectionPath={sectionKey}
-                cameraName={selectedCamera}
-                profileName={currentEditingProfile}
-                profileFriendlyName={profileState?.profileFriendlyNames.get(
-                  currentEditingProfile,
-                )}
-                profileBorderColor={profileColor?.border}
-              />
-            ) : (
-              <GlobalOverridesBadge
-                sectionPath={sectionKey}
-                cameraName={selectedCamera}
-              />
-            ))}
-          {sectionStatus.hasChanges && (
-            <Badge
-              variant="secondary"
-              className="cursor-default bg-unsaved text-xs text-black hover:bg-unsaved"
-            >
-              {t("button.modified", { ns: "common", defaultValue: "Modified" })}
-            </Badge>
-          )}
-        </div>
+        {/* fork (UI117): one badge row, under the title it describes, in
+            place of the desktop copy pinned to the far right and the phone
+            copy below */}
+        <SectionOverrideBadges
+          sectionKey={sectionKey}
+          level={level}
+          showOverrideIndicator={showOverrideIndicator}
+          isOverridden={sectionStatus.isOverridden}
+          overrideSource={sectionStatus.overrideSource}
+          hasChanges={sectionStatus.hasChanges}
+          selectedCamera={selectedCamera}
+          currentEditingProfile={currentEditingProfile}
+          profileFriendlyName={
+            currentEditingProfile
+              ? profileState?.profileFriendlyNames.get(currentEditingProfile)
+              : undefined
+          }
+          profileBorderColor={profileColor?.border}
+        />
       </div>
       <ConfigSectionTemplate
         sectionKey={sectionKey}

@@ -54,22 +54,31 @@ export default function SemanticSearchReindex() {
   };
 
   return (
-    <div className="flex flex-col space-y-1">
+    // fork (UI117): its own card, so it does not read as part of the
+    // Enabled toggle it is rendered after
+    <div
+      data-testid="semantic-search-reindex"
+      className="mt-4 flex flex-col gap-2 rounded-lg border border-secondary-foreground/10 bg-background_alt p-3"
+    >
+      <div className="text-sm font-medium text-primary">
+        {t("enrichments.semanticSearch.reindexNow.cardTitle")}
+      </div>
+      <div className="text-xs text-muted-foreground">
+        <Trans ns="views/settings">
+          enrichments.semanticSearch.reindexNow.desc
+        </Trans>
+      </div>
       <div className="flex">
         <Button
           variant="default"
           size="sm"
+          className="min-h-[44px]"
           onClick={() => setIsDialogOpen(true)}
           disabled={isLoading}
           aria-label={t("enrichments.semanticSearch.reindexNow.label")}
         >
           {t("enrichments.semanticSearch.reindexNow.label")}
         </Button>
-      </div>
-      <div className="mt-2 text-xs text-muted-foreground">
-        <Trans ns="views/settings">
-          enrichments.semanticSearch.reindexNow.desc
-        </Trans>
       </div>
 
       <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

@@ -348,7 +348,9 @@
   },
   "usersLoadError": {
     "title": "Could not load users",
-    "forbidden": "The server refused the request (HTTP {{status}}). Only admins can view and manage users. Sign in with an admin account, or retry if your role just changed."
+    "forbidden": "The server refused the request (HTTP {{status}}). Only admins can view and manage users. Sign in with an admin account, or retry if your role just changed.",
+    "titleRoles": "Could not load roles",
+    "forbiddenRoles": "The server refused the request (HTTP {{status}}). Only admins can view and manage roles. Sign in with an admin account, or retry if your role just changed."
   },
   "triggersNotice": {
     "title": "Triggers need semantic search",

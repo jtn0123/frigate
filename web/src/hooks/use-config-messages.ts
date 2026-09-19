@@ -15,7 +15,14 @@ export function useConfigMessages(
 } {
   const activeMessages = useMemo(() => {
     if (!messages || !context) return [];
-    return messages.filter((msg) => msg.condition(context));
+    return (
+      messages
+        .filter((msg) => msg.condition(context))
+        // fork (UI117): an action needs the context the condition ran against
+        .map((msg) =>
+          msg.action ? { ...msg, resolvedAction: msg.action(context) } : msg,
+        )
+    );
   }, [messages, context]);
 
   const activeFieldMessages = useMemo(() => {
