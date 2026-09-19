@@ -344,5 +344,63 @@
   "exportProgress": {
     "exporting": "Exporting",
     "label": "Export progress for {{name}}"
+  },
+  "usersLoadError": {
+    "title": "Could not load users",
+    "forbidden": "The server refused the request (HTTP {{status}}). Only admins can view and manage users. Sign in with an admin account, or retry if your role just changed."
+  },
+  "triggersNotice": {
+    "title": "Triggers need semantic search",
+    "description": "Triggers compare new tracked objects with the thumbnails and descriptions in the semantic search index. Turn semantic search on, let it index, then come back to add triggers.",
+    "openSettings": "Open semantic search settings"
+  },
+  "configEmptyState": {
+    "genaiProviders": {
+      "title": "No providers yet",
+      "description": "Add a provider to write object descriptions, review summaries and chat answers. Frigate supports OpenAI, Azure OpenAI, Gemini, Ollama and llama.cpp.",
+      "action": "Add provider"
+    }
+  },
+  "cameraTable": {
+    "camera": "Camera",
+    "state": "State",
+    "actions": "Actions",
+    "delete": "Delete {{camera}}"
+  },
+  "cameraStateLegend": {
+    "on": "processes streams.",
+    "off": "pauses processing until Frigate restarts.",
+    "disabled": "stops processing and is saved to the config; turning it back on needs a restart.",
+    "notes": "Disabling does not affect go2rtc restreams. Drag a camera by its handle to reorder it everywhere in the UI."
+  },
+  "mediaSync": {
+    "options": "Options",
+    "startDryRun": "Start dry run",
+    "dryRunHint": "Dry run lists what would be removed. Turn off Dry run to delete files.",
+    "deleteHint": "Orphaned files will be deleted from disk.",
+    "chooseType": "Choose at least one media type."
+  },
+  "statusPill": {
+    "on": "On",
+    "off": "Off"
+  },
+  "plusKeyStatus": {
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "howToConnect": "Set <code>PLUS_API_KEY</code> as an environment variable or Docker secret (Home Assistant app: the Frigate+ API key option), then restart Frigate.",
+    "openSnapshots": "Open snapshot settings"
+  },
+  "registerDevice": {
+    "noCameras": "Turn on notifications for at least one camera above and save, then register this device.",
+    "notSaved": "Save your notification settings first. Registering needs notifications turned on in the saved config.",
+    "keyLoading": "Loading the push key from Frigate.",
+    "keyUnavailable": "Frigate did not return its push key. Check the Frigate logs, then reload this page."
+  },
+  "profilesHowItWorks": {
+    "title": "How profiles work",
+    "create": "Turn on profiles and add one, such as Home, Away or Night.",
+    "override": "Open a camera configuration section (for example Motion detection), pick a camera and the profile at the top right, and change only the settings the profile should override.",
+    "activate": "Activate the profile from Frigate's main menu, the Active Profile list here, MQTT, the HTTP API or Home Assistant.",
+    "note": "Only one profile is active at a time. Activating or deactivating one applies right away without a restart."
   }
 }

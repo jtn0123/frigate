@@ -248,7 +248,7 @@ export default function UiSettingsView() {
 
   return (
     <div className="flex size-full flex-col">
-      <div className="scrollbar-container mb-2 mt-2 flex h-full w-full flex-col overflow-y-auto pb-2">
+      <div className="scrollbar-container mb-2 flex h-full w-full flex-col overflow-y-auto pb-2">
         <Heading as="h4" className="mb-3">
           {t("general.title")}
         </Heading>

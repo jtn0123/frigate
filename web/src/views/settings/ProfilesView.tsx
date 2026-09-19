@@ -61,6 +61,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
+import ProfilesHowItWorks from "@/components/fork/settings/ProfilesHowItWorks";
 
 type ProfilesViewProps = {
   setUnsavedChanges?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -405,6 +406,9 @@ export default function ProfilesView({
           {t("profiles.enabledDescription", { ns: "views/settings" })}
         </p>
       )}
+
+      {/* fork: explain the flow while nothing is defined yet (UI115) */}
+      {!hasProfiles && <ProfilesHowItWorks />}
 
       {/* Active Profile + Add Profile bar */}
       {(hasProfiles || profilesUIEnabled) && (
