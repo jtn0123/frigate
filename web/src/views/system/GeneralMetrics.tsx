@@ -1,7 +1,6 @@
 import useSWR from "swr";
 import { FrigateStats, GpuInfo, GpuStats } from "@/types/stats";
-import { startTransition, useEffect, useMemo, useState } from "react";
-import { useFrigateStats } from "@/api/ws";
+import { useMemo, useState } from "react";
 import {
   DetectorCpuThreshold,
   DetectorMemThreshold,
@@ -27,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { CiCircleAlert } from "react-icons/ci";
 import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
+import { useLiveStatsHistory } from "@/hooks/fork/use-live-stats-history";
 
 type GeneralMetricsProps = {
   lastUpdated: number;
@@ -56,35 +56,13 @@ export default function GeneralMetrics({
     },
   );
 
-  const [statsHistory, setStatsHistory] = useState<FrigateStats[]>([]);
-  const updatedStats = useFrigateStats();
-
-  useEffect(() => {
-    if (initialStats == undefined || initialStats.length == 0) {
-      return;
-    }
-
-    if (statsHistory.length == 0) {
-      startTransition(() => setStatsHistory(initialStats));
-      return;
-    }
-
-    if (!isActive || !updatedStats) {
-      return;
-    }
-
-    if (updatedStats.service.last_updated > lastUpdated) {
-      setStatsHistory([...statsHistory.slice(1), updatedStats]);
-      setLastUpdated(updatedStats.service.last_updated);
-    }
-  }, [
+  // fork (UI107): also grows from live stats when the history starts empty
+  const [statsHistory, setStatsHistory] = useLiveStatsHistory({
     initialStats,
-    updatedStats,
-    statsHistory,
+    isActive,
     lastUpdated,
     setLastUpdated,
-    isActive,
-  ]);
+  });
 
   // prettier-ignore
   useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);

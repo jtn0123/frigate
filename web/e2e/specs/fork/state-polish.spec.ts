@@ -65,6 +65,32 @@ test.describe("System metric cards without samples (UI107) @medium @mobile", () 
     });
     await expect(card.getByTestId("metric-empty-state")).toHaveCount(0);
   });
+  test("an empty history fills from live stats on a fresh start", async ({
+    frigateApp,
+  }) => {
+    // right after a restart the backend has no history yet
+    await frigateApp.page.route("**/api/stats/history**", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await frigateApp.goto("/system#general");
+    const card = frigateApp.page
+      .getByText("Process CPU Usage", { exact: true })
+      .locator("..");
+    // resend: a push that lands before the connect frame is overwritten
+    await expect(async () => {
+      frigateApp.ws.send(
+        "stats",
+        JSON.stringify({
+          ...BASE_STATS,
+          processes: { go2rtc: { cpu: "3.0", mem: "1.0", pid: 300 } },
+          service: { ...BASE_STATS.service, last_updated: Date.now() / 1000 },
+        }),
+      );
+      await expect(card.getByText("go2rtc", { exact: true })).toBeVisible({
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 15_000 });
+  });
 });
 
 test.describe("In-progress export card (UI108) @medium @mobile", () => {
