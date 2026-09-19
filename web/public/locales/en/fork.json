@@ -46,7 +46,7 @@
     "placeholder": "Search pages, cameras, settings, and actions",
     "empty": "No results found.",
     "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
-    "footerHintMac": "\u2318K or / to open, arrows to move, Enter to run",
+    "footerHintMac": "⌘K or / to open, arrows to move, Enter to run",
     "groups": {
       "recent": "Recent",
       "pages": "Pages",
@@ -244,7 +244,7 @@
     "activeFailed": "Could not load your share links",
     "activeEmpty": "You have no active share links.",
     "retry": "Retry",
-    "linkName": "{{camera}} \u00b7 {{event}}",
+    "linkName": "{{camera}} · {{event}}",
     "thisLink": "(this link)",
     "createdBy": "by {{user}}",
     "expiresIn": {
@@ -319,15 +319,15 @@
     "range15": "Last 15 minutes",
     "range60": "Last hour",
     "range1440": "Last 24 hours",
-    "loading": "Loading page\u2026",
+    "loading": "Loading page…",
     "copyView": "Copy link to this view",
     "copied": "Link copied",
     "copyFailed": "Copy this address to share the current view",
-    "refreshing": "Refreshing measurements\u2026",
+    "refreshing": "Refreshing measurements…",
     "historyUnavailable": "History could not be loaded. Current measurements are shown below.",
-    "saving": "Saving\u2026",
+    "saving": "Saving…",
     "saved": "Saved",
-    "working": "Working\u2026",
+    "working": "Working…",
     "actionFailed": "The action failed. Try again.",
     "renameFailed": "The export could not be renamed. Your input is still here. Try again."
   },
@@ -348,7 +348,9 @@
   },
   "usersLoadError": {
     "title": "Could not load users",
-    "forbidden": "The server refused the request (HTTP {{status}}). Only admins can view and manage users. Sign in with an admin account, or retry if your role just changed."
+    "forbidden": "The server refused the request (HTTP {{status}}). Only admins can view and manage users. Sign in with an admin account, or retry if your role just changed.",
+    "titleRoles": "Could not load roles",
+    "forbiddenRoles": "The server refused the request (HTTP {{status}}). Only admins can view and manage roles. Sign in with an admin account, or retry if your role just changed."
   },
   "triggersNotice": {
     "title": "Triggers need semantic search",

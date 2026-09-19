@@ -7,7 +7,9 @@ const birdseye: SectionConfigOverrides = {
       {
         key: "objects-mode-detect-disabled",
         messageKey: "configMessages.birdseye.objectsModeDetectDisabled",
-        severity: "info",
+        // fork (UI117): the camera silently never appears in Birdseye, so
+        // this is a warning, and it links to the setting behind it
+        severity: "warning",
         condition: (ctx) => {
           if (ctx.level !== "camera" || !ctx.fullCameraConfig) return false;
           return (
@@ -15,6 +17,15 @@ const birdseye: SectionConfigOverrides = {
             ctx.fullCameraConfig.detect?.enabled === false
           );
         },
+        action: (ctx) =>
+          ctx.cameraName
+            ? {
+                labelKey: "configMessages.birdseye.openDetectSettings",
+                href: `/settings?page=cameraDetect&camera=${encodeURIComponent(
+                  ctx.cameraName,
+                )}`,
+              }
+            : undefined,
       },
     ],
     restartRequired: [],

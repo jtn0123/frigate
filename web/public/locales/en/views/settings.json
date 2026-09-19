@@ -217,6 +217,7 @@
       "title": "Semantic Search",
       "desc": "Semantic Search in Frigate allows you to find tracked objects within your review items using either the image itself, a user-defined text description, or an automatically generated one.",
       "reindexNow": {
+        "cardTitle": "Reindex tracked objects",
         "label": "Reindex Now",
         "desc": "Reindexing will regenerate embeddings for all tracked objects. This process runs in the background and may max out your CPU and take a fair amount of time depending on the number of tracked objects you have.",
         "confirmTitle": "Confirm Reindexing",
@@ -1955,7 +1956,8 @@
       "noRecordRole": "No streams have the record role defined. Recording will not function."
     },
     "birdseye": {
-      "objectsModeDetectDisabled": "Birdseye is set to 'objects' mode, but object detection is disabled for this camera. The camera will not appear in Birdseye."
+      "objectsModeDetectDisabled": "This camera will not appear in Birdseye. Birdseye is set to 'objects' mode, which only shows cameras where object detection is running, and detection is turned off for this camera.",
+      "openDetectSettings": "Open detect settings"
     },
     "snapshots": {
       "detectDisabled": "Object detection is disabled. Snapshots are generated from tracked objects and will not be created."
