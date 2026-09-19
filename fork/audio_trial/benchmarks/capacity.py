@@ -14,13 +14,15 @@ import tempfile
 import threading
 import time
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import onnxruntime as ort
 
 
-def stats():
+def stats() -> dict[str, Any]:
     """Capture existing camera performance without changing Frigate."""
     with urllib.request.urlopen(
         "http://127.0.0.1:5000/api/stats", timeout=3
@@ -37,7 +39,7 @@ def stats():
     }
 
 
-def healthy(sample):
+def healthy(sample: dict[str, Any]) -> bool:
     """Use the same conservative camera limits as the companion worker."""
     return (
         time.time() - sample["source_updated"] < 90
@@ -46,7 +48,13 @@ def healthy(sample):
     )
 
 
-def monitor(report, stop, ready, active, save):
+def monitor(
+    report: dict[str, Any],
+    stop: threading.Event,
+    ready: threading.Event,
+    active: threading.Event,
+    save: Callable[[], None],
+) -> None:
     """Stop a benchmark when measured camera health becomes unsafe."""
     good = bad = 0
     while not stop.is_set():
@@ -66,12 +74,20 @@ def monitor(report, stop, ready, active, save):
         stop.wait(3)
 
 
-def consume_frames(processes, model, name, phase, seconds):
+def consume_frames(
+    processes: list["subprocess.Popen[bytes]"],
+    model: Any,
+    name: str,
+    phase: dict[str, Any],
+    seconds: float,
+) -> None:
     """Measure complete decoded frames until the bounded phase ends."""
     frame_bytes = 320 * 320 * 3
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         for index, process in enumerate(processes):
+            if process.stdout is None:
+                raise RuntimeError("Decode stream has no output")
             frame = process.stdout.read(frame_bytes)
             if len(frame) != frame_bytes:
                 raise RuntimeError("Decode stream ended early")
@@ -88,14 +104,14 @@ def consume_frames(processes, model, name, phase, seconds):
             phase["frames"][index] += 1
 
 
-def main():
+def main() -> None:
     """Test two then four additional 720p15 decode streams with 5 FPS detection."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seconds", type=int, default=90, choices=range(30, 301))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    report = {
+    report: dict[str, Any] = {
         "description": "Synthetic H264 1280x720 15 FPS, VAAPI decode, YOLO 320 every frame at 5 FPS; excludes recording/tracking",
         "samples": [],
         "phases": [],
@@ -104,7 +120,7 @@ def main():
     ready = threading.Event()
     active = threading.Event()
 
-    def save():
+    def save() -> None:
         (args.output / "capacity.json").write_text(json.dumps(report, indent=2))
 
     thread = threading.Thread(
@@ -166,7 +182,7 @@ def main():
                 "inference_ms": [],
             }
             report["phases"].append(phase)
-            processes = []
+            processes: list[subprocess.Popen[bytes]] = []
             try:
                 for _ in range(count):
                     processes.append(

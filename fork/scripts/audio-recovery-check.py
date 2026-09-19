@@ -10,9 +10,9 @@ def run(image: str) -> None:
     """Use isolated Docker volumes and synthetic results, never production state."""
     prefix = "audio-recovery-" + uuid.uuid4().hex[:12]
     volume = prefix + "-state"
-    names = []
+    names: list[str] = []
 
-    def docker(*args, check=True):
+    def docker(*args: str, check: bool = True) -> "subprocess.CompletedProcess[bytes]":
         return subprocess.run(["docker", *args], check=check)
 
     try:

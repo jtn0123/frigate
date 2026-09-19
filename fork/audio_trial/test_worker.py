@@ -412,3 +412,37 @@ class WorkerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReadJsonShapeTests(unittest.TestCase):
+    """A surprising payload must fail closed, not crash somewhere later."""
+
+    def read(self, payload: object):
+        response = io.StringIO(json.dumps(payload))
+        response.__enter__ = lambda self=response: self
+        response.__exit__ = lambda *_: None
+        return patch.object(worker.urllib.request, "urlopen", return_value=response)
+
+    def test_an_object_endpoint_returns_the_object(self):
+        with self.read({"cameras": {}}):
+            self.assertEqual(worker.read_json_object("/config"), {"cameras": {}})
+
+    def test_an_object_endpoint_rejects_a_list(self):
+        with self.read([1, 2]):
+            with self.assertRaises(ValueError):
+                worker.read_json_object("/config")
+
+    def test_a_list_endpoint_returns_the_list(self):
+        with self.read([{"id": "a"}]):
+            self.assertEqual(worker.read_json_list("/review"), [{"id": "a"}])
+
+    def test_a_list_endpoint_rejects_an_object(self):
+        with self.read({"id": "a"}):
+            with self.assertRaises(ValueError):
+                worker.read_json_list("/review")
+
+    def test_health_reports_unavailable_when_the_shape_is_wrong(self):
+        # health() catches ValueError, so a bad payload reads as unknown health
+        # rather than raising into the inference path.
+        with self.read([1, 2]):
+            self.assertEqual(worker.health(), "health check unavailable")

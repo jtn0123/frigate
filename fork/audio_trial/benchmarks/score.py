@@ -3,10 +3,12 @@
 import argparse
 import json
 import unicodedata
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 
-def normalize(text):
+def normalize(text: str) -> str:
     """Normalize Unicode, case and punctuation; retain actual spoken words."""
     text = unicodedata.normalize("NFKC", text).casefold()
     return " ".join(
@@ -18,7 +20,7 @@ def normalize(text):
     )
 
 
-def distance(reference, candidate):
+def distance(reference: Sequence[object], candidate: Sequence[object]) -> int:
     """Compute Levenshtein edit count using bounded row storage."""
     previous = list(range(len(candidate) + 1))
     for i, left in enumerate(reference, 1):
@@ -31,10 +33,10 @@ def distance(reference, candidate):
     return previous[-1]
 
 
-def summarize(manifest, results):
+def summarize(manifest: dict[str, Any], results: dict[str, Any]) -> dict[str, Any]:
     """Aggregate edit counts over reference lengths, not unweighted clip averages."""
     references = {clip["id"]: clip for clip in manifest["clips"]}
-    groups = {}
+    groups: dict[str, dict[str, Any]] = {}
     for row in results["clips"]:
         source = references[row["id"]]
         key = f"{source['language']}/{row.get('variant', 'clean')}"
@@ -87,7 +89,7 @@ def summarize(manifest, results):
     }
 
 
-def main():
+def main() -> None:
     """Print a reproducible JSON report from saved public benchmark predictions."""
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)

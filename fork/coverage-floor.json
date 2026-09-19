@@ -1,0 +1,6 @@
+{
+  "_comment": "Coverage may not fall below these percentages (D26). The web number is vitest merged with the browser coverage three sharded e2e runs measure, and it moves between runs on identical code (58.61% and 56.95% on consecutive runs), so its floor sits at the lower observation with a wider allowance. Python is deterministic. Lowering either needs a reason in the commit that does it.",
+  "tolerance_points": { "python": 1.0, "web": 3.0 },
+  "python": 41.39,
+  "web": 56.95
+}

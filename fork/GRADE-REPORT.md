@@ -43,12 +43,14 @@ round two, three PRs merged back to back with no rebase.
 | B | Backend Quality | B− | B | B | B+ | 4 |
 | C | Frontend Quality | C | C+ | B− | B− | 13 |
 | D | Testing & Reliability | C+ | B− | B | B | 7 |
-| E | Security | B+ | B+ | B+ | B+ | 4 |
+| E | Security | B+ | B+ | B+ | B+ | 3 |
 | F | Dependencies & Tech Currency | C+ | B− | B− | B− | 5 |
-| G | Performance & Scalability | C+ | B− | C+ | B− | 7 |
+| G | Performance & Scalability | C+ | B− | C+ | B− | 6 |
 | H | Documentation & Onboarding | C | C+ | C+ | C+ | 5 |
 | I | Developer Experience & Tooling | C+ | B | B | B | 8 |
-| **Overall** | | **B−** | **B** | **B** | **B** | **58** + UX track |
+| **Overall** | | **B−** | **B** | **B** | **B** | **56** + UX track |
+
+**What the grade branch added (2026-09-18).** E6 and G8 are done on top of the counts above, I3's first wave and G9's image half landed, and the rest of its work is ledger-only (I17, D25, D26, I16, E8, plus F10 and B12, which were this branch's F7 and B5 until `next` claimed those numbers for different items; the trunk keeps the number, and B5 was renumbered twice as `next` took B10 too). B12 is the `fork_updates` half only: `next`'s own share models and endpoints supersede the share half.
 
 **Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E17 + E18 (together: Security to A−), G17, D48, I31
 
@@ -406,6 +408,7 @@ today's dismissals again live only in GitHub (E19), and CSP is report-only
 - ~~E3~~ ✓ done 2026-09-10. `safe_join` in `preview_thumbnail`
 - ~~E4~~ ✓ done 2026-09-10. CodeQL triage: 29 dismissed with written comments, 9 fixed (residue → E17, E18, E19)
 - ~~E5~~ ✓ done 2026-09-11. Shipped dependency advisories patched; 145 remaining alerts are in `docs/` (125), unbuilt TensorRT manifests (16), dev-only vitest (2) and the build stage (2 → F7)
+- ~~E6~~ ✓ done 2026-09-18. The CSP in `docker/main/rootfs/usr/local/nginx/conf/security_headers.conf` is enforced, same directives; `E2E_CSP=1` serves that policy in preview and `web/e2e/specs/fork/csp.spec.ts` fails on any violation (0 across 6 routes × 2 layouts). Not covered: the go2rtc WebRTC page and live playback, which need a real backend
 - ~~E15~~ ✓ done 2026-09-18. clip window clamped to 600 s, `BoundedSemaphore(4)` and nginx `limit_req` on the public route, tokens masked in the access log, camera mismatch is a 404 (#68)
 - ~~E16~~ ✓ done 2026-09-18. `GET /fork/share`, `DELETE /fork/share/{token}`, 50-link cap, links removed with their user, `FRIGATE_FORK_CLIP_SHARING=false` switch, `ActiveShareLinks.tsx` (#68)
 - ~~E20~~ ✓ done 2026-09-18. Share rate and connection limits are keyed on the token, with a looser per-address pair (#74)
@@ -433,15 +436,6 @@ today's dismissals again live only in GitHub (E19), and CSP is report-only
 - **Fix:** `fork/SECURITY-TRIAGE.md` (alert, rule, verdict, reason) and a short `SECURITY.md`.
 - **Effort:** S
 - **Grade lift:** B+ → B+
-
-#### E6 — Move CSP from report-only to enforced `[upstream]`, backlog
-- **Where:** `docker/main/rootfs/usr/local/nginx/conf/security_headers.conf:21` (`Content-Security-Policy-Report-Only`, includes `'unsafe-inline' 'unsafe-eval'`, no `report-uri`/`report-to`)
-- **What's wrong:** The policy protects nothing, and with no collector its violations are visible only in a browser console, so there is no evidence to tighten it with. Release notes markdown can load third-party images until it is enforced.
-- **Fix:** A log-only `report-uri` endpoint (or collect in the demo stack) across all pages (monaco workers, blob players, go2rtc WebRTC), tighten, then enforce.
-- **Effort:** M
-- **Grade lift:** A− → A (after E17 and E18)
-
----
 
 ## F — Dependencies & Tech Currency — B−
 
@@ -516,6 +510,7 @@ on every poll and there is zero ETag/304 handling in `frigate/api/`.
 - ~~G5~~ ✓ done 2026-09-10. Lazy players, `manualChunks`, memoized cards (partly undone → C20)
 - ~~G6~~ ✓ done 2026-09-10. `frigate/record/cache_tracker.py`
 - ~~G7~~ ✓ done 2026-09-10. `web/scripts/fork/bundle-budget.mjs` in CI and `make check`
+- ~~G8~~ ✓ done 2026-09-18. `@rjsf/validator-ajv8` is imported dynamically in `web/src/components/config-form/ConfigForm.tsx`, so the validator streams beside the settings chunk instead of inside it (882 kB → 635 kB raw); the form renders after it resolves
 - ~~G13~~ ✓ done 2026-09-18. `explore_recent_events` is one windowed query with an explicit column list: 45 SELECTs became 1 for 22 labels (#69)
 - ~~G14~~ ✓ done 2026-09-18. `frigate/api/fork_bulk.py` fetches and deletes in chunks of 500; 1,200 event ids went from 3,600 statements to 9, 1,100 reviews from 1,104 to 23; camera access is checked before anything is deleted (#69)
 - ~~G15~~ ✓ done 2026-09-18. `select_preview_frames` runs in a thread and matches the whole camera name (#69)
@@ -530,8 +525,12 @@ on every poll and there is zero ETag/304 handling in `frigate/api/`.
 #### G9 — Virtualize the card grids and lazy-load images `[fork, upstreamable]`
 - **Where:** `web/src/views/search/SearchView.tsx`, `views/events/EventView.tsx`, `views/recording/RecordingView.tsx` (no virtualization library in `package.json` or anywhere in `src`); 25 of 35 `<img>` lack `loading="lazy"`
 - **What's wrong:** Long Review/Explore sessions grow the DOM and image memory without bound.
-- **Fix:** Add `virtua` (about 3 kB) for the three grids behind a flag; `loading="lazy" decoding="async"` on non-critical images.
-- **Effort:** M
+- **Landed 2026-09-18 (image half):** `decoding="async"` on the scrolling
+  thumbnails, plus `loading="lazy"` on those that did not already defer
+  (`web/src/components/card/{SearchThumbnail,ReviewCard,ClassificationCard,ExportCard}.tsx`,
+  `web/src/views/explore/ExploreView.tsx`).
+- **Fix (open):** Add `virtua` (about 3 kB) for the three grids behind a flag.
+- **Effort:** M (image half done; virtualization remains)
 - **Grade lift:** B− → B
 
 #### G10 — Immutable, precompressed static assets `[upstream]`
@@ -547,13 +546,6 @@ on every poll and there is zero ETag/304 handling in `frigate/api/`.
 - **Fix:** An ETag from the newest relevant row timestamp with a 304 path; measure in the demo stack first.
 - **Effort:** M
 - **Grade lift:** B− → B
-
-#### G8 — Put the Settings form chunk on a diet `[fork, upstreamable]`
-- **Where:** `web/src/components/config-form/ConfigForm.tsx:3` (static `@rjsf/validator-ajv8`, runtime schema compile; rides the lazy Settings chunk, about 246 kB gzip)
-- **What's wrong:** Every Settings visit downloads and compiles a schema validator before the form is usable.
-- **Fix:** Precompile validators at build time (ajv standalone) or load the validator on first validation; measure with G7's script.
-- **Effort:** M
-- **Grade lift:** B− → B−
 
 #### G16 — `review_summary` filters cannot use an index `[upstream]`, backlog
 - **Where:** `frigate/api/review.py:238-251` (`data["objects"].cast("text") % '*"label"*'`, OR-ed per label); same pattern at `:93-94,103,627`
@@ -701,8 +693,13 @@ I3), and 86 remote branches have piled up (I34, 79 this morning).
 - **Grade lift:** B → B
 
 #### I3 — Continue the mypy ratchet `[upstream]`
-- **Where:** `frigate/mypy.ini:28-55` (`ignore_errors = true` for `api`, `config`, `detectors`, `embeddings`, `ptz`, `util`, `video`, tests, `whisper_online`); no wave landed since 2026-09-11 (one module, `debug_replay`, in 94c5377d3)
-- **What's wrong:** The fork now writes most of its backend code inside `frigate/video/` and `frigate/api/`, which are unchecked; defects like B5 and B10 live there.
+- **Landed 2026-09-18 (first wave):** the 29 modules inside those packages that
+  already pass the strict flags are checked per module in `frigate/mypy.ini`, so
+  they cannot drift back. `frigate.util.media` is not among them: it does not
+  type-check under the test image's peewee stubs, and the reason is recorded in
+  the config. The package-wide waves below are still open.
+- **Where:** `frigate/mypy.ini:28-55` (`ignore_errors = true` still covers the rest of `api`, `config`, `detectors`, `embeddings`, `ptz`, `util`, `video`, tests, `whisper_online`)
+- **What's wrong:** The fork now writes most of its backend code inside `frigate/video/` and `frigate/api/`, which are unchecked; defects like B5 live there.
 - **Fix:** Before the package waves, enable strict checking per fork-owned module (`frigate.video.restart_log`, `hwaccel_fallback`, `camera_outage`, `frigate.api.fork_*`, `frigate.fork.*`), which is cheap because that code is already annotated. Then PR-14's waves: `ptz`+`video`, `config`, `util`, `detectors`+`embeddings`, `api` last.
 - **Effort:** L (first step S)
 - **Grade lift:** B → B+

@@ -68,6 +68,8 @@ export function CaseCard({
           className="absolute inset-0 size-full object-cover"
           src={`${baseUrl}${firstExport.thumb_path.replace("/media/frigate/", "")}`}
           alt=""
+          loading="lazy"
+          decoding="async"
           onError={() => setThumbFailed(true)}
         />
       )}
@@ -262,6 +264,8 @@ export function ExportCard({
               ns: "common",
               label: exportedRecording.name,
             })}
+            loading="lazy"
+            decoding="async"
             onLoad={() => setLoading(false)}
             onError={() => {
               // show the plain tile instead of a broken image, and stop

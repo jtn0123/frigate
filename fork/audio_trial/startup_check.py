@@ -8,15 +8,17 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 
-def main():
+def main() -> None:
     """Verify offline imports, writable state, telemetry, polling, and clean stop."""
     import infer  # noqa: F401
     from transformers import ClapModel, ClapProcessor  # noqa: F401
 
     class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
+        def do_GET(self) -> None:
+            value: Any
             if self.path.startswith("/review"):
                 value = []
             elif self.path == "/config":
@@ -34,7 +36,7 @@ def main():
             self.end_headers()
             self.wfile.write(json.dumps(value).encode())
 
-        def log_message(self, *_):
+        def log_message(self, *_: Any) -> None:
             # The synthetic API emits no request logs during this smoke check.
             pass
 

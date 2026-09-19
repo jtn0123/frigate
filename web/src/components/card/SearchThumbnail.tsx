@@ -112,6 +112,8 @@ function SearchThumbnail({
       <div className={`size-full ${imgLoaded ? "visible" : "invisible"}`}>
         <img
           ref={imgRef}
+          // Grid thumbnails scroll far past the viewport (G9).
+          decoding="async"
           alt={t("image.thumbnailOf", {
             label: getTranslatedLabel(
               searchResult.label,

@@ -57,6 +57,31 @@ updates:
     open-pull-requests-limit: 0
     ignore:
       - dependency-name: "*"
+  - package-ecosystem: "pip"
+    directory: "/fork"
+    schedule:
+      interval: daily
+    # fork: the fork's own dev and scanner pins (requirements-sonar.txt, and
+    # requirements-dev.lock through docker/main/requirements-dev.txt, whose
+    # drift fork/scripts/dev-lock-check.py fails the test image build on).
+    # Same policy as the image: security fixes only, one grouped PR.
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+  - package-ecosystem: "pip"
+    directory: "/fork/audio_trial"
+    schedule:
+      interval: daily
+    # fork: the audio companion's source pins. Dependabot updates
+    # requirements.in; fork/scripts/audio-lock-check.py fails CI until
+    # requirements.lock is recompiled from it, so a bump cannot land half done.
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:

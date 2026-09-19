@@ -7,13 +7,14 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from dependency_images import image_digest
 
 BUILDKIT = "moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8"
 
 
-def main():
+def main() -> None:
     """Catch image-context resolution failures before expensive benchmarks."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
@@ -51,7 +52,7 @@ def main():
     docker = ["docker", "--context", args.context]
     builder = "frigate-bench-graph-smoke"
 
-    def run(command, **kwargs):
+    def run(command: list[str], **kwargs: Any) -> None:
         subprocess.run(command, check=True, timeout=300, **kwargs)
 
     run(
