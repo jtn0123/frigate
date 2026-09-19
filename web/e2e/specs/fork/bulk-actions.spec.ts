@@ -232,7 +232,7 @@ test.describe("Review mark-as-reviewed undo @high", () => {
       });
 
       await page
-        .getByRole("button", { name: "Mark these items as reviewed" })
+        .getByRole("button", { name: /Mark \d+ items? as reviewed/ })
         .click();
       await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
       expect(viewed).toEqual([{ ids: ["review-alert-001"], reviewed: true }]);
@@ -290,7 +290,7 @@ test.describe("Review mark-as-reviewed undo @high", () => {
       const items = page.locator(".review-item");
       await expect(items).toHaveCount(1, { timeout: 10_000 });
       await page
-        .getByRole("button", { name: "Mark these items as reviewed" })
+        .getByRole("button", { name: /Mark \d+ items? as reviewed/ })
         .click();
       await expect(page.getByText("1 item marked as reviewed")).toBeVisible();
       await expect(items.locator(".bg-green-600")).toHaveCount(1);

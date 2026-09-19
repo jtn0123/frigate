@@ -354,6 +354,10 @@ function Logs() {
       });
   }, [logs.length, logService, filterSeverity, filterLines, t]);
 
+  // fork (UI116): copy and download have nothing to act on while the logs
+  // failed to load or none came back
+  const noLogsToAct = loadError != null || logs.length === 0;
+
   const handleDownloadLogs = useCallback(() => {
     axios
       .get(`logs/${logService}?download=true`)
@@ -573,6 +577,8 @@ function Logs() {
               className="flex items-center justify-between gap-2"
               aria-label={t("logs.copy.label")}
               size="sm"
+              /* fork (UI116): nothing to copy while the logs failed to load */
+              disabled={noLogsToAct}
               onClick={handleCopyLogs}
             >
               <FaCopy className="text-secondary-foreground" />
@@ -584,6 +590,8 @@ function Logs() {
               className="flex items-center justify-between gap-2"
               aria-label={t("logs.download.label")}
               size="sm"
+              /* fork (UI116): nothing to download while the logs failed to load */
+              disabled={noLogsToAct}
               onClick={handleDownloadLogs}
             >
               <FaDownload className="text-secondary-foreground" />
@@ -607,7 +615,13 @@ function Logs() {
         </div>
       ) : (
         <div className="relative my-2 flex size-full flex-col overflow-hidden whitespace-pre-wrap rounded-md border border-secondary bg-background_alt font-mono text-xs sm:p-1">
-          <div className="grid grid-cols-5 *:px-0 *:py-3 *:text-sm *:text-primary/40 md:grid-cols-12">
+          {/* fork (UI116): column headers would sit over the error panel */}
+          <div
+            className={cn(
+              "grid grid-cols-5 *:px-0 *:py-3 *:text-sm *:text-primary/40 md:grid-cols-12",
+              loadError != null && "hidden",
+            )}
+          >
             <div className="col-span-3 lg:col-span-2">
               <div className="flex w-full flex-row items-center">
                 <div className="ml-1 min-w-16 smart-capitalize lg:min-w-20">

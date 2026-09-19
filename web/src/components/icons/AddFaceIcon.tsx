@@ -20,7 +20,9 @@ const AddFaceIcon = forwardRef<HTMLDivElement, AddFaceIconProps>(
         onKeyDown={onActivate(onClick)}
       >
         <LuScanFace className="size-full" />
-        <LuPlus className="absolute size-4 translate-x-3 translate-y-3" />
+        {/* fork (UI116): the plus sat inside the face outline, over the
+            mouth; it is a badge in the corner instead */}
+        <LuPlus className="absolute -bottom-0.5 -right-0.5 size-1/3 rounded-full bg-background" />
       </div>
     );
   },
