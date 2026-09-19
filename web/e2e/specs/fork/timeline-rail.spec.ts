@@ -52,26 +52,15 @@ function pillOf(handle: Locator) {
   return handle.locator("div.rounded-full").first();
 }
 
-/** Wait for the rail's smooth scroll to settle before measuring. */
-async function settle(page: Page) {
-  let last = -1;
-  await expect
-    .poll(
-      async () => {
-        const top = await page
-          .getByTestId("timeline-handlebar")
-          .evaluate((el) => el.parentElement?.scrollTop ?? 0);
-        const still = top === last;
-        last = top;
-        return still;
-      },
-      { intervals: [250] },
-    )
-    .toBe(true);
+async function expectPillFullyVisible(page: Page, handle: Locator) {
+  // the rail follows the current time with a smooth scroll, so measure
+  // until the settled layout holds instead of racing the animation
+  await expect(async () => {
+    await measurePill(page, handle);
+  }).toPass({ timeout: 10_000 });
 }
 
-async function expectPillFullyVisible(page: Page, handle: Locator) {
-  await settle(page);
+async function measurePill(page: Page, handle: Locator) {
   const pill = await pillOf(handle).boundingBox();
   const rail = await handle.evaluate((el) => {
     const rect = el.parentElement!.getBoundingClientRect();
@@ -93,7 +82,7 @@ async function expectPillFullyVisible(page: Page, handle: Locator) {
 
   const zoom = page.getByTestId("timeline-zoom-controls");
   // the recording view shows zoom buttons on desktop and on a phone
-  await expect(zoom).toBeVisible();
+  await expect(zoom).toBeVisible({ timeout: 1_000 });
   const buttons = await zoom.getByRole("button").all();
   expect(buttons).toHaveLength(2);
   for (const button of buttons) {
@@ -101,6 +90,20 @@ async function expectPillFullyVisible(page: Page, handle: Locator) {
     expect(box).toBeTruthy();
     expect(intersects(pill!, box!)).toBe(false);
   }
+}
+
+/**
+ * Home moves the playhead to the oldest time, the rail's last segment, where
+ * there is no room left to scroll the pill into view.
+ */
+async function expectPillVisibleAtOldestTime(page: Page, handle: Locator) {
+  await handle.focus();
+  await page.keyboard.press("Home");
+  await expect(handle).toHaveAttribute(
+    "aria-valuenow",
+    (await handle.getAttribute("aria-valuemin")) ?? "",
+  );
+  await expectPillFullyVisible(page, handle);
 }
 
 test.describe("Recording timeline rail @high", () => {
@@ -128,6 +131,8 @@ test.describe("Recording timeline rail @high", () => {
       await expectPillFullyVisible(page, handle);
       await zoom.getByRole("button", { name: /zoom out/i }).click();
       await expectPillFullyVisible(page, handle);
+
+      await expectPillVisibleAtOldestTime(page, handle);
     },
   );
 
@@ -137,6 +142,7 @@ test.describe("Recording timeline rail @high", () => {
     async ({ frigateApp }) => {
       const handle = await openRecording(frigateApp);
       await expectPillFullyVisible(frigateApp.page, handle);
+      await expectPillVisibleAtOldestTime(frigateApp.page, handle);
     },
   );
 
