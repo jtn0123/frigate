@@ -337,6 +337,22 @@ test.describe("Notifications register hint (UI114) @medium", () => {
   );
 });
 
+test.describe("Profiles explainer (UI115) @medium", () => {
+  test(
+    "the empty Profiles page explains how profiles work",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openSettings(page, "profiles");
+
+      const how = page.getByTestId("profiles-how-it-works");
+      await expect(how).toBeVisible();
+      await expect(how.getByRole("listitem")).toHaveCount(3);
+      await expect(how).toContainText("without a restart");
+    },
+  );
+});
+
 test.describe("Settings page headers line up (UI113) @medium", () => {
   test(
     "UI settings, Media sync and Frigate+ titles sit where config form titles do",

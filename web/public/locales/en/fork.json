@@ -383,5 +383,12 @@
     "notSaved": "Save your notification settings first. Registering needs notifications turned on in the saved config.",
     "keyLoading": "Loading the push key from Frigate.",
     "keyUnavailable": "Frigate did not return its push key. Check the Frigate logs, then reload this page."
+  },
+  "profilesHowItWorks": {
+    "title": "How profiles work",
+    "create": "Turn on profiles and add one, such as Home, Away or Night.",
+    "override": "Open a camera configuration section (for example Motion detection), pick a camera and the profile at the top right, and change only the settings the profile should override.",
+    "activate": "Activate the profile from Frigate's main menu, the Active Profile list here, MQTT, the HTTP API or Home Assistant.",
+    "note": "Only one profile is active at a time. Activating or deactivating one applies right away without a restart."
   }
 }
