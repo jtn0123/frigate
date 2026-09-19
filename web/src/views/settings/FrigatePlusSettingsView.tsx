@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import useSWR from "swr";
-import { CheckCircle2, XCircle } from "lucide-react";
 import { LuExternalLink } from "react-icons/lu";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,8 @@ import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { isReplayCamera } from "@/utils/cameraUtil";
 import type { SettingsPageProps } from "@/views/settings/SingleSectionPage";
+import PlusKeyStatus from "@/components/fork/settings/PlusKeyStatus";
+import StatusPill from "@/components/fork/settings/StatusPill";
 
 export default function FrigatePlusSettingsView(
   _props: Readonly<SettingsPageProps>,
@@ -36,7 +37,7 @@ export default function FrigatePlusSettingsView(
 
   return (
     <div className="flex size-full flex-col md:pr-2">
-      <div className="w-full max-w-5xl space-y-6 pt-2">
+      <div className="w-full max-w-5xl space-y-6">
         <div className="flex flex-col gap-0">
           <Heading as="h4" className="mb-2">
             {t("frigatePlus.title")}
@@ -69,18 +70,8 @@ export default function FrigatePlusSettingsView(
                 </>
               }
               content={
-                <div className="flex items-center gap-2">
-                  {config?.plus?.enabled ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                  <span className="text-sm">
-                    {config?.plus?.enabled
-                      ? t("frigatePlus.apiKey.validated")
-                      : t("frigatePlus.apiKey.notValidated")}
-                  </span>
-                </div>
+                // fork: a neutral status and how to connect (UI113)
+                <PlusKeyStatus connected={Boolean(config?.plus?.enabled)} />
               }
             />
           </SettingsGroupCard>
@@ -152,17 +143,29 @@ export default function FrigatePlusSettingsView(
                                 <CameraNameLabel camera={name} />
                               </td>
                               <td className="px-4 py-2 text-center">
-                                {camera.snapshots.enabled ? (
-                                  <CheckCircle2 className="mx-auto size-5 text-green-500" />
-                                ) : (
-                                  <XCircle className="mx-auto size-5 text-danger" />
-                                )}
+                                <StatusPill
+                                  active={camera.snapshots.enabled}
+                                  label={
+                                    camera.snapshots.enabled
+                                      ? t("statusPill.on", { ns: "fork" })
+                                      : t("statusPill.off", { ns: "fork" })
+                                  }
+                                />
                               </td>
                             </tr>
                           ))}
                       </tbody>
                     </table>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      void navigate("/settings?page=globalSnapshots")
+                    }
+                  >
+                    {t("plusKeyStatus.openSnapshots", { ns: "fork" })}
+                  </Button>
                 </div>
               }
             />

@@ -367,5 +367,15 @@
     "dryRunHint": "Dry run lists what would be removed. Turn off Dry run to delete files.",
     "deleteHint": "Orphaned files will be deleted from disk.",
     "chooseType": "Choose at least one media type."
+  },
+  "statusPill": {
+    "on": "On",
+    "off": "Off"
+  },
+  "plusKeyStatus": {
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "howToConnect": "Set <code>PLUS_API_KEY</code> as an environment variable or Docker secret (Home Assistant app: the Frigate+ API key option), then restart Frigate.",
+    "openSnapshots": "Open snapshot settings"
   }
 }

@@ -287,3 +287,62 @@ test.describe("Media sync (UI112) @medium", () => {
     },
   );
 });
+
+test.describe("Frigate+ status (UI113) @medium", () => {
+  test(
+    "no key reads as not connected with how to connect",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openSettings(page, "frigateplus");
+
+      await expect(page.getByText("Not connected")).toBeVisible();
+      await expect(page.getByTestId("plus-key-help")).toContainText(
+        "PLUS_API_KEY",
+      );
+      const pills = page.locator('[data-testid="status-pill"]');
+      await expect(pills).toHaveCount(4);
+      await expect(page.locator(".text-danger, .text-red-500")).toHaveCount(0);
+
+      await page
+        .getByRole("button", { name: "Open snapshot settings" })
+        .click();
+      await expect(
+        page.getByRole("heading", { name: "Snapshots", exact: true }),
+      ).toBeVisible();
+    },
+  );
+});
+
+test.describe("Settings page headers line up (UI113) @medium", () => {
+  test(
+    "UI settings, Media sync and Frigate+ titles sit where config form titles do",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const titleBox = async (settingsPage: string, title: string) => {
+        await openSettings(page, settingsPage);
+        const heading = page
+          .locator("#pageRoot")
+          .getByRole("heading", { level: 4, name: title, exact: true });
+        await expect(heading).toBeVisible();
+        return boxOf(heading);
+      };
+
+      const reference = await titleBox("globalRecording", "Recording");
+      for (const [settingsPage, title] of [
+        ["uiSettings", "UI Settings"],
+        ["mediaSync", "Media Sync"],
+        ["frigateplus", "Frigate+ Settings"],
+      ] as const) {
+        const box = await titleBox(settingsPage, title);
+        expect(Math.abs(box.x - reference.x), settingsPage).toBeLessThanOrEqual(
+          1,
+        );
+        expect(Math.abs(box.y - reference.y), settingsPage).toBeLessThanOrEqual(
+          1,
+        );
+      }
+    },
+  );
+});
