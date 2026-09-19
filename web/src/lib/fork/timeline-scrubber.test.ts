@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   eventTimesFromItems,
+  FOLLOW_EDGE_MARGIN,
+  isSegmentWellInView,
   SNAP_SEGMENTS,
   snapMaxDistance,
   snapToNearestEvent,
@@ -100,5 +102,63 @@ describe("stepToEvent", () => {
     expect(stepToEvent(400, events, -1)).toBe(200);
     expect(stepToEvent(250, events, -1)).toBe(200);
     expect(stepToEvent(100, events, -1)).toBe(100);
+  });
+});
+
+describe("isSegmentWellInView", () => {
+  // an 800 px rail scrolled to 1000 px shows segments from 1000 to 1800
+  const scrollTop = 1000;
+  const height = 800;
+
+  it("accepts a segment in the middle of the rail", () => {
+    expect(isSegmentWellInView(1400, 8, scrollTop, height)).toBe(true);
+  });
+
+  it("rejects a segment on the last visible row", () => {
+    expect(isSegmentWellInView(1792, 8, scrollTop, height)).toBe(false);
+  });
+
+  it("rejects a segment within the margin of either edge", () => {
+    expect(
+      isSegmentWellInView(
+        scrollTop + FOLLOW_EDGE_MARGIN - 8,
+        8,
+        scrollTop,
+        height,
+      ),
+    ).toBe(false);
+    expect(
+      isSegmentWellInView(
+        scrollTop + height - FOLLOW_EDGE_MARGIN - 4,
+        8,
+        scrollTop,
+        height,
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts a segment right at the margin", () => {
+    expect(
+      isSegmentWellInView(scrollTop + FOLLOW_EDGE_MARGIN, 8, scrollTop, height),
+    ).toBe(true);
+    expect(
+      isSegmentWellInView(
+        scrollTop + height - FOLLOW_EDGE_MARGIN - 8,
+        8,
+        scrollTop,
+        height,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects segments outside the viewport", () => {
+    expect(isSegmentWellInView(0, 8, scrollTop, height)).toBe(false);
+    expect(isSegmentWellInView(4000, 8, scrollTop, height)).toBe(false);
+  });
+
+  it("shrinks the margin on a rail too short for it", () => {
+    // 48 px tall: only the middle segments count, never none of them
+    expect(isSegmentWellInView(20, 8, 0, 48)).toBe(true);
+    expect(isSegmentWellInView(0, 8, 0, 48)).toBe(false);
   });
 });

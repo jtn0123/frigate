@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { EventSegment } from "./EventSegment";
 import { ReviewSegment, ReviewSeverity } from "@/types/review";
+import { isSegmentWellInView } from "@/lib/fork/timeline-scrubber";
 
 type VirtualizedEventSegmentsProps = {
   timelineRef: React.RefObject<HTMLDivElement | null>;
@@ -118,9 +119,13 @@ export const VirtualizedEventSegments = forwardRef<
           const centeredScrollTop =
             targetScrollTop - timelineHeight / 2 + SEGMENT_HEIGHT / 2;
 
-          const isVisible =
-            segmentIndex > visibleRange.start + OVERSCAN_COUNT &&
-            segmentIndex < visibleRange.end - OVERSCAN_COUNT;
+          // fork (UI106): recenter before the pill reaches the rail's edge
+          const isVisible = isSegmentWellInView(
+            targetScrollTop,
+            SEGMENT_HEIGHT,
+            timelineRef.current.scrollTop,
+            timelineHeight,
+          );
 
           if (!ifNeeded || !isVisible) {
             timelineRef.current.scrollTo({
@@ -131,13 +136,7 @@ export const VirtualizedEventSegments = forwardRef<
           updateVisibleRange();
         }
       },
-      [
-        segments,
-        alignStartDateToTimeline,
-        updateVisibleRange,
-        timelineRef,
-        visibleRange,
-      ],
+      [segments, alignStartDateToTimeline, updateVisibleRange, timelineRef],
     );
 
     useImperativeHandle(ref, () => ({

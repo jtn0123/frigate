@@ -293,7 +293,8 @@
   "timelineAccessibility": {
     "exportStart": "Export start time",
     "exportEnd": "Export end time",
-    "overview": "Timeline overview"
+    "overview": "Timeline overview",
+    "zoom": "Timeline zoom"
   },
   "phoneDebug": {
     "overlays": "Overlays",
