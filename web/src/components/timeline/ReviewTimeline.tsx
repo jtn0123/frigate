@@ -677,14 +677,13 @@ export function ReviewTimeline({
       </div>
 
       {showZoomControls && (
-        <div
+        <fieldset
           className={cn(
             "absolute z-30 flex",
             zoomAboveRail
               ? "inset-x-0 top-0 h-12 items-center justify-center bg-secondary"
               : "bottom-4 right-1 flex-col-reverse gap-3",
           )}
-          role="group"
           aria-label={t("timelineAccessibility.zoom", { ns: "fork" })}
           data-testid="timeline-zoom-controls"
         >
@@ -733,7 +732,7 @@ export function ReviewTimeline({
               <TooltipContent>{t("zoomIn")}</TooltipContent>
             </TooltipPortal>
           </Tooltip>
-        </div>
+        </fieldset>
       )}
     </>
   );

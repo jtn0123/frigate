@@ -146,3 +146,33 @@ export function isSegmentWellInView(
     segmentTop + segmentHeight <= scrollTop + viewportHeight - edge
   );
 }
+
+/**
+ * Scroll the rail so the segment at `segmentIndex` is centered, unless
+ * `ifNeeded` is set and it is already well inside the rail (UI106).
+ */
+export function scrollSegmentIntoView(
+  timeline: HTMLElement,
+  segmentIndex: number,
+  segmentHeight: number,
+  ifNeeded: boolean,
+  behavior: ScrollBehavior,
+): void {
+  const timelineHeight = timeline.clientHeight;
+  const targetScrollTop = segmentIndex * segmentHeight;
+  if (
+    ifNeeded &&
+    isSegmentWellInView(
+      targetScrollTop,
+      segmentHeight,
+      timeline.scrollTop,
+      timelineHeight,
+    )
+  ) {
+    return;
+  }
+  timeline.scrollTo({
+    top: Math.max(0, targetScrollTop - timelineHeight / 2 + segmentHeight / 2),
+    behavior,
+  });
+}

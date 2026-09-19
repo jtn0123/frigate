@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   eventTimesFromItems,
   FOLLOW_EDGE_MARGIN,
   isSegmentWellInView,
+  scrollSegmentIntoView,
   SNAP_SEGMENTS,
   snapMaxDistance,
   snapToNearestEvent,
@@ -160,5 +161,34 @@ describe("isSegmentWellInView", () => {
     // 48 px tall: only the middle segments count, never none of them
     expect(isSegmentWellInView(20, 8, 0, 48)).toBe(true);
     expect(isSegmentWellInView(0, 8, 0, 48)).toBe(false);
+  });
+});
+
+describe("scrollSegmentIntoView", () => {
+  const rail = (scrollTop: number) => {
+    const el = document.createElement("div");
+    Object.defineProperty(el, "clientHeight", { value: 400 });
+    el.scrollTop = scrollTop;
+    const scrollTo = vi.fn();
+    el.scrollTo = scrollTo;
+    return { el, scrollTo };
+  };
+
+  it("leaves a segment that is already well in view alone", () => {
+    const { el, scrollTo } = rail(1000);
+    scrollSegmentIntoView(el, 150, 8, true, "smooth");
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("centers a segment near the edge", () => {
+    const { el, scrollTo } = rail(1000);
+    scrollSegmentIntoView(el, 174, 8, true, "auto");
+    expect(scrollTo).toHaveBeenCalledWith({ top: 1196, behavior: "auto" });
+  });
+
+  it("always scrolls when ifNeeded is off, clamped at the top", () => {
+    const { el, scrollTo } = rail(0);
+    scrollSegmentIntoView(el, 2, 8, false, "smooth");
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
   });
 });

@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { EventSegment } from "./EventSegment";
 import { ReviewSegment, ReviewSeverity } from "@/types/review";
-import { isSegmentWellInView } from "@/lib/fork/timeline-scrubber";
+import { scrollSegmentIntoView } from "@/lib/fork/timeline-scrubber";
 
 type VirtualizedEventSegmentsProps = {
   timelineRef: React.RefObject<HTMLDivElement | null>;
@@ -114,25 +114,14 @@ export const VirtualizedEventSegments = forwardRef<
           containerRef.current &&
           timelineRef.current
         ) {
-          const timelineHeight = timelineRef.current.clientHeight;
-          const targetScrollTop = segmentIndex * SEGMENT_HEIGHT;
-          const centeredScrollTop =
-            targetScrollTop - timelineHeight / 2 + SEGMENT_HEIGHT / 2;
-
           // fork (UI106): recenter before the pill reaches the rail's edge
-          const isVisible = isSegmentWellInView(
-            targetScrollTop,
+          scrollSegmentIntoView(
+            timelineRef.current,
+            segmentIndex,
             SEGMENT_HEIGHT,
-            timelineRef.current.scrollTop,
-            timelineHeight,
+            ifNeeded,
+            behavior,
           );
-
-          if (!ifNeeded || !isVisible) {
-            timelineRef.current.scrollTo({
-              top: Math.max(0, centeredScrollTop),
-              behavior: behavior,
-            });
-          }
           updateVisibleRange();
         }
       },
