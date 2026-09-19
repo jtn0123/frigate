@@ -314,6 +314,29 @@ test.describe("Frigate+ status (UI113) @medium", () => {
   );
 });
 
+test.describe("Notifications register hint (UI114) @medium", () => {
+  test(
+    "a disabled Register button says why",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openSettings(page, "notifications");
+
+      await expect(
+        page.getByRole("button", { name: "Register This Device" }),
+      ).toBeDisabled();
+      await expect(page.getByTestId("register-device-hint")).toContainText(
+        "at least one camera",
+      );
+
+      await page.getByRole("switch", { name: "Front Door" }).click();
+      await expect(page.getByTestId("register-device-hint")).toContainText(
+        "Save your notification settings first",
+      );
+    },
+  );
+});
+
 test.describe("Settings page headers line up (UI113) @medium", () => {
   test(
     "UI settings, Media sync and Frigate+ titles sit where config form titles do",

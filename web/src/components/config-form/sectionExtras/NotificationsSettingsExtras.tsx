@@ -68,6 +68,8 @@ import {
   SPLIT_ROW_CLASS_NAME,
   CONTROL_COLUMN_CLASS_NAME,
 } from "@/components/card/SettingsGroupCard";
+import RegisterDeviceHint from "@/components/fork/settings/RegisterDeviceHint";
+import { registerBlocker } from "@/lib/fork/notification-register";
 
 export default function NotificationsSettingsExtras({
   formContext,
@@ -378,10 +380,22 @@ export default function NotificationsSettingsExtras({
       (Array.isArray(watchCameras) && watchCameras.length > 0)),
   );
 
-  const { data: publicKey } = useSWR(
+  const { data: publicKey, error: publicKeyError } = useSWR<string, unknown>(
     shouldFetchPubKey ? "notifications/pubkey" : null,
     { revalidateOnFocus: false },
   );
+
+  // fork: say why Register is disabled (UI114)
+  const registerHint = registerBlocker({
+    camerasSelected:
+      Boolean(watchAllEnabled) ||
+      (Array.isArray(watchCameras) && watchCameras.length > 0),
+    enabledInConfig: Boolean(
+      config?.notifications?.enabled || anyCameraNotificationsEnabled,
+    ),
+    hasKey: publicKey != undefined,
+    keyError: Boolean(publicKeyError),
+  });
 
   const subscribeToNotifications = useCallback(
     (workerRegistration: ServiceWorkerRegistration) => {
@@ -697,6 +711,7 @@ export default function NotificationsSettingsExtras({
                     ? t("notification.unregisterDevice")
                     : t("notification.registerDevice")}
                 </Button>
+                <RegisterDeviceHint blocker={registerHint} />
                 {isAdmin && registration?.active && (
                   <Button
                     className="w-full md:w-auto"

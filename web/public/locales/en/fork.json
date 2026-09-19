@@ -377,5 +377,11 @@
     "notConnected": "Not connected",
     "howToConnect": "Set <code>PLUS_API_KEY</code> as an environment variable or Docker secret (Home Assistant app: the Frigate+ API key option), then restart Frigate.",
     "openSnapshots": "Open snapshot settings"
+  },
+  "registerDevice": {
+    "noCameras": "Turn on notifications for at least one camera above and save, then register this device.",
+    "notSaved": "Save your notification settings first. Registering needs notifications turned on in the saved config.",
+    "keyLoading": "Loading the push key from Frigate.",
+    "keyUnavailable": "Frigate did not return its push key. Check the Frigate logs, then reload this page."
   }
 }
