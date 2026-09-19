@@ -336,5 +336,10 @@
   "usersLoadError": {
     "title": "Could not load users",
     "forbidden": "The server refused the request (HTTP {{status}}). Only admins can view and manage users. Sign in with an admin account, or retry if your role just changed."
+  },
+  "triggersNotice": {
+    "title": "Triggers need semantic search",
+    "description": "Triggers compare new tracked objects with the thumbnails and descriptions in the semantic search index. Turn semantic search on, let it index, then come back to add triggers.",
+    "openSettings": "Open semantic search settings"
   }
 }

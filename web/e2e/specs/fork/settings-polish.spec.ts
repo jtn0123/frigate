@@ -143,3 +143,32 @@ test.describe("Users load error (UI103) @high @mobile", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("Triggers prerequisite (UI104) @medium", () => {
+  test(
+    "a neutral notice links to the semantic search settings",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openSettings(page, "triggers");
+
+      const notice = page.getByTestId("triggers-semantic-search-notice");
+      await expect(notice).toBeVisible();
+      await expect(notice).toHaveAttribute("role", "status");
+      await expect(notice).toContainText("Triggers need semantic search");
+      await expect(page.getByText("Semantic Search is disabled")).toHaveCount(
+        0,
+      );
+      await expect(
+        notice.getByRole("link", { name: /Read the documentation/ }),
+      ).toBeVisible();
+
+      await notice
+        .getByRole("button", { name: "Open semantic search settings" })
+        .click();
+      await expect(
+        page.getByRole("heading", { name: "Semantic Search", exact: true }),
+      ).toBeVisible();
+    },
+  );
+});
