@@ -360,5 +360,12 @@
     "off": "pauses processing until Frigate restarts.",
     "disabled": "stops processing and is saved to the config; turning it back on needs a restart.",
     "notes": "Disabling does not affect go2rtc restreams. Drag a camera by its handle to reorder it everywhere in the UI."
+  },
+  "mediaSync": {
+    "options": "Options",
+    "startDryRun": "Start dry run",
+    "dryRunHint": "Dry run lists what would be removed. Turn off Dry run to delete files.",
+    "deleteHint": "Orphaned files will be deleted from disk.",
+    "chooseType": "Choose at least one media type."
   }
 }

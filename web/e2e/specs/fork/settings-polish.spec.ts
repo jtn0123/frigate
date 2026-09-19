@@ -244,3 +244,46 @@ test.describe("Camera management (UI111) @medium", () => {
     },
   );
 });
+
+test.describe("Media sync (UI112) @medium", () => {
+  test(
+    "type switches stay live and the start button names the run",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await openSettings(page, "mediaSync");
+
+      await expect(page.getByTestId("media-sync-status")).toBeVisible();
+      const start = page.getByRole("button", { name: "Start dry run" });
+      await expect(start).toBeVisible();
+
+      const exportsSwitch = page.getByRole("switch", { name: "Exports" });
+      await expect(exportsSwitch).toBeEnabled();
+      await exportsSwitch.click();
+      await expect(exportsSwitch).not.toBeChecked();
+      await expect(
+        page.getByRole("switch", { name: "All Media" }),
+      ).not.toBeChecked();
+      await expect(
+        page.getByRole("switch", { name: "Recordings" }),
+      ).toBeChecked();
+
+      await page.getByRole("switch", { name: "Dry Run" }).click();
+      await expect(
+        page.getByRole("button", { name: "Start Sync" }),
+      ).toBeVisible();
+      await expect(page.getByTestId("media-sync-start-hint")).toContainText(
+        "will be deleted",
+      );
+
+      await page.getByRole("switch", { name: "All Media" }).click();
+      await page.getByRole("switch", { name: "All Media" }).click();
+      await expect(
+        page.getByRole("button", { name: "Start Sync" }),
+      ).toBeDisabled();
+      await expect(page.getByTestId("media-sync-start-hint")).toContainText(
+        "Choose at least one media type",
+      );
+    },
+  );
+});
