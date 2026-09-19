@@ -8,6 +8,7 @@ import { isDesktop } from "react-device-detect";
 import { cn } from "@/lib/utils";
 import ActivityIndicator from "../indicators/activity-indicator";
 import { onActivate } from "@/utils/fork/a11y";
+import { phoneTouch } from "@/lib/fork/phone";
 
 const variants = {
   primary: {
@@ -61,6 +62,8 @@ export default function CameraFeatureToggle({
           ? variants[variant].disabled
           : variants[variant][isActive ? "active" : "inactive"],
         className,
+        // fork: 44 px on a phone (the fullscreen rail sets its own size)
+        phoneTouch && "min-h-11 min-w-11",
       )}
     >
       {loading ? (

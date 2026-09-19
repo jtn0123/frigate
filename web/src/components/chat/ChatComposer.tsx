@@ -135,6 +135,8 @@ export function ChatComposer({
           <Button
             variant="select"
             className="size-10 shrink-0 rounded-full"
+            // fork: the arrow had no accessible name
+            aria-label={t("send")}
             disabled={!input.trim() || isLoading}
             onClick={() => sendMessage()}
           >

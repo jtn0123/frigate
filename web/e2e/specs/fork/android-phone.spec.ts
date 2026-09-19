@@ -9,6 +9,7 @@
  */
 
 import { test, expect, type FrigateApp } from "../../fixtures/frigate-test";
+import { openPaletteOnPhone } from "../../helpers/phone-palette";
 
 async function openReviewFilters(frigateApp: FrigateApp) {
   // Start on Live so there is a page to go back to
@@ -414,8 +415,7 @@ test.describe("Android phone @high @mobile", () => {
     async ({ frigateApp }) => {
       const { page } = frigateApp;
       await frigateApp.goto("/");
-      await page.getByTestId("command-palette-hint").click();
-      await expect(page.getByTestId("command-palette")).toBeVisible();
+      await openPaletteOnPhone(page);
       await page.keyboard.type("Classif");
       await page.getByRole("option", { name: /Classification/ }).click();
       await expect(page).toHaveURL(/\/classification$/);

@@ -21,7 +21,8 @@ import { useResizeObserver } from "@/hooks/resize-observer";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { wrapAsync } from "@/utils/promise";
 import { isMobile } from "react-device-detect";
-import { phoneFixes } from "@/lib/fork/phone";
+import { cn } from "@/lib/utils";
+import { phoneFixes, phoneTouch } from "@/lib/fork/phone";
 import { phoneEditorOptions } from "@/lib/fork/monaco-phone";
 
 type SaveOptions = "saveonly" | "restart";
@@ -30,6 +31,9 @@ type ApiErrorResponse = {
   message?: string;
   detail?: string;
 };
+
+// fork: button labels show from md up, and on a phone
+const phoneLabel = phoneTouch ? "block" : "hidden md:block";
 
 function ConfigEditor() {
   const { t } = useTranslation(["views/configEditor"]);
@@ -269,7 +273,15 @@ function ConfigEditor() {
   return (
     <div className="absolute bottom-2 left-0 right-0 top-2 md:left-2">
       <div className="relative flex h-full flex-col overflow-hidden">
-        <div className="mr-1 flex items-center justify-between">
+        {/* fork: on a phone the title gets its own row so the three buttons
+            can carry their labels; as bare icons Save & Restart sat unnamed
+            beside Save */}
+        <div
+          className={cn(
+            "mr-1 flex items-center justify-between",
+            phoneTouch && "flex-col items-stretch gap-2",
+          )}
+        >
           <div>
             <Heading as="h2" className="mb-0 ml-1 md:ml-0">
               {t(config?.safe_mode ? "safeConfigEditor" : "configEditor")}
@@ -280,7 +292,15 @@ function ConfigEditor() {
               </div>
             )}
           </div>
-          <div className="flex flex-row gap-1">
+          <div
+            className={cn(
+              "flex flex-row gap-1",
+              // text only, in equal thirds: with their icons the three
+              // labels need two rows at 412 px
+              phoneTouch &&
+                "px-1 *:flex-1 *:px-2 [&>button>div]:hidden [&_svg]:hidden",
+            )}
+          >
             <Button
               size="sm"
               className="flex items-center gap-2"
@@ -288,7 +308,7 @@ function ConfigEditor() {
               onClick={wrapAsync(() => handleCopyConfig())}
             >
               <LuCopy className="text-secondary-foreground" />
-              <span className="hidden md:block">{t("copyConfig")}</span>
+              <span className={phoneLabel}>{t("copyConfig")}</span>
             </Button>
             <Button
               size="sm"
@@ -300,7 +320,7 @@ function ConfigEditor() {
                 <LuSave className="absolute left-0 top-0 size-3 text-secondary-foreground" />
                 <MdOutlineRestartAlt className="absolute size-4 translate-x-1 translate-y-1/2 text-secondary-foreground" />
               </div>
-              <span className="hidden md:block">{t("saveAndRestart")}</span>
+              <span className={phoneLabel}>{t("saveAndRestart")}</span>
             </Button>
             <Button
               size="sm"
@@ -309,7 +329,7 @@ function ConfigEditor() {
               onClick={wrapAsync(handleSaveOnly)}
             >
               <LuSave className="text-secondary-foreground" />
-              <span className="hidden md:block">{t("saveOnly")}</span>
+              <span className={phoneLabel}>{t("saveOnly")}</span>
             </Button>
           </div>
         </div>

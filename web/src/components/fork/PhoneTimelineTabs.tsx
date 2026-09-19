@@ -9,7 +9,7 @@
  * its timeline column is too narrow for three labels.
  */
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { IconType } from "react-icons";
 import { LuChartNoAxesGantt, LuListVideo, LuScanSearch } from "react-icons/lu";
@@ -34,6 +34,7 @@ export default function PhoneTimelineTabs({
   className,
 }: Readonly<PhoneTimelineTabsProps>) {
   const { t } = useTranslation(["views/events"]);
+  const reducedMotion = useReducedMotion();
 
   return (
     <div
@@ -55,7 +56,7 @@ export default function PhoneTimelineTabs({
             aria-checked={active}
             onClick={() => onValueChange(mode)}
             className={cn(
-              "relative flex h-9 items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors duration-200 smart-capitalize",
+              "relative flex h-11 items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors duration-200 smart-capitalize",
               active
                 ? "text-primary"
                 : "text-muted-foreground active:text-primary",
@@ -66,7 +67,11 @@ export default function PhoneTimelineTabs({
                 layoutId="phone-timeline-tab"
                 aria-hidden="true"
                 className="absolute inset-0 rounded-lg bg-background shadow-sm ring-1 ring-border/70"
-                transition={{ type: "spring", stiffness: 520, damping: 40 }}
+                transition={
+                  reducedMotion
+                    ? { duration: 0 }
+                    : { type: "spring", stiffness: 520, damping: 40 }
+                }
               />
             )}
             <Icon

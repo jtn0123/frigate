@@ -19,6 +19,8 @@ import { HiDotsHorizontal } from "react-icons/hi";
 import { SearchResult } from "@/types/search";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import { cn } from "@/lib/utils";
+import { phoneHitArea } from "@/lib/fork/phone-target";
 
 type Props = {
   search: SearchResult | Event;
@@ -138,7 +140,8 @@ export default function DetailActionsMenu({
   return (
     <DropdownMenu modal={false} open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger
-        className="rounded"
+        // fork: 44 px hit area on a phone
+        className={cn("rounded", phoneHitArea)}
         aria-label={t("a11y.moreActions", { ns: "fork" })}
       >
         <HiDotsHorizontal className="size-4 text-muted-foreground" />

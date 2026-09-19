@@ -28,6 +28,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useTranslation } from "react-i18next";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
+import { phoneScrollEndPad, phoneScrollFade } from "@/lib/fork/phone-scroll";
 
 type SearchFilterGroupProps = {
   className: string;
@@ -189,6 +190,9 @@ export default function SearchFilterGroup({
       className={cn(
         "scrollbar-container flex justify-center gap-2 overflow-x-auto",
         className,
+        // fork: fade the cut-off right edge on a phone
+        phoneScrollFade,
+        phoneScrollEndPad,
       )}
     >
       {filters.includes("cameras") && (
