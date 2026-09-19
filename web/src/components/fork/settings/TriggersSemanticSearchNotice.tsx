@@ -26,13 +26,16 @@ export default function TriggersSemanticSearchNotice({
 
   return (
     <section
-      role="status"
+      aria-labelledby="triggers-semantic-search-notice-title"
       data-testid="triggers-semantic-search-notice"
       className="flex max-w-3xl gap-3 rounded-lg border border-selected/30 bg-selected/5 p-4 md:p-5"
     >
       <LuInfo className="mt-0.5 size-5 shrink-0 text-selected" aria-hidden />
       <div className="flex flex-col gap-2">
-        <h5 className="text-base font-semibold text-primary">
+        <h5
+          id="triggers-semantic-search-notice-title"
+          className="text-base font-semibold text-primary"
+        >
           {t("triggersNotice.title")}
         </h5>
         <p className="text-sm text-primary-variant">

@@ -19,9 +19,9 @@ type ErrorStateProps = {
   /** Overrides the default "Could not load this data" title. */
   title?: string;
   /** Replaces the generic "did not return a valid response" sentence. */
-  message?: string | undefined;
+  message?: string;
   /** Extra context shown under the title (defaults to the server message). */
-  description?: string | undefined;
+  description?: string;
   /** Called by the retry button; the button is hidden when omitted. */
   onRetry?: () => void;
   /** Smaller layout for use inside a toolbar or strip. */

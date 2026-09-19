@@ -100,6 +100,16 @@ export default function MediaSyncSettingsView() {
   // media types and options as two cards and a start button that says what
   // it will do (UI112)
   const nothingSelected = selectedMediaTypes.length === 0;
+  const runLabel = dryRun
+    ? t("mediaSync.startDryRun", { ns: "fork" })
+    : t("maintenance.sync.start");
+  const startLabel = isJobRunning ? t("maintenance.sync.running") : runLabel;
+  const runHint = dryRun
+    ? t("mediaSync.dryRunHint", { ns: "fork" })
+    : t("mediaSync.deleteHint", { ns: "fork" });
+  const startHint = nothingSelected
+    ? t("mediaSync.chooseType", { ns: "fork" })
+    : runHint;
 
   return (
     <div className="flex size-full flex-col">
@@ -434,21 +444,13 @@ export default function MediaSyncSettingsView() {
               {(isSubmitting || isJobRunning) && (
                 <ActivityIndicator className="mr-2 size-6" />
               )}
-              {isJobRunning
-                ? t("maintenance.sync.running")
-                : dryRun
-                  ? t("mediaSync.startDryRun", { ns: "fork" })
-                  : t("maintenance.sync.start")}
+              {startLabel}
             </Button>
             <p
               className="text-sm text-muted-foreground"
               data-testid="media-sync-start-hint"
             >
-              {nothingSelected
-                ? t("mediaSync.chooseType", { ns: "fork" })
-                : dryRun
-                  ? t("mediaSync.dryRunHint", { ns: "fork" })
-                  : t("mediaSync.deleteHint", { ns: "fork" })}
+              {startHint}
             </p>
           </div>
         </div>

@@ -82,10 +82,10 @@ import { z } from "zod";
 import CameraStateLegend from "@/components/fork/settings/CameraStateLegend";
 import DeleteCameraRowButton from "@/components/fork/settings/DeleteCameraRowButton";
 
-// fork: camera state table columns: name, state select, row actions (UI111)
-const CAMERA_GRID_CLASS_NAME =
-  "grid grid-cols-[minmax(0,1fr)_7.5rem_2.5rem] items-center gap-3";
-const CAMERA_ROW_CLASS_NAME = `${CAMERA_GRID_CLASS_NAME} border-b border-secondary/60 py-1.5 last:border-b-0`;
+// fork: camera state table rows and cells: name, state select, row actions
+// (UI111)
+const CAMERA_ROW_CLASS_NAME = "border-b border-secondary/60 last:border-b-0";
+const CAMERA_CELL_CLASS_NAME = "py-1.5 pr-3 align-middle";
 
 const REORDER_SAVED_INDICATOR_MS = 1500;
 
@@ -296,36 +296,34 @@ export default function CameraManagementView({
                 {/* fork: a table of name, state and row actions with a
                     short legend under it (UI111) */}
                 <div className="space-y-3">
-                  <div
-                    role="table"
+                  <table
                     aria-label={t("cameraManagement.streams.label")}
                     data-testid="camera-state-table"
+                    className="w-full table-fixed border-collapse"
                   >
-                    <div role="rowgroup">
-                      <div
-                        role="row"
-                        className={cn(
-                          CAMERA_GRID_CLASS_NAME,
-                          "border-b border-secondary pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground",
-                        )}
-                      >
-                        <span role="columnheader" className="pl-7">
+                    <colgroup>
+                      <col />
+                      <col className="w-[8.25rem]" />
+                      <col className="w-10" />
+                    </colgroup>
+                    <thead>
+                      <tr className="border-b border-secondary text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <th scope="col" className="pb-2 pl-7 font-medium">
                           {t("cameraTable.camera", { ns: "fork" })}
-                        </span>
-                        <span role="columnheader">
+                        </th>
+                        <th scope="col" className="pb-2 font-medium">
                           {t("cameraTable.state", { ns: "fork" })}
-                        </span>
-                        <span role="columnheader">
+                        </th>
+                        <th scope="col" className="pb-2">
                           <span className="sr-only">
                             {t("cameraTable.actions", { ns: "fork" })}
                           </span>
-                        </span>
-                      </div>
-                    </div>
+                        </th>
+                      </tr>
+                    </thead>
                     {orderedCameras.length > 0 && (
                       <Reorder.Group
-                        as="div"
-                        role="rowgroup"
+                        as="tbody"
                         axis="y"
                         values={orderedCameras}
                         onReorder={setOrderedCameras}
@@ -343,10 +341,16 @@ export default function CameraManagementView({
                       </Reorder.Group>
                     )}
                     {disabledCameras.length > 0 && (
-                      <div role="rowgroup">
-                        <p className="pb-1 pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          {t("cameraManagement.streams.disabledSubheading")}
-                        </p>
+                      <tbody>
+                        <tr>
+                          <th
+                            scope="colgroup"
+                            colSpan={3}
+                            className="pb-1 pt-4 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                          >
+                            {t("cameraManagement.streams.disabledSubheading")}
+                          </th>
+                        </tr>
                         {disabledCameras.map((camera) => (
                           <DisabledCameraRow
                             key={camera}
@@ -356,9 +360,9 @@ export default function CameraManagementView({
                             onDelete={openDeleteDialog}
                           />
                         ))}
-                      </div>
+                      </tbody>
                     )}
-                  </div>
+                  </table>
                   <ReorderSaveStatusIndicator status={reorderSaveStatus} />
                   <CameraStateLegend />
                 </div>
@@ -466,15 +470,14 @@ function ActiveCameraRow({
 
   return (
     <Reorder.Item
-      as="div"
+      as="tr"
       value={camera}
       dragListener={false}
       dragControls={controls}
       onDragEnd={onDragEnd}
-      role="row"
       className={CAMERA_ROW_CLASS_NAME}
     >
-      <div role="cell" className="flex min-w-0 items-center gap-1">
+      <CameraNameCell>
         <button
           type="button"
           onPointerDown={(e) => controls.start(e)}
@@ -488,18 +491,14 @@ function ActiveCameraRow({
           cameraName={camera}
           onConfigChanged={onConfigChanged}
         />
-      </div>
-      <div role="cell">
-        <CameraStatusSelect
-          cameraName={camera}
-          isDisabledInConfig={false}
-          onConfigChanged={onConfigChanged}
-          setRestartDialogOpen={setRestartDialogOpen}
-        />
-      </div>
-      <div role="cell">
-        <DeleteCameraRowButton camera={camera} onDelete={onDelete} />
-      </div>
+      </CameraNameCell>
+      <CameraRowControls
+        camera={camera}
+        isDisabledInConfig={false}
+        onConfigChanged={onConfigChanged}
+        setRestartDialogOpen={setRestartDialogOpen}
+        onDelete={onDelete}
+      />
     </Reorder.Item>
   );
 }
@@ -518,26 +517,66 @@ function DisabledCameraRow({
   onDelete,
 }: Readonly<DisabledCameraRowProps>) {
   return (
-    <div role="row" className={CAMERA_ROW_CLASS_NAME}>
-      <div role="cell" className="flex min-w-0 items-center gap-1 pl-7">
+    <tr className={CAMERA_ROW_CLASS_NAME}>
+      <CameraNameCell className="pl-7">
         <CameraNameLabel camera={camera} className="text-muted-foreground" />
         <CameraDetailsEditor
           cameraName={camera}
           onConfigChanged={onConfigChanged}
         />
-      </div>
-      <div role="cell">
+      </CameraNameCell>
+      <CameraRowControls
+        camera={camera}
+        isDisabledInConfig={true}
+        onConfigChanged={onConfigChanged}
+        setRestartDialogOpen={setRestartDialogOpen}
+        onDelete={onDelete}
+      />
+    </tr>
+  );
+}
+
+function CameraNameCell({
+  className,
+  children,
+}: Readonly<{ className?: string; children: React.ReactNode }>) {
+  return (
+    <td className={cn(CAMERA_CELL_CLASS_NAME, className)}>
+      <div className="flex min-w-0 items-center gap-1">{children}</div>
+    </td>
+  );
+}
+
+type CameraRowControlsProps = {
+  camera: string;
+  isDisabledInConfig: boolean;
+  onConfigChanged: () => Promise<unknown>;
+  setRestartDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onDelete: (camera: string) => void;
+};
+
+/** The state and delete cells, the same for active and disabled rows. */
+function CameraRowControls({
+  camera,
+  isDisabledInConfig,
+  onConfigChanged,
+  setRestartDialogOpen,
+  onDelete,
+}: Readonly<CameraRowControlsProps>) {
+  return (
+    <>
+      <td className={CAMERA_CELL_CLASS_NAME}>
         <CameraStatusSelect
           cameraName={camera}
-          isDisabledInConfig={true}
+          isDisabledInConfig={isDisabledInConfig}
           onConfigChanged={onConfigChanged}
           setRestartDialogOpen={setRestartDialogOpen}
         />
-      </div>
-      <div role="cell">
+      </td>
+      <td className="py-1.5 align-middle">
         <DeleteCameraRowButton camera={camera} onDelete={onDelete} />
-      </div>
-    </div>
+      </td>
+    </>
   );
 }
 

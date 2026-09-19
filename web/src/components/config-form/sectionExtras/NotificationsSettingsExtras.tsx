@@ -373,12 +373,14 @@ export default function NotificationsSettingsExtras({
     [config],
   );
 
-  const shouldFetchPubKey = Boolean(
-    config &&
-    (config.notifications?.enabled || anyCameraNotificationsEnabled) &&
-    (watchAllEnabled ||
-      (Array.isArray(watchCameras) && watchCameras.length > 0)),
+  // fork: shared with the Register hint below (UI114)
+  const camerasSelected =
+    Boolean(watchAllEnabled) ||
+    (Array.isArray(watchCameras) && watchCameras.length > 0);
+  const notificationsEnabled = Boolean(
+    config?.notifications?.enabled || anyCameraNotificationsEnabled,
   );
+  const shouldFetchPubKey = notificationsEnabled && camerasSelected;
 
   const { data: publicKey, error: publicKeyError } = useSWR<string, unknown>(
     shouldFetchPubKey ? "notifications/pubkey" : null,
@@ -387,12 +389,8 @@ export default function NotificationsSettingsExtras({
 
   // fork: say why Register is disabled (UI114)
   const registerHint = registerBlocker({
-    camerasSelected:
-      Boolean(watchAllEnabled) ||
-      (Array.isArray(watchCameras) && watchCameras.length > 0),
-    enabledInConfig: Boolean(
-      config?.notifications?.enabled || anyCameraNotificationsEnabled,
-    ),
+    camerasSelected,
+    enabledInConfig: notificationsEnabled,
     hasKey: publicKey != undefined,
     keyError: Boolean(publicKeyError),
   });

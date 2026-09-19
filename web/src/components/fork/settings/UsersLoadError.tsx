@@ -28,17 +28,17 @@ export default function UsersLoadError({
   const { t } = useTranslation(["fork"]);
   const status = statusOf(error);
   const forbidden = status === 401 || status === 403;
+  // the 403 sentence already names the status, so it drops the detail
+  const forbiddenText = forbidden
+    ? { message: t("usersLoadError.forbidden", { status }), description: "" }
+    : {};
 
   return (
     <div className="flex size-full items-center justify-center">
       <ErrorState
         error={error}
         title={t("usersLoadError.title")}
-        message={
-          forbidden ? t("usersLoadError.forbidden", { status }) : undefined
-        }
-        // the 403 sentence already names the status
-        description={forbidden ? "" : undefined}
+        {...forbiddenText}
         onRetry={onRetry}
         className="max-w-lg"
       />

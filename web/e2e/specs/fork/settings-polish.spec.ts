@@ -152,9 +152,14 @@ test.describe("Triggers prerequisite (UI104) @medium", () => {
       const { page } = frigateApp;
       await openSettings(page, "triggers");
 
-      const notice = page.getByTestId("triggers-semantic-search-notice");
+      const notice = page.getByRole("region", {
+        name: "Triggers need semantic search",
+      });
       await expect(notice).toBeVisible();
-      await expect(notice).toHaveAttribute("role", "status");
+      await expect(notice).toHaveAttribute(
+        "data-testid",
+        "triggers-semantic-search-notice",
+      );
       await expect(notice).toContainText("Triggers need semantic search");
       await expect(page.getByText("Semantic Search is disabled")).toHaveCount(
         0,
