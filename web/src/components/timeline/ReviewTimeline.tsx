@@ -417,7 +417,13 @@ export function ReviewTimeline({
     if (next === undefined) return;
     event.preventDefault();
     setTime(next);
+    followKeyTime(next);
   };
+
+  // fork (UI106): a key press is an explicit move, so bring the new time into
+  // view even while the rail still counts a recent scroll as the user's
+  const followKeyTime = (time: number) =>
+    scrollToSegment(alignStartDateToTimeline(time), true);
 
   const handleHandlebarKeyDown = (
     event: React.KeyboardEvent<HTMLDivElement>,
@@ -430,12 +436,15 @@ export function ReviewTimeline({
     ) {
       event.preventDefault();
       const direction = event.key === "ArrowRight" ? 1 : -1;
-      setHandlebarTime((current) =>
-        Math.min(
-          maxTime,
-          Math.max(minTime, stepToEvent(current, eventTimes, direction)),
+      const next = Math.min(
+        maxTime,
+        Math.max(
+          minTime,
+          stepToEvent(handlebarTime ?? maxTime, eventTimes, direction),
         ),
       );
+      setHandlebarTime(next);
+      followKeyTime(next);
       return;
     }
     handleTimeKey(event, handlebarTime, setHandlebarTime);

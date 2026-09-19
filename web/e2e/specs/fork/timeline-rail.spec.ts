@@ -108,6 +108,37 @@ async function expectPillVisibleAtOldestTime(page: Page, handle: Locator) {
 
 test.describe("Recording timeline rail @high", () => {
   test(
+    "End right after Home brings the newest time back into view",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const handle = await openRecording(frigateApp);
+      await handle.focus();
+      await page.keyboard.press("Home");
+      await expect(handle).toHaveAttribute(
+        "aria-valuenow",
+        (await handle.getAttribute("aria-valuemin")) ?? "",
+      );
+      // the rail counts Home's smooth scroll as the user's for 3 s after it
+      // stops; press End as soon as it lands, inside that window
+      await expect
+        .poll(() =>
+          handle.evaluate((el) => {
+            const rail = el.parentElement!;
+            return rail.scrollHeight - rail.clientHeight - rail.scrollTop;
+          }),
+        )
+        .toBeLessThan(2);
+      await page.keyboard.press("End");
+      await expect(handle).toHaveAttribute(
+        "aria-valuenow",
+        (await handle.getAttribute("aria-valuemax")) ?? "",
+      );
+      await expectPillFullyVisible(page, handle);
+    },
+  );
+
+  test(
     "current-time pill is fully visible and clear of the zoom buttons",
     { tag: "@desktop-only" },
     async ({ frigateApp }) => {
