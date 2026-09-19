@@ -329,5 +329,8 @@
     "shm": {
       "unknown": "Size unknown on this host"
     }
+  },
+  "regionGrid": {
+    "unavailable": "No region grid is available for this camera yet."
   }
 }

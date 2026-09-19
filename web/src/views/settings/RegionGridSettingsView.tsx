@@ -30,6 +30,10 @@ export default function RegionGridSettingsView({
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [imageKey, setImageKey] = useState(0);
+  // fork: a camera with no grid yet, or a failed request, showed the browser's
+  // broken-image icon
+  const [failedKey, setFailedKey] = useState<string>();
+  const gridKey = `${selectedCamera}:${imageKey}`;
 
   const handleClear = useCallback(async () => {
     setIsClearing(true);
@@ -71,12 +75,19 @@ export default function RegionGridSettingsView({
           </div>
 
           <div className="mb-4 max-w-5xl rounded-lg border border-secondary">
-            <img
-              key={imageKey}
-              src={`api/${selectedCamera}/grid.jpg?cache=${imageKey}`}
-              alt={t("maintenance.regionGrid.title")}
-              className="w-full"
-            />
+            {failedKey === gridKey ? (
+              <p className="p-4 text-center text-sm text-muted-foreground">
+                {t("regionGrid.unavailable", { ns: "fork" })}
+              </p>
+            ) : (
+              <img
+                key={imageKey}
+                src={`api/${selectedCamera}/grid.jpg?cache=${imageKey}`}
+                alt={t("maintenance.regionGrid.title")}
+                className="w-full"
+                onError={() => setFailedKey(gridKey)}
+              />
+            )}
           </div>
 
           <div className="flex w-full flex-row items-center gap-2 py-2 md:w-[50%]">

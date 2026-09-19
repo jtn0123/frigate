@@ -402,6 +402,8 @@ export default function EventView({
               <div
                 className={cn(
                   "flex size-6 items-center justify-center rounded text-severity_alert sm:hidden",
+                  // fork: red-800 on the selected tab's dark gray is 1.5:1
+                  phoneTouch && "dark:text-red-400",
                   severityToggle == "alert" ? "font-semibold" : "font-medium",
                 )}
               >

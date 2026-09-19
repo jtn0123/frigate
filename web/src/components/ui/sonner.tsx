@@ -17,6 +17,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // fork: sonner's default is bottom-right, which on a phone is on top of
       // the bottom bar; a page's own position still wins
       position={phoneTouch ? "top-center" : undefined}
+      // fork: and below a pushed page's header, so the back button stays usable
+      mobileOffset={phoneTouch ? { top: 64 } : undefined}
       toastOptions={{
         classNames: {
           toast:
