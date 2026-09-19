@@ -332,5 +332,8 @@
   },
   "regionGrid": {
     "unavailable": "No region grid is available for this camera yet."
+  },
+  "systemMetrics": {
+    "waiting": "Waiting for the first stats sample"
   }
 }

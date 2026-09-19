@@ -163,7 +163,8 @@ export function ThresholdBarGraph({
   }, [isActive, graphId]);
 
   return (
-    <div className="flex w-full flex-col">
+    // fork (UI107): the label row and chart height, held before the chart mounts
+    <div className="flex min-h-[136px] w-full flex-col">
       <div className="flex items-center gap-1">
         <div className="text-xs text-secondary-foreground">{displayName}</div>
         <div className="text-xs text-primary">
