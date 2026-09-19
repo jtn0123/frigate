@@ -7,7 +7,11 @@ const genai: SectionConfigOverrides = {
     hiddenFields: ["genai.enabled_in_config"],
     restartRequired: [],
     uiSchema: {
-      "ui:options": { disableNestedCard: true },
+      // fork: forkEmptyState shows "No providers yet" while empty (UI105)
+      "ui:options": {
+        disableNestedCard: true,
+        forkEmptyState: "genaiProviders",
+      },
       "*": {
         "ui:options": {
           disableNestedCard: true,

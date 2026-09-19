@@ -89,6 +89,10 @@ import { useConfigMessages } from "@/hooks/use-config-messages";
 import { ConfigMessageBanner } from "../ConfigMessageBanner";
 import { FieldMessagesContext } from "../FieldMessagesContext";
 import { LiveFormDataContext } from "../LiveFormDataContext";
+import {
+  configEmptyStateKind,
+  isEmptyMap,
+} from "@/lib/fork/config-empty-state";
 
 export interface SectionConfig {
   /** Field ordering within the section */
@@ -994,6 +998,16 @@ export function ConfigSection({
     return <ActivityIndicator />;
   }
 
+  // fork: while a map section shows its empty state (nothing saved, nothing
+  // edited) Save and Reset have nothing to act on, so the bar hides (UI105)
+  const hideEmptyActions =
+    !hasChanges &&
+    !profileName &&
+    effectiveLevel === "global" &&
+    configEmptyStateKind(sectionConfig.uiSchema) !== undefined &&
+    isEmptyMap(currentFormData) &&
+    isEmptyMap(effectiveBaselineFormData);
+
   const sectionContent = (
     <div className="space-y-6">
       <ConfigMessageBanner messages={activeMessages} />
@@ -1057,7 +1071,7 @@ export function ConfigSection({
         </LiveFormDataContext.Provider>
       </FieldMessagesContext.Provider>
 
-      {!embedded && (
+      {!embedded && !hideEmptyActions && (
         <div
           className={cn(
             // fork: max-w-5xl matches ConfigForm, so Save sits under the fields

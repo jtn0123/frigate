@@ -28,6 +28,11 @@ import {
 } from "../utils";
 import get from "lodash/get";
 import { AddPropertyButton, AdvancedCollapsible } from "../components";
+import ConfigEmptyState from "@/components/fork/settings/ConfigEmptyState";
+import {
+  configEmptyStateKind,
+  isEmptyMap,
+} from "@/lib/fork/config-empty-state";
 
 /** Shape of the props that RJSF injects into each property element. */
 interface RjsfElementProps {
@@ -402,6 +407,18 @@ export function ObjectFieldTemplate(props: ObjectFieldTemplateProps) {
 
     return <div className="space-y-6">{elements}</div>;
   };
+
+  // fork: a map section with no entries shows its empty state (UI105)
+  const emptyStateKind = isRoot ? configEmptyStateKind(uiSchema) : undefined;
+  if (emptyStateKind && properties.length === 0 && isEmptyMap(formData)) {
+    return (
+      <ConfigEmptyState
+        kind={emptyStateKind}
+        onAdd={onAddProperty}
+        disabled={disabled || readonly}
+      />
+    );
+  }
 
   // Root level renders children directly
   if (isRoot) {
