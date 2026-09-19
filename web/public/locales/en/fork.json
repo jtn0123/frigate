@@ -332,5 +332,9 @@
   },
   "regionGrid": {
     "unavailable": "No region grid is available for this camera yet."
+  },
+  "usersLoadError": {
+    "title": "Could not load users",
+    "forbidden": "The server refused the request (HTTP {{status}}). Only admins can view and manage users. Sign in with an admin account, or retry if your role just changed."
   }
 }

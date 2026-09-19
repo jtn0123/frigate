@@ -37,6 +37,7 @@ import { useTranslation } from "react-i18next";
 import DeleteRoleDialog from "@/components/overlay/DeleteRoleDialog";
 import { Separator } from "@/components/ui/separator";
 import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
+import UsersLoadError from "@/components/fork/settings/UsersLoadError";
 
 type AuthenticationViewProps = {
   section?: "users" | "roles";
@@ -48,7 +49,11 @@ export default function AuthenticationView({
   const { t } = useTranslation("views/settings");
   const { data: config, mutate: updateConfig } =
     useSWR<FrigateConfig>("config");
-  const { data: users, mutate: mutateUsers } = useSWR<User[]>("users");
+  const {
+    data: users,
+    error: usersError,
+    mutate: mutateUsers,
+  } = useSWR<User[], unknown>("users");
 
   const [showSetPassword, setShowSetPassword] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -394,6 +399,13 @@ export default function AuthenticationView({
   const availableRoles = useMemo(() => {
     return config ? [...Object.keys(config.auth?.roles || {})] : [];
   }, [config]);
+
+  // fork: a failed read used to leave the spinner up forever (UI103)
+  if (usersError && !users) {
+    return (
+      <UsersLoadError error={usersError} onRetry={() => void mutateUsers()} />
+    );
+  }
 
   if (!config || !users) {
     return (

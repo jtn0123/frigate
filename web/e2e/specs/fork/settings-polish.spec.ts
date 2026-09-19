@@ -87,3 +87,59 @@ test.describe("Settings rail (UI102) @high", () => {
     },
   );
 });
+
+test.describe("Users load error (UI103) @high @mobile", () => {
+  test.use({
+    expectedErrors: [
+      /Failed to load resource.*(403|500)|(403|500).*\/api\/users/,
+    ],
+  });
+
+  test("a 403 says only admins can manage users", async ({ frigateApp }) => {
+    const { page } = frigateApp;
+    await page.route("**/api/users", (route) =>
+      route.fulfill({
+        status: 403,
+        json: { success: false, message: "Mocked error" },
+      }),
+    );
+    await openSettings(page, "users");
+
+    const state = page.getByTestId("fork-error-state");
+    await expect(state).toBeVisible({ timeout: 10_000 });
+    await expect(state).toContainText("Could not load users");
+    await expect(state).toContainText("Only admins can view and manage users");
+    await expect(state).toContainText("HTTP 403");
+    await expect(state.getByRole("button", { name: "Retry" })).toBeVisible();
+  });
+
+  test("a 500 shows the generic message and Retry recovers", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    let recovered = false;
+    await page.route("**/api/users", (route) =>
+      recovered
+        ? route.fulfill({ json: [{ username: "admin", role: "admin" }] })
+        : route.fulfill({
+            status: 500,
+            json: { success: false, message: "database locked" },
+          }),
+    );
+    await openSettings(page, "users");
+
+    const state = page.getByTestId("fork-error-state");
+    await expect(state).toBeVisible({ timeout: 10_000 });
+    await expect(state).toContainText("Could not load users");
+    await expect(state).toContainText("did not return a valid response");
+    await expect(state).toContainText("database locked");
+    await expect(state).not.toContainText("Only admins");
+
+    recovered = true;
+    await state.getByRole("button", { name: "Retry" }).click();
+    await expect(state).toBeHidden();
+    await expect(
+      page.getByRole("cell", { name: "admin" }).first(),
+    ).toBeVisible();
+  });
+});
