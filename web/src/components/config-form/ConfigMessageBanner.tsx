@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LuInfo, LuTriangleAlert, LuCircleAlert } from "react-icons/lu";
 import type {
@@ -46,7 +47,18 @@ export function ConfigMessageBanner({
           className="flex items-center [&>svg+div]:translate-y-0 [&>svg]:static [&>svg~*]:pl-2"
         >
           <SeverityIcon severity={msg.severity} />
-          <AlertDescription>{t(msg.messageKey, msg.values)}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>{t(msg.messageKey, msg.values)}</span>
+            {/* fork (UI117): a message can offer the settings that fix it */}
+            {msg.resolvedAction && (
+              <Link
+                to={msg.resolvedAction.href}
+                className="shrink-0 font-medium underline underline-offset-4"
+              >
+                {t(msg.resolvedAction.labelKey)}
+              </Link>
+            )}
+          </AlertDescription>
         </Alert>
       ))}
     </div>

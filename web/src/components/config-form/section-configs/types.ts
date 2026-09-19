@@ -28,6 +28,21 @@ export type ConditionalMessage = {
   values?: Record<string, unknown>;
   /** Optional documentation path (e.g. "/configuration/object_detectors#model"). */
   docLink?: string;
+  /**
+   * fork (UI117): an in-app link that fixes what the message reports, built
+   * from the same context the condition reads.
+   */
+  action?: (ctx: MessageConditionContext) => MessageAction | undefined;
+  /** fork (UI117): filled in by useConfigMessages from `action` */
+  resolvedAction?: MessageAction;
+};
+
+/** fork (UI117): the link a message can offer beside its text */
+export type MessageAction = {
+  /** Translation key resolved via t() in the views/settings namespace */
+  labelKey: string;
+  /** In-app path, for example "/settings?page=cameraDetect&camera=front" */
+  href: string;
 };
 
 /** Field-level conditional message, adds field targeting */

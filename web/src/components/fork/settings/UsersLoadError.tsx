@@ -13,6 +13,11 @@ import ErrorState from "@/components/fork/ErrorState";
 type UsersLoadErrorProps = {
   error: unknown;
   onRetry: () => void;
+  /**
+   * Which page is showing the error. Roles are read from the same request,
+   * so the Roles page said "Could not load users" (UI117).
+   */
+  section?: "users" | "roles";
 };
 
 function statusOf(error: unknown): number | undefined {
@@ -24,20 +29,28 @@ function statusOf(error: unknown): number | undefined {
 export default function UsersLoadError({
   error,
   onRetry,
+  section = "users",
 }: Readonly<UsersLoadErrorProps>) {
   const { t } = useTranslation(["fork"]);
   const status = statusOf(error);
   const forbidden = status === 401 || status === 403;
+  const roles = section === "roles";
   // the 403 sentence already names the status, so it drops the detail
   const forbiddenText = forbidden
-    ? { message: t("usersLoadError.forbidden", { status }), description: "" }
+    ? {
+        message: t(
+          roles ? "usersLoadError.forbiddenRoles" : "usersLoadError.forbidden",
+          { status },
+        ),
+        description: "",
+      }
     : {};
 
   return (
     <div className="flex size-full items-center justify-center">
       <ErrorState
         error={error}
-        title={t("usersLoadError.title")}
+        title={t(roles ? "usersLoadError.titleRoles" : "usersLoadError.title")}
         {...forbiddenText}
         onRetry={onRetry}
         className="max-w-lg"

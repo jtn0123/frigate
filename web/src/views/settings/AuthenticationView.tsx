@@ -406,7 +406,12 @@ export default function AuthenticationView({
   // fork: a failed read used to leave the spinner up forever (UI103)
   if (usersError && !users) {
     return (
-      <UsersLoadError error={usersError} onRetry={() => void mutateUsers()} />
+      <UsersLoadError
+        error={usersError}
+        onRetry={() => void mutateUsers()}
+        // fork (UI117): the Roles page reads the same request
+        section={section === "roles" ? "roles" : "users"}
+      />
     );
   }
 
