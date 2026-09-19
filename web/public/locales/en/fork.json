@@ -335,5 +335,9 @@
   },
   "systemMetrics": {
     "waiting": "Waiting for the first stats sample"
+  },
+  "exportProgress": {
+    "exporting": "Exporting",
+    "label": "Export progress for {{name}}"
   }
 }
