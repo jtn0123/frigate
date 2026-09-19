@@ -77,3 +77,27 @@ html[data-density="compact"]
     --border: 0 0% 20%;
   }
 }
+
+/* Reduce motion: when the system asks for it, CSS transitions and animations
+   end at once. Spinners keep turning, since a frozen spinner reads as a hang.
+   The framer-motion slide-ins (MobilePage, PhoneTimelineTabs) read the same
+   setting with useReducedMotion. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --warning is a background token: the same dark brown in light and dark, meant
+   to sit under --warning-foreground (Chip). As a text color on a dark surface
+   it is 1.3:1, so dark mode reads the foreground amber instead. Only the themes
+   that keep the brown need it; the others set a bright --warning. */
+.dark.theme-default .text-warning,
+.dark.theme-high-contrast .text-warning {
+  color: hsl(var(--warning-foreground));
+}

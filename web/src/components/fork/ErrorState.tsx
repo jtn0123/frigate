@@ -105,7 +105,8 @@ export default function ErrorState({
       <p className="max-w-md text-sm text-secondary-foreground">
         {t("errorState.description")}
       </p>
-      {detail && (
+      {/* a caller may pass the generic sentence as the detail; say it once */}
+      {detail && detail !== t("errorState.description") && (
         <code className="max-w-full break-words rounded-md bg-secondary px-2 py-1 text-xs text-primary">
           {detail}
         </code>

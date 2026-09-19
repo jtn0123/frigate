@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { phoneTouch } from "@/lib/fork/phone";
 import { PlayerStatsType } from "@/types/live";
 import { useTranslation } from "react-i18next";
 
@@ -104,6 +105,8 @@ export function PlayerStats({ stats, minimal }: Readonly<PlayerStatsProps>) {
           ? "absolute bottom-0 left-0 max-h-[50%] w-full overflow-y-auto rounded-b-lg p-1 md:rounded-b-xl md:p-3"
           : "absolute bottom-2 right-2 min-w-52 rounded-2xl p-4",
         "z-50 flex flex-col gap-1 bg-black/70 text-[9px] duration-300 animate-in fade-in md:text-xs",
+        // fork: 9 px stats are unreadable on a phone
+        phoneTouch && "text-[11px]",
       )}
     >
       {minimal ? minimalStatsContent : fullStatsContent}

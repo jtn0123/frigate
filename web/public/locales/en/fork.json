@@ -42,6 +42,7 @@
     "title": "Command palette",
     "description": "Search pages, cameras, settings, and actions.",
     "open": "Open command palette",
+    "menuItem": "Search pages and actions",
     "placeholder": "Search pages, cameras, settings, and actions",
     "empty": "No results found.",
     "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
@@ -328,5 +329,8 @@
     "shm": {
       "unknown": "Size unknown on this host"
     }
+  },
+  "regionGrid": {
+    "unavailable": "No region grid is available for this camera yet."
   }
 }

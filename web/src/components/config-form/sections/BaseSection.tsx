@@ -1060,7 +1060,8 @@ export function ConfigSection({
       {!embedded && (
         <div
           className={cn(
-            "w-full border-t border-secondary bg-background pt-0",
+            // fork: max-w-5xl matches ConfigForm, so Save sits under the fields
+            "w-full max-w-5xl border-t border-secondary bg-background pt-0",
             !noStickyButtons && "sticky bottom-0 z-50",
           )}
         >

@@ -3,6 +3,7 @@ import InboxBell from "@/components/fork/InboxBell";
 import UpdateNotices from "@/components/fork/updates/UpdateNotices";
 import type { ForkNavVariant } from "@/components/fork/ForkNavButton";
 import { isForkEnabled } from "@/fork/flags";
+import { paletteInSettingsMenu } from "@/lib/fork/phone";
 
 type ForkNavItemsProps = {
   variant: ForkNavVariant;
@@ -19,7 +20,9 @@ export default function ForkNavItems({
 }: Readonly<ForkNavItemsProps>) {
   return (
     <>
-      {isForkEnabled("commandPalette") && (
+      {/* on a phone the palette opens from the Settings drawer, which frees
+          a bar slot so the rest can be 48px touch targets */}
+      {isForkEnabled("commandPalette") && !paletteInSettingsMenu && (
         <CommandPaletteHint variant={variant} large={large} />
       )}
       {isForkEnabled("notificationInbox") && (

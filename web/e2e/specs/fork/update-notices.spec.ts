@@ -14,6 +14,7 @@ import {
   forkUpdatesFactory,
 } from "../../fixtures/mock-data/fork-updates";
 import { viewerProfile } from "../../fixtures/mock-data/profile";
+import { openPaletteOnPhone } from "../../helpers/phone-palette";
 
 const LAST_SEEN_KEY = "frigateFork.lastSeenRelease";
 
@@ -54,7 +55,7 @@ async function rememberSeen(frigateApp: FrigateApp, tag: string) {
 async function openPalette(frigateApp: FrigateApp) {
   const { page } = frigateApp;
   if (frigateApp.isMobile) {
-    await page.getByTestId("command-palette-hint").click();
+    await openPaletteOnPhone(page);
   } else {
     await page.keyboard.press("Control+k");
   }

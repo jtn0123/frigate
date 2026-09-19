@@ -8,7 +8,7 @@ import {
   useMemo,
 } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { cn } from "@/lib/utils";
 import { isPWA } from "@/utils/isPWA";
@@ -150,6 +150,8 @@ export function MobilePageContent({
     }
   }, [context.open, scrollerRef]);
 
+  const reducedMotion = useReducedMotion();
+
   return (
     <AnimatePresence>
       {isVisible && (
@@ -167,7 +169,12 @@ export function MobilePageContent({
           initial={{ x: "100%" }}
           animate={{ x: context.open ? 0 : "100%" }}
           exit={{ x: "100%" }}
-          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          // fork: no slide when the system asks for reduced motion
+          transition={
+            reducedMotion
+              ? { duration: 0 }
+              : { type: "spring", damping: 25, stiffness: 200 }
+          }
           onAnimationComplete={handleAnimationComplete}
         >
           {children}

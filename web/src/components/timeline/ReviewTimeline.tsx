@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { isForkEnabled } from "@/fork/flags";
+import { phoneTouch } from "@/lib/fork/phone";
 import {
   snapMaxDistance,
   snapToNearestEvent,
@@ -303,7 +304,10 @@ export function ReviewTimeline({
       if (isDragging && isMobile && draggableElementType === draggableElement) {
         return "text-lg";
       } else if (dense) {
-        return "text-[8px] md:text-[11px]";
+        // fork: 10 px on a phone
+        return phoneTouch
+          ? "text-[10px] md:text-[11px]"
+          : "text-[8px] md:text-[11px]";
       } else {
         return "text-[11px]";
       }

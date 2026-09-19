@@ -31,6 +31,10 @@ const rail = [
   "[&_[role=button]]:size-10 [&_[role=button]]:rounded-xl [&_[role=button]]:p-0",
   "[&_svg]:m-0 [&_svg]:shrink-0",
   "[&_button[aria-label]]:size-10 [&_button[aria-label]]:rounded-xl [&_button[aria-label]]:p-0",
+  // and clear of the 44 px minimum the shared Button has on a phone: over the
+  // video, the rail stays as small as it can
+  "[&_button[aria-label]]:min-h-0 [&_button[aria-label]]:min-w-0",
+  "[&_[role=button]]:min-h-0 [&_[role=button]]:min-w-0",
   // Glass for inactive controls and the back button; active keeps its blue
   "[&_[aria-pressed=false]]:bg-white/15 [&_[aria-pressed=false]]:bg-none",
   "[&_button[aria-label]]:bg-white/15 [&_button[aria-label]]:bg-none",

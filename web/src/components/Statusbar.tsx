@@ -90,8 +90,11 @@ export default function Statusbar() {
   }, [reindexState, addMessage, clearMessages, t]);
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-10 flex h-8 w-full items-center justify-between border-t border-secondary-highlight bg-background_alt px-4 dark:text-secondary-foreground">
-      <div className="flex h-full items-center gap-2">
+    // fork: dark:text-primary-variant, as secondary-foreground is 3.4:1 here
+    <div className="absolute bottom-0 left-0 right-0 z-10 flex h-8 w-full items-center justify-between border-t border-secondary-highlight bg-background_alt px-4 dark:text-primary-variant">
+      {/* fork: the stats keep their width and the messages take the rest, so a
+          long message is not cut at half the bar */}
+      <div className="flex h-full shrink-0 items-center gap-2">
         {cpuPercent && (
           <Link to="/system#general">
             <div className="flex cursor-pointer items-center gap-2 text-sm hover:underline">
@@ -185,7 +188,7 @@ export default function Statusbar() {
             </div>
           ))}
       </div>
-      <div className="no-scrollbar flex h-full max-w-[50%] items-center gap-2 overflow-x-auto">
+      <div className="no-scrollbar ml-4 flex h-full min-w-0 items-center gap-2 overflow-x-auto">
         {Object.entries(messages).length === 0 ? (
           <div className="flex items-center gap-2 text-sm">
             <FaCheck className="size-3 text-green-500" />
@@ -198,10 +201,11 @@ export default function Statusbar() {
                 const message = (
                   <div
                     key={text}
+                    title={text}
                     className={`flex items-center gap-2 whitespace-nowrap text-sm ${link ? "cursor-pointer hover:underline" : ""}`}
                   >
                     <IoIosWarning
-                      className={`size-5 ${color || "text-danger"}`}
+                      className={`size-5 shrink-0 ${color || "text-danger"}`}
                     />
                     {text}
                   </div>

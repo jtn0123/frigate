@@ -78,6 +78,7 @@ import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { supportedLanguageKeys } from "@/lib/const";
 import AppearanceMenu from "@/components/fork/AppearanceMenu";
+import CommandPaletteMenuItem from "@/components/fork/CommandPaletteMenuItem";
 
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { MdCategory } from "react-icons/md";
@@ -740,6 +741,7 @@ export default function GeneralSettings({
               </Portal>
             </SubItem>
             <AppearanceMenu />
+            <CommandPaletteMenuItem />
             <DropdownMenuLabel className={isDesktop ? "mt-3" : "mt-1"}>
               {t("menu.help")}
             </DropdownMenuLabel>

@@ -115,6 +115,9 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                     autoCapitalize="off"
                     autoCorrect="off"
                     spellCheck="false"
+                    // fork: lets a password manager fill the form
+                    autoComplete="username"
+                    enterKeyHint="next"
                     {...field}
                   />
                 </FormControl>
@@ -130,6 +133,8 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                   <Input
                     className="w-full border border-input bg-background p-2 hover:bg-accent hover:text-accent-foreground dark:[color-scheme:dark]"
                     type="password"
+                    autoComplete="current-password"
+                    enterKeyHint="go"
                     {...field}
                   />
                 </FormControl>
