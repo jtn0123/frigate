@@ -9,6 +9,7 @@ vi.mock("i18next", () => ({
 }));
 
 import {
+  claimReadErrors,
   readErrorKeyId,
   registerToaster,
   reportReadError,
@@ -24,6 +25,18 @@ describe("reportReadError", () => {
     toastError.mockReset();
     resetReadErrorCooldowns();
     registerToaster();
+  });
+
+  it("stays quiet for a read the page shows inline, until released", () => {
+    const releaseA = claimReadErrors("users");
+    const releaseB = claimReadErrors("users");
+    reportReadError(httpError(500, "boom"), "users");
+    releaseA();
+    reportReadError(httpError(500, "boom"), "users");
+    expect(toastError).not.toHaveBeenCalled();
+    releaseB();
+    reportReadError(httpError(500, "boom"), "users");
+    expect(toastError).toHaveBeenCalledTimes(1);
   });
 
   it("does not toast a 404 for previews that do not exist yet", () => {

@@ -6,7 +6,9 @@
  *   screen, by the field labels it renders;
  * - on desktop, a sticky scrollspy rail listing the field groups of the
  *   current section (`[data-settings-anchor]` elements) with the one in
- *   view highlighted;
+ *   view highlighted. It sits in a gutter the scroll container reserves
+ *   while the rail is rendered (`pages/Settings`), right of this bar, so it
+ *   never covers the form (UI102);
  * - on mobile, a compact select that jumps between sections;
  * - the "Review changes" dialog that Save All opens.
  *
@@ -396,7 +398,8 @@ export default function SettingsNav({ className }: Readonly<SettingsNavProps>) {
     <nav
       aria-label={t("settingsNav.onThisPage")}
       data-testid="settings-nav-rail"
-      className="absolute right-4 top-full mt-2 hidden w-52 rounded-md border border-secondary bg-background/95 p-2 text-sm backdrop-blur 2xl:block"
+      data-settings-rail
+      className="absolute left-full top-full ml-4 mt-2 hidden w-52 border-l border-secondary pl-2 text-sm 2xl:block"
     >
       <div className="mb-1 px-2 text-xs font-medium uppercase text-muted-foreground">
         {t("settingsNav.onThisPage")}

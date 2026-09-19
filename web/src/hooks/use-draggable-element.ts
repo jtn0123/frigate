@@ -219,7 +219,9 @@ function useDraggableElement({
             draggableElementTimeRef.current.textContent =
               getFormattedTimestamp(segmentStartTime);
             if (scrollTimeline && !userInteracting) {
-              scrollToSegment(segmentStartTime);
+              // fork (UI106): the motion rail only finds aligned segment times;
+              // this second pass sees the height the placed pill adds
+              scrollToSegment(alignStartDateToTimeline(segmentStartTime));
             }
           }
         });
@@ -237,6 +239,7 @@ function useDraggableElement({
       getFormattedTimestamp,
       userInteracting,
       scrollToSegment,
+      alignStartDateToTimeline,
     ],
   );
 

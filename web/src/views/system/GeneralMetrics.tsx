@@ -1,7 +1,6 @@
 import useSWR from "swr";
 import { FrigateStats, GpuInfo, GpuStats } from "@/types/stats";
-import { startTransition, useEffect, useMemo, useState } from "react";
-import { useFrigateStats } from "@/api/ws";
+import { useMemo, useState } from "react";
 import {
   DetectorCpuThreshold,
   DetectorMemThreshold,
@@ -19,10 +18,15 @@ import {
 import GPUInfoDialog from "@/components/overlay/GPUInfoDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThresholdBarGraph } from "@/components/graph/SystemGraph";
+import MetricEmptyState, {
+  hasNoSamples,
+  withSamples,
+} from "@/components/fork/MetricEmptyState";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { CiCircleAlert } from "react-icons/ci";
 import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
+import { useLiveStatsHistory } from "@/hooks/fork/use-live-stats-history";
 
 type GeneralMetricsProps = {
   lastUpdated: number;
@@ -52,35 +56,13 @@ export default function GeneralMetrics({
     },
   );
 
-  const [statsHistory, setStatsHistory] = useState<FrigateStats[]>([]);
-  const updatedStats = useFrigateStats();
-
-  useEffect(() => {
-    if (initialStats == undefined || initialStats.length == 0) {
-      return;
-    }
-
-    if (statsHistory.length == 0) {
-      startTransition(() => setStatsHistory(initialStats));
-      return;
-    }
-
-    if (!isActive || !updatedStats) {
-      return;
-    }
-
-    if (updatedStats.service.last_updated > lastUpdated) {
-      setStatsHistory([...statsHistory.slice(1), updatedStats]);
-      setLastUpdated(updatedStats.service.last_updated);
-    }
-  }, [
+  // fork (UI107): also grows from live stats when the history starts empty
+  const [statsHistory, setStatsHistory] = useLiveStatsHistory({
     initialStats,
-    updatedStats,
-    statsHistory,
+    isActive,
     lastUpdated,
     setLastUpdated,
-    isActive,
-  ]);
+  });
 
   // prettier-ignore
   useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);
@@ -664,7 +646,8 @@ export default function GeneralMetrics({
           {statsHistory.length != 0 ? (
             <div className="rounded-lg bg-background_alt p-2.5 md:rounded-2xl">
               <div className="mb-5">{t("general.detector.inferenceSpeed")}</div>
-              {detInferenceTimeSeries.map((series) => (
+              {/* fork (UI107): a series without samples draws nothing */}
+              {withSamples(detInferenceTimeSeries).map((series) => (
                 <ThresholdBarGraph
                   key={series.name}
                   graphId={`${series.name}-inference`}
@@ -676,6 +659,7 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
+              {hasNoSamples(detInferenceTimeSeries) && <MetricEmptyState />}
             </div>
           ) : (
             <Skeleton className="aspect-video w-full rounded-lg md:rounded-2xl" />
@@ -726,7 +710,8 @@ export default function GeneralMetrics({
                   </PopoverContent>
                 </Popover>
               </div>
-              {detCpuSeries.map((series) => (
+              {/* fork (UI107): a series without samples draws nothing */}
+              {withSamples(detCpuSeries).map((series) => (
                 <ThresholdBarGraph
                   key={series.name}
                   graphId={`${series.name}-cpu`}
@@ -738,6 +723,7 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
+              {hasNoSamples(detCpuSeries) && <MetricEmptyState />}
             </div>
           ) : (
             <Skeleton className="aspect-video w-full" />
@@ -745,7 +731,8 @@ export default function GeneralMetrics({
           {statsHistory.length != 0 ? (
             <div className="rounded-lg bg-background_alt p-2.5 md:rounded-2xl">
               <div className="mb-5">{t("general.detector.memoryUsage")}</div>
-              {detMemSeries.map((series) => (
+              {/* fork (UI107): a series without samples draws nothing */}
+              {withSamples(detMemSeries).map((series) => (
                 <ThresholdBarGraph
                   key={series.name}
                   graphId={`${series.name}-mem`}
@@ -757,6 +744,7 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
+              {hasNoSamples(detMemSeries) && <MetricEmptyState />}
             </div>
           ) : (
             <Skeleton className="aspect-video w-full" />
@@ -1004,7 +992,8 @@ export default function GeneralMetrics({
               <div className="mb-5">
                 {t("general.otherProcesses.processCpuUsage")}
               </div>
-              {otherProcessCpuSeries.map((series, index) => (
+              {/* fork (UI107): a series without samples draws nothing */}
+              {withSamples(otherProcessCpuSeries).map((series, index) => (
                 <ThresholdBarGraph
                   key={`other-process-cpu-${index}`}
                   graphId={`other-process-cpu-${index}`}
@@ -1015,6 +1004,7 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
+              {hasNoSamples(otherProcessCpuSeries) && <MetricEmptyState />}
             </div>
           ) : (
             <Skeleton className="aspect-tall w-full" />
@@ -1024,7 +1014,8 @@ export default function GeneralMetrics({
               <div className="mb-5">
                 {t("general.otherProcesses.processMemoryUsage")}
               </div>
-              {otherProcessMemSeries.map((series, index) => (
+              {/* fork (UI107): a series without samples draws nothing */}
+              {withSamples(otherProcessMemSeries).map((series, index) => (
                 <ThresholdBarGraph
                   key={`other-process-mem-${index}`}
                   graphId={`other-process-mem-${index}`}
@@ -1035,6 +1026,7 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
+              {hasNoSamples(otherProcessMemSeries) && <MetricEmptyState />}
             </div>
           ) : (
             <Skeleton className="aspect-tall w-full" />

@@ -131,9 +131,10 @@ export function Timestamp({
         <div
           key={`${segmentKey}_timestamp`}
           className={cn(
-            "pointer-events-none select-none text-[8px] text-neutral_variant dark:text-neutral",
-            // fork: 8 px time labels are below what a phone can show legibly
-            phoneTouch && "text-[10px]",
+            // fork (UI106): primary-variant keeps labels readable on the dark rail
+            "pointer-events-none select-none whitespace-nowrap text-neutral_variant dark:text-primary-variant",
+            // fork: 11 px on desktop; a phone's 65 px rail only fits 10 px
+            phoneTouch ? "text-[10px]" : "text-[11px] font-medium leading-none",
           )}
         >
           {formattedTimestamp}

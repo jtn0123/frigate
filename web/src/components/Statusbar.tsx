@@ -1,8 +1,5 @@
 import { useEmbeddingsReindexProgress } from "@/api/ws";
-import {
-  StatusBarMessagesContext,
-  StatusMessage,
-} from "@/context/statusbar-context";
+import { StatusBarMessagesContext } from "@/context/statusbar-context";
 import useStats, { useAutoFrigateStats } from "@/hooks/use-stats";
 import { cn } from "@/lib/utils";
 import type { ProfilesApiResponse } from "@/types/profile";
@@ -13,9 +10,9 @@ import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 
 import { FaCheck } from "react-icons/fa";
-import { IoIosWarning } from "react-icons/io";
 import { MdCircle } from "react-icons/md";
 import { Link } from "react-router-dom";
+import StatusIssuesChip from "@/components/fork/StatusIssuesChip";
 
 export default function Statusbar() {
   const { t } = useTranslation(["views/system"]);
@@ -195,34 +192,8 @@ export default function Statusbar() {
             {t("stats.healthy")}
           </div>
         ) : (
-          Object.entries(messages).map(([key, messageArray]) => (
-            <div key={key} className="flex h-full items-center gap-2">
-              {messageArray.map(({ text, color, link }: StatusMessage) => {
-                const message = (
-                  <div
-                    key={text}
-                    title={text}
-                    className={`flex items-center gap-2 whitespace-nowrap text-sm ${link ? "cursor-pointer hover:underline" : ""}`}
-                  >
-                    <IoIosWarning
-                      className={`size-5 shrink-0 ${color || "text-danger"}`}
-                    />
-                    {text}
-                  </div>
-                );
-
-                if (link) {
-                  return (
-                    <Link key={text} to={link}>
-                      {message}
-                    </Link>
-                  );
-                } else {
-                  return message;
-                }
-              })}
-            </div>
-          ))
+          // fork (UI110): one chip that lists the messages in a popover
+          <StatusIssuesChip messages={messages} />
         )}
       </div>
     </div>

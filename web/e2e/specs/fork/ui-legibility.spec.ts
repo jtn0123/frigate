@@ -8,6 +8,7 @@
 
 import { test, expect, type FrigateApp } from "../../fixtures/frigate-test";
 import { installSettingsConfigRoutes } from "../../helpers/settings-config-routes";
+import { openStatusIssues } from "../../helpers/status-issues";
 
 async function useDarkTheme(frigateApp: FrigateApp) {
   await frigateApp.page.addInitScript(() =>
@@ -75,9 +76,13 @@ test.describe("UI legibility @medium", () => {
     async ({ frigateApp }) => {
       await useDarkTheme(frigateApp);
       await frigateApp.goto("/");
-      const icon = frigateApp.page
-        .getByText(/Host collector is missing/)
-        .locator("svg");
+      // UI110: the warnings are listed behind the status bar's chip
+      const list = await openStatusIssues(frigateApp.page);
+      const icon = list
+        .getByRole("listitem")
+        .filter({ hasText: /Host collector is missing/ })
+        .locator("svg")
+        .first();
       await expect(icon).toHaveCSS("color", "rgb(255, 193, 122)");
     },
   );
@@ -88,11 +93,12 @@ test.describe("UI legibility @medium", () => {
     async ({ frigateApp }) => {
       await frigateApp.page.setViewportSize({ width: 1280, height: 720 });
       await frigateApp.goto("/");
-      const message = frigateApp.page.getByText(/Host collector is missing/);
-      await expect(message).toBeVisible();
+      // UI110: the message is read in full in the chip's list, not cut
+      const list = await openStatusIssues(frigateApp.page);
+      const message = list.getByText(/Host collector is missing/);
+      await expect(message).toContainText("measure both containers.");
       const box = await message.boundingBox();
       expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(1280);
-      await expect(message).toHaveAttribute("title", /measure both/);
     },
   );
 

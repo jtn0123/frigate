@@ -2227,6 +2227,8 @@ export default function Settings() {
           <div
             className={cn(
               "scrollbar-container flex-1 overflow-y-auto pl-2 pr-0 pt-2",
+              // fork: a gutter for the "On this page" rail (UI102)
+              "2xl:has-[[data-settings-rail]]:pr-60",
             )}
           >
             <SettingsNav />

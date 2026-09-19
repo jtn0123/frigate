@@ -18,6 +18,8 @@ type ErrorStateProps = {
   error?: unknown;
   /** Overrides the default "Could not load this data" title. */
   title?: string;
+  /** Replaces the generic "did not return a valid response" sentence. */
+  message?: string;
   /** Extra context shown under the title (defaults to the server message). */
   description?: string;
   /** Called by the retry button; the button is hidden when omitted. */
@@ -26,6 +28,10 @@ type ErrorStateProps = {
   compact?: boolean;
   className?: string;
 };
+
+// UI109: the state is app chrome, so it is always set in the UI sans font and
+// normal wrapping, even inside a monospace, pre-wrap panel such as the log view
+const chrome = "font-sans whitespace-normal";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function describeError(error: unknown): string | undefined {
@@ -52,6 +58,7 @@ export function describeError(error: unknown): string | undefined {
 export default function ErrorState({
   error,
   title,
+  message,
   description,
   onRetry,
   compact = false,
@@ -59,6 +66,7 @@ export default function ErrorState({
 }: Readonly<ErrorStateProps>) {
   const { t } = useTranslation(["fork"]);
   const detail = description ?? describeError(error);
+  const sentence = message ?? t("errorState.description");
 
   if (compact) {
     return (
@@ -66,6 +74,7 @@ export default function ErrorState({
         role="alert"
         data-testid="fork-error-state"
         className={cn(
+          chrome,
           "flex items-center gap-2 rounded-md bg-secondary px-3 py-2 text-sm text-primary",
           className,
         )}
@@ -96,17 +105,16 @@ export default function ErrorState({
       role="alert"
       data-testid="fork-error-state"
       className={cn(
+        chrome,
         "flex flex-col items-center justify-center gap-2 p-4 text-center",
         className,
       )}
     >
       <LuCloudOff className="size-10 text-danger" />
       <Heading as="h4">{title ?? t("errorState.title")}</Heading>
-      <p className="max-w-md text-sm text-secondary-foreground">
-        {t("errorState.description")}
-      </p>
-      {/* a caller may pass the generic sentence as the detail; say it once */}
-      {detail && detail !== t("errorState.description") && (
+      <p className="max-w-md text-sm text-secondary-foreground">{sentence}</p>
+      {/* a caller may pass the sentence as the detail too; say it once */}
+      {detail && detail !== sentence && (
         <code className="max-w-full break-words rounded-md bg-secondary px-2 py-1 text-xs text-primary">
           {detail}
         </code>

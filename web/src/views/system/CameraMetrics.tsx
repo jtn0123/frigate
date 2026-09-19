@@ -1,4 +1,3 @@
-import { useFrigateStats } from "@/api/ws";
 import { CameraLineGraph } from "@/components/graph/LineGraph";
 import CameraInfoDialog from "@/components/overlay/CameraInfoDialog";
 import { ConnectionQualityIndicator } from "@/components/camera/ConnectionQualityIndicator";
@@ -6,14 +5,7 @@ import { EmptyCard } from "@/components/card/EmptyCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { FrigateStats } from "@/types/stats";
-import {
-  Fragment,
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { BsFillCameraVideoOffFill } from "react-icons/bs";
 import { MdInfo } from "react-icons/md";
 import {
@@ -27,6 +19,7 @@ import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
 import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 import { isReplayCamera } from "@/utils/cameraUtil";
 import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
+import { useLiveStatsHistory } from "@/hooks/fork/use-live-stats-history";
 
 type CameraMetricsProps = {
   lastUpdated: number;
@@ -64,35 +57,13 @@ export default function CameraMetrics({
     },
   );
 
-  const [statsHistory, setStatsHistory] = useState<FrigateStats[]>([]);
-  const updatedStats = useFrigateStats();
-
-  useEffect(() => {
-    if (initialStats == undefined || initialStats.length == 0) {
-      return;
-    }
-
-    if (statsHistory.length == 0) {
-      startTransition(() => setStatsHistory(initialStats));
-      return;
-    }
-
-    if (!isActive || !updatedStats) {
-      return;
-    }
-
-    if (updatedStats.service.last_updated > lastUpdated) {
-      setStatsHistory([...statsHistory.slice(1), updatedStats]);
-      setLastUpdated(updatedStats.service.last_updated);
-    }
-  }, [
+  // fork (UI107): also grows from live stats when the history starts empty
+  const [statsHistory, setStatsHistory] = useLiveStatsHistory({
     initialStats,
-    updatedStats,
-    statsHistory,
+    isActive,
     lastUpdated,
     setLastUpdated,
-    isActive,
-  ]);
+  });
 
   // prettier-ignore
   useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);
