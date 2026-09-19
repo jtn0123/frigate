@@ -29,6 +29,10 @@ type ErrorStateProps = {
   className?: string;
 };
 
+// UI109: the state is app chrome, so it is always set in the UI sans font and
+// normal wrapping, even inside a monospace, pre-wrap panel such as the log view
+const chrome = "font-sans whitespace-normal";
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function describeError(error: unknown): string | undefined {
   if (!error) {
@@ -70,6 +74,7 @@ export default function ErrorState({
         role="alert"
         data-testid="fork-error-state"
         className={cn(
+          chrome,
           "flex items-center gap-2 rounded-md bg-secondary px-3 py-2 text-sm text-primary",
           className,
         )}
@@ -100,6 +105,7 @@ export default function ErrorState({
       role="alert"
       data-testid="fork-error-state"
       className={cn(
+        chrome,
         "flex flex-col items-center justify-center gap-2 p-4 text-center",
         className,
       )}

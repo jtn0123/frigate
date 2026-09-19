@@ -9,6 +9,7 @@
 import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
 import { BASE_STATS } from "../../fixtures/mock-data/stats";
+import { openStatusIssues } from "../../helpers/status-issues";
 
 type CameraOverride = Partial<{
   camera_fps: number;
@@ -168,24 +169,28 @@ test.describe("Camera health cards @high", () => {
     await gotoHealth(frigateApp);
     const updated = new Date(start.getTime() + 6000);
     await frigateApp.page.clock.pauseAt(updated);
-    frigateApp.ws.send(
-      "stats",
-      JSON.stringify({
-        ...BASE_STATS,
-        service: {
-          ...BASE_STATS.service,
-          uptime: 600,
-          last_updated: updated.getTime() / 1000,
-        },
-        cameras: {
-          ...BASE_STATS.cameras,
-          front_door: { ...BASE_STATS.cameras.front_door, camera_fps: 0 },
-        },
-      }),
-    );
-    await expect(
-      frigateApp.page.getByTestId("camera-health-front_door"),
-    ).toHaveAttribute("data-state", "offline", { timeout: 1000 });
+    // a push that lands before the connect frame is overwritten by it, so
+    // resend until it shows
+    await expect(async () => {
+      frigateApp.ws.send(
+        "stats",
+        JSON.stringify({
+          ...BASE_STATS,
+          service: {
+            ...BASE_STATS.service,
+            uptime: 600,
+            last_updated: updated.getTime() / 1000,
+          },
+          cameras: {
+            ...BASE_STATS.cameras,
+            front_door: { ...BASE_STATS.cameras.front_door, camera_fps: 0 },
+          },
+        }),
+      );
+      await expect(
+        frigateApp.page.getByTestId("camera-health-front_door"),
+      ).toHaveAttribute("data-state", "offline", { timeout: 1000 });
+    }).toPass({ timeout: 10_000 });
   });
 
   test("right after a start, a camera without frames is starting, not offline (D14)", async ({
@@ -243,6 +248,9 @@ test.describe("Camera health cards @high", () => {
       "Decodes in software because hardware decoding kept failing · 1h ago",
     );
     if (!frigateApp.isMobile) {
+      // UI110: the bar lists its warnings behind a chip; the list stays open
+      // below, so the message leaving it is what the last check sees
+      await openStatusIssues(frigateApp.page);
       await expect(message).toBeVisible();
     }
 

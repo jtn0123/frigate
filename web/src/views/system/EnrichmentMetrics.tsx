@@ -1,13 +1,6 @@
 import useSWR from "swr";
 import { FrigateStats } from "@/types/stats";
-import {
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import { useFrigateStats } from "@/api/ws";
+import { useCallback, useMemo } from "react";
 import { EmbeddingThreshold, GenAIThreshold, Threshold } from "@/types/graph";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThresholdBarGraph } from "@/components/graph/SystemGraph";
@@ -15,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { EventsPerSecondsLineGraph } from "@/components/graph/LineGraph";
 import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
+import { useLiveStatsHistory } from "@/hooks/fork/use-live-stats-history";
 
 type EnrichmentMetricsProps = {
   lastUpdated: number;
@@ -36,35 +30,13 @@ export default function EnrichmentMetrics({
     },
   );
 
-  const [statsHistory, setStatsHistory] = useState<FrigateStats[]>([]);
-  const updatedStats = useFrigateStats();
-
-  useEffect(() => {
-    if (initialStats == undefined || initialStats.length == 0) {
-      return;
-    }
-
-    if (statsHistory.length == 0) {
-      startTransition(() => setStatsHistory(initialStats));
-      return;
-    }
-
-    if (!isActive || !updatedStats) {
-      return;
-    }
-
-    if (updatedStats.service.last_updated > lastUpdated) {
-      setStatsHistory([...statsHistory.slice(1), updatedStats]);
-      setLastUpdated(updatedStats.service.last_updated);
-    }
-  }, [
+  // fork (UI107): also grows from live stats when the history starts empty
+  const [statsHistory, setStatsHistory] = useLiveStatsHistory({
     initialStats,
-    updatedStats,
-    statsHistory,
+    isActive,
     lastUpdated,
     setLastUpdated,
-    isActive,
-  ]);
+  });
 
   // prettier-ignore
   useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);

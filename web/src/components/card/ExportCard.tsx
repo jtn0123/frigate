@@ -1,6 +1,4 @@
-import ActivityIndicator from "../indicators/activity-indicator";
 import { Button } from "../ui/button";
-import { Progress } from "../ui/progress";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiMoreVertical } from "react-icons/fi";
 import { Skeleton } from "../ui/skeleton";
@@ -27,6 +25,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { onActivate } from "@/utils/fork/a11y";
+import ExportProgressCard from "@/components/fork/ExportProgressCard";
 
 type CaseCardProps = {
   className: string;
@@ -206,6 +205,16 @@ export function ExportCard({
 
   const [editName, setEditName] = useState(false);
 
+  // fork (UI108): legible in-progress card; the thumbnail does not exist yet
+  if (exportedRecording.in_progress) {
+    return (
+      <ExportProgressCard
+        className={className}
+        name={exportedRecording.name.replaceAll("_", " ")}
+      />
+    );
+  }
+
   return (
     <>
       {editName && (
@@ -245,32 +254,26 @@ export function ExportCard({
           }
         })}
       >
-        {exportedRecording.in_progress ? (
-          <ActivityIndicator />
+        {exportedRecording.thumb_path.length > 0 && !thumbFailed ? (
+          <img
+            className="absolute inset-0 aspect-video size-full rounded-lg object-cover md:rounded-2xl"
+            src={`${baseUrl}${exportedRecording.thumb_path.replace("/media/frigate/", "")}`}
+            alt={t("image.thumbnailOf", {
+              ns: "common",
+              label: exportedRecording.name,
+            })}
+            onLoad={() => setLoading(false)}
+            onError={() => {
+              // show the plain tile instead of a broken image, and stop
+              // the skeleton, which only onLoad used to clear
+              setThumbFailed(true);
+              setLoading(false);
+            }}
+          />
         ) : (
-          <>
-            {exportedRecording.thumb_path.length > 0 && !thumbFailed ? (
-              <img
-                className="absolute inset-0 aspect-video size-full rounded-lg object-cover md:rounded-2xl"
-                src={`${baseUrl}${exportedRecording.thumb_path.replace("/media/frigate/", "")}`}
-                alt={t("image.thumbnailOf", {
-                  ns: "common",
-                  label: exportedRecording.name,
-                })}
-                onLoad={() => setLoading(false)}
-                onError={() => {
-                  // show the plain tile instead of a broken image, and stop
-                  // the skeleton, which only onLoad used to clear
-                  setThumbFailed(true);
-                  setLoading(false);
-                }}
-              />
-            ) : (
-              <div className="absolute inset-0 rounded-lg bg-secondary md:rounded-2xl" />
-            )}
-          </>
+          <div className="absolute inset-0 rounded-lg bg-secondary md:rounded-2xl" />
         )}
-        {!exportedRecording.in_progress && !selectionMode && (
+        {!selectionMode && (
           <div className="absolute bottom-2 right-3 z-40">
             <DropdownMenu>
               {/* One named trigger: the old inner "Edit name" element nested a
@@ -451,29 +454,13 @@ export function ActiveExportJobCard({
   const hasDeterminateProgress =
     step === "copying" || step === "encoding" || step === "encoding_retry";
 
+  // fork (UI108): same card as an in-progress export, with the step and percent
   return (
-    <div
-      className={cn(
-        "relative flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-secondary/40 md:rounded-2xl",
-        className,
-      )}
-    >
-      <div className="flex w-full max-w-xs flex-col items-center gap-2 space-y-2 px-6 text-center">
-        <div className="text-xs text-muted-foreground">
-          {stepLabel}
-          {hasDeterminateProgress && ` · ${percent}%`}
-        </div>
-        {step === "queued" ? (
-          <ActivityIndicator className="size-5" />
-        ) : hasDeterminateProgress ? (
-          <Progress value={percent} className="h-2 w-full" />
-        ) : (
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
-            <div className="absolute inset-y-0 left-0 w-1/2 animate-pulse bg-primary" />
-          </div>
-        )}
-        <div className="text-sm font-medium text-primary">{displayName}</div>
-      </div>
-    </div>
+    <ExportProgressCard
+      className={className}
+      name={displayName}
+      stepLabel={stepLabel}
+      percent={hasDeterminateProgress ? percent : undefined}
+    />
   );
 }
