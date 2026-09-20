@@ -311,6 +311,7 @@ export default function UiSettingsView() {
                 control={
                   <Button
                     id="stored-layouts-clear"
+                    variant="destructive"
                     aria-label={t("general.storedLayouts.clearAll")}
                     className="w-full md:w-auto"
                     onClick={clearStoredLayouts}
@@ -327,6 +328,7 @@ export default function UiSettingsView() {
                 control={
                   <Button
                     id="camera-group-streaming-clear"
+                    variant="destructive"
                     aria-label={t("general.cameraGroupStreaming.clearAll")}
                     className="w-full md:w-auto"
                     onClick={wrapAsync(clearStreamingSettings)}
