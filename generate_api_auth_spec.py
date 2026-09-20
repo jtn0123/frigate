@@ -66,6 +66,7 @@ from frigate.api import (
     record,
     review,
     review_audio,
+    system_history,
 )
 from frigate.api import app as main_app
 from frigate.api.auth import require_admin_by_default
@@ -167,6 +168,7 @@ def build_app() -> FastAPI:
         fork_camera_history.router,
         fork_share.router,
         fork_updates.router,
+        system_history.router,
     ]
     for router in routers:
         app.include_router(router)
