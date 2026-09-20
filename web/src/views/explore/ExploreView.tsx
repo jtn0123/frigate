@@ -186,17 +186,17 @@ function ThumbnailRow({
         <div className="flex flex-row items-center text-lg smart-capitalize">
           {getTranslatedLabel(label, labelType)}
           {searchResults && (
-            <span className="ml-3 text-sm text-secondary-foreground">
-              {t("trackedObjectsCount", {
-                count: eventCount,
-              })}
+            <span
+              className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground"
+              aria-label={t("trackedObjectsCount", { count: eventCount })}
+            >
+              {eventCount}
             </span>
           )}
           {isValidating && <ActivityIndicator className="ml-2 size-4" />}
         </div>
         <ExploreRowViewAll
           label={getTranslatedLabel(label, labelType)}
-          count={eventCount}
           onClick={() => handleSearch(label)}
         />
       </div>
@@ -204,7 +204,7 @@ function ThumbnailRow({
         {searchResults?.map((event) => (
           <div
             key={event.id}
-            className="relative aspect-square h-auto max-w-[20%] flex-grow md:max-w-[10%]"
+            className="relative aspect-video h-auto max-w-[24%] flex-grow md:max-w-[14%]"
           >
             <ExploreThumbnailImage
               event={event}
