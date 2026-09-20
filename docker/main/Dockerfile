@@ -96,7 +96,7 @@ COPY docker/main/requirements-ov.lock /requirements-ov.lock
 RUN apt-get -qq update \
     && apt-get -qq install -y wget curl ca-certificates python3 python3-distutils \
     && curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
-    && sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
+    && sed -i 's/args.append("setuptools")/args.append("setuptools==84.0.0")/' get-pip.py \
     && python3 get-pip.py "pip" \
     && pip3 install --only-binary=:all: --require-hashes -r /requirements-ov.lock
 
@@ -199,7 +199,7 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
 ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
     https://bootstrap.pypa.io/get-pip.py get-pip.py
-RUN sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
+RUN sed -i 's/args.append("setuptools")/args.append("setuptools==84.0.0")/' get-pip.py \
     && python3 get-pip.py "pip"
 
 COPY docker/main/requirements.lock /requirements.lock
@@ -287,7 +287,7 @@ ENV INCLUDED_FFMPEG_VERSIONS="${DEFAULT_FFMPEG_VERSION}:7.0:5.0"
 
 ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
     https://bootstrap.pypa.io/get-pip.py get-pip.py
-RUN sed -i 's/args.append("setuptools")/args.append("setuptools==77.0.3")/' get-pip.py \
+RUN sed -i 's/args.append("setuptools")/args.append("setuptools==84.0.0")/' get-pip.py \
     && python3 get-pip.py "pip"
 
 RUN --mount=type=bind,from=wheels,source=/wheels,target=/deps/wheels \

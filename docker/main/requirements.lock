@@ -14,9 +14,9 @@ scikit-build==0.18.1 \
     --hash=sha256:a4152ac5a084d499c28a7797be0628d8366c336e2fb0e1a063eb32e55efcb8e7 \
     --hash=sha256:a6860e300f6807e76f21854163bdb9db16afc74eadf34bd6a9947d3fdfcd725a
     # via -r docker/main/requirements.txt
-setuptools==77.0.3 \
-    --hash=sha256:583b361c8da8de57403743e756609670de6fb2345920e36dc5c2d914c319c945 \
-    --hash=sha256:67122e78221da5cf550ddd04cf8742c8fe12094483749a792d56cd669d6cf58c
+setuptools==84.0.0 \
+    --hash=sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670 \
+    --hash=sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73
     # via
     #   -r docker/main/requirements.txt
     #   scikit-build
