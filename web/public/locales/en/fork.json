@@ -443,23 +443,23 @@
     }
   },
   "liveLayout": {
-    "grid": "Grid layout",
-    "list": "List layout",
-    "editing": "Edit layout"
+    "grid": "Use mobile grid layout",
+    "list": "Use mobile list layout",
+    "editing": "Enter layout editing mode"
   },
   "a11yLabels": {
-    "toggleSidebar": "Toggle sidebar",
-    "loading": "Loading",
-    "frigateGithub": "Frigate on GitHub",
+    "toggleSidebar": "Toggle Sidebar",
+    "loading": "Loading…",
+    "frigateGithub": "Frigate Github",
     "copyJson": "Copy JSON",
     "addCamera": "Add camera",
     "mainCameraLive": "Go to the main camera live view",
-    "detailStream": "Detail stream",
+    "detailStream": "Detail Stream",
     "selectCamera": "Select a camera",
     "selectTimeRange": "Select time range",
     "selectRole": "Select a role",
     "selectObjectType": "Select an object type",
-    "latestFrom": "Latest frame from {{camera}}",
+    "latestFrom": "Latest from {{camera}}",
     "selectedImage": "Selected image",
     "preview": "Preview",
     "cameraSnapshot": "Camera snapshot",
