@@ -276,12 +276,13 @@ function CopyJsonButton({ payload }: Readonly<{ payload: unknown }>) {
     },
     [payload],
   );
+  const { t } = useTranslation(["fork"]);
 
   return (
     <button
       onClick={handleCopy}
       className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-      aria-label="Copy JSON"
+      aria-label={t("a11yLabels.copyJson")}
     >
       {copied ? (
         <LuCheck className="size-3.5 text-green-500" />
@@ -301,7 +302,7 @@ const WsMessageRow = memo(function WsMessageRow({
   message,
   showCameraBadge = true,
 }: WsMessageRowProps) {
-  const { t } = useTranslation(["views/system"]);
+  const { t } = useTranslation(["views/system", "fork"]);
   const [expanded, setExpanded] = useState(false);
   const category = getTopicCategory(message.topic);
 

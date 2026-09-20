@@ -92,7 +92,7 @@ export default function GeneralSettings({
   className,
   large,
 }: Readonly<GeneralSettingsProps>) {
-  const { t } = useTranslation(["common", "views/settings"]);
+  const { t } = useTranslation(["common", "views/settings", "fork"]);
   const { getLocaleDocUrl } = useDocDomain();
   const { data: profile } = useSWR("profile");
   const { data: config } = useSWR<FrigateConfig>("config");
@@ -765,7 +765,7 @@ export default function GeneralSettings({
                 className={
                   isDesktop ? "cursor-pointer" : "flex items-center p-2 text-sm"
                 }
-                aria-label="Frigate Github"
+                aria-label={t("a11yLabels.frigateGithub", { ns: "fork" })}
               >
                 <LuGithub className="mr-2 size-4" />
                 <span>GitHub</span>

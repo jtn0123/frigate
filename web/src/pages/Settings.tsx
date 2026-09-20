@@ -603,7 +603,7 @@ function MobileMenuItem({
   className?: string;
   label?: ReactNode;
 }>) {
-  const { t } = useTranslation(["views/settings"]);
+  const { t } = useTranslation(["views/settings", "fork"]);
 
   return (
     <button
@@ -2275,7 +2275,7 @@ function CameraSelectButton({
   const trigger = (
     <Button
       className="flex items-center gap-2 bg-selected smart-capitalize hover:bg-selected"
-      aria-label="Select a camera"
+      aria-label={t("a11yLabels.selectCamera", { ns: "fork" })}
       size="sm"
     >
       <FaVideo className="text-background dark:text-primary" />

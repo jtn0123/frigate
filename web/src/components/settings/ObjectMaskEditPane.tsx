@@ -69,7 +69,7 @@ export default function ObjectMaskEditPane({
   setSnapPoints,
   editingProfile,
 }: Readonly<ObjectMaskEditPaneProps>) {
-  const { t } = useTranslation(["views/settings"]);
+  const { t } = useTranslation(["views/settings", "fork"]);
   const { data: config, mutate: updateConfig } =
     useSWR<FrigateConfig>("config");
 
@@ -429,7 +429,11 @@ export default function ObjectMaskEditPane({
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select an object type" />
+                          <SelectValue
+                            placeholder={t("a11yLabels.selectObjectType", {
+                              ns: "fork",
+                            })}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

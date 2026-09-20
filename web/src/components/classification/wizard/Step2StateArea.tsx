@@ -40,7 +40,7 @@ export default function Step2StateArea({
   onNext,
   onBack,
 }: Readonly<Step2StateAreaProps>) {
-  const { t } = useTranslation(["views/classificationModel"]);
+  const { t } = useTranslation(["views/classificationModel", "fork"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const apiHost = useApiHost();
 
@@ -248,7 +248,7 @@ export default function Step2StateArea({
                     type="button"
                     variant="secondary"
                     className="size-6 rounded-md bg-secondary-foreground p-1 text-background"
-                    aria-label="Add camera"
+                    aria-label={t("a11yLabels.addCamera", { ns: "fork" })}
                   >
                     <LuPlus />
                   </Button>

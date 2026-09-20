@@ -446,5 +446,26 @@
     "grid": "Grid layout",
     "list": "List layout",
     "editing": "Edit layout"
+  },
+  "a11yLabels": {
+    "toggleSidebar": "Toggle sidebar",
+    "loading": "Loading",
+    "frigateGithub": "Frigate on GitHub",
+    "copyJson": "Copy JSON",
+    "addCamera": "Add camera",
+    "mainCameraLive": "Go to the main camera live view",
+    "detailStream": "Detail stream",
+    "selectCamera": "Select a camera",
+    "selectTimeRange": "Select time range",
+    "selectRole": "Select a role",
+    "selectObjectType": "Select an object type",
+    "latestFrom": "Latest frame from {{camera}}",
+    "selectedImage": "Selected image",
+    "preview": "Preview",
+    "cameraSnapshot": "Camera snapshot",
+    "exampleNumber": "Example {{index}}"
+  },
+  "cameras": {
+    "allIncludedHint": "All cameras are included. Turn one on to narrow the view to it."
   }
 }
