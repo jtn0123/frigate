@@ -103,7 +103,7 @@ export default function DraggableGridLayout({
   // preferred live modes per camera
 
   const [globalAutoLive] = useUserPersistence("autoLiveView", true);
-  const [displayCameraNames] = useUserPersistence("displayCameraNames", false);
+  const [displayCameraNames] = useUserPersistence("displayCameraNames", true);
 
   const { allGroupsStreamingSettings, setAllGroupsStreamingSettings } =
     useStreamingSettings();

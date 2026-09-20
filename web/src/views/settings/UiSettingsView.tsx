@@ -206,7 +206,7 @@ export default function UiSettingsView() {
   );
   const [cameraNames, setCameraName, cameraNamesLoaded] = useUserPersistence(
     "displayCameraNames",
-    false,
+    true,
   );
   const [playbackRate, setPlaybackRate, playbackRateLoaded] =
     useUserPersistence("playbackRate", 1);
