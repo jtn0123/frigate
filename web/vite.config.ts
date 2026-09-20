@@ -127,6 +127,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     alias: {
+      // Monaco has only an ESM entry; Vitest 4 also resolves untested files.
+      "monaco-editor": path.resolve(
+        __dirname,
+        "node_modules/monaco-editor/esm/vs/editor/editor.main.js",
+      ),
       "testing-library": path.resolve(
         __dirname,
         "./__test__/testing-library.js",

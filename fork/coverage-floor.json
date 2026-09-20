@@ -1,6 +1,6 @@
 {
-  "_comment": "Coverage may not fall below these percentages (D26). The web number is vitest merged with the browser coverage three sharded e2e runs measure, and it moves between runs on identical code (58.61% and 56.95% on consecutive runs), so its floor sits at the lower observation with a wider allowance. Python is deterministic. Lowering either needs a reason in the commit that does it.",
+  "_comment": "Coverage may not fall below these percentages (D26). The web floor was remeasured at 50.27% for the Vitest 4 and ast-v8-to-istanbul 1 migration (F4); replaying identical browser captures with the old unit report gives 66.42%. See fork/DEPENDENCY-REFRESH-2026-09.md for source-line accounting evidence. The existing 3-point web and 1-point Python tolerances are unchanged. Lowering either floor needs a reason in the commit that does it.",
   "tolerance_points": { "python": 1.0, "web": 3.0 },
   "python": 41.39,
-  "web": 56.95
+  "web": 50.27
 }

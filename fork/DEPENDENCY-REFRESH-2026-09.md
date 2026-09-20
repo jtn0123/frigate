@@ -12,6 +12,8 @@ Ledger: F4 (Vitest portion plus compatible refresh), F7 (setuptools).
 - Prettier 3.9.6 to 3.9.8; Rollup 4.60.0 to 4.63.4 (still exact-pinned).
 - Vitest and coverage-v8 3.2.7 to 4.1.11, pinned to the 4.1 patch series.
   This fixes GHSA-82fw-gwwq-j7x9 without requiring Vite 8 or Vitest 5.
+- Browser coverage converter ast-v8-to-istanbul 0.3.12 to 1.0.6, matching
+  the converter used by Vitest 4.
 - Setuptools 77.0.3 to 84.0.0 in the requirement, hash lock, and all five
   bootstrap pins across main, ROCm and TensorRT. The regression test checks
   that the lock and bootstrap pins match the security-patched requirement.
@@ -60,3 +62,38 @@ The full gate and CI/Sonar results are recorded in
 [PR #87](https://github.com/jtn0123/frigate/pull/87). The smoke build exercises
 the native SQLite build, not every production image variant. No server or GPU
 runtime was changed, and physical GPU validation is outside this update.
+
+## Coverage measurement migration
+
+CI passed every unit/browser/backend test on f89364d, but the report check
+stopped before Sonar: merged web coverage measured 49.38%, below the old
+56.95% floor. Vitest 4 changes the source locations reported by coverage-v8.
+For example, the old report counts the import and class declaration in
+`src/utils/screen-wake-lock.ts`; the new report starts at executable statements.
+Unit report executable-line totals change from 98190 to 28634 across the same
+application sources. These reports cannot share a percentage baseline.
+
+To isolate measurement from test execution, replayed all 775 captured browser
+reports from CI run 35519889142 against its unchanged build/source maps:
+
+| Unit report | Browser converter | Covered / measured lines | Coverage |
+| --- | --- | --- | --- |
+| Base next, Vitest 3 (run 35490400079) | 0.3.12 | 29066 / 43763 | 66.42% |
+| PR, Vitest 4 | 0.3.12 | 15374 / 31136 | 49.38% |
+| PR, Vitest 4 | 1.0.6 | 15672 / 31136 | 50.33% |
+| PR, Vitest 4 with Monaco resolution fixed | 1.0.6 | 15672 / 31175 | 50.27% |
+
+Align the browser converter with Vitest's converter and record the measured
+50.27% baseline in `fork/coverage-floor.json`. This is a measurement migration,
+not removed tests or reduced test execution. Preserve the existing 3-point
+web tolerance, Python floor/tolerance, coverage inclusions/exclusions, and
+Sonar's 80% new-code coverage requirement. The next CI run verifies the new
+baseline independently.
+
+Vitest 4's uncovered-file transform initially failed to resolve Monaco's
+ESM-only package entry and omitted ConfigEditor.tsx from unit coverage. A
+test-only alias to Monaco's real ESM entry fixes that failure; all 594 original
+unit-report files are present again, including 101 editor statements. The
+624-test coverage rerun passes without the parse warning. Browser captures
+already included the editor; the corrected merge retains 39 additional
+uncovered lines instead of losing them. No production resolver is changed.

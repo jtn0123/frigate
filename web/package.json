@@ -124,7 +124,7 @@
     "@vitest/coverage-v8": "~4.1.11",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "ast-v8-to-istanbul": "0.3.12",
+    "ast-v8-to-istanbul": "1.0.6",
     "autoprefixer": "^10.6.1",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^9.1.0",
