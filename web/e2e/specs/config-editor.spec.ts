@@ -144,6 +144,8 @@ test.describe("Config Editor — Save and Restart @medium", () => {
       { timeout: 15_000 },
     );
 
+    // UI121: both save buttons stay inert until the buffer is dirty
+    await replaceMonacoValue(frigateApp.page, SAMPLE_CONFIG + "# unsaved edit");
     await frigateApp.page.getByLabel("Save & Restart").click();
     const dialog = frigateApp.page.getByRole("alertdialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -167,6 +169,8 @@ test.describe("Config Editor — Save and Restart @medium", () => {
       { timeout: 15_000 },
     );
 
+    // UI121: both save buttons stay inert until the buffer is dirty
+    await replaceMonacoValue(frigateApp.page, SAMPLE_CONFIG + "# unsaved edit");
     await frigateApp.page.getByLabel("Save & Restart").click();
     const dialog = frigateApp.page.getByRole("alertdialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -190,6 +194,8 @@ test.describe("Config Editor — Save and Restart @medium", () => {
       { timeout: 15_000 },
     );
 
+    // UI121: both save buttons stay inert until the buffer is dirty
+    await replaceMonacoValue(frigateApp.page, SAMPLE_CONFIG + "# unsaved edit");
     await frigateApp.page.getByLabel("Save & Restart").click();
     const dialog = frigateApp.page.getByRole("alertdialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -210,6 +216,8 @@ test.describe("Config Editor — Save and Restart @medium", () => {
       { timeout: 15_000 },
     );
 
+    // UI121: both save buttons stay inert until the buffer is dirty
+    await replaceMonacoValue(frigateApp.page, SAMPLE_CONFIG + "# unsaved edit");
     await frigateApp.page.getByLabel("Save & Restart").click();
     const dialog = frigateApp.page.getByRole("alertdialog");
     await dialog.getByRole("button", { name: /restart/i }).click();
@@ -238,6 +246,8 @@ test.describe("Config Editor — Save and Restart @medium", () => {
       { timeout: 15_000 },
     );
 
+    // UI121: both save buttons stay inert until the buffer is dirty
+    await replaceMonacoValue(frigateApp.page, SAMPLE_CONFIG + "# unsaved edit");
     await frigateApp.page.getByLabel("Save & Restart").click();
     const dialog = frigateApp.page.getByRole("alertdialog");
     await dialog.getByRole("button", { name: /restart/i }).click();

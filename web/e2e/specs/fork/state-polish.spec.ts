@@ -29,9 +29,9 @@ test.describe("System metric cards without samples (UI107) @medium @mobile", () 
     const page = frigateApp.page;
     const waiting = page.getByTestId("metric-empty-state");
     await expect(waiting.first()).toBeVisible({ timeout: 10_000 });
-    await expect(waiting.first()).toHaveText(
-      "Waiting for the first stats sample",
-    );
+    // UI124: the card names the series it waits on and how stale it is
+    await expect(waiting.first()).toContainText("Waiting for the first sample");
+    await expect(waiting.first()).toContainText("Stats last updated");
 
     const card = page
       .getByText("Process CPU Usage", { exact: true })

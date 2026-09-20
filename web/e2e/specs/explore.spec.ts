@@ -339,10 +339,12 @@ test.describe("Explore — label section headers @high", () => {
     frigateApp,
   }) => {
     await frigateApp.goto("/explore");
-    await expect(frigateApp.page.getByText("2 tracked objects")).toBeVisible({
+    // UI119: the count lives in a chip beside the title, with the full
+    // sentence on its aria-label.
+    await expect(frigateApp.page.getByLabel("2 tracked objects")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(frigateApp.page.getByText("1 tracked object")).toBeVisible();
+    await expect(frigateApp.page.getByLabel("1 tracked object")).toBeVisible();
     await expect(frigateApp.page.getByText(/trackedobjectscount/i)).toHaveCount(
       0,
     );

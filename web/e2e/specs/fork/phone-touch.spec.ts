@@ -72,10 +72,11 @@ test.describe("Phone touch targets @high @mobile", () => {
     { tag: "@mobile-only" },
     async ({ frigateApp }) => {
       await frigateApp.goto("/explore");
-      const thumb = frigateApp.page.locator(".aspect-square img").first();
+      // UI119: the tile is 16:9 now, so the frame arrives uncropped
+      const thumb = frigateApp.page.locator(".aspect-video img").first();
       await expect(thumb).toBeVisible();
       const offset = await thumb.evaluate((img) => {
-        const cell = img.closest(".aspect-square")!.getBoundingClientRect();
+        const cell = img.closest(".aspect-video")!.getBoundingClientRect();
         return Math.round(img.getBoundingClientRect().top - cell.top);
       });
       expect(offset).toBe(0);

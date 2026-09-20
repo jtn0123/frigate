@@ -75,7 +75,7 @@ test.describe("UI Settings switches @medium", () => {
       await expect(toggle).toHaveAttribute("aria-checked", "false");
 
       await page.getByText(SETTING, { exact: true }).click();
-      await expect(toggle).toHaveAttribute("aria-checked", "false");
+      await expect(toggle).toHaveAttribute("aria-checked", "true");
     },
   );
 
