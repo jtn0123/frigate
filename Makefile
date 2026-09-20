@@ -67,6 +67,9 @@ FORK_TEST_IMAGE ?= frigate-fork-test-$(notdir $(CURDIR))
 PROXY_HOST ?= localhost:5000
 # The ruff version CI pins, run through uvx when available.
 RUFF ?= $(if $(shell command -v uvx),uvx -q ruff@$(shell sed -n 's/^ruff *== *//p' docker/main/requirements-dev.txt),ruff)
+
+# One list of Python paths for every gate (fork/scripts/targets.sh).
+PY_LINT_TARGETS := $(shell fork/scripts/targets.sh py-lint)
 # Written by `make wt`; worktrees without one use Playwright's default.
 E2E_PORT ?= $(shell cat web/.e2e-port 2>/dev/null || echo 4173)
 export E2E_PORT
@@ -81,16 +84,16 @@ check-py: fork-test-image
 	FORK_TEST_IMAGE=$(FORK_TEST_IMAGE) fork/scripts/py-checks.sh
 
 lint:
-	$(RUFF) format --check frigate migrations docker fork/scripts fork/audio_trial fork/monitoring *.py
-	$(RUFF) check frigate migrations docker fork/scripts fork/audio_trial fork/monitoring *.py
+	$(RUFF) format --check $(PY_LINT_TARGETS)
+	$(RUFF) check $(PY_LINT_TARGETS)
 	cd web && npm run lint
 
 typecheck:
 	cd web && npm run typecheck
 
 format:
-	$(RUFF) format frigate migrations docker fork/scripts fork/audio_trial fork/monitoring *.py
-	$(RUFF) check --fix frigate migrations docker fork/scripts fork/audio_trial fork/monitoring *.py
+	$(RUFF) format $(PY_LINT_TARGETS)
+	$(RUFF) check --fix $(PY_LINT_TARGETS)
 	cd web && npm run lint:fix
 
 test-web:

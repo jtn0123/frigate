@@ -1,6 +1,8 @@
 """Reject Whisper hallucinations instead of storing them as unverified speech."""
 
 import os
+from collections.abc import Iterable
+from typing import Any
 
 # Whisper was trained on subtitle tracks, so on near-silent audio it reproduces
 # the credit lines those tracks end with. Every Large-v3 second opinion taken on
@@ -62,7 +64,7 @@ def matched_phrase(text: str) -> str | None:
     return None
 
 
-def segment_rejection(segment) -> str | None:
+def segment_rejection(segment: Any) -> str | None:
     """Name why one decoded segment is untrustworthy, or return None to keep it."""
     text = getattr(segment, "text", "").strip()
     phrase = matched_phrase(text)
@@ -77,10 +79,12 @@ def segment_rejection(segment) -> str | None:
     return None
 
 
-def filter_segments(segments) -> tuple[list[str], list[dict]]:
+def filter_segments(
+    segments: Iterable[Any],
+) -> tuple[list[str], list[dict[str, str]]]:
     """Split decoded segments into kept text and a record of what was dropped."""
-    kept = []
-    rejected = []
+    kept: list[str] = []
+    rejected: list[dict[str, str]] = []
     for segment in segments:
         text = getattr(segment, "text", "").strip()
         reason = segment_rejection(segment)
@@ -92,7 +96,9 @@ def filter_segments(segments) -> tuple[list[str], list[dict]]:
     return kept, rejected
 
 
-def second_opinion_rejection(medium: dict, large: dict) -> str | None:
+def second_opinion_rejection(
+    medium: dict[str, Any], large: dict[str, Any]
+) -> str | None:
     """Name why a Large second opinion must not be stored, or return None."""
     expected = configured_language()
     probability = medium.get("language_probability") or 0.0
@@ -105,7 +111,7 @@ def second_opinion_rejection(medium: dict, large: dict) -> str | None:
     if not transcript:
         dropped = large.get("rejected_segments") or []
         if dropped:
-            return dropped[0]["reason"]
+            return str(dropped[0]["reason"])
         return "no transcript"
     phrase = matched_phrase(transcript)
     if phrase:

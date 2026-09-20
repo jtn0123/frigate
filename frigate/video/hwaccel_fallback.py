@@ -198,6 +198,8 @@ class HwaccelFallback:
 
     def _restore(self, now: float) -> None:
         """Pick up a switch from before a restart, if it still applies."""
+        if self.state_path is None:
+            return
         try:
             with open(self.state_path, encoding="utf-8") as file:
                 saved = json.load(file)

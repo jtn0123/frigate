@@ -66,10 +66,10 @@ touches() {
 ruff_version="$(sed -n 's/^ruff *== *//p' docker/main/requirements-dev.txt)"
 if command -v uvx >/dev/null; then ruff=(uvx -q "ruff@${ruff_version}"); else ruff=(ruff); fi
 
-# The directories CI's "Python - Lint" job runs ruff on.
-ruff_paths=(frigate migrations docker fork/scripts fork/audio_trial fork/monitoring)
 py_files='^(frigate|migrations|docker|fork/(scripts|audio_trial|monitoring))/.*\.py$|^[^/]+\.py$'
-py_gates='^(frigate|migrations|docker)/|^fork/(audio_trial|monitoring)/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/py-checks\.sh|scripts/dev-lock-check\.py)$|^docs/static/frigate-api\.yaml$'
+# The same paths CI lints and tests (I17): one list, in fork/scripts/targets.sh.
+read -r -a py_lint_targets < <(fork/scripts/targets.sh py-lint)
+py_gates='^(frigate|migrations|docker|fork/(audio_trial|monitoring))/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/(targets|py-checks)\.sh|scripts/dev-lock-check\.py)$|^docs/static/frigate-api\.yaml$'
 e2e_args=()
 
 # ---- gates: gate_<name> runs one check; its output goes to the gate's log ----
@@ -102,8 +102,15 @@ gate_ruff() {
     ((${#files[@]})) || return 0
     "${ruff[@]}" format --check "${files[@]}" && "${ruff[@]}" check "${files[@]}"
   else
-    "${ruff[@]}" format --check "${ruff_paths[@]}" ./*.py && "${ruff[@]}" check "${ruff_paths[@]}" ./*.py
+    "${ruff[@]}" format --check "${py_lint_targets[@]}" && "${ruff[@]}" check "${py_lint_targets[@]}"
   fi
+}
+
+# The fork's own Python (monitoring, audio trial, scripts) under fork/mypy.ini.
+# frigate/ is checked in the Docker lane, inside the test image.
+gate_mypy_fork() {
+  python3 -m mypy --config-file fork/mypy.ini fork/monitoring fork/audio_trial fork/scripts
+  return $?
 }
 
 # Unit tests for the fork's own scripts (release notes); plain python3, no image.
@@ -156,7 +163,7 @@ skip() {
   return 0
 }
 
-host=(lint typecheck ratchet vitest i18n ruff gitleaks)
+host=(lint typecheck ratchet vitest i18n ruff mypy_fork gitleaks)
 docker_lane=()
 if [[ "$mode" == fast ]]; then
   if touches '^fork/scripts/.*\.py$'; then

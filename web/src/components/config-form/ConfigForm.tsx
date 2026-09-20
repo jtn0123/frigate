@@ -1,12 +1,17 @@
 // ConfigForm - Main RJSF form wrapper component
 import Form from "@rjsf/shadcn";
-import validator from "@rjsf/validator-ajv8";
-import type { FormValidation, RJSFSchema, UiSchema } from "@rjsf/utils";
+import type {
+  FormValidation,
+  RJSFSchema,
+  UiSchema,
+  ValidatorType,
+} from "@rjsf/utils";
 import type { IChangeEvent } from "@rjsf/core";
 import { frigateTheme } from "./theme";
 import { transformSchema } from "@/lib/config-schema";
 import { createErrorTransformer } from "@/lib/config-schema/errorMessages";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
+import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { useTranslation } from "react-i18next";
 import { cn, mergeUiSchema } from "@/lib/utils";
 import type { ConfigFormContext } from "@/types/configForm";
@@ -247,6 +252,22 @@ export function ConfigForm({
     "config/validation",
   ]);
 
+  // @rjsf/validator-ajv8 compiles schemas at run time and is the heaviest part
+  // of the settings bundle. Importing it here keeps it out of the section chunk
+  // and lets it download beside the section instead of inside it (G8).
+  const [validator, setValidator] = useState<ValidatorType | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void import("@rjsf/validator-ajv8").then((module) => {
+      if (!cancelled) {
+        setValidator(module.default);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Determine which fields to hide based on advanced toggle
   const effectiveHiddenFields = useMemo(() => {
     return hiddenFields;
@@ -344,6 +365,17 @@ export function ConfigForm({
     }),
     [formContext, i18nNamespace, t],
   );
+
+  if (!validator) {
+    // The ajv validator is the largest part of the settings bundle, so it is
+    // fetched beside the section instead of inside it (G8). Nothing is
+    // editable until it arrives, so validation behaves exactly as before.
+    return (
+      <div className={cn("config-form w-full max-w-5xl", className)}>
+        <ActivityIndicator />
+      </div>
+    );
+  }
 
   return (
     <div className={cn("config-form w-full max-w-5xl", className)}>

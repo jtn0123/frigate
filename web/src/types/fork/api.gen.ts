@@ -4902,6 +4902,98 @@ export interface components {
         FacesResponse: {
             [key: string]: string[];
         };
+        /**
+         * ForkReleaseModel
+         * @description One published fork release carrying a build marker.
+         */
+        ForkReleaseModel: {
+            /**
+             * Tag
+             * @description Git tag of the release, for example fork/0.18.0-...
+             */
+            tag: string;
+            /**
+             * Name
+             * @description Release title
+             */
+            name: string;
+            /**
+             * Sha
+             * @description Commit the release was built from
+             */
+            sha: string;
+            /**
+             * Published At
+             * @description ISO 8601 publication time from GitHub
+             */
+            published_at: string;
+            /**
+             * Url
+             * @description Release page on GitHub
+             */
+            url: string;
+            /**
+             * Notes
+             * @description Release notes, with the build marker removed
+             */
+            notes: string;
+        };
+        /**
+         * ForkUpdatesResponse
+         * @description What the running build is, and what the fork has published since.
+         */
+        ForkUpdatesResponse: {
+            /**
+             * Status
+             * @description up-to-date, available, development (a build with no matching release), unknown (releases could not be read), or disabled (telemetry.version_check is false)
+             */
+            status: string;
+            /**
+             * Repo
+             * @description Repository the releases come from
+             */
+            repo: string;
+            /**
+             * Current Version
+             * @description Version string of the running build
+             */
+            current_version: string;
+            /**
+             * Current Sha
+             * @description Commit the running build was stamped with
+             */
+            current_sha?: string | null;
+            /**
+             * Current Tag
+             * @description Tag of the release the running build matches
+             */
+            current_tag?: string | null;
+            /**
+             * Latest Tag
+             * @description Tag of the newest published release
+             */
+            latest_tag?: string | null;
+            /**
+             * Newer Count
+             * @description Releases published after the running build
+             */
+            newer_count: number;
+            /**
+             * Releases
+             * @description Releases, newest first
+             */
+            releases: components["schemas"]["ForkReleaseModel"][];
+            /**
+             * Checked At
+             * @description Unix timestamp of the last successful check
+             */
+            checked_at?: number | null;
+            /**
+             * Error
+             * @description Why the last check failed, if it did
+             */
+            error?: string | null;
+        };
         /** GenAIProbeBody */
         GenAIProbeBody: {
             provider: components["schemas"]["GenAIProviderEnum"];
@@ -11381,7 +11473,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ForkUpdatesResponse"];
                 };
             };
             /** @description Validation Error */

@@ -5,7 +5,9 @@ import json
 import os
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 CGROUP = Path("/sys/fs/cgroup")
 
@@ -91,9 +93,11 @@ def group_for(pid: int) -> Path:
     return CGROUP / entry.lstrip("/")
 
 
-def collect_ollama(group: Path, ct: str, cpu, hz: int) -> list[dict]:
+def collect_ollama(
+    group: Path, ct: str, cpu: Callable[[str, float], float | None], hz: int
+) -> list[dict[str, Any]]:
     """Measure matching Ollama processes only within the requested cgroup."""
-    scopes = []
+    scopes: list[dict[str, Any]] = []
     rss, seconds, found = 0, 0.0, False
     for proc in Path("/proc").glob("[0-9]*"):
         try:
@@ -161,7 +165,7 @@ def sample(cts: list[str], previous: dict) -> dict:
         disk_free_bytes=disk.f_bavail * disk.f_frsize,
         disk_total_bytes=disk.f_blocks * disk.f_frsize,
     )
-    scopes = [host]
+    scopes: list[dict[str, Any]] = [host]
     for ct in cts:
         try:
             pid = init_pid(ct)

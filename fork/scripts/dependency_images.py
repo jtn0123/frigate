@@ -229,10 +229,12 @@ def main() -> None:
         images = {arch: image_digest(docker, tag) for arch, tag in tags.items()}
     if not all(images.values()):
         raise RuntimeError("Dependency publication did not produce all images")
+    # The check above rules out None, but it does not narrow the dict's values.
+    resolved = {arch: digest for arch, digest in images.items() if digest is not None}
     env.update(
-        DEPENDENCY_AMD64_IMAGE=validate_digest(images["amd64"]),
-        DEPENDENCY_ROCM_IMAGE=validate_digest(images["rocm"]),
-        WEB_ASSETS_IMAGE=validate_digest(images["web"]),
+        DEPENDENCY_AMD64_IMAGE=validate_digest(resolved["amd64"]),
+        DEPENDENCY_ROCM_IMAGE=validate_digest(resolved["rocm"]),
+        WEB_ASSETS_IMAGE=validate_digest(resolved["web"]),
     )
     # Save exact dependencies even if a subsequent application build fails.
     report = {

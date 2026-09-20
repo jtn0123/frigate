@@ -3,6 +3,8 @@ import path, { resolve } from "path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import monacoEditorPlugin from "vite-plugin-monaco-editor";
+// @ts-expect-error -- plain ESM helper shared with the e2e CSP check (E6)
+import { cspHeaders } from "./scripts/fork/csp-header.mjs";
 
 const proxyHost = process.env.PROXY_HOST || "localhost:5000";
 
@@ -10,6 +12,9 @@ const proxyHost = process.env.PROXY_HOST || "localhost:5000";
 export default defineConfig({
   define: {
     "import.meta.vitest": "undefined",
+  },
+  preview: {
+    headers: cspHeaders(),
   },
   server: {
     proxy: {

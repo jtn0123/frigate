@@ -301,6 +301,7 @@ function ExploreThumbnailImage({
         >
           <img
             ref={imgRef}
+            decoding="async"
             className={cn(
               // fork: inset-0, a button centers its content, so without a top
               // the image started half its height down and left its card

@@ -3,13 +3,18 @@
 import json
 import math
 import sqlite3
+from pathlib import Path
+from typing import Any, TypeGuard
+
+# One health sample as collect_proxmox.py publishes it.
+Sample = dict[str, Any]
 
 # Streak keys: slow AI processing, and skipped detection frames per camera.
 AI_SLOW = "ai:slow"
 DETECTION = "detection:"
 
 
-def numeric(value):
+def numeric(value: object) -> TypeGuard[float]:
     """Reject missing or nonfinite measurements instead of treating them as zero."""
     return (
         isinstance(value, (int, float))
@@ -21,25 +26,25 @@ def numeric(value):
 class Incidents:
     """Track independent health dimensions and retain one day of evidence."""
 
-    def __init__(self, path):
+    def __init__(self, path: Path | str) -> None:
         self.db = sqlite3.connect(path)
         self.db.execute("CREATE TABLE IF NOT EXISTS samples (time REAL, data TEXT)")
         self.db.execute("CREATE INDEX IF NOT EXISTS sample_time ON samples(time)")
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS incidents (key TEXT PRIMARY KEY, started REAL, updated REAL, resolved REAL, evidence TEXT)"
         )
-        self.last_source = None
-        self.streaks = {}
-        self.measured = set()
-        self.capture_missing = {}
-        self.previous_containers = {}
+        self.last_source: float | None = None
+        self.streaks: dict[str, int] = {}
+        self.measured: set[str] = set()
+        self.capture_missing: dict[str, float] = {}
+        self.previous_containers: dict[str, dict[str, Any]] = {}
 
-    def observe(self, sample):
+    def observe(self, sample: Sample) -> dict[str, Any]:
         """Only distinct fresh source samples advance detector/skip thresholds."""
         now = sample["time"]
         source = sample.get("source_updated")
         fresh = numeric(source) and 0 <= now - source <= 90
-        problems = set()
+        problems: set[str] = set()
         if not fresh:
             problems.add("monitoring:stale")
         elif self.incomplete(sample):
@@ -62,7 +67,7 @@ class Incidents:
         return self.persist(sample, now, fresh, problems)
 
     @staticmethod
-    def incomplete(sample):
+    def incomplete(sample: Sample) -> bool:
         """Require actual readings before displaying healthy dimensions."""
         return (
             not sample.get("cameras")
@@ -77,7 +82,7 @@ class Incidents:
             )
         )
 
-    def advance_streaks(self, sample):
+    def advance_streaks(self, sample: Sample) -> None:
         """Advance sustained AI warnings only for numeric source readings."""
         self.measured = set()
         readings = [v for v in sample.get("detector_ms", {}).values() if numeric(v)]
@@ -99,7 +104,9 @@ class Incidents:
             self.streaks[key] = self.streaks.get(key, 0) + 1 if value > 0.5 else 0
             self.measured.add(key)
 
-    def camera_problems(self, sample, now, fresh, problems):
+    def camera_problems(
+        self, sample: Sample, now: float, fresh: bool, problems: set[str]
+    ) -> None:
         """Track capture and expected continuous recordings separately."""
         enabled = {
             name
@@ -117,7 +124,14 @@ class Incidents:
                 self.capture_problem(name, camera, now, fresh, problems)
                 self.recording_problem(name, camera, now, problems)
 
-    def capture_problem(self, name, camera, now, fresh, problems):
+    def capture_problem(
+        self,
+        name: str,
+        camera: dict[str, Any],
+        now: float,
+        fresh: bool,
+        problems: set[str],
+    ) -> None:
         """Require twenty seconds of fresh zero-FPS readings."""
         fps = camera.get("camera_fps")
         if not fresh or not numeric(fps):
@@ -130,7 +144,9 @@ class Incidents:
             self.capture_missing.pop(name, None)
 
     @staticmethod
-    def recording_problem(name, camera, now, problems):
+    def recording_problem(
+        name: str, camera: dict[str, Any], now: float, problems: set[str]
+    ) -> None:
         """Only continuously recorded cameras must have a recent segment."""
         if not camera.get("recording_expected"):
             return
@@ -140,7 +156,7 @@ class Incidents:
         elif now - end > 120:
             problems.add("recording:" + name)
 
-    def container_problems(self, sample, problems):
+    def container_problems(self, sample: Sample, problems: set[str]) -> None:
         """Track process availability, restarts and explicit OOM state."""
         for name, container in sample.get("containers", {}).items():
             if container.get("running") is False:
@@ -157,7 +173,9 @@ class Incidents:
             if container.get("oom_killed"):
                 problems.add("memory:" + name)
 
-    def persist(self, sample, now, fresh, problems):
+    def persist(
+        self, sample: Sample, now: float, fresh: bool, problems: set[str]
+    ) -> dict[str, Any]:
         """Retain incidents and bounded history atomically."""
         evidence = json.dumps(sample, allow_nan=False)
         self.db.execute("INSERT INTO samples VALUES (?,?)", (now, evidence))
@@ -172,7 +190,9 @@ class Incidents:
         self.db.commit()
         return self.report(now)
 
-    def resolve(self, sample, now, fresh, problems):
+    def resolve(
+        self, sample: Sample, now: float, fresh: bool, problems: set[str]
+    ) -> None:
         """Clear incidents only when their own subsystem has a valid reading."""
         for (key,) in self.db.execute(
             "SELECT key FROM incidents WHERE resolved IS NULL"
@@ -208,7 +228,9 @@ class Incidents:
                 )
 
     @staticmethod
-    def scope_removed(sample, fresh, kind, scope):
+    def scope_removed(
+        sample: dict[str, Any], fresh: bool, kind: str, scope: str
+    ) -> bool:
         """Treat a camera or container the fresh sample no longer lists as recovered.
 
         The snapshot lists only enabled cameras and existing containers, so a
@@ -224,7 +246,7 @@ class Incidents:
             return False
         return isinstance(listed, dict) and scope not in listed
 
-    def report(self, now):
+    def report(self, now: float) -> dict[str, Any]:
         """Return bounded incident metadata and recent correlated measurements."""
         rows = self.db.execute(
             "SELECT key,started,updated,resolved FROM incidents ORDER BY updated DESC LIMIT 100"

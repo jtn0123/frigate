@@ -5,6 +5,7 @@ import logging
 import math
 import sqlite3
 import time
+from typing import Any
 
 from results import publish
 
@@ -250,7 +251,9 @@ def retry_reasons(result: dict) -> list[str]:
     return reasons
 
 
-def health_reason(stats: dict, available_bytes: int, large: bool = False) -> str:
+def health_reason(
+    stats: dict[str, Any] | object, available_bytes: int, large: bool = False
+) -> str:
     """Defer optional analysis when camera processing or memory needs room."""
     if not isinstance(stats, dict):
         return HEALTH_UNAVAILABLE

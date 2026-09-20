@@ -6,30 +6,23 @@
  * every release between the one this browser last saw and the running one.
  */
 
-export type ForkRelease = {
-  tag: string;
-  name: string;
-  sha: string;
-  published_at: string;
-  url: string;
-  notes: string;
-};
+import type { components } from "@/types/fork/api.gen";
+
+/** One published fork release, exactly as GET /api/fork/updates returns it. */
+export type ForkRelease = components["schemas"]["ForkReleaseModel"];
 
 export type ForkUpdateStatus =
   "disabled" | "unknown" | "development" | "up-to-date" | "available";
 
-export type ForkUpdateState = {
-  status: ForkUpdateStatus;
-  repo: string;
-  current_version: string;
-  current_sha: string | null;
-  current_tag: string | null;
-  latest_tag: string | null;
-  newer_count: number;
-  releases: ForkRelease[];
-  checked_at: number | null;
-  error: string | null;
-};
+/**
+ * The response shape, with `status` narrowed to the values the backend sends
+ * (the spec types it as a plain string). Every other field comes from the
+ * generated types, so a change to the endpoint is a compile error here.
+ */
+export type ForkUpdateState = Omit<
+  components["schemas"]["ForkUpdatesResponse"],
+  "status"
+> & { status: ForkUpdateStatus };
 
 /** "update" lists newer releases; "whatsNew" the ones this browser missed. */
 export type ReleaseNotesMode = "update" | "whatsNew";

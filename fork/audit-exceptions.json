@@ -1,0 +1,35 @@
+{
+  "_comment": "Advisories in the fork's own locks that do not apply to how the fork runs them (E8). Every entry needs a reason and a review date; fork/scripts/lock-audit.py fails when an entry stops matching, so stale exceptions cannot linger.",
+  "exceptions": [
+    {
+      "id": "PYSEC-2025-217",
+      "package": "transformers",
+      "reviewed": "2026-09-13",
+      "reason": "X-CLIP checkpoint conversion. The trial converts nothing: it loads the CLAP model pinned in models.lock.json from the local cache with local_files_only=True and HF_HUB_OFFLINE=1"
+    },
+    {
+      "id": "PYSEC-2026-2288",
+      "package": "transformers",
+      "reviewed": "2026-09-13",
+      "reason": "Trainer._load_rng_state torch.load. The trial runs inference only and never constructs a Trainer"
+    },
+    {
+      "id": "PYSEC-2026-2289",
+      "package": "transformers",
+      "reviewed": "2026-09-13",
+      "reason": "Malicious config.json in a remote model repository. Model files come from the pinned local cache, never from a repository resolved at run time"
+    },
+    {
+      "id": "PYSEC-2026-2290",
+      "package": "transformers",
+      "reviewed": "2026-09-13",
+      "reason": "LightGlue loading path with trust_remote_code. The trial loads CLAP and Whisper only, without trust_remote_code"
+    },
+    {
+      "id": "PYSEC-2026-3929",
+      "package": "transformers",
+      "reviewed": "2026-09-13",
+      "reason": "Path traversal in save_pretrained. The trial never saves a model or tokenizer"
+    }
+  ]
+}

@@ -25,8 +25,8 @@ import ActiveShareLinks from "@/components/fork/ActiveShareLinks";
 import { isForkEnabled } from "@/fork/flags";
 import { qrSvg } from "@/lib/fork/qr";
 import { sharePageUrl } from "@/lib/fork/share-path";
-import { toast } from "sonner";
 import type { components } from "@/types/fork/api.gen";
+import { toast } from "sonner";
 
 type ShareResponse = components["schemas"]["ShareLinkResponse"];
 type CreateError = "limit" | "failed";
