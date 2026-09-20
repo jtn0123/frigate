@@ -27,7 +27,7 @@ export default function MarkReviewedBar({
   return (
     <div
       data-testid="mark-reviewed-bar"
-      className="col-span-full flex flex-wrap items-center justify-between gap-3 rounded-lg border border-secondary-foreground/10 bg-background_alt p-3"
+      className="col-span-full flex flex-wrap items-center justify-start gap-3 rounded-lg border border-secondary-foreground/10 bg-background_alt p-3"
     >
       <span className="text-sm text-secondary-foreground">
         {t("markReviewed.summary", { count })}
