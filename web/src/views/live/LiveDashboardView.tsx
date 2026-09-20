@@ -75,7 +75,7 @@ export default function LiveDashboardView({
   fullscreen,
   toggleFullscreen,
 }: Readonly<LiveDashboardViewProps>) {
-  const { t } = useTranslation(["views/live"]);
+  const { t } = useTranslation(["views/live", "fork"]);
 
   const { data: config } = useApi("/config");
 
@@ -232,7 +232,7 @@ export default function LiveDashboardView({
   }, []);
 
   const [globalAutoLive] = useUserPersistence("autoLiveView", true);
-  const [displayCameraNames] = useUserPersistence("displayCameraNames", false);
+  const [displayCameraNames] = useUserPersistence("displayCameraNames", true);
 
   const { allGroupsStreamingSettings, setAllGroupsStreamingSettings } =
     useStreamingSettings();
@@ -417,13 +417,17 @@ export default function LiveDashboardView({
           </div>
           {(!cameraGroup || cameraGroup == "default" || isMobileOnly) && (
             <div className="flex items-center gap-1">
+              {/* fork (UI126): the two layout buttons are one choice, so they
+                  are a pressed pair with translated names; their labels were
+                  hard-coded English and neither announced which was active */}
               <Button
                 className={
                   mobileLayout == "grid"
                     ? "bg-blue-900 bg-opacity-60 focus:bg-blue-900 focus:bg-opacity-60"
                     : "bg-secondary"
                 }
-                aria-label="Use mobile grid layout"
+                aria-label={t("liveLayout.grid", { ns: "fork" })}
+                aria-pressed={mobileLayout == "grid"}
                 size="sm"
                 onClick={() => setMobileLayout("grid")}
               >
@@ -437,7 +441,8 @@ export default function LiveDashboardView({
                     ? "bg-blue-900 bg-opacity-60 focus:bg-blue-900 focus:bg-opacity-60"
                     : "bg-secondary"
                 }
-                aria-label="Use mobile list layout"
+                aria-label={t("liveLayout.list", { ns: "fork" })}
+                aria-pressed={mobileLayout == "list"}
                 size="sm"
                 onClick={() => setMobileLayout("list")}
               >
@@ -474,7 +479,7 @@ export default function LiveDashboardView({
                     ? "bg-selected text-primary"
                     : "bg-secondary text-secondary-foreground",
                 )}
-                aria-label="Enter layout editing mode"
+                aria-label={t("liveLayout.editing", { ns: "fork" })}
                 size="sm"
                 onClick={() =>
                   setIsEditMode((prevIsEditMode) => !prevIsEditMode)
@@ -730,7 +735,7 @@ export default function LiveDashboardView({
 }
 
 function NoCameraView({ cameraGroup }: Readonly<{ cameraGroup?: string }>) {
-  const { t } = useTranslation(["views/live"]);
+  const { t } = useTranslation(["views/live", "fork"]);
   const { auth } = useContext(AuthContext);
   const isAdmin = useIsAdmin();
 

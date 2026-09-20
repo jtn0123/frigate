@@ -603,7 +603,7 @@ function MobileMenuItem({
   className?: string;
   label?: ReactNode;
 }>) {
-  const { t } = useTranslation(["views/settings"]);
+  const { t } = useTranslation(["views/settings", "fork"]);
 
   return (
     <button
@@ -1843,7 +1843,10 @@ export default function Settings() {
                         open={renderedExpanded}
                         onOpenChange={() => toggleGroupCollapsed(group.label)}
                       >
-                        <CollapsibleTrigger className="flex min-h-10 w-full items-center justify-between rounded-md py-2 pl-2 pr-2 text-sm font-medium text-secondary-foreground">
+                        {/* fork (UI125): a group header is a row of the same list, so the
+                            chevron alone says it opens; weight and colour
+                            no longer imply a heading */}
+                        <CollapsibleTrigger className="flex min-h-10 w-full items-center justify-between rounded-md px-4 py-2 text-left text-sm font-medium text-primary-variant">
                           <div className="flex flex-col justify-start gap-0.5 text-left">
                             {t("menu." + group.label)}
                             {group.label === "cameras" &&
@@ -2272,7 +2275,7 @@ function CameraSelectButton({
   const trigger = (
     <Button
       className="flex items-center gap-2 bg-selected smart-capitalize hover:bg-selected"
-      aria-label="Select a camera"
+      aria-label={t("a11yLabels.selectCamera", { ns: "fork" })}
       size="sm"
     >
       <FaVideo className="text-background dark:text-primary" />

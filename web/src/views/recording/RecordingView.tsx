@@ -119,7 +119,7 @@ export function RecordingView({
   refreshData,
   onMotionSearch,
 }: Readonly<RecordingViewProps>) {
-  const { t } = useTranslation(["views/events", "components/dialog"]);
+  const { t } = useTranslation(["views/events", "components/dialog", "fork"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
@@ -650,7 +650,7 @@ export function RecordingView({
             </Button>
             <Button
               className="flex items-center gap-2.5 rounded-lg"
-              aria-label="Go to the main camera live view"
+              aria-label={t("a11yLabels.mainCameraLive", { ns: "fork" })}
               size="sm"
               onClick={() => {
                 void navigate(`/#${mainCamera}`);
@@ -821,7 +821,7 @@ export function RecordingView({
                     timelineType == "detail" ? "" : "text-muted-foreground",
                   )}
                   value="detail"
-                  aria-label="Detail Stream"
+                  aria-label={t("a11yLabels.detailStream", { ns: "fork" })}
                 >
                   <div className="">{t("detail.label")}</div>
                 </ToggleGroupItem>

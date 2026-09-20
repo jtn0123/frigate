@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 import { useApiHost } from "@/api";
 import type { SearchResult } from "@/types/search";
@@ -33,6 +34,8 @@ export default function ObjectPathPlotter() {
   const { data: config } = useSWR<FrigateConfig>("config");
   const imgRef = useRef<HTMLImageElement>(null);
   const timezone = useTimezone(config);
+  const { t } = useTranslation(["fork"]);
+
   const [selectedCamera, setSelectedCamera] = useState<string>("");
   const [selectedEvent, setSelectedEvent] = useState<SearchResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -149,7 +152,7 @@ export default function ObjectPathPlotter() {
           <div className="flex space-x-2">
             <Select value={selectedCamera} onValueChange={setSelectedCamera}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select camera" />
+                <SelectValue placeholder={t("a11yLabels.selectCamera")} />
               </SelectTrigger>
               <SelectContent>
                 {cameraNames.map((cameraName) => (
@@ -161,7 +164,7 @@ export default function ObjectPathPlotter() {
             </Select>
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select time range" />
+                <SelectValue placeholder={t("a11yLabels.selectTimeRange")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="1h">Last 1 hour</SelectItem>
@@ -176,7 +179,7 @@ export default function ObjectPathPlotter() {
           <img
             ref={imgRef}
             src="/placeholder.svg"
-            alt={`Latest from ${selectedCamera}`}
+            alt={t("a11yLabels.latestFrom", { camera: selectedCamera })}
             className="h-auto w-full"
           />
           {imgRef.current && imageLoaded && (

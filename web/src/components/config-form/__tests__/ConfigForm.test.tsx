@@ -35,14 +35,14 @@ const SCHEMA = {
 describe("ConfigForm", () => {
   it("shows the loading indicator before the validator resolves", () => {
     render(<ConfigForm schema={SCHEMA} />);
-    expect(screen.getByLabelText("Loading…")).toBeTruthy();
+    expect(screen.getByLabelText("a11yLabels.loading")).toBeTruthy();
     expect(screen.queryByTestId("rjsf-form")).toBeNull();
   });
 
   it("renders the form once the validator has loaded", async () => {
     render(<ConfigForm schema={SCHEMA} />);
     await waitFor(() => expect(screen.getByTestId("rjsf-form")).toBeTruthy());
-    expect(screen.queryByLabelText("Loading…")).toBeNull();
+    expect(screen.queryByLabelText("a11yLabels.loading")).toBeNull();
   });
 
   it("unmounting while the import is in flight leaves nothing behind", async () => {
@@ -52,6 +52,6 @@ describe("ConfigForm", () => {
     // render into a container that is gone.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByTestId("rjsf-form")).toBeNull();
-    expect(screen.queryByLabelText("Loading…")).toBeNull();
+    expect(screen.queryByLabelText("a11yLabels.loading")).toBeNull();
   });
 });

@@ -29,7 +29,7 @@ export default function ImageEntry({
   maxSize = 20 * 1024 * 1024, // 20MB default
   accept = { "image/*": [".jpeg", ".jpg", ".png", ".gif", ".webp"] },
 }: Readonly<ImageEntryProps>) {
-  const { t } = useTranslation(["views/faceLibrary"]);
+  const { t } = useTranslation(["views/faceLibrary", "fork"]);
   const [preview, setPreview] = useState<string | null>(null);
   const dropzoneRef = useRef<HTMLFieldSetElement>(null);
 
@@ -165,7 +165,7 @@ export default function ImageEntry({
                     <div className="relative h-40 w-full">
                       <img
                         src={preview}
-                        alt="Preview"
+                        alt={t("a11yLabels.preview", { ns: "fork" })}
                         className="h-full w-full rounded-lg border object-contain"
                       />
                       <Button

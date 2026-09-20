@@ -1,6 +1,6 @@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ReactNode, useCallback, useContext, useEffect } from "react";
+import { ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import useSWR from "swr";
@@ -19,6 +19,7 @@ import {
   SelectTrigger,
 } from "../../components/ui/select";
 import { useTranslation } from "react-i18next";
+import ConfirmClearDialog from "@/components/fork/settings/ConfirmClearDialog";
 import { AuthContext } from "@/context/auth-state";
 import {
   SettingsGroupCard,
@@ -126,11 +127,17 @@ function ValueSettingRow({
 
 export default function UiSettingsView() {
   const { data: config } = useSWR<FrigateConfig>("config");
-  const { t } = useTranslation("views/settings");
+  const { t } = useTranslation(["views/settings", "fork"]);
   const { auth } = useContext(AuthContext);
   const username = auth?.user?.username;
 
   const PLAYBACK_RATE_DEFAULT = isSafari ? [0.5, 1, 2] : [0.5, 1, 2, 4, 8, 16];
+
+  // fork (UI123): both Clear All buttons discard browser-local state that
+  // nothing on the server can restore, so they ask before acting
+  const [confirmClear, setConfirmClear] = useState<
+    "layouts" | "streaming" | null
+  >(null);
 
   const clearStoredLayouts = useCallback(() => {
     if (!config) {
@@ -206,7 +213,7 @@ export default function UiSettingsView() {
   );
   const [cameraNames, setCameraName, cameraNamesLoaded] = useUserPersistence(
     "displayCameraNames",
-    false,
+    true,
   );
   const [playbackRate, setPlaybackRate, playbackRateLoaded] =
     useUserPersistence("playbackRate", 1);
@@ -311,9 +318,10 @@ export default function UiSettingsView() {
                 control={
                   <Button
                     id="stored-layouts-clear"
+                    variant="destructive"
                     aria-label={t("general.storedLayouts.clearAll")}
                     className="w-full md:w-auto"
-                    onClick={clearStoredLayouts}
+                    onClick={() => setConfirmClear("layouts")}
                   >
                     {t("general.storedLayouts.clearAll")}
                   </Button>
@@ -327,9 +335,10 @@ export default function UiSettingsView() {
                 control={
                   <Button
                     id="camera-group-streaming-clear"
+                    variant="destructive"
                     aria-label={t("general.cameraGroupStreaming.clearAll")}
                     className="w-full md:w-auto"
-                    onClick={wrapAsync(clearStreamingSettings)}
+                    onClick={() => setConfirmClear("streaming")}
                   >
                     {t("general.cameraGroupStreaming.clearAll")}
                   </Button>
@@ -418,6 +427,32 @@ export default function UiSettingsView() {
           </SettingsGroupCard>
         </div>
       </div>
+
+      {/* fork (UI123): ask before discarding layouts or streaming choices */}
+      <ConfirmClearDialog
+        open={confirmClear !== null}
+        onOpenChange={(open) => !open && setConfirmClear(null)}
+        title={t(`confirmClear.${confirmClear ?? "layouts"}.title`, {
+          ns: "fork",
+        })}
+        description={t(
+          `confirmClear.${confirmClear ?? "layouts"}.description`,
+          {
+            ns: "fork",
+          },
+        )}
+        action={t(`confirmClear.${confirmClear ?? "layouts"}.action`, {
+          ns: "fork",
+        })}
+        onConfirm={() => {
+          if (confirmClear === "layouts") {
+            clearStoredLayouts();
+          } else if (confirmClear === "streaming") {
+            void clearStreamingSettings();
+          }
+          setConfirmClear(null);
+        }}
+      />
     </div>
   );
 }

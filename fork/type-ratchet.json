@@ -8,7 +8,7 @@
   "rules": {
     "@typescript-eslint/no-floating-promises": 0,
     "@typescript-eslint/no-misused-promises": 0,
-    "@typescript-eslint/no-unnecessary-condition": 1479,
+    "@typescript-eslint/no-unnecessary-condition": 1478,
     "@typescript-eslint/no-unsafe-member-access": 388,
     "@typescript-eslint/no-unsafe-assignment": 347,
     "@typescript-eslint/no-unsafe-return": 48,

@@ -313,7 +313,10 @@ export function DateRangePicker({
     isSelected: boolean;
   }): JSX.Element => (
     <Button
-      className={cn(isSelected && "pointer-events-none text-primary")}
+      className={cn(
+        "w-full justify-start",
+        isSelected && "pointer-events-none text-primary",
+      )}
       aria-label={label}
       variant="ghost"
       onClick={() => {
@@ -437,8 +440,8 @@ export function DateRangePicker({
           </div>
         </div>
         {!isSmallScreen && (
-          <div className="flex flex-col items-end gap-1 pb-6 pl-6 pr-2">
-            <div className="flex w-full flex-col items-end gap-1 pb-6 pl-6 pr-2">
+          <div className="flex flex-col items-stretch gap-1 pb-6 pl-6 pr-2">
+            <div className="flex w-full flex-col items-stretch gap-1 pb-6 pl-6 pr-2">
               {PRESETS.map((preset) => (
                 <PresetButton
                   key={preset.name}

@@ -37,7 +37,7 @@ export default function Step2ProbeOrSnapshot({
   onBack,
   probeMode,
 }: Readonly<Step2ProbeOrSnapshotProps>) {
-  const { t } = useTranslation(["views/settings"]);
+  const { t } = useTranslation(["views/settings", "fork"]);
   const [isTesting, setIsTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<string>("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -508,7 +508,7 @@ export default function Step2ProbeOrSnapshot({
                   <div className="relative flex justify-center">
                     <img
                       src={testResult.snapshot}
-                      alt="Camera snapshot"
+                      alt={t("a11yLabels.cameraSnapshot", { ns: "fork" })}
                       className="max-h-[50dvh] max-w-full rounded-lg object-contain"
                     />
                     <div className="absolute bottom-2 right-2 rounded-md bg-black/70 p-3 text-sm backdrop-blur-sm">

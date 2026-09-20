@@ -340,7 +340,12 @@
     "unavailable": "No region grid is available for this camera yet."
   },
   "systemMetrics": {
-    "waiting": "Waiting for the first stats sample"
+    "waiting": "Waiting for the first stats sample",
+    "waitingNamed": "Waiting for the first sample from {{subject}}",
+    "stale": "No stats sample has arrived",
+    "staleNamed": "{{subject}} has not reported since stats started arriving",
+    "lastUpdate_one": "Stats last updated {{count}} second ago",
+    "lastUpdate_other": "Stats last updated {{count}} seconds ago"
   },
   "exportProgress": {
     "exporting": "Exporting",
@@ -424,5 +429,43 @@
     "title": "No enrichment activity yet",
     "description": "Enrichments such as semantic search, face recognition and license plate recognition report their inference speed here once they have processed something.",
     "action": "Open enrichment settings"
+  },
+  "confirmClear": {
+    "layouts": {
+      "title": "Clear all stored layouts?",
+      "description": "Every camera arrangement you have dragged into place is discarded. They are stored in this browser only, so there is no copy to restore from.",
+      "action": "Clear layouts"
+    },
+    "streaming": {
+      "title": "Clear all streaming settings?",
+      "description": "Every per-group streaming choice is discarded. They are stored in this browser only, so there is no copy to restore from.",
+      "action": "Clear settings"
+    }
+  },
+  "liveLayout": {
+    "grid": "Use mobile grid layout",
+    "list": "Use mobile list layout",
+    "editing": "Enter layout editing mode"
+  },
+  "a11yLabels": {
+    "toggleSidebar": "Toggle Sidebar",
+    "loading": "Loading…",
+    "frigateGithub": "Frigate Github",
+    "copyJson": "Copy JSON",
+    "addCamera": "Add camera",
+    "mainCameraLive": "Go to the main camera live view",
+    "detailStream": "Detail Stream",
+    "selectCamera": "Select a camera",
+    "selectTimeRange": "Select time range",
+    "selectRole": "Select a role",
+    "selectObjectType": "Select an object type",
+    "latestFrom": "Latest from {{camera}}",
+    "selectedImage": "Selected image",
+    "preview": "Preview",
+    "cameraSnapshot": "Camera snapshot",
+    "exampleNumber": "Example {{index}}"
+  },
+  "cameras": {
+    "allIncludedHint": "All cameras are included. Turn one on to narrow the view to it."
   }
 }

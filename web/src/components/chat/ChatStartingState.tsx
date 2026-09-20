@@ -63,12 +63,15 @@ export function ChatStartingState({
         <p className="text-center text-sm text-muted-foreground">
           {t("suggested_requests")}
         </p>
-        <div className="flex w-full flex-wrap justify-center gap-2">
-          {defaultRequests.map((request, idx) => (
+        {/* fork (UI132): wrapping centred chips of four different widths made
+            a ragged two-row block; an even grid gives them one left edge and
+            one width, and the prompt is a stabler key than the index */}
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
+          {defaultRequests.map((request) => (
             <Button
-              key={idx}
+              key={request.prompt}
               variant="outline"
-              className="max-w-sm text-sm"
+              className="h-auto w-full justify-start whitespace-normal py-2 text-left text-sm"
               onClick={() => handleRequestClick(request.prompt)}
             >
               {request.label}

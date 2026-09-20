@@ -68,7 +68,7 @@ export default function CreateUserDialog({
   onCancel,
 }: Readonly<CreateUserOverlayProps>) {
   const { data: config } = useSWR<FrigateConfig>("config");
-  const { t } = useTranslation(["views/settings"]);
+  const { t } = useTranslation(["views/settings", "fork"]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showPasswordVisible, setShowPasswordVisible] =
     useState<boolean>(false);
@@ -386,7 +386,11 @@ export default function CreateUserDialog({
                   >
                     <FormControl>
                       <SelectTrigger className="h-10">
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue
+                          placeholder={t("a11yLabels.selectRole", {
+                            ns: "fork",
+                          })}
+                        />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
