@@ -105,7 +105,9 @@ function System() {
       <Toaster position="top-center" />
       {/* fork: shrink-0, on a phone the column squeezed this header back to
           min-h-11 and its wrapped second row drew over the title below */}
-      <div className="relative flex min-h-11 w-full shrink-0 flex-wrap items-center justify-between gap-1">
+      {/* fork (UI128): pr-2 so "Last refreshed" clears the window edge; it
+          sat flush against it with no gutter at 1920px */}
+      <div className="relative flex min-h-11 w-full shrink-0 flex-wrap items-center justify-between gap-1 pr-2">
         <ToggleGroup
           className={cn(
             "*:rounded-md *:px-3 *:py-4",
