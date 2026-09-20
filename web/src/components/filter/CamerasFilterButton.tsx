@@ -13,6 +13,7 @@ import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
 import FilterSwitch from "./FilterSwitch";
 import { FaVideo } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
+import { LuChevronRight } from "react-icons/lu";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 
 type CameraFilterButtonProps = {
@@ -31,7 +32,7 @@ export function CamerasFilterButton({
   mainCamera,
   updateCameraFilter,
 }: Readonly<CameraFilterButtonProps>) {
-  const { t } = useTranslation(["components/filter"]);
+  const { t } = useTranslation(["components/filter", "fork"]);
   const [open, setOpen] = useState(false);
   const [currentCameras, setCurrentCameras] = useState<string[] | undefined>(
     selectedCameras,
@@ -167,7 +168,7 @@ export function CamerasFilterContent({
   setOpen,
   updateCameraFilter,
 }: Readonly<CamerasFilterContentProps>) {
-  const { t } = useTranslation(["components/filter"]);
+  const { t } = useTranslation(["components/filter", "fork"]);
   return (
     <>
       {isMobile && (
@@ -196,18 +197,33 @@ export function CamerasFilterContent({
                 <button
                   type="button"
                   key={name}
-                  className="w-full cursor-pointer rounded-lg px-2 py-0.5 text-left text-sm text-primary smart-capitalize hover:bg-muted"
+                  // fork (UI129): these were plain text between two rows of
+                  // switches, so a group read as a heading rather than a
+                  // control; the count and chevron say it selects a set
+                  className="flex min-h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1 text-left text-sm text-primary hover:bg-muted"
                   onClick={() => {
                     setCurrentCameras([...conf.cameras]);
                   }}
                 >
-                  {name}
+                  <span className="smart-capitalize">{name}</span>
+                  <span className="flex items-center gap-1 text-xs text-secondary-foreground">
+                    {conf.cameras.length}
+                    <LuChevronRight className="size-3.5" aria-hidden />
+                  </span>
                 </button>
               );
             })}
           </>
         )}
         <DropdownMenuSeparator />
+        {/* fork (UI130): with every camera included, each switch below still
+            reads "off", which looks like nothing is selected; say what the
+            switches do instead of leaving the contradiction on screen */}
+        {currentCameras == undefined && (
+          <p className="px-2 text-xs text-secondary-foreground">
+            {t("cameras.allIncludedHint", { ns: "fork" })}
+          </p>
+        )}
         <div className="flex flex-col gap-2.5">
           {allCameras.map((item) => (
             <FilterSwitch
