@@ -22,7 +22,7 @@ PR #49 is superseded by the Router 7 work already on next. PR #50's manifest-onl
 change does not update the lock or bootstrap paths; F7 covers those paths.
 Neither existing PR was modified by this local change.
 
-## Validation
+## Initial local validation
 
 Validation used the same base archive and changed files on the internal drive
 because external-drive reads stalled the initial make check-fast run.
@@ -48,10 +48,15 @@ because external-drive reads stalled the initial make check-fast run.
 - The existing Linux test image already has setuptools 84; its onvif and
   py3nvml imports passed. This is supplemental evidence, not an image rebuild.
 
-## Remaining release validation
+## Linux build follow-up and release validation
 
-The full make check / Linux native image build and remote CI/Sonar are not
-claimed complete. The Linux smoke build stalled on local image/package reads;
-a second attempt using the official Python build image failed fetching Docker
-Hub metadata with a TLS handshake timeout. Repeat the Linux build and full
-project gate before merging or deploying. No server or GPU runtime was changed.
+On September 20, the Linux ARM64 smoke build passed with Python 3.11 and the
+hash-locked setuptools 84.0.0/scikit-build 0.18.1 tools. It ran the repository's
+`docker/main/build_pysqlite3.sh`, installed the resulting Linux wheel, imported
+it, and successfully executed SELECT 1. This replaces the earlier blocked
+attempts, which stalled on local image reads and a Docker Hub TLS timeout.
+
+The full gate and CI/Sonar results are recorded in
+[PR #87](https://github.com/jtn0123/frigate/pull/87). The smoke build exercises
+the native SQLite build, not every production image variant. No server or GPU
+runtime was changed, and physical GPU validation is outside this update.
