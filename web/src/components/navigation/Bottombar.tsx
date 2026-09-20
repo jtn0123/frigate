@@ -164,12 +164,12 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
     }
   }, [reindexState, addMessage, clearMessages, t]);
 
-  const issueCount = Object.values(messages ?? {}).reduce(
+  const issueCount = Object.values(messages).reduce(
     (total, list) => total + list.length,
     0,
   );
 
-  if (!messages || issueCount === 0) {
+  if (issueCount === 0) {
     return;
   }
 
@@ -179,10 +179,7 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
         {/* fork: a named button, not a div carrying button-only ARIA */}
         <button
           type="button"
-          aria-label={t("statusAlerts.chipLabel", {
-            ns: "fork",
-            count: issueCount,
-          })}
+          aria-label={t("statusAlerts.label", { ns: "fork" })}
           aria-haspopup="dialog"
           className={cn(
             // fork (UI127): the alarm shares a row with six destinations, so
@@ -198,11 +195,11 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
               large ? "size-6" : "size-5",
             )}
           />
-          <span
-            className="absolute right-0 top-0 min-w-4 rounded-full bg-danger px-1 text-[10px] font-medium leading-4 text-white"
-            aria-hidden
-          >
-            {issueCount}
+          <span className="absolute right-0 top-0 min-w-4 rounded-full bg-danger px-1 text-[10px] font-medium leading-4 text-white">
+            <span aria-hidden>{issueCount}</span>
+            <span className="sr-only">
+              {t("statusAlerts.count", { ns: "fork", count: issueCount })}
+            </span>
           </span>
         </button>
       </DrawerTrigger>

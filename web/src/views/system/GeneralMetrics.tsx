@@ -661,7 +661,7 @@ export default function GeneralMetrics({
               ))}
               {hasNoSamples(detInferenceTimeSeries) && (
                 <MetricEmptyState
-                  subjects={detInferenceTimeSeries?.map((entry) => entry.name)}
+                  subjects={detInferenceTimeSeries.map((entry) => entry.name)}
                   lastUpdated={lastUpdated}
                 />
               )}
@@ -730,7 +730,7 @@ export default function GeneralMetrics({
               ))}
               {hasNoSamples(detCpuSeries) && (
                 <MetricEmptyState
-                  subjects={detCpuSeries?.map((entry) => entry.name)}
+                  subjects={detCpuSeries.map((entry) => entry.name)}
                   lastUpdated={lastUpdated}
                 />
               )}
@@ -756,7 +756,7 @@ export default function GeneralMetrics({
               ))}
               {hasNoSamples(detMemSeries) && (
                 <MetricEmptyState
-                  subjects={detMemSeries?.map((entry) => entry.name)}
+                  subjects={detMemSeries.map((entry) => entry.name)}
                   lastUpdated={lastUpdated}
                 />
               )}
@@ -1021,7 +1021,7 @@ export default function GeneralMetrics({
               ))}
               {hasNoSamples(otherProcessCpuSeries) && (
                 <MetricEmptyState
-                  subjects={otherProcessCpuSeries?.map((entry) => entry.name)}
+                  subjects={otherProcessCpuSeries.map((entry) => entry.name)}
                   lastUpdated={lastUpdated}
                 />
               )}
@@ -1048,7 +1048,7 @@ export default function GeneralMetrics({
               ))}
               {hasNoSamples(otherProcessMemSeries) && (
                 <MetricEmptyState
-                  subjects={otherProcessMemSeries?.map((entry) => entry.name)}
+                  subjects={otherProcessMemSeries.map((entry) => entry.name)}
                   lastUpdated={lastUpdated}
                 />
               )}
