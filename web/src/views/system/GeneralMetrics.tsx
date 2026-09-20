@@ -659,7 +659,12 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
-              {hasNoSamples(detInferenceTimeSeries) && <MetricEmptyState />}
+              {hasNoSamples(detInferenceTimeSeries) && (
+                <MetricEmptyState
+                  subjects={detInferenceTimeSeries?.map((entry) => entry.name)}
+                  lastUpdated={lastUpdated}
+                />
+              )}
             </div>
           ) : (
             <Skeleton className="aspect-video w-full rounded-lg md:rounded-2xl" />
@@ -723,7 +728,12 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
-              {hasNoSamples(detCpuSeries) && <MetricEmptyState />}
+              {hasNoSamples(detCpuSeries) && (
+                <MetricEmptyState
+                  subjects={detCpuSeries?.map((entry) => entry.name)}
+                  lastUpdated={lastUpdated}
+                />
+              )}
             </div>
           ) : (
             <Skeleton className="aspect-video w-full" />
@@ -744,7 +754,12 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
-              {hasNoSamples(detMemSeries) && <MetricEmptyState />}
+              {hasNoSamples(detMemSeries) && (
+                <MetricEmptyState
+                  subjects={detMemSeries?.map((entry) => entry.name)}
+                  lastUpdated={lastUpdated}
+                />
+              )}
             </div>
           ) : (
             <Skeleton className="aspect-video w-full" />
@@ -1004,7 +1019,12 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
-              {hasNoSamples(otherProcessCpuSeries) && <MetricEmptyState />}
+              {hasNoSamples(otherProcessCpuSeries) && (
+                <MetricEmptyState
+                  subjects={otherProcessCpuSeries?.map((entry) => entry.name)}
+                  lastUpdated={lastUpdated}
+                />
+              )}
             </div>
           ) : (
             <Skeleton className="aspect-tall w-full" />
@@ -1026,7 +1046,12 @@ export default function GeneralMetrics({
                   isActive={isActive}
                 />
               ))}
-              {hasNoSamples(otherProcessMemSeries) && <MetricEmptyState />}
+              {hasNoSamples(otherProcessMemSeries) && (
+                <MetricEmptyState
+                  subjects={otherProcessMemSeries?.map((entry) => entry.name)}
+                  lastUpdated={lastUpdated}
+                />
+              )}
             </div>
           ) : (
             <Skeleton className="aspect-tall w-full" />

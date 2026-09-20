@@ -164,7 +164,12 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
     }
   }, [reindexState, addMessage, clearMessages, t]);
 
-  if (!messages || Object.keys(messages).length === 0) {
+  const issueCount = Object.values(messages ?? {}).reduce(
+    (total, list) => total + list.length,
+    0,
+  );
+
+  if (!messages || issueCount === 0) {
     return;
   }
 
@@ -174,9 +179,16 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
         {/* fork: a named button, not a div carrying button-only ARIA */}
         <button
           type="button"
-          aria-label={t("statusAlerts.label", { ns: "fork" })}
+          aria-label={t("statusAlerts.chipLabel", {
+            ns: "fork",
+            count: issueCount,
+          })}
+          aria-haspopup="dialog"
           className={cn(
-            "flex flex-col items-center justify-center p-2",
+            // fork (UI127): the alarm shares a row with six destinations, so
+            // it is set off by a divider, carries its count, and announces
+            // that it opens a sheet rather than navigating somewhere
+            "relative ml-1 flex flex-col items-center justify-center border-l border-secondary-highlight p-2 pl-3",
             large && "size-12",
           )}
         >
@@ -186,6 +198,12 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
               large ? "size-6" : "size-5",
             )}
           />
+          <span
+            className="absolute right-0 top-0 min-w-4 rounded-full bg-danger px-1 text-[10px] font-medium leading-4 text-white"
+            aria-hidden
+          >
+            {issueCount}
+          </span>
         </button>
       </DrawerTrigger>
       <DrawerContent
