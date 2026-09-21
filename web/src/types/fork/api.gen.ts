@@ -3957,7 +3957,7 @@ export interface paths {
          *
          *     Args:
          *         request: The incoming request, carrying the stats emitter.
-         *         range: Window to aggregate: '1h', '6h', '24h' or '7d'.
+         *         range_key: Window to aggregate: '1h', '6h', '24h' or '7d'.
          *         allowed_cameras: Cameras this caller may see.
          *
          *     Returns:
