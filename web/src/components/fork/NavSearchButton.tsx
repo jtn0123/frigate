@@ -24,7 +24,7 @@ export default function NavSearchButton({
     <ForkNavButton
       variant="sidebar"
       label={t("navSearch.label")}
-      hint={isForkEnabled("themeControls") ? t("navSearch.hint") : undefined}
+      {...(isForkEnabled("themeControls") ? { hint: t("navSearch.hint") } : {})}
       data-testid="nav-search"
       aria-current={exploreMatch ? "page" : undefined}
       className={cn("p-[6px]", className)}

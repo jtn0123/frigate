@@ -14,7 +14,7 @@ type ForkNavButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant: ForkNavVariant;
   large?: boolean;
   label: string;
-  hint?: string | undefined;
+  hint?: string;
   children: ReactNode;
 };
 
