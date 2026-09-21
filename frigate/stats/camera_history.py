@@ -415,18 +415,16 @@ class CameraHistory:
             states.append(cell_state)
             fps.append(round(cell_sum / cell_samples, 2) if cell_samples else None)
 
-        uptime = (
-            100.0 if samples == 0 else round(100.0 * (samples - offline) / samples, 2)
-        )
+        uptime = 100.0
+        downtime = 0
+        if samples:
+            uptime = round(100.0 * (samples - offline) / samples, 2)
+            downtime = round(offline * (BUCKET_SECONDS * cells * per_cell) / samples)
         return {
             "uptime": uptime,
             # Every sample stands for one stats interval, so offline samples
             # scale to the time the camera was actually down.
-            "downtime": (
-                0
-                if samples == 0
-                else round(offline * (BUCKET_SECONDS * cells * per_cell) / samples)
-            ),
+            "downtime": downtime,
             "samples": samples,
             "expected_fps": expected,
             "fps": fps,
