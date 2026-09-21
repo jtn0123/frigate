@@ -4,6 +4,7 @@ import unittest
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
+from frigate.config.camera.ffmpeg import CameraRoleEnum
 from frigate.test.test_record_watchdog import START, FakeDatetime, watchdog
 
 
@@ -102,6 +103,35 @@ class WatchdogChecksTests(unittest.TestCase):
         dog.ffmpeg_other_processes[0]["process"].poll.return_value = 1
         dog._check_record_processes(START.timestamp())
         start.assert_called_once()
+
+    @patch("frigate.video.ffmpeg.start_or_restart_ffmpeg")
+    @patch("frigate.video.ffmpeg.datetime", FakeDatetime)
+    def test_exited_record_process_gets_a_full_stale_window_to_recover(self, start):
+        FakeDatetime.current = START
+        dog = watchdog([], stale_age=149)
+        dog.ffmpeg_other_processes[0]["process"].poll.return_value = 1
+        start.return_value.poll.return_value = None
+        dog._check_record_processes(START.timestamp())
+        start.assert_called_once()
+        FakeDatetime.current = START + timedelta(seconds=2)
+        dog._check_record_processes(FakeDatetime.current.timestamp())
+        start.assert_called_once()
+        self.assertEqual(dog.record_restart_time, START)
+        FakeDatetime.current = START + timedelta(seconds=150)
+        dog._check_record_processes(FakeDatetime.current.timestamp())
+        self.assertEqual(start.call_count, 2)
+
+    @patch("frigate.video.ffmpeg.start_or_restart_ffmpeg")
+    @patch("frigate.video.ffmpeg.datetime", FakeDatetime)
+    def test_exited_audio_process_does_not_change_record_grace(self, start):
+        FakeDatetime.current = START
+        dog = watchdog([])
+        process = dog.ffmpeg_other_processes[0]
+        process["roles"] = [CameraRoleEnum.audio]
+        process["process"].poll.return_value = 1
+        dog._check_record_processes(START.timestamp())
+        start.assert_called_once()
+        self.assertIsNone(dog.record_restart_time)
 
     @patch("frigate.video.ffmpeg.start_or_restart_ffmpeg")
     @patch("frigate.video.ffmpeg.datetime", FakeDatetime)

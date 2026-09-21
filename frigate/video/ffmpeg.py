@@ -532,6 +532,8 @@ class CameraWatchdog(threading.Thread):
             p["process"] = start_or_restart_ffmpeg(
                 p["cmd"], self.logger, p["logpipe"], ffmpeg_process=p["process"]
             )
+            if "record" in p["roles"]:
+                self.record_restart_time = datetime.now().astimezone(UTC)
 
     def run(self) -> None:
         if self._update_enabled_state():
