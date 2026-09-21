@@ -76,6 +76,10 @@ exists (I18, I27).
 6. Actions > "Fork - Upstream sync" > Run workflow. When it is green, close the
    open "Upstream sync failed" issue.
 
+Verified 2026-09-20: the repository secret is configured and sync run
+[35564940093](https://github.com/jtn0123/frigate/actions/runs/35564940093) passed.
+The current sync token expires on **2026-10-20**; rotate it before then.
+
 When the token expires the pushes are rejected again and the same issue comes
 back: repeat the steps with a new token.
 
