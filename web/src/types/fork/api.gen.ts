@@ -4169,6 +4169,63 @@ export interface components {
             /** Role */
             role: string;
         };
+        /**
+         * AudioAnalysis
+         * @description Bounded public audio analysis.
+         */
+        AudioAnalysis: {
+            /**
+             * Transcript
+             * @default
+             */
+            transcript: string;
+            /**
+             * Translation
+             * @default
+             */
+            translation: string;
+            /** Language */
+            language?: string | null;
+            /** Sounds */
+            sounds?: components["schemas"]["SoundResult"][];
+            /** Stages */
+            stages?: {
+                [key: string]: components["schemas"]["StageResult"];
+            };
+            /** Large Status */
+            large_status?: string | null;
+            large_second_opinion?: components["schemas"]["AudioAnalysis"] | null;
+        };
+        /**
+         * AudioChunk
+         * @description One bounded interval associated with this authorized review.
+         */
+        AudioChunk: {
+            /** Id */
+            id: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** State */
+            state: string;
+            result?: components["schemas"]["AudioAnalysis"] | null;
+        };
+        /**
+         * AudioResultsResponse
+         * @description Audio availability and bounded chunks.
+         */
+        AudioResultsResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "not_available" | "unavailable";
+            /** Updated */
+            updated?: number | null;
+            /** Chunks */
+            chunks: components["schemas"]["AudioChunk"][];
+        };
         /** AudioTranscriptionBody */
         AudioTranscriptionBody: {
             /**
@@ -5460,6 +5517,24 @@ export interface components {
             has_clip: boolean;
         };
         /**
+         * SoundResult
+         * @description A raw suggestion, not a probability.
+         */
+        SoundResult: {
+            /** Label */
+            label: string;
+            /** Similarity */
+            similarity: number;
+        };
+        /**
+         * StageResult
+         * @description Expose state without internal error details.
+         */
+        StageResult: {
+            /** Status */
+            status: string;
+        };
+        /**
          * StartExportResponse
          * @description Response model for starting an export.
          */
@@ -5484,6 +5559,35 @@ export interface components {
              * @description Queue status for the export job
              */
             status?: string | null;
+        };
+        /**
+         * StreamDiagnosticsResponse
+         * @description Available stream probe measurements.
+         */
+        StreamDiagnosticsResponse: {
+            /** Id */
+            id: string;
+            /** Stream */
+            stream: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "healthy" | "decode_error" | "stream_unavailable" | "timeout" | "unavailable";
+            /** Codecs */
+            codecs: string[];
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /** Producer Count */
+            producer_count?: number | null;
+            /** Received Bytes */
+            received_bytes?: number | null;
+            /** Decoded Frames */
+            decoded_frames?: number | null;
+            /** Decoder Errors */
+            decoder_errors?: number | null;
+            /** Decoder Detail */
+            decoder_detail?: string | null;
         };
         /** SubmitPlusBody */
         SubmitPlusBody: {
@@ -5903,7 +6007,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StreamDiagnosticsResponse"];
                 };
             };
             /** @description Stream not configured */
@@ -7630,7 +7734,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AudioResultsResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenericResponse"];
                 };
             };
             /** @description Validation Error */

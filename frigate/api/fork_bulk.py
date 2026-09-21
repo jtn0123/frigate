@@ -1,13 +1,14 @@
 """Bounded-query helpers for the explore summary and the bulk delete routes."""
 
 import logging
+import operator
 import os
 from collections.abc import Iterator, Sequence
 from functools import reduce
 from pathlib import Path
 from typing import Any
 
-from peewee import fn, operator
+from peewee import fn
 
 from frigate.const import CLIPS_DIR
 from frigate.embeddings import EmbeddingsContext

@@ -211,8 +211,12 @@ RUN pip3 install --only-binary=:all: --require-hashes -r /requirements.lock
 COPY docker/main/build_pysqlite3.sh /build_pysqlite3.sh
 RUN /build_pysqlite3.sh
 
-COPY docker/main/requirements-wheels.txt /requirements-wheels.txt
-RUN pip3 wheel --wheel-dir=/wheels -r /requirements-wheels.txt && \
+COPY docker/main/requirements-wheels.txt docker/main/constraints-runtime-addons.txt /runtime-lock/docker/main/
+COPY fork/requirements-runtime-*.lock /runtime-lock/fork/
+COPY fork/scripts/runtime_lock.py /runtime-lock/fork/scripts/runtime_lock.py
+RUN python3 /runtime-lock/fork/scripts/runtime_lock.py --architecture "${TARGETARCH}"
+COPY fork/requirements-runtime-${TARGETARCH}.lock /requirements-wheels.lock
+RUN pip3 wheel --require-hashes --wheel-dir=/wheels -r /requirements-wheels.lock && \
     if [ "$DEBUG" = "true" ]; then \
         pip3 wheel --wheel-dir=/wheels -r /requirements-dev.txt; \
     fi
@@ -359,8 +363,8 @@ CMD ["sleep", "infinity"]
 
 # Frigate web build
 # This should be architecture agnostic, so speed up the build on multiarch by not using QEMU.
-FROM --platform=$BUILDPLATFORM node:20 AS web-build
-# Bundling Monaco and the UI exceeds Node 20's default 2 GiB heap.
+FROM --platform=$BUILDPLATFORM node@sha256:dd5847a04b0deee391fa145f1f4c6d214196668b6bcc7988ebed67249f226844 AS web-build
+# Give Monaco and UI bundling a consistent heap limit across build hosts.
 ARG NODE_OPTIONS=--max-old-space-size=4096
 
 WORKDIR /work

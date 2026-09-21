@@ -45,7 +45,7 @@ def watchdog(steps, stale_age=1000):
     """A watchdog whose record segments are already stale when the loop starts."""
     logger = logging.getLogger("watchdog.back")
     stale_time = (START - timedelta(seconds=stale_age)).timestamp()
-    return SimpleNamespace(
+    dog = SimpleNamespace(
         logger=logger,
         config=SimpleNamespace(
             name="back",
@@ -104,6 +104,17 @@ def watchdog(steps, stale_age=1000):
         _stall_timestamps=deque(),
         _stall_active=False,
     )
+
+    for name in (
+        "_drain_segment_updates",
+        "_check_detect_process",
+        "_check_record_processes",
+        "_record_in_grace",
+        "_record_stall_reason",
+        "_restart_stalled_record",
+    ):
+        setattr(dog, name, getattr(CameraWatchdog, name).__get__(dog))
+    return dog
 
 
 class TestRecordRestartThrash(unittest.TestCase):

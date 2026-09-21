@@ -4,14 +4,25 @@ repos:
     rev: v0.15.20
     hooks:
       - id: ruff-format
-        files: ^(frigate|migrations|docker)/.*\.py$|^[^/]+\.py$
+        files: ^(frigate|migrations|docker|fork/scripts|fork/benchmarks|fork/audio_trial|fork/monitoring)/.*\.py$|^[^/]+\.py$
       - id: ruff-check
         args: [--fix]
-        files: ^(frigate|migrations|docker)/.*\.py$|^[^/]+\.py$
+        files: ^(frigate|migrations|docker|fork/scripts|fork/benchmarks|fork/audio_trial|fork/monitoring)/.*\.py$|^[^/]+\.py$
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
       - id: gitleaks
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint
+        # Fork-owned workflows; upstream workflows retain their own lint baseline.
+        files: ^\.github/workflows/fork-.*\.ya?ml$
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        files: ^fork/.*\.sh$
   - repo: local
     hooks:
       - id: eslint-web

@@ -1,6 +1,7 @@
 """ci-changes.sh must run the suites for every file a gate depends on."""
 
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -51,6 +52,28 @@ def jobs_for(changed: str) -> dict[str, str]:
 
 
 class TestCiChanges(unittest.TestCase):
+    def test_fast_gate_includes_runtime_scripts_and_benchmarks(self):
+        check = SCRIPT.with_name("check.sh").read_text()
+        pattern = re.search(r"^py_gates='([^']+)'$", check, re.MULTILINE).group(1)
+        for path in (
+            "fork/scripts/runtime_lock.py",
+            "fork/scripts/test_runtime_lock.py",
+            "fork/benchmarks/review_summary.py",
+        ):
+            with self.subTest(path=path):
+                selected = subprocess.run(
+                    ["bash", "-c", '[[ "$1" =~ $2 ]]', "selector", path, pattern],
+                    check=False,
+                )
+                self.assertEqual(selected.returncode, 0)
+                self.assertEqual(jobs_for(path)["python"], "true")
+
+    def test_benchmark_changes_run_python(self):
+        self.assertEqual(
+            jobs_for("fork/benchmarks/review_summary.py"),
+            {"web": "false", "python": "true"},
+        )
+
     def test_docs_only_skips_both_suites(self):
         self.assertEqual(jobs_for("FORK.md"), {"web": "false", "python": "false"})
 
@@ -70,6 +93,11 @@ class TestCiChanges(unittest.TestCase):
     def test_a_python_script_runs_the_python_suites_only(self):
         self.assertEqual(
             jobs_for("fork/scripts/ledger.py"), {"web": "false", "python": "true"}
+        )
+
+    def test_shared_runtime_base_runs_backend_validation(self):
+        self.assertEqual(
+            jobs_for("fork/runtime-base.env"), {"web": "false", "python": "true"}
         )
 
     def test_a_ledger_row_runs_the_python_suites_that_validate_it(self):

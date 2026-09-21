@@ -31,6 +31,8 @@ start() {
 
 # The frigate suite plus the fork's own roots, in one container. Unittest args
 # (make test-py TESTS=...) target the frigate suite only.
+# Invoked through start(), which executes the function passed as an argument.
+# shellcheck disable=SC2329
 unittest_plain() {
   if (($#)); then
     docker run --rm "$image" "$@"

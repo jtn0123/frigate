@@ -4,25 +4,10 @@ import { Button } from "@/components/ui/button";
 import ErrorState from "@/components/fork/ErrorState";
 import { wrapAsync } from "@/utils/promise";
 
-type Analysis = {
-  transcript?: string;
-  translation?: string;
-  language?: string | null;
-  sounds?: { label: string; similarity: number }[];
-  stages?: Record<string, { status: string }>;
-  large_status?: string;
-  large_second_opinion?: Analysis;
-};
-type Results = {
-  status: string;
-  chunks: {
-    id: string;
-    start: number;
-    end: number;
-    state: string;
-    result: Analysis | null;
-  }[];
-};
+import type { components } from "@/types/fork/api.gen";
+
+type Analysis = components["schemas"]["AudioAnalysis"];
+type Results = components["schemas"]["AudioResultsResponse"];
 
 function AnalysisText({ result }: Readonly<{ result: Analysis }>) {
   const { t } = useTranslation("views/events");

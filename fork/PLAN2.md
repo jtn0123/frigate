@@ -1,5 +1,10 @@
 # Fork work plan 2 — PR blocks after PLAN.md
 
+> Historical planning snapshot, archived 2026-09-21. Unchecked tasks and branch
+> statuses below are not a current queue. Consult [the ledger](../FORK.md),
+> [pending ledger entries](ledger/), and [the audit](GRADE-REPORT.md) for status.
+> New work follows the current user request and repository AGENTS.md.
+
 `fork/PLAN.md` comes first. This file holds the items the owner selected on
 2026-09-10 that are **not** in PLAN.md's queue, grouped into PR-sized blocks and
 ordered by impact, most to least. Item IDs and full descriptions live in

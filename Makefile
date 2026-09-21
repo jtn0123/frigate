@@ -61,7 +61,8 @@ run_tests: local
 .PHONY: run_tests
 
 # ---- fork inner-loop targets (see fork/README.md) ---------------------------
-FORK_TEST_BASE ?= ghcr.io/blakeblackshear/frigate:0.18.0
+include fork/runtime-base.env
+FORK_TEST_BASE ?= $(FORK_RUNTIME_BASE)
 # One test image per worktree, so parallel worktrees never test each other's sources.
 FORK_TEST_IMAGE ?= frigate-fork-test-$(notdir $(CURDIR))
 PROXY_HOST ?= localhost:5000
@@ -122,13 +123,13 @@ promote:
 
 demo-up:
 	fork/demo/prepare-build.sh
-	docker compose -f fork/demo/compose.yml up -d --build
+	docker compose --env-file fork/runtime-base.env -f fork/demo/compose.yml up -d --build
 
 demo-down:
-	docker compose -f fork/demo/compose.yml down
+	docker compose --env-file fork/runtime-base.env -f fork/demo/compose.yml down
 
 demo-logs:
-	docker compose -f fork/demo/compose.yml logs -f --tail=200
+	docker compose --env-file fork/runtime-base.env -f fork/demo/compose.yml logs -f --tail=200
 
 # Audit the running demo as an Android phone (or ARGS="--profile=desktop").
 # Report in fork/demo/.data/audit/; ARGS="--update-baseline" saves a baseline.

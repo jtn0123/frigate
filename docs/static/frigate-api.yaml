@@ -364,7 +364,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/StreamDiagnosticsResponse'
         '404':
           description: Stream not configured
         '429':
@@ -2456,7 +2457,14 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/AudioResultsResponse'
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+          description: Not Found
         '422':
           description: Validation Error
           content:
@@ -7713,6 +7721,103 @@ components:
       required:
         - role
       title: AppPutRoleBody
+    AudioAnalysis:
+      properties:
+        transcript:
+          type: string
+          maxLength: 20000
+          title: Transcript
+          default: ''
+        translation:
+          type: string
+          maxLength: 20000
+          title: Translation
+          default: ''
+        language:
+          anyOf:
+            - type: string
+              maxLength: 20
+            - type: 'null'
+          title: Language
+        sounds:
+          items:
+            $ref: '#/components/schemas/SoundResult'
+          type: array
+          maxItems: 10
+          title: Sounds
+        stages:
+          additionalProperties:
+            $ref: '#/components/schemas/StageResult'
+          type: object
+          maxProperties: 10
+          title: Stages
+        large_status:
+          anyOf:
+            - type: string
+              maxLength: 200
+            - type: 'null'
+          title: Large Status
+        large_second_opinion:
+          anyOf:
+            - $ref: '#/components/schemas/AudioAnalysis'
+            - type: 'null'
+      type: object
+      title: AudioAnalysis
+      description: Bounded public audio analysis.
+    AudioChunk:
+      properties:
+        id:
+          type: string
+          maxLength: 200
+          title: Id
+        start:
+          type: number
+          title: Start
+        end:
+          type: number
+          title: End
+        state:
+          type: string
+          maxLength: 40
+          title: State
+        result:
+          anyOf:
+            - $ref: '#/components/schemas/AudioAnalysis'
+            - type: 'null'
+      type: object
+      required:
+        - id
+        - start
+        - end
+        - state
+      title: AudioChunk
+      description: One bounded interval associated with this authorized review.
+    AudioResultsResponse:
+      properties:
+        status:
+          type: string
+          enum:
+            - available
+            - not_available
+            - unavailable
+          title: Status
+        updated:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Updated
+        chunks:
+          items:
+            $ref: '#/components/schemas/AudioChunk'
+          type: array
+          maxItems: 100
+          title: Chunks
+      type: object
+      required:
+        - status
+        - chunks
+      title: AudioResultsResponse
+      description: Audio availability and bounded chunks.
     AudioTranscriptionBody:
       properties:
         event_id:
@@ -9448,6 +9553,32 @@ components:
         - has_clip
       title: ShareLinkResponse
       description: A clip share link together with the event it points at.
+    SoundResult:
+      properties:
+        label:
+          type: string
+          maxLength: 200
+          title: Label
+        similarity:
+          type: number
+          title: Similarity
+      type: object
+      required:
+        - label
+        - similarity
+      title: SoundResult
+      description: A raw suggestion, not a probability.
+    StageResult:
+      properties:
+        status:
+          type: string
+          maxLength: 40
+          title: Status
+      type: object
+      required:
+        - status
+      title: StageResult
+      description: Expose state without internal error details.
     StartExportResponse:
       properties:
         success:
@@ -9476,6 +9607,71 @@ components:
         - message
       title: StartExportResponse
       description: Response model for starting an export.
+    StreamDiagnosticsResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        stream:
+          type: string
+          title: Stream
+        status:
+          type: string
+          enum:
+            - healthy
+            - decode_error
+            - stream_unavailable
+            - timeout
+            - unavailable
+          title: Status
+        codecs:
+          items:
+            type: string
+          type: array
+          title: Codecs
+        elapsed_ms:
+          type: integer
+          minimum: 0.0
+          title: Elapsed Ms
+        producer_count:
+          anyOf:
+            - type: integer
+              minimum: 0.0
+            - type: 'null'
+          title: Producer Count
+        received_bytes:
+          anyOf:
+            - type: integer
+              minimum: 0.0
+            - type: 'null'
+          title: Received Bytes
+        decoded_frames:
+          anyOf:
+            - type: integer
+              minimum: 0.0
+            - type: 'null'
+          title: Decoded Frames
+        decoder_errors:
+          anyOf:
+            - type: integer
+              minimum: 0.0
+            - type: 'null'
+          title: Decoder Errors
+        decoder_detail:
+          anyOf:
+            - type: string
+              maxLength: 1600
+            - type: 'null'
+          title: Decoder Detail
+      type: object
+      required:
+        - id
+        - stream
+        - status
+        - codecs
+        - elapsed_ms
+      title: StreamDiagnosticsResponse
+      description: Available stream probe measurements.
     SubmitPlusBody:
       properties:
         include_annotation:

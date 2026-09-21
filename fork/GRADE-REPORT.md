@@ -1,5 +1,7 @@
 # Codebase Grade Report
 
+**2026-09-20 implementation update:** I27 is resolved live. D4, F8 and F9 are implemented and validated locally, and I3 has five additional checked modules. These source changes are not merged. The grades and measurements below remain the dated audit snapshot; the affected item entries record the new evidence.
+
 **Project:** frigate, fork `jtn0123/frigate`, branch `next` @ 323c215e4 (base upstream v0.18.0; `main` is promoted from `next`)
 **Audited:** 2026-09-18, twice: a full audit @ 66774e9b6 and a delta regrade @ 323c215e4 after #72 to #78 (third regrade; earlier: baseline of upstream `dev` and first regrade, both 2026-09-10 @ 752bc3047, second regrade 2026-09-17 @ edfdfcfa5)
 **Stack:** Python 3.11 / FastAPI 0.116 / peewee 3.17 + SQLite (WAL) / pydantic 2.10 / ZMQ multiprocess pipeline, go2rtc + ffmpeg binaries; React 19 / TypeScript 5.9 (strict) / Vite 6 / Tailwind 3 / Radix + shadcn / SWR / react-router 7 / i18next 24; vitest + Playwright; SonarCloud, CodeQL, gitleaks; Debian 12 Docker image (plus ROCm), nginx front
@@ -52,7 +54,7 @@ round two, three PRs merged back to back with no rebase.
 
 **What the grade branch added (2026-09-18).** E6 and G8 are done on top of the counts above, I3's first wave and G9's image half landed, and the rest of its work is ledger-only (I17, D25, D26, I16, E8, plus F10 and B12, which were this branch's F7 and B5 until `next` claimed those numbers for different items; the trunk keeps the number, and B5 was renumbered twice as `next` took B10 too). B12 is the `fork_updates` half only: `next`'s own share models and endpoints supersede the share half.
 
-**Top 5 highest-leverage open fixes:** I27 (owner: add the secret), E17 + E18 (together: Security to A−), G17, D48, I31
+**Remaining priorities from the earlier top-five list:** E17 + E18 (together: Security to A−), G17, D48. E18 and I31 were implemented locally on 2026-09-21. I27 was resolved live on 2026-09-20; the verification run is linked below.
 
 **Type safety at a glance.** Frontend: TypeScript `strict` gates the build and
 `fork/type-ratchet.json` holds every escape hatch (`explicitAny` 23,
@@ -85,6 +87,8 @@ to G15 moved about 75 lines out into new fork modules), 38 frontend files over 8
 - ~~A5~~ ✓ done 2026-09-11. Generated `api.gen.ts`, `useApi`/`apiGet` for config/review/events/stats
 
 #### A6 — Split `CameraWatchdog.run` before it grows again `[fork]`
+- **2026-09-21:** Implemented locally in `section/engineering-followups-20260921`, pending PR validation. See `fork/ledger/A6.md` and [validation record](FOLLOWUPS-20260921.md).
+
 - **Where:** `frigate/video/ffmpeg.py:366-672` (307 lines, up from about 230 upstream; B5 added the expiry branch at `:385-391`)
 - **What's wrong:** One loop interleaves config updates, the hwaccel reset, enable and record transitions, the segment drain, backoff, detect liveness and stall checks, record staleness (SV3) and the outage tick (SV6). It is the largest fork-touched function and the worst rebase-conflict surface in the backend.
 - **Fix:** Extract `_drain_segment_updates()`, `_check_detect_process(now, can_restart)` and `_check_record_processes(now)`; `run` drops to about 90 lines. Behavior unchanged; the existing watchdog tests cover it.
@@ -153,6 +157,8 @@ not enforced.
 - **Grade lift:** B+ → B+ (hygiene)
 
 #### B9 — Give the fork's own routes response models `[fork]`
+- **2026-09-21:** Implemented locally in `section/engineering-followups-20260921`, pending PR validation. See `fork/ledger/B9.md` and [validation record](FOLLOWUPS-20260921.md).
+
 - **Where:** `frigate/api/fork_updates.py:31` (bare `JSONResponse`), `review_audio.py:87`, `stream_diagnostics.py:162`. Done since 09-17: all four JSON routes of `fork_share.py` (`defs/response/fork_share_response.py`)
 - **What's wrong:** Three of the fork's routes still return raw dicts, so they are untyped in `docs/static/frigate-api.yaml` and in the generated client types that A5 introduced.
 - **Fix:** Pydantic models in `frigate/api/defs/response/`, regenerate the spec and `api.gen.ts`, move the frontend callers to `useApi`.
@@ -333,7 +339,9 @@ merges, was a real gap and is fixed (D51).
 - ~~D51~~ ✓ done 2026-09-18. The model cache is trusted only once its verification is 2 s newer than every file (racy-timestamp rule); the flaky test forces its timestamp change, two new tests (#73)
 - D17, D18, D20 to D47: see `FORK.md`
 
-#### D4 — Test the core tracking pipeline `[BE] [upstream]`
+#### ~~D4~~ ✓ implemented locally 2026-09-20 — Test the core tracking pipeline `[BE]`
+
+Nine deterministic tests in `frigate/test/test_tracked_object_processor.py` now exercise the real processor, camera state and tracked objects, including lifecycle, false positives, zones and retained media, stationary activity, disable/remove, missing frames and end acknowledgments. Passed in the Python 3.11 runtime test image. Not yet committed or merged.
 - **Where:** `frigate/track/object_processing.py` (no test imports `TrackedObjectProcessor`); the dispatcher half is started in `frigate/test/test_dispatcher_runtime_state.py` (30 tests)
 - **What's wrong:** The detection-to-event path, the product's core, has no unit tests.
 - **Fix:** Fixture-driven synthetic detections through `TrackedObjectProcessor`: object lifecycle, zone entry, stationary handling, end-of-event publish.
@@ -424,6 +432,8 @@ today's dismissals again live only in GitHub (E19), and CSP is report-only
 - **Grade lift:** B+ → A− (with E18)
 
 #### E18 — Harden the `ffprobe` path argument `[fork, upstreamable]`
+- **2026-09-21:** Implemented locally in `section/engineering-followups-20260921`, pending PR validation. See `fork/ledger/E18.md` and [validation record](FOLLOWUPS-20260921.md).
+
 - **Where:** `frigate/util/services.py:1023` (`ffprobe_stream` passes the user-supplied path as a bare positional argument)
 - **What's wrong:** A path starting with `-` is parsed as an ffprobe option on the admin-only route. The other half of this item, validating the share token in the browser before requesting, shipped on 2026-09-18 (`lib/fork/share-path.ts:22-26`, called at `ShareClipPage.tsx:35`, tested).
 - **Fix:** Pass `-i` before the path (or reject a leading `-`) with a test.
@@ -461,7 +471,9 @@ Dependabot is security-only by design, so currency depends on upstream syncs
 - **Effort:** S
 - **Grade lift:** B− → B−
 
-#### F8 — Build the web app on a supported Node `[fork, upstreamable]`
+#### ~~F8~~ ✓ implemented locally 2026-09-20 — Build the web app on a supported Node `[fork, upstreamable]`
+
+- **Validation:** The Node 22 Docker `web-assets` target built and exported successfully. The source change is local, not merged or deployed.
 - **Where:** `docker/main/Dockerfile:362` (`node:20`, EOL April 2026); CI uses Node 22 (`.github/actions/fork-web-setup/action.yml:8`); `actions/download-artifact@v4` and `actions/setup-python@v5.4.0` warn about the Node 20 runtime
 - **What's wrong:** The shipped bundle is built on a runtime that CI never tests, and that no longer gets security fixes.
 - **Fix:** `node:22` (digest-pinned) in the Dockerfile; bump and re-pin the two actions.
@@ -475,7 +487,9 @@ Dependabot is security-only by design, so currency depends on upstream syncs
 - **Effort:** S
 - **Grade lift:** B− → B−
 
-#### F9 — Hash-lock the main wheel set `[fork]`
+#### ~~F9~~ ✓ implemented locally 2026-09-20: Hash-lock the main wheel set `[fork]`
+
+- **Validation:** Both CPython 3.11 architecture dependency sets passed the production `wheels` stage (AMD64 and ARM64). Ten lock-guard tests passed on the host and inside the rebuilt Linux test image; local branch-aware helper coverage is 82%. The main runtime closure is locked, with native/debug/build-isolation scope documented in `fork/RUNTIME-LOCKS.md`.
 - **Where:** `docker/main/requirements-wheels.txt` (unhashed `==X.*` ranges; the three build-stage locks already use `--require-hashes`)
 - **What's wrong:** Two builds of the same commit can ship different wheels; a bad upstream patch release lands silently in the image.
 - **Fix:** `pip-compile --generate-hashes` to `requirements-wheels.lock`, installed with `--require-hashes`, checked by the existing `dev-lock-check.py` pattern.
@@ -541,6 +555,8 @@ on every poll and there is zero ETag/304 handling in `frigate/api/`.
 - **Grade lift:** B− → B− (repeat-visit latency, server CPU)
 
 #### G11 — HTTP caching for summary endpoints `[upstream]`
+- **2026-09-21:** Measurement completed locally; caching remains open. See [benchmark and invalidation decision](benchmarks/REVIEW-SUMMARY.md). Synthetic test-container results do not replace live traffic measurement.
+
 - **Where:** `frigate/api/review.py:201` (`review_summary`), `frigate/api/record.py:62,123`; zero `ETag`/`304` handling in `frigate/api/`
 - **What's wrong:** Summaries are recomputed and re-sent on every poll and focus even when nothing changed.
 - **Fix:** An ETag from the newest relevant row timestamp with a 304 path; measure in the demo stack first.
@@ -574,7 +590,7 @@ complete ledger. The rest still loses ground to the pace of work:
 rules describe a rebase model the fork does not use, the rc2 base survives in
 three files, `FORK.md` is 145 KB of unsorted rows (new rows now go to
 `fork/ledger/`, I35, and `make ledger` prints a sorted view), nothing guards
-this report against drift, and H3, H4 and H5 are untouched.
+this report against drift, and H3 remains open. H4 and H5 were implemented locally on 2026-09-21; see their entries below.
 
 - ~~H1~~ ✓ done 2026-09-10
 - ~~H2~~ ✓ done 2026-09-10 (its gate list is stale again → H7)
@@ -582,6 +598,8 @@ this report against drift, and H3, H4 and H5 are untouched.
 - ~~H7~~ ✓ done 2026-09-17. "Fork workflow" section in `AGENTS.md` (worktrees, `next`, `make promote`, ledger IDs, gates); `CONTRIBUTING.md` points at it and `make check`
 
 #### H8 — Reconcile the plans and the base version `[fork]`
+- **2026-09-21:** Implemented locally in `section/engineering-followups-20260921`, pending PR validation. See `fork/ledger/H8.md` and [validation record](FOLLOWUPS-20260921.md).
+
 - **Where:** `fork/PLAN.md:13` (says I12, means I13), `:88` ("In progress on `polish2`", which `:14` says is gone), `:95` (4b unticked); `fork/PLAN2.md:9,482` (status dated 09-11, PR #29 "in review", "Dependencies: Not started"); `FORK.md:10-13` ("rebased onto `upstream/dev`", "One report item = one commit"); rc2 base in `fork/demo/Dockerfile:2,4`, `fork/demo/README.md:20`, `fork/README.md:29` while `Makefile:64`, `fork/Dockerfile.test:4` and `fork-checks.yml` use 0.18.0. Fixed since 09-17: `FORK.md:42`, `fork/SONAR-CI.md:12`, the sync workflow's base
 - **What's wrong:** Statements that contradict the ledger, and the demo runs on a different base than the tests. The base is hard-coded in five places.
 - **Fix:** Archive finished plan sections and keep one current queue; reword `FORK.md`'s rules to the actual practice; one `fork/BASE_VERSION` file read by the Makefile, both Dockerfiles and the workflows.
@@ -603,6 +621,8 @@ this report against drift, and H3, H4 and H5 are untouched.
 - **Grade lift:** C+ → B−
 
 #### H5 — Deploy and rollback runbook for the fork image `[fork]`
+- **2026-09-21:** Implemented locally in `section/engineering-followups-20260921`, pending PR validation. See `fork/ledger/H5.md` and [validation record](FOLLOWUPS-20260921.md).
+
 - **Where:** `fork/README.md` (build and test only); the image name appears only in `FORK.md:28`
 - **What's wrong:** Nothing tells the owner how to switch a Frigate stack to `ghcr.io/jtn0123/frigate:<tag>` and back, which tag to pin, or what to check after. The server now runs this image.
 - **Fix:** Docs only; agents never execute it. Include pinning a `fork/*` release tag instead of `:main`, the DB backup before a migration, and the rollback note for migration 036 and later.
@@ -610,6 +630,8 @@ this report against drift, and H3, H4 and H5 are untouched.
 - **Grade lift:** C+ → C+ (operational clarity)
 
 #### H4 — Architecture page `[upstream]`, backlog
+- **2026-09-21:** Implemented locally in `section/engineering-followups-20260921`, pending PR validation. See `fork/ledger/H4.md` and [validation record](FOLLOWUPS-20260921.md).
+
 - **Where:** `docs/docs/development/` (only the two contributing pages)
 - **What's wrong:** Process topology, frame lifecycle and ZMQ topics are undocumented.
 - **Fix:** One page with a mermaid diagram and a topic table (include the WebSocket classifier rule).
@@ -654,7 +676,9 @@ I3), and 86 remote branches have piled up (I34, 79 this morning).
 - ~~I37~~ ✓ done 2026-09-18. `ci-changes.sh` covers the gate scripts, `check.sh` asks the remote where `next` is, the Sonar expiry check probes the token after the date (#73)
 - I15 to I26: see `FORK.md` (I16, I17 unused)
 
-#### I27 — Give the upstream-sync bot its token `[fork]`
+#### ~~I27~~ ✓ done 2026-09-20 — Restore upstream-sync authentication `[fork]`
+
+The owner explicitly authorized setup and completed GitHub Mobile verification. A repository-scoped Contents/Workflows token is installed as `FORK_SYNC_TOKEN`, expires 2026-10-20, and verification run https://github.com/jtn0123/frigate/actions/runs/35564940093 passed. Earlier missing-secret observations below are historical.
 - **Where:** repository secrets (only `SONAR_TOKEN` exists; `FORK_SYNC_TOKEN`, which I18 added support for, was never created); `.github/workflows/fork-upstream-sync.yml`; issue #71 (its predecessor #61 was closed on 2026-09-18 while the runs were still failing, and the bot opened #71 eleven hours later)
 - **What's wrong:** Every scheduled run since 2026-09-13 fails with "refusing to allow a GitHub App to create or update workflow `.github/workflows/ci.yml` without `workflows` permission". `dev` has been frozen at 2026-09-06 and upstream is 186 commits ahead; conflicts pile up unseen, which is what I6 existed to prevent.
 - **Fix:** Owner creates a fine-grained token (contents + workflows write) as `FORK_SYNC_TOKEN`. In the workflow, fail in the first step with a clear message when the secret is empty.
@@ -672,6 +696,8 @@ I3), and 86 remote branches have piled up (I34, 79 this morning).
 - **Grade lift:** B → B
 
 #### I31 — Pre-commit should cover what CI checks `[fork]`
+- **2026-09-21:** Implemented locally in `section/engineering-followups-20260921`, pending PR validation. See `fork/ledger/I31.md` and [validation record](FOLLOWUPS-20260921.md).
+
 - **Where:** `.pre-commit-config.yaml` (ruff `files:` pattern skips `fork/scripts`, `fork/audio_trial`, `fork/monitoring`; no actionlint or shellcheck hook, although I12 and I14 were exactly those findings)
 - **What's wrong:** Failures in the fork's own Python and workflows show up only in CI, 9 minutes later.
 - **Fix:** Add `fork` to the ruff pattern; add actionlint and shellcheck hooks.
@@ -693,6 +719,8 @@ I3), and 86 remote branches have piled up (I34, 79 this morning).
 - **Grade lift:** B → B
 
 #### I3 — Continue the mypy ratchet `[upstream]`
+
+2026-09-20 local increment: five more modules opt into strict checking (`api.fork_updates`, `api.fork_bulk`, `api.review_audio`, `api.stream_diagnostics`, `video.camera_outage`), bringing the explicit opt-ins to 34. Seven exposed errors were resolved and full backend mypy passes. Wider package exemptions remain; this item is an ongoing ratchet.
 - **Landed 2026-09-18 (first wave):** the 29 modules inside those packages that
   already pass the strict flags are checked per module in `frigate/mypy.ini`, so
   they cannot drift back. `frigate.util.media` is not among them: it does not

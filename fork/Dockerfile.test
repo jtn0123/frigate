@@ -1,7 +1,7 @@
 # Backend unit-test runner for the fork. Layers the working tree's Python
 # sources over the matching upstream image so tests run against the exact
 # runtime (labelmaps, ffmpeg, wheels) without a full image build.
-ARG BASE=ghcr.io/blakeblackshear/frigate:0.18.0
+ARG BASE
 FROM ${BASE}
 WORKDIR /opt/frigate
 # Release tooling tests exercise real throwaway Git repositories.
@@ -19,8 +19,11 @@ COPY fork/scripts /opt/frigate/fork/scripts
 # Data files the scripts read next to themselves: the reviewed advisory list
 # (lock-audit.py) and the coverage floors (sonar-coverage-check.py).
 COPY fork/audit-exceptions.json fork/coverage-floor.json /opt/frigate/fork/
+COPY fork/requirements-runtime-*.lock /opt/frigate/fork/
+COPY docker/main/requirements-wheels.txt docker/main/constraints-runtime-addons.txt /opt/frigate/docker/main/
 COPY fork/audio_trial /opt/frigate/fork/audio_trial
 COPY fork/monitoring /opt/frigate/fork/monitoring
+COPY fork/benchmarks /opt/frigate/fork/benchmarks
 # test_ledger.py validates the row files against the ledger's table
 COPY FORK.md /opt/frigate/FORK.md
 COPY fork/ledger /opt/frigate/fork/ledger

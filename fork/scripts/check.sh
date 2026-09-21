@@ -66,10 +66,10 @@ touches() {
 ruff_version="$(sed -n 's/^ruff *== *//p' docker/main/requirements-dev.txt)"
 if command -v uvx >/dev/null; then ruff=(uvx -q "ruff@${ruff_version}"); else ruff=(ruff); fi
 
-py_files='^(frigate|migrations|docker|fork/(scripts|audio_trial|monitoring))/.*\.py$|^[^/]+\.py$'
+py_files='^(frigate|migrations|docker|fork/(scripts|audio_trial|monitoring|benchmarks))/.*\.py$|^[^/]+\.py$'
 # The same paths CI lints and tests (I17): one list, in fork/scripts/targets.sh.
 read -r -a py_lint_targets < <(fork/scripts/targets.sh py-lint)
-py_gates='^(frigate|migrations|docker|fork/(audio_trial|monitoring))/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|requirements-dev\.lock|scripts/(targets|py-checks)\.sh|scripts/dev-lock-check\.py)$|^docs/static/frigate-api\.yaml$'
+py_gates='^fork/scripts/[^/]+\.py$|^(frigate|migrations|docker|fork/(audio_trial|monitoring|benchmarks))/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|runtime-base\.env|requirements-dev\.lock|scripts/(targets|py-checks)\.sh|scripts/dev-lock-check\.py)$|^docs/static/frigate-api\.yaml$'
 e2e_args=()
 
 # ---- gates: gate_<name> runs one check; its output goes to the gate's log ----
