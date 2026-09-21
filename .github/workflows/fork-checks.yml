@@ -230,8 +230,12 @@ jobs:
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-dev.lock
       # Paths come from fork/scripts/targets.sh so CI and `make lint` cannot drift.
-      - run: ruff format --check --diff $(fork/scripts/targets.sh py-lint)
-      - run: ruff check $(fork/scripts/targets.sh py-lint)
+      - name: Lint Python
+        shell: bash
+        run: |
+          read -r -a targets < <(fork/scripts/targets.sh py-lint)
+          ruff format --check --diff "${targets[@]}"
+          ruff check "${targets[@]}"
       # The fork's own Python is type-checked with no ignore sections (I16).
       - run: python3 -m mypy --config-file fork/mypy.ini fork/monitoring fork/audio_trial fork/scripts
       - run: |
