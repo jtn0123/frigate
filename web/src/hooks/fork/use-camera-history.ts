@@ -1,8 +1,10 @@
 /** Fork (UI131): the Health tab's window of per-camera history. */
 
 import { useApi } from "@/api/fork/client";
-import type { CameraHistoryResponse } from "@/types/fork/cameraHistory";
-import type { HistoryRange } from "@/types/fork/cameraHistory";
+import type {
+  CameraHistoryResponse,
+  HistoryRange,
+} from "@/types/fork/cameraHistory";
 
 /** How often the window is refetched; the collector buckets five minutes. */
 const REFRESH_MS = 60_000;

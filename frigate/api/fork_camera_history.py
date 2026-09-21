@@ -2,9 +2,9 @@
 
 import asyncio
 import logging
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
 from frigate.api.auth import allow_any_authenticated, get_allowed_cameras_for_filter
@@ -26,28 +26,28 @@ router = APIRouter(tags=[Tags.app])
 )
 async def camera_history(
     request: Request,
-    range: str = DEFAULT_RANGE,
-    allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
+    allowed_cameras: Annotated[list[str], Depends(get_allowed_cameras_for_filter)],
+    range_key: Annotated[str, Query(alias="range")] = DEFAULT_RANGE,
 ) -> JSONResponse:
     """Return frame rate, uptime and incidents per camera over one window.
 
     Args:
         request: The incoming request, carrying the stats emitter.
-        range: Window to aggregate: '1h', '6h', '24h' or '7d'.
+        range_key: Window to aggregate: '1h', '6h', '24h' or '7d'.
         allowed_cameras: Cameras this caller may see.
 
     Returns:
         The history for every camera the caller has access to.
     """
-    if range not in RANGE_SPEC:
-        range = DEFAULT_RANGE
+    if range_key not in RANGE_SPEC:
+        range_key = DEFAULT_RANGE
 
     history = getattr(request.app.stats_emitter, "camera_history", None)
     if history is None:
         logger.debug("Camera history is not collecting yet")
         return JSONResponse(
             content={
-                "range": range,
+                "range": range_key,
                 "start": 0,
                 "end": 0,
                 "cell_seconds": 0,
@@ -56,7 +56,7 @@ async def camera_history(
             }
         )
 
-    data: dict[str, Any] = await asyncio.to_thread(history.read, range)
+    data: dict[str, Any] = await asyncio.to_thread(history.read, range_key)
 
     if request.headers.get("remote-role") != "admin":
         allowed = set(allowed_cameras)

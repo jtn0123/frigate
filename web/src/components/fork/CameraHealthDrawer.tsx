@@ -311,7 +311,7 @@ export default function CameraHealthDrawer({
                         start + cell * cellSeconds,
                         false,
                         "short",
-                      )} · ${t(`cameraHealth.cell.${state}`)}`}
+                      )} · ${t("cameraHealth.cell." + state)}`}
                       data-state={state}
                     />
                   ))}
@@ -331,7 +331,7 @@ export default function CameraHealthDrawer({
                   <span
                     className={cn("size-2.5 rounded-sm", CELL_CLASS[state])}
                   />
-                  {t(`cameraHealth.cell.${state}`)}
+                  {t("cameraHealth.cell." + state)}
                 </li>
               ))}
             </ul>

@@ -471,6 +471,7 @@ function HealthTable({
     { key: null, label: "", className: "w-9" },
   ];
 
+  const sortedAriaDirection = sortDir === "asc" ? "ascending" : "descending";
   return (
     <table
       className="w-full border-collapse text-sm"
@@ -486,9 +487,7 @@ function HealthTable({
               aria-sort={
                 key === null || key !== sortKey
                   ? undefined
-                  : sortDir === "asc"
-                    ? "ascending"
-                    : "descending"
+                  : sortedAriaDirection
               }
             >
               {key === null ? (
@@ -633,11 +632,9 @@ function HealthTableRow({
           <span
             className={cn(
               "tabular-nums",
-              row.series === undefined
+              row.series === undefined || row.uptime >= 100
                 ? "text-muted-foreground"
-                : row.uptime >= 100
-                  ? "text-muted-foreground"
-                  : "text-orange-400",
+                : "text-orange-400",
             )}
           >
             {row.series === undefined

@@ -13,6 +13,7 @@ what a camera saw, so the file carries no footage-derived data.
 
 import json
 import logging
+import math
 import os
 import tempfile
 import threading
@@ -184,7 +185,7 @@ def _number(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     number = float(value)
-    if number != number or number in (float("inf"), float("-inf")):
+    if not math.isfinite(number):
         return None
     return number
 
@@ -281,6 +282,34 @@ class CameraHistory:
             else:
                 open_outage.end = None
 
+        self._merge_outages(series, camera, seen)
+
+        for event in _rows(camera.get("recent_restarts")):
+            started = _number(event.get("time"))
+            if started is None or ("restart", started) in seen:
+                continue
+            restart = Incident(
+                kind=f"restart:{str(event.get('kind', 'other'))[:16]}",
+                start=started,
+                end=started,
+                reason=str(event.get("message", ""))[:200],
+            )
+            series.incidents.append(restart)
+            seen[("restart", started)] = restart
+
+        cutoff = now - WINDOW_SECONDS
+        series.incidents = sorted(
+            (i for i in series.incidents if i.start >= cutoff),
+            key=lambda i: i.start,
+        )[-MAX_INCIDENTS_PER_CAMERA:]
+
+    @staticmethod
+    def _merge_outages(
+        series: CameraSeries,
+        camera: dict[str, Any],
+        seen: dict[tuple[str, float], Incident],
+    ) -> None:
+        """Merge reported outages and close recovered intervals."""
         for event in _rows(camera.get("recent_outages")):
             since = _number(event.get("since"))
             if since is None:
@@ -302,25 +331,6 @@ class CameraHistory:
                     incident.end = since + duration
                 elif event_time is not None:
                     incident.end = event_time
-
-        for event in _rows(camera.get("recent_restarts")):
-            started = _number(event.get("time"))
-            if started is None or ("restart", started) in seen:
-                continue
-            restart = Incident(
-                kind=f"restart:{str(event.get('kind', 'other'))[:16]}",
-                start=started,
-                end=started,
-                reason=str(event.get("message", ""))[:200],
-            )
-            series.incidents.append(restart)
-            seen[("restart", started)] = restart
-
-        cutoff = now - WINDOW_SECONDS
-        series.incidents = sorted(
-            (i for i in series.incidents if i.start >= cutoff),
-            key=lambda i: i.start,
-        )[-MAX_INCIDENTS_PER_CAMERA:]
 
     def _prune(self, now: float) -> None:
         """Drop buckets that fell out of the seven-day window."""
@@ -424,11 +434,18 @@ class CameraHistory:
             "incidents": [
                 incident.encode()
                 for incident in series.incidents
-                if incident.start >= window_start
-                or incident.end is None
-                or incident.end >= window_start
+                if self._incident_overlaps(incident, window_start)
             ],
         }
+
+    @staticmethod
+    def _incident_overlaps(incident: Incident, window_start: float) -> bool:
+        """Include incidents starting in, ending in, or spanning the window."""
+        return (
+            incident.start >= window_start
+            or incident.end is None
+            or incident.end >= window_start
+        )
 
     # ---- persistence ---------------------------------------------------
 
@@ -451,23 +468,28 @@ class CameraHistory:
         for name, raw in list(cameras.items())[:MAX_CAMERAS]:
             if not isinstance(raw, dict):
                 continue
-            series = CameraSeries()
-            for slot, row in (raw.get("buckets") or {}).items():
-                try:
-                    index = int(slot)
-                except (TypeError, ValueError):
-                    continue
-                if index < cutoff:
-                    continue
-                bucket = Bucket.decode(row)
-                if bucket is not None:
-                    series.buckets[index] = bucket
-            for row in _rows(raw.get("incidents")):
-                incident = Incident.decode(row)
-                if incident is not None:
-                    series.incidents.append(incident)
-            series.incidents = series.incidents[-MAX_INCIDENTS_PER_CAMERA:]
-            self._cameras[str(name)] = series
+            self._cameras[str(name)] = self._decode_series(raw, cutoff)
+
+    @staticmethod
+    def _decode_series(raw: dict[str, Any], cutoff: int) -> CameraSeries:
+        """Decode retained buckets and bounded incidents for one camera."""
+        series = CameraSeries()
+        for slot, row in (raw.get("buckets") or {}).items():
+            try:
+                index = int(slot)
+            except (TypeError, ValueError):
+                continue
+            if index < cutoff:
+                continue
+            bucket = Bucket.decode(row)
+            if bucket is not None:
+                series.buckets[index] = bucket
+        for row in _rows(raw.get("incidents")):
+            incident = Incident.decode(row)
+            if incident is not None:
+                series.incidents.append(incident)
+        series.incidents = series.incidents[-MAX_INCIDENTS_PER_CAMERA:]
+        return series
 
     def _maybe_flush(self, now: float) -> None:
         if now - self._last_flush < FLUSH_SECONDS:
