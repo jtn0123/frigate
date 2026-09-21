@@ -7,21 +7,27 @@ import axios from "axios";
 import { toast } from "sonner";
 import { isDesktop } from "react-device-detect";
 import type { IconType } from "react-icons";
-import { FaCompactDisc, FaVideo } from "react-icons/fa";
-import { IoSearch } from "react-icons/io5";
-import { MdCategory, MdChat, MdVideoLibrary } from "react-icons/md";
-import { TbFaceId } from "react-icons/tb";
+// fork (UI132): the palette names the same destinations as the rail, so it
+// draws them with the same icons.
 import {
   LuActivity,
+  LuArrowRight,
   LuCheckCheck,
   LuFileCode,
+  LuFilm,
+  LuGalleryThumbnails,
   LuHistory,
   LuLayers,
   LuList,
+  LuMessageCircle,
   LuRotateCw,
+  LuSearch,
   LuSettings,
+  LuShapes,
   LuSparkles,
   LuSunMoon,
+  LuUsersRound,
+  LuVideo,
 } from "react-icons/lu";
 import {
   Dialog,
@@ -59,6 +65,15 @@ import { isForkEnabled } from "@/fork/flags";
 import { ReviewSegment } from "@/types/review";
 import { ENV } from "@/env";
 import { phoneFixes } from "@/lib/fork/phone";
+import { useApiHost } from "@/api";
+import ActivityIndicator from "@/components/indicators/activity-indicator";
+import { useTimeFormat, useTimezone } from "@/hooks/use-date-utils";
+import {
+  MIN_FOOTAGE_QUERY,
+  useFootageSearch,
+} from "@/hooks/fork/use-footage-search";
+import { getTranslatedLabel } from "@/utils/i18n";
+import { formatUnixTimestampToDateTime } from "@/utils/dateUtil";
 
 // Face Library, Classification and Chat are left out of the phone nav bar
 // for space; with phoneFixes the palette is how phones reach them.
@@ -104,6 +119,9 @@ function CommandPaletteInner() {
     revalidateOnFocus: false,
   });
   const allowedCameras = useAllowedCameras();
+  const apiHost = useApiHost();
+  const timezone = useTimezone(config);
+  const timeFormat = useTimeFormat(config);
   const { theme, systemTheme, setTheme } = useTheme();
   const { send: sendRestart } = useRestart();
   const mutate = useGlobalMutation();
@@ -114,6 +132,17 @@ function CommandPaletteInner() {
   const [recent, pushRecent] = useRecentCommands();
 
   useCommandPaletteShortcuts();
+
+  // fork (UI134): the same box searches recorded footage. `/events/search` is
+  // the semantic endpoint and answers 400 when semantic search is off, so the
+  // request is gated on the config rather than left to fail.
+  const semanticEnabled = config?.semantic_search.enabled === true;
+  const footage = useFootageSearch(search, open && semanticEnabled);
+  const typedEnough = search.trim().length >= MIN_FOOTAGE_QUERY;
+  const showFootage = typedEnough && semanticEnabled;
+  // without the semantic endpoint there is nothing to search, so the tab
+  // says so once rather than answering every query with an empty group
+  const showFootageSetup = typedEnough && !semanticEnabled && isAdmin;
 
   useEffect(() => {
     if (!open) {
@@ -174,25 +203,25 @@ function CommandPaletteInner() {
         id: "page:live",
         label: t("menu.live.title", { ns: "common" }),
         to: "/",
-        icon: FaVideo,
+        icon: LuVideo,
       },
       {
         id: "page:review",
         label: t("menu.review", { ns: "common" }),
         to: "/review",
-        icon: MdVideoLibrary,
+        icon: LuGalleryThumbnails,
       },
       {
         id: "page:explore",
         label: t("menu.explore", { ns: "common" }),
         to: "/explore",
-        icon: IoSearch,
+        icon: LuSearch,
       },
       {
         id: "page:export",
         label: t("menu.export", { ns: "common" }),
         to: "/export",
-        icon: FaCompactDisc,
+        icon: LuFilm,
       },
       {
         id: "page:system",
@@ -225,21 +254,21 @@ function CommandPaletteInner() {
         id: "page:faces",
         label: t("menu.faceLibrary", { ns: "common" }),
         to: "/faces",
-        icon: TbFaceId,
+        icon: LuUsersRound,
         enabled: allPages && isAdmin && !!config?.face_recognition.enabled,
       },
       {
         id: "page:classification",
         label: t("menu.classification", { ns: "common" }),
         to: "/classification",
-        icon: MdCategory,
+        icon: LuShapes,
         enabled: allPages && isAdmin,
       },
       {
         id: "page:chat",
         label: t("menu.chat", { ns: "common" }),
         to: "/chat",
-        icon: MdChat,
+        icon: LuMessageCircle,
         enabled: allPages && isAdmin && hasChatAgent,
       },
       {
@@ -280,7 +309,7 @@ function CommandPaletteInner() {
           label,
           hint: t("commandPalette.camera.live"),
           keywords: [name, "live", "camera"],
-          icon: FaVideo,
+          icon: LuVideo,
           run: go(`/#${name}`),
         },
         {
@@ -289,7 +318,7 @@ function CommandPaletteInner() {
           label,
           hint: t("commandPalette.camera.review"),
           keywords: [name, "review", "camera"],
-          icon: MdVideoLibrary,
+          icon: LuGalleryThumbnails,
           run: go(`/review?cameras=${encodeURIComponent(name)}`),
         },
       );
@@ -391,6 +420,16 @@ function CommandPaletteInner() {
     [pushRecent, setOpen],
   );
 
+  // Footage rows are not PaletteItems: they carry a thumbnail, they come from
+  // the network, and they are never worth remembering as a recent command.
+  const goFootage = useCallback(
+    (to: string) => {
+      setOpen(false);
+      void navigate(to);
+    },
+    [navigate, setOpen],
+  );
+
   const renderItem = (item: PaletteItem, valuePrefix = "") => {
     const Icon = item.icon;
     return (
@@ -439,6 +478,102 @@ function CommandPaletteInner() {
                   {recentItems.map((item) => renderItem(item, "recent:"))}
                 </CommandGroup>
               )}
+              {/* fork (UI134): clips for the typed query, above the command
+                  matches because the rail's magnifier now says this box
+                  searches footage. The rows are already the answer to what was
+                  typed, and a clip of a car does not contain the words "red
+                  car", so they are force mounted rather than run through the
+                  fuzzy filter a second time. */}
+              {showFootage && (
+                <CommandGroup
+                  forceMount
+                  heading={t("commandPalette.groups.footage")}
+                >
+                  {footage.results.map((result) => (
+                    <CommandItem
+                      key={result.id}
+                      forceMount
+                      value={`footage:${result.id}`}
+                      onSelect={() =>
+                        goFootage(`/explore?event_id=${result.id}`)
+                      }
+                      className="cursor-pointer gap-2"
+                      data-testid="footage-result"
+                    >
+                      <img
+                        src={`${apiHost}api/events/${result.id}/thumbnail.webp`}
+                        alt=""
+                        loading="lazy"
+                        className="h-8 w-12 shrink-0 rounded bg-secondary object-cover"
+                      />
+                      <span className="truncate">
+                        {t("commandPalette.footage.result", {
+                          label: getTranslatedLabel(
+                            result.sub_label || result.label,
+                            result.data.type,
+                          ),
+                          camera: resolveCameraName(config, result.camera),
+                        })}
+                      </span>
+                      <CommandShortcut>
+                        {formatUnixTimestampToDateTime(result.start_time, {
+                          // the config may not name one, and the style type
+                          // takes an absent key rather than an undefined one
+                          ...(timezone ? { timezone } : {}),
+                          date_format: t(
+                            `time.formattedTimestampMonthDayHourMinute.${timeFormat}`,
+                            { ns: "common" },
+                          ),
+                        })}
+                      </CommandShortcut>
+                    </CommandItem>
+                  ))}
+                  {footage.isLoading && (
+                    <CommandItem
+                      disabled
+                      forceMount
+                      value="footage:loading"
+                      className="gap-2 text-muted-foreground"
+                    >
+                      <ActivityIndicator className="size-4 shrink-0" />
+                      <span>{t("commandPalette.footage.searching")}</span>
+                    </CommandItem>
+                  )}
+                  {!footage.isLoading &&
+                    footage.query !== "" &&
+                    footage.results.length === 0 && (
+                      <CommandItem
+                        disabled
+                        forceMount
+                        value="footage:none"
+                        className="gap-2 text-muted-foreground"
+                      >
+                        <LuSearch className="size-4 shrink-0" />
+                        <span>{t("commandPalette.footage.none")}</span>
+                      </CommandItem>
+                    )}
+                  {footage.results.length > 0 && (
+                    <CommandItem
+                      forceMount
+                      value="footage:all"
+                      onSelect={() =>
+                        goFootage(
+                          `/explore?query=${encodeURIComponent(search.trim())}`,
+                        )
+                      }
+                      className="cursor-pointer gap-2"
+                      data-testid="footage-see-all"
+                    >
+                      <LuArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">
+                        {t("commandPalette.footage.seeAll", {
+                          query: search.trim(),
+                        })}
+                      </span>
+                    </CommandItem>
+                  )}
+                </CommandGroup>
+              )}
               {GROUP_ORDER.map((group) => {
                 const groupItems = items.filter((item) => item.group === group);
                 if (groupItems.length === 0) return null;
@@ -451,6 +586,30 @@ function CommandPaletteInner() {
                   </CommandGroup>
                 );
               })}
+              {/* the same group, in the quiet spot at the end: with no
+                  semantic search there is nothing to search, and this is a
+                  note rather than a result */}
+              {showFootageSetup && (
+                <CommandGroup
+                  forceMount
+                  heading={t("commandPalette.groups.footage")}
+                >
+                  <CommandItem
+                    forceMount
+                    value="footage:setup"
+                    onSelect={() =>
+                      goFootage("/settings?page=integrationSemanticSearch")
+                    }
+                    className="cursor-pointer gap-2"
+                    data-testid="footage-setup"
+                  >
+                    <LuSearch className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">
+                      {t("commandPalette.footage.needsSemanticSearch")}
+                    </span>
+                  </CommandItem>
+                </CommandGroup>
+              )}
             </CommandList>
             <div className="flex items-center gap-3 border-t px-3 py-1.5 text-xs text-muted-foreground">
               <LuHistory className="size-3" />

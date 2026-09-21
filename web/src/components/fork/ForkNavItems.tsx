@@ -21,10 +21,14 @@ export default function ForkNavItems({
   return (
     <>
       {/* on a phone the palette opens from the Settings drawer, which frees
-          a bar slot so the rest can be 48px touch targets */}
-      {isForkEnabled("commandPalette") && !paletteInSettingsMenu && (
-        <CommandPaletteHint variant={variant} large={large} />
-      )}
+          a bar slot so the rest can be 48px touch targets. On the sidebar the
+          rail's own magnifier opens it (UI134), so the command button would
+          be a second way to reach the same box. */}
+      {isForkEnabled("commandPalette") &&
+        !paletteInSettingsMenu &&
+        variant !== "sidebar" && (
+          <CommandPaletteHint variant={variant} large={large} />
+        )}
       {isForkEnabled("notificationInbox") && (
         <InboxBell variant={variant} large={large} />
       )}

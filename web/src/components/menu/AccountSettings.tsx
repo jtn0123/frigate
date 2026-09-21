@@ -8,7 +8,6 @@ import { baseUrl } from "../../api/baseUrl";
 import { cn } from "@/lib/utils";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { isDesktop } from "react-device-detect";
-import { VscAccount } from "react-icons/vsc";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +22,9 @@ import {
   DrawerTrigger,
   DrawerClose,
 } from "@/components/ui/drawer";
-import { LuLogOut, LuSquarePen } from "react-icons/lu";
+// fork (UI132): one icon family in the rail, so the account button matches
+// the rest of the column rather than bringing a second stroke weight.
+import { LuCircleUser, LuLogOut, LuSquarePen } from "react-icons/lu";
 import useSWR from "swr";
 
 import { useState } from "react";
@@ -99,7 +100,7 @@ export default function AccountSettings({
                 className,
               )}
             >
-              <VscAccount className="size-5 md:m-[6px]" />
+              <LuCircleUser className="size-5 md:m-[6px]" />
             </button>
           </TooltipTrigger>
         </Trigger>

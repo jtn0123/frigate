@@ -57,18 +57,22 @@ test.describe("Command palette @high", () => {
       ).toBeVisible();
       // the search box takes focus so the slash itself is not typed
       await expect(
-        frigateApp.page.getByPlaceholder(/Search pages, cameras/),
+        frigateApp.page.getByPlaceholder(/Search footage, pages, cameras/),
       ).toHaveValue("");
     },
   );
 
   test(
-    "sidebar hint button opens the palette",
+    "the rail's search button opens the palette",
     { tag: "@desktop-only" },
     async ({ frigateApp }) => {
       await frigateApp.goto("/");
-      const hint = frigateApp.page.getByTestId("command-palette-hint");
-      await expect(hint).toHaveAttribute("aria-label", "Open command palette");
+      // UI134: one entry, not a magnifier for Explore and a command button
+      await expect(
+        frigateApp.page.getByTestId("command-palette-hint"),
+      ).toHaveCount(0);
+      const hint = frigateApp.page.getByTestId("nav-search");
+      await expect(hint).toHaveAttribute("aria-label", "Search");
       await hint.click();
       await expect(
         frigateApp.page.getByTestId("command-palette"),
