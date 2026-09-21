@@ -8,9 +8,10 @@ make the entry go away.
 Rules that keep this fork rebasable (see the `next` branch):
 
 - `dev` mirrors upstream and is never committed to. Pull requests land on
-  `next`, which is rebased onto `upstream/dev` when upstream moves. `main` is
-  the release branch and only moves with `make promote`. One report item = one
-  commit.
+  `next`. Upstream sync prepares a reviewed integration PR; it does not
+  replace `next` directly. `main` is the release branch and only moves with
+  `make promote`. Each change uses its audit ID in its commit subject and
+  ledger row; related work may share a PR.
 - A new ledger row is a file, `fork/ledger/<ID>.md`, holding one row of the
   table below; this file's table is only edited to update a row it already
   has. Appending here made every pair of open pull requests conflict (I35).

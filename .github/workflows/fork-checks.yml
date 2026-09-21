@@ -35,7 +35,6 @@ concurrency:
 
 env:
   DEFAULT_PYTHON: "3.11"
-  FORK_TEST_BASE: ghcr.io/blakeblackshear/frigate:0.18.0
 
 jobs:
   secrets_scan:
@@ -258,7 +257,9 @@ jobs:
         with:
           persist-credentials: false
       - run: make version
-      - run: docker build -f fork/Dockerfile.test --build-arg BASE="${FORK_TEST_BASE}" -t frigate-fork-test .
+      - name: Load shared runtime base
+        run: cat fork/runtime-base.env >> "$GITHUB_ENV"
+      - run: docker build -f fork/Dockerfile.test --build-arg BASE="${FORK_RUNTIME_BASE}" -t frigate-fork-test .
       - run: fork/scripts/py-checks.sh
         env:
           COVERAGE_XML: coverage-py/coverage.xml

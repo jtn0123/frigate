@@ -1,6 +1,11 @@
 # Fork work plan
 
-The single source of truth for work on this fork. Read `FORK.md` first for the
+> Historical planning snapshot, archived 2026-09-21. Unchecked tasks and branch
+> statuses below are not a current queue. Consult [the ledger](../FORK.md),
+> [pending ledger entries](ledger/), and [the audit](GRADE-REPORT.md) for status.
+> New work follows the current user request and repository AGENTS.md.
+
+The original planning snapshot for work on this fork. Read `FORK.md` first for the
 rebase rules. This file says what is next, in order, and how to do it.
 
 > **2026-09-11: pull requests land on `next`; `main` is the release branch.**

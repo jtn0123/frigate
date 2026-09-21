@@ -15,9 +15,14 @@ First boot creates `admin` and prints the password in `make demo-logs`.
 Copy it into gitignored `fork/demo/.env` if you want a reminder. The
 container does not read that file.
 
+The base image is selected in `fork/runtime-base.env`, shared with backend
+tests and CI. Direct Compose commands must include
+`--env-file fork/runtime-base.env` from the repository root. Changing this
+file updates both overlays; rebuild them after a base change.
+
 ## What it is
 
-- Base image `ghcr.io/blakeblackshear/frigate:0.18.0-rc2` (multi-arch, so this
+- Base image `ghcr.io/blakeblackshear/frigate:0.18.0` (multi-arch, so this
   Mac runs arm64 natively).
 - Overlay: this tree's `frigate/`, `migrations/`, and `web/dist` (from
   `npm run e2e:build`, base `/`).
@@ -58,7 +63,7 @@ first run.
 
 ## Reset
 
-`docker compose -f fork/demo/compose.yml down -v` drops the database and
+`docker compose --env-file fork/runtime-base.env -f fork/demo/compose.yml down -v` drops the database and
 recordings. Sample clips stay in `fork/demo/.data/samples`.
 
 Preview thumbnails can 404 for a minute after first boot, until Frigate

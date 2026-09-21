@@ -72,6 +72,11 @@ class TestCiChanges(unittest.TestCase):
             jobs_for("fork/scripts/ledger.py"), {"web": "false", "python": "true"}
         )
 
+    def test_shared_runtime_base_runs_backend_validation(self):
+        self.assertEqual(
+            jobs_for("fork/runtime-base.env"), {"web": "false", "python": "true"}
+        )
+
     def test_a_ledger_row_runs_the_python_suites_that_validate_it(self):
         self.assertEqual(
             jobs_for("fork/ledger/B10.md"), {"web": "false", "python": "true"}

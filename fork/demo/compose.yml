@@ -6,6 +6,8 @@ services:
     build:
       context: .build
       dockerfile: ../Dockerfile
+      args:
+        BASE: ${FORK_RUNTIME_BASE:?Use --env-file fork/runtime-base.env}
     image: frigate-fork-demo
     container_name: frigate-demo
     restart: unless-stopped
