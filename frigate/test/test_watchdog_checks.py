@@ -1,6 +1,7 @@
 """Fork A6: health checks preserve restart pacing and segment ownership."""
 
 import unittest
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 from frigate.test.test_record_watchdog import START, FakeDatetime, watchdog
@@ -55,6 +56,42 @@ class WatchdogChecksTests(unittest.TestCase):
         dog.reset_capture_thread.assert_called_once_with(
             cause="no frames for 20 seconds"
         )
+
+    def test_record_grace_boundaries_and_stall_reason_priority(self):
+        dog = watchdog([])
+        dog.record_enable_time = START
+        self.assertIsNone(dog._record_stall_reason(START + timedelta(seconds=89)))
+        self.assertEqual(
+            dog._record_stall_reason(START + timedelta(seconds=90)),
+            "No new recording segments were created",
+        )
+        dog.record_enable_time = None
+        dog.record_restart_time = START
+        self.assertIsNone(dog._record_stall_reason(START + timedelta(seconds=149)))
+        self.assertEqual(
+            dog._record_stall_reason(START + timedelta(seconds=150)),
+            "No new recording segments were created",
+        )
+        dog.record_restart_time = None
+        for cache, valid, invalid, expected in (
+            (150, 150, None, None),
+            (151, 151, None, "No new recording segments were created"),
+            (0, 151, None, "No new valid recording segments were created"),
+            (0, None, 151, "No valid segments created since last invalid segment"),
+            (0, 0, 151, None),
+            (None, None, None, None),
+        ):
+            with self.subTest(cache=cache, valid=valid, invalid=invalid):
+                dog.latest_cache_segment_time = (
+                    0 if cache is None else START.timestamp() - cache
+                )
+                dog.latest_valid_segment_time = (
+                    0 if valid is None else START.timestamp() - valid
+                )
+                dog.latest_invalid_segment_time = (
+                    0 if invalid is None else START.timestamp() - invalid
+                )
+                self.assertEqual(dog._record_stall_reason(START), expected)
 
     @patch("frigate.video.ffmpeg.start_or_restart_ffmpeg")
     @patch("frigate.video.ffmpeg.datetime", FakeDatetime)

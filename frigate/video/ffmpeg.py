@@ -372,28 +372,28 @@ class CameraWatchdog(threading.Thread):
                 break
 
             raw_topic, payload = update
-            if raw_topic and payload:
-                topic = str(raw_topic)
-                camera, segment_time, _ = payload
+            if not raw_topic or not payload:
+                continue
+            topic = str(raw_topic)
+            camera, segment_time, _ = payload
 
-                if camera != self.config.name:
-                    continue
+            if camera != self.config.name:
+                continue
 
-                if topic.endswith(RecordingsDataTypeEnum.invalid.value):
-                    self.logger.warning(
-                        f"Invalid recording segment detected for {camera} at {segment_time}"
-                    )
-                    self.latest_invalid_segment_time = segment_time
-                elif topic.endswith(RecordingsDataTypeEnum.valid.value):
-                    self.logger.debug(
-                        f"Latest valid recording segment time on {camera}: {segment_time}"
-                    )
-                    self.latest_valid_segment_time = segment_time
-                elif topic.endswith(RecordingsDataTypeEnum.latest.value):
-                    if segment_time is not None:
-                        self.latest_cache_segment_time = segment_time
-                    else:
-                        self.latest_cache_segment_time = 0
+            if topic.endswith(RecordingsDataTypeEnum.invalid.value):
+                self.logger.warning(
+                    f"Invalid recording segment detected for {camera} at {segment_time}"
+                )
+                self.latest_invalid_segment_time = segment_time
+            elif topic.endswith(RecordingsDataTypeEnum.valid.value):
+                self.logger.debug(
+                    f"Latest valid recording segment time on {camera}: {segment_time}"
+                )
+                self.latest_valid_segment_time = segment_time
+            elif topic.endswith(RecordingsDataTypeEnum.latest.value):
+                self.latest_cache_segment_time = (
+                    segment_time if segment_time is not None else 0
+                )
 
     def _check_detect_process(self, now: float, can_restart: bool) -> bool:
         """Check capture health and report whether detect was restarted."""
@@ -443,6 +443,65 @@ class CameraWatchdog(threading.Thread):
 
         return False
 
+    def _record_in_grace(self, now: datetime) -> bool:
+        """Allow initial segments and a full stale window after a restart."""
+        if self.record_enable_time is not None and (
+            now - self.record_enable_time
+        ) < timedelta(seconds=90):
+            return True
+        return self.record_restart_time is not None and (
+            now - self.record_restart_time
+        ) < timedelta(seconds=self.record_stale_threshold)
+
+    def _record_stall_reason(self, now: datetime) -> str | None:
+        """Choose the first stale-segment reason outside the recording grace."""
+        if self._record_in_grace(now):
+            return None
+        window = timedelta(seconds=self.record_stale_threshold)
+
+        def stale(timestamp: float) -> bool:
+            latest = (
+                datetime.fromtimestamp(timestamp, tz=UTC)
+                if timestamp > 0
+                else now - timedelta(seconds=1)
+            )
+            return now > latest + window
+
+        if stale(self.latest_cache_segment_time):
+            return "No new recording segments were created"
+        if stale(self.latest_valid_segment_time):
+            return "No new valid recording segments were created"
+        if (
+            self.latest_invalid_segment_time > 0
+            and stale(self.latest_invalid_segment_time)
+            and self.latest_valid_segment_time <= self.latest_invalid_segment_time
+        ):
+            return "No valid segments created since last invalid segment"
+        return None
+
+    def _restart_stalled_record(
+        self, process: dict, now: datetime, reason: str
+    ) -> None:
+        """Restart a stalled recorder once and begin its recovery grace period."""
+        self.logger.error(
+            "%s for %s in the last %ss; restarting the ffmpeg record process",
+            reason,
+            self.config.name,
+            self.record_stale_threshold,
+        )
+        self.restart_log.record("record", "stalled", reason)
+        self.record_restart_time = now
+        process["process"] = start_or_restart_ffmpeg(
+            process["cmd"],
+            self.logger,
+            process["logpipe"],
+            ffmpeg_process=process["process"],
+        )
+        for role in process["roles"]:
+            self.requestor.send_data(
+                f"{self.config.name}/status/{role.value}", "offline"
+            )
+
     def _check_record_processes(self, now: float) -> None:
         """Check recording health while preserving startup and restart grace."""
         for p in self.ffmpeg_other_processes:
@@ -451,86 +510,13 @@ class CameraWatchdog(threading.Thread):
             if self.config.record.enabled and "record" in p["roles"]:
                 now_utc = datetime.now().astimezone(UTC)
 
-                # Check if we're within the grace period after enabling recording
-                # Grace period: 90 seconds allows time for ffmpeg to start and create first segment
-                in_grace_period = self.record_enable_time is not None and (
-                    now_utc - self.record_enable_time
-                ) < timedelta(seconds=90)
+                reason = self._record_stall_reason(now_utc)
 
-                # Fork (SV3): a record process the watchdog just restarted
-                # needs a full stale window to write its first segment.
-                # Without this the same stall is still true one second
-                # later and ffmpeg is killed again and again.
-                if self.record_restart_time is not None and (
-                    now_utc - self.record_restart_time
-                ) < timedelta(seconds=self.record_stale_threshold):
-                    in_grace_period = True
-
-                latest_cache_dt = (
-                    datetime.fromtimestamp(self.latest_cache_segment_time, tz=UTC)
-                    if self.latest_cache_segment_time > 0
-                    else now_utc - timedelta(seconds=1)
-                )
-
-                latest_valid_dt = (
-                    datetime.fromtimestamp(self.latest_valid_segment_time, tz=UTC)
-                    if self.latest_valid_segment_time > 0
-                    else now_utc - timedelta(seconds=1)
-                )
-
-                latest_invalid_dt = (
-                    datetime.fromtimestamp(self.latest_invalid_segment_time, tz=UTC)
-                    if self.latest_invalid_segment_time > 0
-                    else now_utc - timedelta(seconds=1)
-                )
-
-                # ensure segments are still being created and that they have valid video data
-                # Skip checks during grace period to allow segments to start being created
-                stale_window = timedelta(seconds=self.record_stale_threshold)
-                cache_stale = not in_grace_period and now_utc > (
-                    latest_cache_dt + stale_window
-                )
-                valid_stale = not in_grace_period and now_utc > (
-                    latest_valid_dt + stale_window
-                )
-                invalid_stale_condition = (
-                    self.latest_invalid_segment_time > 0
-                    and not in_grace_period
-                    and now_utc > (latest_invalid_dt + stale_window)
-                    and self.latest_valid_segment_time
-                    <= self.latest_invalid_segment_time
-                )
-                invalid_stale = invalid_stale_condition
-
-                if cache_stale or valid_stale or invalid_stale:
-                    if cache_stale:
-                        reason = "No new recording segments were created"
-                    elif valid_stale:
-                        reason = "No new valid recording segments were created"
-                    else:  # invalid_stale
-                        reason = "No valid segments created since last invalid segment"
-
-                    self.logger.error(
-                        f"{reason} for {self.config.name} in the last {self.record_stale_threshold}s. Restarting the ffmpeg record process..."
-                    )
-                    self.restart_log.record("record", "stalled", reason)
-                    self.record_restart_time = now_utc  # fork (SV3)
-                    p["process"] = start_or_restart_ffmpeg(
-                        p["cmd"],
-                        self.logger,
-                        p["logpipe"],
-                        ffmpeg_process=p["process"],
-                    )
-
-                    for role in p["roles"]:
-                        self.requestor.send_data(
-                            f"{self.config.name}/status/{role.value}", "offline"
-                        )
-
+                if reason is not None:
+                    self._restart_stalled_record(p, now_utc, reason)
                     continue
-                else:
-                    self._send_record_status("online", now)
-                    p["latest_segment_time"] = self.latest_cache_segment_time
+                self._send_record_status("online", now)
+                p["latest_segment_time"] = self.latest_cache_segment_time
 
             if poll is None:
                 continue

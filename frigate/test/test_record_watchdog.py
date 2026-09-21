@@ -109,6 +109,9 @@ def watchdog(steps, stale_age=1000):
         "_drain_segment_updates",
         "_check_detect_process",
         "_check_record_processes",
+        "_record_in_grace",
+        "_record_stall_reason",
+        "_restart_stalled_record",
     ):
         setattr(dog, name, getattr(CameraWatchdog, name).__get__(dog))
     return dog
