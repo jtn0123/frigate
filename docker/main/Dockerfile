@@ -363,7 +363,7 @@ CMD ["sleep", "infinity"]
 
 # Frigate web build
 # This should be architecture agnostic, so speed up the build on multiarch by not using QEMU.
-FROM --platform=$BUILDPLATFORM node:22@sha256:dd5847a04b0deee391fa145f1f4c6d214196668b6bcc7988ebed67249f226844 AS web-build
+FROM --platform=$BUILDPLATFORM node@sha256:dd5847a04b0deee391fa145f1f4c6d214196668b6bcc7988ebed67249f226844 AS web-build
 # Give Monaco and UI bundling a consistent heap limit across build hosts.
 ARG NODE_OPTIONS=--max-old-space-size=4096
 

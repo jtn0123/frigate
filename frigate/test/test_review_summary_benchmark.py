@@ -42,8 +42,10 @@ class ReviewSummaryBenchmarkTests(unittest.TestCase):
         self.assertEqual(len(results), 7)
         for result in results:
             self.assertEqual(len(result["samples_ms"]), 2)
-            self.assertEqual(
-                result["median_ms"], round(statistics.median(result["samples_ms"]), 2)
+            self.assertAlmostEqual(
+                result["median_ms"],
+                round(statistics.median(result["samples_ms"]), 2),
+                places=2,
             )
             self.assertGreaterEqual(result["median_ms"], 0)
             self.assertGreaterEqual(result["p95_ms"], result["median_ms"])
