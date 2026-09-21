@@ -6,6 +6,7 @@
  */
 
 import type { Page, Locator } from "@playwright/test";
+import { waitForAppReady } from "../helpers/app-ready";
 
 export class BasePage {
   constructor(
@@ -77,7 +78,8 @@ export class BasePage {
 
   /** Check if the page has loaded */
   async waitForPageLoad() {
-    await this.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+    // fork: past the route suspense fallback, not just #pageRoot (D49)
+    await waitForAppReady(this.page);
   }
 
   /**

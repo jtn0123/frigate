@@ -6,6 +6,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.E2E_PORT ?? 4173);
 const webRoot = resolve(__dirname, "..");
 
+// fork: one JSON report per Playwright run, in a directory of its own so
+// neither the html reporter nor the next run's output cleanup removes it.
+const jsonReport = resolve(
+  webRoot,
+  process.env.E2E_JSON_REPORT ?? "e2e-report/results.json",
+);
+
 const DESKTOP_UA =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 // The CSP specs need `vite preview` to serve the policy (E2E_CSP=1); without it
@@ -26,7 +33,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 4,
-  reporter: process.env.CI ? [["json"], ["html"]] : [["html"]],
+  // fork: the retry above turns a flaky test green, so CI reads this report
+  // back and annotates, or on `next` fails, when it holds a flaky test
+  // (D49, scripts/fork/e2e-flaky-report.mjs). Naming the file also keeps the
+  // whole report out of the job log, where the json reporter dumped it.
+  reporter: process.env.CI
+    ? [["json", { outputFile: jsonReport }], ["html"]]
+    : [["html"]],
   timeout: 30_000,
   expect: { timeout: 5_000 },
 

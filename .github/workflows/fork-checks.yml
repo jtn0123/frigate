@@ -195,6 +195,16 @@ jobs:
         working-directory: ./web
         env:
           E2E_CSP: "1"
+          E2E_JSON_REPORT: e2e-report/results-csp.json
+      # The runs above retry once, so a test that failed and then passed left
+      # the shard green and nobody saw it (D49). Every flaky test is annotated
+      # here, and a push to next fails on one: a run that needed the retry does
+      # not say whether the suite is green.
+      - name: Flaky e2e tests
+        run: >-
+          node scripts/fork/e2e-flaky-report.mjs e2e-report
+          ${{ (github.event_name == 'push' && github.ref == 'refs/heads/next') && '--strict' || '' }}
+        working-directory: ./web
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -209,6 +219,7 @@ jobs:
           path: |
             web/playwright-report
             web/test-results
+            web/e2e-report
           retention-days: 7
 
   python_checks:

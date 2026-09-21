@@ -14,6 +14,12 @@
 # Two lanes: the host gates run one after another, the Docker gates beside
 # them. Running the Node gates side by side saved ~4s on an idle machine and
 # cost 10x under memory pressure (several agents, swap in use), so they queue.
+# e2e is the exception to "beside": the whole Playwright suite at 4 workers,
+# next to a containerized backend suite in a 4-CPU 6 GiB VM, starved the page
+# renders, and the 5 s expect timeout then reported "element(s) not found" in
+# whichever spec happened to be running. That is what made two e2e tests look
+# flaky (D49). It therefore waits for the build and for the Docker lane and
+# has the machine to itself, which costs about the length of one e2e run.
 #
 # Not mirrored: CI's `vite build --base=/BASE_PATH/`. It is the same bundle as
 # the e2e build with a different base path. Nor CI's audio companion job, which
@@ -141,10 +147,20 @@ gate_python() {
 names=()
 notes=()
 
-# lane <name...>: run the named gates one after another in the background.
+# lane [--after <gate>[,<gate>...]] <name...>: run the named gates one after
+# another in the background, held until the gates it is given have finished.
+# The hold sits outside the timing, so a gate's reported seconds stay its own.
 lane() {
+  local hold=()
+  if [[ "${1:-}" == "--after" ]]; then
+    IFS=, read -r -a hold <<<"$2"
+    shift 2
+  fi
   names+=("$@")
   (
+    for dep in ${hold[@]+"${hold[@]}"}; do
+      while [[ ! -f "$logs/$dep.rc" ]]; do sleep 0.5; done
+    done
     for name in "$@"; do
       start=$SECONDS
       "gate_$name" >"$logs/$name.log" 2>&1
@@ -165,6 +181,7 @@ skip() {
 
 host=(lint typecheck ratchet vitest i18n ruff mypy_fork gitleaks)
 docker_lane=()
+e2e_lane=()
 if [[ "$mode" == fast ]]; then
   if touches '^fork/scripts/.*\.py$'; then
     host+=(scripts)
@@ -173,7 +190,8 @@ if [[ "$mode" == fast ]]; then
   fi
   if touches '^web/e2e/'; then
     e2e_args=(--only-changed="$base")
-    host+=(build e2e)
+    host+=(build)
+    e2e_lane=(e2e)
   else
     skip build "no e2e changes (make check builds and checks the budget)"
     skip e2e "no e2e changes (make check runs the full suite)"
@@ -184,13 +202,25 @@ if [[ "$mode" == fast ]]; then
     skip python "no backend changes"
   fi
 else
-  host+=(scripts build e2e)
+  host+=(scripts build)
+  e2e_lane=(e2e)
   docker_lane=(python)
 fi
 
 echo "fork check ($mode): base $base_ref @ $(git rev-parse --short "$base"), E2E_PORT $E2E_PORT"
 lane "${host[@]}"
 if ((${#docker_lane[@]})); then lane "${docker_lane[@]}"; fi
+if ((${#e2e_lane[@]})); then
+  # e2e needs the bundle build has just written, and needs the machine to
+  # itself; the wait is announced so a quiet terminal is not a hung one.
+  hold=(build)
+  if ((${#docker_lane[@]})); then hold+=(python); fi
+  lane --after "$(
+    IFS=,
+    echo "${hold[*]}"
+  )" "${e2e_lane[@]}"
+  echo "  -  $(printf '%-10s' e2e) runs last, alone, after ${hold[*]}"
+fi
 
 reported=()
 failed=()

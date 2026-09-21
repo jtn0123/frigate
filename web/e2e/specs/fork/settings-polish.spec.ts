@@ -10,6 +10,7 @@
 
 import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "../../fixtures/frigate-test";
+import { waitForAppReady } from "../../helpers/app-ready";
 import { installSettingsConfigRoutes } from "../../helpers/settings-config-routes";
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -32,7 +33,7 @@ async function boxOf(locator: Locator): Promise<Box> {
 async function openSettings(page: Page, settingsPage: string) {
   await installSettingsConfigRoutes(page);
   await page.goto(`/settings?page=${settingsPage}`);
-  await page.waitForSelector("#pageRoot", { timeout: 10_000 });
+  await waitForAppReady(page);
 }
 
 test.describe("Settings rail (UI102) @high", () => {

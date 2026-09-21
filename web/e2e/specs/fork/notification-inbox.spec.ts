@@ -8,6 +8,7 @@
 
 import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
+import { waitForAppReady } from "../../helpers/app-ready";
 
 type ReviewOptions = {
   id: string;
@@ -167,7 +168,7 @@ test.describe("Notification inbox @high", () => {
     expect(stored[0]).toMatchObject({ id: "inbox-persist", read: false });
 
     await frigateApp.page.reload();
-    await frigateApp.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+    await waitForAppReady(frigateApp.page);
     await expect(frigateApp.page.getByTestId("inbox-unread")).toHaveText("1");
     await openInbox(frigateApp);
     await expect(frigateApp.page.getByTestId("inbox-item")).toHaveCount(1);

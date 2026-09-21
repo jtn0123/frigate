@@ -37,8 +37,7 @@ test.describe("Navigation — primary links @critical", () => {
   });
 
   test("unknown route redirects to /", async ({ frigateApp }) => {
-    await frigateApp.page.goto("/nonexistent-route");
-    await frigateApp.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+    await frigateApp.goto("/nonexistent-route");
     await expect(frigateApp.page).toHaveURL(/\/$/);
     await expect(
       frigateApp.page.locator("[data-camera='front_door']"),

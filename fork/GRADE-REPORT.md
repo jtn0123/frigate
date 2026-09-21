@@ -42,13 +42,13 @@ round two, three PRs merged back to back with no rebase.
 | A | Architecture & Design | B− | B− | B | B | 5 |
 | B | Backend Quality | B− | B | B | B+ | 4 |
 | C | Frontend Quality | C | C+ | B− | B− | 13 |
-| D | Testing & Reliability | C+ | B− | B | B | 7 |
+| D | Testing & Reliability | C+ | B− | B | B | 6 |
 | E | Security | B+ | B+ | B+ | B+ | 3 |
 | F | Dependencies & Tech Currency | C+ | B− | B− | B− | 5 |
 | G | Performance & Scalability | C+ | B− | C+ | B− | 6 |
 | H | Documentation & Onboarding | C | C+ | C+ | C+ | 5 |
 | I | Developer Experience & Tooling | C+ | B | B | B | 8 |
-| **Overall** | | **B−** | **B** | **B** | **B** | **56** + UX track |
+| **Overall** | | **B−** | **B** | **B** | **B** | **55** + UX track |
 
 **What the grade branch added (2026-09-18).** E6 and G8 are done on top of the counts above, I3's first wave and G9's image half landed, and the rest of its work is ledger-only (I17, D25, D26, I16, E8, plus F10 and B12, which were this branch's F7 and B5 until `next` claimed those numbers for different items; the trunk keeps the number, and B5 was renumbered twice as `next` took B10 too). B12 is the `fork_updates` half only: `next`'s own share models and endpoints supersede the share half.
 
@@ -313,8 +313,11 @@ fork backend module is tested including the migration's rollback, and
 SonarCloud gates new code at 80% (83.5% now; 50.2% overall with browser
 coverage merged). Not B+: the tracking pipeline is still untested (D4), no
 visual regression or tablet project (D6, D3), unit line coverage is 13.4%
-(web) and 40% (Python) with no floor of their own, two flaky e2e tests
-pass on the CI retry. The third flaky test, which surfaced during the
+(web) and 40% (Python) with no floor of their own (D48). The two e2e tests
+that passed only on the CI retry are fixed: mostly the harness and the local
+gate, but one was a real race in the severity tabs that the retry had been
+hiding, and a run that still needs the retry is now annotated and fails on
+`next` (D49). The third flaky test, which surfaced during the
 merges, was a real gap and is fixed (D51).
 
 - ~~D1~~ ✓ done 2026-09-10. `web/__test__/test-setup.ts`, CI step
@@ -330,6 +333,7 @@ merges, was a real gap and is fixed (D51).
 - ~~D15~~ ✓ done 2026-09-11. Frame-rate chart seeded from `/stats/history`
 - ~~D16~~ ✓ done 2026-09-11. Mock `/api/stats/history`
 - ~~D19~~ ✓ done 2026-09-11. Layout-only tests selected by tag (`grepInvert`; residue → D50)
+- ~~D49~~ ✓ done 2026-09-20. Three causes. `make check` ran the whole Playwright suite beside the Docker Python gate, so the e2e gate now has the machine to itself (`fork/scripts/check.sh`); a navigation that waited only for `#pageRoot` handed on a page still showing its suspense fallback, so every navigation now waits past it (`web/e2e/helpers/app-ready.ts`); and `useOptimisticState` discarded a second click that landed before the first reached the owner, which is why switching severity tabs back was flaky (`web/src/hooks/use-optimistic-state.ts`, reproducible under a 20x CPU throttle). CI now reads the JSON report back, annotating each flaky test and failing on `next` (`web/scripts/fork/e2e-flaky-report.mjs`)
 - ~~D51~~ ✓ done 2026-09-18. The model cache is trusted only once its verification is 2 s newer than every file (racy-timestamp rule); the flaky test forces its timestamp change, two new tests (#73)
 - D17, D18, D20 to D47: see `FORK.md`
 
@@ -344,13 +348,6 @@ merges, was a real gap and is fixed (D51).
 - **Where:** `web/vite.config.ts:138-148` (no `thresholds`), `.coveragerc` (no `fail_under`)
 - **What's wrong:** Only Sonar's new-code condition gates coverage; overall numbers (13.4% web lines, 40% Python) can fall without a red check, and the gate depends on a third-party token (I30).
 - **Fix:** Ratchet files in the style of `fork/type-ratchet.json`: current value minus 1 for web and Python, stricter per-directory floors for `src/lib/fork/**` and `src/hooks/fork/**`.
-- **Effort:** S
-- **Grade lift:** B → B
-
-#### D49 — Fix the two flaky e2e tests and stop the retry hiding them `[FE] [fork]`
-- **Where:** `web/e2e/specs/live.spec.ts`, `classification.spec.ts` ("filtering by a class with a dash"); `web/e2e/playwright.config.ts:22` (`retries: CI ? 1 : 0`)
-- **What's wrong:** The latest run reported 2 flaky tests; a second run showed 1. The retry turns them green, so nobody sees them.
-- **Fix:** Repair both; read the JSON report in CI and annotate (or fail on `next`) when `flaky > 0`.
 - **Effort:** S
 - **Grade lift:** B → B
 

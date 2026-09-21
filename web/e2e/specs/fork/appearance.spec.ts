@@ -8,6 +8,7 @@
 
 import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
+import { waitForAppReady } from "../../helpers/app-ready";
 
 async function openAppearanceMenu(frigateApp: FrigateApp) {
   const { page } = frigateApp;
@@ -52,7 +53,7 @@ test.describe("Appearance controls @high", () => {
       expect(stored.density).toBe("compact");
 
       await frigateApp.page.reload();
-      await frigateApp.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+      await waitForAppReady(frigateApp.page);
       await expect(html).toHaveAttribute("data-density", "compact");
     },
   );
