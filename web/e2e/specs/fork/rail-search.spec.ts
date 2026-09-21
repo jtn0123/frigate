@@ -57,6 +57,8 @@ test.describe("Rail search @high", () => {
       await expect(page.getByRole("tooltip")).toContainText(
         "Every camera, right now",
       );
+      await page.mouse.move(400, 400, { steps: 10 });
+      await expect(page.getByRole("tooltip")).not.toBeVisible();
       await rail.getByTestId("nav-search").hover();
       await expect(page.getByRole("tooltip")).toContainText(
         "Search footage, cameras, pages, and settings",
