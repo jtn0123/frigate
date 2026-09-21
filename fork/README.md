@@ -26,7 +26,7 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
   (see `SONAR-CI.md`).
 - `scripts/wt.sh` creates a section worktree with node_modules and its own e2e
   port (`make wt NAME=<name>`).
-- `demo/` overlays this checkout on the rc2 image with three looping sample
+- `demo/` overlays this checkout on the shared runtime image with three looping sample
   cameras (`make demo-up` / `demo-down` / `demo-logs`). Ports are loopback-only.
   See `fork/demo/README.md`.
 
@@ -117,3 +117,13 @@ worktrees never test each other's sources.
 Gotcha: `vite build --outDir` must stay inside `web/`. The monaco plugin joins
 an absolute outDir onto `web/`, so `--outDir /tmp/x` writes worker bundles to
 `web/tmp/x` and eslint then lints them.
+
+## Runtime and operations
+
+- [Architecture and message ownership](ARCHITECTURE.md)
+- [Owner deployment, backup and rollback runbook](DEPLOYMENT.md)
+- Shared demo/test image: `fork/runtime-base.env` (local tests may explicitly override `FORK_TEST_BASE`).
+- Pre-commit checks the fork Python roots, fork-owned workflows with actionlint,
+  and `fork/**/*.sh` with ShellCheck. Install with `pre-commit install`; run the
+  hooks explicitly with `pre-commit run --all-files`. Upstream shell/workflow
+  lint debt is outside these new hooks.
