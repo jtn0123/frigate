@@ -4,7 +4,7 @@ import asyncio
 import logging
 import re
 import time
-from typing import Literal
+from typing import Literal, TypeAlias
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -18,8 +18,10 @@ from frigate.util.config import resolve_ffmpeg_path
 logger = logging.getLogger(__name__)
 router = APIRouter()
 _probe_slots = asyncio.Semaphore(2)
-_cache: dict[str, tuple[float, dict]] = {}
-_inflight: dict[str, asyncio.Task] = {}
+DiagnosticValue: TypeAlias = str | int | list[str]
+DiagnosticResult: TypeAlias = dict[str, DiagnosticValue]
+_cache: dict[str, tuple[float, DiagnosticResult]] = {}
+_inflight: dict[str, asyncio.Task[DiagnosticResult]] = {}
 
 
 class PlaybackFailure(BaseModel):
@@ -29,7 +31,7 @@ class PlaybackFailure(BaseModel):
     media_error_code: int | None = Field(default=None, ge=0, le=4)
 
 
-def summarize_decode(returncode: int, stderr: str, frames: int) -> str:
+def summarize_decode(returncode: int | None, stderr: str, frames: int) -> str:
     """Treat decoder errors as failures even when FFmpeg exits successfully."""
     if re.search(
         r"cu_qp_delta|CABAC|decod|Invalid NAL|Could not find ref|frame RPS",
@@ -58,7 +60,7 @@ def safe_log_value(value: object) -> str:
     return str(value).replace("\r", "\\r").replace("\n", "\\n")
 
 
-async def decode_stream(binary: str, stream_name: str) -> dict:
+async def decode_stream(binary: str, stream_name: str) -> DiagnosticResult:
     """Decode a short restream sample, killing timed-out or cancelled probes."""
     process = await asyncio.create_subprocess_exec(
         binary,
@@ -107,10 +109,14 @@ async def decode_stream(binary: str, stream_name: str) -> dict:
     }
 
 
-async def collect_diagnostics(binary: str, stream_name: str) -> dict:
+async def collect_diagnostics(binary: str, stream_name: str) -> DiagnosticResult:
     """Collect stream metadata and decode evidence without exposing source URLs."""
     started = time.monotonic()
-    result = {"id": uuid4().hex[:12], "stream": stream_name, "codecs": []}
+    result: DiagnosticResult = {
+        "id": uuid4().hex[:12],
+        "stream": stream_name,
+        "codecs": [],
+    }
     async with _probe_slots:
         try:
             async with httpx.AsyncClient(timeout=3, trust_env=False) as client:
@@ -163,12 +169,15 @@ def _expire_cached_diagnostics(now: float) -> None:
     "/go2rtc/streams/{stream_name}/diagnostics",
     dependencies=[Depends(require_go2rtc_stream_access)],
     operation_id="diagnose_live_stream",
+    response_model=None,
     responses={
         404: {"description": "Stream not configured"},
         429: {"description": "Stream diagnostics busy"},
     },
 )
-async def stream_diagnostics(request: Request, stream_name: str, body: PlaybackFailure):
+async def stream_diagnostics(
+    request: Request, stream_name: str, body: PlaybackFailure
+) -> DiagnosticResult:
     """Check a permitted live stream and correlate its result with a player failure."""
     streams = request.app.frigate_config.go2rtc.model_dump().get("streams", {})
     if stream_name not in streams:
@@ -186,7 +195,7 @@ async def stream_diagnostics(request: Request, stream_name: str, body: PlaybackF
             task = asyncio.create_task(collect_diagnostics(binary, stream_name))
             _inflight[stream_name] = task
 
-            def completed(probe: asyncio.Task) -> None:
+            def completed(probe: asyncio.Task[DiagnosticResult]) -> None:
                 _inflight.pop(stream_name, None)
                 if not probe.cancelled() and probe.exception() is None:
                     _cache[stream_name] = (time.monotonic(), probe.result())

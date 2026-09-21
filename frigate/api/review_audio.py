@@ -5,6 +5,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -56,7 +57,7 @@ class AudioChunk(BaseModel):
     result: AudioAnalysis | None = None
 
 
-def read_results(review_id: str, camera: str) -> dict:
+def read_results(review_id: str, camera: str) -> dict[str, Any]:
     """Read only the exact review/camera pair from a bounded hashed file."""
     path = RESULTS / (hashlib.sha256(review_id.encode()).hexdigest() + ".json")
     try:
@@ -85,9 +86,13 @@ def read_results(review_id: str, camera: str) -> dict:
 
 
 @router.get(
-    "/review/{review_id}/audio", dependencies=[Depends(allow_any_authenticated())]
+    "/review/{review_id}/audio",
+    dependencies=[Depends(allow_any_authenticated())],
+    response_model=None,
 )
-async def review_audio(request: Request, review_id: str):
+async def review_audio(
+    request: Request, review_id: str
+) -> dict[str, Any] | JSONResponse:
     """Authorize the review before opening its stored machine-generated results."""
     try:
         review = await asyncio.to_thread(
