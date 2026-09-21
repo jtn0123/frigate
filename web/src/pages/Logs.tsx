@@ -1,7 +1,6 @@
-import { useSearchParams } from "react-router-dom";
 import CameraLogFilter from "@/components/fork/CameraLogFilter";
 import { matchesCameraLog } from "@/lib/fork/camera-log-filter";
-import { isForkEnabled } from "@/fork/flags";
+import { useCameraLogFilter } from "@/hooks/fork/use-camera-log-filter";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -56,11 +55,7 @@ class LogStreamStatusError extends Error {
 function Logs() {
   const { t } = useTranslation(["views/system"]);
   const [logService, setLogService] = useState<LogType>("frigate");
-  const [searchParams, setSearchParams] = useSearchParams();
-  const cameraFilter =
-    isForkEnabled("cameraHealth") && logService === "frigate"
-      ? (searchParams.get("camera") ?? "")
-      : "";
+  const { cameraFilter, clearCameraFilter } = useCameraLogFilter(logService);
   const isWebsocket = logService === "websocket";
   const tabsRef = useRef<HTMLDivElement | null>(null);
   const lazyLogWrapperRef = useRef<HTMLDivElement>(null);
@@ -624,14 +619,7 @@ function Logs() {
       </div>
 
       {cameraFilter && (
-        <CameraLogFilter
-          camera={cameraFilter}
-          onClear={() => {
-            const next = new URLSearchParams(searchParams);
-            next.delete("camera");
-            setSearchParams(next);
-          }}
-        />
+        <CameraLogFilter camera={cameraFilter} onClear={clearCameraFilter} />
       )}
 
       {isWebsocket ? (

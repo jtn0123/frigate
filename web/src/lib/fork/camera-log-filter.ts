@@ -1,7 +1,7 @@
 /** Match a camera identifier without also matching similarly named cameras. */
 export function matchesCameraLog(line: string, camera: string): boolean {
   if (!camera) return true;
-  const escaped = camera.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escaped = camera.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
   // Camera-specific logger names are authoritative. A different camera's
   // message may mention this camera, which must not bring that line back.
   const section =
