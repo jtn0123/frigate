@@ -258,7 +258,7 @@ jobs:
           persist-credentials: false
       - run: make version
       - name: Load shared runtime base
-        run: cat fork/runtime-base.env >> "$GITHUB_ENV"
+        run: grep '^FORK_RUNTIME_BASE=' fork/runtime-base.env >> "$GITHUB_ENV"
       - run: docker build -f fork/Dockerfile.test --build-arg BASE="${FORK_RUNTIME_BASE}" -t frigate-fork-test .
       - run: fork/scripts/py-checks.sh
         env:
