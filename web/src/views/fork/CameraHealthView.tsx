@@ -618,7 +618,7 @@ function HealthTableRow({
               : formatFps(row.fps)}
           </span>
           <Sparkline
-            className="hidden h-6 w-24 shrink-0 md:block"
+            className="hidden h-5 w-[120px] shrink-0 md:block"
             values={spark.values}
             times={spark.times}
             reference={row.expectedFps}

@@ -1,3 +1,7 @@
+import { useSearchParams } from "react-router-dom";
+import CameraLogFilter from "@/components/fork/CameraLogFilter";
+import { matchesCameraLog } from "@/lib/fork/camera-log-filter";
+import { isForkEnabled } from "@/fork/flags";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -52,11 +56,17 @@ class LogStreamStatusError extends Error {
 function Logs() {
   const { t } = useTranslation(["views/system"]);
   const [logService, setLogService] = useState<LogType>("frigate");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const cameraFilter =
+    isForkEnabled("cameraHealth") && logService === "frigate"
+      ? (searchParams.get("camera") ?? "")
+      : "";
   const isWebsocket = logService === "websocket";
   const tabsRef = useRef<HTMLDivElement | null>(null);
   const lazyLogWrapperRef = useRef<HTMLDivElement>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [filterSeverity, setFilterSeverity] = useState<LogSeverity[]>();
+  const hasFilter = !!filterSeverity?.length || !!cameraFilter;
   const [selectedLog, setSelectedLog] = useState<LogLine>();
   const lazyLogRef = useRef<LazyLog>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,14 +107,18 @@ function Logs() {
 
   const filterLines = useCallback(
     (lines: string[]) => {
-      if (!filterSeverity?.length) return lines;
+      if (!filterSeverity?.length && !cameraFilter) return lines;
 
       return lines.filter((line) => {
         const parsedLine = parseLogLines(logService, [line])[0];
-        return filterSeverity.includes(parsedLine.severity);
+        return (
+          (!filterSeverity?.length ||
+            filterSeverity.includes(parsedLine.severity)) &&
+          matchesCameraLog(line, cameraFilter)
+        );
       });
     },
-    [filterSeverity, logService],
+    [filterSeverity, logService, cameraFilter],
   );
 
   // fetchers
@@ -143,7 +157,7 @@ function Logs() {
     setLoadError(undefined);
     try {
       const response = await axios.get(`logs/${logService}`, {
-        params: { start: filterSeverity ? 0 : -100 },
+        params: { start: hasFilter ? 0 : -100 },
       });
       if (
         response.status === 200 &&
@@ -152,9 +166,9 @@ function Logs() {
       ) {
         const filteredLines = filterLines(response.data.lines);
         setLogs(filteredLines);
-        // fork (UI82): a severity filter reads from the first line, so
+        // fork (UI82, UI131): a filter reads from the first line, so
         // there is nothing older to fetch
-        lastFetchedIndexRef.current = filterSeverity
+        lastFetchedIndexRef.current = hasFilter
           ? 0
           : response.data.totalLines - filteredLines.length;
         return true;
@@ -168,7 +182,7 @@ function Logs() {
     } finally {
       setIsLoading(false);
     }
-  }, [logService, filterLines, filterSeverity]);
+  }, [logService, filterLines, hasFilter]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -197,12 +211,7 @@ function Logs() {
 
         // Filter and append complete lines
         if (lines.length > 0) {
-          const filteredLines = filterSeverity?.length
-            ? lines.filter((line) => {
-                const parsedLine = parseLogLines(logService, [line])[0];
-                return filterSeverity.includes(parsedLine.severity);
-              })
-            : lines;
+          const filteredLines = filterLines(lines);
           if (filteredLines.length > 0) {
             lazyLogRef.current?.appendLines(filteredLines);
           }
@@ -236,7 +245,7 @@ function Logs() {
           );
         }
       });
-  }, [logService, filterSeverity, t]);
+  }, [logService, filterLines, t]);
 
   const retryLogs = useCallback(() => {
     setLogs([]);
@@ -270,7 +279,7 @@ function Logs() {
     };
     // we know that these deps are correct
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logService, filterSeverity]);
+  }, [logService, filterSeverity, cameraFilter]);
 
   // handlers
 
@@ -339,7 +348,7 @@ function Logs() {
     if (!logs.length) return;
     axios
       .get<{ lines?: string[] }>(`logs/${logService}`, {
-        params: { start: filterSeverity ? 0 : -100 },
+        params: { start: hasFilter ? 0 : -100 },
       })
       .then((response) => {
         const lines = response.data.lines;
@@ -352,7 +361,7 @@ function Logs() {
       .catch(() => {
         toast.error(t("logs.copy.error"));
       });
-  }, [logs.length, logService, filterSeverity, filterLines, t]);
+  }, [logs.length, logService, hasFilter, filterLines, t]);
 
   // fork (UI116): copy and download have nothing to act on while the logs
   // failed to load or none came back
@@ -365,7 +374,12 @@ function Logs() {
         const element = document.createElement("a");
         element.setAttribute(
           "href",
-          "data:text/plain;charset=utf-8," + encodeURIComponent(resp.data),
+          "data:text/plain;charset=utf-8," +
+            encodeURIComponent(
+              cameraFilter
+                ? filterLines(String(resp.data).split("\n")).join("\n")
+                : resp.data,
+            ),
         );
         element.setAttribute("download", `${logService}-logs.txt`);
 
@@ -377,7 +391,7 @@ function Logs() {
         document.body.removeChild(element);
       })
       .catch(() => {});
-  }, [logService]);
+  }, [logService, cameraFilter, filterLines]);
 
   const handleRowClick = useCallback(
     (rowInfo: { lineNumber: number; rowIndex: number }) => {
@@ -608,6 +622,17 @@ function Logs() {
           </div>
         )}
       </div>
+
+      {cameraFilter && (
+        <CameraLogFilter
+          camera={cameraFilter}
+          onClear={() => {
+            const next = new URLSearchParams(searchParams);
+            next.delete("camera");
+            setSearchParams(next);
+          }}
+        />
+      )}
 
       {isWebsocket ? (
         <div className="my-2 flex size-full flex-col overflow-hidden rounded-md border border-secondary bg-background_alt">

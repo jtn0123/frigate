@@ -417,7 +417,9 @@ test.describe("Camera health drawer @high", () => {
     await expect(incident).toContainText("RTSP connect failed");
 
     await expect(drawer.locator('a[href="/#garage"]')).toBeVisible();
-    await expect(drawer.locator('a[href="/logs"]')).toBeVisible();
+    await expect(
+      drawer.locator('a[href="/logs?camera=garage"]').last(),
+    ).toBeVisible();
     await expect(
       drawer.locator('a[href="/settings?page=cameraFfmpeg&camera=garage"]'),
     ).toBeVisible();

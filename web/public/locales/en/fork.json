@@ -253,7 +253,11 @@
       "cellHours_one": "1 cell = {{count}} hour",
       "cellHours_other": "1 cell = {{count}} hours"
     },
-    "viewLogs": "View logs"
+    "viewLogs": "View logs",
+    "logs": {
+      "filtered": "Logs containing camera: {{camera}}",
+      "clear": "Show all logs"
+    }
   },
   "settingsNav": {
     "searchPlaceholder": "Search settings",

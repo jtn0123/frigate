@@ -146,7 +146,7 @@ export default function CameraHealthDrawer({
     >
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl"
+        className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-[520px]"
         data-testid="camera-health-drawer"
       >
         <div className="flex flex-wrap items-center gap-3 border-b border-secondary p-4 pr-12">
@@ -265,20 +265,6 @@ export default function CameraHealthDrawer({
               ))}
             </p>
           )}
-
-          <dl
-            className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4"
-            data-testid="camera-health-metrics"
-          >
-            {metrics.map((metric) => (
-              <div key={metric.key} className="flex flex-col">
-                <dt className="text-xs text-muted-foreground">
-                  {t(`cameraHealth.metric.${metric.key}`)}
-                </dt>
-                <dd className="font-medium tabular-nums">{metric.value}</dd>
-              </div>
-            ))}
-          </dl>
 
           <section className="mt-6" aria-label={t("cameraHealth.drawer.strip")}>
             <div className="flex items-center justify-between text-xs uppercase tracking-wide text-muted-foreground">
@@ -403,30 +389,48 @@ export default function CameraHealthDrawer({
                           </p>
                         )}
                       </div>
+                      <Link
+                        to={`/logs?camera=${encodeURIComponent(row.camera)}`}
+                        className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                      >
+                        <LuScrollText className="size-3.5" />
+                        {t("cameraHealth.viewLogs")}
+                      </Link>
                     </li>
                   );
                 })}
               </ul>
             )}
           </section>
+          <dl
+            className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4"
+            data-testid="camera-health-metrics"
+          >
+            {metrics.map((metric) => (
+              <div key={metric.key} className="flex flex-col">
+                <dt className="text-xs text-muted-foreground">
+                  {t(`cameraHealth.metric.${metric.key}`)}
+                </dt>
+                <dd className="font-medium tabular-nums">{metric.value}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
 
         <div className="flex flex-wrap gap-2 border-t border-secondary p-4">
-          <Button asChild variant="secondary" className="flex-1">
+          <Button asChild variant="default" className="flex-1">
             <Link to={`/#${row.camera}`}>
               <FaVideo className="mr-2 size-3.5" />
               {t("cameraHealth.openLive")}
             </Link>
           </Button>
-          {/* The Logs page has no camera filter, so this only opens the
-              Frigate log, where a camera's ffmpeg errors are written. */}
-          <Button asChild variant="secondary" className="flex-1">
-            <Link to="/logs">
+          <Button asChild variant="default" className="flex-1">
+            <Link to={`/logs?camera=${encodeURIComponent(row.camera)}`}>
               <LuScrollText className="mr-2 size-3.5" />
               {t("cameraHealth.viewLogs")}
             </Link>
           </Button>
-          <Button asChild variant="secondary" className="flex-1">
+          <Button asChild variant="default" className="flex-1">
             <Link to={`/settings?page=cameraFfmpeg&camera=${row.camera}`}>
               <LuSettings className="mr-2 size-3.5" />
               {t("cameraHealth.openSettings")}

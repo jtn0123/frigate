@@ -145,7 +145,7 @@ function System() {
         </ToggleGroup>
 
         <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center gap-3">
-          <ShareViewButton />
+          <ShareViewButton compact={phoneTouch} />
           {page !== "health" && Boolean(lastUpdated) && (
             <div className="h-full content-center text-sm text-muted-foreground">
               {t("lastRefreshed")}
