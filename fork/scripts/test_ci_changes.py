@@ -1,6 +1,7 @@
 """ci-changes.sh must run the suites for every file a gate depends on."""
 
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -51,6 +52,22 @@ def jobs_for(changed: str) -> dict[str, str]:
 
 
 class TestCiChanges(unittest.TestCase):
+    def test_fast_gate_includes_runtime_scripts_and_benchmarks(self):
+        check = SCRIPT.with_name("check.sh").read_text()
+        pattern = re.search(r"^py_gates='([^']+)'$", check, re.MULTILINE).group(1)
+        for path in (
+            "fork/scripts/runtime_lock.py",
+            "fork/scripts/test_runtime_lock.py",
+            "fork/benchmarks/review_summary.py",
+        ):
+            with self.subTest(path=path):
+                selected = subprocess.run(
+                    ["bash", "-c", '[[ "$1" =~ $2 ]]', "selector", path, pattern],
+                    check=False,
+                )
+                self.assertEqual(selected.returncode, 0)
+                self.assertEqual(jobs_for(path)["python"], "true")
+
     def test_benchmark_changes_run_python(self):
         self.assertEqual(
             jobs_for("fork/benchmarks/review_summary.py"),
