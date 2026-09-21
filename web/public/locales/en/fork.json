@@ -477,6 +477,16 @@
     "allIncludedHint": "All cameras are included. Turn one on to narrow the view to it."
   },
   "navSearch": {
-    "label": "Search"
+    "label": "Search",
+    "hint": "Search footage, cameras, pages, and settings"
+  },
+  "railHints": {
+    "live": "Every camera, right now",
+    "review": "Alerts and detections on a timeline",
+    "explore": "Search footage by description",
+    "export": "Save and download clips",
+    "faces": "People the system recognizes",
+    "classification": "Custom classifiers and samples",
+    "chat": "Ask questions about your footage"
   }
 }

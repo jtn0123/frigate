@@ -47,6 +47,41 @@ async function openPalette(frigateApp: FrigateApp) {
 
 test.describe("Rail search @high", () => {
   test(
+    "rail tooltips explain destinations and unified search",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await frigateApp.goto("/review");
+      const rail = page.locator("aside");
+      await rail.getByRole("link", { name: "Live", exact: true }).hover();
+      await expect(page.getByRole("tooltip")).toContainText(
+        "Every camera, right now",
+      );
+      await rail.getByTestId("nav-search").hover();
+      await expect(page.getByRole("tooltip")).toContainText(
+        "Search footage, cameras, pages, and settings",
+      );
+    },
+  );
+
+  test(
+    "the search button identifies Explore without losing palette access",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      await frigateApp.goto("/explore");
+      const search = page.getByTestId("nav-search");
+      await expect(search).toHaveAttribute("aria-current", "page");
+      await search.click();
+      await expect(page.getByTestId("command-palette")).toBeVisible();
+      await page.getByRole("combobox").fill("Review");
+      await page.locator('[cmdk-item][data-value="page:review"]').click();
+      await expect(page).toHaveURL(/\/review/);
+      await expect(search).not.toHaveAttribute("aria-current", "page");
+    },
+  );
+
+  test(
     "the rail carries one search button and no command button",
     { tag: "@desktop-only" },
     async ({ frigateApp }) => {

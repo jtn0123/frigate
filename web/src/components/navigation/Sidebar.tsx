@@ -7,6 +7,8 @@ import { baseUrl } from "@/api/baseUrl";
 import { Suspense, lazy, useMemo } from "react";
 import ForkNavItems from "@/components/fork/ForkNavItems";
 import NavSearchButton from "@/components/fork/NavSearchButton";
+import { isForkEnabled } from "@/fork/flags";
+import "@/components/fork/rail-design.css";
 import { isRailSearchItem } from "@/lib/fork/nav-search";
 
 // These three pull in the icon picker, forms, motion and the settings menus;
@@ -31,7 +33,10 @@ function Sidebar() {
   const { t } = useTranslation(["fork"], { useSuspense: false });
 
   return (
-    <aside className="scrollbar-container scrollbar-hidden absolute inset-y-0 left-0 z-10 flex w-[52px] flex-col justify-between overflow-y-auto border-r border-secondary-highlight bg-background_alt py-4">
+    <aside
+      data-fork-rail={isForkEnabled("themeControls") || undefined}
+      className="scrollbar-container scrollbar-hidden absolute inset-y-0 left-0 z-10 flex w-[52px] flex-col justify-between overflow-y-auto border-r border-secondary-highlight bg-background_alt py-4"
+    >
       <div className="flex w-full flex-col items-center gap-0">
         <Link to="/" aria-label={t("a11y.home")}>
           <Logo className="mb-6 h-8 w-8" />
