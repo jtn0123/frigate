@@ -11,6 +11,7 @@ from typing import Any
 from frigate.comms.inter_process import InterProcessRequestor
 from frigate.config import FrigateConfig
 from frigate.const import FREQUENCY_STATS_POINTS
+from frigate.stats.camera_history import CameraHistory
 from frigate.stats.util import stats_snapshot
 from frigate.types import StatsTrackingTypes
 
@@ -33,6 +34,8 @@ class StatsEmitter(threading.Thread):
         self.stop_event = stop_event
         self.hwaccel_errors: dict[str, float] = {}
         self.stats_history: list[dict[str, Any]] = []
+        # fork (UI131): seven days of per-camera buckets behind the Health tab
+        self.camera_history = CameraHistory()
 
         # create communication for stats
         self.requestor = InterProcessRequestor()
@@ -127,10 +130,12 @@ class StatsEmitter(threading.Thread):
             )
             self.stats_history.append(stats)
             self.stats_history = self.stats_history[-MAX_STATS_POINTS:]
+            self.camera_history.record(stats)  # fork (UI131)
 
             if counter == 0:
                 self.requestor.send_data("stats", json.dumps(stats))
 
             logger.debug("Finished stats collection")
 
+        self.camera_history.flush()  # fork (UI131)
         logger.info("Exiting stats emitter...")

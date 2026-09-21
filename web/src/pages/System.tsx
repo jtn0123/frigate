@@ -1,4 +1,5 @@
 import { RouteSuspense } from "@/components/fork/RouteErrorBoundary";
+import CameraHealthToolbar from "@/components/fork/CameraHealthToolbar";
 import PageLoading from "@/components/navigation/PageLoading";
 import ShareViewButton from "@/components/navigation/ShareViewButton";
 import { useApi } from "@/api/fork/client";
@@ -153,11 +154,24 @@ function System() {
           )}
         </div>
       </div>
-      <div className="mt-2 flex items-end gap-2">
-        <div className="h-full content-center font-medium">{t("title")}</div>
+      {/* fork (UI131): shrink-0, or the column squeezes this row back to one
+          line and the wrapped Health controls draw over the tab below */}
+      <div className="mt-2 flex shrink-0 flex-wrap items-end gap-2 pr-2">
+        {/* fork (UI131): h-full dropped from these two. It resolved against
+            the row's own height, so once the row wrapped on a phone the row
+            measured one line tall and the wrapped line drew over the tab
+            below. On one line the height is the same either way. */}
+        <div className="content-center font-medium">{t("title")}</div>
         {statsSnapshot && (
-          <div className="h-full content-center text-sm text-muted-foreground">
+          <div className="content-center text-sm text-muted-foreground">
             {statsSnapshot.service.version}
+          </div>
+        )}
+        {/* fork (UI131): the window the Health tab measures over belongs with
+            the page title, beside "last refreshed", not above its own table */}
+        {page === "health" && (
+          <div className="ml-auto">
+            <CameraHealthToolbar />
           </div>
         )}
       </div>
