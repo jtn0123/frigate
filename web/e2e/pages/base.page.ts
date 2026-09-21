@@ -45,9 +45,21 @@ export class BasePage {
     const selector = this.isDesktop
       ? `aside a[href="${path}"]`
       : `a[href="${path}"]`;
-    // Use dispatchEvent to bypass actionability checks that fail when
-    // React tooltip wrappers detach/reattach nav elements during re-renders
-    await this.page.locator(selector).first().dispatchEvent("click");
+    const link = this.page.locator(selector).first();
+    // fork (UI134): the desktop rail's magnifier opens the search box instead
+    // of linking to Explore, so a route with no rail link is reached through
+    // that box, which lists every page.
+    if (this.isDesktop && (await link.count()) === 0) {
+      await this.page.getByTestId("nav-search").click();
+      await this.page
+        .locator(`[cmdk-item][data-value="page:${path.replace("/", "")}"]`)
+        .first()
+        .click();
+    } else {
+      // Use dispatchEvent to bypass actionability checks that fail when
+      // React tooltip wrappers detach/reattach nav elements during re-renders
+      await link.dispatchEvent("click");
+    }
     // React Router navigates client-side, wait for URL update
     if (path !== "/") {
       const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
