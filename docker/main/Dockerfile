@@ -359,8 +359,8 @@ CMD ["sleep", "infinity"]
 
 # Frigate web build
 # This should be architecture agnostic, so speed up the build on multiarch by not using QEMU.
-FROM --platform=$BUILDPLATFORM node:20 AS web-build
-# Bundling Monaco and the UI exceeds Node 20's default 2 GiB heap.
+FROM --platform=$BUILDPLATFORM node:22 AS web-build
+# Give Monaco and UI bundling a consistent heap limit across build hosts.
 ARG NODE_OPTIONS=--max-old-space-size=4096
 
 WORKDIR /work
