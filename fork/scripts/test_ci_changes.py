@@ -51,6 +51,12 @@ def jobs_for(changed: str) -> dict[str, str]:
 
 
 class TestCiChanges(unittest.TestCase):
+    def test_benchmark_changes_run_python(self):
+        self.assertEqual(
+            jobs_for("fork/benchmarks/review_summary.py"),
+            {"web": "false", "python": "true"},
+        )
+
     def test_docs_only_skips_both_suites(self):
         self.assertEqual(jobs_for("FORK.md"), {"web": "false", "python": "false"})
 

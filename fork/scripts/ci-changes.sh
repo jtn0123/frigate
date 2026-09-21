@@ -38,7 +38,7 @@ echo "  ${files//$'\n'/$'\n'  }" >&2
 shared='^(\.coveragerc$|sonar-project\.properties$|fork/requirements-(sonar|audit)\.txt$|fork/audit-exceptions\.json$|fork/sonar-token\.env$|\.github/workflows/fork-checks\.yml|\.github/actions/fork-web-setup/|fork/scripts/[^/]+\.sh$)'
 # The web jobs read the ratchet and bundle budget baselines under fork/.
 web_re="${shared}|^web/|^docs/static/frigate-api\.yaml$|^fork/(type-ratchet|bundle-budget)\.json$"
-py_re="${shared}|^fork/(audio_trial|monitoring|ledger)/|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|runtime-base\.env|requirements-dev\.lock)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
+py_re="${shared}|^fork/(audio_trial|monitoring|benchmarks|ledger)/|^(frigate|migrations|docker)/|^[^/]+\.py$|^(pyproject\.toml|Makefile)$|^fork/(Dockerfile\.test|runtime-base\.env|requirements-dev\.lock)$|^fork/scripts/[^/]+\.py$|^docs/static/frigate-api\.yaml$"
 
 has() {
   local pattern="$1"

@@ -2,6 +2,7 @@
 
 import io
 import json
+import statistics
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
@@ -40,6 +41,10 @@ class ReviewSummaryBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(len(results), 7)
         for result in results:
+            self.assertEqual(len(result["samples_ms"]), 2)
+            self.assertEqual(
+                result["median_ms"], round(statistics.median(result["samples_ms"]), 2)
+            )
             self.assertGreaterEqual(result["median_ms"], 0)
             self.assertGreaterEqual(result["p95_ms"], result["median_ms"])
             self.assertGreater(result["bytes"], 0)
@@ -52,6 +57,9 @@ class ReviewSummaryBenchmarkTests(unittest.TestCase):
             if day != "last24Hours"
         )
         self.assertEqual(daily_total, 10)
+        self.assertEqual(
+            set(restricted), {"last24Hours", "2026-09-19", "2026-09-20", "2026-09-21"}
+        )
         no_match = next(value for key, value in responses.items() if key[0] == "absent")
         self.assertEqual(list(no_match), ["last24Hours"])
         self.assertIsNone(no_match["last24Hours"]["total_alert"])

@@ -10,19 +10,19 @@ PYTHONPATH=. python3 fork/benchmarks/review_summary.py > results.json
 
 The benchmark uses a disposable, file-backed SQLite database, applies the real
 migration chain (including the time index), inserts deterministic synthetic
-history and calls the actual handler, including JSON serialization. Each case
-has two warmups and ten timed requests. SQL query plans are collected afterward,
-not during timing. Full measurements and query plans are in
+history anchored at `2026-09-21T12:00:00Z` and calls the actual handler, including JSON serialization. Each case
+uses that same fixed handler clock and has two warmups and ten timed requests. SQL query plans are collected afterward,
+not during timing. Individual timing samples, aggregates and query plans are in
 [the result artifact](results/review-summary-20260921.json).
 
 | Workload | Rows / history | Median | p95 | Response bytes |
 |---|---|---|---|---|
-| All cameras, UTC | 5,000 / 30 days | 4.60 ms | 4.65 ms | 3,693 |
-| Audio and zone filters | 5,000 / 30 days | 7.73 ms | 8.03 ms | 3,663 |
-| All cameras, UTC | 50,000 / 365 days | 56.97 ms | 78.78 ms | 42,188 |
-| Two authorized cameras, second user | 50,000 / 365 days | 15.40 ms | 17.58 ms | 41,818 |
-| Audio and zone filters | 50,000 / 365 days | 86.84 ms | 93.55 ms | 42,188 |
-| Los Angeles DST periods | 50,000 / 365 days | 79.17 ms | 103.91 ms | 42,185 |
+| All cameras, UTC | 5,000 / 30 days | 4.66 ms | 4.77 ms | 3,693 |
+| Audio and zone filters | 5,000 / 30 days | 7.76 ms | 8.02 ms | 3,663 |
+| All cameras, UTC | 50,000 / 365 days | 57.14 ms | 58.20 ms | 42,188 |
+| Two authorized cameras, second user | 50,000 / 365 days | 14.91 ms | 28.35 ms | 41,819 |
+| Audio and zone filters | 50,000 / 365 days | 86.96 ms | 104.45 ms | 42,188 |
+| Los Angeles DST periods | 50,000 / 365 days | 76.60 ms | 92.94 ms | 42,188 |
 
 Also measured person filtering, no matching labels and Kathmandu's fractional
 UTC offset. Queries use the migrated camera/time indexes where applicable;

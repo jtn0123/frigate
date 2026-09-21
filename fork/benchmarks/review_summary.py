@@ -6,6 +6,7 @@ No production database or credentials are used. Output is JSON.
 """
 
 import argparse
+import datetime
 import json
 import math
 import statistics
@@ -25,6 +26,7 @@ from frigate.api.review import review_summary
 from frigate.models import ReviewSegment, User, UserReviewStatus
 
 ROOT = Path(__file__).resolve().parents[2]
+ANCHOR = datetime.datetime(2026, 9, 21, 12, tzinfo=datetime.UTC)
 
 
 def history_row(index: int, timestamp: float) -> dict:
@@ -46,7 +48,7 @@ def history_row(index: int, timestamp: float) -> dict:
 
 def seed_history(db: SqliteDatabase, rows: int, days: int) -> None:
     """Populate bounded batches of synthetic camera history and user state."""
-    now = time.time()
+    now = ANCHOR.timestamp()
     with db.atomic():
         for offset in range(0, rows, 500):
             batch = []
@@ -81,9 +83,15 @@ def benchmark(rows: int, days: int, repeats: int) -> list[dict]:
 
 def run_cases(db: SqliteDatabase, rows: int, days: int, repeats: int) -> list[dict]:
     """Migrate the isolated database and evaluate the representative cases."""
-    with db.bind_ctx(
-        [ReviewSegment, UserReviewStatus, User], bind_refs=False, bind_backrefs=False
+    with (
+        db.bind_ctx(
+            [ReviewSegment, UserReviewStatus, User],
+            bind_refs=False,
+            bind_backrefs=False,
+        ),
+        patch("frigate.api.review.datetime", wraps=datetime) as clock,
     ):
+        clock.datetime.now.return_value = ANCHOR
         # Migration 030 binds User and UserReviewStatus, so scope migrations too.
         Router(db, migrate_dir=str(ROOT / "migrations")).run()
         seed_history(db, rows, days)
@@ -106,49 +114,64 @@ def run_cases(db: SqliteDatabase, rows: int, days: int, repeats: int) -> list[di
             params = ReviewSummaryQueryParams(**filters)
             cameras = [f"camera{i}" for i in range(camera_count)]
 
-            def request() -> JSONResponse:
-                response = review_summary(params, {"username": user}, cameras)
-                if not isinstance(response, JSONResponse):
-                    raise TypeError("Expected a serialized review summary")
-                return response
-
-            for _ in range(2):
-                request()
-            elapsed = []
-            for _ in range(repeats):
-                start = time.perf_counter()
-                response = request()
-                elapsed.append((time.perf_counter() - start) * 1000)
-            queries: list[tuple[str, Sequence[object] | None]] = []
-            execute = db.execute_sql
-
-            def capture(
-                sql: str,
-                params: Sequence[object] | None = None,
-                commit: bool | None = None,
-            ) -> Any:
-                queries.append((sql, params))
-                return execute(sql, params, commit)
-
-            with patch.object(db, "execute_sql", side_effect=capture):
-                request()
-            plans = [
-                list(execute("EXPLAIN QUERY PLAN " + sql, parameters))
-                for sql, parameters in queries
-            ]
             results.append(
                 {
                     "rows": rows,
                     "days": days,
                     "case": name,
-                    "median_ms": round(statistics.median(elapsed), 2),
-                    "p95_ms": round(sorted(elapsed)[math.ceil(repeats * 0.95) - 1], 2),
-                    "bytes": len(response.body),
-                    "queries": len(queries),
-                    "plans": plans,
+                    **measure_case(db, params, cameras, user, repeats),
                 }
             )
     return results
+
+
+def measure_case(
+    db: SqliteDatabase,
+    params: ReviewSummaryQueryParams,
+    cameras: list[str],
+    user: str,
+    repeats: int,
+) -> dict:
+    """Measure one request shape and collect its query plans outside timing."""
+
+    def request() -> JSONResponse:
+        response = review_summary(params, {"username": user}, cameras)
+        if not isinstance(response, JSONResponse):
+            raise TypeError("Expected a serialized review summary")
+        return response
+
+    for _ in range(2):
+        request()
+    elapsed = []
+    for _ in range(repeats):
+        start = time.perf_counter()
+        response = request()
+        elapsed.append((time.perf_counter() - start) * 1000)
+    queries: list[tuple[str, Sequence[object] | None]] = []
+    execute = db.execute_sql
+
+    def capture(
+        sql: str,
+        params: Sequence[object] | None = None,
+        commit: bool | None = None,
+    ) -> Any:
+        queries.append((sql, params))
+        return execute(sql, params, commit)
+
+    with patch.object(db, "execute_sql", side_effect=capture):
+        request()
+    plans = [
+        list(execute("EXPLAIN QUERY PLAN " + sql, parameters))
+        for sql, parameters in queries
+    ]
+    return {
+        "samples_ms": elapsed,
+        "median_ms": round(statistics.median(elapsed), 2),
+        "p95_ms": round(sorted(elapsed)[math.ceil(repeats * 0.95) - 1], 2),
+        "bytes": len(response.body),
+        "queries": len(queries),
+        "plans": plans,
+    }
 
 
 def main() -> None:
@@ -161,6 +184,7 @@ def main() -> None:
     print(
         json.dumps(
             {
+                "anchor_utc": ANCHOR.isoformat(),
                 "warmups": 2,
                 "repeats": args.repeats,
                 "results": benchmark(5000, 30, args.repeats)
