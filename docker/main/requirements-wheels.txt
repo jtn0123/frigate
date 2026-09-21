@@ -23,7 +23,7 @@ peewee == 3.17.*
 peewee_migrate == 1.14.*
 psutil == 7.1.*
 pydantic == 2.10.*
-git+https://github.com/fbcotter/py3nvml@0545dfd39858c1552aaabc52ea3fbcb7f5714853#egg=py3nvml
+py3nvml @ https://github.com/fbcotter/py3nvml/archive/0545dfd39858c1552aaabc52ea3fbcb7f5714853.zip
 pytz == 2025.*
 pyzmq == 26.2.*
 ruamel.yaml == 0.18.*

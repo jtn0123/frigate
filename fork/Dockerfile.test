@@ -19,6 +19,8 @@ COPY fork/scripts /opt/frigate/fork/scripts
 # Data files the scripts read next to themselves: the reviewed advisory list
 # (lock-audit.py) and the coverage floors (sonar-coverage-check.py).
 COPY fork/audit-exceptions.json fork/coverage-floor.json /opt/frigate/fork/
+COPY fork/requirements-runtime-*.lock /opt/frigate/fork/
+COPY docker/main/requirements-wheels.txt docker/main/constraints-runtime-addons.txt /opt/frigate/docker/main/
 COPY fork/audio_trial /opt/frigate/fork/audio_trial
 COPY fork/monitoring /opt/frigate/fork/monitoring
 # test_ledger.py validates the row files against the ledger's table
