@@ -75,6 +75,13 @@ class ReviewSummaryBenchmarkTests(unittest.TestCase):
             workload.benchmark(8, 2, 1)
         self.assertTrue(databases[0].is_closed())
 
+    def test_rejects_unserialized_handler_output(self):
+        with (
+            patch.object(workload, "review_summary", return_value={}),
+            self.assertRaisesRegex(TypeError, "serialized review summary"),
+        ):
+            workload.benchmark(8, 2, 1)
+
     def test_cli_rejects_invalid_repeats_and_emits_both_workloads(self):
         with (
             patch("sys.argv", ["benchmark", "--repeats", "0"]),

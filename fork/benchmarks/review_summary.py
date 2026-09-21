@@ -11,8 +11,12 @@ import math
 import statistics
 import tempfile
 import time
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
+from fastapi.responses import JSONResponse
 from peewee import SqliteDatabase
 from peewee_migrate import Router
 
@@ -83,7 +87,7 @@ def run_cases(db: SqliteDatabase, rows: int, days: int, repeats: int) -> list[di
         # Migration 030 binds User and UserReviewStatus, so scope migrations too.
         Router(db, migrate_dir=str(ROOT / "migrations")).run()
         seed_history(db, rows, days)
-        cases = [
+        cases: list[tuple[str, dict[str, str], int, str]] = [
             ("all_utc", {}, 8, "alice"),
             ("restricted", {}, 2, "bob"),
             ("person", {"labels": "person"}, 8, "alice"),
@@ -102,8 +106,11 @@ def run_cases(db: SqliteDatabase, rows: int, days: int, repeats: int) -> list[di
             params = ReviewSummaryQueryParams(**filters)
             cameras = [f"camera{i}" for i in range(camera_count)]
 
-            def request():
-                return review_summary(params, {"username": user}, cameras)
+            def request() -> JSONResponse:
+                response = review_summary(params, {"username": user}, cameras)
+                if not isinstance(response, JSONResponse):
+                    raise TypeError("Expected a serialized review summary")
+                return response
 
             for _ in range(2):
                 request()
@@ -112,18 +119,19 @@ def run_cases(db: SqliteDatabase, rows: int, days: int, repeats: int) -> list[di
                 start = time.perf_counter()
                 response = request()
                 elapsed.append((time.perf_counter() - start) * 1000)
-            queries = []
+            queries: list[tuple[str, Sequence[object] | None]] = []
             execute = db.execute_sql
 
-            def capture(sql, parameters=None, *args, **kwargs):
-                queries.append((sql, parameters))
-                return execute(sql, parameters, *args, **kwargs)
+            def capture(
+                sql: str,
+                params: Sequence[object] | None = None,
+                commit: bool | None = None,
+            ) -> Any:
+                queries.append((sql, params))
+                return execute(sql, params, commit)
 
-            db.execute_sql = capture
-            try:
+            with patch.object(db, "execute_sql", side_effect=capture):
                 request()
-            finally:
-                db.execute_sql = execute
             plans = [
                 list(execute("EXPLAIN QUERY PLAN " + sql, parameters))
                 for sql, parameters in queries
