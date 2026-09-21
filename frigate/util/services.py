@@ -1020,7 +1020,7 @@ def ffprobe_stream(ffmpeg, path: str, detailed: bool = False) -> sp.CompletedPro
         ]
         if detailed and format_entries:
             cmd.extend(["-show_entries", f"format={format_entries}"])
-        cmd.extend(["-loglevel", "error", clean_path])
+        cmd.extend(["-loglevel", "error", "-i", clean_path])
         try:
             return sp.run(cmd, capture_output=True, timeout=6)
         except sp.TimeoutExpired as e:
