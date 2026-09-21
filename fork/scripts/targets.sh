@@ -17,7 +17,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 
 # Everything ruff formats and lints. `./*.py` is the repository's root scripts
 # (generate_api_auth_spec.py and friends).
-py_lint=(frigate migrations docker fork/scripts fork/audio_trial fork/monitoring ./*.py)
+py_lint=(frigate migrations docker fork/scripts fork/benchmarks fork/audio_trial fork/monitoring ./*.py)
 
 # Test roots that `python3 -m unittest` does not reach on its own. The main
 # frigate/ suite is discovered by unittest itself, so it is not listed.

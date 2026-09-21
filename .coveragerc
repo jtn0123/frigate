@@ -6,6 +6,7 @@ source =
     migrations
     testing-scripts
     fork/scripts
+    fork/benchmarks
     fork/audio_trial
     fork/monitoring
 omit =

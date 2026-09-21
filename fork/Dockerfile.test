@@ -23,6 +23,7 @@ COPY fork/requirements-runtime-*.lock /opt/frigate/fork/
 COPY docker/main/requirements-wheels.txt docker/main/constraints-runtime-addons.txt /opt/frigate/docker/main/
 COPY fork/audio_trial /opt/frigate/fork/audio_trial
 COPY fork/monitoring /opt/frigate/fork/monitoring
+COPY fork/benchmarks /opt/frigate/fork/benchmarks
 # test_ledger.py validates the row files against the ledger's table
 COPY FORK.md /opt/frigate/FORK.md
 COPY fork/ledger /opt/frigate/fork/ledger
