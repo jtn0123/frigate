@@ -6,6 +6,7 @@
  * helpers drive that flow and check the panel fits the 412px viewport.
  */
 import { expect, type Locator, type Page } from "@playwright/test";
+import { waitForAppReady } from "./app-ready";
 
 type SectionPath = {
   /** Group heading in the phone menu, or null for single-item groups */
@@ -20,7 +21,7 @@ export async function openPhoneSettingsSection(
   { group, section }: SectionPath,
 ) {
   await page.goto("/settings");
-  await page.waitForSelector("#pageRoot", { timeout: 10_000 });
+  await waitForAppReady(page);
   await expect(
     page.getByRole("heading", { level: 2, name: "Settings" }),
   ).toBeVisible();

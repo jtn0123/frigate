@@ -22,6 +22,7 @@ import {
   type ApiMockOverrides,
 } from "../helpers/api-mocker";
 import { WsMocker } from "../helpers/ws-mocker";
+import { waitForAppReady } from "../helpers/app-ready";
 import { installErrorCollector, type ErrorCollector } from "./error-collector";
 import { GLOBAL_ALLOWLIST } from "./error-allowlist";
 import { startBrowserCoverage, saveBrowserCoverage } from "./browser-coverage";
@@ -65,8 +66,8 @@ export class FrigateApp {
   /** Navigate to a page. Always call installDefaults() first. */
   async goto(path: string) {
     await this.page.goto(path);
-    // Wait for the app to render past the loading indicator
-    await this.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+    // fork: past the route suspense fallback, not just #pageRoot (D49)
+    await waitForAppReady(this.page);
   }
 
   /** Navigate to a page that may show a loading indicator */

@@ -197,8 +197,7 @@ test.describe("Classification — admin only @medium", () => {
     frigateApp,
   }) => {
     await frigateApp.installDefaults({ profile: viewerProfile() });
-    await frigateApp.page.goto("/classification");
-    await frigateApp.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+    await frigateApp.goto("/classification");
     await expect(frigateApp.page).toHaveURL(/\/unauthorized/, {
       timeout: 10_000,
     });

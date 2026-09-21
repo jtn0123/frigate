@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 type OptimisticStateResult<T> = [T, (newValue: T) => void];
 
@@ -8,6 +8,9 @@ const useOptimisticState = <T>(
   delay: number = 20,
 ): OptimisticStateResult<T> => {
   const [optimisticValue, setOptimisticValue] = useState<T>(currentState);
+  // The value last handed to setState, still waiting to come back as
+  // currentState. It is our own echo, not an external update.
+  const echoPending = useRef<{ value: T } | null>(null);
 
   const handleValueChange = useCallback((newValue: T) => {
     // Update the optimistic value immediately
@@ -23,7 +26,10 @@ const useOptimisticState = <T>(
     if (Object.is(optimisticValue, currentState)) {
       return;
     }
-    const id = setTimeout(() => setState(optimisticValue), delay);
+    const id = setTimeout(() => {
+      echoPending.current = { value: optimisticValue };
+      setState(optimisticValue);
+    }, delay);
     return () => clearTimeout(id);
   }, [optimisticValue, currentState, delay, setState]);
 
@@ -33,9 +39,25 @@ const useOptimisticState = <T>(
   // would clobber an optimistic update that another effect (e.g. a search
   // param sync) made earlier in the same commit.
   useEffect(() => {
-    if (!Object.is(currentState, optimisticValue)) {
-      setOptimisticValue(currentState);
+    if (Object.is(currentState, optimisticValue)) {
+      // The two agree, so anything we pushed has landed and the next value
+      // the owner reports is a fresh one.
+      echoPending.current = null;
+      return;
     }
+    // Unless it is the echo of a value we pushed ourselves and the user has
+    // since moved on: the setter above is debounced and its owner may take
+    // longer still to hand the value back, so on a slow machine a second
+    // click lands in that gap. Adopting the echo there would undo it and
+    // leave the UI on the value the user just left.
+    if (
+      echoPending.current &&
+      Object.is(currentState, echoPending.current.value)
+    ) {
+      echoPending.current = null;
+      return;
+    }
+    setOptimisticValue(currentState);
     // sometimes an external action will cause the currentState to change
     // without handleValueChange being called. In this case
     // we need to update the optimistic value so the UI reflects the change

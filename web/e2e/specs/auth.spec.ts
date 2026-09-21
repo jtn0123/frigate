@@ -38,8 +38,7 @@ test.describe("Auth — viewer restrictions @high", () => {
   for (const path of ["/system", "/config", "/logs"]) {
     test(`viewer on ${path} sees AccessDenied`, async ({ frigateApp }) => {
       await frigateApp.installDefaults({ profile: viewerProfile() });
-      await frigateApp.page.goto(path);
-      await frigateApp.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+      await frigateApp.goto(path);
       await expect(
         frigateApp.page.getByRole("heading", {
           level: 2,
@@ -51,7 +50,7 @@ test.describe("Auth — viewer restrictions @high", () => {
 
   test("viewer sees cameras on /", async ({ frigateApp }) => {
     await frigateApp.installDefaults({ profile: viewerProfile() });
-    await frigateApp.page.goto("/");
+    await frigateApp.goto("/");
     await expect(
       frigateApp.page.locator("[data-camera='front_door']"),
     ).toBeVisible({ timeout: 10_000 });
@@ -59,7 +58,7 @@ test.describe("Auth — viewer restrictions @high", () => {
 
   test("viewer sees severity tabs on /review", async ({ frigateApp }) => {
     await frigateApp.installDefaults({ profile: viewerProfile() });
-    await frigateApp.page.goto("/review");
+    await frigateApp.goto("/review");
     await expect(frigateApp.page.getByLabel("Alerts")).toBeVisible({
       timeout: 10_000,
     });
@@ -71,8 +70,7 @@ test.describe("Auth — viewer restrictions @high", () => {
     await frigateApp.installDefaults({ profile: viewerProfile() });
     const routes = ["/", "/review", "/explore", "/export", "/settings"];
     for (const route of routes) {
-      await frigateApp.page.goto(route);
-      await frigateApp.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+      await frigateApp.goto(route);
       await expect(
         frigateApp.page.getByRole("heading", {
           level: 2,
@@ -88,8 +86,7 @@ test.describe("Auth — viewer nav restrictions (desktop) @high", () => {
 
   test("viewer sidebar hides admin routes", async ({ frigateApp }) => {
     await frigateApp.installDefaults({ profile: viewerProfile() });
-    await frigateApp.page.goto("/");
-    await frigateApp.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+    await frigateApp.goto("/");
     for (const href of ["/system", "/config", "/logs"]) {
       await expect(
         frigateApp.page.locator(`aside a[href='${href}']`),

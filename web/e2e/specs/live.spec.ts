@@ -48,8 +48,7 @@ test.describe("Live Dashboard @critical", () => {
   });
 
   test("empty group shows fallback content", async ({ frigateApp }) => {
-    await frigateApp.page.goto("/?group=nonexistent");
-    await frigateApp.page.waitForSelector("#pageRoot", { timeout: 10_000 });
+    await frigateApp.goto("/?group=nonexistent");
     await expect(frigateApp.page.locator("#pageRoot")).toBeVisible();
   });
 });
