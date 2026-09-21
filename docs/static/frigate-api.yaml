@@ -9660,6 +9660,7 @@ components:
         decoder_detail:
           anyOf:
             - type: string
+              maxLength: 1600
             - type: 'null'
           title: Decoder Detail
       type: object

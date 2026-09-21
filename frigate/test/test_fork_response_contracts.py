@@ -52,6 +52,26 @@ class TestForkResponseContracts(unittest.TestCase):
             self.assertEqual(schema, {"$ref": f"#/components/schemas/{name}"})
         self.assertIn("404", paths["/review/{review_id}/audio"]["get"]["responses"])
 
+    def test_decoder_detail_contract_enforces_and_documents_bound(self):
+        from pydantic import ValidationError
+
+        from frigate.api.defs.response.fork_diagnostics import StreamDiagnosticsResponse
+
+        fields = dict(
+            id="probe", stream="front", status="healthy", codecs=[], elapsed_ms=0
+        )
+        model = StreamDiagnosticsResponse(**fields, decoder_detail="x" * 1600)
+        self.assertEqual(len(model.decoder_detail), 1600)
+        with self.assertRaises(ValidationError):
+            StreamDiagnosticsResponse(**fields, decoder_detail="x" * 1601)
+        schema = self.app.openapi()["components"]["schemas"][
+            "StreamDiagnosticsResponse"
+        ]
+        self.assertIn(
+            {"type": "string", "maxLength": 1600},
+            schema["properties"]["decoder_detail"]["anyOf"],
+        )
+
     def test_audio_availability_preserves_optional_fields_and_filters_extras(self):
         for status in ("available", "unavailable", "not_available"):
             expected = {"status": status, "chunks": []}

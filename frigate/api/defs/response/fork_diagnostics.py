@@ -19,4 +19,4 @@ class StreamDiagnosticsResponse(BaseModel):
     received_bytes: int | None = Field(default=None, ge=0)
     decoded_frames: int | None = Field(default=None, ge=0)
     decoder_errors: int | None = Field(default=None, ge=0)
-    decoder_detail: str | None = None
+    decoder_detail: str | None = Field(default=None, max_length=1600)
