@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from frigate.stats.camera_history import (
     BUCKET_SECONDS,
@@ -90,6 +91,9 @@ class TestBucket(unittest.TestCase):
 
 class HistoryTestCase(unittest.TestCase):
     def setUp(self):
+        clock = patch("frigate.stats.camera_history.time.time", return_value=NOW)
+        clock.start()
+        self.addCleanup(clock.stop)
         self._dir = tempfile.TemporaryDirectory()
         self.path = Path(self._dir.name) / ".camera_history.json"
         self.addCleanup(self._dir.cleanup)
