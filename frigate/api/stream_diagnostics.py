@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from frigate.api.auth import require_go2rtc_stream_access
+from frigate.api.defs.response.fork_diagnostics import StreamDiagnosticsResponse
 from frigate.util.config import resolve_ffmpeg_path
 
 logger = logging.getLogger(__name__)
@@ -169,7 +170,8 @@ def _expire_cached_diagnostics(now: float) -> None:
     "/go2rtc/streams/{stream_name}/diagnostics",
     dependencies=[Depends(require_go2rtc_stream_access)],
     operation_id="diagnose_live_stream",
-    response_model=None,
+    response_model=StreamDiagnosticsResponse,
+    response_model_exclude_unset=True,
     responses={
         404: {"description": "Stream not configured"},
         429: {"description": "Stream diagnostics busy"},

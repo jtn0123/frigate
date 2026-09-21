@@ -4,14 +4,11 @@ import { useTranslation } from "react-i18next";
 import { LivePlayerError } from "@/types/live";
 import { Button } from "@/components/ui/button";
 
-type DiagnosticStatus =
-  "healthy" | "decode_error" | "stream_unavailable" | "timeout" | "unavailable";
+import type { components } from "@/types/fork/api.gen";
 
-type Diagnostics = {
-  id?: string;
-  status: DiagnosticStatus;
-  codecs?: string[];
-};
+type Diagnostics = components["schemas"]["StreamDiagnosticsResponse"];
+type DiagnosticState = Pick<Diagnostics, "status"> &
+  Partial<Pick<Diagnostics, "id" | "codecs">>;
 
 export function LivePlaybackError({
   streamName,
@@ -25,7 +22,7 @@ export function LivePlaybackError({
   onRetry: () => void;
 }>) {
   const { t } = useTranslation("views/live");
-  const [diagnostics, setDiagnostics] = useState<Diagnostics>();
+  const [diagnostics, setDiagnostics] = useState<DiagnosticState>();
 
   useEffect(() => {
     const controller = new AbortController();
