@@ -98,6 +98,18 @@ class TestRuntimeLock(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "generated content changed"):
             validate(self.root, "amd64")
 
+    def test_unsupported_architecture_never_runs_the_resolver(self):
+        for architecture in ("../../escape", "--index-url=example.invalid", ""):
+            with (
+                self.subTest(architecture=architecture),
+                patch("runtime_lock.subprocess.run") as run,
+            ):
+                with self.assertRaises(KeyError):
+                    update(self.root, architecture)
+                with self.assertRaises(KeyError):
+                    validate(self.root, architecture)
+                run.assert_not_called()
+
     def test_wrong_architecture_is_rejected(self):
         self.write_lock(architecture="arm64")
         with self.assertRaisesRegex(ValueError, "architecture does not match"):

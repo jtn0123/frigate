@@ -11,6 +11,10 @@ INPUTS = (
     "docker/main/requirements-wheels.txt",
     "docker/main/constraints-runtime-addons.txt",
 )
+LOCK_PATHS = {
+    "amd64": "fork/requirements-runtime-amd64.lock",
+    "arm64": "fork/requirements-runtime-arm64.lock",
+}
 PLATFORMS = {"amd64": "x86_64-manylinux_2_35", "arm64": "aarch64-manylinux_2_35"}
 
 
@@ -34,7 +38,7 @@ def content_digest(text: str) -> str:
 
 def validate(root: Path, architecture: str) -> None:
     """Reject stale inputs, floating pins, missing hashes and wrong platforms."""
-    path = root / f"fork/requirements-runtime-{architecture}.lock"
+    path = root / LOCK_PATHS[architecture]
     text = path.read_text()
     marker = f"# runtime-input-sha256: {input_digest(root)}"
     if marker not in text.splitlines():
@@ -63,7 +67,7 @@ def validate(root: Path, architecture: str) -> None:
 
 def update(root: Path, architecture: str) -> None:
     """Resolve CPython 3.11 Linux artifacts and record their input fingerprint."""
-    output = f"fork/requirements-runtime-{architecture}.lock"
+    output = LOCK_PATHS[architecture]
     subprocess.run(
         [
             "uv",
