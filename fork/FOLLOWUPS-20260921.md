@@ -67,9 +67,10 @@ run is presented as a product defect or a passing result. The passing 1,440 +
 116 tests above are the backend validation evidence. The successful rerun of
 the script lane is separate from the original gate exit status.
 
-A full `make check`, remote CI and Sonar are still required before opening a
-PR. The fast gate correctly skipped the bundle build and full Playwright suite
-because no e2e files changed. No deployment was performed. PR validation is recorded below.
+At the initial implementation handoff, full local and remote validation was
+still pending. The fast gate correctly skipped the bundle build and full
+Playwright suite because no e2e files changed. No deployment was performed.
+The subsequent PR validation below supersedes that earlier limitation.
 
 
 ## PR preparation
@@ -81,5 +82,19 @@ image, Ruff scope and coverage source list. The added tests exposed migration
 030 changing global model bindings; the benchmark now scopes migration and
 queries together and restores the bindings on exit.
 
-The full `make check` run is in progress. Remote CI and review results will be
-recorded when the PR completes validation.
+The full `make check` subsequently passed all lanes, including 679 Playwright
+cases (95 platform/tag skips), production build/bundle budget, backend tests,
+API drift checks, mypy, lint, i18n, type ratchet, tooling tests and secret scan.
+The Docker backend lane took 831 seconds on the development VM disk. The
+additional benchmark tests were checked separately, followed by a complete
+final-source backend run: 1,443 tests, one skipped, in 84.543 seconds with
+RAM-backed test databases. Runtime-lock tests also passed (10 tests).
+
+GitHub exposed a setup error in the first run: copying a comment line from the
+shared runtime file into GITHUB_ENV is invalid. The export now selects only
+the runtime assignment; a regression test fails on the old command and passes
+on the corrected command. actionlint also passes on the corrected workflow.
+
+Current remote checks, Sonar and review disposition are recorded on
+[PR #93](https://github.com/jtn0123/frigate/pull/93). Local results do not
+substitute for the checks on its final head revision.
