@@ -7,21 +7,26 @@ import axios from "axios";
 import { toast } from "sonner";
 import { isDesktop } from "react-device-detect";
 import type { IconType } from "react-icons";
-import { FaCompactDisc, FaVideo } from "react-icons/fa";
-import { IoSearch } from "react-icons/io5";
-import { MdCategory, MdChat, MdVideoLibrary } from "react-icons/md";
-import { TbFaceId } from "react-icons/tb";
+// fork (UI132): the palette names the same destinations as the rail, so it
+// draws them with the same icons.
 import {
   LuActivity,
   LuCheckCheck,
   LuFileCode,
+  LuFilm,
+  LuGalleryThumbnails,
   LuHistory,
   LuLayers,
   LuList,
+  LuMessageCircle,
   LuRotateCw,
+  LuSearch,
   LuSettings,
+  LuShapes,
   LuSparkles,
   LuSunMoon,
+  LuUsersRound,
+  LuVideo,
 } from "react-icons/lu";
 import {
   Dialog,
@@ -174,25 +179,25 @@ function CommandPaletteInner() {
         id: "page:live",
         label: t("menu.live.title", { ns: "common" }),
         to: "/",
-        icon: FaVideo,
+        icon: LuVideo,
       },
       {
         id: "page:review",
         label: t("menu.review", { ns: "common" }),
         to: "/review",
-        icon: MdVideoLibrary,
+        icon: LuGalleryThumbnails,
       },
       {
         id: "page:explore",
         label: t("menu.explore", { ns: "common" }),
         to: "/explore",
-        icon: IoSearch,
+        icon: LuSearch,
       },
       {
         id: "page:export",
         label: t("menu.export", { ns: "common" }),
         to: "/export",
-        icon: FaCompactDisc,
+        icon: LuFilm,
       },
       {
         id: "page:system",
@@ -225,21 +230,21 @@ function CommandPaletteInner() {
         id: "page:faces",
         label: t("menu.faceLibrary", { ns: "common" }),
         to: "/faces",
-        icon: TbFaceId,
+        icon: LuUsersRound,
         enabled: allPages && isAdmin && !!config?.face_recognition.enabled,
       },
       {
         id: "page:classification",
         label: t("menu.classification", { ns: "common" }),
         to: "/classification",
-        icon: MdCategory,
+        icon: LuShapes,
         enabled: allPages && isAdmin,
       },
       {
         id: "page:chat",
         label: t("menu.chat", { ns: "common" }),
         to: "/chat",
-        icon: MdChat,
+        icon: LuMessageCircle,
         enabled: allPages && isAdmin && hasChatAgent,
       },
       {
@@ -280,7 +285,7 @@ function CommandPaletteInner() {
           label,
           hint: t("commandPalette.camera.live"),
           keywords: [name, "live", "camera"],
-          icon: FaVideo,
+          icon: LuVideo,
           run: go(`/#${name}`),
         },
         {
@@ -289,7 +294,7 @@ function CommandPaletteInner() {
           label,
           hint: t("commandPalette.camera.review"),
           keywords: [name, "review", "camera"],
-          icon: MdVideoLibrary,
+          icon: LuGalleryThumbnails,
           run: go(`/review?cameras=${encodeURIComponent(name)}`),
         },
       );
