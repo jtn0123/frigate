@@ -59,6 +59,10 @@ remain coordinated migration work. The camera-history and footage-search changes
 merged into `next` are retained. These backports do not complete issue #91's full
 branch integration.
 
+Combined-branch browser validation exposed a mobile drawer focus race in the
+merged search flow. The closing Settings drawer now leaves focus in an open
+command palette, preserving text typed during the transition.
+
 ## Validation
 
 Regression tests reproduce the old preview/tracker/motion/config failures and

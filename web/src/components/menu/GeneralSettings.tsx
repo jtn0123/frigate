@@ -79,6 +79,7 @@ import { useTranslation } from "react-i18next";
 import { supportedLanguageKeys } from "@/lib/const";
 import AppearanceMenu from "@/components/fork/AppearanceMenu";
 import CommandPaletteMenuItem from "@/components/fork/CommandPaletteMenuItem";
+import { useCommandPaletteOpen } from "@/hooks/fork/use-command-palette";
 
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { MdCategory } from "react-icons/md";
@@ -94,6 +95,7 @@ export default function GeneralSettings({
 }: Readonly<GeneralSettingsProps>) {
   const { t } = useTranslation(["common", "views/settings", "fork"]);
   const { getLocaleDocUrl } = useDocDomain();
+  const [commandPaletteOpen] = useCommandPaletteOpen();
   const { data: profile } = useSWR("profile");
   const { data: config } = useSWR<FrigateConfig>("config");
   const { data: profilesData, mutate: updateProfiles } =
@@ -249,6 +251,11 @@ export default function GeneralSettings({
           </Tooltip>
         </Trigger>
         <Content
+          onCloseAutoFocus={(event) => {
+            // Keep the drawer's delayed focus restoration from selecting text
+            // already being typed into the newly opened search palette.
+            if (commandPaletteOpen) event.preventDefault();
+          }}
           style={
             isDesktop
               ? {
