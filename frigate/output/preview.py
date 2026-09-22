@@ -78,7 +78,7 @@ def get_most_recent_preview_frame(
         preview_files = [
             f
             for f in os.listdir(PREVIEW_CACHE_DIR)
-            if f.startswith(f"preview_{camera}-")
+            if f.rsplit("-", 1)[0] == f"preview_{camera}"
             and f.endswith(f".{PREVIEW_FRAME_TYPE}")
         ]
 

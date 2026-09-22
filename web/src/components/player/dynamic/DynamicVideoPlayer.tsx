@@ -143,7 +143,11 @@ export default function DynamicVideoPlayer({
 
   const [isLoading, setIsLoading] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout>();
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const sourceLoadedRef = useRef(false);
+  const previousCameraRef = useRef(camera);
 
   // Don't set source until recordings load - we need accurate startPosition
   // to avoid hls.js clamping to video end when startPosition exceeds duration
@@ -152,20 +156,29 @@ export default function DynamicVideoPlayer({
   // start at correct time
 
   useEffect(() => {
-    if (!isScrubbing) {
-      setLoadingTimeout(setTimeout(() => setIsLoading(true), 1000));
+    const cameraChanged = previousCameraRef.current !== camera;
+    previousCameraRef.current = camera;
+    if (cameraChanged) {
+      sourceLoadedRef.current = false;
     }
-
-    return () => {
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
+    clearTimeout(loadingTimeoutRef.current);
+    if (!isScrubbing) {
+      const hasCurrentFrame =
+        sourceLoadedRef.current &&
+        (playerRef.current?.readyState ?? 0) >=
+          HTMLMediaElement.HAVE_CURRENT_DATA;
+      if (hasCurrentFrame) {
+        setIsLoading(false);
+        setIsBuffering(false);
+      } else {
+        loadingTimeoutRef.current = setTimeout(() => setIsLoading(true), 1000);
       }
-    };
-    // we only want trigger when scrubbing state changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }
+    return () => clearTimeout(loadingTimeoutRef.current);
   }, [camera, isScrubbing]);
 
   const onPlayerLoaded = useCallback(() => {
+    sourceLoadedRef.current = true;
     if (!controller || !startTimestamp) {
       return;
     }
@@ -285,6 +298,7 @@ export default function DynamicVideoPlayer({
       );
     }
 
+    sourceLoadedRef.current = false;
     setSource({
       playlist: `${apiHost}vod/${camera}/start/${recordingParams.after}/end/${recordingParams.before}/master.m3u8`,
       startPosition,
@@ -302,7 +316,8 @@ export default function DynamicVideoPlayer({
       playerRef.current.autoplay = !isScrubbing;
     }
 
-    setLoadingTimeout(setTimeout(() => setIsLoading(true), 1000));
+    clearTimeout(loadingTimeoutRef.current);
+    loadingTimeoutRef.current = setTimeout(() => setIsLoading(true), 1000);
 
     controller.newPlayback({
       recordings: recordings ?? [],
@@ -371,9 +386,9 @@ export default function DynamicVideoPlayer({
               playerRef.current?.pause();
             }
 
-            if (loadingTimeout) {
-              clearTimeout(loadingTimeout);
-            }
+            clearTimeout(loadingTimeoutRef.current);
+            setIsLoading(false);
+            setIsBuffering(false);
 
             setNoRecording(false);
           }}

@@ -51,3 +51,6 @@ coverage-py/
 # fork: local evidence folders (agent logs, before/after screenshots)
 .codex-output/
 fork/demo/screenshots/compare/
+# GenAI review prompt tester local data (frames from real cameras)
+testing-scripts/genai-review-examples/*
+!testing-scripts/genai-review-examples/README.md

@@ -24,6 +24,7 @@ def _config(*cameras: SimpleNamespace) -> FrigateConfig:
         SimpleNamespace(
             cameras={f"cam{i}": camera for i, camera in enumerate(cameras)},
             logger=None,
+            audio_transcription=SimpleNamespace(model="whisper"),
         ),
     )
 
@@ -46,6 +47,14 @@ class TestPreloadTranscriptionRuntime(unittest.TestCase):
     @patch(IMPORT_MODULE)
     def test_ignores_transcription_on_disabled_cameras(self, import_module):
         config = _config(_camera(enabled=False))
+
+        self.assertFalse(preload_transcription_runtime(config))
+        import_module.assert_not_called()
+
+    @patch(IMPORT_MODULE)
+    def test_skips_local_runtime_for_genai_transcription(self, import_module):
+        config = _config(_camera())
+        config.audio_transcription.model = "remote_audio"
 
         self.assertFalse(preload_transcription_runtime(config))
         import_module.assert_not_called()

@@ -98,6 +98,10 @@ export class ApiMocker {
       route.fulfill({ json: {} }),
     );
 
+    await this.page.route("**/api/genai/roles", (route) =>
+      route.fulfill({ json: {} }),
+    );
+
     // Profile endpoint (AuthProvider fetches /profile directly via axios,
     // which resolves to /api/profile due to axios.defaults.baseURL)
     await this.page.route("**/profile", (route) =>

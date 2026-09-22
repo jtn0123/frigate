@@ -2366,6 +2366,42 @@ paths:
         - frigateUserAuth: []
       x-required-role: camera
       description: '**Access:** Authenticated user with access to the referenced camera.'
+  /review/{review_id}/regenerate_description:
+    put:
+      tags:
+        - Review
+      summary: Generate a review item description
+      description: |-
+        **Access:** Admin role required.
+
+        Re-runs a review item through the GenAI descriptions process.
+            Frames are always taken from recordings, and both alerts and detections are
+            accepted regardless of the camera's GenAI alerts/detections toggles.
+      operationId: 
+        regenerate_review_description_review__review_id__regenerate_description_put
+      parameters:
+        - name: review_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Review Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /review/{review_id}/viewed:
     delete:
       tags:
@@ -2595,6 +2631,25 @@ paths:
 
         Returns available models for each configured GenAI provider.
       operationId: genai_models_genai_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
+  /genai/roles:
+    get:
+      tags:
+        - App
+      summary: Get the model assigned to each GenAI role
+      description: |-
+        **Access:** Admin role required.
+
+        Returns the selected model and its context size for each configured GenAI role. Reads only what the client saved when it initialized, so the provider is not queried for its model list.
+      operationId: genai_roles_genai_roles_get
       responses:
         '200':
           description: Successful Response
@@ -3071,6 +3126,44 @@ paths:
         - frigateUserAuth: []
       x-required-role: any
       description: '**Access:** Any authenticated user.'
+  /categorized_object_names:
+    get:
+      tags:
+        - App
+      summary: Get known object names by object type
+      description: |-
+        **Access:** Any authenticated user.
+
+        Returns the sub labels and attributes this install can attach,
+            grouped by object type. Unlike /sub_labels, which reflects what has already been
+            detected, this reads the config and model files, so it covers recognized face
+            names, named license plates, custom object classification categories, and the
+            detector attributes of tracked objects.
+      operationId: categorized_object_names_categorized_object_names_get
+      parameters:
+        - name: object_type
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Object Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
   /audio_labels:
     get:
       tags:
@@ -3909,8 +4002,7 @@ paths:
       description: |-
         **Access:** Admin role required.
 
-        Renames an export.
-            NOTE: This changes the friendly name of the export, not the filename.
+        Renames a completed export and its downloaded file.
       operationId: export_rename_export__event_id__rename_patch
       parameters:
         - name: event_id
@@ -8043,6 +8135,18 @@ components:
           description: Per-request thinking toggle. None means use the provider 
             default. Ignored by providers that do not expose a per-request 
             thinking switch.
+        tool_decisions:
+          additionalProperties:
+            type: string
+            enum:
+              - approve
+              - reject
+          type: object
+          title: Tool Decisions
+          description: Decisions for tool calls that paused for approval, keyed 
+            by tool call ID. Send these with the conversation chain returned 
+            alongside an approval request; rejected calls are reported to the 
+            model as declined instead of being executed.
       type: object
       required:
         - messages
