@@ -10,4 +10,9 @@ export async function openPaletteOnPhone(page: Page) {
   await expect(entry).toHaveAttribute("aria-label", "Open command palette");
   await entry.click();
   await expect(page.getByTestId("command-palette")).toBeVisible();
+  // The drawer-to-dialog handoff completes after the palette becomes visible.
+  // Keyboard input must wait for the dialog's input to receive focus.
+  await expect(
+    page.getByTestId("command-palette").getByRole("combobox"),
+  ).toBeFocused();
 }

@@ -1,3 +1,4 @@
+import RailNavHint from "@/components/fork/RailNavHint";
 import { useRouteDataPreload } from "@/hooks/fork/use-route-data-preload";
 import { preloadRoute } from "@/utils/routePreload";
 import { NavLink } from "react-router-dom";
@@ -78,6 +79,7 @@ export default function NavItem({
         <TooltipPortal>
           <TooltipContent side="right">
             <p>{t(item.title)}</p>
+            <RailNavHint id={item.id} />
           </TooltipContent>
         </TooltipPortal>
       </Tooltip>

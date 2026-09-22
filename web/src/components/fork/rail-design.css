@@ -1,0 +1,32 @@
+/* UI132: match the handoff rail without changing the phone navigation. */
+aside[data-fork-rail] {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+aside[data-fork-rail] > div:first-child > a > svg {
+  margin-bottom: 12px;
+}
+
+aside[data-fork-rail] > div:first-child > div a,
+aside[data-fork-rail] > div:first-child [data-testid="nav-search"] {
+  margin-bottom: 8px;
+}
+
+aside[data-fork-rail] > div:last-child {
+  /* The app keeps a 32 px status bar below the rail. */
+  margin-bottom: 36px;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+aside[data-fork-rail] [aria-current="page"] {
+  background: hsl(var(--muted));
+  color: hsl(var(--primary));
+}
+
+/* Keep the selected step visible even when OLED lowers the muted surface. */
+.dark aside[data-fork-rail] [aria-current="page"] {
+  background: #1f1f1f;
+  color: #eff3f8;
+}

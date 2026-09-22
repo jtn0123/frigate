@@ -40,10 +40,10 @@
   },
   "commandPalette": {
     "title": "Command palette",
-    "description": "Search pages, cameras, settings, and actions.",
+    "description": "Search pages, cameras, settings, actions, and recorded footage.",
     "open": "Open command palette",
     "menuItem": "Search pages and actions",
-    "placeholder": "Search pages, cameras, settings, and actions",
+    "placeholder": "Search footage, pages, cameras, and settings",
     "empty": "No results found.",
     "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
     "footerHintMac": "⌘K or / to open, arrows to move, Enter to run",
@@ -53,7 +53,8 @@
       "cameras": "Cameras",
       "cameraGroups": "Camera groups",
       "settings": "Settings",
-      "actions": "Actions"
+      "actions": "Actions",
+      "footage": "In your footage"
     },
     "camera": {
       "live": "Live view",
@@ -69,6 +70,13 @@
       "markedReviewed_one": "Marked {{count}} item as reviewed",
       "markedReviewed_other": "Marked {{count}} items as reviewed",
       "markFailed": "Could not mark items as reviewed"
+    },
+    "footage": {
+      "result": "{{label}} on {{camera}}",
+      "searching": "Searching footage…",
+      "none": "No footage matched",
+      "seeAll": "See all footage for \"{{query}}\"",
+      "needsSemanticSearch": "Turn on Semantic Search to search footage"
     }
   },
   "inbox": {
@@ -467,5 +475,18 @@
   },
   "cameras": {
     "allIncludedHint": "All cameras are included. Turn one on to narrow the view to it."
+  },
+  "navSearch": {
+    "label": "Search",
+    "hint": "Search footage, cameras, pages, and settings"
+  },
+  "railHints": {
+    "live": "Every camera, right now",
+    "review": "Alerts and detections on a timeline",
+    "explore": "Search footage by description",
+    "export": "Save and download clips",
+    "faces": "People the system recognizes",
+    "classification": "Custom classifiers and samples",
+    "chat": "Ask questions about your footage"
   }
 }
