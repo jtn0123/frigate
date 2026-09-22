@@ -1,7 +1,11 @@
 """Tests for tracker-derived review frame annotations."""
 
 import unittest
+from unittest.mock import patch
 
+from playhouse.sqlite_ext import SqliteExtDatabase
+
+from frigate.data_processing.post import review_annotations as module
 from frigate.data_processing.post.review_annotations import (
     annotations_by_frame,
     build_timeline,
@@ -11,6 +15,7 @@ from frigate.data_processing.post.review_annotations import (
     path_legs,
     path_moments,
 )
+from frigate.models import Event, Timeline
 
 
 def straight_path(
@@ -310,6 +315,88 @@ class TestFrameBucketing(unittest.TestCase):
 
     def test_no_frames_yields_no_buckets(self):
         self.assertEqual(annotations_by_frame([(1.0, "x")], []), {})
+
+
+class TestStoredFrameCaptions(unittest.TestCase):
+    def setUp(self):
+        self.db = SqliteExtDatabase(":memory:")
+        self.bind = self.db.bind_ctx([Event, Timeline])
+        self.bind.__enter__()
+        self.addCleanup(self.bind.__exit__, None, None, None)
+        self.db.connect()
+        self.addCleanup(self.db.close)
+        self.db.create_tables([Event, Timeline])
+        for event_id in ("visible", "unrelated"):
+            Event.create(
+                id=event_id,
+                label="person",
+                sub_label="Visitor",
+                camera="front",
+                start_time=100,
+                end_time=120,
+                top_score=0.9,
+                score=0.9,
+                false_positive=False,
+                zones=[],
+                thumbnail="",
+                region=[],
+                box=[],
+                area=1,
+                plus_id="",
+                model_hash="",
+                detector_type="",
+                model_type="",
+                data={"path_data": straight_path((0.1, 0.5), (0.9, 0.5), 10, 101)},
+            )
+        for source_id, kind in (
+            ("visible", "stationary"),
+            ("visible", "entered_zone"),
+            ("unrelated", "active"),
+        ):
+            Timeline.create(
+                timestamp=110,
+                camera="front",
+                source="tracked_object",
+                source_id=source_id,
+                class_type=kind,
+                data={},
+            )
+
+    def test_queries_only_requested_tracks_and_motion_state_changes(self):
+        events = module.get_tracked_events(["visible"])
+        self.assertEqual([event["id"] for event in events], ["visible"])
+        self.assertEqual(events[0]["sub_label"], "Visitor")
+        self.assertTrue(events[0]["path_data"])
+        changes = module.get_state_changes(["visible"])
+        self.assertEqual(len(changes), 1)
+        self.assertEqual(changes[0]["class_type"], "stationary")
+        self.assertEqual(module.get_tracked_events([]), [])
+        self.assertEqual(module.get_state_changes([]), [])
+
+    def test_captions_preserve_frame_order_elapsed_time_and_tracker_context(self):
+        captions = module.build_frame_captions(["visible"], [100, 110, 120])
+        self.assertEqual(len(captions), 3)
+        for index, caption in enumerate(captions):
+            self.assertTrue(
+                caption.startswith(f"Frame {index + 1} of 3 (+{index * 10:.1f}s):")
+            )
+        self.assertIn("[tracker]", captions[0])
+        self.assertIn("Visitor", captions[0])
+        self.assertIn("has stopped moving", captions[1])
+
+    def test_empty_and_late_tracks_fall_back_to_plain_frames(self):
+        self.assertEqual(module.build_frame_captions(["visible"], []), [])
+        self.assertEqual(module.build_frame_captions(["missing"], [100, 110]), [])
+        self.assertEqual(module.build_frame_captions(["visible"], [0, 10]), [])
+        Event.update(data={}).where(Event.id == "visible").execute()
+        self.assertEqual(module.get_tracked_events(["visible"])[0]["path_data"], [])
+
+    def test_rows_with_no_start_time_are_ignored(self):
+        with patch.object(module.Event, "select") as select:
+            select.return_value.where.return_value.dicts.return_value.iterator.return_value = iter(
+                [{"start_time": None}]
+            )
+            self.assertEqual(module.get_tracked_events(["incomplete"]), [])
 
 
 if __name__ == "__main__":

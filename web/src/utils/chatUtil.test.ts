@@ -31,7 +31,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 it("preserves approval decisions and parses fragmented streams through the final unterminated line", async () => {
   const fetch = vi
-    .fn()
+    .fn<typeof globalThis.fetch>()
     .mockResolvedValue(
       response([
         '{"type":"messages","messages":[]}\n{"type":"approval_',
@@ -47,11 +47,14 @@ it("preserves approval decisions and parses fragmented streams through the final
     enableThinking: false,
     toolDecisions: { one: "approve", two: "reject" },
   });
-  expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
-    stream: true,
-    enable_thinking: false,
-    tool_decisions: { one: "approve", two: "reject" },
-  });
+  expect(fetch.mock.calls[0][1]?.body).toBe(
+    JSON.stringify({
+      messages: [],
+      stream: true,
+      enable_thinking: false,
+      tool_decisions: { one: "approve", two: "reject" },
+    }),
+  );
   expect(cb.onApprovalRequired).toHaveBeenCalledWith([
     { id: "one", name: "create_export", arguments: {} },
   ]);

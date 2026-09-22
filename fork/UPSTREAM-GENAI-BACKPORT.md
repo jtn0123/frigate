@@ -62,6 +62,8 @@ branch integration.
 Combined-branch browser validation exposed a mobile drawer focus race in the
 merged search flow. The closing Settings drawer now leaves focus in an open
 command palette, preserving text typed during the transition.
+The chat stream also finishes exactly once on HTTP failures or missing response
+bodies, so completion handlers cannot run twice on those error paths.
 
 ## Validation
 
@@ -95,5 +97,25 @@ validation; no production configuration or release promotion is changed.
   gate was rerun successfully as recorded above. Other full-run gates passed.
 - Final prompt punctuation cleanup: six prompt tests passed.
 
-The implementation is prepared on `section/upstream-genai-reliability` for a
-fork PR targeting `next`. Deployment and release promotion remain separate.
+### Combined-branch validation (2026-09-22)
+
+- Full `make check` passed after integrating current `next`.
+- Mobile search focus regression: eight repeated desktop/mobile runs passed.
+- Expanded frontend suite: 704 tests across 106 files passed; lint, TypeScript,
+  and the unchanged type ratchet passed.
+- Prompt utility: 14 tests passed, with 97% measured coverage.
+- Chat completion, manual review processing, and object-name discovery: 22
+  additional backend tests passed. Object-name discovery measured 100% coverage.
+- Provider suite: 39 tests passed, including alias/capability discovery,
+  transcription failures, and adjacent image captions.
+- Annotation suite: 31 tests passed, including database-backed track filtering
+  and complete frame-caption generation.
+- The first remote browser run exposed the mobile focus race. All three shards
+  passed after the fix. Sonar then identified insufficient new-code coverage,
+  prompting the additional tests above. Final remote results are tracked on
+  [PR #94](https://github.com/jtn0123/frigate/pull/94).
+- CodeRabbit declined review because the change exceeds its 100-file limit.
+  Its successful status is not evidence of a completed review.
+
+The implementation is on `section/upstream-genai-reliability` in fork PR #94,
+targeting `next`. Deployment and release promotion remain separate.
