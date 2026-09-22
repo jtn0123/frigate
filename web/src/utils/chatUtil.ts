@@ -96,7 +96,6 @@ export async function streamChatCompletion(
       const errBody = await res.json().catch(() => ({}));
       const message = (errBody as { error?: string }).error ?? res.statusText;
       onError(message);
-      onDone();
       return;
     }
 
@@ -104,7 +103,6 @@ export async function streamChatCompletion(
     const decoder = new TextDecoder();
     if (!reader) {
       onError("No response body");
-      onDone();
       return;
     }
 

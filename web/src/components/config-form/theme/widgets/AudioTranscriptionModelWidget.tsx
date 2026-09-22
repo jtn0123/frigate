@@ -4,7 +4,7 @@
 import type { WidgetProps } from "@rjsf/utils";
 import { GenAIBackedModelWidget } from "./GenAIBackedModelWidget";
 
-export function AudioTranscriptionModelWidget(props: WidgetProps) {
+export function AudioTranscriptionModelWidget(props: Readonly<WidgetProps>) {
   return (
     <GenAIBackedModelWidget
       {...props}

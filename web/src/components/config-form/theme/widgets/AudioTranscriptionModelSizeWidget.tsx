@@ -3,7 +3,9 @@
 import type { WidgetProps } from "@rjsf/utils";
 import { GenAIBackedModelSizeWidget } from "./GenAIBackedModelSizeWidget";
 
-export function AudioTranscriptionModelSizeWidget(props: WidgetProps) {
+export function AudioTranscriptionModelSizeWidget(
+  props: Readonly<WidgetProps>,
+) {
   return (
     <GenAIBackedModelSizeWidget
       {...props}

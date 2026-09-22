@@ -10,9 +10,10 @@ const state = vi.hoisted(() => ({
   put: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
+  axiosError: vi.fn(() => true),
 }));
 vi.mock("axios", () => ({
-  default: { put: state.put, isAxiosError: () => true },
+  default: { put: state.put, isAxiosError: state.axiosError },
 }));
 vi.mock("sonner", () => ({
   toast: { success: state.success, error: state.error },
@@ -41,11 +42,29 @@ const review = {
 } as ReviewSegment;
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  state.axiosError.mockReturnValue(true);
   state.admin = true;
   state.context = 32000;
   state.enabled = true;
   state.put.mockResolvedValue({ status: 202 });
 });
+
+it.each([
+  { axios: true, error: {} },
+  { axios: false, error: new Error("Network unavailable") },
+  { axios: false, error: "Unknown failure" },
+])(
+  "reports generation errors without a server message: $axios $error",
+  async ({ axios, error }) => {
+    state.axiosError.mockReturnValue(axios);
+    state.put.mockRejectedValue(error);
+    const { result } = renderHook(() => useReviewDescriptions());
+    act(() => result.current.generateDescription(review));
+    await waitFor(() => expect(state.error).toHaveBeenCalledTimes(1));
+    expect(state.success).not.toHaveBeenCalled();
+  },
+);
 
 it("offers generation only for completed reviews with enabled GenAI and sufficient context", () => {
   const { result, rerender } = renderHook(() => useReviewDescriptions());

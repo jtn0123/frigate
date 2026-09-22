@@ -27,7 +27,7 @@ interface ProviderOption {
   label: string;
 }
 
-export function GenAIBackedModelWidget(props: WidgetProps) {
+export function GenAIBackedModelWidget(props: Readonly<WidgetProps>) {
   const { id, disabled, readonly, onChange, schema, registry, options } = props;
   const value: unknown = props.value;
   const { t } = useTranslation(["views/settings"]);

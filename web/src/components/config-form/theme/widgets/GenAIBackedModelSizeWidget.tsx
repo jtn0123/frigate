@@ -15,7 +15,7 @@ import { LiveFormDataContext } from "../../LiveFormDataContext";
 import { getSizedFieldClassName } from "../utils";
 import { SelectWidget } from "./SelectWidget";
 
-export function GenAIBackedModelSizeWidget(props: WidgetProps) {
+export function GenAIBackedModelSizeWidget(props: Readonly<WidgetProps>) {
   const { t } = useTranslation(["views/settings"]);
   const liveFormData = useContext(LiveFormDataContext);
   const model = liveFormData?.model;

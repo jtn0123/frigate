@@ -24,15 +24,14 @@ export function ToolApprovalCard({
   onApprove,
   onAlwaysAllow,
   onReject,
-}: ToolApprovalCardProps) {
+}: Readonly<ToolApprovalCardProps>) {
   const { t } = useTranslation(["views/chat"]);
   const displayName = formatToolName(toolCall.name);
   const hasArguments = Object.keys(toolCall.arguments).length > 0;
 
   return (
-    <div
+    <fieldset
       className="flex w-full max-w-[85%] flex-col gap-3 self-start rounded-xl border border-border bg-muted px-4 py-3"
-      role="group"
       aria-label={t("approval.title", { tool: displayName })}
     >
       <div className="flex items-start gap-2">
@@ -92,6 +91,6 @@ export function ToolApprovalCard({
           </Button>
         </div>
       )}
-    </div>
+    </fieldset>
   );
 }

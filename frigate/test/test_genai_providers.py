@@ -847,6 +847,100 @@ class TestLlamaCppTranscribe(unittest.TestCase):
 
         post.assert_not_called()
 
+    def test_model_discovery_deduplicates_aliases_and_preserves_unknown_capabilities(
+        self,
+    ):
+        client = self._client(True)
+        response = MagicMock()
+        response.json.return_value = {
+            "data": [
+                {
+                    "id": "audio",
+                    "aliases": ["audio", "friendly"],
+                    "architecture": {"input_modalities": ["audio"]},
+                },
+                {
+                    "id": "vision",
+                    "aliases": ["picture", None, ""],
+                    "architecture": {"input_modalities": ["image", "text"]},
+                },
+                {"id": "old", "architecture": {}},
+            ]
+        }
+        with patch.object(client, "_get", return_value=response):
+            capabilities = client.list_model_capabilities()
+        self.assertEqual(set(capabilities), {"audio", "friendly", "vision", "picture"})
+        self.assertTrue(capabilities["friendly"]["supports_transcription"])
+        self.assertFalse(capabilities["picture"]["supports_transcription"])
+        self.assertTrue(capabilities["picture"]["supports_vision"])
+        with patch.object(
+            client,
+            "_fetch_models_data",
+            return_value=[
+                {"id": "audio", "aliases": ["audio", "friendly"]},
+                {"id": "audio"},
+            ],
+        ):
+            self.assertEqual(client.list_models(), ["audio", "friendly"])
+
+    def test_model_discovery_recovers_missing_provider_invalid_payload_and_transport_error(
+        self,
+    ):
+        client = self._client(True)
+        client.provider = None
+        response = MagicMock()
+        response.json.return_value = {"data": "invalid"}
+        with patch.object(client, "_get", return_value=response) as get:
+            self.assertEqual(client._fetch_models_data(), [])
+        get.assert_called_once_with("http://localhost:9999/v1/models", timeout=10)
+        with patch.object(client, "_get", side_effect=OSError("offline")):
+            self.assertEqual(client._fetch_models_data(), [])
+        client.genai_config.base_url = None
+        self.assertEqual(client._fetch_models_data(), [])
+
+    def test_transcription_handles_uninitialized_and_malformed_responses(self):
+        client = self._client(True)
+        client.provider = None
+        self.assertIsNone(client.transcribe(WAV_BYTES))
+        client.provider = "http://localhost:9999"
+        for payload in ([], {}, {"text": " "}):
+            response = self._transcriptions_response()
+            response.json.return_value = payload
+            with (
+                self.subTest(payload=payload),
+                patch.object(client, "_post", return_value=response),
+            ):
+                self.assertIsNone(client.transcribe(WAV_BYTES))
+        with patch.object(client, "_post", side_effect=OSError("offline")):
+            self.assertIsNone(client.transcribe(WAV_BYTES))
+            self.assertIsNone(client._transcribe_via_chat(WAV_BYTES, None))
+        for payload in (
+            {},
+            {"choices": []},
+            {"choices": [{"message": {"content": " "}}]},
+        ):
+            response = self._chat_response()
+            response.json.return_value = payload
+            with (
+                self.subTest(payload=payload),
+                patch.object(client, "_post", return_value=response),
+            ):
+                self.assertIsNone(client._transcribe_via_chat(WAV_BYTES, None))
+
+    def test_description_captions_stay_adjacent_to_their_images(self):
+        client = self._client(True)
+        response = self._chat_response("description")
+        with patch.object(client, "_post", return_value=response) as post:
+            self.assertEqual(
+                client._send("prompt", [b"image"], image_captions=["frame one"]),
+                "description",
+            )
+        parts = post.call_args.kwargs["json"]["messages"][0]["content"]
+        self.assertEqual(
+            [part["type"] for part in parts], ["text", "text", "image_url"]
+        )
+        self.assertEqual(parts[1]["text"], "frame one")
+
 
 class TestBaseClientTranscribe(unittest.TestCase):
     """Providers that don't implement the role must be inert, not broken."""
