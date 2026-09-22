@@ -15,6 +15,10 @@ import {
   configFactory,
 } from "../fixtures/mock-data/config";
 import {
+  cameraHistoryFactory,
+  type CameraHistorySeriesMock,
+} from "../fixtures/mock-data/fork-camera-history";
+import {
   forkUpdatesFactory,
   type ForkUpdatesMock,
 } from "../fixtures/mock-data/fork-updates";
@@ -49,6 +53,8 @@ export interface ApiMockOverrides {
   configRaw?: string;
   configSchema?: Record<string, unknown>;
   forkUpdates?: ForkUpdatesMock;
+  // fork (UI131): per-camera history behind the Health tab
+  cameraHistory?: Record<string, Partial<CameraHistorySeriesMock>>;
 }
 
 export class ApiMocker {
@@ -130,6 +136,14 @@ export class ApiMocker {
         });
       }
       return route.fulfill({ json: [stats] });
+    });
+
+    // fork (UI131): the Health tab's window of per-camera history
+    await this.page.route("**/api/fork/camera_history**", (route) => {
+      const range = new URL(route.request().url()).searchParams.get("range");
+      return route.fulfill({
+        json: cameraHistoryFactory(range, overrides?.cameraHistory),
+      });
     });
 
     // Reviews. The real backend exposes /review (singular) for the main

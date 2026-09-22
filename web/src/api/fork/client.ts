@@ -23,6 +23,7 @@ export const PATH_TO_KEY = {
   "/events": "events",
   "/stats": "stats",
   "/stats/history": "stats/history",
+  "/fork/camera_history": "fork/camera_history",
   "/fork/share": "fork/share",
 } as const;
 

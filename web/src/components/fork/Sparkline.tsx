@@ -51,9 +51,7 @@ export default function Sparkline({
     const line = values
       .map((value, index) => `${x(index).toFixed(1)},${y(value).toFixed(1)}`)
       .join(" ");
-    const floor = HEIGHT - PAD;
-    const area = `${x(0).toFixed(1)},${floor} ${line} ${x(values.length - 1).toFixed(1)},${floor}`;
-    return { line, area, referenceY: reference ? y(reference) : undefined };
+    return { line, referenceY: reference ? y(reference) : undefined };
   }, [values, times, reference]);
 
   return (
@@ -80,20 +78,17 @@ export default function Sparkline({
         />
       )}
       {values.length > 1 && (
-        <>
-          <polygon
-            points={geometry.area}
-            className={cn("fill-current opacity-15", strokeClassName)}
-          />
-          <polyline
-            points={geometry.line}
-            fill="none"
-            strokeWidth={1.5}
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-            className={cn("stroke-current", strokeClassName)}
-          />
-        </>
+        // Line only, no area under it: a steady rate fills the whole box with
+        // the fill on, and a row of filled boxes reads as a bar chart of
+        // something rather than as each camera's rate over the window.
+        <polyline
+          points={geometry.line}
+          fill="none"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+          className={cn("stroke-current", strokeClassName)}
+        />
       )}
     </svg>
   );
