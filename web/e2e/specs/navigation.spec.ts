@@ -17,6 +17,12 @@ test.describe("Navigation — primary links @critical", () => {
   }) => {
     await frigateApp.goto("/");
     for (const route of PRIMARY_ROUTES) {
+      // fork (UI134): on desktop the rail's magnifier opens the search box,
+      // which is how Explore is reached; the phone bar still links to it.
+      if (route === "/explore" && !frigateApp.isMobile) {
+        await expect(frigateApp.page.getByTestId("nav-search")).toBeVisible();
+        continue;
+      }
       await expect(
         frigateApp.page.locator(`a[href="${route}"]`).first(),
       ).toBeVisible();

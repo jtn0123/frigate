@@ -102,7 +102,7 @@ test("prioritizes queue and captures models and health @medium @mobile", async (
     path: info.outputPath("models-details-.png"),
   });
   await page.getByLabel("Select health").click();
-  await expect(page.getByTestId("camera-health-grid")).toBeVisible();
+  await expect(page.getByTestId("camera-health-table")).toBeVisible();
   await page.screenshot({
     path: info.outputPath("health-.png"),
   });

@@ -40,10 +40,10 @@
   },
   "commandPalette": {
     "title": "Command palette",
-    "description": "Search pages, cameras, settings, and actions.",
+    "description": "Search pages, cameras, settings, actions, and recorded footage.",
     "open": "Open command palette",
     "menuItem": "Search pages and actions",
-    "placeholder": "Search pages, cameras, settings, and actions",
+    "placeholder": "Search footage, pages, cameras, and settings",
     "empty": "No results found.",
     "footerHint": "Ctrl+K or / to open, arrows to move, Enter to run",
     "footerHintMac": "⌘K or / to open, arrows to move, Enter to run",
@@ -53,7 +53,8 @@
       "cameras": "Cameras",
       "cameraGroups": "Camera groups",
       "settings": "Settings",
-      "actions": "Actions"
+      "actions": "Actions",
+      "footage": "In your footage"
     },
     "camera": {
       "live": "Live view",
@@ -69,6 +70,13 @@
       "markedReviewed_one": "Marked {{count}} item as reviewed",
       "markedReviewed_other": "Marked {{count}} items as reviewed",
       "markFailed": "Could not mark items as reviewed"
+    },
+    "footage": {
+      "result": "{{label}} on {{camera}}",
+      "searching": "Searching footage…",
+      "none": "No footage matched",
+      "seeAll": "See all footage for \"{{query}}\"",
+      "needsSemanticSearch": "Turn on Semantic Search to search footage"
     }
   },
   "inbox": {
@@ -107,7 +115,7 @@
     "openItem": "Open {{camera}} in review"
   },
   "cameraHealth": {
-    "description": "Per-camera health from the live stats stream. Frame rates refresh with each stats update.",
+    "description": "Per-camera health from the live stats stream, over a window Frigate keeps on disk.",
     "state": {
       "ok": "OK",
       "degraded": "Degraded",
@@ -163,7 +171,101 @@
       "target": "target {{fps}} fps"
     },
     "openLive": "Live view",
-    "openSettings": "Settings"
+    "openSettings": "Settings",
+    "range": {
+      "1h": "1 h",
+      "6h": "6 h",
+      "24h": "24 h",
+      "7d": "7 d"
+    },
+    "rangeLong": {
+      "1h": "hour",
+      "6h": "6 hours",
+      "24h": "24 hours",
+      "7d": "7 days"
+    },
+    "rangeLabel": "History range",
+    "refresh": "Refresh",
+    "scope": {
+      "label": "Which cameras",
+      "attention": "Needs attention · {{value}}",
+      "all": "All · {{value}}"
+    },
+    "hint": "Click any row to see exactly when it was down.",
+    "percent": "{{value}}%",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "summary": {
+      "lead_one": "{{clean}} of {{count}} camera ran clean in the last {{range}}.",
+      "lead_other": "{{clean}} of {{count}} cameras ran clean in the last {{range}}.",
+      "fleet": "fleet uptime {{value}}%",
+      "waiting": "History is still filling in; longer ranges fill as Frigate runs.",
+      "restarted_one": "{{camera}} restarted once",
+      "restarted_other": "{{camera}} restarted {{count}} times",
+      "stalled_one": "{{camera}} stalled once",
+      "stalled_other": "{{camera}} stalled {{count}} times",
+      "degraded": "{{camera}} is degraded",
+      "unreachable": "{{camera}} is unreachable",
+      "down_one": "{{camera}} was down {{count}} min",
+      "down_other": "{{camera}} was down {{count}} min"
+    },
+    "table": {
+      "camera": "Camera",
+      "state": "State",
+      "rate": "Frame rate · {{range}}",
+      "uptime": "Uptime",
+      "detector": "Detector",
+      "issues": "Issues in {{range}}",
+      "sort": "Sort by {{column}}",
+      "open": "Open {{camera}}",
+      "clean": "clean",
+      "empty": "Every camera is healthy right now.",
+      "noCameras": "No cameras are configured.",
+      "noHistory": "no history yet"
+    },
+    "issues": {
+      "outages_one": "1 outage",
+      "outages_other": "{{count}} outages",
+      "restarts_one": "1 restart",
+      "restarts_other": "{{count}} restarts",
+      "stalls_one": "1 stall",
+      "stalls_other": "{{count}} stalls",
+      "reconnects_one": "1 reconnect",
+      "reconnects_other": "{{count}} reconnects"
+    },
+    "cell": {
+      "ok": "Recording",
+      "degraded": "Degraded",
+      "offline": "Offline",
+      "none": "No data"
+    },
+    "incident": {
+      "outage": "Outage",
+      "restart": "Restart · {{kind}}",
+      "ongoing": "still going"
+    },
+    "drawer": {
+      "description": "Health history for {{camera}}",
+      "previous": "Previous camera",
+      "next": "Next camera",
+      "position": "{{index}} of {{total}}",
+      "uptime": "Uptime · {{range}}",
+      "downtime": "Time down",
+      "incidents": "Incidents",
+      "strip": "When it was down",
+      "noHistory": "No history has been collected for this camera yet.",
+      "log": "What happened",
+      "clean": "Nothing went wrong in this window.",
+      "cell_one": "1 cell = {{count}} min",
+      "cell_other": "1 cell = {{count}} min",
+      "cellHours_one": "1 cell = {{count}} hour",
+      "cellHours_other": "1 cell = {{count}} hours"
+    },
+    "viewLogs": "View logs",
+    "logs": {
+      "filtered": "Logs containing camera: {{camera}}",
+      "clear": "Show all logs"
+    }
   },
   "settingsNav": {
     "searchPlaceholder": "Search settings",
@@ -467,5 +569,18 @@
   },
   "cameras": {
     "allIncludedHint": "All cameras are included. Turn one on to narrow the view to it."
+  },
+  "navSearch": {
+    "label": "Search",
+    "hint": "Search footage, cameras, pages, and settings"
+  },
+  "railHints": {
+    "live": "Every camera, right now",
+    "review": "Alerts and detections on a timeline",
+    "explore": "Search footage by description",
+    "export": "Save and download clips",
+    "faces": "People the system recognizes",
+    "classification": "Custom classifiers and samples",
+    "chat": "Ask questions about your footage"
   }
 }

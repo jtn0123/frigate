@@ -56,6 +56,7 @@ from frigate.api import (
     debug_replay,
     event,
     export,
+    fork_camera_history,
     fork_share,
     fork_updates,
     media,
@@ -163,6 +164,7 @@ def build_app() -> FastAPI:
         motion_search.router,
         record.router,
         debug_replay.router,
+        fork_camera_history.router,
         fork_share.router,
         fork_updates.router,
     ]

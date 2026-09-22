@@ -111,6 +111,7 @@ def require_admin_by_default():
         "/jobs/export",
         "/fork/share",
         "/fork/updates",
+        "/fork/camera_history",
     }
 
     # Path prefixes that should be exempt (for paths with parameters)

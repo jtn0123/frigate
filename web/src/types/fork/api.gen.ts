@@ -4013,6 +4013,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fork/camera_history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Camera History
+         * @description **Access:** Any authenticated user.
+         *
+         *     Return frame rate, uptime and incidents per camera over one window.
+         *
+         *     Args:
+         *         request: The incoming request, carrying the stats emitter.
+         *         range_key: Window to aggregate: '1h', '6h', '24h' or '7d'.
+         *         allowed_cameras: Cameras this caller may see.
+         *
+         *     Returns:
+         *         The history for every camera the caller has access to.
+         */
+        get: operations["camera_history_fork_camera_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/share": {
         parameters: {
             query?: never;
@@ -4429,6 +4459,111 @@ export interface components {
              * Format: binary
              */
             file: string;
+        };
+        /**
+         * CameraHistoryIncident
+         * @description One outage or ffmpeg restart inside the requested window.
+         */
+        CameraHistoryIncident: {
+            /**
+             * Kind
+             * @description Incident kind: 'outage', or 'restart:<reason>' for an ffmpeg restart
+             */
+            kind: string;
+            /**
+             * Start
+             * @description Unix timestamp when the incident started
+             */
+            start: number;
+            /**
+             * End
+             * @description Unix timestamp when it ended, null while it is ongoing
+             */
+            end?: number | null;
+            /**
+             * Reason
+             * @description Short reason reported by the capture process
+             */
+            reason: string;
+        };
+        /**
+         * CameraHistoryResponse
+         * @description Per-camera health history behind the System page's Health tab.
+         */
+        CameraHistoryResponse: {
+            /**
+             * Range
+             * @description Window that was returned: '1h', '6h', '24h' or '7d'
+             */
+            range: string;
+            /**
+             * Start
+             * @description Unix timestamp of the window's first cell
+             */
+            start: number;
+            /**
+             * End
+             * @description Unix timestamp of the window's end
+             */
+            end: number;
+            /**
+             * Cell Seconds
+             * @description Seconds each cell in fps/states covers
+             */
+            cell_seconds: number;
+            /**
+             * Bucket Seconds
+             * @description Seconds of the collector's storage bucket
+             */
+            bucket_seconds: number;
+            /**
+             * Cameras
+             * @description History per camera the caller may see
+             */
+            cameras: {
+                [key: string]: components["schemas"]["CameraHistorySeries"];
+            };
+        };
+        /**
+         * CameraHistorySeries
+         * @description One camera's frame rate and health across the window's cells.
+         */
+        CameraHistorySeries: {
+            /**
+             * Uptime
+             * @description Percentage of samples the camera was not offline
+             */
+            uptime: number;
+            /**
+             * Downtime
+             * @description Seconds the camera was offline in the window
+             */
+            downtime: number;
+            /**
+             * Samples
+             * @description Stats samples that landed in the window
+             */
+            samples: number;
+            /**
+             * Expected Fps
+             * @description Configured detect frame rate
+             */
+            expected_fps: number;
+            /**
+             * Fps
+             * @description Mean frame rate per cell, null for a cell with no samples
+             */
+            fps: (number | null)[];
+            /**
+             * States
+             * @description Worst state per cell: 'ok', 'degraded', 'offline' or 'none'
+             */
+            states: string[];
+            /**
+             * Incidents
+             * @description Incidents overlapping the window, oldest first
+             */
+            incidents: components["schemas"]["CameraHistoryIncident"][];
         };
         /** CameraSetBody */
         CameraSetBody: {
@@ -11570,6 +11705,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DebugReplayStopResponse"];
+                };
+            };
+        };
+    };
+    camera_history_fork_camera_history_get: {
+        parameters: {
+            query?: {
+                range?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

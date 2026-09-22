@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { LuLink } from "react-icons/lu";
+import { LuCheck, LuLink } from "react-icons/lu";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-export default function ShareViewButton() {
+export default function ShareViewButton({
+  compact = false,
+}: Readonly<{ compact?: boolean }>) {
   const { t } = useTranslation("fork");
   const location = useLocation();
   const [copiedKey, setCopiedKey] = useState<string>();
@@ -18,19 +21,28 @@ export default function ShareViewButton() {
   };
   return (
     <Button
-      variant="outline"
-      size="sm"
-      className="h-auto min-h-9 min-w-0 whitespace-normal py-2 text-left"
+      variant={compact ? "ghost" : "outline"}
+      size={compact ? "icon" : "sm"}
+      className={cn(
+        "h-auto min-h-9 min-w-0 whitespace-normal py-2 text-left",
+        compact && "size-11 shrink-0 p-0",
+      )}
       onClick={() => {
         void copy();
       }}
     >
-      <LuLink className="mr-2 size-4 shrink-0" />
-      {t(
-        copiedKey === location.key
-          ? "navigation.copied"
-          : "navigation.copyView",
+      {compact && copiedKey === location.key ? (
+        <LuCheck className="size-4 shrink-0" />
+      ) : (
+        <LuLink className={cn("size-4 shrink-0", !compact && "mr-2")} />
       )}
+      <span className={compact ? "sr-only" : undefined}>
+        {t(
+          copiedKey === location.key
+            ? "navigation.copied"
+            : "navigation.copyView",
+        )}
+      </span>
     </Button>
   );
 }

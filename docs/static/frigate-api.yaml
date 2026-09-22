@@ -7423,6 +7423,48 @@ paths:
       security:
         - frigateAdminAuth: []
       x-required-role: admin
+  /fork/camera_history:
+    get:
+      tags:
+        - App
+      summary: Camera History
+      description: |-
+        **Access:** Any authenticated user.
+
+        Return frame rate, uptime and incidents per camera over one window.
+
+        Args:
+            request: The incoming request, carrying the stats emitter.
+            range_key: Window to aggregate: '1h', '6h', '24h' or '7d'.
+            allowed_cameras: Cameras this caller may see.
+
+        Returns:
+            The history for every camera the caller has access to.
+      operationId: camera_history_fork_camera_history_get
+      parameters:
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            default: 24h
+            title: Range
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraHistoryResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
   /fork/share:
     get:
       tags:
@@ -8089,6 +8131,122 @@ components:
       required:
         - file
       title: Body_register_face_faces__name__register_post
+    CameraHistoryIncident:
+      properties:
+        kind:
+          type: string
+          title: Kind
+          description: "Incident kind: 'outage', or 'restart:<reason>' for an ffmpeg
+            restart"
+        start:
+          type: number
+          title: Start
+          description: Unix timestamp when the incident started
+        end:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: End
+          description: Unix timestamp when it ended, null while it is ongoing
+        reason:
+          type: string
+          title: Reason
+          description: Short reason reported by the capture process
+      type: object
+      required:
+        - kind
+        - start
+        - reason
+      title: CameraHistoryIncident
+      description: One outage or ffmpeg restart inside the requested window.
+    CameraHistoryResponse:
+      properties:
+        range:
+          type: string
+          title: Range
+          description: "Window that was returned: '1h', '6h', '24h' or '7d'"
+        start:
+          type: number
+          title: Start
+          description: Unix timestamp of the window's first cell
+        end:
+          type: number
+          title: End
+          description: Unix timestamp of the window's end
+        cell_seconds:
+          type: integer
+          title: Cell Seconds
+          description: Seconds each cell in fps/states covers
+        bucket_seconds:
+          type: integer
+          title: Bucket Seconds
+          description: Seconds of the collector's storage bucket
+        cameras:
+          additionalProperties:
+            $ref: '#/components/schemas/CameraHistorySeries'
+          type: object
+          title: Cameras
+          description: History per camera the caller may see
+      type: object
+      required:
+        - range
+        - start
+        - end
+        - cell_seconds
+        - bucket_seconds
+        - cameras
+      title: CameraHistoryResponse
+      description: Per-camera health history behind the System page's Health 
+        tab.
+    CameraHistorySeries:
+      properties:
+        uptime:
+          type: number
+          title: Uptime
+          description: Percentage of samples the camera was not offline
+        downtime:
+          type: number
+          title: Downtime
+          description: Seconds the camera was offline in the window
+        samples:
+          type: integer
+          title: Samples
+          description: Stats samples that landed in the window
+        expected_fps:
+          type: number
+          title: Expected Fps
+          description: Configured detect frame rate
+        fps:
+          items:
+            anyOf:
+              - type: number
+              - type: 'null'
+          type: array
+          title: Fps
+          description: Mean frame rate per cell, null for a cell with no samples
+        states:
+          items:
+            type: string
+          type: array
+          title: States
+          description: "Worst state per cell: 'ok', 'degraded', 'offline' or 'none'"
+        incidents:
+          items:
+            $ref: '#/components/schemas/CameraHistoryIncident'
+          type: array
+          title: Incidents
+          description: Incidents overlapping the window, oldest first
+      type: object
+      required:
+        - uptime
+        - downtime
+        - samples
+        - expected_fps
+        - fps
+        - states
+        - incidents
+      title: CameraHistorySeries
+      description: One camera's frame rate and health across the window's cells.
     CameraSetBody:
       properties:
         value:

@@ -3,11 +3,18 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { NavData } from "@/types/navigation";
 import { useMemo } from "react";
 import { isDesktop } from "react-device-detect";
-import { FaCompactDisc, FaVideo } from "react-icons/fa";
-import { IoSearch } from "react-icons/io5";
-import { LuConstruction } from "react-icons/lu";
-import { MdCategory, MdChat, MdVideoLibrary } from "react-icons/md";
-import { TbFaceId } from "react-icons/tb";
+// fork (UI132): the rail draws from one icon family. Five families met in a
+// 52px column, so stroke weight and optical size changed from row to row.
+import {
+  LuConstruction,
+  LuFilm,
+  LuGalleryThumbnails,
+  LuMessageCircle,
+  LuSearch,
+  LuShapes,
+  LuUsersRound,
+  LuVideo,
+} from "react-icons/lu";
 import useSWR from "swr";
 import { useIsAdmin } from "./use-is-admin";
 
@@ -42,28 +49,28 @@ export default function useNavigation(
         {
           id: ID_LIVE,
           variant,
-          icon: FaVideo,
+          icon: LuVideo,
           title: "menu.live.title",
           url: "/",
         },
         {
           id: ID_REVIEW,
           variant,
-          icon: MdVideoLibrary,
+          icon: LuGalleryThumbnails,
           title: "menu.review",
           url: "/review",
         },
         {
           id: ID_EXPLORE,
           variant,
-          icon: IoSearch,
+          icon: LuSearch,
           title: "menu.explore",
           url: "/explore",
         },
         {
           id: ID_EXPORT,
           variant,
-          icon: FaCompactDisc,
+          icon: LuFilm,
           title: "menu.export",
           url: "/export",
         },
@@ -78,7 +85,7 @@ export default function useNavigation(
         {
           id: ID_FACE_LIBRARY,
           variant,
-          icon: TbFaceId,
+          icon: LuUsersRound,
           title: "menu.faceLibrary",
           url: "/faces",
           enabled: isDesktop && config?.face_recognition.enabled && isAdmin,
@@ -86,7 +93,7 @@ export default function useNavigation(
         {
           id: ID_CLASSIFICATION,
           variant,
-          icon: MdCategory,
+          icon: LuShapes,
           title: "menu.classification",
           url: "/classification",
           enabled: isDesktop && isAdmin,
@@ -94,7 +101,7 @@ export default function useNavigation(
         {
           id: ID_CHAT,
           variant,
-          icon: MdChat,
+          icon: LuMessageCircle,
           title: "menu.chat",
           url: "/chat",
           enabled: isDesktop && isAdmin && hasChatAgent,

@@ -14,6 +14,7 @@ type ForkNavButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant: ForkNavVariant;
   large?: boolean;
   label: string;
+  hint?: string;
   children: ReactNode;
 };
 
@@ -22,7 +23,7 @@ type ForkNavButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
  * (GeneralSettings and AccountSettings triggers) so fork additions blend in.
  */
 const ForkNavButton = forwardRef<HTMLButtonElement, ForkNavButtonProps>(
-  ({ variant, large, label, className, children, ...props }, ref) => {
+  ({ variant, large, label, hint, className, children, ...props }, ref) => {
     const button = (
       <button
         ref={ref}
@@ -52,6 +53,11 @@ const ForkNavButton = forwardRef<HTMLButtonElement, ForkNavButtonProps>(
         <TooltipPortal>
           <TooltipContent side="right">
             <p>{label}</p>
+            {hint && (
+              <p className="mt-1 max-w-56 text-xs text-muted-foreground">
+                {hint}
+              </p>
+            )}
           </TooltipContent>
         </TooltipPortal>
       </Tooltip>

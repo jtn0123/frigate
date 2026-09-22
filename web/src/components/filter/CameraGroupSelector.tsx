@@ -7,7 +7,6 @@ import {
 } from "@/types/frigateConfig";
 import { isDesktop, isMobile } from "react-device-detect";
 import useSWR from "swr";
-import { MdHome } from "react-icons/md";
 import { Button, buttonVariants } from "../ui/button";
 import {
   useCallback,
@@ -28,7 +27,15 @@ import {
 } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { LuLayoutGrid, LuPencil, LuPlus, LuSettings } from "react-icons/lu";
+// fork (UI132): the "all cameras" group sits in the same column as the nav
+// icons, so it uses the same family.
+import {
+  LuHouse,
+  LuLayoutGrid,
+  LuPencil,
+  LuPlus,
+  LuSettings,
+} from "react-icons/lu";
 import {
   Dialog,
   DialogContent,
@@ -273,7 +280,7 @@ export function CameraGroupSelector({
           afterSelect?.();
         }}
       >
-        <MdHome className="size-5" />
+        <LuHouse className="size-5" />
       </Button>,
       ...groups.map(([name, config]) => (
         <Button
@@ -348,7 +355,7 @@ export function CameraGroupSelector({
                 onMouseEnter={() => showTooltip("default")}
                 onMouseLeave={() => showTooltip(undefined)}
               >
-                <MdHome className="size-4" />
+                <LuHouse className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipPortal>
