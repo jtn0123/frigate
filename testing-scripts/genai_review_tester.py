@@ -74,6 +74,8 @@ class TesterSettings:
         if SETTINGS_FILE.is_file():
             try:
                 data = json.loads(SETTINGS_FILE.read_text())
+                if not isinstance(data, dict):
+                    raise TypeError("Settings must be a JSON object")
                 return cls(
                     **{k: v for k, v in data.items() if k in cls.__annotations__}
                 )

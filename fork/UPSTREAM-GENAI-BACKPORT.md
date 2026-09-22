@@ -2,6 +2,7 @@
 
 Base: fork `next` at `274a29f87463bf62bfe97ddc4717e62b6514794d`.
 Compared upstream: `af0ba191966812cf9ac8515d95b1dd221363d17e`.
+Integrated current fork `next` at `e667a41a3` before PR validation.
 
 ## Included
 
@@ -54,8 +55,9 @@ refresh are retained. No wholesale lockfile or upstream branch replacement occur
 
 The recording/substream schema, detector architecture, non-root container migration,
 notices/System Health, face-recognition rewrite and major frontend tooling updates
-remain coordinated migration work. Open camera-history and footage-search work is
-not replaced. These backports do not complete issue #91's full branch integration.
+remain coordinated migration work. The camera-history and footage-search changes
+merged into `next` are retained. These backports do not complete issue #91's full
+branch integration.
 
 ## Validation
 
