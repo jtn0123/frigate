@@ -19,6 +19,7 @@ const DESKTOP_UA =
 // they are not collected at all, instead of running and skipping.
 const CSP_TAG = /@csp/;
 const skipCsp = process.env.E2E_CSP ? [] : [CSP_TAG];
+const TABLET_TAG = /@tablet-only/;
 
 // fork: the phones this fork targets are Android flagships (Galaxy S24 Ultra,
 // current Pixels) in Chrome, so the mobile project runs as one. With an
@@ -60,7 +61,7 @@ export default defineConfig({
     {
       name: "desktop",
       // fork: tests for one layout are tagged instead of skipped at run time
-      grepInvert: [/@mobile-only/, ...skipCsp],
+      grepInvert: [/@mobile-only/, TABLET_TAG, ...skipCsp],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1920, height: 1080 },
@@ -69,7 +70,7 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      grepInvert: [/@desktop-only/, ...skipCsp],
+      grepInvert: [/@desktop-only/, TABLET_TAG, ...skipCsp],
       use: {
         ...devices["Desktop Chrome"],
         // 412 x 915 CSS px at 3.5x: Pixel 9 Pro XL / Galaxy S Ultra class
@@ -77,6 +78,17 @@ export default defineConfig({
         deviceScaleFactor: 3.5,
         userAgent: MOBILE_UA,
         isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
+      name: "tablet",
+      grep: TABLET_TAG,
+      grepInvert: skipCsp,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 820, height: 1180 },
+        userAgent: DESKTOP_UA,
         hasTouch: true,
       },
     },

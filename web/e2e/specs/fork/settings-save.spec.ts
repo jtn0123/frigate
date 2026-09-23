@@ -9,12 +9,7 @@ import { toggleSemanticSearchAndOpenSaveAll } from "../../helpers/settings-save-
 const SEMANTIC_URL = "/settings?page=integrationSemanticSearch";
 
 test.describe("Settings save @high", () => {
-  test.describe("desktop", () => {
-    // Skip on phone: Save All is in the desktop header, not the mobile bar.
-    test.skip(
-      ({ frigateApp }) => frigateApp.isMobile,
-      "Desktop Save All header flow",
-    );
+  test.describe("desktop @desktop-only", () => {
     test("Save All sends the semantic-search body and the restart notice", async ({
       frigateApp,
     }) => {
@@ -52,12 +47,7 @@ test.describe("Settings save @high", () => {
     });
   });
 
-  test.describe("mobile", () => {
-    // Skip on desktop: this case is the mobile unsaved banner only.
-    test.skip(
-      ({ frigateApp }) => !frigateApp.isMobile,
-      "Mobile unsaved banner",
-    );
+  test.describe("mobile @mobile-only", () => {
     test("unsaved indicator appears after a field edit @mobile", async ({
       frigateApp,
     }) => {
