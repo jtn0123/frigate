@@ -49,6 +49,18 @@ Keep caching open pending live request-frequency and latency evidence and a
 complete invalidation design. The larger G16 indexing work remains a separate
 item. No server, browser polling interval or summary behavior was changed.
 
+## G16 indexed-term trial, 2026-09-23
+
+An indexed label and zone term table, backfill migration and update triggers
+passed focused correctness tests. The 50,000-row synthetic audio-plus-zone
+median was 121.43 ms over five measured runs, versus 86.96 ms over ten runs
+in the earlier baseline. At 5,000 rows, the corresponding medians were
+15.66 ms and 7.76 ms. SQLite used the new term index, but this trial did not
+improve the common cases. The query and migration were removed. The
+[trial artifact](results/review-summary-index-trial-20260923.json) preserves
+timings and query plans; G16 remains open for a different approach or live
+workload evidence.
+
 ## Limits
 
 This was a single-client ARM64 Linux test container on the development Mac,
