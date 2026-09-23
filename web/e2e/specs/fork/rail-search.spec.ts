@@ -124,7 +124,11 @@ test.describe("Rail search @high", () => {
 
     await frigateApp.goto("/");
     await openPalette(frigateApp);
-    await frigateApp.page.keyboard.type("red car");
+    const search = frigateApp.page
+      .getByTestId("command-palette")
+      .getByRole("combobox");
+    await search.fill("red car");
+    await expect(search).toHaveValue("red car");
 
     const result = frigateApp.page.getByTestId("footage-result").first();
     await expect(result).toBeVisible();
@@ -164,7 +168,11 @@ test.describe("Rail search @high", () => {
 
     await frigateApp.goto("/");
     await openPalette(frigateApp);
-    await frigateApp.page.keyboard.type("car", { delay: 20 });
+    const search = frigateApp.page
+      .getByTestId("command-palette")
+      .getByRole("combobox");
+    await search.pressSequentially("car", { delay: 20 });
+    await expect(search).toHaveValue("car");
     await expect(frigateApp.page.getByTestId("footage-result")).toBeVisible();
     expect(calls).toBe(1);
   });
