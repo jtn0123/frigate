@@ -125,10 +125,65 @@ function setSettings(settings: InboxSettings) {
   emit();
 }
 
+function handleStorage(event: StorageEvent) {
+  if (event.key === INBOX_ITEMS_KEY) {
+    const incoming = sanitizeItems(readJson(INBOX_ITEMS_KEY, []));
+    const merged = new Map<string, InboxItem>();
+    for (const item of [...incoming, ...state.items]) {
+      if (dismissed.includes(item.id)) continue;
+      const existing = merged.get(item.id);
+      const escalation =
+        existing !== undefined && item.severity !== existing.severity;
+      merged.set(item.id, {
+        ...item,
+        ...existing,
+        severity:
+          item.severity === "alert" || existing?.severity === "alert"
+            ? "alert"
+            : "detection",
+        read: escalation
+          ? item.severity === "alert"
+            ? item.read
+            : existing.read
+          : item.read || existing?.read || false,
+      });
+    }
+    const items = [...merged.values()].slice(0, INBOX_MAX_ITEMS);
+    if (JSON.stringify(items) !== JSON.stringify(state.items)) {
+      setItems(items);
+    }
+  } else if (event.key === INBOX_SETTINGS_KEY) {
+    const settings = sanitizeSettings(
+      readJson(INBOX_SETTINGS_KEY, DEFAULT_SETTINGS),
+    );
+    if (JSON.stringify(settings) !== JSON.stringify(state.settings)) {
+      state = { ...state, settings };
+      emit();
+    }
+  } else if (event.key === INBOX_DISMISSED_KEY) {
+    const incoming = sanitizeDismissed(readJson(INBOX_DISMISSED_KEY, []));
+    const merged = [...new Set([...incoming, ...dismissed])].slice(
+      -INBOX_MAX_DISMISSED,
+    );
+    if (JSON.stringify(merged) !== JSON.stringify(dismissed)) {
+      dismissed = merged;
+      writeJson(INBOX_DISMISSED_KEY, dismissed);
+    }
+    const items = state.items.filter((item) => !dismissed.includes(item.id));
+    if (items.length !== state.items.length) setItems(items);
+  }
+}
+
 export function subscribeInbox(listener: () => void) {
+  if (listeners.size === 0 && typeof window !== "undefined") {
+    window.addEventListener("storage", handleStorage);
+  }
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
+    if (listeners.size === 0 && typeof window !== "undefined") {
+      window.removeEventListener("storage", handleStorage);
+    }
   };
 }
 

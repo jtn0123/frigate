@@ -3,12 +3,15 @@ import type { FrigateReview } from "@/types/ws";
 import type { ReviewSegment } from "@/types/review";
 import {
   INBOX_DISMISSED_KEY,
+  INBOX_ITEMS_KEY,
   INBOX_MAX_DISMISSED,
   clearInbox,
   getInboxState,
   ingestReview,
+  markInboxRead,
   reloadInboxFromStorage,
   removeInboxItem,
+  subscribeInbox,
 } from "./inbox-store";
 
 function message(id: string, type: FrigateReview["type"]): FrigateReview {
@@ -47,6 +50,55 @@ describe("inbox store", () => {
     expect(ingestReview(message("r1", "end"))).toBe(true);
     expect(ids()).toEqual(["r1"]);
     expect(getInboxState().items.at(0)?.endTime).toBe(1_030);
+  });
+
+  it("merges a storage update from another tab without losing a local read", () => {
+    const unsubscribe = subscribeInbox(() => {});
+    try {
+      ingestReview(message("local", "new"));
+      markInboxRead("local");
+      const local = getInboxState().items[0];
+      const external = { ...local, id: "external", read: false };
+      localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify([external]));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: INBOX_ITEMS_KEY,
+          newValue: JSON.stringify([external]),
+        }),
+      );
+      expect(ids()).toEqual(["external", "local"]);
+      expect(
+        getInboxState().items.find((item) => item.id === "local")?.read,
+      ).toBe(true);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("shows a new alert when another tab escalates a read detection", () => {
+    const unsubscribe = subscribeInbox(() => {});
+    try {
+      ingestReview(message("r1", "new"));
+      const detection = {
+        ...getInboxState().items[0],
+        severity: "detection" as const,
+      };
+      localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify([detection]));
+      reloadInboxFromStorage();
+      markInboxRead("r1");
+
+      const alert = { ...detection, severity: "alert" as const, read: false };
+      localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify([alert]));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: INBOX_ITEMS_KEY }),
+      );
+      expect(getInboxState().items[0]).toMatchObject({
+        severity: "alert",
+        read: false,
+      });
+    } finally {
+      unsubscribe();
+    }
   });
 
   it("does not add an item from an update whose start it never saw", () => {
