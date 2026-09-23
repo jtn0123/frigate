@@ -143,7 +143,11 @@ test.describe("Rail search @high", () => {
 
     await frigateApp.goto("/");
     await openPalette(frigateApp);
-    await frigateApp.page.keyboard.type("red car");
+    const search = frigateApp.page
+      .getByTestId("command-palette")
+      .getByRole("combobox");
+    await search.fill("red car");
+    await expect(search).toHaveValue("red car");
     await frigateApp.page.getByTestId("footage-see-all").click();
     await expect(frigateApp.page).toHaveURL(/\/explore\?query=red\+car/);
   });
