@@ -53,7 +53,6 @@ import useGlobalMutation from "@/hooks/use-global-mutate";
 import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 import {
   useCommandPaletteOpen,
-  useCommandPaletteShortcuts,
   useRecentCommands,
 } from "@/hooks/fork/use-command-palette";
 import {
@@ -105,9 +104,6 @@ const GROUP_ORDER: PaletteGroup[] = [
  * keyboard shortcuts or the ForkNavItems buttons.
  */
 export default function CommandPalette() {
-  if (!isForkEnabled("commandPalette")) {
-    return null;
-  }
   return <CommandPaletteInner />;
 }
 
@@ -130,8 +126,6 @@ function CommandPaletteInner() {
   const [search, setSearch] = useState("");
   const [restartDialogOpen, setRestartDialogOpen] = useState(false);
   const [recent, pushRecent] = useRecentCommands();
-
-  useCommandPaletteShortcuts();
 
   // fork (UI134): the same box searches recorded footage. `/events/search` is
   // the semantic endpoint and answers 400 when semantic search is off, so the
