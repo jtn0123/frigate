@@ -2,9 +2,8 @@
 /**
  * Validate JSON fixtures in web/e2e/fixtures/mock-data against the OpenAPI
  * 200 schemas. Unmapped *.json files fail so a new fixture cannot skip the
- * check. Two files are skipped with a documented reason: review-summary
- * (spec shape != the day-keyed payload the UI uses; do not reshape until
- * B2) and config-schema (JSON Schema for the editor, not an API list).
+ * check. config-schema is skipped because it is a JSON Schema document for
+ * the editor rather than an API list response.
  * Fields where the spec disagrees with what the endpoint really sends are
  * listed in EPOCH_FIELD_DRIFT with the reason.
  *
@@ -36,11 +35,7 @@ export const FIXTURE_MAP = {
   "exports.json": { path: "/exports" },
   "cases.json": { path: "/cases" },
   "config-snapshot.json": { path: "/config" },
-  "review-summary.json": {
-    skip: true,
-    reason:
-      "Fixture is the day-keyed ReviewSummary the UI uses; spec ReviewSummaryResponse is { last24Hours, root }. Do not reshape the fixture. B2.",
-  },
+  "review-summary.json": { path: "/review/summary" },
   "config-schema.json": {
     skip: true,
     reason:

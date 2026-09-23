@@ -41,6 +41,11 @@ from frigate.api.defs.request.app_body import (
     GenAIProbeBody,
     MediaSyncBody,
 )
+from frigate.api.defs.response.fork_app import (
+    ActiveProfileResponse,
+    FFmpegPresetsResponse,
+    ProfilesResponse,
+)
 from frigate.api.defs.tags import Tags
 from frigate.config import FrigateConfig, GenAIConfig, GenAIProviderEnum
 from frigate.config.camera.updater import (
@@ -409,21 +414,33 @@ def config(request: Request):
     return JSONResponse(content=config)
 
 
-@router.get("/profiles", dependencies=[Depends(allow_any_authenticated())])
+@router.get(
+    "/profiles",
+    response_model=ProfilesResponse,
+    dependencies=[Depends(allow_any_authenticated())],
+)
 def get_profiles(request: Request):
     """List all available profiles and the currently active profile."""
     profile_manager = request.app.profile_manager
-    return JSONResponse(content=profile_manager.get_profile_info())
+    return profile_manager.get_profile_info()
 
 
-@router.get("/profile/active", dependencies=[Depends(allow_any_authenticated())])
+@router.get(
+    "/profile/active",
+    response_model=ActiveProfileResponse,
+    dependencies=[Depends(allow_any_authenticated())],
+)
 def get_active_profile(request: Request):
     """Get the currently active profile."""
     config_obj: FrigateConfig = request.app.frigate_config
-    return JSONResponse(content={"active_profile": config_obj.active_profile})
+    return {"active_profile": config_obj.active_profile}
 
 
-@router.get("/ffmpeg/presets", dependencies=[Depends(allow_any_authenticated())])
+@router.get(
+    "/ffmpeg/presets",
+    response_model=FFmpegPresetsResponse,
+    dependencies=[Depends(allow_any_authenticated())],
+)
 def ffmpeg_presets():
     """Return available ffmpeg preset keys for config UI usage."""
     machine = platform.machine().lower()
@@ -466,16 +483,14 @@ def ffmpeg_presets():
         "preset-record-ubiquiti",
     ]
 
-    return JSONResponse(
-        content={
-            "hwaccel_args": hwaccel_presets,
-            "input_args": input_presets,
-            "output_args": {
-                "record": record_output_presets,
-                "detect": [],
-            },
-        }
-    )
+    return {
+        "hwaccel_args": hwaccel_presets,
+        "input_args": input_presets,
+        "output_args": {
+            "record": record_output_presets,
+            "detect": [],
+        },
+    }
 
 
 @router.get("/config/raw_paths", dependencies=[Depends(require_role(["admin"]))])
@@ -1243,7 +1258,11 @@ def get_media_sync_status(job_id: str):
     )
 
 
-@router.get("/labels", dependencies=[Depends(allow_any_authenticated())])
+@router.get(
+    "/labels",
+    response_model=list[str],
+    dependencies=[Depends(allow_any_authenticated())],
+)
 def get_labels(
     camera: str = "",
     allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
@@ -1273,10 +1292,14 @@ def get_labels(
         )
 
     labels = sorted([e.label for e in events])
-    return JSONResponse(content=labels)
+    return labels
 
 
-@router.get("/sub_labels", dependencies=[Depends(allow_any_authenticated())])
+@router.get(
+    "/sub_labels",
+    response_model=list[str],
+    dependencies=[Depends(allow_any_authenticated())],
+)
 def get_sub_labels(
     split_joined: int | None = None,
     allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
@@ -1311,7 +1334,7 @@ def get_sub_labels(
                         sub_labels.append(part.strip())
 
     sub_labels.sort()
-    return JSONResponse(content=sub_labels)
+    return sub_labels
 
 
 @router.get("/audio_labels", dependencies=[Depends(allow_any_authenticated())])
@@ -1363,7 +1386,9 @@ def plusModels(request: Request, filterByCurrentModelDetector: bool = False):
 
 
 @router.get(
-    "/recognized_license_plates", dependencies=[Depends(allow_any_authenticated())]
+    "/recognized_license_plates",
+    response_model=list[str],
+    dependencies=[Depends(allow_any_authenticated())],
 )
 def get_recognized_license_plates(
     split_joined: int | None = None,
@@ -1401,7 +1426,7 @@ def get_recognized_license_plates(
 
     recognized_license_plates = list(set(recognized_license_plates))
     recognized_license_plates.sort()
-    return JSONResponse(content=recognized_license_plates)
+    return recognized_license_plates
 
 
 @router.get("/timeline", dependencies=[Depends(allow_any_authenticated())])
