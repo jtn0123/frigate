@@ -5,12 +5,17 @@ import {
   INBOX_DISMISSED_KEY,
   INBOX_ITEMS_KEY,
   INBOX_MAX_DISMISSED,
+  INBOX_SETTINGS_KEY,
   clearInbox,
   getInboxState,
   ingestReview,
+  isInQuietHours,
+  markAllInboxRead,
   markInboxRead,
   reloadInboxFromStorage,
   removeInboxItem,
+  setCameraMuted,
+  setQuietHours,
   subscribeInbox,
 } from "./inbox-store";
 
@@ -150,5 +155,106 @@ describe("inbox store", () => {
     // r1 was the oldest dismissal and has been dropped
     ingestReview(message("r1", "new"));
     expect(ids()).toEqual(["r1"]);
+  });
+
+  it("syncs camera mute and quiet hours from another tab", () => {
+    const changes: string[] = [];
+    const unsubscribe = subscribeInbox(() => changes.push("changed"));
+    try {
+      localStorage.setItem(
+        INBOX_SETTINGS_KEY,
+        JSON.stringify({
+          mutedCameras: ["front_door", 5],
+          quietHours: { enabled: true, start: "21:00", end: "06:00" },
+        }),
+      );
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: INBOX_SETTINGS_KEY }),
+      );
+      expect(getInboxState().settings).toEqual({
+        mutedCameras: ["front_door"],
+        quietHours: { enabled: true, start: "21:00", end: "06:00" },
+      });
+      expect(ingestReview(message("muted", "new"))).toBe(false);
+      expect(changes).toHaveLength(1);
+
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: INBOX_SETTINGS_KEY }),
+      );
+      expect(changes).toHaveLength(1);
+      setCameraMuted("front_door", false);
+      expect(ingestReview(message("unmuted", "new"))).toBe(true);
+      expect(ids()).toEqual(["unmuted"]);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("removes an item dismissed in another tab and ignores later updates", () => {
+    const unsubscribe = subscribeInbox(() => {});
+    try {
+      ingestReview(message("r1", "new"));
+      localStorage.setItem(INBOX_DISMISSED_KEY, JSON.stringify(["r1", 42]));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: INBOX_DISMISSED_KEY }),
+      );
+      expect(ids()).toEqual([]);
+      expect(ingestReview(message("r1", "new"))).toBe(false);
+      expect(
+        JSON.parse(localStorage.getItem(INBOX_DISMISSED_KEY) ?? "[]"),
+      ).toEqual(["r1"]);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("keeps a local dismissal when an older tab writes its items", () => {
+    const unsubscribe = subscribeInbox(() => {});
+    try {
+      ingestReview(message("r1", "new"));
+      const staleItem = getInboxState().items[0];
+      removeInboxItem("r1");
+      localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify([staleItem]));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: INBOX_ITEMS_KEY }),
+      );
+      expect(ids()).toEqual([]);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("marks all unread alerts read and persists the change", () => {
+    ingestReview(message("r1", "new"));
+    ingestReview(message("r2", "new"));
+    markAllInboxRead();
+    expect(getInboxState().items.every((item) => item.read)).toBe(true);
+    reloadInboxFromStorage();
+    expect(getInboxState().items.every((item) => item.read)).toBe(true);
+    markAllInboxRead();
+  });
+
+  it("supports daytime and overnight quiet hours and rejects bad times", () => {
+    const at = (hour: number) => new Date(2026, 0, 1, hour);
+    expect(
+      isInQuietHours({ enabled: true, start: "09:00", end: "17:00" }, at(10)),
+    ).toBe(true);
+    expect(
+      isInQuietHours({ enabled: true, start: "09:00", end: "17:00" }, at(18)),
+    ).toBe(false);
+    expect(
+      isInQuietHours({ enabled: true, start: "22:00", end: "07:00" }, at(23)),
+    ).toBe(true);
+    expect(
+      isInQuietHours({ enabled: true, start: "22:00", end: "07:00" }, at(12)),
+    ).toBe(false);
+    expect(
+      isInQuietHours({ enabled: true, start: "25:00", end: "07:00" }, at(23)),
+    ).toBe(false);
+    expect(
+      isInQuietHours({ enabled: true, start: "22:00", end: "22:00" }, at(23)),
+    ).toBe(false);
+    setQuietHours({ enabled: false, start: "22:00", end: "07:00" });
+    expect(getInboxState().settings.quietHours.enabled).toBe(false);
   });
 });

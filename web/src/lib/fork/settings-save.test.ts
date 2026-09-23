@@ -111,4 +111,96 @@ describe("savePendingSettings", () => {
     expect(result.savedKeys).toEqual(["detectors"]);
     expect(result.anyNeedsRestart).toBe(true);
   });
+
+  it("pre-clears when switching to a Frigate+ model and saves both model and detector", async () => {
+    const client = api();
+    const result = await savePendingSettings({
+      config: cfg({ ...config, model: { path: "/models/local.tflite" } }),
+      fullSchema: schema,
+      pendingDataBySection: {
+        detectors: { coral: { type: "edgetpu", device: "usb" } },
+        model: { path: "plus://new-model" },
+      },
+      api: client,
+    });
+    expect(client.put).toHaveBeenCalledTimes(2);
+    expect(client.put.mock.calls[0]?.[1]).toMatchObject({
+      config_data: { detectors: null, model: null },
+    });
+    expect(client.put.mock.calls[1]?.[1]).toMatchObject({
+      config_data: {
+        detectors: { coral: { type: "edgetpu", device: "usb" } },
+        model: { path: "plus://new-model" },
+      },
+    });
+    expect(result).toMatchObject({
+      successCount: 1,
+      failCount: 0,
+      savedKeys: ["detectors", "model"],
+      keysToClear: ["detectors", "model"],
+      anyNeedsRestart: true,
+    });
+  });
+
+  it("reports a combined detector/model failure and retains both keys", async () => {
+    const client = api();
+    client.put.mockRejectedValue(new Error("offline"));
+    const result = await savePendingSettings({
+      config,
+      fullSchema: schema,
+      pendingDataBySection: {
+        detectors: { new_detector: { type: "cpu" } },
+        model: { path: "plus://new-model" },
+      },
+      api: client,
+    });
+    expect(client.put).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({
+      successCount: 0,
+      failCount: 1,
+      savedKeys: [],
+      keysToClear: [],
+      anyNeedsRestart: false,
+    });
+    expect(result.failures[0]?.key).toBe("detectors/model");
+  });
+
+  it("retains streams for retry if their config write fails", async () => {
+    const client = api();
+    client.put.mockRejectedValue(new Error("offline"));
+    const result = await savePendingSettings({
+      config,
+      fullSchema: schema,
+      pendingDataBySection: { go2rtc_streams: { front: ["rtsp://new"] } },
+      api: client,
+    });
+    expect(client.put).toHaveBeenCalledTimes(1);
+    expect(client.remove).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      successCount: 0,
+      failCount: 1,
+      savedKeys: [],
+      keysToClear: [],
+    });
+    expect(result.failures[0]?.key).toBe("go2rtc_streams");
+  });
+
+  it("keeps a stream config save after an optional live stream update fails", async () => {
+    const client = api();
+    client.put.mockImplementation(async (url) => {
+      if (url.startsWith("go2rtc/streams/")) throw new Error("offline");
+    });
+    const result = await savePendingSettings({
+      config,
+      fullSchema: schema,
+      pendingDataBySection: { go2rtc_streams: { front: ["rtsp://new"] } },
+      api: client,
+    });
+    expect(result).toMatchObject({
+      successCount: 1,
+      failCount: 0,
+      savedKeys: ["go2rtc_streams"],
+      keysToClear: ["go2rtc_streams"],
+    });
+  });
 });
