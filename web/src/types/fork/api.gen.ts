@@ -4151,6 +4151,14 @@ export interface components {
              */
             history_status: string;
         };
+        /**
+         * ActiveProfileResponse
+         * @description Current persisted profile selection.
+         */
+        ActiveProfileResponse: {
+            /** Active Profile */
+            active_profile: string | null;
+        };
         /** AppConfigSetBody */
         AppConfigSetBody: {
             /**
@@ -4570,7 +4578,7 @@ export interface components {
         DayReview: {
             /**
              * Day
-             * Format: date-time
+             * Format: date
              */
             day: string;
             /** Reviewed Alert */
@@ -5019,7 +5027,7 @@ export interface components {
              */
             source: components["schemas"]["PlaybackSourceEnum"];
             /** Friendly name */
-            name?: string;
+            name?: string | null;
             /** Image Path */
             image_path?: string;
             /**
@@ -5054,6 +5062,20 @@ export interface components {
          * @enum {string}
          */
         Extension: "webp" | "png" | "jpg" | "jpeg";
+        /**
+         * FFmpegPresetsResponse
+         * @description Preset names exposed to the configuration editor.
+         */
+        FFmpegPresetsResponse: {
+            /** Hwaccel Args */
+            hwaccel_args: string[];
+            /** Input Args */
+            input_args: string[];
+            /** Output Args */
+            output_args: {
+                [key: string]: string[];
+            };
+        };
         /**
          * FaceRecognitionResponse
          * @description Response model for face recognition endpoint.
@@ -5251,13 +5273,13 @@ export interface components {
         /** Last24HoursReview */
         Last24HoursReview: {
             /** Reviewed Alert */
-            reviewed_alert: number;
+            reviewed_alert: number | null;
             /** Reviewed Detection */
-            reviewed_detection: number;
+            reviewed_detection: number | null;
             /** Total Alert */
-            total_alert: number;
+            total_alert: number | null;
             /** Total Detection */
-            total_detection: number;
+            total_detection: number | null;
         };
         /** MediaSyncBody */
         MediaSyncBody: {
@@ -5481,6 +5503,30 @@ export interface components {
             end: number;
         };
         /**
+         * ProfileListItem
+         * @description One selectable configuration profile.
+         */
+        ProfileListItem: {
+            /** Name */
+            name: string;
+            /** Friendly Name */
+            friendly_name: string | null;
+        };
+        /**
+         * ProfilesResponse
+         * @description Available profiles and their latest activation times.
+         */
+        ProfilesResponse: {
+            /** Active Profile */
+            active_profile: string | null;
+            /** Profiles */
+            profiles: components["schemas"]["ProfileListItem"][];
+            /** Last Activated */
+            last_activated: {
+                [key: string]: number;
+            };
+        };
+        /**
          * RegenerateDescriptionEnum
          * @enum {string}
          */
@@ -5536,13 +5582,12 @@ export interface components {
             /** Data */
             data: unknown;
         };
-        /** ReviewSummaryResponse */
+        /**
+         * ReviewSummaryResponse
+         * @description Review counts for the last 24 hours and each date.
+         */
         ReviewSummaryResponse: {
-            last24Hours: components["schemas"]["Last24HoursReview"];
-            /** Root */
-            root: {
-                [key: string]: components["schemas"]["DayReview"];
-            };
+            [key: string]: components["schemas"]["Last24HoursReview"] | components["schemas"]["DayReview"];
         };
         /**
          * SeverityEnum
@@ -8111,7 +8156,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProfilesResponse"];
                 };
             };
         };
@@ -8131,7 +8176,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ActiveProfileResponse"];
                 };
             };
         };
@@ -8151,7 +8196,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FFmpegPresetsResponse"];
                 };
             };
         };
@@ -8461,7 +8506,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */
@@ -8492,7 +8537,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */
@@ -8574,7 +8619,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */

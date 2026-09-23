@@ -22,7 +22,7 @@ describe("validateFixtures", () => {
         .filter((row) => row.status === "skip")
         .map((row) => row.file)
         .sort(),
-    ).toEqual(["config-schema.json", "review-summary.json"]);
+    ).toEqual(["config-schema.json"]);
     expect(
       report.results
         .filter((row) => row.status === "pass")
@@ -33,6 +33,7 @@ describe("validateFixtures", () => {
       "config-snapshot.json",
       "events.json",
       "exports.json",
+      "review-summary.json",
       "reviews.json",
     ]);
   });

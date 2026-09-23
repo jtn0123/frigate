@@ -1,6 +1,8 @@
 import { useUnsavedNavigation } from "@/hooks/use-unsaved-navigation";
 import { usePruneSettingsState } from "@/hooks/fork/use-prune-settings-state";
 import { sortedStrings } from "@/utils/stringSort";
+import { savePendingSettings } from "@/lib/fork/settings-save";
+import { compareGo2RtcStreams } from "@/lib/fork/go2rtc-streams";
 import { wrapAsync } from "@/utils/promise";
 import {
   DropdownMenu,
@@ -107,15 +109,10 @@ import { toast } from "sonner";
 
 import { RJSFSchema } from "@rjsf/utils";
 import {
-  buildConfigDataForPath,
-  buildHiddenFieldContext,
   flattenOverrides,
-  getSectionConfig,
   parseProfileFromSectionPath,
   prepareSectionSavePayload,
   PROFILE_ELIGIBLE_SECTIONS,
-  resolveHiddenFieldEntries,
-  sanitizeSectionData,
 } from "@/utils/configUtil";
 import type { ProfileState, ProfilesApiResponse } from "@/types/profile";
 import { getProfileColor } from "@/utils/profileColors";
@@ -811,12 +808,10 @@ export default function Settings() {
       const live =
         (pendingDataBySection["go2rtc_streams"] as Record<string, string[]>) ??
         {};
-      const saved: Record<string, string[]> = {};
-      for (const [name, urls] of Object.entries(
-        rawPaths?.go2rtc?.streams ?? {},
-      )) {
-        saved[name] = Array.isArray(urls) ? urls : [urls];
-      }
+      const { savedLists: saved, deletedNames } = compareGo2RtcStreams(
+        rawPaths?.go2rtc?.streams,
+        live,
+      );
 
       // Added or changed streams
       for (const [name, urls] of Object.entries(live)) {
@@ -830,8 +825,7 @@ export default function Settings() {
       }
 
       // Deleted streams (present in saved config, absent from pending)
-      for (const name of Object.keys(saved)) {
-        if (name in live) continue;
+      for (const name of deletedNames) {
         items.push({
           scope: "global",
           fieldPath: `go2rtc.streams.${name}`,
@@ -917,291 +911,94 @@ export default function Settings() {
       return;
 
     setIsSavingAll(true);
-    let successCount = 0;
-    let failCount = 0;
-    let anyNeedsRestart = false;
-    const savedKeys: string[] = [];
-    // Pending entries that have been successfully PUT — cleared in one batch
-    // after `mutate("config")` resolves
-    const keysToClear: string[] = [];
-
-    // `detectors` and `model` are owned by DetectorsAndModelSettingsView
-    const hasPendingDetectors = "detectors" in pendingDataBySection;
-    const hasPendingModel = "model" in pendingDataBySection;
-    if (hasPendingDetectors || hasPendingModel) {
-      try {
-        const pendingDetectors = hasPendingDetectors
-          ? pendingDataBySection.detectors
-          : undefined;
-        const pendingModel = hasPendingModel
-          ? pendingDataBySection.model
-          : undefined;
-
-        // Hidden-field lists come from the section configs themselves so
-        // they stay in sync with what the embedded forms strip on render
-        const detectorHiddenFields = resolveHiddenFieldEntries(
-          getSectionConfig("detectors", "global").hiddenFields,
-          buildHiddenFieldContext(config, "global"),
-        );
-        const modelHiddenFields = resolveHiddenFieldEntries(
-          getSectionConfig("model", "global").hiddenFields,
-          buildHiddenFieldContext(config, "global"),
-        );
-        const sanitizedDetectors =
-          pendingDetectors !== undefined
-            ? sanitizeSectionData(pendingDetectors, detectorHiddenFields)
-            : undefined;
-        const sanitizedModel =
-          pendingModel !== undefined
-            ? sanitizeSectionData(pendingModel, modelHiddenFields)
-            : undefined;
-
-        // Pre-clear conditions: detector keys differ from saved config (rename
-        // or add/remove), OR the model save flips between Plus and Custom modes
-        let detectorKeysChanged = false;
-        if (sanitizedDetectors && typeof sanitizedDetectors === "object") {
-          const pendingKeySet = sortedStrings(
-            Object.keys(sanitizedDetectors as JsonObject),
-          );
-          const savedKeySet = sortedStrings(
-            Object.keys(config.detectors ?? {}),
-          );
-          detectorKeysChanged =
-            JSON.stringify(pendingKeySet) !== JSON.stringify(savedKeySet);
-        }
-        let modelTabChanged = false;
-        if (sanitizedModel && typeof sanitizedModel === "object") {
-          const newPath = (sanitizedModel as { path?: string }).path;
-          const oldPath = config.model?.path;
-          const newIsPlus =
-            typeof newPath === "string" && newPath.startsWith("plus://");
-          const oldIsPlus =
-            typeof oldPath === "string" && oldPath.startsWith("plus://");
-          modelTabChanged = newIsPlus !== oldIsPlus;
-        }
-
-        if (detectorKeysChanged || modelTabChanged) {
-          try {
-            await axios.put("config/set", {
-              requires_restart: 0,
-              config_data: { detectors: null, model: null },
-            });
-          } catch {
-            // best-effort cleanup; the merge-write below will surface any
-            // real error.
-          }
-        }
-
-        const combinedConfigData: Record<string, unknown> = {};
-        if (sanitizedDetectors !== undefined) {
-          combinedConfigData.detectors = sanitizedDetectors;
-        }
-        if (sanitizedModel !== undefined) {
-          combinedConfigData.model = sanitizedModel;
-        }
-
-        await axios.put("config/set", {
-          requires_restart: 0,
-          config_data: combinedConfigData,
-        });
-
-        if (hasPendingDetectors) {
-          keysToClear.push("detectors");
-          savedKeys.push("detectors");
-        }
-        if (hasPendingModel) {
-          keysToClear.push("model");
-          savedKeys.push("model");
-        }
-
-        if (hasPendingDetectors || hasPendingModel) {
-          successCount++;
-          anyNeedsRestart = true;
-        }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(
-          "Save All – error saving detectors/model atomically",
-          error,
-        );
-        if (hasPendingDetectors || hasPendingModel) {
-          failCount++;
-        }
-      }
-    }
-
-    // go2rtc streams are owned by Go2RtcStreamsSettingsView
-    if ("go2rtc_streams" in pendingDataBySection) {
-      try {
-        const liveStreams =
-          (pendingDataBySection["go2rtc_streams"] as Record<
-            string,
-            string[]
-          >) ?? {};
-        const streamsPayload: Record<string, string[] | string> = {
-          ...liveStreams,
-        };
-        const deletedStreamNames = Object.keys(
-          config.go2rtc?.streams ?? {},
-        ).filter((name) => !(name in liveStreams));
-        for (const deleted of deletedStreamNames) {
-          streamsPayload[deleted] = "";
-        }
-
-        await axios.put("config/set", {
-          requires_restart: 0,
-          config_data: { go2rtc: { streams: streamsPayload } },
-        });
-
-        // Update the running go2rtc instance to match
-        const go2rtcUpdates: Promise<unknown>[] = [];
-        for (const [streamName, urls] of Object.entries(liveStreams)) {
-          if (urls[0]) {
-            go2rtcUpdates.push(
-              axios.put(
-                `go2rtc/streams/${streamName}?src=${encodeURIComponent(urls[0])}`,
-              ),
-            );
-          }
-        }
-        for (const deleted of deletedStreamNames) {
-          go2rtcUpdates.push(axios.delete(`go2rtc/streams/${deleted}`));
-        }
-        await Promise.allSettled(go2rtcUpdates);
-
-        keysToClear.push("go2rtc_streams");
-        savedKeys.push("go2rtc_streams");
-        successCount++;
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Save All – error saving go2rtc streams", error);
-        failCount++;
-      }
-    }
-
-    const pendingKeys = Object.keys(pendingDataBySection).filter(
-      (key) =>
-        key !== "detectors" && key !== "model" && key !== "go2rtc_streams",
-    );
-
-    for (const key of pendingKeys) {
-      const pendingData = pendingDataBySection[key];
-
-      try {
-        const payload = prepareSectionSavePayload({
-          pendingDataKey: key,
-          pendingData,
-          config,
-          fullSchema,
-        });
-
-        if (!payload) {
-          // No actual overrides — schedule the pending entry for clearing
-          keysToClear.push(key);
-          successCount++;
-          continue;
-        }
-
-        const configData = buildConfigDataForPath(
-          payload.basePath,
-          payload.sanitizedOverrides,
-        );
-        await axios.put("config/set", {
-          requires_restart: payload.needsRestart ? 1 : 0,
-          update_topic: payload.updateTopic,
-          config_data: configData,
-        });
-
-        if (payload.needsRestart) {
-          anyNeedsRestart = true;
-        }
-
-        // Defer clearing the pending entry until after mutate("config") resolves
-        keysToClear.push(key);
-        savedKeys.push(key);
-        successCount++;
-      } catch (error) {
+    try {
+      const {
+        successCount,
+        failCount,
+        anyNeedsRestart,
+        savedKeys,
+        keysToClear,
+        failures,
+      } = await savePendingSettings({
+        config,
+        fullSchema,
+        pendingDataBySection,
+        api: { put: axios.put, remove: axios.delete },
+      });
+      for (const { key, error } of failures) {
         // eslint-disable-next-line no-console
         console.error("Save All – error saving", key, error);
-        failCount++;
       }
-    }
 
-    // Refresh config from server once — must complete before clearing the
-    // pending entries so consumers don't observe a moment where pending is
-    // empty AND config is still stale
-    await mutate("config");
-    void mutate("config/raw_paths");
-
-    if (keysToClear.length > 0) {
-      setPendingDataBySection((prev) => {
-        const next = { ...prev };
-        for (const key of keysToClear) {
-          delete next[key];
-        }
-        return next;
-      });
-    }
-
-    // Clear hasChanges in sidebar for all successfully saved sections
-    if (savedKeys.length > 0) {
-      setSectionStatusByKey((prev) => {
-        const updated = { ...prev };
-        for (const key of savedKeys) {
-          const menuKey = pendingKeyToMenuKey(key);
-          if (menuKey && updated[menuKey]) {
-            updated[menuKey] = {
-              ...updated[menuKey],
-              hasChanges: false,
-              hasValidationErrors: false,
-            };
+      // Refresh before clearing pending entries so consumers never observe
+      // stale config with an empty pending set.
+      await mutate("config");
+      void mutate("config/raw_paths");
+      if (keysToClear.length > 0) {
+        setPendingDataBySection((prev) => {
+          const next = { ...prev };
+          for (const key of keysToClear) delete next[key];
+          return next;
+        });
+      }
+      if (savedKeys.length > 0) {
+        setSectionStatusByKey((prev) => {
+          const updated = { ...prev };
+          for (const key of savedKeys) {
+            const menuKey = pendingKeyToMenuKey(key);
+            if (menuKey && updated[menuKey]) {
+              updated[menuKey] = {
+                ...updated[menuKey],
+                hasChanges: false,
+                hasValidationErrors: false,
+              };
+            }
           }
-        }
-        return updated;
-      });
-    }
+          return updated;
+        });
+      }
 
-    // Aggregate toast
-    const totalCount = successCount + failCount;
-    if (failCount === 0) {
-      if (anyNeedsRestart) {
-        toast.success(
-          t("toast.saveAllSuccessRestartRequired", {
+      const totalCount = successCount + failCount;
+      if (failCount === 0) {
+        if (anyNeedsRestart) {
+          toast.success(
+            t("toast.saveAllSuccessRestartRequired", {
+              ns: "views/settings",
+              count: successCount,
+            }),
+            {
+              duration: 10000,
+              action: (
+                <Button onClick={() => setRestartDialogOpen(true)}>
+                  {t("restart.button", { ns: "components/dialog" })}
+                </Button>
+              ),
+            },
+          );
+        } else {
+          toast.success(
+            t("toast.saveAllSuccess", {
+              ns: "views/settings",
+              count: successCount,
+            }),
+          );
+        }
+      } else if (successCount > 0) {
+        toast.warning(
+          t("toast.saveAllPartial", {
             ns: "views/settings",
-            count: successCount,
+            count: totalCount,
+            successCount,
+            totalCount,
+            failCount,
           }),
-          {
-            duration: 10000,
-            action: (
-              <Button onClick={() => setRestartDialogOpen(true)}>
-                {t("restart.button", { ns: "components/dialog" })}
-              </Button>
-            ),
-          },
         );
       } else {
-        toast.success(
-          t("toast.saveAllSuccess", {
-            ns: "views/settings",
-            count: successCount,
-          }),
-        );
+        toast.error(t("toast.saveAllFailure", { ns: "views/settings" }));
       }
-    } else if (successCount > 0) {
-      toast.warning(
-        t("toast.saveAllPartial", {
-          ns: "views/settings",
-          count: totalCount,
-          successCount,
-          totalCount,
-          failCount,
-        }),
-      );
-    } else {
-      toast.error(t("toast.saveAllFailure", { ns: "views/settings" }));
+    } finally {
+      setIsSavingAll(false);
     }
-
-    setIsSavingAll(false);
   }, [
     config,
     fullSchema,

@@ -26,6 +26,7 @@ import {
   sanitizeSectionData,
 } from "@/utils/configUtil";
 import { maskCredentials } from "@/utils/credentialMask";
+import { compareGo2RtcStreams } from "./go2rtc-streams";
 
 export type SettingsChange = {
   path: string;
@@ -112,12 +113,12 @@ function go2rtcDiff(
   config: FrigateConfig,
 ): SettingsSectionDiff {
   const saved: Record<string, string[]> = {};
-  for (const [name, urls] of objectEntries(
-    getUnknown(config, "go2rtc.streams"),
-  )) {
-    saved[name] = (Array.isArray(urls) ? urls : [urls]).map((url) =>
-      maskCredentials(String(url)),
-    );
+  const { savedLists } = compareGo2RtcStreams(
+    (config.go2rtc as typeof config.go2rtc | undefined)?.streams,
+    pending,
+  );
+  for (const [name, urls] of Object.entries(savedLists)) {
+    saved[name] = urls.map((url) => maskCredentials(url));
   }
   const live: Record<string, string[]> = {};
   for (const [name, urls] of Object.entries(pending)) {

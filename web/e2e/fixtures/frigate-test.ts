@@ -40,7 +40,7 @@ export class FrigateApp {
     this.api = new ApiMocker(page);
     this.media = new MediaMocker(page);
     this.ws = new WsMocker();
-    this.isDesktop = projectName === "desktop";
+    this.isDesktop = projectName !== "mobile";
   }
 
   get isMobile() {

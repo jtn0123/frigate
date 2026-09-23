@@ -1,10 +1,8 @@
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
-from frigate.record.export import (
-    ChaptersEnum,
-    PlaybackSourceEnum,
-)
+from frigate.config.camera.record import ChaptersEnum
+from frigate.record.export import PlaybackSourceEnum
 
 
 class ExportRecordingsBody(BaseModel):
@@ -33,7 +31,7 @@ class ExportRecordingsCustomBody(BaseModel):
     source: PlaybackSourceEnum = Field(
         default=PlaybackSourceEnum.recordings, title="Playback source"
     )
-    name: str = Field(title="Friendly name", default=None, max_length=256)
+    name: str | None = Field(title="Friendly name", default=None, max_length=256)
     image_path: str | SkipJsonSchema[None] = None
     export_case_id: str | None = Field(
         default=None,
