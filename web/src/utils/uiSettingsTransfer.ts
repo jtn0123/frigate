@@ -365,13 +365,13 @@ export function summarizeImport(
     preferenceCount: validPreferenceEntries(file.sections.preferences).length,
     unknownLayoutGroups: layoutGroups
       .filter((group) => !knownGroupSet.has(group))
-      .sort(),
+      .sort((a, b) => a.localeCompare(b)),
     unknownStreamingGroups: streamingGroups
       .filter((group) => !knownGroupSet.has(group))
-      .sort(),
+      .sort((a, b) => a.localeCompare(b)),
     unknownCameras: Array.from(streamingCameras)
       .filter((camera) => !knownCameraSet.has(camera))
-      .sort(),
+      .sort((a, b) => a.localeCompare(b)),
   };
 }
 

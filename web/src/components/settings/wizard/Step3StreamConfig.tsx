@@ -851,8 +851,10 @@ export default function Step3StreamConfig({
                       inputMode="numeric"
                       value={onvif.port || ""}
                       onChange={(e) => {
-                        const parsed = parseInt(e.target.value, 10);
-                        updateOnvif({ port: isNaN(parsed) ? 0 : parsed });
+                        const parsed = Number.parseInt(e.target.value, 10);
+                        updateOnvif({
+                          port: Number.isNaN(parsed) ? 0 : parsed,
+                        });
                       }}
                       className="h-8"
                       placeholder="8000"

@@ -83,7 +83,7 @@ export default function ImportUiSettingsDialog({
       summary.unknownStreamingGroups.forEach((group) => groups.add(group));
     }
 
-    return Array.from(groups).sort();
+    return Array.from(groups).sort((a, b) => a.localeCompare(b));
   }, [sections, summary]);
 
   const visibleUnknownCameras = useMemo(
@@ -99,7 +99,9 @@ export default function ImportUiSettingsDialog({
 
   const exportedDate = useMemo(() => {
     const parsed = new Date(file.exported_at);
-    return isNaN(parsed.getTime()) ? file.exported_at : parsed.toLocaleString();
+    return Number.isNaN(parsed.getTime())
+      ? file.exported_at
+      : parsed.toLocaleString();
   }, [file.exported_at]);
 
   return (
