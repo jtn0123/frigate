@@ -437,13 +437,15 @@ class TestToolDispatch(unittest.TestCase):
             return_value={"person": ["Alice"]},
         ) as names:
             self.assertEqual(
-                chat._execute_get_categorized_object_names(self.request, ["front"]),
+                _run(
+                    chat._execute_get_categorized_object_names(self.request, ["front"])
+                ),
                 {"names": {"person": ["Alice"]}},
             )
         names.assert_called_once_with(self.request.app.frigate_config, ["front"])
 
         with patch.object(chat, "get_categorized_object_names", return_value={}):
-            result = chat._execute_get_categorized_object_names(self.request, [])
+            result = _run(chat._execute_get_categorized_object_names(self.request, []))
         self.assertEqual(result["names"], {})
         self.assertIn("semantic_query", result["message"])
 

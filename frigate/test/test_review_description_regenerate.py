@@ -103,7 +103,11 @@ class TestRegenerateReviewDescription(unittest.TestCase):
         self._run(processor, self._review())
 
         processor.get_recording_frames.assert_called_once_with(
-            "front", 97.0, 133.0, height=480
+            "front",
+            97.0,
+            133.0,
+            height=480,
+            frame_mode=processor.config.cameras["front"].review.genai.frame_mode,
         )
         processor.start_analysis.assert_called_once()
         camera_config, final_data, thumbs = processor.start_analysis.call_args.args
@@ -218,7 +222,11 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         processor.process_data(self._end(), PostProcessDataEnum.review)
 
         processor.get_recording_frames.assert_called_once_with(
-            "front", 97.0, 133.0, height=480
+            "front",
+            97.0,
+            133.0,
+            height=480,
+            frame_mode=processor.config.cameras["front"].review.genai.frame_mode,
         )
         processor.save_debug_recording_frames.assert_called_once_with("r1", [b"a"])
         camera_config, final_data, thumbs = processor.start_analysis.call_args.args
@@ -257,7 +265,7 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         final_data = {"id": "r1"}
 
         with patch.object(review_descriptions.threading, "Thread") as thread:
-            processor.start_analysis(camera, final_data, [b"a"])
+            processor.start_analysis(camera, final_data, [(b"a", 1.0)])
 
         processor.review_desc_dps.update.assert_called_once()
         self.assertIs(
@@ -268,9 +276,11 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         self.assertIs(args[3], camera)
         self.assertIs(args[4], final_data)
         self.assertEqual(args[5], [b"a"])
-        self.assertIs(args[6], camera.review.genai)
-        self.assertEqual(args[7], ["person", "car"])
-        self.assertEqual(args[8], ["amazon"])
+        # plain frame mode sends no per-frame captions
+        self.assertEqual(args[6], [])
+        self.assertIs(args[7], camera.review.genai)
+        self.assertEqual(args[8], ["car", "person"])
+        self.assertEqual(args[9], ["amazon"])
         thread.return_value.start.assert_called_once()
 
     def test_debug_frames_are_written_in_order(self):
@@ -278,7 +288,9 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as clips:
             with patch.object(review_descriptions, "CLIPS_DIR", clips):
-                processor.save_debug_recording_frames("r1", [b"zero", b"one"])
+                processor.save_debug_recording_frames(
+                    "r1", [(b"zero", 1.0), (b"one", 2.0)]
+                )
 
             folder = os.path.join(clips, "genai-requests", "r1")
             self.assertEqual(sorted(os.listdir(folder)), ["0.jpg", "1.jpg"])
