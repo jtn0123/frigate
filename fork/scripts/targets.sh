@@ -36,6 +36,7 @@ py_script_tests=(
   test_sonar_token_expiry.py
   test_ledger.py
   test_runtime_lock.py
+  test_vehicle_label_trial.py
 )
 
 main() {
