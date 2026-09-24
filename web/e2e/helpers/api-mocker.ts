@@ -137,6 +137,37 @@ export class ApiMocker {
       }
       return route.fulfill({ json: [stats] });
     });
+    // Stored system metrics history (D54). The General tab asks for a range
+    // and gets back samples already averaged into buckets, each labelled
+    // with the bucket's start, so the graphs read it like a live sample.
+    await this.page.route("**/api/system/metrics/history**", (route) => {
+      const range =
+        new URL(route.request().url()).searchParams.get("range") ?? "1h";
+      const resolution =
+        {
+          "1h": 60,
+          "6h": 300,
+          "12h": 600,
+          "24h": 900,
+          "7d": 7200,
+          "30d": 14400,
+        }[range] ?? 60;
+      const now = Math.floor(Date.now() / 1000);
+      return route.fulfill({
+        json: {
+          status: "connected",
+          range,
+          resolution,
+          samples: Array.from({ length: 30 }, (_, i) => ({
+            ...stats,
+            service: {
+              ...stats.service,
+              last_updated: now - (29 - i) * resolution,
+            },
+          })),
+        },
+      });
+    });
 
     // fork (UI131): the Health tab's window of per-camera history
     await this.page.route("**/api/fork/camera_history**", (route) => {

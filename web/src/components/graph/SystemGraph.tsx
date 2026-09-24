@@ -4,6 +4,7 @@ import { useDateLocale } from "@/hooks/use-date-locale";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { Threshold } from "@/types/graph";
 import { formatUnixTimestampToDateTime } from "@/utils/dateUtil";
+import { metricTimeFormatKey } from "@/lib/fork/metric-time-format";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import Chart from "react-apexcharts";
 import { isMobileOnly } from "react-device-detect";
@@ -56,11 +57,13 @@ export function ThresholdBarGraph({
   const { t } = useTranslation(["common"]);
 
   const timeFormat = useTimeFormat(config);
+  // fork (D54): a stored range spanning days labels its ticks with the date
+  const formatKey = metricTimeFormatKey(updateTimes, timeFormat);
   const format = useMemo(() => {
-    return t(`time.formattedTimestampHourMinute.${timeFormat}`, {
+    return t(formatKey, {
       ns: "common",
     });
-  }, [t, timeFormat]);
+  }, [t, formatKey]);
 
   const updateTimesRef = useRef(updateTimes);
   useEffect(() => {

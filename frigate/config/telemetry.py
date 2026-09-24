@@ -2,7 +2,24 @@ from pydantic import Field
 
 from .base import FrigateBaseModel
 
-__all__ = ["TelemetryConfig", "StatsConfig"]
+__all__ = ["TelemetryConfig", "StatsConfig", "StatsHistoryConfig"]
+
+
+class StatsHistoryConfig(FrigateBaseModel):
+    """Fork (D54): system metrics kept past the in-memory stats window."""
+
+    enabled: bool = Field(
+        default=True,
+        title="System metrics history",
+        description="Store a sample of system metrics every minute so the System page can graph windows longer than the 20 minutes held in memory.",
+    )
+    retain_days: int = Field(
+        default=30,
+        ge=1,
+        le=365,
+        title="System metrics history retention",
+        description="Days of system metrics history to keep. Samples are rolled up as they age, so a month is a few thousand rows.",
+    )
 
 
 class StatsConfig(FrigateBaseModel):
@@ -20,6 +37,11 @@ class StatsConfig(FrigateBaseModel):
         default=False,
         title="Network bandwidth",
         description="Enable per-process network bandwidth monitoring for camera ffmpeg processes and detectors (requires capabilities).",
+    )
+    history: StatsHistoryConfig = Field(
+        default_factory=StatsHistoryConfig,
+        title="System metrics history",
+        description="Options for the stored history the System page graphs.",
     )
     intel_gpu_device: str | None = Field(
         default=None,

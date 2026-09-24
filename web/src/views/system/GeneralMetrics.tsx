@@ -1,5 +1,4 @@
-import useSWR from "swr";
-import { FrigateStats, GpuInfo, GpuStats } from "@/types/stats";
+import { GpuInfo, GpuStats } from "@/types/stats";
 import { useMemo, useState } from "react";
 import {
   DetectorCpuThreshold,
@@ -26,7 +25,8 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { CiCircleAlert } from "react-icons/ci";
 import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
-import { useLiveStatsHistory } from "@/hooks/fork/use-live-stats-history";
+import { useSystemMetricsHistory } from "@/hooks/fork/use-system-metrics-history";
+import MetricRangeToggle from "@/components/fork/MetricRangeToggle";
 
 type GeneralMetricsProps = {
   lastUpdated: number;
@@ -44,25 +44,17 @@ export default function GeneralMetrics({
 
   // stats
 
-  const { data: initialStats, mutate: refreshStats } = useSWR<FrigateStats[]>(
-    [
-      "stats/history",
-      {
-        keys: "detectors.inference_speed,detectors.temperature,detectors.cpu,detectors.mem,gpu_usages,npu_usages,processes.cpu,processes.mem,service.last_updated",
-      },
-    ],
-    {
-      revalidateOnFocus: false,
-    },
-  );
-
-  // fork (UI107): also grows from live stats when the history starts empty
-  const [statsHistory, setStatsHistory] = useLiveStatsHistory({
-    initialStats,
-    isActive,
-    lastUpdated,
-    setLastUpdated,
-  });
+  // fork (UI107, D54): the live window grows from live stats when the
+  // history starts empty; a longer range comes from the stored history
+  const {
+    statsHistory,
+    setStatsHistory,
+    refresh: refreshStats,
+    range,
+    setRange,
+    resolution,
+    status,
+  } = useSystemMetricsHistory({ isActive, lastUpdated, setLastUpdated });
 
   // prettier-ignore
   useRefreshStatsOnActivate(isActive, statsHistory, refreshStats, setStatsHistory);
@@ -634,7 +626,14 @@ export default function GeneralMetrics({
       />
 
       <div className="scrollbar-container mt-4 flex size-full flex-col overflow-y-auto">
-        <div className="text-sm font-medium text-muted-foreground">
+        {/* fork (D54): how far back every graph on this tab reaches */}
+        <MetricRangeToggle
+          range={range}
+          onRangeChange={setRange}
+          resolution={resolution}
+          status={status}
+        />
+        <div className="mt-4 text-sm font-medium text-muted-foreground">
           {t("general.detector.title")}
         </div>
         <div
