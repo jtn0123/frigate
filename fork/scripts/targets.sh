@@ -33,6 +33,12 @@ py_script_tests=(
   test_lock_audit.py
   test_audio_lock.py
   test_benchmark_guards.py
+  test_benchmark_progress.py
+  test_benchmark_ci.py
+  test_smoke_build_graph.py
+  test_dev_lock_check.py
+  test_dependency_images_coverage.py
+  test_image_build_coverage.py
   test_sonar_token_expiry.py
   test_ledger.py
   test_runtime_lock.py

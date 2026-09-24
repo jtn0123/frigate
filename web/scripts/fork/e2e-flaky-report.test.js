@@ -136,6 +136,20 @@ describe("readReports", () => {
       "results.json",
     ]);
   });
+
+  it("orders report names lexically even when directory enumeration differs", async () => {
+    const dir = await reportDir({
+      "results-z.json": report(),
+      "results-10.json": report(),
+      "results-2.json": report(),
+    });
+
+    expect(readReports(dir).map((entry) => entry.name)).toEqual([
+      "results-10.json",
+      "results-2.json",
+      "results-z.json",
+    ]);
+  });
 });
 
 describe("run", () => {
