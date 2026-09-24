@@ -16,6 +16,7 @@ from frigate.api.defs.request.fork_classification_suggestions_body import (
 from frigate.api.defs.response.fork_classification_suggestions_response import (
     ClassificationSuggestionsResponse,
     ConfirmSuggestionResponse,
+    EventSuggestionsResponse,
     SuggestionReportResponse,
 )
 from frigate.api.defs.tags import Tags
@@ -48,7 +49,7 @@ def dataset_classes(name: str) -> list[str]:
 
 def load_events(ids: list[str]) -> list[dict[str, Any]]:
     return list(
-        Event.select(Event.id, Event.camera, Event.label, Event.data)
+        Event.select(Event.id, Event.camera, Event.label, Event.sub_label, Event.data)
         .where(Event.id << ids)
         .dicts()
     )
@@ -66,6 +67,48 @@ def state(app: Any, config: FrigateConfig) -> tuple[Any, Any]:
 
 
 make_ask = suggest.make_ask
+
+
+async def draft_events(
+    request: Request, events: list[dict[str, Any]], classes: list[str]
+) -> dict[str, suggest.EventSuggestion]:
+    """Draft a class for each event, locally and through Jev when it is on."""
+    config: FrigateConfig = request.app.frigate_config
+    settings = config.classification.suggestions
+    jev_config = settings.jev
+    key = suggest.api_key()
+    if not (settings.enabled and jev_config.enabled and key):
+        return await suggest.suggest_for_events(
+            events, classes, settings.enabled, None, None, None, None
+        )
+    cache, budget = state(request.app, config)
+    jev_settings: suggest.JevSettings = {
+        "model": jev_config.model,
+        "cameras": list(jev_config.cameras),
+        "daily_request_limit": jev_config.daily_request_limit,
+    }
+    async with aiohttp.ClientSession() as session:
+        ask = make_ask(session, jev_config.url, key, jev_config.timeout)
+        return await suggest.suggest_for_events(
+            events, classes, settings.enabled, jev_settings, cache, budget, ask
+        )
+
+
+def event_models(config: FrigateConfig, label: str) -> list[str]:
+    """Custom models whose object list includes this label."""
+    return [
+        name
+        for name, model in config.classification.custom.items()
+        if model.object_config is not None and label in model.object_config.objects
+    ]
+
+
+def filed_entry(name: str, event_id: str) -> dict[str, Any] | None:
+    """What this event was last filed as under the model, if anything."""
+    for entry in reversed(suggest.read_provenance(CLIPS_DIR, name)):
+        if entry.get("event_id") == event_id and isinstance(entry.get("category"), str):
+            return {"category": entry["category"], "auto": bool(entry.get("auto"))}
+    return None
 
 
 @router.get(
@@ -97,27 +140,8 @@ async def classification_suggestions(
 
     key = suggest.api_key()
     jev_config = settings.jev
-    jev_on = settings.enabled and jev_config.enabled and bool(key)
-    cache, budget = state(request.app, config)
-    jev_settings: suggest.JevSettings | None = None
-    if jev_on:
-        jev_settings = {
-            "model": jev_config.model,
-            "cameras": list(jev_config.cameras),
-            "daily_request_limit": jev_config.daily_request_limit,
-        }
-
-    if jev_settings is not None:
-        async with aiohttp.ClientSession() as session:
-            ask = make_ask(session, jev_config.url, key, jev_config.timeout)
-            suggestions = await suggest.suggest_for_events(
-                events, classes, settings.enabled, jev_settings, cache, budget, ask
-            )
-    else:
-        suggestions = await suggest.suggest_for_events(
-            events, classes, settings.enabled, None, None, None, None
-        )
-
+    suggestions = await draft_events(request, events, classes)
+    _cache, budget = state(request.app, config)
     used = await asyncio.to_thread(budget.used)
     return JSONResponse(
         content={
@@ -226,6 +250,51 @@ async def confirm_suggestion(
             "moved": moved,
         }
     )
+
+
+@router.get(
+    "/classification/suggestions/event/{event_id}",
+    response_model=EventSuggestionsResponse,
+    dependencies=[Depends(require_role(["admin"]))],
+    summary="Suggest dataset classes for one event",
+    description="""Drafts a class for the event under every custom model that classifies
+    its label, with the train images still waiting for it, what the trained model
+    called it, and what it was already filed as. For the Explore detail dialog.""",
+)
+async def event_suggestions(request: Request, event_id: str) -> JSONResponse:
+    config: FrigateConfig = request.app.frigate_config
+    rows = await asyncio.to_thread(load_events, [event_id])
+    if not rows:
+        return JSONResponse(
+            content={"success": False, "message": "Event not found"},
+            status_code=404,
+        )
+    event = rows[0]
+    models = []
+    for name in event_models(config, str(event["label"])):
+        classes = await asyncio.to_thread(dataset_classes, name)
+        if not suggest.candidate_classes(classes):
+            continue
+        drafts = await draft_events(request, [event], classes)
+        object_config = config.classification.custom[name].object_config
+        classification_type = (
+            object_config.classification_type.value if object_config else "sub_label"
+        )
+        models.append(
+            {
+                "model": name,
+                "classes": classes,
+                "suggestion": drafts[event_id],
+                "training_files": await asyncio.to_thread(
+                    suggest.train_files_for_event, CLIPS_DIR, name, event_id
+                ),
+                "model_said": suggest.model_verdict(
+                    name, classification_type, classes, event
+                ),
+                "filed": await asyncio.to_thread(filed_entry, name, event_id),
+            }
+        )
+    return JSONResponse(content={"event_id": event_id, "models": models})
 
 
 @router.get(

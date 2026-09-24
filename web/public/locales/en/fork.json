@@ -634,6 +634,14 @@
     "modelAgrees_other": "Model matches {{rate}}% of {{count}} described events",
     "modelClass_one": "{{category}}: matched {{rate}}% of {{count}} event",
     "modelClass_other": "{{category}}: matched {{rate}}% of {{count}} events",
-    "descriptionSaid": "(description said {{list}})"
+    "descriptionSaid": "(description said {{list}})",
+    "suggested": "{{model}}: {{category}}",
+    "filedAs": "{{model}}: filed as {{category}}",
+    "filedAuto": "(auto)",
+    "file": "File",
+    "noTrainImages": "no train images left",
+    "modelSaid": "model said {{category}}",
+    "viaJev": "Jev {{percent}}%",
+    "viaText": "from the description"
   }
 }

@@ -63,6 +63,37 @@ class ConfirmSuggestionResponse(BaseModel):
     moved: list[str] = Field(default_factory=list, description="New dataset file names")
 
 
+class FiledModel(BaseModel):
+    """What an event's train images were filed as (fork I46)."""
+
+    category: str = Field(description="The dataset class")
+    auto: bool = Field(description="Filed by I44 without review")
+
+
+class EventModelSuggestionModel(BaseModel):
+    """One custom model's view of one event (fork I46)."""
+
+    model: str = Field(description="The classification model")
+    classes: list[str] = Field(description="Dataset classes a draft can name")
+    suggestion: EventSuggestionModel
+    training_files: list[str] = Field(
+        default_factory=list, description="Train images still waiting for the event"
+    )
+    model_said: str | None = Field(
+        default=None, description="The trained model's class for the event"
+    )
+    filed: FiledModel | None = Field(
+        default=None, description="What the event was last filed as, if anything"
+    )
+
+
+class EventSuggestionsResponse(BaseModel):
+    """Drafts for one event under every model that applies (fork I46)."""
+
+    event_id: str = Field(description="The event")
+    models: list[EventModelSuggestionModel] = Field(default_factory=list)
+
+
 class AcceptanceModel(BaseModel):
     """How many drafts were filed unchanged (fork I42)."""
 

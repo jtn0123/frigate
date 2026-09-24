@@ -4090,6 +4090,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/classification/suggestions/event/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest dataset classes for one event
+         * @description **Access:** Admin role required.
+         *
+         *     Drafts a class for the event under every custom model that classifies
+         *         its label, with the train images still waiting for it, what the trained model
+         *         called it, and what it was already filed as. For the Explore detail dialog.
+         */
+        get: operations["event_suggestions_classification_suggestions_event__event_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/classification/{name}/suggestions/report": {
         parameters: {
             query?: never;
@@ -5000,6 +5024,35 @@ export interface components {
             /** Event Id */
             event_id: string;
         };
+        /**
+         * EventModelSuggestionModel
+         * @description One custom model's view of one event (fork I46).
+         */
+        EventModelSuggestionModel: {
+            /**
+             * Model
+             * @description The classification model
+             */
+            model: string;
+            /**
+             * Classes
+             * @description Dataset classes a draft can name
+             */
+            classes: string[];
+            suggestion: components["schemas"]["EventSuggestionModel"];
+            /**
+             * Training Files
+             * @description Train images still waiting for the event
+             */
+            training_files?: string[];
+            /**
+             * Model Said
+             * @description The trained model's class for the event
+             */
+            model_said?: string | null;
+            /** @description What the event was last filed as, if anything */
+            filed?: components["schemas"]["FiledModel"] | null;
+        };
         /** EventMultiDeleteResponse */
         EventMultiDeleteResponse: {
             /** Success */
@@ -5067,6 +5120,19 @@ export interface components {
              * @description The two sources named different classes
              */
             conflict: boolean;
+        };
+        /**
+         * EventSuggestionsResponse
+         * @description Drafts for one event under every model that applies (fork I46).
+         */
+        EventSuggestionsResponse: {
+            /**
+             * Event Id
+             * @description The event
+             */
+            event_id: string;
+            /** Models */
+            models?: components["schemas"]["EventModelSuggestionModel"][];
         };
         /** EventUploadPlusResponse */
         EventUploadPlusResponse: {
@@ -5464,6 +5530,22 @@ export interface components {
          */
         FacesResponse: {
             [key: string]: string[];
+        };
+        /**
+         * FiledModel
+         * @description What an event's train images were filed as (fork I46).
+         */
+        FiledModel: {
+            /**
+             * Category
+             * @description The dataset class
+             */
+            category: string;
+            /**
+             * Auto
+             * @description Filed by I44 without review
+             */
+            auto: boolean;
         };
         /**
          * ForkReleaseModel
@@ -12266,6 +12348,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfirmSuggestionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    event_suggestions_classification_suggestions_event__event_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventSuggestionsResponse"];
                 };
             };
             /** @description Validation Error */

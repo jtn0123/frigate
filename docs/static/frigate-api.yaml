@@ -7565,6 +7565,42 @@ paths:
       security:
         - frigateAdminAuth: []
       x-required-role: admin
+  /classification/suggestions/event/{event_id}:
+    get:
+      tags:
+        - Classification
+      summary: Suggest dataset classes for one event
+      description: |-
+        **Access:** Admin role required.
+
+        Drafts a class for the event under every custom model that classifies
+            its label, with the train images still waiting for it, what the trained model
+            called it, and what it was already filed as. For the Explore detail dialog.
+      operationId: 
+        event_suggestions_classification_suggestions_event__event_id__get
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Event Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventSuggestionsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /classification/{name}/suggestions/report:
     get:
       tags:
@@ -8873,6 +8909,44 @@ components:
         - message
         - event_id
       title: EventCreateResponse
+    EventModelSuggestionModel:
+      properties:
+        model:
+          type: string
+          title: Model
+          description: The classification model
+        classes:
+          items:
+            type: string
+          type: array
+          title: Classes
+          description: Dataset classes a draft can name
+        suggestion:
+          $ref: '#/components/schemas/EventSuggestionModel'
+        training_files:
+          items:
+            type: string
+          type: array
+          title: Training Files
+          description: Train images still waiting for the event
+        model_said:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Model Said
+          description: The trained model's class for the event
+        filed:
+          anyOf:
+            - $ref: '#/components/schemas/FiledModel'
+            - type: 'null'
+          description: What the event was last filed as, if anything
+      type: object
+      required:
+        - model
+        - classes
+        - suggestion
+      title: EventModelSuggestionModel
+      description: One custom model's view of one event (fork I46).
     EventMultiDeleteResponse:
       properties:
         success:
@@ -9018,6 +9092,23 @@ components:
       title: EventSuggestionModel
       description: Both sources for one event and the draft the grid should 
         show.
+    EventSuggestionsResponse:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+          description: The event
+        models:
+          items:
+            $ref: '#/components/schemas/EventModelSuggestionModel'
+          type: array
+          title: Models
+      type: object
+      required:
+        - event_id
+      title: EventSuggestionsResponse
+      description: Drafts for one event under every model that applies (fork 
+        I46).
     EventUploadPlusResponse:
       properties:
         success:
@@ -9546,6 +9637,22 @@ components:
                 "john_doe": ["face1.webp", "face2.jpg"],
                 "jane_smith": ["face3.png"]
             }
+    FiledModel:
+      properties:
+        category:
+          type: string
+          title: Category
+          description: The dataset class
+        auto:
+          type: boolean
+          title: Auto
+          description: Filed by I44 without review
+      type: object
+      required:
+        - category
+        - auto
+      title: FiledModel
+      description: What an event's train images were filed as (fork I46).
     ForkReleaseModel:
       properties:
         tag:

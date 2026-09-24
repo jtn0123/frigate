@@ -85,6 +85,16 @@ and the status line shows the rate. A class whose rate keeps falling is
 the one to retrain. Only class names, ids and a hash of the text are
 stored.
 
+## In Explore (I46)
+
+The tracked object detail dialog shows the same draft above the
+description, one line per custom model that classifies the event's label,
+with what the trained model said and a File button. It reads
+`GET /classification/suggestions/event/{event_id}` (admin), which also
+returns the train images still waiting for the event and what it was
+already filed as. Filing goes through the confirm endpoint, so the report
+sees it.
+
 ## Better descriptions
 
 The drafts can only be as good as the descriptions. A camera prompt that

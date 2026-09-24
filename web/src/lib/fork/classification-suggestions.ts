@@ -175,3 +175,26 @@ export function draftsToFile(
   }
   return drafts;
 }
+
+/** What an event's train images were filed as (fork I46). */
+export type FiledEntry = { category: string; auto: boolean };
+
+/** One custom model's view of one event (fork I46). */
+export type EventModelSuggestion = {
+  model: string;
+  classes: string[];
+  suggestion: EventSuggestion;
+  training_files: string[];
+  model_said: string | null;
+  filed: FiledEntry | null;
+};
+
+export type EventSuggestionsResponse = {
+  event_id: string;
+  models: EventModelSuggestion[];
+};
+
+/** SWR key of the per-event drafts, for the Explore detail dialog. */
+export function eventSuggestionsKey(eventId: string) {
+  return `classification/suggestions/event/${encodeURIComponent(eventId)}`;
+}

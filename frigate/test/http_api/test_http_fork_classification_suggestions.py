@@ -295,6 +295,62 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
             )
         )
 
+    def test_event_suggestions_cover_every_model_for_the_label(self):
+        self._event("evt-1", "A white van is parked.")
+        client = AuthTestClient(self.app)
+        self.assertEqual(
+            client.get("/classification/suggestions/event/missing").status_code, 404
+        )
+        body = client.get("/classification/suggestions/event/evt-1").json()
+        self.assertEqual(body["event_id"], "evt-1")
+        self.assertEqual(len(body["models"]), 1)
+        model = body["models"][0]
+        self.assertEqual(model["model"], "vehicle_type")
+        self.assertEqual(model["classes"], ["none", "suv", "van"])
+        self.assertEqual(model["suggestion"]["suggestion"]["category"], "van")
+        self.assertEqual(
+            model["training_files"],
+            ["evt-1-1.0-unknown-0.0.webp", "evt-1-2.0-unknown-0.0.webp"],
+        )
+        self.assertIsNone(model["model_said"])
+        self.assertIsNone(model["filed"])
+
+        Event.update(sub_label="SUV").where(Event.id == "evt-1").execute()
+        client.post(
+            "/classification/vehicle_type/suggestions/confirm",
+            json={
+                "event_id": "evt-1",
+                "category": "van",
+                "training_files": ["evt-1-1.0-unknown-0.0.webp"],
+                "source": "text",
+                "score": None,
+                "suggested_category": "van",
+            },
+        )
+        model = client.get("/classification/suggestions/event/evt-1").json()["models"][
+            0
+        ]
+        self.assertEqual(model["model_said"], "suv")
+        self.assertEqual(model["filed"], {"category": "van", "auto": False})
+        self.assertEqual(model["training_files"], ["evt-1-2.0-unknown-0.0.webp"])
+
+        self._event("evt-dog", "A dog.")
+        Event.update(label="dog").where(Event.id == "evt-dog").execute()
+        self.assertEqual(
+            client.get("/classification/suggestions/event/evt-dog").json()["models"],
+            [],
+        )
+
+    def test_event_suggestions_need_an_admin(self):
+        self._event("evt-1", "A white van is parked.")
+        headers = {"remote-user": "viewer", "remote-role": "viewer"}
+        self.assertEqual(
+            AuthTestClient(self.app)
+            .get("/classification/suggestions/event/evt-1", headers=headers)
+            .status_code,
+            403,
+        )
+
     def test_report_summarizes_the_recorded_confirmations(self):
         self._event("evt-1", "A white van is parked.")
         client = AuthTestClient(self.app)
