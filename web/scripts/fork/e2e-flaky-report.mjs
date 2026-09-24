@@ -103,11 +103,7 @@ export function annotation(test, strict) {
 export function readReports(dir) {
   return readdirSync(dir)
     .filter((name) => REPORT_FILE.test(name))
-    .sort((left, right) => {
-      if (left < right) return -1;
-      if (left > right) return 1;
-      return 0;
-    })
+    .sort((left, right) => left.localeCompare(right, "en"))
     .map((name) => ({
       name,
       report: JSON.parse(readFileSync(join(dir, name), "utf8")),

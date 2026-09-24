@@ -137,7 +137,7 @@ describe("readReports", () => {
     ]);
   });
 
-  it("orders report names lexically even when directory enumeration differs", async () => {
+  it("orders report names consistently even when directory enumeration differs", async () => {
     const dir = await reportDir({
       "results-z.json": report(),
       "results-10.json": report(),
