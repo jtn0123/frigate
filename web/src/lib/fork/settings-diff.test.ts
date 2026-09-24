@@ -64,6 +64,19 @@ describe("diffValues", () => {
       { path: "nested.c", oldValue: true, newValue: false },
     ]);
   });
+
+  it("treats an empty object and an array as leaf values", () => {
+    expect(
+      diffValues(
+        { empty: {}, values: [1, 2] },
+        { empty: { flag: true }, values: [1, 3] },
+      ),
+    ).toEqual([
+      { path: "empty", oldValue: {}, newValue: undefined },
+      { path: "empty.flag", oldValue: undefined, newValue: true },
+      { path: "values", oldValue: [1, 2], newValue: [1, 3] },
+    ]);
+  });
 });
 
 describe("computeSettingsDiff", () => {
@@ -185,5 +198,60 @@ describe("computeSettingsDiff", () => {
     const first = getSettingsDiff(pending, config, fullSchema);
     expect(getSettingsDiff(pending, config, fullSchema)).toBe(first);
     expect(getSettingsDiff({ ...pending }, config, fullSchema)).not.toBe(first);
+  });
+
+  it("shows removed detectors when Save All replaces a renamed detector map", () => {
+    const diffs = computeSettingsDiff(
+      { detectors: { new_coral: { type: "edgetpu", device: "usb" } } },
+      config,
+      undefined,
+    );
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]?.changes).toEqual([
+      { path: "coral.device", oldValue: "usb", newValue: undefined },
+      { path: "coral.type", oldValue: "edgetpu", newValue: undefined },
+      { path: "new_coral.device", oldValue: undefined, newValue: "usb" },
+      { path: "new_coral.type", oldValue: undefined, newValue: "edgetpu" },
+    ]);
+  });
+
+  it("omits merge-preserved model fields and skips schema sections without a schema", () => {
+    const diffs = computeSettingsDiff(
+      { model: { path: "/models/new.onnx" }, detect: { fps: 20 } },
+      cfg({ model: { path: "/models/old.onnx", width: 320 } }),
+      undefined,
+    );
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]?.changes).toEqual([
+      {
+        path: "path",
+        oldValue: "/models/old.onnx",
+        newValue: "/models/new.onnx",
+      },
+    ]);
+  });
+
+  it("sorts global changes before camera changes and camera names alphabetically", () => {
+    const cfgWithCameras = cfg({
+      ...config,
+      cameras: {
+        zebra: config.cameras["front"],
+        alpha: config.cameras["front"],
+      },
+    });
+    const diffs = computeSettingsDiff(
+      {
+        "zebra::detect": { enabled: false, fps: 5, width: 1280, height: 720 },
+        "alpha::detect": { enabled: false, fps: 5, width: 1280, height: 720 },
+        detect: { enabled: true, fps: 10, width: 1280, height: 720 },
+      },
+      cfgWithCameras,
+      fullSchema,
+    );
+    expect(diffs.map((diff) => diff.pendingKey)).toEqual([
+      "detect",
+      "alpha::detect",
+      "zebra::detect",
+    ]);
   });
 });
