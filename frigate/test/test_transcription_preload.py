@@ -74,7 +74,7 @@ class TestEmbeddingProcessPreloadOrder(unittest.TestCase):
                 side_effect=lambda _config: order.append("preload"),
             ),
             patch(
-                "frigate.embeddings.EmbeddingMaintainer",
+                "frigate.embeddings.maintainer.EmbeddingMaintainer",
                 side_effect=lambda *_args: order.append("maintainer") or MagicMock(),
             ),
         ):
