@@ -283,6 +283,128 @@ test.describe("Classification suggestions @medium", () => {
     await expect(page.getByText(/filed 1 image as suv/i)).toBeVisible();
   });
 
+  test("files every draft on the page after one confirmation", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    const confirms: unknown[] = [];
+
+    await frigateApp.installDefaults({
+      config: { classification: { custom: CUSTOM_MODELS } },
+    });
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/dataset$`),
+      (route) =>
+        route.fulfill({ json: { categories: { van: [], suv: [], none: [] } } }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/train$`),
+      (route) => route.fulfill({ json: TRAIN }),
+    );
+    await page.route("**/api/event_ids**", (route) =>
+      route.fulfill({
+        json: [
+          event(EVENT_VAN, "A white van is parked."),
+          event(EVENT_OTHER, "A gray SUV drives by."),
+        ],
+      }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions/report`),
+      (route) =>
+        route.fulfill({
+          json: {
+            model: MODEL,
+            total: 0,
+            accepted: 0,
+            rate: null,
+            sources: {},
+            classes: {},
+            cameras: {},
+            first_time: null,
+            last_time: null,
+          },
+        }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions\\?`),
+      (route) =>
+        route.fulfill({
+          json: {
+            ...SUGGESTIONS,
+            suggestions: {
+              ...SUGGESTIONS.suggestions,
+              [EVENT_OTHER]: {
+                text: null,
+                jev: {
+                  category: "suv",
+                  source: "jev",
+                  score: 0.93,
+                  evidence: "",
+                },
+                jev_status: "answered",
+                suggestion: {
+                  category: "suv",
+                  source: "jev",
+                  score: 0.93,
+                  evidence: "a gray suv drives by",
+                },
+                conflict: false,
+              },
+            },
+          },
+        }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions/confirm`),
+      (route) => {
+        confirms.push(route.request().postDataJSON());
+        return route.fulfill({
+          json: { success: true, message: "ok", moved: ["x.png"] },
+        });
+      },
+    );
+    await page.route("**/clips/**", (route) =>
+      route.fulfill({
+        contentType: "image/webp",
+        body: Buffer.from(
+          "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==",
+          "base64",
+        ),
+      }),
+    );
+
+    await frigateApp.goto("/classification");
+    await page.getByText(MODEL).first().click();
+    const status = page.getByTestId("suggestion-status");
+    await expect(status).toContainText("2 drafts on this page", {
+      timeout: 10_000,
+    });
+
+    await status.getByRole("button", { name: /file all 2 drafts/i }).click();
+    const dialog = page.getByTestId("file-all-dialog");
+    await expect(dialog).toContainText("File 2 drafts as suggested?");
+    await dialog.getByRole("button", { name: /file all 2 drafts/i }).click();
+
+    await expect.poll(() => confirms.length).toBe(2);
+    // The grid orders groups differently on phones; only the set matters.
+    expect(confirms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event_id: EVENT_VAN,
+          category: "van",
+          training_files: [TRAIN[0], TRAIN[1]],
+        }),
+        expect.objectContaining({
+          event_id: EVENT_OTHER,
+          category: "suv",
+          training_files: [TRAIN[2]],
+        }),
+      ]),
+    );
+    await expect(page.getByText(/filed 2 of 2 drafts/i)).toBeVisible();
+  });
+
   test("shows nothing when the flag is off", async ({ frigateApp }) => {
     const { page } = frigateApp;
     let asked = 0;

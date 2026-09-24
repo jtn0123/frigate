@@ -131,3 +131,28 @@ export function draftCount(
   return Object.values(suggestions ?? {}).filter((entry) => entry.suggestion)
     .length;
 }
+
+export type DraftToFile = {
+  eventId: string;
+  files: string[];
+  suggestion: Suggestion;
+};
+
+/** Every event on the page with a draft and its train images, for file-all. */
+export function draftsToFile(
+  suggestions: Record<string, EventSuggestion> | undefined,
+  groups: Record<string, { filename: string }[]>,
+): DraftToFile[] {
+  const drafts: DraftToFile[] = [];
+  for (const [eventId, items] of Object.entries(groups)) {
+    const suggestion = suggestions?.[eventId]?.suggestion;
+    if (suggestion && items.length > 0) {
+      drafts.push({
+        eventId,
+        files: items.map((item) => item.filename),
+        suggestion,
+      });
+    }
+  }
+  return drafts;
+}

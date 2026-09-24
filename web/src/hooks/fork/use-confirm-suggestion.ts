@@ -12,9 +12,11 @@ import {
 /**
  * Files images of an event through the fork's confirm endpoint (fork I41).
  *
- * Shared by the badge (accept the draft on every image) and the class picker
- * (override the draft on one image), so both paths record the suggestion
- * beside the label. Resolves to whether the files were moved.
+ * Shared by the badge (accept the draft on every image), the class picker
+ * (override the draft on one image) and the file-all action, so every path
+ * records the suggestion beside the label. Resolves to whether the files
+ * were moved. Quiet calls skip the toast and refresh so a bulk caller can
+ * report once at the end.
  */
 export function useConfirmSuggestion(modelName: string, onRefresh: () => void) {
   const { t } = useTranslation(["fork"]);
@@ -25,6 +27,7 @@ export function useConfirmSuggestion(modelName: string, onRefresh: () => void) {
       files: string[],
       suggestion: Suggestion,
       category?: string,
+      quiet = false,
     ): Promise<boolean> => {
       const body = confirmBody(eventId, files, suggestion, category);
       try {
@@ -33,10 +36,15 @@ export function useConfirmSuggestion(modelName: string, onRefresh: () => void) {
           body,
         );
       } catch {
-        toast.error(t("classificationSuggestions.confirmFailed"), {
-          position: "top-center",
-        });
+        if (!quiet) {
+          toast.error(t("classificationSuggestions.confirmFailed"), {
+            position: "top-center",
+          });
+        }
         return false;
+      }
+      if (quiet) {
+        return true;
       }
       toast.success(
         t("classificationSuggestions.confirmed", {

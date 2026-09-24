@@ -23,6 +23,10 @@ hand.
 One line above the grid says how many cards on the page have a draft,
 whether Jev is answering (and how much of today's request budget is used,
 or that the key is missing), and how often past drafts were kept as filed.
+Its "File all" button files every draft on the page after one
+confirmation, one event at a time, and reports how many went through. Use
+it once the kept rate has earned that trust; the class picker fixes any
+single mistake afterwards.
 
 ## How a draft is made
 

@@ -1201,7 +1201,12 @@ function ObjectTrainGrid({
         setInputFocused={() => {}}
       />
 
-      <SuggestionStatusBar modelName={model.name} data={suggestions} />
+      <SuggestionStatusBar
+        modelName={model.name}
+        data={suggestions}
+        groups={groups}
+        onRefresh={onRefresh}
+      />
       <div
         ref={contentRef}
         className={cn(

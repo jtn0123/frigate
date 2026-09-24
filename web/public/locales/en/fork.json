@@ -617,6 +617,13 @@
     "jevNoKey": "Jev: no API key in the environment",
     "jevOff": "Jev off",
     "kept_one": "Kept {{rate}}% of {{count}} draft",
-    "kept_other": "Kept {{rate}}% of {{count}} drafts"
+    "kept_other": "Kept {{rate}}% of {{count}} drafts",
+    "fileAll_one": "File {{count}} draft",
+    "fileAll_other": "File all {{count}} drafts",
+    "fileAllTitle_one": "File {{count}} draft as suggested?",
+    "fileAllTitle_other": "File {{count}} drafts as suggested?",
+    "fileAllDescription": "Every image of each event moves into its suggested class. Use the class picker afterwards to fix any that are wrong.",
+    "fileAllDone_one": "Filed {{count}} of {{total}} draft",
+    "fileAllDone_other": "Filed {{count}} of {{total}} drafts"
   }
 }

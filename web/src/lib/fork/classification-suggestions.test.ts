@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   confirmBody,
   draftCount,
+  draftsToFile,
   percent,
   pickerProps,
   reportKey,
@@ -78,6 +79,30 @@ describe("classification suggestions", () => {
     };
     expect(draftCount(undefined)).toBe(0);
     expect(draftCount({ a: entry, b: { ...entry, suggestion: null } })).toBe(1);
+  });
+
+  it("lists the drafts on a page with every image of their events", () => {
+    const entry: EventSuggestion = {
+      text: null,
+      jev: JEV,
+      jev_status: "answered",
+      suggestion: JEV,
+      conflict: false,
+    };
+    const groups = {
+      a: [{ filename: "a-1.webp" }, { filename: "a-2.webp" }],
+      b: [{ filename: "b-1.webp" }],
+      c: [] as { filename: string }[],
+    };
+    expect(draftsToFile(undefined, groups)).toEqual([]);
+    expect(
+      draftsToFile(
+        { a: entry, b: { ...entry, suggestion: null }, c: entry },
+        groups,
+      ),
+    ).toEqual([
+      { eventId: "a", files: ["a-1.webp", "a-2.webp"], suggestion: JEV },
+    ]);
   });
 
   it("rounds a score to a whole percent and has none for text", () => {
