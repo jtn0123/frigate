@@ -166,3 +166,29 @@ class TestTrimOldestFiles(TestCase):
                 file_util.trim_oldest_files(folder, 4)
 
             assert len(os.listdir(folder)) == 4
+
+    def test_missing_folder_is_ignored(self):
+        """Verify trimming a folder that does not exist yet is a no op."""
+        with tempfile.TemporaryDirectory() as folder:
+            file_util.trim_oldest_files(os.path.join(folder, "missing"), 1)
+
+            assert os.listdir(folder) == []
+
+    def test_undeletable_file_does_not_stop_the_trim(self):
+        """Verify a file that cannot be deleted still lets the rest be trimmed."""
+        real_unlink = os.unlink
+
+        with tempfile.TemporaryDirectory() as folder:
+            self._fill(folder, ["000.webp", "001.webp", "002.webp", "003.webp"])
+            locked = os.path.join(folder, "001.webp")
+
+            def unlink(path):
+                if path == locked:
+                    raise PermissionError(path)
+
+                real_unlink(path)
+
+            with patch("os.unlink", side_effect=unlink):
+                file_util.trim_oldest_files(folder, 1)
+
+            assert sorted(os.listdir(folder)) == ["001.webp", "003.webp"]
