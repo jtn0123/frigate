@@ -548,6 +548,79 @@ class TestHttpReview(BaseTestHttp):
             )
             assert user_review.has_been_reviewed == True
 
+    def test_reviews_concurrent_insert_peewee_ignore(self):
+        """Validates that on_conflict_ignore() silently skips a duplicate insert
+
+        Two requests can both SELECT and find no existing status, then both try
+        to INSERT, hitting the unique (user_id, review_segment) constraint.
+        on_conflict_ignore() must silently skip the duplicate instead of raising
+        an IntegrityError (which was previously caught with try/except).
+        """
+        id = "123456.random"
+        with AuthTestClient(self.app):
+            super().insert_mock_review_segment(id)
+
+            # Simulate the first request having already committed its insert.
+            self._insert_user_review_status(id, reviewed=True)
+
+            # Simulate the second concurrent request attempting the same insert.
+            UserReviewStatus.insert_many(
+                [
+                    {
+                        "user_id": self.user_id,
+                        "review_segment_id": id,
+                        "has_been_reviewed": True,
+                    }
+                ]
+            ).on_conflict_ignore().execute()
+
+            # Exactly one row should exist; no exception should have been raised.
+            count = (
+                UserReviewStatus.select()
+                .where(
+                    (UserReviewStatus.user_id == self.user_id)
+                    & (UserReviewStatus.review_segment == id)
+                )
+                .count()
+            )
+            assert count == 1
+
+    def test_post_reviews_viewed_updates_creates_and_skips(self):
+        """G18: one request updates, creates and leaves statuses as needed."""
+        with AuthTestClient(self.app) as client:
+            for id in ("unreviewed", "reviewed", "new"):
+                super().insert_mock_review_segment(id)
+            self._insert_user_review_status("unreviewed", reviewed=False)
+            self._insert_user_review_status("reviewed", reviewed=True)
+
+            response = client.post(
+                "/reviews/viewed",
+                json={"ids": ["unreviewed", "reviewed", "new", "missing"]},
+            )
+
+            assert response.status_code == 200
+            statuses = {
+                status.review_segment_id: status.has_been_reviewed
+                for status in UserReviewStatus.select().where(
+                    UserReviewStatus.user_id == self.user_id
+                )
+            }
+            assert statuses == {"unreviewed": True, "reviewed": True, "new": True}
+
+            response = client.post(
+                "/reviews/viewed",
+                json={"ids": ["unreviewed", "new"], "reviewed": False},
+            )
+
+            assert response.status_code == 200
+            statuses = {
+                status.review_segment_id: status.has_been_reviewed
+                for status in UserReviewStatus.select().where(
+                    UserReviewStatus.user_id == self.user_id
+                )
+            }
+            assert statuses == {"unreviewed": False, "reviewed": True, "new": False}
+
     ####################################################################################################################
     ###################################  POST reviews/delete Endpoint   ################################################
     ####################################################################################################################

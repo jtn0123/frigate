@@ -9,7 +9,7 @@ import pandas as pd
 from fastapi import APIRouter, Request
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse
-from peewee import Case, DoesNotExist, IntegrityError, fn, operator
+from peewee import Case, DoesNotExist, fn, operator
 from playhouse.shortcuts import model_to_dict
 
 from frigate.api.auth import (
@@ -167,13 +167,19 @@ async def review_ids(request: Request, ids: str):
             status_code=400,
         )
 
+    try:
+        reviews = await asyncio.to_thread(
+            list, ReviewSegment.select().where(ReviewSegment.id << ids).dicts()
+        )
+    except Exception:
+        return JSONResponse(
+            content=({"success": False, "message": "Review segments not found"}),
+            status_code=400,
+        )
+
+    found_ids = {r["id"] for r in reviews}
     for review_id in ids:
-        try:
-            review = await asyncio.to_thread(
-                ReviewSegment.get, ReviewSegment.id == review_id
-            )
-            await require_camera_access(review.camera, request=request)
-        except DoesNotExist:
+        if review_id not in found_ids:
             return JSONResponse(
                 content=(
                     {"success": False, "message": f"Review {review_id} not found"}
@@ -181,16 +187,10 @@ async def review_ids(request: Request, ids: str):
                 status_code=404,
             )
 
-    try:
-        reviews = await asyncio.to_thread(
-            list, ReviewSegment.select().where(ReviewSegment.id << ids).dicts()
-        )
-        return JSONResponse(reviews)
-    except Exception:
-        return JSONResponse(
-            content=({"success": False, "message": "Review segments not found"}),
-            status_code=400,
-        )
+    for review in reviews:
+        await require_camera_access(review["camera"], request=request)
+
+    return JSONResponse(reviews)
 
 
 @router.get(
@@ -449,6 +449,44 @@ def review_summary(
     return JSONResponse(content=data)
 
 
+def _write_review_statuses(user_id: str, review_ids: list[str], reviewed: bool):
+    """Set the user's reviewed state of the reviews with one read and two writes."""
+    existing_statuses = list(
+        UserReviewStatus.select().where(
+            (UserReviewStatus.user_id == user_id)
+            & (UserReviewStatus.review_segment << review_ids)
+        )
+    )
+
+    status_by_review = {s.review_segment_id: s for s in existing_statuses}
+
+    to_update = []
+    to_create = []
+
+    for review_id in review_ids:
+        if review_id in status_by_review:
+            status = status_by_review[review_id]
+            if status.has_been_reviewed != reviewed:
+                status.has_been_reviewed = reviewed
+                to_update.append(status)
+        else:
+            to_create.append(
+                {
+                    "user_id": user_id,
+                    "review_segment_id": review_id,
+                    "has_been_reviewed": reviewed,
+                }
+            )
+
+    if to_update:
+        UserReviewStatus.bulk_update(
+            to_update, fields=[UserReviewStatus.has_been_reviewed], batch_size=100
+        )
+
+    if to_create:
+        UserReviewStatus.insert_many(to_create).on_conflict_ignore().execute()
+
+
 @router.post(
     "/reviews/viewed",
     response_model=GenericResponse,
@@ -466,39 +504,22 @@ async def set_multiple_reviewed(
 
     # Authorize every id before writing any, so a request that includes an id
     # on a camera the user may not access changes nothing.
-    reviews = []
-    for review_id in body.ids:
-        try:
-            review = await asyncio.to_thread(
-                ReviewSegment.get, ReviewSegment.id == review_id
-            )
-        except DoesNotExist:
-            continue
-
-        await require_camera_access(review.camera, request=request)
-        reviews.append(review)
+    reviews = await asyncio.to_thread(
+        list,
+        ReviewSegment.select(ReviewSegment.id, ReviewSegment.camera).where(
+            ReviewSegment.id << body.ids
+        ),
+    )
 
     for review in reviews:
-        try:
-            review_status = await asyncio.to_thread(
-                UserReviewStatus.get,
-                UserReviewStatus.user_id == user_id,
-                UserReviewStatus.review_segment == review.id,
-            )
-            # Update based on the reviewed parameter
-            if review_status.has_been_reviewed != body.reviewed:
-                review_status.has_been_reviewed = body.reviewed
-                await asyncio.to_thread(review_status.save)
-        except DoesNotExist:
-            try:
-                await asyncio.to_thread(
-                    UserReviewStatus.create,
-                    user_id=user_id,
-                    review_segment=review,
-                    has_been_reviewed=body.reviewed,
-                )
-            except IntegrityError:
-                pass
+        await require_camera_access(review.camera, request=request)
+
+    found_ids = [r.id for r in reviews]
+
+    if found_ids:
+        await asyncio.to_thread(
+            _write_review_statuses, user_id, found_ids, body.reviewed
+        )
 
     return JSONResponse(
         content=(
