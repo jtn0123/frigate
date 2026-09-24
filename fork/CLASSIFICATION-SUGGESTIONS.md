@@ -12,8 +12,10 @@ supports one of the model's classes get a badge in the top left corner: the
 class, a percentage when Jev answered (hidden on narrow cards), and a
 Confirm button. Hover the badge
 for the source and the sentence that matched. Confirm files every image of
-that event under the class. The existing class picker still works for edits,
-and cards with no badge are labeled exactly as before.
+that event under the class. The existing class picker still works for edits:
+on a card with a badge it files the image through the same confirm endpoint,
+so the draft and the class you chose are recorded together. Cards with no
+badge are labeled exactly as before.
 
 A question mark badge means the two sources disagreed. Label that card by
 hand.
@@ -46,13 +48,16 @@ drafts can name them. `none` is never suggested.
 
 ## What is recorded
 
-Every Confirm appends one line to `clips/<model>/.fork_provenance.jsonl`:
+Every Confirm, and every picker choice on a card with a draft, appends one
+line to `clips/<model>/.fork_provenance.jsonl`:
 event id, camera, the class chosen, the class suggested, the source and
 score, whether the suggestion was accepted unchanged, the SHA-256 of the
 description, and the new dataset file names. Dataset files themselves keep
 upstream's `{class}-{timestamp}-{random}.png` names, so this file is the
 only link from a training image back to the event and text it came from.
-That is what a later accuracy report reads.
+That is what a later accuracy report reads. Labels made through the
+multi-select toolbar go through upstream's categorize endpoint and are not
+recorded.
 
 ## Endpoints
 
@@ -63,6 +68,17 @@ That is what a later accuracy report reads.
   `{event_id, category, training_files, source?, score?, suggested_category?}`.
   Moves the files the same way upstream's categorize endpoint does and
   records the confirmation.
+- `GET /classification/{name}/suggestions/report` (admin, I42): reads the
+  provenance file and returns, overall and per source, suggested class and
+  camera, how many drafts were filed unchanged (`total`, `accepted`, `rate`)
+  and, per class, `corrected_to` with the classes chosen instead. A class
+  whose drafts keep being corrected to the same other class is the first
+  thing to look at before training. Example:
+
+  ```bash
+  curl -s -H "X-CSRF-TOKEN: 1" -b "frigate_token=$TOKEN" \
+    http://frigate:5000/api/classification/vehicle_type/suggestions/report
+  ```
 
 ## Flag
 
@@ -72,5 +88,5 @@ no suggestions request and renders exactly as upstream.
 ## Not in this change
 
 Suggestions in Explore's detail dialog, a structured pass through the
-configured description provider instead of Jev, and the accuracy report over
-the provenance file. Those build on the same endpoint and file.
+configured description provider instead of Jev, and a page for the report.
+Those build on the same endpoint and file.

@@ -61,3 +61,42 @@ class ConfirmSuggestionResponse(BaseModel):
     success: bool
     message: str
     moved: list[str] = Field(default_factory=list, description="New dataset file names")
+
+
+class AcceptanceModel(BaseModel):
+    """How many drafts were filed unchanged (fork I42)."""
+
+    total: int = Field(description="Confirmations recorded", ge=0)
+    accepted: int = Field(description="Drafts filed under the suggested class", ge=0)
+    rate: float | None = Field(
+        default=None, description="accepted / total, or none without data"
+    )
+
+
+class ClassAcceptanceModel(AcceptanceModel):
+    """Acceptance of one suggested class and what it was corrected to."""
+
+    corrected_to: dict[str, int] = Field(
+        default_factory=dict, description="Class chosen instead, with counts"
+    )
+
+
+class SuggestionReportResponse(AcceptanceModel):
+    """Acceptance of the drafts recorded for one model (fork I42)."""
+
+    model: str = Field(description="The classification model")
+    sources: dict[str, AcceptanceModel] = Field(
+        default_factory=dict, description="Keyed by source: text, jev or none"
+    )
+    classes: dict[str, ClassAcceptanceModel] = Field(
+        default_factory=dict, description="Keyed by the suggested class"
+    )
+    cameras: dict[str, AcceptanceModel] = Field(
+        default_factory=dict, description="Keyed by camera"
+    )
+    first_time: float | None = Field(
+        default=None, description="Unix time of the earliest confirmation"
+    )
+    last_time: float | None = Field(
+        default=None, description="Unix time of the latest confirmation"
+    )

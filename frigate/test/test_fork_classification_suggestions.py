@@ -464,5 +464,70 @@ class TestFilesAndProvenance(unittest.TestCase):
         )
 
 
+class TestSummarizeProvenance(unittest.TestCase):
+    def entry(self, **overrides: Any) -> dict[str, Any]:
+        base = {
+            "time": 100.0,
+            "event_id": "e1",
+            "camera": "front",
+            "category": "van",
+            "suggested_category": "van",
+            "source": "jev",
+            "score": 0.95,
+            "accepted": True,
+            "files": ["van-1.png"],
+        }
+        return {**base, **overrides}
+
+    def test_empty_file_reports_no_rate(self):
+        report = suggest.summarize_provenance([])
+        self.assertEqual(report["total"], 0)
+        self.assertIsNone(report["rate"])
+        self.assertEqual(report["sources"], {})
+        self.assertIsNone(report["first_time"])
+
+    def test_counts_per_source_class_and_camera(self):
+        entries = [
+            self.entry(),
+            self.entry(time=200.0, category="suv", accepted=False),
+            self.entry(time=300.0, source="text", score=None, camera="back"),
+            self.entry(
+                time=400.0,
+                suggested_category="suv",
+                category="pickup",
+                accepted=False,
+                camera="back",
+            ),
+        ]
+
+        report = suggest.summarize_provenance(entries)
+
+        self.assertEqual((report["total"], report["accepted"]), (4, 2))
+        self.assertEqual(report["rate"], 0.5)
+        self.assertEqual(
+            report["sources"]["jev"], {"total": 3, "accepted": 1, "rate": 1 / 3}
+        )
+        self.assertEqual(
+            report["sources"]["text"], {"total": 1, "accepted": 1, "rate": 1.0}
+        )
+        self.assertEqual(
+            report["classes"]["van"],
+            {"total": 3, "accepted": 2, "rate": 2 / 3, "corrected_to": {"suv": 1}},
+        )
+        self.assertEqual(report["classes"]["suv"]["corrected_to"], {"pickup": 1})
+        self.assertEqual(report["cameras"]["back"]["total"], 2)
+        self.assertEqual((report["first_time"], report["last_time"]), (100.0, 400.0))
+
+    def test_ignores_lines_without_a_suggested_class(self):
+        entries = [
+            self.entry(suggested_category=None, source=None),
+            {"garbage": True},
+            self.entry(source=None),
+        ]
+        report = suggest.summarize_provenance(entries)
+        self.assertEqual(report["total"], 1)
+        self.assertEqual(list(report["sources"]), ["none"])
+
+
 if __name__ == "__main__":
     unittest.main()

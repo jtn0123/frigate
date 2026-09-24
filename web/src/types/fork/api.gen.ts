@@ -4090,6 +4090,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/classification/{name}/suggestions/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report how often suggested classes were kept
+         * @description **Access:** Admin role required.
+         *
+         *     Reads the confirmations recorded beside the model's dataset and counts, overall and per source, suggested class and camera, how many drafts were filed unchanged (fork I42).
+         */
+        get: operations["suggestion_report_classification__name__suggestions_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/share": {
         parameters: {
             query?: never;
@@ -4290,6 +4312,27 @@ export interface components {
              * @default unavailable
              */
             history_status: string;
+        };
+        /**
+         * AcceptanceModel
+         * @description How many drafts were filed unchanged (fork I42).
+         */
+        AcceptanceModel: {
+            /**
+             * Total
+             * @description Confirmations recorded
+             */
+            total: number;
+            /**
+             * Accepted
+             * @description Drafts filed under the suggested class
+             */
+            accepted: number;
+            /**
+             * Rate
+             * @description accepted / total, or none without data
+             */
+            rate?: number | null;
         };
         /**
          * ActiveProfileResponse
@@ -4720,6 +4763,34 @@ export interface components {
              * @description For assistant messages replayed from prior turns, the OpenAI-format tool calls the model previously requested. Replaying these verbatim keeps the conversation prefix byte-for-byte identical so the model server's prompt cache hits on follow-up turns.
              */
             tool_calls?: Record<string, never>[] | null;
+        };
+        /**
+         * ClassAcceptanceModel
+         * @description Acceptance of one suggested class and what it was corrected to.
+         */
+        ClassAcceptanceModel: {
+            /**
+             * Total
+             * @description Confirmations recorded
+             */
+            total: number;
+            /**
+             * Accepted
+             * @description Drafts filed under the suggested class
+             */
+            accepted: number;
+            /**
+             * Rate
+             * @description accepted / total, or none without data
+             */
+            rate?: number | null;
+            /**
+             * Corrected To
+             * @description Class chosen instead, with counts
+             */
+            corrected_to?: {
+                [key: string]: number;
+            };
         };
         /**
          * ClassificationSuggestionsResponse
@@ -6070,6 +6141,63 @@ export interface components {
              * @default
              */
             evidence: string;
+        };
+        /**
+         * SuggestionReportResponse
+         * @description Acceptance of the drafts recorded for one model (fork I42).
+         */
+        SuggestionReportResponse: {
+            /**
+             * Total
+             * @description Confirmations recorded
+             */
+            total: number;
+            /**
+             * Accepted
+             * @description Drafts filed under the suggested class
+             */
+            accepted: number;
+            /**
+             * Rate
+             * @description accepted / total, or none without data
+             */
+            rate?: number | null;
+            /**
+             * Model
+             * @description The classification model
+             */
+            model: string;
+            /**
+             * Sources
+             * @description Keyed by source: text, jev or none
+             */
+            sources?: {
+                [key: string]: components["schemas"]["AcceptanceModel"];
+            };
+            /**
+             * Classes
+             * @description Keyed by the suggested class
+             */
+            classes?: {
+                [key: string]: components["schemas"]["ClassAcceptanceModel"];
+            };
+            /**
+             * Cameras
+             * @description Keyed by camera
+             */
+            cameras?: {
+                [key: string]: components["schemas"]["AcceptanceModel"];
+            };
+            /**
+             * First Time
+             * @description Unix time of the earliest confirmation
+             */
+            first_time?: number | null;
+            /**
+             * Last Time
+             * @description Unix time of the latest confirmation
+             */
+            last_time?: number | null;
         };
         /**
          * ToolExecuteRequest
@@ -12056,6 +12184,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfirmSuggestionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggestion_report_classification__name__suggestions_report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionReportResponse"];
                 };
             };
             /** @description Validation Error */

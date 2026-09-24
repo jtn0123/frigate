@@ -295,6 +295,50 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
             )
         )
 
+    def test_report_summarizes_the_recorded_confirmations(self):
+        self._event("evt-1", "A white van is parked.")
+        client = AuthTestClient(self.app)
+        self.assertEqual(
+            client.get("/classification/vehicle_type/suggestions/report").json(),
+            {
+                "model": "vehicle_type",
+                "total": 0,
+                "accepted": 0,
+                "rate": None,
+                "sources": {},
+                "classes": {},
+                "cameras": {},
+                "first_time": None,
+                "last_time": None,
+            },
+        )
+        for category, training_file in (
+            ("van", "evt-1-1.0-unknown-0.0.webp"),
+            ("suv", "evt-1-2.0-unknown-0.0.webp"),
+        ):
+            client.post(
+                "/classification/vehicle_type/suggestions/confirm",
+                json={
+                    "event_id": "evt-1",
+                    "category": category,
+                    "training_files": [training_file],
+                    "source": "jev",
+                    "score": 0.95,
+                    "suggested_category": "van",
+                },
+            )
+
+        report = client.get("/classification/vehicle_type/suggestions/report").json()
+
+        self.assertEqual((report["total"], report["accepted"]), (2, 1))
+        self.assertEqual(report["sources"]["jev"]["rate"], 0.5)
+        self.assertEqual(report["classes"]["van"]["corrected_to"], {"suv": 1})
+        self.assertEqual(report["cameras"]["front_door"]["total"], 2)
+        self.assertIsNotNone(report["first_time"])
+        self.assertEqual(
+            client.get("/classification/nope/suggestions/report").status_code, 404
+        )
+
     def test_viewer_cannot_read_or_confirm(self):
         client = AuthTestClient(self.app)
         headers = {"remote-user": "viewer", "remote-role": "viewer"}
@@ -309,6 +353,12 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
                 "/classification/vehicle_type/suggestions/confirm",
                 json={"event_id": "evt-1", "category": "van", "training_files": ["a"]},
                 headers=headers,
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            client.get(
+                "/classification/vehicle_type/suggestions/report", headers=headers
             ).status_code,
             403,
         )

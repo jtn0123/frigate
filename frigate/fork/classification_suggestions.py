@@ -666,3 +666,66 @@ def read_provenance(clips_dir: str, name: str) -> list[dict[str, Any]]:
 def safe_category(category: str) -> str | None:
     """Sanitize a class name the way the upstream categorize endpoint does."""
     return sanitize_path_component(category)
+
+
+def _tally(bucket: dict[str, Any], accepted: bool) -> None:
+    bucket["total"] += 1
+    if accepted:
+        bucket["accepted"] += 1
+
+
+def _rate(bucket: dict[str, Any]) -> dict[str, Any]:
+    total = bucket["total"]
+    return {**bucket, "rate": bucket["accepted"] / total if total else None}
+
+
+def summarize_provenance(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Count how often each source's and class's drafts were kept as-is.
+
+    Every line of the provenance file is one filed image group with the
+    draft that was shown and the class the person chose. A draft that was
+    changed in the picker counts against the class it named, under
+    ``corrected_to``, so a class that keeps being mistaken for another shows
+    up here before it shows up in the trained model.
+
+    Args:
+        entries: Lines of the provenance file, as read by read_provenance
+
+    Returns:
+        Totals overall, per source, per suggested class and per camera
+    """
+    overall: dict[str, Any] = {"total": 0, "accepted": 0}
+    sources: dict[str, dict[str, Any]] = {}
+    classes: dict[str, dict[str, Any]] = {}
+    cameras: dict[str, dict[str, Any]] = {}
+    times: list[float] = []
+    for entry in entries:
+        accepted = bool(entry.get("accepted"))
+        suggested = entry.get("suggested_category")
+        if not isinstance(suggested, str) or not suggested:
+            continue
+        _tally(overall, accepted)
+        source = entry.get("source") or "none"
+        _tally(sources.setdefault(str(source), {"total": 0, "accepted": 0}), accepted)
+        by_class = classes.setdefault(
+            suggested, {"total": 0, "accepted": 0, "corrected_to": {}}
+        )
+        _tally(by_class, accepted)
+        chosen = entry.get("category")
+        if not accepted and isinstance(chosen, str) and chosen:
+            by_class["corrected_to"][chosen] = (
+                by_class["corrected_to"].get(chosen, 0) + 1
+            )
+        camera = entry.get("camera")
+        if isinstance(camera, str) and camera:
+            _tally(cameras.setdefault(camera, {"total": 0, "accepted": 0}), accepted)
+        if isinstance(entry.get("time"), (int, float)):
+            times.append(float(entry["time"]))
+    return {
+        **_rate(overall),
+        "sources": {k: _rate(v) for k, v in sorted(sources.items())},
+        "classes": {k: _rate(v) for k, v in sorted(classes.items())},
+        "cameras": {k: _rate(v) for k, v in sorted(cameras.items())},
+        "first_time": min(times) if times else None,
+        "last_time": max(times) if times else None,
+    }

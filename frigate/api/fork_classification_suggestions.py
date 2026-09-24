@@ -17,6 +17,7 @@ from frigate.api.defs.request.fork_classification_suggestions_body import (
 from frigate.api.defs.response.fork_classification_suggestions_response import (
     ClassificationSuggestionsResponse,
     ConfirmSuggestionResponse,
+    SuggestionReportResponse,
 )
 from frigate.api.defs.tags import Tags
 from frigate.config import FrigateConfig
@@ -259,4 +260,25 @@ async def confirm_suggestion(
             "message": "Successfully categorized images.",
             "moved": moved,
         }
+    )
+
+
+@router.get(
+    "/classification/{name}/suggestions/report",
+    response_model=SuggestionReportResponse,
+    dependencies=[Depends(require_role(["admin"]))],
+    summary="Report how often suggested classes were kept",
+    description=(
+        "Reads the confirmations recorded beside the model's dataset and "
+        "counts, overall and per source, suggested class and camera, how many "
+        "drafts were filed unchanged (fork I42)."
+    ),
+)
+async def suggestion_report(request: Request, name: str) -> JSONResponse:
+    config: FrigateConfig = request.app.frigate_config
+    if name not in config.classification.custom:
+        return unknown_model(name)
+    entries = await asyncio.to_thread(suggest.read_provenance, CLIPS_DIR, name)
+    return JSONResponse(
+        content={"model": name, **suggest.summarize_provenance(entries)}
     )

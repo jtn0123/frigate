@@ -7565,6 +7565,40 @@ paths:
       security:
         - frigateAdminAuth: []
       x-required-role: admin
+  /classification/{name}/suggestions/report:
+    get:
+      tags:
+        - Classification
+      summary: Report how often suggested classes were kept
+      description: |-
+        **Access:** Admin role required.
+
+        Reads the confirmations recorded beside the model's dataset and counts, overall and per source, suggested class and camera, how many drafts were filed unchanged (fork I42).
+      operationId: 
+        suggestion_report_classification__name__suggestions_report_get
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionReportResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /fork/share:
     get:
       tags:
@@ -7913,6 +7947,30 @@ components:
         - shared_gpus
       title: AIModelsResponse
       description: Model inventory plus shared device and queue context.
+    AcceptanceModel:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          description: Confirmations recorded
+        accepted:
+          type: integer
+          minimum: 0.0
+          title: Accepted
+          description: Drafts filed under the suggested class
+        rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Rate
+          description: accepted / total, or none without data
+      type: object
+      required:
+        - total
+        - accepted
+      title: AcceptanceModel
+      description: How many drafts were filed unchanged (fork I42).
     ActiveProfileResponse:
       properties:
         active_profile:
@@ -8499,6 +8557,37 @@ components:
         - role
       title: ChatMessage
       description: A single message in a chat conversation.
+    ClassAcceptanceModel:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          description: Confirmations recorded
+        accepted:
+          type: integer
+          minimum: 0.0
+          title: Accepted
+          description: Drafts filed under the suggested class
+        rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Rate
+          description: accepted / total, or none without data
+        corrected_to:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Corrected To
+          description: Class chosen instead, with counts
+      type: object
+      required:
+        - total
+        - accepted
+      title: ClassAcceptanceModel
+      description: Acceptance of one suggested class and what it was corrected 
+        to.
     ClassificationSuggestionsResponse:
       properties:
         model:
@@ -10339,6 +10428,65 @@ components:
         - source
       title: SuggestionModel
       description: One draft class and where it came from.
+    SuggestionReportResponse:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          description: Confirmations recorded
+        accepted:
+          type: integer
+          minimum: 0.0
+          title: Accepted
+          description: Drafts filed under the suggested class
+        rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Rate
+          description: accepted / total, or none without data
+        model:
+          type: string
+          title: Model
+          description: The classification model
+        sources:
+          additionalProperties:
+            $ref: '#/components/schemas/AcceptanceModel'
+          type: object
+          title: Sources
+          description: 'Keyed by source: text, jev or none'
+        classes:
+          additionalProperties:
+            $ref: '#/components/schemas/ClassAcceptanceModel'
+          type: object
+          title: Classes
+          description: Keyed by the suggested class
+        cameras:
+          additionalProperties:
+            $ref: '#/components/schemas/AcceptanceModel'
+          type: object
+          title: Cameras
+          description: Keyed by camera
+        first_time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: First Time
+          description: Unix time of the earliest confirmation
+        last_time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Last Time
+          description: Unix time of the latest confirmation
+      type: object
+      required:
+        - total
+        - accepted
+        - model
+      title: SuggestionReportResponse
+      description: Acceptance of the drafts recorded for one model (fork I42).
     ToolExecuteRequest:
       properties:
         tool_name:
