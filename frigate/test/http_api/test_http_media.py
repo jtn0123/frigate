@@ -485,6 +485,101 @@ class TestHttpMedia(BaseTestHttp):
             assert "2024-03-10" in summary
             assert summary["2024-03-10"] is True
 
+    def test_recordings_summary_sparse_days_across_large_gap(self):
+        """
+        Only recorded days are reported when a large empty gap separates them.
+        """
+        early = datetime(2023, 1, 5, 12, 0, 0, tzinfo=UTC).timestamp()
+        late = datetime(2024, 3, 10, 12, 0, 0, tzinfo=UTC).timestamp()
+
+        with AuthTestClient(self.app) as client:
+            super().insert_mock_recording("early_day", early, early + 3600)
+            super().insert_mock_recording("late_day", late, late + 3600)
+
+            response = client.get(
+                "/recordings/summary", params={"timezone": "utc", "cameras": "all"}
+            )
+
+            assert response.status_code == 200
+            summary = response.json()
+            assert summary == {"2023-01-05": True, "2024-03-10": True}
+
+    def test_recordings_unavailable_merges_cameras(self):
+        """
+        Gaps are computed against the union of all requested cameras' coverage.
+        """
+
+        async def allow_both_cameras(request: Request):
+            return ["front_door", "back_door"]
+
+        self.app.dependency_overrides[get_allowed_cameras_for_filter] = (
+            allow_both_cameras
+        )
+
+        with AuthTestClient(self.app) as client:
+            for id, camera, start, end in [
+                ("front_a", "front_door", 1000, 1100),
+                ("front_b", "front_door", 1200, 1300),
+                ("back_a", "back_door", 1100, 1160),
+            ]:
+                Recordings.insert(
+                    id=id,
+                    path=f"/media/recordings/{id}.mp4",
+                    camera=camera,
+                    start_time=start,
+                    end_time=end,
+                    duration=end - start,
+                    motion=0,
+                    objects=0,
+                ).execute()
+
+            response = client.get(
+                "/recordings/unavailable",
+                params={
+                    "after": 1000,
+                    "before": 1300,
+                    "scale": 10,
+                    "cameras": "front_door,back_door",
+                },
+            )
+            assert response.status_code == 200
+            assert response.json() == [{"start_time": 1160, "end_time": 1200}]
+
+            # single camera: back_door alone leaves both edges uncovered
+            response = client.get(
+                "/recordings/unavailable",
+                params={
+                    "after": 1000,
+                    "before": 1300,
+                    "scale": 10,
+                    "cameras": "back_door",
+                },
+            )
+            assert response.status_code == 200
+            assert response.json() == [
+                {"start_time": 1000, "end_time": 1100},
+                {"start_time": 1160, "end_time": 1300},
+            ]
+
+    def test_recordings_summary_day_attribution_by_start_time(self):
+        """
+        A recording spanning midnight marks only its start day.
+        """
+        # starts 23:30 March 9, ends 00:30 March 10 (UTC)
+        start = datetime(2024, 3, 9, 23, 30, 0, tzinfo=UTC).timestamp()
+
+        with AuthTestClient(self.app) as client:
+            super().insert_mock_recording("midnight_span", start, start + 3600)
+
+            response = client.get(
+                "/recordings/summary", params={"timezone": "utc", "cameras": "all"}
+            )
+
+            assert response.status_code == 200
+            summary = response.json()
+            assert len(summary) == 1
+            assert summary["2024-03-09"] is True
+
     def test_recordings_handles_all_range_relations(self):
         """Recordings return every interval relation that touches the range."""
         with AuthTestClient(self.app) as client:
