@@ -1208,7 +1208,10 @@ function ObjectTrainGrid({
           const classifiedEvent = createClassifiedEvent(event);
 
           return (
-            <div key={key} className="relative aspect-square w-full">
+            <div
+              key={key}
+              className="relative aspect-square w-full [container-type:inline-size]"
+            >
               <SuggestionBadge
                 modelName={model.name}
                 eventId={key}

@@ -243,7 +243,7 @@ async def confirm_suggestion(
             status_code=400,
         )
     except OSError:
-        logger.exception("Failed to confirm a classification suggestion for %s", name)
+        logger.exception("Failed to move the train images of a suggestion")
         return JSONResponse(
             content={
                 "success": False,

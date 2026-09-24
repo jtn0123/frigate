@@ -30,7 +30,7 @@ type SuggestionBadgeProps = {
   modelName: string;
   eventId: string;
   files: string[];
-  entry?: EventSuggestion | undefined;
+  entry: EventSuggestion | undefined;
   onRefresh: () => void;
 };
 
@@ -40,7 +40,7 @@ export default function SuggestionBadge({
   files,
   entry,
   onRefresh,
-}: SuggestionBadgeProps) {
+}: Readonly<SuggestionBadgeProps>) {
   const { t } = useTranslation(["fork"]);
   const [pending, setPending] = useState(false);
 
@@ -121,7 +121,9 @@ export default function SuggestionBadge({
               {suggestion.category}
             </span>
             {score != null && (
-              <span className="shrink-0 text-white/70">{score}%</span>
+              <span className="shrink-0 text-white/70 [@container(max-width:10rem)]:hidden">
+                {score}%
+              </span>
             )}
           </span>
         </TooltipTrigger>

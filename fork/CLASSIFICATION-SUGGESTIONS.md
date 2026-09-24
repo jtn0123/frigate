@@ -9,7 +9,8 @@ model's classes on each card, so most cards become one click.
 
 On the train grid of a custom object model, cards whose event description
 supports one of the model's classes get a badge in the top left corner: the
-class, a percentage when Jev answered, and a Confirm button. Hover the badge
+class, a percentage when Jev answered (hidden on narrow cards), and a
+Confirm button. Hover the badge
 for the source and the sentence that matched. Confirm files every image of
 that event under the class. The existing class picker still works for edits,
 and cards with no badge are labeled exactly as before.

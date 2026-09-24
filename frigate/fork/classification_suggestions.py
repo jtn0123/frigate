@@ -71,6 +71,16 @@ class EventSuggestion(TypedDict):
 # Known class vocabulary: kind, phrases that name it in a description, and the
 # meaning given to Jev. A dataset class outside this table is matched on its
 # own name and described to Jev generically.
+GRAY: tuple[str, tuple[str, ...], str] = (
+    "color",
+    ("gray", "grey", "silver"),
+    "a gray, grey or silver body",
+)
+BROWN: tuple[str, tuple[str, ...], str] = (
+    "color",
+    ("brown", "tan", "beige"),
+    "a brown, tan or beige body",
+)
 KNOWN: dict[str, tuple[str, tuple[str, ...], str]] = {
     "car": (
         "type",
@@ -101,24 +111,16 @@ KNOWN: dict[str, tuple[str, tuple[str, ...], str]] = {
     "motorcycle": ("type", ("motorcycle", "motorbike"), "a motorcycle"),
     "white": ("color", ("white",), "a white body"),
     "black": ("color", ("black",), "a black body"),
-    "gray": ("color", ("gray", "grey", "silver"), "a gray, grey or silver body"),
-    "grey": ("color", ("gray", "grey", "silver"), "a gray, grey or silver body"),
-    "gray_silver": (
-        "color",
-        ("gray", "grey", "silver"),
-        "a gray, grey or silver body",
-    ),
+    "gray": GRAY,
+    "grey": GRAY,
+    "gray_silver": GRAY,
     "silver": ("color", ("silver",), "a silver body"),
     "red": ("color", ("red", "maroon", "burgundy"), "a red, maroon or burgundy body"),
     "blue": ("color", ("blue", "navy"), "a blue or navy body"),
     "green": ("color", ("green",), "a green body"),
-    "brown": ("color", ("brown", "tan", "beige"), "a brown, tan or beige body"),
+    "brown": BROWN,
     "tan": ("color", ("tan", "beige"), "a tan or beige body"),
-    "brown_tan": (
-        "color",
-        ("brown", "tan", "beige"),
-        "a brown, tan or beige body",
-    ),
+    "brown_tan": BROWN,
     "yellow": ("color", ("yellow", "gold"), "a yellow or gold body"),
     "orange": ("color", ("orange",), "an orange body"),
     "ups": ("carrier", ("ups",), "the visible UPS name or logo on this vehicle"),
@@ -265,51 +267,54 @@ def text_suggestion(description: str, classes: list[str]) -> Suggestion | None:
     if len(SUBJECT.findall(text)) > 1:
         return None
 
-    phrase_to_class: dict[str, str] = {}
-    for name in candidates:
-        for phrase in class_phrases(name):
-            phrase_to_class.setdefault(phrase, name)
-    pattern = re.compile(
-        r"\b("
-        + "|".join(re.escape(p) for p in sorted(phrase_to_class, key=len, reverse=True))
-        + r")\b"
-    )
-
+    phrase_to_class, pattern = _phrase_pattern(candidates)
     matched: dict[str, str] = {}
     kinds: dict[str, set[str]] = {}
     for _start, _end, sentence in _sentences(text):
         for match in pattern.finditer(sentence):
             name = phrase_to_class[match.group(1)]
             kind = class_kind(name)
-            before = sentence[: match.start()]
-            after = sentence[match.end() :]
-            if NEGATED.search(before[-24:]):
-                continue
-            if kind == "color" and not re.match(
-                r"\s+(?:\w+\s+){0,2}" + VEHICLE_NOUN + r"\b", after
-            ):
-                continue
-            if kind == "carrier":
-                if NOT_VEHICLE.search(sentence) or NEGATED.search(sentence):
-                    continue
-                adjacent = re.match(r"\s+(?:\w+\s+){0,2}" + VEHICLE_NOUN + r"\b", after)
-                if not adjacent and not (
-                    re.search(VEHICLE_NOUN, sentence) and BRANDING.search(sentence)
-                ):
-                    continue
-            if kind == "generic" and NEGATED.search(sentence):
+            if not _match_allowed(kind, sentence, match.start(), match.end()):
                 continue
             kinds.setdefault(kind, set()).add(name)
             matched.setdefault(name, _evidence(sentence))
 
-    if not matched:
-        return None
-    if any(len(names) > 1 for names in kinds.values()):
-        return None
-    if len(matched) > 1:
+    if len(matched) != 1 or any(len(names) > 1 for names in kinds.values()):
         return None
     name, evidence = next(iter(matched.items()))
     return {"category": name, "source": "text", "score": None, "evidence": evidence}
+
+
+def _phrase_pattern(candidates: list[str]) -> tuple[dict[str, str], re.Pattern[str]]:
+    """Map every known phrase to its class and compile one longest-first regex."""
+    phrase_to_class: dict[str, str] = {}
+    for name in candidates:
+        for phrase in class_phrases(name):
+            phrase_to_class.setdefault(phrase, name)
+    alternation = "|".join(
+        re.escape(p) for p in sorted(phrase_to_class, key=len, reverse=True)
+    )
+    return phrase_to_class, re.compile(r"\b(" + alternation + r")\b")
+
+
+def _match_allowed(kind: str, sentence: str, start: int, end: int) -> bool:
+    """Apply the per-kind guards to one phrase match inside one sentence."""
+    before = sentence[:start]
+    after = sentence[end:]
+    if NEGATED.search(before[-24:]):
+        return False
+    adjacent = re.match(r"\s+(?:\w+\s+){0,2}" + VEHICLE_NOUN + r"\b", after)
+    if kind == "color":
+        return adjacent is not None
+    if kind == "carrier":
+        if NOT_VEHICLE.search(sentence) or NEGATED.search(sentence):
+            return False
+        return adjacent is not None or bool(
+            re.search(VEHICLE_NOUN, sentence) and BRANDING.search(sentence)
+        )
+    if kind == "generic":
+        return not NEGATED.search(sentence)
+    return True
 
 
 def build_jev_request(

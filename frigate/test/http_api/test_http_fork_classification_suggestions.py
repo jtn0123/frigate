@@ -172,7 +172,7 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
             calls[0]["request"]["state"], {"description": "A gray crossover pulls in."}
         )
         for body in (first, second):
-            self.assertEqual(body["jev"]["configured"], True)
+            self.assertTrue(body["jev"]["configured"])
             self.assertEqual(body["jev"]["used_today"], 1)
             self.assertEqual(
                 body["suggestions"]["evt-1"]["suggestion"]["category"], "suv"
