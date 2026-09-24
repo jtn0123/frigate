@@ -447,7 +447,27 @@
     "stale": "No stats sample has arrived",
     "staleNamed": "{{subject}} has not reported since stats started arriving",
     "lastUpdate_one": "Stats last updated {{count}} second ago",
-    "lastUpdate_other": "Stats last updated {{count}} seconds ago"
+    "lastUpdate_other": "Stats last updated {{count}} seconds ago",
+    "range": {
+      "label": "Time range",
+      "option": {
+        "live": "Live (last 20 minutes)",
+        "1h": "Last hour",
+        "6h": "Last 6 hours",
+        "12h": "Last 12 hours",
+        "24h": "Last 24 hours",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days"
+      },
+      "liveNote": "Live samples, 15 seconds apart, since Frigate started",
+      "empty": "Nothing stored for this range yet; history is kept from the first sample after an update",
+      "averagedMinutes_one": "Each point averages one minute",
+      "averagedMinutes_other": "Each point averages {{count}} minutes",
+      "averagedHours_one": "Each point averages one hour",
+      "averagedHours_other": "Each point averages {{count}} hours",
+      "disabled": "Stored history is off; set telemetry.stats.history.enabled to graph longer ranges",
+      "unavailable": "Stored history could not be read; showing nothing for this range"
+    }
   },
   "exportProgress": {
     "exporting": "Exporting",

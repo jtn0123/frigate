@@ -1151,6 +1151,15 @@ telemetry:
     # Optional: Enable network bandwidth stats monitoring for camera ffmpeg processes, go2rtc, and object detectors. (default: shown below)
     # NOTE: The container must either be privileged or have cap_net_admin, cap_net_raw capabilities enabled.
     network_bandwidth: False
+    # Optional: Fork (D54): system metrics stored for the System page's longer
+    # time ranges. Without it that page can only graph the last 20 minutes,
+    # which is all Frigate keeps in memory, and only since the last restart.
+    history:
+      # Optional: Store a sample of system metrics every minute (default: shown below)
+      enabled: True
+      # Optional: Days of history to keep (default: shown below)
+      # NOTE: Samples are rolled up as they age, so a month is a few thousand rows.
+      retain_days: 30
   # Optional: Enable the latest version outbound check (default: shown below)
   # NOTE: If you use the Home Assistant integration, disabling this will prevent it from reporting new versions
   version_check: True
