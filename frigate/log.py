@@ -147,6 +147,14 @@ class LogPipe(threading.Thread):
         self.pipeReader.close()
 
     def dump(self) -> None:
+        if not self.deque:
+            return
+
+        self.logger.log(
+            self.level,
+            "The following ffmpeg logs include the last 100 lines prior to exit.",
+        )
+
         while len(self.deque) > 0:
             line = self.deque.popleft()
             level = self.noise_filter.level_for(line, self.level)

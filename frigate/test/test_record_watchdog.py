@@ -132,6 +132,9 @@ class TestRecordRestartThrash(unittest.TestCase):
         # (poll() is not None) stays out of the way.
         self.start_ffmpeg.return_value = MagicMock(**{"poll.return_value": None})
         self.addCleanup(starter.stop)
+        stopper = patch("frigate.video.ffmpeg.stop_ffmpeg")
+        self.stop_ffmpeg = stopper.start()
+        self.addCleanup(stopper.stop)
 
     def test_a_single_stall_restarts_the_record_process_once(self):
         # The first tick clears the 90 s grace that follows enabling record.
@@ -149,6 +152,30 @@ class TestRecordRestartThrash(unittest.TestCase):
         CameraWatchdog.run(dog)
 
         self.assertEqual(self.start_ffmpeg.call_count, 2)
+
+    def test_a_stall_logs_the_ffmpeg_output_once_after_stopping_it(self):
+        """Fork (D54): the stalled recorder is stopped, its output is logged
+        through the restart log, and the new process starts from scratch."""
+        dog = watchdog([95, 1, 1, 1, 1])
+        process = dog.ffmpeg_other_processes[0]
+        stalled = process["process"]
+
+        CameraWatchdog.run(dog)
+
+        self.stop_ffmpeg.assert_called_once_with(stalled, dog.logger)
+        process["logpipe"].dump.assert_called_once()
+        self.assertIsNone(self.start_ffmpeg.call_args.kwargs.get("ffmpeg_process"))
+        self.assertEqual(dog.restart_log.history[0]["kind"], "stalled")
+
+    def test_a_repeated_stall_is_throttled_like_any_exit(self):
+        dog = watchdog([95, 100, 100, 100])
+        logpipe = dog.ffmpeg_other_processes[0]["logpipe"]
+
+        CameraWatchdog.run(dog)
+
+        self.assertEqual(self.start_ffmpeg.call_count, 2)
+        logpipe.dump.assert_called_once()
+        logpipe.deque.clear.assert_called_once()
 
     def test_healthy_segments_never_restart_the_record_process(self):
         dog = watchdog([95, 1, 1, 1, 1], stale_age=0)
