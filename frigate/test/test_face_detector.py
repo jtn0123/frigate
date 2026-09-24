@@ -1,12 +1,15 @@
 """Tests for face detection results, landmark selection, and face alignment."""
 
+import os
+import tempfile
 import threading
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import cv2
 import numpy as np
 
+from frigate.data_processing.common.face import detector as detector_module
 from frigate.data_processing.common.face.detector import (
     FACE_TEMPLATE,
     FACE_TEMPLATE_SIZE,
@@ -162,6 +165,147 @@ class TestLandmarkSelection(unittest.TestCase):
         detector = _detector([_row_with_landmarks(BROKEN_LANDMARKS)])
 
         self.assertIsNone(detector.get_face_landmarks(np.zeros((30, 27, 3), np.uint8)))
+
+
+class TestDetectorSetup(unittest.TestCase):
+    """Model loading, with the OpenCV models and the downloader stubbed."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.model_dir = tmp.name
+
+        self.cv2 = MagicMock()
+        for target, value in (("FACE_DET_DIR", self.model_dir), ("cv2", self.cv2)):
+            patcher = patch.object(detector_module, target, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def _add_model(self, name: str):
+        with open(os.path.join(self.model_dir, name), "w") as f:
+            f.write("model")
+
+    def test_existing_models_are_loaded_and_ready_is_signaled(self):
+        self._add_model("facedet.onnx")
+        self._add_model("landmarkdet.yaml")
+        on_ready = MagicMock()
+
+        detector = FaceDetector(on_ready=on_ready)
+
+        self.assertTrue(detector.is_ready)
+        on_ready.assert_called_once_with()
+        self.assertEqual(
+            self.cv2.FaceDetectorYN.create.call_args.args[0],
+            os.path.join(self.model_dir, "facedet.onnx"),
+        )
+        landmark_model = self.cv2.face.createFacemarkLBF.return_value
+        landmark_model.loadModel.assert_called_once_with(
+            os.path.join(self.model_dir, "landmarkdet.yaml")
+        )
+
+    @patch("frigate.util.downloader.ModelDownloader")
+    def test_missing_models_are_downloaded_before_loading(self, downloader):
+        self._add_model("facedet.onnx")
+
+        detector = FaceDetector()
+
+        downloader.return_value.ensure_model_files.assert_called_once_with()
+        kwargs = downloader.call_args.kwargs
+        self.assertEqual(kwargs["download_path"], self.model_dir)
+        self.assertEqual(kwargs["file_names"], ["facedet.onnx", "landmarkdet.yaml"])
+        self.assertFalse(detector.is_ready)
+
+        # the downloader fetches each file from its release url
+        path = os.path.join(self.model_dir, "landmarkdet.yaml")
+        kwargs["download_func"](path)
+        downloader.download_from_url.assert_called_once_with(
+            detector.model_files["landmarkdet.yaml"], path
+        )
+
+        # once downloaded, the models are built as if they had been cached
+        self._add_model("landmarkdet.yaml")
+        kwargs["complete_func"]()
+        self.assertTrue(detector.is_ready)
+
+    @patch("frigate.util.downloader.ModelDownloader")
+    def test_failed_download_is_logged_not_raised(self, downloader):
+        downloader.download_from_url.side_effect = OSError("offline")
+        FaceDetector()
+        download = downloader.call_args.kwargs["download_func"]
+
+        with self.assertLogs(detector_module.logger, "ERROR"):
+            download(os.path.join(self.model_dir, "facedet.onnx"))
+
+    def test_missing_landmark_model_is_not_ready(self):
+        """The detection model alone is not enough to align faces."""
+        detector = FaceDetector.__new__(FaceDetector)
+        detector.detector = MagicMock()
+        detector.landmark_detector = None
+        detector.on_ready = None
+
+        detector._FaceDetector__init_landmark_detector()
+
+        self.assertFalse(detector.is_ready)
+
+
+class TestDetectEdgeCases(unittest.TestCase):
+    def test_no_model_detects_nothing(self):
+        detector = _detector([_yunet_row(0, 0, 20, 20)])
+        detector.detector = None
+
+        self.assertIsNone(detector.detect(np.zeros((50, 50, 3), np.uint8), 0.5))
+
+    def test_no_faces_detects_nothing(self):
+        detector = _detector(None)
+
+        self.assertIsNone(detector.detect(np.zeros((50, 50, 3), np.uint8), 0.5))
+
+    def test_faces_below_the_threshold_are_ignored(self):
+        detector = _detector(
+            [_yunet_row(0, 0, 90, 90, score=0.4), _yunet_row(5, 5, 20, 20)]
+        )
+
+        result = detector.detect(np.zeros((100, 100, 3), np.uint8), 0.5)
+
+        assert result is not None
+        self.assertEqual(result.face, (5, 5, 25, 25))
+
+    def test_smaller_face_after_a_larger_one_is_ignored(self):
+        detector = _detector([_yunet_row(50, 50, 60, 60), _yunet_row(0, 0, 20, 20)])
+
+        result = detector.detect(np.zeros((200, 200, 3), np.uint8), 0.5)
+
+        assert result is not None
+        self.assertEqual(result.face, (50, 50, 110, 110))
+
+    def test_collapsed_landmarks_have_infinite_fit_error(self):
+        self.assertEqual(landmark_fit_error(((4.0, 4.0),) * 5), float("inf"))
+
+
+class TestFitLandmarksFailures(unittest.TestCase):
+    def _detector(self):
+        detector = _detector(None, np.zeros((68, 2), np.float32))
+        return detector
+
+    def test_landmark_model_error_returns_none(self):
+        detector = self._detector()
+        detector.landmark_detector.fit.side_effect = cv2.error("bad input")
+
+        self.assertIsNone(detector.get_face_landmarks(np.zeros((30, 30, 3), np.uint8)))
+
+    def test_unsuccessful_fit_returns_none(self):
+        detector = self._detector()
+        detector.landmark_detector.fit.return_value = (False, [])
+
+        self.assertIsNone(detector.get_face_landmarks(np.zeros((30, 30), np.uint8)))
+
+    def test_grayscale_crops_are_passed_through_unchanged(self):
+        detector = self._detector()
+        crop = np.zeros((30, 40), np.uint8)
+
+        detector.get_face_landmarks(crop)
+
+        self.assertIs(detector.landmark_detector.fit.call_args.args[0], crop)
 
 
 class _StubRecognizer(FaceRecognizer):

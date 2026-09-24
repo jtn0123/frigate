@@ -2,6 +2,7 @@
 
 import asyncio
 import threading
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -12,6 +13,7 @@ from unittest.mock import MagicMock
 from frigate.embeddings.maintainer import (
     EmbeddingMaintainer,
     LicensePlatePostProcessor,
+    ObjectDescriptionProcessor,
 )
 from frigate.ptz.autotrack import PtzAutoTracker
 from frigate.review.maintainer import ReviewSegmentMaintainer
@@ -161,6 +163,40 @@ class TestEmbeddingsUnknownCamera(unittest.TestCase):
 
         maintainer.realtime_processors[0].expire_object.assert_called_once_with(
             "1234.5-abcdef", "deleted_cam"
+        )
+
+    def test_process_finalized_releases_descriptions_for_unknown_camera(self):
+        """Tracked thumbnails for a removed camera must not leak."""
+        maintainer = self._make_maintainer()
+        descriptions = MagicMock(spec=ObjectDescriptionProcessor)
+        maintainer.post_processors = [descriptions]
+        maintainer.event_end_subscriber.check_for_update.side_effect = [
+            ("1234.5-abcdef", "deleted_cam", False),
+            None,
+        ]
+
+        maintainer._process_finalized()
+
+        descriptions.cleanup_event.assert_called_once_with("1234.5-abcdef")
+        descriptions.process_data.assert_not_called()
+
+    def test_expire_dedicated_lpr_keeps_expiring_known_cameras(self):
+        maintainer = self._make_maintainer()
+        maintainer.config = SimpleNamespace(
+            cameras={"lpr_cam": SimpleNamespace(lpr=SimpleNamespace(expire_time=5))}
+        )
+        maintainer.detected_license_plates = {
+            "old": {"camera": "lpr_cam", "last_seen": 1.0},
+            "fresh": {"camera": "lpr_cam", "last_seen": time.time()},
+            "unseen": {"camera": "lpr_cam"},
+        }
+
+        maintainer._expire_dedicated_lpr()
+
+        self.assertEqual(set(maintainer.detected_license_plates), {"fresh", "unseen"})
+        maintainer.event_metadata_publisher.publish.assert_called_once()
+        self.assertEqual(
+            maintainer.event_metadata_publisher.publish.call_args.args[0][0], "old"
         )
 
     def test_expire_dedicated_lpr_drops_entry_for_unknown_camera(self):

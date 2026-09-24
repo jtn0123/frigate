@@ -26,6 +26,7 @@ from frigate.data_processing.post import review_descriptions  # noqa: E402
 from frigate.data_processing.post.review_descriptions import (  # noqa: E402
     get_recording_buffer_extension,
 )
+from frigate.embeddings import EmbeddingsContext  # noqa: E402
 from frigate.embeddings.maintainer import ReviewDescriptionProcessor  # noqa: E402
 from frigate.genai.manager import GenAIClientManager  # noqa: E402
 
@@ -156,6 +157,19 @@ class TestRegenerateReviewDescription(unittest.TestCase):
         processor.get_recording_frames.return_value = []
         self._run(processor, self._review())
         processor.start_analysis.assert_not_called()
+
+
+class TestEmbeddingsContextRegenerate(unittest.TestCase):
+    def test_request_is_sent_to_the_embeddings_process(self):
+        context = EmbeddingsContext.__new__(EmbeddingsContext)
+        context.requestor = MagicMock()
+
+        context.regenerate_review_description("r1")
+
+        context.requestor.send_data.assert_called_once_with(
+            EmbeddingsRequestEnum.regenerate_review_description.value,
+            {"review_id": "r1"},
+        )
 
 
 class TestGenAIRoleInfo(unittest.TestCase):
