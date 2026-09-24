@@ -101,6 +101,7 @@ def main() -> None:
         print("***    End Config Validation Errors                       ***")
         print(_LOG_SEPARATOR)
 
+        # force a non-zero exit code for config failures
         if args.validate_config:
             sys.exit(1)
 

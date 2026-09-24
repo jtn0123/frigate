@@ -72,10 +72,11 @@ class TestRestartLog(unittest.TestCase):
     def test_first_exit_dumps_the_ffmpeg_output(self):
         pipe = FakeLogPipe(VAAPI_EXIT)
 
-        with self.assertLogs(self.logger, level="ERROR") as logs:
+        # LogPipe.dump prints the heading itself (D58), so the restart log
+        # adds none of its own and a dump never shows it twice.
+        with self.assertNoLogs(self.logger, level="ERROR"):
             event = self.log.note_exit("detect", pipe, now=1000)
 
-        self.assertIn("last 100 lines", logs.output[0])
         self.assertEqual(pipe.dumped, [VAAPI_EXIT])
         self.assertEqual(event["kind"], "hwaccel")
         self.assertEqual(self.history, [event])

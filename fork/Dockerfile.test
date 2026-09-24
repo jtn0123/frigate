@@ -29,6 +29,9 @@ COPY FORK.md /opt/frigate/FORK.md
 COPY fork/ledger /opt/frigate/fork/ledger
 COPY .coveragerc /opt/frigate/.coveragerc
 COPY testing-scripts /opt/frigate/testing-scripts
+# Drop the base image's sources first: an upstream file this tree renamed or
+# deleted would otherwise linger and be type checked and imported (D55).
+RUN rm -rf /opt/frigate/frigate /opt/frigate/migrations
 COPY frigate /opt/frigate/frigate
 COPY migrations /opt/frigate/migrations
 COPY generate_api_auth_spec.py /opt/frigate/generate_api_auth_spec.py

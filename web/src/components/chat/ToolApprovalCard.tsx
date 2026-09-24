@@ -27,7 +27,7 @@ export function ToolApprovalCard({
 }: Readonly<ToolApprovalCardProps>) {
   const { t } = useTranslation(["views/chat"]);
   const displayName = formatToolName(toolCall.name);
-  const hasArguments = Object.keys(toolCall.arguments).length > 0;
+  const hasArguments = Object.keys(toolCall.arguments ?? {}).length > 0;
 
   return (
     <fieldset

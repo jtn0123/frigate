@@ -353,12 +353,19 @@ class TestGetExportCases(DatabaseTestCase):
                 export_case="case_a",
             )
 
-        result = _execute_get_export_cases(_request(), ["driveway"])
+        result = _execute_get_export_cases(_request(), ["driveway", "garage"])
         by_id = {c["id"]: c for c in result["cases"]}
-        self.assertEqual(by_id["case_a"]["export_count"], 2)
-        self.assertNotIn("case_b", by_id)
+        self.assertEqual(by_id["case_a"]["export_count"], 3)
+        self.assertEqual(by_id["case_b"]["export_count"], 0)
         self.assertEqual(by_id["case_a"]["name"], "Break-in")
         self.assertIn("created_at_local", by_id["case_a"])
+
+        # Fork: a user limited to some cameras sees only the cases holding an
+        # export from one of them, matching GET /cases, and counts only those.
+        result = _execute_get_export_cases(_request(role="viewer"), ["driveway"])
+        by_id = {c["id"]: c for c in result["cases"]}
+        self.assertEqual(set(by_id), {"case_a"})
+        self.assertEqual(by_id["case_a"]["export_count"], 2)
 
 
 class TestCreateExport(DatabaseTestCase):

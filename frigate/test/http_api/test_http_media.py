@@ -3,6 +3,7 @@
 import os
 import shutil
 import tempfile
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock, patch
 
@@ -10,8 +11,64 @@ import pytz
 from fastapi import Request
 
 from frigate.api.auth import get_allowed_cameras_for_filter, get_current_user
+from frigate.const import MAX_SEGMENT_DURATION
 from frigate.models import Event, Recordings
 from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
+
+
+@dataclass(frozen=True)
+class RangeCase:
+    """Expected behavior for one segment relative to the requested range.
+
+    Offsets are seconds from REQUEST_START; the request ends at +100 seconds.
+    """
+
+    name: str
+    start_offset: float
+    end_offset: float
+    included_in_recordings: bool
+    vod_clip_from_ms: int | None = None
+    vod_duration_ms: int | None = None
+
+
+REQUEST_START = 1000
+REQUEST_END = 1100
+RANGE_CASES = (
+    RangeCase("before", -MAX_SEGMENT_DURATION + 1, -1, False),
+    RangeCase("meets_start", -10, 0, True),
+    RangeCase(
+        "overlaps_start",
+        -MAX_SEGMENT_DURATION + 0.5,
+        0.25,
+        True,
+        vod_clip_from_ms=599500,
+        vod_duration_ms=250,
+    ),
+    RangeCase("starts_at_start", 0, 10, True, vod_duration_ms=10000),
+    RangeCase("inside", 20, 80, True, vod_duration_ms=60000),
+    RangeCase("ends_at_end", 90, 100, True, vod_duration_ms=10000),
+    RangeCase("matches_range", 0, 100, True, vod_duration_ms=100000),
+    RangeCase("starts_with_range", 0, 110, True, vod_duration_ms=100000),
+    RangeCase(
+        "covers_range",
+        -20,
+        120,
+        True,
+        vod_clip_from_ms=20000,
+        vod_duration_ms=100000,
+    ),
+    RangeCase(
+        "ends_with_range",
+        -10,
+        100,
+        True,
+        vod_clip_from_ms=10000,
+        vod_duration_ms=100000,
+    ),
+    RangeCase("overlaps_end", 95, 105, True, vod_duration_ms=5000),
+    RangeCase("starts_at_end", 100, 110, True),
+    RangeCase("after", 101, 110, False),
+)
 
 
 class TestHttpMedia(BaseTestHttp):
@@ -47,6 +104,26 @@ class TestHttpMedia(BaseTestHttp):
         """Clean up after tests."""
         self.app.dependency_overrides.clear()
         super().tearDown()
+
+    def _assert_vod_response(
+        self,
+        response,
+        expected_clips: list[tuple[str, int | None, int]],
+    ) -> None:
+        """Assert VOD clip metadata and its derived duration fields."""
+        assert response.status_code == 200
+        vod = response.json()
+        assert [
+            (
+                clip["path"],
+                clip.get("clipFrom"),
+                clip["keyFrameDurations"][0],
+            )
+            for clip in vod["sequences"][0]["clips"]
+        ] == expected_clips
+        expected_durations = [clip[2] for clip in expected_clips]
+        assert vod["durations"] == expected_durations
+        assert vod["segment_duration"] == max(expected_durations)
 
     def test_recordings_summary_across_dst_spring_forward(self):
         """
@@ -407,6 +484,254 @@ class TestHttpMedia(BaseTestHttp):
             assert len(summary) == 1
             assert "2024-03-10" in summary
             assert summary["2024-03-10"] is True
+
+    def test_recordings_summary_sparse_days_across_large_gap(self):
+        """
+        Only recorded days are reported when a large empty gap separates them.
+        """
+        early = datetime(2023, 1, 5, 12, 0, 0, tzinfo=UTC).timestamp()
+        late = datetime(2024, 3, 10, 12, 0, 0, tzinfo=UTC).timestamp()
+
+        with AuthTestClient(self.app) as client:
+            super().insert_mock_recording("early_day", early, early + 3600)
+            super().insert_mock_recording("late_day", late, late + 3600)
+
+            response = client.get(
+                "/recordings/summary", params={"timezone": "utc", "cameras": "all"}
+            )
+
+            assert response.status_code == 200
+            summary = response.json()
+            assert summary == {"2023-01-05": True, "2024-03-10": True}
+
+    def test_recordings_unavailable_merges_cameras(self):
+        """
+        Gaps are computed against the union of all requested cameras' coverage.
+        """
+
+        async def allow_both_cameras(request: Request):
+            return ["front_door", "back_door"]
+
+        self.app.dependency_overrides[get_allowed_cameras_for_filter] = (
+            allow_both_cameras
+        )
+
+        with AuthTestClient(self.app) as client:
+            for id, camera, start, end in [
+                ("front_a", "front_door", 1000, 1100),
+                ("front_b", "front_door", 1200, 1300),
+                ("back_a", "back_door", 1100, 1160),
+            ]:
+                Recordings.insert(
+                    id=id,
+                    path=f"/media/recordings/{id}.mp4",
+                    camera=camera,
+                    start_time=start,
+                    end_time=end,
+                    duration=end - start,
+                    motion=0,
+                    objects=0,
+                ).execute()
+
+            response = client.get(
+                "/recordings/unavailable",
+                params={
+                    "after": 1000,
+                    "before": 1300,
+                    "scale": 10,
+                    "cameras": "front_door,back_door",
+                },
+            )
+            assert response.status_code == 200
+            assert response.json() == [{"start_time": 1160, "end_time": 1200}]
+
+            # single camera: back_door alone leaves both edges uncovered
+            response = client.get(
+                "/recordings/unavailable",
+                params={
+                    "after": 1000,
+                    "before": 1300,
+                    "scale": 10,
+                    "cameras": "back_door",
+                },
+            )
+            assert response.status_code == 200
+            assert response.json() == [
+                {"start_time": 1000, "end_time": 1100},
+                {"start_time": 1160, "end_time": 1300},
+            ]
+
+    def test_recordings_summary_day_attribution_by_start_time(self):
+        """
+        A recording spanning midnight marks only its start day.
+        """
+        # starts 23:30 March 9, ends 00:30 March 10 (UTC)
+        start = datetime(2024, 3, 9, 23, 30, 0, tzinfo=UTC).timestamp()
+
+        with AuthTestClient(self.app) as client:
+            super().insert_mock_recording("midnight_span", start, start + 3600)
+
+            response = client.get(
+                "/recordings/summary", params={"timezone": "utc", "cameras": "all"}
+            )
+
+            assert response.status_code == 200
+            summary = response.json()
+            assert len(summary) == 1
+            assert summary["2024-03-09"] is True
+
+    def test_recordings_handles_all_range_relations(self):
+        """Recordings return every interval relation that touches the range."""
+        with AuthTestClient(self.app) as client:
+            for case in RANGE_CASES:
+                with self.subTest(case=case.name):
+                    Recordings.delete().execute()
+                    super().insert_mock_recording(
+                        case.name,
+                        REQUEST_START + case.start_offset,
+                        REQUEST_START + case.end_offset,
+                    )
+
+                    response = client.get(
+                        "/front_door/recordings",
+                        params={"after": REQUEST_START, "before": REQUEST_END},
+                    )
+
+                    assert response.status_code == 200
+                    expected_ids = [case.name] if case.included_in_recordings else []
+                    assert [
+                        recording["id"] for recording in response.json()
+                    ] == expected_ids
+
+    def test_vod_handles_all_range_relations(self):
+        """VOD clips every interval relation with positive playback duration."""
+        with (
+            AuthTestClient(self.app) as client,
+            patch(
+                "frigate.api.media.get_keyframe_before",
+                side_effect=lambda _path, offset: offset,
+            ),
+        ):
+            for case in RANGE_CASES:
+                with self.subTest(case=case.name):
+                    Recordings.delete().execute()
+                    super().insert_mock_recording(
+                        case.name,
+                        REQUEST_START + case.start_offset,
+                        REQUEST_START + case.end_offset,
+                    )
+
+                    response = client.get(
+                        f"/vod/front_door/start/{REQUEST_START}/end/{REQUEST_END}"
+                    )
+
+                    if case.vod_duration_ms is None:
+                        assert response.status_code == 404
+                        continue
+
+                    self._assert_vod_response(
+                        response,
+                        [
+                            (
+                                case.name,
+                                case.vod_clip_from_ms,
+                                case.vod_duration_ms,
+                            )
+                        ],
+                    )
+
+    def test_vod_handles_segment_ending_at_start_with_keyframe_fallbacks(self):
+        """VOD keeps a boundary segment when keyframe lookup extends it."""
+
+        def keyframe_before(path: str, offset: int) -> int | None:
+            return offset - 1000 if path == "previous_keyframe" else None
+
+        with (
+            AuthTestClient(self.app) as client,
+            patch(
+                "frigate.api.media.get_keyframe_before",
+                side_effect=keyframe_before,
+            ),
+        ):
+            super().insert_mock_recording(
+                "previous_keyframe",
+                REQUEST_START - 10,
+                REQUEST_START,
+            )
+            super().insert_mock_recording(
+                "missing_keyframe",
+                REQUEST_START - 5,
+                REQUEST_START,
+            )
+
+            response = client.get(
+                f"/vod/front_door/start/{REQUEST_START}/end/{REQUEST_END}"
+            )
+
+            self._assert_vod_response(
+                response,
+                [
+                    ("previous_keyframe", 9000, 1000),
+                    ("missing_keyframe", None, 5000),
+                ],
+            )
+
+    def test_clip_handles_all_range_relations(self):
+        """G18: clip.mp4 takes every segment that touches the range."""
+
+        def playlist_body(_cmd: list[str], file_path: str):
+            with open(file_path) as f:
+                yield f.read().encode()
+            os.unlink(file_path)
+
+        cache_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, cache_dir, True)
+
+        with (
+            AuthTestClient(self.app) as client,
+            patch("frigate.api.media.CACHE_DIR", cache_dir),
+            patch("frigate.api.media._run_clip_download", side_effect=playlist_body),
+        ):
+            for case in RANGE_CASES:
+                with self.subTest(case=case.name):
+                    Recordings.delete().execute()
+                    super().insert_mock_recording(
+                        case.name,
+                        REQUEST_START + case.start_offset,
+                        REQUEST_START + case.end_offset,
+                    )
+
+                    response = client.get(
+                        f"/front_door/start/{REQUEST_START}/end/{REQUEST_END}/clip.mp4"
+                    )
+
+                    if not case.included_in_recordings:
+                        assert response.status_code == 400
+                        continue
+
+                    assert response.status_code == 200
+                    assert response.text.startswith(f"file '{case.name}'")
+
+    def test_delete_recordings_handles_all_range_relations(self):
+        """G18: deleting a range removes every segment that touches it."""
+        with AuthTestClient(self.app) as client:
+            for case in RANGE_CASES:
+                with self.subTest(case=case.name):
+                    Recordings.delete().execute()
+                    super().insert_mock_recording(
+                        case.name,
+                        REQUEST_START + case.start_offset,
+                        REQUEST_START + case.end_offset,
+                    )
+
+                    response = client.delete(
+                        f"/recordings/start/{REQUEST_START}/end/{REQUEST_END}"
+                    )
+
+                    assert response.status_code == 200
+                    remaining = [r.id for r in Recordings.select(Recordings.id)]
+                    expected = [] if case.included_in_recordings else [case.name]
+                    assert remaining == expected
 
     def test_recordings_unavailable_reports_gap_between_recordings(self):
         """A gap between two recordings is reported as an unavailable segment."""

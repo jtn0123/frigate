@@ -452,7 +452,7 @@ Blocks that need the demo stack wait for PLAN.md step 3b (I7).
      framer-motion, immer, js-yaml, lucide-react, react-dropzone,
      react-markdown, react-zoom-pan-pinch, copy-to-clipboard,
      @types/node. (konva 10.5, monaco-yaml 5.5 and react-logviewer 6.5.5 were
-     done early in F6.)
+     done early in F6; F11 later replaced react-logviewer with virtua.)
   4. Fork GitHub Actions: checkout 7, setup-node 7, cache 6,
      upload-artifact 7, download-artifact 8, setup-python 7.
   5. Tailwind 4 + tailwind-merge + tailwind-scrollbar + @tailwindcss/forms +

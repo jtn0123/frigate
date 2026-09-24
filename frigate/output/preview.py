@@ -65,6 +65,12 @@ def get_cache_image_name(camera: str, frame_time: float) -> str:
     )
 
 
+def is_camera_preview_frame(file_name: str, camera: str) -> bool:
+    """Check whether a cached preview frame file belongs to the camera."""
+    # camera names may contain "-", so a prefix match would include "front-door"
+    return file_name.rsplit("-", 1)[0] == f"preview_{camera}"
+
+
 def get_most_recent_preview_frame(
     camera: str, before: float | None = None
 ) -> str | None:
@@ -78,7 +84,7 @@ def get_most_recent_preview_frame(
         preview_files = [
             f
             for f in os.listdir(PREVIEW_CACHE_DIR)
-            if f.rsplit("-", 1)[0] == f"preview_{camera}"
+            if is_camera_preview_frame(f, camera)
             and f.endswith(f".{PREVIEW_FRAME_TYPE}")
         ]
 

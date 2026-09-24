@@ -35,6 +35,16 @@ def dump(lines, level=logging.ERROR, noise_filter=None):
     return pipe
 
 
+HEADING = "The following ffmpeg logs include the last 100 lines prior to exit."
+
+
+def body(logs):
+    """The records a dump logged after its heading (D58)."""
+    records = logs.records
+    assert records[0].getMessage() == HEADING, records[0].getMessage()
+    return records[1:]
+
+
 class TestFfmpegLogFilter(unittest.TestCase):
     def setUp(self):
         self.filter = FfmpegLogFilter()
@@ -60,7 +70,7 @@ class TestLogPipeDump(unittest.TestCase):
             dump([*AMDGPU_LINES, REAL_ERROR])
 
         self.assertEqual(
-            [record.levelno for record in logs.records],
+            [record.levelno for record in body(logs)],
             [logging.DEBUG, logging.DEBUG, logging.ERROR],
         )
 
@@ -69,10 +79,23 @@ class TestLogPipeDump(unittest.TestCase):
             pipe = dump([*AMDGPU_LINES, REAL_ERROR])
 
         self.assertEqual(
-            [record.getMessage() for record in logs.records],
+            [record.getMessage() for record in body(logs)],
             [AMDGPU_LINES[0], AMDGPU_LINES[1], REAL_ERROR],
         )
         self.assertEqual(len(pipe.deque), 0)
+
+    def test_the_heading_is_logged_once_at_the_pipe_level(self):
+        with self.assertLogs(self.logger, level="DEBUG") as logs:
+            dump([REAL_ERROR], level=logging.WARNING)
+
+        self.assertEqual(logs.records[0].getMessage(), HEADING)
+        self.assertEqual(logs.records[0].levelno, logging.WARNING)
+        self.assertEqual(len(body(logs)), 1)
+
+    def test_an_empty_pipe_logs_nothing(self):
+        """A restart that already drained the pipe prints no empty heading."""
+        with self.assertNoLogs(self.logger, level="DEBUG"):
+            dump([])
 
 
 class TestNonMonotonicDts(unittest.TestCase):
@@ -106,11 +129,12 @@ class TestNonMonotonicDts(unittest.TestCase):
         with self.assertLogs(self.logger, level="DEBUG") as logs:
             dump(lines, noise_filter=self.filter)
 
+        records = body(logs)
         self.assertEqual(
-            [record.levelno for record in logs.records],
+            [record.levelno for record in records],
             [logging.WARNING, logging.ERROR, logging.WARNING],
         )
-        self.assertEqual(logs.records[0].getMessage(), lines[0])
+        self.assertEqual(records[0].getMessage(), lines[0])
         self.assertIn("49 more 'Non-monotonic DTS' warnings", logs.output[-1])
 
     def test_a_later_dump_in_the_same_window_only_summarizes(self):
@@ -119,14 +143,14 @@ class TestNonMonotonicDts(unittest.TestCase):
         with self.assertLogs(self.logger, level="DEBUG") as logs:
             dump([dts_warning(1), dts_warning(2)], noise_filter=self.filter)
 
-        self.assertEqual(len(logs.records), 1)
-        self.assertIn("2 more 'Non-monotonic DTS' warnings", logs.output[0])
+        self.assertEqual(len(body(logs)), 1)
+        self.assertIn("2 more 'Non-monotonic DTS' warnings", logs.output[-1])
 
     def test_a_dump_without_repeats_says_nothing_extra(self):
         with self.assertLogs(self.logger, level="DEBUG") as logs:
             dump([REAL_ERROR], noise_filter=self.filter)
 
-        self.assertEqual(len(logs.records), 1)
+        self.assertEqual(len(body(logs)), 1)
 
 
 if __name__ == "__main__":

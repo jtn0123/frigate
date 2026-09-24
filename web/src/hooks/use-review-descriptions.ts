@@ -37,7 +37,7 @@ export function useReviewDescriptions() {
       isAdmin &&
       hasSufficientContext &&
       !!review.end_time &&
-      !!config?.cameras[review.camera]?.review.genai?.enabled,
+      !!config?.cameras[review.camera]?.review?.genai?.enabled,
     [config, hasSufficientContext, isAdmin],
   );
 

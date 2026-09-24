@@ -792,8 +792,10 @@ def _execute_get_export_cases(
     counts = {case_id: count for case_id, count in count_rows}
 
     cases: list[dict[str, Any]] = []
-    query = _visible_cases(ExportCase.select(), request, allowed_cameras)
-    for case in query.order_by(ExportCase.created_at.desc()):
+    # Same visibility rule as GET /cases, so a case name never reaches a user
+    # who cannot open anything in it.
+    visible = _visible_cases(ExportCase.select(), request, allowed_cameras)
+    for case in visible.order_by(ExportCase.created_at.desc()):
         created_at = case.created_at
         cases.append(
             {
@@ -1714,7 +1716,7 @@ async def chat_completion(
                     logger.error("GenAI client returned an error")
                     return JSONResponse(
                         content={
-                            "error": "An error occurred while processing your request.",
+                            "error": _REQUEST_PROCESSING_ERROR,
                         },
                         status_code=500,
                     )
