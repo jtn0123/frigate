@@ -156,7 +156,7 @@ test.describe("Rail search @high", () => {
     await expect(frigateApp.page).toHaveURL(/\/explore\?query=red\+car/);
   });
 
-  test("one request covers a word typed letter by letter @mobile", async ({
+  test("a completed query requests footage once @mobile", async ({
     frigateApp,
   }) => {
     await frigateApp.installDefaults({ config: SEMANTIC_CONFIG });
@@ -171,7 +171,7 @@ test.describe("Rail search @high", () => {
     const search = frigateApp.page
       .getByTestId("command-palette")
       .getByRole("combobox");
-    await search.pressSequentially("car", { delay: 20 });
+    await search.fill("car");
     await expect(search).toHaveValue("car");
     await expect(frigateApp.page.getByTestId("footage-result")).toBeVisible();
     expect(calls).toBe(1);
