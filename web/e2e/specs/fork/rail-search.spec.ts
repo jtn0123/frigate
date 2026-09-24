@@ -192,7 +192,11 @@ test.describe("Rail search @high", () => {
 
     await frigateApp.goto("/");
     await openPalette(frigateApp);
-    await frigateApp.page.keyboard.type("red car");
+    const search = frigateApp.page
+      .getByTestId("command-palette")
+      .getByRole("combobox");
+    await search.fill("red car");
+    await expect(search).toHaveValue("red car");
 
     const setup = frigateApp.page.getByTestId("footage-setup");
     await expect(setup).toBeVisible();
