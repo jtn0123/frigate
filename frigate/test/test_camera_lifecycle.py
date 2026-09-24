@@ -1,23 +1,32 @@
 """Regression tests for runtime camera add and delete handling."""
 
 import asyncio
+import sys
 import threading
 import time
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+from frigate.data_processing.types import PostProcessDataEnum
 
 # LicensePlatePostProcessor is imported via the maintainer rather than from
 # data_processing.post.license_plate, which circularly imports back through
 # frigate.embeddings before that package finishes initializing
 from frigate.embeddings.maintainer import (
+    AudioTranscriptionPostProcessor,
     EmbeddingMaintainer,
     LicensePlatePostProcessor,
     ObjectDescriptionProcessor,
+    ReviewDescriptionProcessor,
 )
 from frigate.ptz.autotrack import PtzAutoTracker
 from frigate.review.maintainer import ReviewSegmentMaintainer
 from frigate.track.object_processing import TrackedObjectProcessor
+
+# the processor modules, looked up once the maintainer has loaded them
+audio_transcription = sys.modules[AudioTranscriptionPostProcessor.__module__]
+object_descriptions = sys.modules[ObjectDescriptionProcessor.__module__]
 
 
 def _make_processor() -> TrackedObjectProcessor:
@@ -261,3 +270,103 @@ class TestCameraStateAccessors(unittest.TestCase):
         processor = _make_processor()
 
         self.assertEqual(processor.get_current_frame_time("deleted_cam"), 0.0)
+
+
+class TestReviewMaintainerRunLoopRemoval(unittest.TestCase):
+    def test_remove_topic_closes_out_each_deleted_camera(self):
+        maintainer = ReviewSegmentMaintainer.__new__(ReviewSegmentMaintainer)
+        maintainer.stop_event = MagicMock()
+        # one pass through the loop, then stop
+        maintainer.stop_event.is_set.side_effect = [False, True]
+        maintainer.config_subscriber = MagicMock()
+        maintainer.config_subscriber.check_for_updates.return_value = {
+            "remove": ["deleted_cam", "other_cam"]
+        }
+        maintainer.detection_subscriber = MagicMock()
+        maintainer.detection_subscriber.check_for_update.return_value = None
+        maintainer.requestor = MagicMock()
+        maintainer.indefinite_events = {"deleted_cam": {"1234.5-abcdef": 1.0}}
+        maintainer.forcibly_end_segment = MagicMock()
+
+        maintainer.run()
+
+        self.assertEqual(
+            [c.args for c in maintainer.forcibly_end_segment.call_args_list],
+            [("deleted_cam",), ("other_cam",)],
+        )
+        self.assertEqual(maintainer.indefinite_events, {})
+
+
+class TestPostProcessorsUnknownCamera(unittest.TestCase):
+    """GenAI and transcription post processors skip deleted cameras."""
+
+    def test_review_description_skips_unknown_camera(self):
+        processor = ReviewDescriptionProcessor.__new__(ReviewDescriptionProcessor)
+        processor.config = SimpleNamespace(cameras={})
+        processor.metrics = MagicMock()
+        processor.review_desc_dps = MagicMock()
+        processor.genai_manager = MagicMock()
+        processor.start_analysis = MagicMock()
+
+        processor.process_data(
+            {"type": "end", "after": {"id": "r1", "camera": "deleted_cam"}},
+            PostProcessDataEnum.review,
+        )
+
+        processor.start_analysis.assert_not_called()
+
+    def test_object_description_regeneration_skips_unknown_camera(self):
+        processor = ObjectDescriptionProcessor.__new__(ObjectDescriptionProcessor)
+        processor.config = SimpleNamespace(cameras={})
+        event = SimpleNamespace(id="1234.5-abcdef", camera="deleted_cam")
+
+        with (
+            patch.object(object_descriptions.Event, "get", return_value=event),
+            patch.object(object_descriptions, "get_event_thumbnail_bytes") as thumb,
+            self.assertLogs(object_descriptions.logger, "ERROR") as logs,
+        ):
+            processor.handle_request(
+                "regenerate_description",
+                {"event_id": event.id, "source": "thumbnails", "force": True},
+            )
+
+        thumb.assert_not_called()
+        self.assertIn("Camera deleted_cam no longer exists", logs.output[0])
+
+    def _audio_processor(self, cameras: dict) -> AudioTranscriptionPostProcessor:
+        processor = AudioTranscriptionPostProcessor.__new__(
+            AudioTranscriptionPostProcessor
+        )
+        processor.config = SimpleNamespace(cameras=cameras)
+        return processor
+
+    def _recording(self, camera: str) -> dict:
+        return {
+            "event_id": "1234.5-abcdef",
+            "camera": camera,
+            "frame_time": 100.0,
+            "recordings_available": 130.0,
+        }
+
+    def test_audio_transcription_skips_unknown_camera(self):
+        processor = self._audio_processor({})
+
+        with patch.object(audio_transcription, "get_audio_from_recording") as audio:
+            processor.process_data(
+                self._recording("deleted_cam"), PostProcessDataEnum.recording
+            )
+
+        audio.assert_not_called()
+
+    def test_audio_transcription_reads_the_known_camera_ffmpeg_config(self):
+        ffmpeg = object()
+        processor = self._audio_processor({"front": SimpleNamespace(ffmpeg=ffmpeg)})
+
+        with patch.object(
+            audio_transcription, "get_audio_from_recording", return_value=None
+        ) as audio:
+            processor.process_data(
+                self._recording("front"), PostProcessDataEnum.recording
+            )
+
+        audio.assert_called_once_with(ffmpeg, "front", 100.0, 130.0, sample_rate=16000)
