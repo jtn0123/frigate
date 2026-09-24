@@ -1439,6 +1439,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/review/{review_id}/regenerate_description": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Generate a review item description
+         * @description **Access:** Admin role required.
+         *
+         *     Re-runs a review item through the GenAI descriptions process.
+         *         Frames are always taken from recordings, and both alerts and detections are
+         *         accepted regardless of the camera's GenAI alerts/detections toggles.
+         */
+        put: operations["regenerate_review_description_review__review_id__regenerate_description_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/review/{review_id}/viewed": {
         parameters: {
             query?: never;
@@ -1639,6 +1663,28 @@ export interface paths {
          *     Returns available models for each configured GenAI provider.
          */
         get: operations["genai_models_genai_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/genai/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the model assigned to each GenAI role
+         * @description **Access:** Admin role required.
+         *
+         *     Returns the selected model and its context size for each configured GenAI role. Reads only what the client saved when it initialized, so the provider is not queried for its model list.
+         */
+        get: operations["genai_roles_genai_roles_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7834,6 +7880,37 @@ export interface operations {
             };
         };
     };
+    regenerate_review_description_review__review_id__regenerate_description_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenericResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     set_not_reviewed_review__review_id__viewed_delete: {
         parameters: {
             query?: never;
@@ -8069,6 +8146,26 @@ export interface operations {
         };
     };
     genai_models_genai_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    genai_roles_genai_roles_get: {
         parameters: {
             query?: never;
             header?: never;
