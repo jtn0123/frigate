@@ -2074,6 +2074,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/categorized_object_names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get known object names by object type
+         * @description **Access:** Any authenticated user.
+         *
+         *     Returns the sub labels and attributes this install can attach,
+         *         grouped by object type. Unlike /sub_labels, which reflects what has already been
+         *         detected, this reads the config and model files, so it covers recognized face
+         *         names, named license plates, custom object classification categories, and the
+         *         detector attributes of tracked objects.
+         */
+        get: operations["categorized_object_names_categorized_object_names_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audio_labels": {
         parameters: {
             query?: never;
@@ -4588,6 +4614,13 @@ export interface components {
              * @description Per-request thinking toggle. None means use the provider default. Ignored by providers that do not expose a per-request thinking switch.
              */
             enable_thinking?: boolean | null;
+            /**
+             * Tool Decisions
+             * @description Decisions for tool calls that paused for approval, keyed by tool call ID. Send these with the conversation chain returned alongside an approval request; rejected calls are reported to the model as declined instead of being executed.
+             */
+            tool_decisions?: {
+                [key: string]: "approve" | "reject";
+            };
         };
         /**
          * ChatMessage
@@ -8635,6 +8668,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    categorized_object_names_categorized_object_names_get: {
+        parameters: {
+            query?: {
+                object_type?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
