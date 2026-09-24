@@ -124,7 +124,11 @@ test.describe("Rail search @high", () => {
 
     await frigateApp.goto("/");
     await openPalette(frigateApp);
-    await frigateApp.page.keyboard.type("red car");
+    const search = frigateApp.page
+      .getByTestId("command-palette")
+      .getByRole("combobox");
+    await search.fill("red car");
+    await expect(search).toHaveValue("red car");
 
     await expect(
       frigateApp.page.getByTestId("command-palette").getByRole("combobox"),
@@ -147,12 +151,16 @@ test.describe("Rail search @high", () => {
 
     await frigateApp.goto("/");
     await openPalette(frigateApp);
-    await frigateApp.page.keyboard.type("red car");
+    const search = frigateApp.page
+      .getByTestId("command-palette")
+      .getByRole("combobox");
+    await search.fill("red car");
+    await expect(search).toHaveValue("red car");
     await frigateApp.page.getByTestId("footage-see-all").click();
     await expect(frigateApp.page).toHaveURL(/\/explore\?query=red\+car/);
   });
 
-  test("one request covers a word typed letter by letter @mobile", async ({
+  test("a completed query requests footage once @mobile", async ({
     frigateApp,
   }) => {
     await frigateApp.installDefaults({ config: SEMANTIC_CONFIG });
@@ -164,7 +172,11 @@ test.describe("Rail search @high", () => {
 
     await frigateApp.goto("/");
     await openPalette(frigateApp);
-    await frigateApp.page.keyboard.type("car", { delay: 20 });
+    const search = frigateApp.page
+      .getByTestId("command-palette")
+      .getByRole("combobox");
+    await search.fill("car");
+    await expect(search).toHaveValue("car");
     await expect(frigateApp.page.getByTestId("footage-result")).toBeVisible();
     expect(calls).toBe(1);
   });

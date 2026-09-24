@@ -265,6 +265,18 @@
         "label": "Network bandwidth",
         "description": "Enable per-process network bandwidth monitoring for camera ffmpeg processes and detectors (requires capabilities)."
       },
+      "history": {
+        "label": "System metrics history",
+        "description": "Options for the stored history the System page graphs.",
+        "enabled": {
+          "label": "System metrics history",
+          "description": "Store a sample of system metrics every minute so the System page can graph windows longer than the 20 minutes held in memory."
+        },
+        "retain_days": {
+          "label": "System metrics history retention",
+          "description": "Days of system metrics history to keep. Samples are rolled up as they age, so a month is a few thousand rows."
+        }
+      },
       "intel_gpu_device": {
         "label": "Intel GPU device",
         "description": "PCI bus address or DRM device path (e.g. /dev/dri/card1) used to pin Intel GPU stats to a specific device when multiple are present."

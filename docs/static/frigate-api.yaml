@@ -2721,7 +2721,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ProfilesResponse'
       security:
         - frigateUserAuth: []
       x-required-role: any
@@ -2740,7 +2741,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ActiveProfileResponse'
       security:
         - frigateAdminAuth: []
       x-required-role: admin
@@ -2759,7 +2761,8 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/FFmpegPresetsResponse'
       security:
         - frigateAdminAuth: []
       x-required-role: admin
@@ -3084,7 +3087,11 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: array
+                items:
+                  type: string
+                title: Response Get Labels Labels Get
         '422':
           description: Validation Error
           content:
@@ -3115,7 +3122,11 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: array
+                items:
+                  type: string
+                title: Response Get Sub Labels Sub Labels Get
         '422':
           description: Validation Error
           content:
@@ -3230,7 +3241,12 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                type: array
+                items:
+                  type: string
+                title: Response Get Recognized License Plates Recognized License
+                  Plates Get
         '422':
           description: Validation Error
           content:
@@ -7656,6 +7672,41 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /system/metrics/history:
+    get:
+      tags:
+        - App
+      summary: System metrics over a range longer than the in-memory history
+      description: |-
+        **Access:** Admin role required.
+
+        Return averaged samples of the graphed metrics for one range.
+      operationId: system_metrics_history_system_metrics_history_get
+      parameters:
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            description: One of 1h, 6h, 12h, 24h, 7d, 30d
+            default: 1h
+            title: Range
+          description: One of 1h, 6h, 12h, 24h, 7d, 30d
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
 components:
   schemas:
     AIModelStatus:
@@ -7778,6 +7829,18 @@ components:
         - shared_gpus
       title: AIModelsResponse
       description: Model inventory plus shared device and queue context.
+    ActiveProfileResponse:
+      properties:
+        active_profile:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Active Profile
+      type: object
+      required:
+        - active_profile
+      title: ActiveProfileResponse
+      description: Current persisted profile selection.
     AppConfigSetBody:
       properties:
         requires_restart:
@@ -8356,7 +8419,7 @@ components:
       properties:
         day:
           type: string
-          format: date-time
+          format: date
           title: Day
         reviewed_alert:
           type: integer
@@ -9018,8 +9081,10 @@ components:
           title: Playback source
           default: recordings
         name:
-          type: string
-          maxLength: 256
+          anyOf:
+            - type: string
+              maxLength: 256
+            - type: 'null'
           title: Friendly name
         image_path:
           type: string
@@ -9071,6 +9136,32 @@ components:
         - jpg
         - jpeg
       title: Extension
+    FFmpegPresetsResponse:
+      properties:
+        hwaccel_args:
+          items:
+            type: string
+          type: array
+          title: Hwaccel Args
+        input_args:
+          items:
+            type: string
+          type: array
+          title: Input Args
+        output_args:
+          additionalProperties:
+            items:
+              type: string
+            type: array
+          type: object
+          title: Output Args
+      type: object
+      required:
+        - hwaccel_args
+        - input_args
+        - output_args
+      title: FFmpegPresetsResponse
+      description: Preset names exposed to the configuration editor.
     FaceRecognitionResponse:
       properties:
         success:
@@ -9320,16 +9411,24 @@ components:
     Last24HoursReview:
       properties:
         reviewed_alert:
-          type: integer
+          anyOf:
+            - type: integer
+            - type: 'null'
           title: Reviewed Alert
         reviewed_detection:
-          type: integer
+          anyOf:
+            - type: integer
+            - type: 'null'
           title: Reviewed Detection
         total_alert:
-          type: integer
+          anyOf:
+            - type: integer
+            - type: 'null'
           title: Total Alert
         total_detection:
-          type: integer
+          anyOf:
+            - type: integer
+            - type: 'null'
           title: Total Detection
       type: object
       required:
@@ -9596,6 +9695,46 @@ components:
         - end
       title: PreviewModel
       description: Model representing a single preview clip.
+    ProfileListItem:
+      properties:
+        name:
+          type: string
+          title: Name
+        friendly_name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Friendly Name
+      type: object
+      required:
+        - name
+        - friendly_name
+      title: ProfileListItem
+      description: One selectable configuration profile.
+    ProfilesResponse:
+      properties:
+        active_profile:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Active Profile
+        profiles:
+          items:
+            $ref: '#/components/schemas/ProfileListItem'
+          type: array
+          title: Profiles
+        last_activated:
+          additionalProperties:
+            type: number
+          type: object
+          title: Last Activated
+      type: object
+      required:
+        - active_profile
+        - profiles
+        - last_activated
+      title: ProfilesResponse
+      description: Available profiles and their latest activation times.
     RegenerateDescriptionEnum:
       type: string
       enum:
@@ -9684,19 +9823,13 @@ components:
         - data
       title: ReviewSegmentResponse
     ReviewSummaryResponse:
-      properties:
-        last24Hours:
-          $ref: '#/components/schemas/Last24HoursReview'
-        root:
-          additionalProperties:
-            $ref: '#/components/schemas/DayReview'
-          type: object
-          title: Root
+      additionalProperties:
+        anyOf:
+          - $ref: '#/components/schemas/Last24HoursReview'
+          - $ref: '#/components/schemas/DayReview'
       type: object
-      required:
-        - last24Hours
-        - root
       title: ReviewSummaryResponse
+      description: Review counts for the last 24 hours and each date.
     SeverityEnum:
       type: string
       enum:

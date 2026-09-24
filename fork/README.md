@@ -120,6 +120,8 @@ an absolute outDir onto `web/`, so `--outDir /tmp/x` writes worker bundles to
 
 ## Runtime and operations
 
+- [Current engineering grade and prioritized findings](../.Codex/grade-report.md)
+- [Historical graded backlog (2026-09-18 snapshot)](GRADE-REPORT.md)
 - [Architecture and message ownership](ARCHITECTURE.md)
 - [Owner deployment, backup and rollback runbook](DEPLOYMENT.md)
 - Shared demo/test image: `fork/runtime-base.env` (local tests may explicitly override `FORK_TEST_BASE`).

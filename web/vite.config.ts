@@ -151,6 +151,13 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "lcov", "json"],
+      // Baseline from 2026-09-23: 15.48% overall lines, 88.69% lib/fork,
+      // and 58.16% hooks/fork. Keep a small margin for toolchain drift.
+      thresholds: {
+        lines: 14.5,
+        "src/lib/fork/**": { lines: 87.5 },
+        "src/hooks/fork/**": { lines: 57 },
+      },
       include: ["src/**/*.{ts,tsx}", "scripts/fork/**/*.mjs"],
       exclude: [
         "src/**/*.test.{ts,tsx}",

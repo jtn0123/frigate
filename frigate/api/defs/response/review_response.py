@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from pydantic import BaseModel, Json
+from pydantic import BaseModel, Json, RootModel
 
 from frigate.review.types import SeverityEnum
 
@@ -17,23 +17,22 @@ class ReviewSegmentResponse(BaseModel):
 
 
 class Last24HoursReview(BaseModel):
-    reviewed_alert: int
-    reviewed_detection: int
-    total_alert: int
-    total_detection: int
+    reviewed_alert: int | None
+    reviewed_detection: int | None
+    total_alert: int | None
+    total_detection: int | None
 
 
 class DayReview(BaseModel):
-    day: datetime
+    day: date
     reviewed_alert: int
     reviewed_detection: int
     total_alert: int
     total_detection: int
 
 
-class ReviewSummaryResponse(BaseModel):
-    last24Hours: Last24HoursReview
-    root: dict[str, DayReview]
+class ReviewSummaryResponse(RootModel[dict[str, Last24HoursReview | DayReview]]):
+    """Review counts for the last 24 hours and each date."""
 
 
 class ReviewActivityMotionResponse(BaseModel):

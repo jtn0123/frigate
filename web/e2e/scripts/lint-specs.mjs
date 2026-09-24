@@ -72,6 +72,19 @@ function lintFile(file) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.includes("e2e-lint-allow")) continue;
+    if (
+      file.startsWith(join(SPECS_DIR, "fork")) &&
+      /\btest\.skip\s*\(/.test(line)
+    ) {
+      errors.push({
+        file,
+        line: i + 1,
+        col: 1,
+        rule: "runtime viewport skip",
+        message: "Tag the test @desktop-only or @mobile-only instead.",
+        source: line.trim(),
+      });
+    }
     for (const pat of BANNED_PATTERNS) {
       if (pat.regex.test(line)) {
         errors.push({
@@ -89,7 +102,7 @@ function lintFile(file) {
   // @mobile rule: skip _meta
   const isMeta = file.startsWith(META_PREFIX);
   if (!isMeta) {
-    if (!/@mobile\b/.test(text)) {
+    if (!/@mobile\b/.test(text) && !/@tablet-only\b/.test(text)) {
       errors.push({
         file,
         line: 1,

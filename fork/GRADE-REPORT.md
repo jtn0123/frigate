@@ -1,6 +1,6 @@
 # Codebase Grade Report
 
-**2026-09-20 implementation update:** I27 is resolved live. D4, F8 and F9 are implemented and validated locally, and I3 has five additional checked modules. These source changes are not merged. The grades and measurements below remain the dated audit snapshot; the affected item entries record the new evidence.
+**Current status, 2026-09-23:** This is the historical 2026-09-18 audit, not a current backlog or current grade. See the [current engineering assessment](../.Codex/grade-report.md). On `next` at `e667a41a3`, A6, B9, D4, E18, F8, F9, H4, H5, H8, I27 and I31 have landed or been resolved. Their open-item descriptions below are retained as audit history and should not be selected for new work. I3 remains open after its first module-level ratchet. The current source audit and the ten-item implementation are in the separate `section/overall-grade-20260923` worktree until integrated; compare the ledger and `next` before executing any old ID.
 
 **Project:** frigate, fork `jtn0123/frigate`, branch `next` @ 323c215e4 (base upstream v0.18.0; `main` is promoted from `next`)
 **Audited:** 2026-09-18, twice: a full audit @ 66774e9b6 and a delta regrade @ 323c215e4 after #72 to #78 (third regrade; earlier: baseline of upstream `dev` and first regrade, both 2026-09-10 @ 752bc3047, second regrade 2026-09-17 @ edfdfcfa5)

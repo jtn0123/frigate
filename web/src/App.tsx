@@ -25,7 +25,7 @@ import { isRedirectingToLogin } from "@/api/auth-redirect";
 import RouteErrorBoundary, {
   RouteSuspense,
 } from "@/components/fork/RouteErrorBoundary";
-import CommandPalette from "@/components/fork/CommandPalette";
+import CommandPaletteGate from "@/components/fork/CommandPaletteGate";
 import { isPublicSharePath } from "@/lib/fork/share-path";
 import { phoneShell } from "@/lib/fork/phone-shell";
 import { allowAndroidPageZoom } from "@/lib/fork/viewport-zoom";
@@ -109,7 +109,7 @@ function DefaultAppView({
         {isDesktop && <Sidebar />}
         {isDesktop && <Statusbar />}
         {isMobile && <Bottombar />}
-        <CommandPalette />
+        <CommandPaletteGate />
       </RouteErrorBoundary>
       <div
         id="pageRoot"

@@ -1,0 +1,1195 @@
+{
+  "anchor_utc": "2026-09-21T12:00:00+00:00",
+  "warmups": 2,
+  "repeats": 5,
+  "results": [
+    {
+      "rows": 5000,
+      "days": 30,
+      "case": "all_utc",
+      "samples_ms": [
+        5.24143798975274,
+        5.052978987805545,
+        5.154062004294246,
+        6.7119019804522395,
+        5.500813014805317
+      ],
+      "median_ms": 5.24,
+      "p95_ms": 6.71,
+      "bytes": 3693,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            61,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            140,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 5000,
+      "days": 30,
+      "case": "restricted",
+      "samples_ms": [
+        1.8021740252152085,
+        1.6830069944262505,
+        1.8292160239070654,
+        1.7414229805581272,
+        1.7209239886142313
+      ],
+      "median_ms": 1.74,
+      "p95_ms": 1.83,
+      "bytes": 3629,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            33,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            33,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            43,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            122,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 5000,
+      "days": 30,
+      "case": "person",
+      "samples_ms": [
+        9.50024597113952,
+        8.940453000832349,
+        9.1963279992342,
+        11.127378034871072,
+        10.265541030094028
+      ],
+      "median_ms": 9.5,
+      "p95_ms": 11.13,
+      "bytes": 3663,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            54,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            56,
+            54,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            73,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            50,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            52,
+            50,
+            0,
+            "SEARCH t2 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            50,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            52,
+            50,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            73,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            83,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            162,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 5000,
+      "days": 30,
+      "case": "audio_zone",
+      "samples_ms": [
+        15.499519999139011,
+        17.919362988322973,
+        15.65735402982682,
+        14.970435004215688,
+        16.627649019937962
+      ],
+      "median_ms": 15.66,
+      "p95_ms": 17.92,
+      "bytes": 3663,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            54,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            56,
+            54,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            76,
+            0,
+            0,
+            "LIST SUBQUERY 2"
+          ],
+          [
+            78,
+            76,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            111,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            50,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            52,
+            50,
+            0,
+            "SEARCH t2 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            72,
+            0,
+            0,
+            "LIST SUBQUERY 2"
+          ],
+          [
+            74,
+            72,
+            0,
+            "SEARCH t2 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX sqlite_autoindex_reviewsegment_1 (id=?)"
+          ],
+          [
+            14,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            16,
+            14,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            39,
+            0,
+            0,
+            "LIST SUBQUERY 2"
+          ],
+          [
+            41,
+            39,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            110,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            120,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            198,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 5000,
+      "days": 30,
+      "case": "no_match",
+      "samples_ms": [
+        1.9576330087147653,
+        1.9440499600023031,
+        2.08625802770257,
+        1.8225069507025182,
+        1.7954650102183223
+      ],
+      "median_ms": 1.94,
+      "p95_ms": 2.09,
+      "bytes": 107,
+      "queries": 2,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            54,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            56,
+            54,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            73,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            50,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            52,
+            50,
+            0,
+            "SEARCH t2 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 5000,
+      "days": 30,
+      "case": "dst",
+      "samples_ms": [
+        5.518688005395234,
+        5.552980990614742,
+        5.1451040199026465,
+        5.524314008653164,
+        5.269813002087176
+      ],
+      "median_ms": 5.52,
+      "p95_ms": 5.55,
+      "bytes": 3693,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            61,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            140,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 5000,
+      "days": 30,
+      "case": "fractional_offset",
+      "samples_ms": [
+        5.321770964656025,
+        5.143354006577283,
+        6.553234998136759,
+        7.085153018124402,
+        7.136653992347419
+      ],
+      "median_ms": 6.55,
+      "p95_ms": 7.14,
+      "bytes": 3693,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            61,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            140,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 50000,
+      "days": 365,
+      "case": "all_utc",
+      "samples_ms": [
+        78.21168703958392,
+        69.2450680071488,
+        74.46746400091797,
+        77.90418603690341,
+        84.8736300249584
+      ],
+      "median_ms": 77.9,
+      "p95_ms": 84.87,
+      "bytes": 42188,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            61,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            140,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 50000,
+      "days": 365,
+      "case": "restricted",
+      "samples_ms": [
+        19.19836801243946,
+        20.47533099539578,
+        23.261426016688347,
+        23.117176024243236,
+        21.631253010127693
+      ],
+      "median_ms": 21.63,
+      "p95_ms": 23.26,
+      "bytes": 41819,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            33,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            33,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            43,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            122,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 50000,
+      "days": 365,
+      "case": "person",
+      "samples_ms": [
+        132.92736298171803,
+        106.95638495963067,
+        110.88456702418625,
+        110.2986490004696,
+        104.37437501968816
+      ],
+      "median_ms": 110.3,
+      "p95_ms": 132.93,
+      "bytes": 42188,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            54,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            56,
+            54,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            73,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            50,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            52,
+            50,
+            0,
+            "SEARCH t2 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            50,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            52,
+            50,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            73,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            83,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            162,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 50000,
+      "days": 365,
+      "case": "audio_zone",
+      "samples_ms": [
+        135.070830991026,
+        122.02419503591955,
+        121.42765201861039,
+        117.88788699777797,
+        118.30668000038713
+      ],
+      "median_ms": 121.43,
+      "p95_ms": 135.07,
+      "bytes": 42188,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            54,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            56,
+            54,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            76,
+            0,
+            0,
+            "LIST SUBQUERY 2"
+          ],
+          [
+            78,
+            76,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            111,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            50,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            52,
+            50,
+            0,
+            "SEARCH t2 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            72,
+            0,
+            0,
+            "LIST SUBQUERY 2"
+          ],
+          [
+            74,
+            72,
+            0,
+            "SEARCH t2 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX sqlite_autoindex_reviewsegment_1 (id=?)"
+          ],
+          [
+            14,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            16,
+            14,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            39,
+            0,
+            0,
+            "LIST SUBQUERY 2"
+          ],
+          [
+            41,
+            39,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            110,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            120,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            198,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 50000,
+      "days": 365,
+      "case": "no_match",
+      "samples_ms": [
+        22.613631968852133,
+        22.472422977443784,
+        22.3283389932476,
+        22.653090010862797,
+        22.480339976027608
+      ],
+      "median_ms": 22.48,
+      "p95_ms": 22.65,
+      "bytes": 107,
+      "queries": 2,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            54,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            56,
+            54,
+            0,
+            "SEARCH t3 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ],
+          [
+            73,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            50,
+            0,
+            0,
+            "LIST SUBQUERY 1"
+          ],
+          [
+            52,
+            50,
+            0,
+            "SEARCH t2 USING COVERING INDEX reviewsegmentterm_lookup (kind=? AND value=?)"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 50000,
+      "days": 365,
+      "case": "dst",
+      "samples_ms": [
+        84.9842139868997,
+        82.1792859933339,
+        87.60659897234291,
+        82.26166100939736,
+        83.07674899697304
+      ],
+      "median_ms": 83.08,
+      "p95_ms": 87.61,
+      "bytes": 42188,
+      "queries": 5,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            61,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            140,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            61,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            140,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            61,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            140,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    },
+    {
+      "rows": 50000,
+      "days": 365,
+      "case": "fractional_offset",
+      "samples_ms": [
+        60.36524102091789,
+        61.398579040542245,
+        61.50982895633206,
+        61.1970360041596,
+        65.21880201762542
+      ],
+      "median_ms": 61.4,
+      "p95_ms": 65.22,
+      "bytes": 42188,
+      "queries": 3,
+      "plans": [
+        [
+          [
+            12,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ]
+        ],
+        [
+          [
+            10,
+            0,
+            0,
+            "SEARCH t1 USING INDEX review_segment_camera (camera=?)"
+          ],
+          [
+            51,
+            0,
+            0,
+            "SEARCH t2 USING INDEX userreviewstatus_user_segment (user_id=? AND review_segment_id=?) LEFT-JOIN"
+          ],
+          [
+            61,
+            0,
+            0,
+            "USE TEMP B-TREE FOR GROUP BY"
+          ],
+          [
+            140,
+            0,
+            0,
+            "USE TEMP B-TREE FOR ORDER BY"
+          ]
+        ]
+      ]
+    }
+  ]
+}

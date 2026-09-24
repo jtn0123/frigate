@@ -70,12 +70,7 @@ async function openMotionSearch(page: Page, isMobile: boolean) {
 }
 
 test.describe("Motion search @high", () => {
-  test.describe("desktop", () => {
-    // Skip on phone: Motion Search opens from the desktop actions menu.
-    test.skip(
-      ({ frigateApp }) => frigateApp.isMobile,
-      "Desktop actions menu and canvas",
-    );
+  test.describe("desktop @desktop-only", () => {
     test("empty state and Start Search stay disabled until a region is drawn", async ({
       frigateApp,
     }) => {
@@ -116,9 +111,7 @@ test.describe("Motion search @high", () => {
     });
   });
 
-  test.describe("mobile", () => {
-    // Skip on desktop: Motion Search opens from the mobile camera drawer.
-    test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile drawer");
+  test.describe("mobile @mobile-only", () => {
     test("opens from the mobile camera menu @mobile", async ({
       frigateApp,
     }) => {

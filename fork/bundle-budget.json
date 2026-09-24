@@ -1,4 +1,4 @@
 {
-  "eagerGzipBytes": 414000,
-  "note": "UI134: 413092 gzip bytes measured with CI Node 22 after adding recorded-footage search; retain 908 bytes of headroom (previous limit 412650)."
+  "eagerGzipBytes": 405000,
+  "note": "G17: 385183 gzip bytes measured locally with Node 26 after loading palette search and the inbox panel on demand; retain 19817 bytes of headroom. CI Node 22 must verify the final size."
 }
