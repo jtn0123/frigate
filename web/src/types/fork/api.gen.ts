@@ -4043,6 +4043,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/classification/{name}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest dataset classes for train images
+         * @description **Access:** Admin role required.
+         *
+         *     Drafts a dataset class for each listed event from its description,
+         *         locally and optionally through Jev. Drafts are for a person to confirm; nothing is
+         *         labeled by this call.
+         */
+        get: operations["classification_suggestions_classification__name__suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classification/{name}/suggestions/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a suggested class for train images
+         * @description **Access:** Admin role required.
+         *
+         *     Moves the event's train images into the chosen dataset class and
+         *         records which suggestion, if any, led to it beside the dataset.
+         */
+        post: operations["confirm_suggestion_classification__name__suggestions_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/share": {
         parameters: {
             query?: never;
@@ -4674,6 +4721,78 @@ export interface components {
              */
             tool_calls?: Record<string, never>[] | null;
         };
+        /**
+         * ClassificationSuggestionsResponse
+         * @description Suggestions for the requested events of one model.
+         */
+        ClassificationSuggestionsResponse: {
+            /**
+             * Model
+             * @description The classification model
+             */
+            model: string;
+            /**
+             * Classes
+             * @description Dataset classes a draft can name
+             */
+            classes: string[];
+            jev: components["schemas"]["JevStateModel"];
+            /**
+             * Suggestions
+             * @description Keyed by event id; ids without an event are omitted
+             */
+            suggestions: {
+                [key: string]: components["schemas"]["EventSuggestionModel"];
+            };
+        };
+        /** ConfirmSuggestionBody */
+        ConfirmSuggestionBody: {
+            /**
+             * Event Id
+             * @description The event the train images belong to
+             */
+            event_id: string;
+            /**
+             * Category
+             * @description The dataset class to file the images under
+             */
+            category: string;
+            /**
+             * Training Files
+             * @description Train file names to move into the class
+             */
+            training_files: string[];
+            /**
+             * Source
+             * @description Which source suggested the class: text, jev, or none if edited
+             */
+            source?: string | null;
+            /**
+             * Score
+             * @description The suggestion's score, if any
+             */
+            score?: number | null;
+            /**
+             * Suggested Category
+             * @description The class that was suggested, so edits can be told apart
+             */
+            suggested_category?: string | null;
+        };
+        /**
+         * ConfirmSuggestionResponse
+         * @description What the confirmation moved.
+         */
+        ConfirmSuggestionResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Moved
+             * @description New dataset file names
+             */
+            moved?: string[];
+        };
         /** DayReview */
         DayReview: {
             /**
@@ -4818,6 +4937,28 @@ export interface components {
             model_type: string | null;
             /** Data */
             data: Record<string, never>;
+        };
+        /**
+         * EventSuggestionModel
+         * @description Both sources for one event and the draft the grid should show.
+         */
+        EventSuggestionModel: {
+            /** @description Local text match, if any */
+            text?: components["schemas"]["SuggestionModel"] | null;
+            /** @description Jev draft, if any */
+            jev?: components["schemas"]["SuggestionModel"] | null;
+            /**
+             * Jev Status
+             * @description answered, unknown, disabled, no_description, no_classes, camera_not_allowed, budget or error
+             */
+            jev_status: string;
+            /** @description The draft to show, or none when unsure */
+            suggestion?: components["schemas"]["SuggestionModel"] | null;
+            /**
+             * Conflict
+             * @description The two sources named different classes
+             */
+            conflict: boolean;
         };
         /** EventUploadPlusResponse */
         EventUploadPlusResponse: {
@@ -5370,6 +5511,32 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * JevStateModel
+         * @description Whether Jev can be asked right now.
+         */
+        JevStateModel: {
+            /**
+             * Enabled
+             * @description classification.suggestions.jev.enabled
+             */
+            enabled: boolean;
+            /**
+             * Configured
+             * @description An API key is present in the environment
+             */
+            configured: boolean;
+            /**
+             * Used Today
+             * @description Provider requests counted today
+             */
+            used_today: number;
+            /**
+             * Daily Request Limit
+             * @description The configured daily cap
+             */
+            daily_request_limit: number;
+        };
         /** Last24HoursReview */
         Last24HoursReview: {
             /** Reviewed Alert */
@@ -5876,6 +6043,33 @@ export interface components {
              * @default 1
              */
             include_annotation: number;
+        };
+        /**
+         * SuggestionModel
+         * @description One draft class and where it came from.
+         */
+        SuggestionModel: {
+            /**
+             * Category
+             * @description Dataset class the description supports
+             */
+            category: string;
+            /**
+             * Source
+             * @description text (local match) or jev
+             */
+            source: string;
+            /**
+             * Score
+             * @description Jev probability of the category, if from Jev
+             */
+            score?: number | null;
+            /**
+             * Evidence
+             * @description The sentence of the description that matched
+             * @default
+             */
+            evidence: string;
         };
         /**
          * ToolExecuteRequest
@@ -11794,6 +11988,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CameraHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    classification_suggestions_classification__name__suggestions_get: {
+        parameters: {
+            query?: {
+                ids?: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassificationSuggestionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_suggestion_classification__name__suggestions_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmSuggestionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmSuggestionResponse"];
                 };
             };
             /** @description Validation Error */

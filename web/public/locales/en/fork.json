@@ -602,5 +602,14 @@
     "faces": "People the system recognizes",
     "classification": "Custom classifiers and samples",
     "chat": "Ask questions about your footage"
+  },
+  "classificationSuggestions": {
+    "confirmed_one": "Filed {{count}} image as {{category}}",
+    "confirmed_other": "Filed {{count}} images as {{category}}",
+    "confirmFailed": "Could not file the images. Try again.",
+    "conflict": "Sources disagree: the description reads as {{text}}, Jev says {{jev}}. Label it by hand.",
+    "fromJev": "Suggested by Jev from the description",
+    "fromDescription": "Suggested from the description",
+    "confirm": "Confirm {{category}}"
   }
 }

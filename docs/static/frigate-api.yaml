@@ -7481,6 +7481,90 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /classification/{name}/suggestions:
+    get:
+      tags:
+        - Classification
+      summary: Suggest dataset classes for train images
+      description: |-
+        **Access:** Admin role required.
+
+        Drafts a dataset class for each listed event from its description,
+            locally and optionally through Jev. Drafts are for a person to confirm; nothing is
+            labeled by this call.
+      operationId: 
+        classification_suggestions_classification__name__suggestions_get
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+        - name: ids
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+            title: Ids
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassificationSuggestionsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
+  /classification/{name}/suggestions/confirm:
+    post:
+      tags:
+        - Classification
+      summary: Confirm a suggested class for train images
+      description: |-
+        **Access:** Admin role required.
+
+        Moves the event's train images into the chosen dataset class and
+            records which suggestion, if any, led to it beside the dataset.
+      operationId: 
+        confirm_suggestion_classification__name__suggestions_confirm_post
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmSuggestionBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmSuggestionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /fork/share:
     get:
       tags:
@@ -8415,6 +8499,98 @@ components:
         - role
       title: ChatMessage
       description: A single message in a chat conversation.
+    ClassificationSuggestionsResponse:
+      properties:
+        model:
+          type: string
+          title: Model
+          description: The classification model
+        classes:
+          items:
+            type: string
+          type: array
+          title: Classes
+          description: Dataset classes a draft can name
+        jev:
+          $ref: '#/components/schemas/JevStateModel'
+        suggestions:
+          additionalProperties:
+            $ref: '#/components/schemas/EventSuggestionModel'
+          type: object
+          title: Suggestions
+          description: Keyed by event id; ids without an event are omitted
+      type: object
+      required:
+        - model
+        - classes
+        - jev
+        - suggestions
+      title: ClassificationSuggestionsResponse
+      description: Suggestions for the requested events of one model.
+    ConfirmSuggestionBody:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+          description: The event the train images belong to
+        category:
+          type: string
+          title: Category
+          description: The dataset class to file the images under
+        training_files:
+          items:
+            type: string
+          type: array
+          maxItems: 64
+          minItems: 1
+          title: Training Files
+          description: Train file names to move into the class
+        source:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Source
+          description: 'Which source suggested the class: text, jev, or none if edited'
+        score:
+          anyOf:
+            - type: number
+              maximum: 1.0
+              minimum: 0.0
+            - type: 'null'
+          title: Score
+          description: The suggestion's score, if any
+        suggested_category:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Suggested Category
+          description: The class that was suggested, so edits can be told apart
+      type: object
+      required:
+        - event_id
+        - category
+        - training_files
+      title: ConfirmSuggestionBody
+    ConfirmSuggestionResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        message:
+          type: string
+          title: Message
+        moved:
+          items:
+            type: string
+          type: array
+          title: Moved
+          description: New dataset file names
+      type: object
+      required:
+        - success
+        - message
+      title: ConfirmSuggestionResponse
+      description: What the confirmation moved.
     DayReview:
       properties:
         day:
@@ -8679,6 +8855,39 @@ components:
         - model_type
         - data
       title: EventResponse
+    EventSuggestionModel:
+      properties:
+        text:
+          anyOf:
+            - $ref: '#/components/schemas/SuggestionModel'
+            - type: 'null'
+          description: Local text match, if any
+        jev:
+          anyOf:
+            - $ref: '#/components/schemas/SuggestionModel'
+            - type: 'null'
+          description: Jev draft, if any
+        jev_status:
+          type: string
+          title: Jev Status
+          description: answered, unknown, disabled, no_description, no_classes, 
+            camera_not_allowed, budget or error
+        suggestion:
+          anyOf:
+            - $ref: '#/components/schemas/SuggestionModel'
+            - type: 'null'
+          description: The draft to show, or none when unsure
+        conflict:
+          type: boolean
+          title: Conflict
+          description: The two sources named different classes
+      type: object
+      required:
+        - jev_status
+        - conflict
+      title: EventSuggestionModel
+      description: Both sources for one event and the draft the grid should 
+        show.
     EventUploadPlusResponse:
       properties:
         success:
@@ -9408,6 +9617,34 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    JevStateModel:
+      properties:
+        enabled:
+          type: boolean
+          title: Enabled
+          description: classification.suggestions.jev.enabled
+        configured:
+          type: boolean
+          title: Configured
+          description: An API key is present in the environment
+        used_today:
+          type: integer
+          minimum: 0.0
+          title: Used Today
+          description: Provider requests counted today
+        daily_request_limit:
+          type: integer
+          minimum: 0.0
+          title: Daily Request Limit
+          description: The configured daily cap
+      type: object
+      required:
+        - enabled
+        - configured
+        - used_today
+        - daily_request_limit
+      title: JevStateModel
+      description: Whether Jev can be asked right now.
     Last24HoursReview:
       properties:
         reviewed_alert:
@@ -10075,6 +10312,33 @@ components:
           default: 1
       type: object
       title: SubmitPlusBody
+    SuggestionModel:
+      properties:
+        category:
+          type: string
+          title: Category
+          description: Dataset class the description supports
+        source:
+          type: string
+          title: Source
+          description: text (local match) or jev
+        score:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Score
+          description: Jev probability of the category, if from Jev
+        evidence:
+          type: string
+          title: Evidence
+          description: The sentence of the description that matched
+          default: ''
+      type: object
+      required:
+        - category
+        - source
+      title: SuggestionModel
+      description: One draft class and where it came from.
     ToolExecuteRequest:
       properties:
         tool_name:

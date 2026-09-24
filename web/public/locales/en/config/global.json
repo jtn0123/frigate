@@ -1343,6 +1343,42 @@
           "description": "Interval (seconds) between periodic classification runs for state classification."
         }
       }
+    },
+    "suggestions": {
+      "label": "Classification suggestions",
+      "description": "Suggest dataset classes for train images from event descriptions.",
+      "enabled": {
+        "label": "Suggest classes from descriptions",
+        "description": "Show a suggested class on the train grid of custom classification models, read locally from each event's description. Nothing leaves Frigate unless Jev is enabled."
+      },
+      "jev": {
+        "label": "Jev",
+        "description": "Optional Jev text extraction through OpenRouter.",
+        "enabled": {
+          "label": "Ask Jev",
+          "description": "Send the description text of train images to Jev through OpenRouter for a class suggestion. Needs FRIGATE_JEV_API_KEY or OPENROUTER_API_KEY in the environment. Only the text is sent: no images, camera names, ids or timestamps."
+        },
+        "model": {
+          "label": "Jev model",
+          "description": "The OpenRouter Decisions model to ask."
+        },
+        "url": {
+          "label": "Decisions URL",
+          "description": "Where Decisions requests are posted. Change it to route through a gateway."
+        },
+        "daily_request_limit": {
+          "label": "Daily request limit",
+          "description": "Maximum provider requests per UTC day, counted across restarts. Answers are cached, so a description is only ever sent once."
+        },
+        "cameras": {
+          "label": "Cameras",
+          "description": "Only send descriptions from these cameras. Empty means every camera."
+        },
+        "timeout": {
+          "label": "Request timeout",
+          "description": "Seconds to wait for one Jev answer."
+        }
+      }
     }
   },
   "semantic_search": {

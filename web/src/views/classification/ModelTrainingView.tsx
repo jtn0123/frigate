@@ -60,6 +60,8 @@ import { useNavigate } from "react-router-dom";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import TrainFilterDialog from "@/components/overlay/dialog/TrainFilterDialog";
 import { matchesTrainClass } from "@/lib/fork/classification-train";
+import { useClassificationSuggestions } from "@/hooks/fork/use-classification-suggestions";
+import SuggestionBadge from "@/components/fork/classification/SuggestionBadge";
 import useApiFilter from "@/hooks/use-api-filter";
 import {
   ClassificationDatasetResponse,
@@ -1101,6 +1103,12 @@ function ObjectTrainGrid({
     { ids: eventIdsQuery },
   ]);
 
+  // fork (I41): drafts from each event's description, confirmed in one click
+  const { data: suggestions } = useClassificationSuggestions(
+    model.name,
+    eventIdsQuery,
+  );
+
   const threshold = useMemo(() => {
     return {
       recognition: model.threshold,
@@ -1200,7 +1208,14 @@ function ObjectTrainGrid({
           const classifiedEvent = createClassifiedEvent(event);
 
           return (
-            <div key={key} className="aspect-square w-full">
+            <div key={key} className="relative aspect-square w-full">
+              <SuggestionBadge
+                modelName={model.name}
+                eventId={key}
+                files={group.map((item) => item.filename)}
+                entry={suggestions?.suggestions[key]}
+                onRefresh={onRefresh}
+              />
               <GroupedClassificationCard
                 group={group}
                 classifiedEvent={classifiedEvent}
