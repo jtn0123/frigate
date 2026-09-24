@@ -666,7 +666,28 @@
       "descriptionSaid": "Description said",
       "recentDisagreements": "Latest disagreements",
       "saidVsDraft": "model said {{said}}, description said {{draft}}",
-      "open": "Open in Explore"
-    }
+      "open": "Open in Explore",
+      "newSinceTraining": "New since training",
+      "neverTrained": "not trained yet",
+      "balance": "Images per class",
+      "images": "Images",
+      "lopsided": "{{largest}} has {{ratio}}x the images of {{smallest}}. Keep the largest class within 3x the smallest, or the model learns the imbalance instead of the difference.",
+      "emptyClasses": "No images yet: {{list}}",
+      "spotCheck_one": "Spot check: {{count}} auto-filed group",
+      "spotCheck_other": "Spot check: {{count}} auto-filed groups",
+      "spotCheckHint": "These were filed without review. Keep the ones that look right; Remove deletes the images. Either answer counts toward the class's kept rate.",
+      "imageCount_one": "{{count}} image",
+      "imageCount_other": "{{count}} images",
+      "keep": "Keep",
+      "remove": "Remove",
+      "keptGroup_one": "Kept {{count}} image as {{category}}",
+      "keptGroup_other": "Kept {{count}} images as {{category}}",
+      "removedGroup_one": "Removed {{count}} image from {{category}}",
+      "removedGroup_other": "Removed {{count}} images from {{category}}",
+      "spotCheckFailed": "Could not record the spot check. Try again."
+    },
+    "tooSmall": "Drafted as {{category}}, but every image is under 100 px on a side and would stretch when trained. Ignore it or leave it.",
+    "unsureFirst": "Unsure first",
+    "lopsided": "Classes lopsided: {{largest}} has {{ratio}}x the images of {{smallest}}"
   }
 }

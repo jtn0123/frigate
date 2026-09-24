@@ -7,13 +7,17 @@ grid reads, so the grid finds its answers already there and the daily limit
 is spent evenly over the day. When auto-filing is on, a draft that text and
 Jev agree on is filed here too, once people have kept that class often
 enough (I44), and the trained model's own verdict for the event is compared
-with the draft so a drifting model shows up in the report (I45).
+with the draft so a drifting model shows up in the report (I45). Auto-filing
+also waits when the same camera filed the class recently (I48), skips images
+the model already scores as the class (I49) or that are too small to train
+on (I50), and never widens a class past the balance ratio (I51).
 """
 
 import asyncio
 import logging
 import queue
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypedDict
@@ -178,6 +182,19 @@ class SuggestionPrefetch(threading.Thread):
         )
         return agree
 
+    def worth_filing(
+        self, event_id: str, name: str, category: str, max_score: float
+    ) -> list[str]:
+        """The event's train images that would teach the model something.
+
+        Drops images the model already scores as the class (I49) and crops
+        too small to train on (I50).
+        """
+        files = suggest.train_files_for_event(self.clips_dir, name, event_id)
+        skip = set(suggest.sure_train_files(files, category, max_score))
+        skip.update(suggest.too_small_train_files(self.clips_dir, name, files))
+        return [file for file in files if file not in skip]
+
     def auto_file(
         self, job: DescriptionJob, name: str, draft: suggest.EventSuggestion
     ) -> list[str]:
@@ -199,8 +216,25 @@ class SuggestionPrefetch(threading.Thread):
         if reviewed < settings.min_drafts:
             return []
         category = suggest.safe_category(sure["category"])
-        files = suggest.train_files_for_event(self.clips_dir, name, job["id"])
-        if not category or not files:
+        if not category:
+            return []
+        wait = suggest.auto_file_wait(
+            entries,
+            category,
+            job["camera"],
+            time.time(),
+            settings.camera_cooldown,
+            settings.per_camera_daily_limit,
+        )
+        if wait is not None:
+            logger.debug("Auto-filing %s/%s waits: %s", name, category, wait)
+            return []
+        files = self.worth_filing(job["id"], name, category, settings.max_model_score)
+        if not files:
+            return []
+        counts = suggest.dataset_counts(self.clips_dir, name)
+        if suggest.would_unbalance(counts, category, len(files)):
+            logger.debug("Auto-filing %s/%s waits: class is lopsided", name, category)
             return []
         try:
             moved = suggest.categorize_train_files(

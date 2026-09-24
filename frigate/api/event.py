@@ -60,6 +60,7 @@ from frigate.comms.event_metadata_updater import EventMetadataTypeEnum
 from frigate.config.classification import ObjectClassificationType
 from frigate.const import CLIPS_DIR
 from frigate.embeddings import EmbeddingsContext
+from frigate.fork.event_data_keys import custom_attribute_keys
 from frigate.models import Event, ReviewSegment, Trigger
 from frigate.track.object_processing import TrackedObject
 from frigate.util.file import get_event_thumbnail_bytes, load_event_snapshot_image
@@ -392,9 +393,13 @@ def events(
     """,
 )
 def events_explore(
+    request: Request,
     limit: int = 10,
     allowed_cameras: list[str] = Depends(get_allowed_cameras_for_filter),
 ):
+    # fork (I53): custom attribute verdicts ride along with the fixed keys
+    passthrough = custom_attribute_keys(request.app.frigate_config)
+
     def process_events():
         for event in explore_recent_events(allowed_cameras, limit):
             processed_event = {
@@ -428,6 +433,7 @@ def events_explore(
                         "recognized_license_plate",
                         "recognized_license_plate_score",
                     ]
+                    or k in passthrough
                 },
                 "event_count": event.event_count,
             }
@@ -809,6 +815,8 @@ def events_search(
 
     # Process the (already limited) events in a single pass
     processed_events = []
+    # fork (I53): custom attribute verdicts ride along with the fixed keys
+    passthrough = custom_attribute_keys(request.app.frigate_config)
     for event in events:
         processed_event = {
             k: v for k, v in event.items() if k not in ("data", "thumbnail")
@@ -835,6 +843,7 @@ def events_search(
                 "recognized_license_plate",
                 "recognized_license_plate_score",
             ]
+            or k in passthrough
         }
 
         processed_event["search_distance"] = search_results[event["id"]]["distance"]

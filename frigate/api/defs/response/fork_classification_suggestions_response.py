@@ -55,6 +55,10 @@ class ClassificationSuggestionsResponse(BaseModel):
     suggestions: dict[str, EventSuggestionModel] = Field(
         description="Keyed by event id; ids without an event are omitted"
     )
+    too_small: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Train images under 100 px on a side, keyed by event (fork I50)",
+    )
 
 
 class ConfirmSuggestionResponse(BaseModel):
@@ -86,6 +90,10 @@ class EventModelSuggestionModel(BaseModel):
     )
     filed: FiledModel | None = Field(
         default=None, description="What the event was last filed as, if anything"
+    )
+    too_small: list[str] = Field(
+        default_factory=list,
+        description="Train images under 100 px on a side (fork I50)",
     )
 
 
@@ -144,6 +152,50 @@ class ModelCheckModel(AcceptanceModel):
     )
 
 
+class DatasetBalanceModel(BaseModel):
+    """Whether one class dwarfs another (fork I51)."""
+
+    classes: dict[str, int] = Field(
+        default_factory=dict, description="Images per dataset class"
+    )
+    empty: list[str] = Field(default_factory=list, description="Classes with no images")
+    largest: str | None = Field(default=None, description="The fullest class")
+    smallest: str | None = Field(default=None, description="The emptiest filled class")
+    ratio: float | None = Field(default=None, description="largest / smallest")
+    lopsided: bool = Field(default=False, description="ratio is over 3")
+
+
+class TrainingGapModel(BaseModel):
+    """Images added since the model was last trained (fork I54)."""
+
+    has_trained: bool = Field(default=False)
+    last_training_date: str | None = Field(default=None)
+    current_images: int = Field(default=0, ge=0)
+    new_images: int = Field(default=0, ge=0)
+
+
+class AutoFiledGroupModel(BaseModel):
+    """One event's images filed without review, for a spot check (fork I52)."""
+
+    time: float | None = Field(default=None, description="Unix time it was filed")
+    event_id: str | None = Field(default=None)
+    camera: str | None = Field(default=None)
+    category: str = Field(description="The dataset class")
+    source: str | None = Field(default=None, description="text or jev")
+    score: float | None = Field(default=None)
+    files: list[str] = Field(default_factory=list, description="Dataset file names")
+
+
+class SpotCheckResponse(BaseModel):
+    """What a spot check removed (fork I52)."""
+
+    success: bool
+    message: str
+    removed: list[str] = Field(
+        default_factory=list, description="Dataset files deleted"
+    )
+
+
 class SuggestionReportResponse(AcceptanceModel):
     """Acceptance of the drafts recorded for one model (fork I42)."""
 
@@ -169,4 +221,16 @@ class SuggestionReportResponse(AcceptanceModel):
     model_check: ModelCheckModel = Field(
         default_factory=ModelCheckModel,
         description="The trained model's verdicts against the drafts (fork I45)",
+    )
+    dataset: DatasetBalanceModel = Field(
+        default_factory=DatasetBalanceModel,
+        description="Images per class and whether they are lopsided (fork I51)",
+    )
+    training: TrainingGapModel = Field(
+        default_factory=TrainingGapModel,
+        description="Images added since the last training (fork I54)",
+    )
+    recent_auto_filed: list[AutoFiledGroupModel] = Field(
+        default_factory=list,
+        description="Auto-filed groups awaiting a spot check, newest first (fork I52)",
     )

@@ -17,6 +17,7 @@ import { useEventSuggestions } from "@/hooks/fork/use-event-suggestions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import {
   percent,
+  usableFiles,
   type EventModelSuggestion,
 } from "@/lib/fork/classification-suggestions";
 import { cn } from "@/lib/utils";
@@ -70,6 +71,7 @@ function ModelRow({ eventId, row, onFiled }: Readonly<ModelRowProps>) {
   const [pending, setPending] = useState(false);
   const confirmSuggestion = useConfirmSuggestion(row.model, onFiled);
   const suggestion = row.suggestion.suggestion;
+  const files = usableFiles(row.training_files, row.too_small);
 
   const file = useCallback(async () => {
     if (!suggestion || pending) {
@@ -77,11 +79,11 @@ function ModelRow({ eventId, row, onFiled }: Readonly<ModelRowProps>) {
     }
     setPending(true);
     try {
-      await confirmSuggestion(eventId, row.training_files, suggestion);
+      await confirmSuggestion(eventId, files, suggestion);
     } finally {
       setPending(false);
     }
-  }, [suggestion, pending, confirmSuggestion, eventId, row.training_files]);
+  }, [suggestion, pending, confirmSuggestion, eventId, files]);
 
   const disagrees =
     row.model_said != null &&
@@ -116,9 +118,9 @@ function ModelRow({ eventId, row, onFiled }: Readonly<ModelRowProps>) {
                   : t("classificationSuggestions.viaText")}
               </span>
             </span>
-            {row.training_files.length > 0 ? (
+            {files.length > 0 ? (
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 className="h-6 px-2 text-xs"
                 disabled={pending}

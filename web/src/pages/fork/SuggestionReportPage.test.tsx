@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SuggestionReport } from "@/lib/fork/classification-suggestions";
@@ -10,6 +10,14 @@ let error: Error | undefined;
 vi.mock("@/hooks/fork/use-suggestion-report", () => ({
   useSuggestionReport: () => ({ data: report, error }),
 }));
+const spotChecks: [string, boolean][] = [];
+vi.mock("@/hooks/fork/use-spot-check", () => ({
+  useSpotCheck: () => (group: { event_id: string | null }, keep: boolean) => {
+    spotChecks.push([group.event_id ?? "", keep]);
+    return Promise.resolve(true);
+  },
+}));
+vi.mock("@/api/baseUrl", () => ({ baseUrl: "http://frigate/" }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) =>
@@ -106,6 +114,79 @@ describe("SuggestionReportPage", () => {
     expect(disagreements.querySelector("a")?.getAttribute("href")).toBe(
       "/explore?event_id=evt-9",
     );
+  });
+
+  it("shows class balance, the training gap and a spot check (fork I51, I52, I54)", async () => {
+    spotChecks.length = 0;
+    report = {
+      model: "vehicle_type",
+      total: 0,
+      accepted: 0,
+      rate: null,
+      sources: {},
+      classes: {},
+      cameras: {},
+      first_time: null,
+      last_time: null,
+      dataset: {
+        classes: { suv: 40, sedan: 10, none: 0 },
+        empty: ["none"],
+        largest: "suv",
+        smallest: "sedan",
+        ratio: 4,
+        lopsided: true,
+      },
+      training: {
+        has_trained: false,
+        last_training_date: null,
+        current_images: 50,
+        new_images: 50,
+      },
+      recent_auto_filed: [
+        {
+          time: 1_700_000_000,
+          event_id: "evt-1",
+          camera: "yard",
+          category: "suv",
+          source: "jev",
+          score: 0.97,
+          files: ["suv-a.png", "suv-b.png"],
+        },
+      ],
+    };
+    renderPage();
+    const balance = screen.getByTestId("report-balance");
+    expect(balance).toHaveTextContent(
+      'lopsided:{"largest":"suv","smallest":"sedan","ratio":4}',
+    );
+    expect(balance).toHaveTextContent('emptyClasses:{"list":"none"}');
+    expect(balance).toHaveTextContent("suv40");
+    expect(screen.getByTestId("suggestion-report")).toHaveTextContent(
+      "newSinceTraining50",
+    );
+    expect(screen.getByTestId("suggestion-report")).toHaveTextContent(
+      "neverTrained",
+    );
+    const check = screen.getByTestId("report-spot-check");
+    expect(check).toHaveTextContent('spotCheck:{"count":1}');
+    const group = screen.getByTestId("spot-check-group");
+    expect(group.querySelector("img")?.getAttribute("src")).toBe(
+      "http://frigate/clips/vehicle_type/dataset/suv/suv-a.png",
+    );
+    expect(group).toHaveTextContent('imageCount:{"count":2}');
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "classificationSuggestions.report.remove",
+      }),
+    );
+    await waitFor(() => expect(spotChecks).toEqual([["evt-1", false]]));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "classificationSuggestions.report.keep",
+      }),
+    );
+    await waitFor(() => expect(spotChecks.length).toBe(2));
+    expect(spotChecks[1]).toEqual(["evt-1", true]);
   });
 
   it("reports a failed load", () => {

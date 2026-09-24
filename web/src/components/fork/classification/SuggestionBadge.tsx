@@ -10,7 +10,7 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { HiSparkles } from "react-icons/hi";
-import { LuCheck, LuCircleHelp } from "react-icons/lu";
+import { LuCheck, LuCircleHelp, LuShrink } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
 import {
   percent,
+  usableFiles,
   type EventSuggestion,
 } from "@/lib/fork/classification-suggestions";
 
@@ -30,6 +31,8 @@ type SuggestionBadgeProps = {
   files: string[];
   entry: EventSuggestion | undefined;
   onRefresh: () => void;
+  /** Train images too small to train on, left out of the confirm (fork I50). */
+  tooSmall?: string[];
 };
 
 export default function SuggestionBadge({
@@ -38,11 +41,13 @@ export default function SuggestionBadge({
   files,
   entry,
   onRefresh,
+  tooSmall,
 }: Readonly<SuggestionBadgeProps>) {
   const { t } = useTranslation(["fork"]);
   const [pending, setPending] = useState(false);
 
   const suggestion = entry?.suggestion ?? null;
+  const usable = usableFiles(files, tooSmall);
 
   const confirmSuggestion = useConfirmSuggestion(modelName, onRefresh);
   const confirm = useCallback(async () => {
@@ -51,14 +56,34 @@ export default function SuggestionBadge({
     }
     setPending(true);
     try {
-      await confirmSuggestion(eventId, files, suggestion);
+      await confirmSuggestion(eventId, usable, suggestion);
     } finally {
       setPending(false);
     }
-  }, [suggestion, pending, confirmSuggestion, eventId, files]);
+  }, [suggestion, pending, confirmSuggestion, eventId, usable]);
 
   if (!entry) {
     return null;
+  }
+
+  if (suggestion && usable.length === 0) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            data-testid="suggestion-too-small"
+            className="absolute left-1 top-1 z-10 flex size-6 items-center justify-center rounded-md bg-black/60 text-white/80"
+          >
+            <LuShrink className="size-4" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          {t("classificationSuggestions.tooSmall", {
+            category: suggestion.category,
+          })}
+        </TooltipContent>
+      </Tooltip>
+    );
   }
 
   if (!suggestion) {

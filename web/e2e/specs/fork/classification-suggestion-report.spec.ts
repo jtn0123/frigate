@@ -91,4 +91,103 @@ test.describe("Suggestion report page (fork I47)", () => {
     await report.getByRole("link", { name: "Back to classification" }).click();
     await expect(page).toHaveURL(/\/classification$/);
   });
+
+  test("shows class balance and lets a spot check remove an auto-filed group", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    const spotChecks: unknown[] = [];
+    let recent = [
+      {
+        time: 1780673409,
+        event_id: "1780673409.365581-abc123",
+        camera: "backyard",
+        category: "van",
+        source: "jev",
+        score: 0.97,
+        files: ["van-1.png", "van-2.png"],
+      },
+    ];
+    await frigateApp.installDefaults({
+      config: {
+        classification: {
+          custom: {
+            [MODEL]: {
+              name: MODEL,
+              threshold: 0.8,
+              object_config: {
+                objects: ["car"],
+                classification_type: "attribute",
+              },
+            },
+          },
+        },
+      },
+    });
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions/report`),
+      (route) =>
+        route.fulfill({
+          json: {
+            ...REPORT,
+            dataset: {
+              classes: { van: 40, suv: 10, none: 0 },
+              empty: ["none"],
+              largest: "van",
+              smallest: "suv",
+              ratio: 4,
+              lopsided: true,
+            },
+            training: {
+              has_trained: true,
+              last_training_date: "2026-09-20T10:00:00",
+              current_images: 50,
+              new_images: 12,
+            },
+            recent_auto_filed: recent,
+          },
+        }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions/spot-check`),
+      (route) => {
+        spotChecks.push(route.request().postDataJSON());
+        recent = [];
+        return route.fulfill({
+          json: { success: true, message: "ok", removed: ["van-1.png"] },
+        });
+      },
+    );
+    await page.route("**/clips/**", (route) =>
+      route.fulfill({
+        contentType: "image/png",
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+          "base64",
+        ),
+      }),
+    );
+
+    await frigateApp.goto(`/classification/suggestions/${MODEL}`);
+    const report = page.getByTestId("suggestion-report");
+    await expect(report).toContainText("New since training");
+    await expect(report).toContainText("12");
+    const balance = page.getByTestId("report-balance");
+    await expect(balance).toContainText("van has 4x the images of suv");
+    await expect(balance).toContainText("No images yet: none");
+
+    const group = page.getByTestId("spot-check-group");
+    await expect(group).toHaveCount(1);
+    await expect(group).toContainText("2 images");
+    await group.getByRole("button", { name: "Remove" }).click();
+    await expect.poll(() => spotChecks.length).toBe(1);
+    expect(spotChecks[0]).toEqual({
+      event_id: "1780673409.365581-abc123",
+      category: "van",
+      files: ["van-1.png", "van-2.png"],
+      keep: false,
+    });
+    await expect(page.getByText(/removed 2 images from van/i)).toBeVisible();
+    await expect(page.getByTestId("spot-check-group")).toHaveCount(0);
+  });
 });

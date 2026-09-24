@@ -35,6 +35,8 @@ export type ClassificationSuggestionsResponse = {
   classes: string[];
   jev: JevState;
   suggestions: Record<string, EventSuggestion>;
+  /** Train images under 100 px on a side, keyed by event (fork I50). */
+  too_small?: Record<string, string[]>;
 };
 
 export type Acceptance = {
@@ -63,9 +65,41 @@ export type ModelCheck = Acceptance & {
   recent_disagreements: Disagreement[];
 };
 
+/** Images per dataset class and whether one dwarfs another (fork I51). */
+export type DatasetBalance = {
+  classes: Record<string, number>;
+  empty: string[];
+  largest: string | null;
+  smallest: string | null;
+  ratio: number | null;
+  lopsided: boolean;
+};
+
+/** Images added since the model was last trained (fork I54). */
+export type TrainingGap = {
+  has_trained: boolean;
+  last_training_date: string | null;
+  current_images: number;
+  new_images: number;
+};
+
+/** One event's images filed without review, for a spot check (fork I52). */
+export type AutoFiledGroup = {
+  time: number | null;
+  event_id: string | null;
+  camera: string | null;
+  category: string;
+  source: string | null;
+  score: number | null;
+  files: string[];
+};
+
 /** The acceptance report over the provenance file (fork I42). */
 export type SuggestionReport = Acceptance & {
   model_check?: ModelCheck;
+  dataset?: DatasetBalance;
+  training?: TrainingGap;
+  recent_auto_filed?: AutoFiledGroup[];
   model: string;
   /** Images filed without review (fork I44), kept out of the rate. */
   auto_filed?: number;
@@ -157,23 +191,81 @@ export type DraftToFile = {
   suggestion: Suggestion;
 };
 
+/** The files worth filing: everything but the crops too small to train on (fork I50). */
+export function usableFiles(
+  files: string[],
+  tooSmall: string[] | undefined,
+): string[] {
+  if (!tooSmall || tooSmall.length === 0) {
+    return files;
+  }
+  return files.filter((file) => !tooSmall.includes(file));
+}
+
 /** Every event on the page with a draft and its train images, for file-all. */
 export function draftsToFile(
   suggestions: Record<string, EventSuggestion> | undefined,
   groups: Record<string, { filename: string }[]>,
+  tooSmall?: Record<string, string[]>,
 ): DraftToFile[] {
   const drafts: DraftToFile[] = [];
   for (const [eventId, items] of Object.entries(groups)) {
     const suggestion = suggestions?.[eventId]?.suggestion;
-    if (suggestion && items.length > 0) {
-      drafts.push({
-        eventId,
-        files: items.map((item) => item.filename),
-        suggestion,
-      });
+    const files = usableFiles(
+      items.map((item) => item.filename),
+      tooSmall?.[eventId],
+    );
+    if (suggestion && files.length > 0) {
+      drafts.push({ eventId, files, suggestion });
     }
   }
   return drafts;
+}
+
+/**
+ * The model's confidence in an event: the best score among its train
+ * images, which upstream writes into each file name (fork I49).
+ */
+export function groupScore(group: { score?: number }[]): number {
+  let best = 0;
+  for (const item of group) {
+    if (
+      item.score != null &&
+      Number.isFinite(item.score) &&
+      item.score > best
+    ) {
+      best = item.score;
+    }
+  }
+  return best;
+}
+
+/**
+ * The grid's groups in display order. Upstream lists newest first; with
+ * unsureFirst the events the model was least sure about come first, since
+ * those teach it the most, and ties keep the newest-first order (fork I49).
+ */
+export function orderGroups<T extends { score?: number }>(
+  groups: Record<string, T[]>,
+  unsureFirst: boolean,
+): [string, T[]][] {
+  const entries = Object.entries(groups);
+  if (!unsureFirst) {
+    return entries;
+  }
+  return entries
+    .map((entry, index) => ({ entry, index, score: groupScore(entry[1]) }))
+    .sort((a, b) => a.score - b.score || a.index - b.index)
+    .map((item) => item.entry);
+}
+
+/** Where a dataset image is served from (fork I52). */
+export function datasetImagePath(
+  model: string,
+  category: string,
+  file: string,
+): string {
+  return `clips/${model}/dataset/${encodeURIComponent(category)}/${encodeURIComponent(file)}`;
 }
 
 /** What an event's train images were filed as (fork I46). */
@@ -187,6 +279,8 @@ export type EventModelSuggestion = {
   training_files: string[];
   model_said: string | null;
   filed: FiledEntry | null;
+  /** Train images under 100 px on a side (fork I50). */
+  too_small?: string[];
 };
 
 export type EventSuggestionsResponse = {

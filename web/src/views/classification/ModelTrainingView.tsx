@@ -62,7 +62,11 @@ import TrainFilterDialog from "@/components/overlay/dialog/TrainFilterDialog";
 import { matchesTrainClass } from "@/lib/fork/classification-train";
 import { useClassificationSuggestions } from "@/hooks/fork/use-classification-suggestions";
 import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
-import { pickerProps } from "@/lib/fork/classification-suggestions";
+import {
+  orderGroups,
+  pickerProps,
+} from "@/lib/fork/classification-suggestions";
+import { useUnsureFirst } from "@/hooks/fork/use-train-order";
 import SuggestionBadge from "@/components/fork/classification/SuggestionBadge";
 import SuggestionStatusBar from "@/components/fork/classification/SuggestionStatusBar";
 import useApiFilter from "@/hooks/use-api-filter";
@@ -1112,6 +1116,8 @@ function ObjectTrainGrid({
     eventIdsQuery,
   );
   const confirmSuggestion = useConfirmSuggestion(model.name, onRefresh);
+  // fork (I49): the least sure events first, so review teaches the model most
+  const [unsureFirst, setUnsureFirst] = useUnsureFirst();
 
   const threshold = useMemo(() => {
     return {
@@ -1206,6 +1212,8 @@ function ObjectTrainGrid({
         data={suggestions}
         groups={groups}
         onRefresh={onRefresh}
+        unsureFirst={unsureFirst}
+        onUnsureFirst={setUnsureFirst}
       />
       <div
         ref={contentRef}
@@ -1213,7 +1221,7 @@ function ObjectTrainGrid({
           "scrollbar-container grid grid-cols-2 gap-3 overflow-y-scroll p-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12",
         )}
       >
-        {Object.entries(groups).map(([key, group]) => {
+        {orderGroups(groups, unsureFirst).map(([key, group]) => {
           const event = events?.find((ev) => ev.id == key);
           const classifiedEvent = createClassifiedEvent(event);
 
@@ -1228,6 +1236,7 @@ function ObjectTrainGrid({
                 files={group.map((item) => item.filename)}
                 entry={suggestions?.suggestions[key]}
                 onRefresh={onRefresh}
+                tooSmall={suggestions?.too_small?.[key]}
               />
               <GroupedClassificationCard
                 group={group}

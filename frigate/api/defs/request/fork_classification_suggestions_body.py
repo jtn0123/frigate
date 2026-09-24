@@ -22,3 +22,12 @@ class ConfirmSuggestionBody(BaseModel):
         default=None,
         description="The class that was suggested, so edits can be told apart",
     )
+
+
+class SpotCheckBody(BaseModel):
+    """A person's verdict on a group of auto-filed images (fork I52)."""
+
+    event_id: str = Field(description="The event the images came from")
+    category: str = Field(description="The dataset class they were filed into")
+    files: list[str] = Field(default_factory=list, description="Dataset file names")
+    keep: bool = Field(description="True keeps them, False deletes them")

@@ -374,6 +374,21 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
                     "classes": {},
                     "recent_disagreements": [],
                 },
+                "dataset": {
+                    "classes": {"none": 0, "suv": 0, "van": 0},
+                    "empty": ["none", "suv", "van"],
+                    "largest": None,
+                    "smallest": None,
+                    "ratio": None,
+                    "lopsided": False,
+                },
+                "training": {
+                    "has_trained": False,
+                    "last_training_date": None,
+                    "current_images": 0,
+                    "new_images": 0,
+                },
+                "recent_auto_filed": [],
             },
         )
         for category, training_file in (
@@ -399,6 +414,8 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
         self.assertEqual(report["classes"]["van"]["corrected_to"], {"suv": 1})
         self.assertEqual(report["cameras"]["front_door"]["total"], 2)
         self.assertIsNotNone(report["first_time"])
+        self.assertEqual(report["dataset"]["classes"], {"none": 0, "suv": 1, "van": 1})
+        self.assertEqual(report["training"]["new_images"], 2)
         self.assertEqual(
             client.get("/classification/nope/suggestions/report").status_code, 404
         )
@@ -425,4 +442,171 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
                 "/classification/vehicle_type/suggestions/report", headers=headers
             ).status_code,
             403,
+        )
+        self.assertEqual(
+            client.post(
+                "/classification/vehicle_type/suggestions/spot-check",
+                json={"event_id": "evt-1", "category": "van", "keep": True},
+                headers=headers,
+            ).status_code,
+            403,
+        )
+
+    def test_suggestions_flag_train_images_too_small_to_train_on(self):
+        self._event("evt-1", "A white van is parked.")
+        self._event("evt-2", "Nothing to see.")
+        client = AuthTestClient(self.app)
+        body = client.get(
+            "/classification/vehicle_type/suggestions?ids=evt-1,evt-2"
+        ).json()
+        self.assertEqual(
+            body["too_small"],
+            {"evt-1": ["evt-1-1.0-unknown-0.0.webp", "evt-1-2.0-unknown-0.0.webp"]},
+            "8 px test crops, listed only for events with a draft",
+        )
+        model = client.get("/classification/suggestions/event/evt-1").json()["models"][
+            0
+        ]
+        self.assertEqual(model["too_small"], model["training_files"])
+
+    def test_spot_check_keeps_or_removes_auto_filed_images(self):
+        self._event("evt-1", "A white van is parked.")
+        client = AuthTestClient(self.app)
+        dataset = os.path.join(self.clips, "vehicle_type", "dataset", "van")
+        image = np.zeros((8, 8, 3), dtype=np.uint8)
+        for name in ("van-1.png", "van-2.png"):
+            cv2.imwrite(os.path.join(dataset, name), image)
+        suggest.record_confirmation(
+            self.clips,
+            "vehicle_type",
+            {
+                "event_id": "evt-1",
+                "camera": "front_door",
+                "category": "van",
+                "suggested_category": "van",
+                "source": "jev",
+                "score": 0.95,
+                "accepted": True,
+                "auto": True,
+                "files": ["van-1.png", "van-2.png"],
+            },
+        )
+        report = client.get("/classification/vehicle_type/suggestions/report").json()
+        self.assertEqual(len(report["recent_auto_filed"]), 1)
+        group = report["recent_auto_filed"][0]
+        self.assertEqual(group["files"], ["van-1.png", "van-2.png"])
+        self.assertEqual(group["camera"], "front_door")
+
+        url = "/classification/vehicle_type/suggestions/spot-check"
+        response = client.post(
+            url,
+            json={
+                "event_id": "evt-1",
+                "category": "van",
+                "files": ["van-1.png", "van-1.png"],
+                "keep": False,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["removed"], ["van-1.png"])
+        self.assertEqual(os.listdir(dataset), ["van-2.png"])
+        report = client.get("/classification/vehicle_type/suggestions/report").json()
+        self.assertEqual(
+            report["recent_auto_filed"], [], "checked groups leave the list"
+        )
+        self.assertEqual((report["total"], report["accepted"]), (1, 0))
+
+        response = client.post(
+            url,
+            json={"event_id": "evt-9", "category": "van", "files": [], "keep": True},
+        )
+        self.assertEqual(
+            response.json(), {"success": True, "message": "Kept.", "removed": []}
+        )
+        self.assertEqual(
+            client.post(
+                url, json={"event_id": "e", "category": "..", "keep": True}
+            ).status_code,
+            400,
+        )
+        self.assertEqual(
+            client.post(
+                url,
+                json={
+                    "event_id": "e",
+                    "category": "van",
+                    "files": [""],
+                    "keep": False,
+                },
+            ).status_code,
+            400,
+        )
+        self.assertEqual(
+            client.post(
+                "/classification/nope/suggestions/spot-check",
+                json={"event_id": "e", "category": "van", "keep": True},
+            ).status_code,
+            404,
+        )
+
+
+class TestHttpForkAttributePassthrough(BaseTestHttp):
+    """Fork I53: custom attribute verdicts survive the explore and search endpoints."""
+
+    def setUp(self):
+        super().setUp([Event])
+        self.minimal_config["classification"] = {
+            "custom": {
+                "vehicle_type": {
+                    "object_config": {
+                        "objects": ["car"],
+                        "classification_type": "attribute",
+                    }
+                },
+                "dog_breed": {"object_config": {"objects": ["dog"]}},
+            }
+        }
+        self.app = super().create_app()
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+    def test_attribute_keys_come_from_attribute_models_only(self):
+        from frigate.fork.event_data_keys import custom_attribute_keys
+
+        self.assertEqual(
+            custom_attribute_keys(self.app.frigate_config),
+            ["vehicle_type", "vehicle_type_score"],
+        )
+
+    def test_explore_returns_the_attribute_verdict(self):
+        Event.insert(
+            id="evt-1",
+            label="car",
+            camera="front_door",
+            start_time=1.0,
+            end_time=2.0,
+            top_score=0.9,
+            false_positive=False,
+            zones=[],
+            thumbnail="",
+            has_clip=False,
+            has_snapshot=False,
+            region=[],
+            box=[],
+            area=0,
+            data={
+                "top_score": 0.9,
+                "vehicle_type": "van",
+                "vehicle_type_score": 0.93,
+                "private": "stays behind",
+            },
+        ).execute()
+        client = AuthTestClient(self.app)
+        events = client.get("/events/explore").json()
+        self.assertEqual(len(events), 1)
+        self.assertEqual(
+            events[0]["data"],
+            {"top_score": 0.9, "vehicle_type": "van", "vehicle_type_score": 0.93},
         )

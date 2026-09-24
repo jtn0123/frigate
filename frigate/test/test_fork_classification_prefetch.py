@@ -167,8 +167,15 @@ class TestSuggestionPrefetch(unittest.TestCase):
                     },
                 )
 
-    def _train_image(self, name: str) -> None:
+    def _train_image(self, name: str, size: int = 120) -> None:
         folder = os.path.join(self.clips, "vehicle_type", "train")
+        os.makedirs(folder, exist_ok=True)
+        cv2.imwrite(
+            os.path.join(folder, name), np.zeros((size, size, 3), dtype=np.uint8)
+        )
+
+    def _dataset_image(self, category: str, name: str) -> None:
+        folder = os.path.join(self.clips, "vehicle_type", "dataset", category)
         os.makedirs(folder, exist_ok=True)
         cv2.imwrite(os.path.join(folder, name), np.zeros((8, 8, 3), dtype=np.uint8))
 
@@ -185,12 +192,18 @@ class TestSuggestionPrefetch(unittest.TestCase):
                 },
             )
 
-    def _process(self, worker, description: str = "A white SUV is parked."):
+    def _process(
+        self,
+        worker,
+        description: str = "A white SUV is parked.",
+        event_id: str = "evt-1",
+        camera: str = "front_door",
+    ):
         return asyncio.run(
             worker.process(
                 {
-                    "id": "evt-1",
-                    "camera": "front_door",
+                    "id": event_id,
+                    "camera": camera,
                     "label": "car",
                     "description": description,
                 }
@@ -237,6 +250,68 @@ class TestSuggestionPrefetch(unittest.TestCase):
         self.assertEqual(report["auto_filed"], 4)
         self.assertEqual(report["total"], 2, "auto-filed stays out of the rate")
         self.assertEqual(report["classes"]["suv"]["auto_filed"], 4)
+
+    def test_auto_file_waits_for_the_camera_cooldown_and_daily_limit(self):
+        auto = {"enabled": True, "min_kept_rate": 0.9, "min_drafts": 1}
+        self._reviewed("suv", 2)
+        for event in ("evt-1", "evt-2", "evt-3", "evt-4"):
+            self._train_image(f"{event}-1.0-unknown-0.0.webp")
+        train = os.path.join(self.clips, "vehicle_type", "train")
+
+        worker = self.worker(auto_file=auto)
+        self._process(worker, event_id="evt-1")
+        self.assertEqual(len(os.listdir(train)), 3)
+        self._process(worker, event_id="evt-2")
+        self.assertEqual(len(os.listdir(train)), 3, "same camera, inside the cooldown")
+        self._process(worker, event_id="evt-2", camera="side")
+        self.assertEqual(len(os.listdir(train)), 2, "another camera is fine")
+
+        worker = self.worker(
+            auto_file={**auto, "camera_cooldown": 0, "per_camera_daily_limit": 1}
+        )
+        self._process(worker, event_id="evt-3")
+        self.assertEqual(len(os.listdir(train)), 2, "front_door hit its daily limit")
+        self._process(worker, event_id="evt-3", camera="side")
+        self.assertEqual(len(os.listdir(train)), 2, "so did side")
+        worker = self.worker(
+            auto_file={**auto, "camera_cooldown": 0, "per_camera_daily_limit": 5}
+        )
+        self._process(worker, event_id="evt-3")
+        self._process(worker, event_id="evt-4")
+        self.assertEqual(len(os.listdir(train)), 0)
+
+    def test_auto_file_skips_sure_and_tiny_images_and_a_lopsided_class(self):
+        auto = {
+            "enabled": True,
+            "min_kept_rate": 0.9,
+            "min_drafts": 1,
+            "camera_cooldown": 0,
+        }
+        self._reviewed("suv", 2)
+        self._train_image("evt-1-1.0-suv-0.95.webp")
+        self._train_image("evt-1-2.0-suv-0.5.webp")
+        self._train_image("evt-1-3.0-unknown-0.0.webp", size=60)
+        train = os.path.join(self.clips, "vehicle_type", "train")
+        dataset = os.path.join(self.clips, "vehicle_type", "dataset", "suv")
+
+        worker = self.worker(auto_file=auto)
+        self._process(worker)
+        self.assertEqual(
+            sorted(os.listdir(train)),
+            ["evt-1-1.0-suv-0.95.webp", "evt-1-3.0-unknown-0.0.webp"],
+            "only the image the model was unsure about is worth filing",
+        )
+        self.assertEqual(len(os.listdir(dataset)), 1)
+
+        self._train_image("evt-2-1.0-unknown-0.0.webp")
+        for i in range(3):
+            self._dataset_image("suv", f"suv-{i}.png")
+        self._dataset_image("sedan", "sedan-0.png")
+        self._process(worker, event_id="evt-2")
+        self.assertEqual(len(os.listdir(dataset)), 4, "5 to 1 would be lopsided")
+        self._dataset_image("sedan", "sedan-1.png")
+        self._process(worker, event_id="evt-2")
+        self.assertEqual(len(os.listdir(dataset)), 5, "5 to 2 is within the ratio")
 
     def test_kept_rate_reads_only_human_confirmations(self):
         self._reviewed("suv", 2)

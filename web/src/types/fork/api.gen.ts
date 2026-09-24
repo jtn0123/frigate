@@ -4136,6 +4136,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/classification/{name}/suggestions/spot-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep or remove auto-filed images
+         * @description **Access:** Admin role required.
+         *
+         *     Records a person's verdict on a group of images that I44 filed
+         *         without review. Keep counts as an accepted draft; remove deletes the files
+         *         from the dataset and counts as a rejected one (fork I52).
+         */
+        post: operations["spot_check_suggestion_classification__name__suggestions_spot_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/share": {
         parameters: {
             query?: never;
@@ -4478,6 +4502,38 @@ export interface components {
              * @description ID of the event to transcribe audio for
              */
             event_id: string;
+        };
+        /**
+         * AutoFiledGroupModel
+         * @description One event's images filed without review, for a spot check (fork I52).
+         */
+        AutoFiledGroupModel: {
+            /**
+             * Time
+             * @description Unix time it was filed
+             */
+            time?: number | null;
+            /** Event Id */
+            event_id?: string | null;
+            /** Camera */
+            camera?: string | null;
+            /**
+             * Category
+             * @description The dataset class
+             */
+            category: string;
+            /**
+             * Source
+             * @description text or jev
+             */
+            source?: string | null;
+            /** Score */
+            score?: number | null;
+            /**
+             * Files
+             * @description Dataset file names
+             */
+            files?: string[];
         };
         /** BatchExportBody */
         BatchExportBody: {
@@ -4845,6 +4901,13 @@ export interface components {
             suggestions: {
                 [key: string]: components["schemas"]["EventSuggestionModel"];
             };
+            /**
+             * Too Small
+             * @description Train images under 100 px on a side, keyed by event (fork I50)
+             */
+            too_small?: {
+                [key: string]: string[];
+            };
         };
         /** ConfirmSuggestionBody */
         ConfirmSuggestionBody: {
@@ -4893,6 +4956,45 @@ export interface components {
              * @description New dataset file names
              */
             moved?: string[];
+        };
+        /**
+         * DatasetBalanceModel
+         * @description Whether one class dwarfs another (fork I51).
+         */
+        DatasetBalanceModel: {
+            /**
+             * Classes
+             * @description Images per dataset class
+             */
+            classes?: {
+                [key: string]: number;
+            };
+            /**
+             * Empty
+             * @description Classes with no images
+             */
+            empty?: string[];
+            /**
+             * Largest
+             * @description The fullest class
+             */
+            largest?: string | null;
+            /**
+             * Smallest
+             * @description The emptiest filled class
+             */
+            smallest?: string | null;
+            /**
+             * Ratio
+             * @description largest / smallest
+             */
+            ratio?: number | null;
+            /**
+             * Lopsided
+             * @description ratio is over 3
+             * @default false
+             */
+            lopsided: boolean;
         };
         /** DayReview */
         DayReview: {
@@ -5052,6 +5154,11 @@ export interface components {
             model_said?: string | null;
             /** @description What the event was last filed as, if anything */
             filed?: components["schemas"]["FiledModel"] | null;
+            /**
+             * Too Small
+             * @description Train images under 100 px on a side (fork I50)
+             */
+            too_small?: string[];
         };
         /** EventMultiDeleteResponse */
         EventMultiDeleteResponse: {
@@ -6201,6 +6308,47 @@ export interface components {
             similarity: number;
         };
         /**
+         * SpotCheckBody
+         * @description A person's verdict on a group of auto-filed images (fork I52).
+         */
+        SpotCheckBody: {
+            /**
+             * Event Id
+             * @description The event the images came from
+             */
+            event_id: string;
+            /**
+             * Category
+             * @description The dataset class they were filed into
+             */
+            category: string;
+            /**
+             * Files
+             * @description Dataset file names
+             */
+            files?: string[];
+            /**
+             * Keep
+             * @description True keeps them, False deletes them
+             */
+            keep: boolean;
+        };
+        /**
+         * SpotCheckResponse
+         * @description What a spot check removed (fork I52).
+         */
+        SpotCheckResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Removed
+             * @description Dataset files deleted
+             */
+            removed?: string[];
+        };
+        /**
          * StageResult
          * @description Expose state without internal error details.
          */
@@ -6362,6 +6510,15 @@ export interface components {
             last_time?: number | null;
             /** @description The trained model's verdicts against the drafts (fork I45) */
             model_check?: components["schemas"]["ModelCheckModel"];
+            /** @description Images per class and whether they are lopsided (fork I51) */
+            dataset?: components["schemas"]["DatasetBalanceModel"];
+            /** @description Images added since the last training (fork I54) */
+            training?: components["schemas"]["TrainingGapModel"];
+            /**
+             * Recent Auto Filed
+             * @description Auto-filed groups awaiting a spot check, newest first (fork I52)
+             */
+            recent_auto_filed?: components["schemas"]["AutoFiledGroupModel"][];
         };
         /**
          * ToolExecuteRequest
@@ -6372,6 +6529,29 @@ export interface components {
             tool_name: string;
             /** Arguments */
             arguments: Record<string, never>;
+        };
+        /**
+         * TrainingGapModel
+         * @description Images added since the model was last trained (fork I54).
+         */
+        TrainingGapModel: {
+            /**
+             * Has Trained
+             * @default false
+             */
+            has_trained: boolean;
+            /** Last Training Date */
+            last_training_date?: string | null;
+            /**
+             * Current Images
+             * @default 0
+             */
+            current_images: number;
+            /**
+             * New Images
+             * @default 0
+             */
+            new_images: number;
         };
         /** TriggerEmbeddingBody */
         TriggerEmbeddingBody: {
@@ -12410,6 +12590,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuggestionReportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    spot_check_suggestion_classification__name__suggestions_spot_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpotCheckBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotCheckResponse"];
                 };
             };
             /** @description Validation Error */

@@ -42,6 +42,14 @@ UNKNOWN = "unknown"
 PROVENANCE_FILE = ".fork_provenance.jsonl"
 MODEL_CHECK_FILE = ".fork_model_checks.jsonl"
 RECENT_DISAGREEMENTS = 20
+# I48 to I52: guards that keep auto-filing from making the dataset worse.
+MIN_CROP = 100
+MAX_CLASS_RATIO = 3.0
+RECENT_AUTO_FILED = 20
+DAY = 86400
+IMAGE_EXTENSIONS = (".webp", ".png", ".jpg", ".jpeg")
+# The file upstream training writes beside the dataset.
+TRAINING_METADATA_FILE = ".training_metadata.json"
 API_KEY_VARS = ("FRIGATE_JEV_API_KEY", "OPENROUTER_API_KEY")
 
 JEV_INSTRUCTIONS = (
@@ -804,17 +812,312 @@ def summarize_model_checks(entries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def train_files_by_event(
+    clips_dir: str, name: str, event_ids: list[str]
+) -> dict[str, list[str]]:
+    """Train images still waiting for each event, oldest first, one listdir."""
+    folder = safe_join(clips_dir, name, "train")
+    result: dict[str, list[str]] = {event_id: [] for event_id in event_ids}
+    if folder is None or not os.path.isdir(folder) or not event_ids:
+        return result
+    prefixes = {f"{event_id}-": event_id for event_id in event_ids}
+    for entry in sorted(os.listdir(folder)):
+        if not entry.lower().endswith(".webp"):
+            continue
+        # The event id holds one dash, so match the two leading parts.
+        parts = entry.split("-", 2)
+        if len(parts) == 3:
+            event_id = prefixes.get(f"{parts[0]}-{parts[1]}-")
+            if event_id is not None:
+                result[event_id].append(entry)
+    return result
+
+
 def train_files_for_event(clips_dir: str, name: str, event_id: str) -> list[str]:
     """Train images still waiting for this event, oldest first."""
+    return train_files_by_event(clips_dir, name, [event_id])[event_id]
+
+
+def train_file_verdict(file: str) -> tuple[str, float] | None:
+    """The class and score the model wrote into a train file name (I49).
+
+    Train files are ``{event_id}-{timestamp}-{label}-{score}.webp`` where the
+    event id holds one dash and a dash in the label is written as ``_``.
+    """
+    parts = file.rsplit(".", 1)[0].split("-")
+    if len(parts) != 5:
+        return None
+    try:
+        return parts[3], float(parts[4])
+    except ValueError:
+        return None
+
+
+def sure_train_files(files: list[str], category: str, max_score: float) -> list[str]:
+    """Train images the model already scored at or above max_score as this class.
+
+    They would teach the model nothing it does not know, and the docs warn
+    that piling them up is the fastest way to overfit (I49).
+    """
+    wanted = normalize_class(category)
+    sure = []
+    for file in files:
+        verdict = train_file_verdict(file)
+        if verdict is None:
+            continue
+        label, score = verdict
+        if normalize_class(label) == wanted and score >= max_score:
+            sure.append(file)
+    return sure
+
+
+def image_size(path: str) -> tuple[int, int] | None:
+    """Width and height of an image, or None when it cannot be read."""
+    # cv2's stubs say imread never returns None; it does for unreadable files.
+    image: Any = cv2.imread(path)
+    if image is None:
+        return None
+    height, width = image.shape[:2]
+    return width, height
+
+
+def too_small_train_files(clips_dir: str, name: str, files: list[str]) -> list[str]:
+    """Train images with a side under MIN_CROP, which stretch when trained (I50)."""
     folder = safe_join(clips_dir, name, "train")
-    if folder is None or not os.path.isdir(folder):
+    if folder is None:
         return []
-    prefix = f"{event_id}-"
-    return sorted(
-        entry
-        for entry in os.listdir(folder)
-        if entry.startswith(prefix) and entry.lower().endswith(".webp")
+    small = []
+    for file in files:
+        path = safe_join(folder, file)
+        if path is None or not os.path.isfile(path):
+            continue
+        size = image_size(path)
+        if size is not None and min(size) < MIN_CROP:
+            small.append(file)
+    return small
+
+
+def auto_file_wait(
+    entries: list[dict[str, Any]],
+    category: str,
+    camera: str | None,
+    now: float,
+    cooldown: float,
+    per_day: int,
+) -> str | None:
+    """Why auto-filing this class from this camera should wait, or None (I48).
+
+    A regular visitor, the owner's own car or a parked van in view would
+    otherwise fill a class with near-identical images.
+    """
+    wanted = normalize_class(category)
+    last: float | None = None
+    today = 0
+    for entry in entries:
+        if not entry.get("auto") or entry.get("camera") != camera:
+            continue
+        filed = entry.get("category")
+        if not isinstance(filed, str) or normalize_class(filed) != wanted:
+            continue
+        filed_at = entry.get("time")
+        if not isinstance(filed_at, (int, float)):
+            continue
+        last = filed_at if last is None else max(last, filed_at)
+        if now - filed_at < DAY:
+            today += 1
+    if last is not None and now - last < cooldown:
+        return "cooldown"
+    if today >= per_day:
+        return "daily_limit"
+    return None
+
+
+def dataset_counts(clips_dir: str, name: str) -> dict[str, int]:
+    """How many images each dataset class holds."""
+    folder = safe_join(clips_dir, name, "dataset")
+    if folder is None or not os.path.isdir(folder):
+        return {}
+    counts = {}
+    for entry in sorted(os.listdir(folder)):
+        path = os.path.join(folder, entry)
+        if os.path.isdir(path):
+            counts[entry] = sum(
+                1
+                for file in os.listdir(path)
+                if file.lower().endswith(IMAGE_EXTENSIONS)
+            )
+    return counts
+
+
+def dataset_balance(counts: dict[str, int]) -> dict[str, Any]:
+    """Whether the largest class is more than MAX_CLASS_RATIO times the smallest (I51).
+
+    Empty classes are listed apart: they have nothing to train on, and holding
+    every auto-file for them would stall the dataset.
+    """
+    filled = {k: v for k, v in counts.items() if v > 0}
+    result: dict[str, Any] = {
+        "classes": dict(counts),
+        "empty": sorted(k for k, v in counts.items() if v == 0),
+        "largest": None,
+        "smallest": None,
+        "ratio": None,
+        "lopsided": False,
+    }
+    if len(filled) < 2:
+        return result
+    largest = max(filled, key=lambda k: filled[k])
+    smallest = min(filled, key=lambda k: filled[k])
+    ratio = filled[largest] / filled[smallest]
+    result.update(
+        {
+            "largest": largest,
+            "smallest": smallest,
+            "ratio": round(ratio, 2),
+            "lopsided": ratio > MAX_CLASS_RATIO,
+        }
     )
+    return result
+
+
+def would_unbalance(counts: dict[str, int], category: str, added: int) -> bool:
+    """Whether adding images to the class would put it over the ratio (I51)."""
+    after = dict(counts)
+    after[category] = after.get(category, 0) + added
+    balance = dataset_balance(after)
+    return bool(balance["lopsided"]) and balance["largest"] == category
+
+
+def training_gap(clips_dir: str, name: str, counts: dict[str, int]) -> dict[str, Any]:
+    """Images added since the model was last trained (I54)."""
+    current = sum(counts.values())
+    folder = safe_join(clips_dir, name)
+    metadata: dict[str, Any] = {}
+    path = os.path.join(folder, TRAINING_METADATA_FILE) if folder else None
+    if path and os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                loaded = json.load(f)
+            if isinstance(loaded, dict):
+                metadata = loaded
+        except ValueError:
+            metadata = {}
+    trained = metadata.get("last_training_image_count")
+    trained = trained if isinstance(trained, int) else None
+    return {
+        "has_trained": trained is not None,
+        "last_training_date": metadata.get("last_training_date"),
+        "current_images": current,
+        "new_images": current if trained is None else max(0, current - trained),
+    }
+
+
+def recent_auto_filed(
+    clips_dir: str,
+    name: str,
+    entries: list[dict[str, Any]],
+    limit: int = RECENT_AUTO_FILED,
+) -> list[dict[str, Any]]:
+    """Auto-filed groups nobody has spot-checked, newest first (I52).
+
+    Only files still in the dataset are listed, so a group removed through
+    the grid disappears here too.
+    """
+    checked = {entry.get("event_id") for entry in entries if entry.get("spot_check")}
+    recent: list[dict[str, Any]] = []
+    for entry in reversed(entries):
+        if not entry.get("auto") or entry.get("event_id") in checked:
+            continue
+        category = entry.get("category")
+        if not isinstance(category, str):
+            continue
+        folder = safe_join(clips_dir, name, "dataset", category)
+        if folder is None:
+            continue
+        files = entry.get("files")
+        present = [
+            file
+            for file in (files if isinstance(files, list) else [])
+            if isinstance(file, str)
+            and (path := safe_join(folder, file)) is not None
+            and os.path.isfile(path)
+        ]
+        if not present:
+            continue
+        recent.append(
+            {
+                "time": entry.get("time"),
+                "event_id": entry.get("event_id"),
+                "camera": entry.get("camera"),
+                "category": category,
+                "source": entry.get("source"),
+                "score": entry.get("score"),
+                "files": present,
+            }
+        )
+        if len(recent) >= limit:
+            break
+    return recent
+
+
+def spot_check(
+    clips_dir: str,
+    name: str,
+    event_id: str,
+    category: str,
+    files: list[str],
+    keep: bool,
+) -> list[str]:
+    """Record a person's verdict on an auto-filed group (I52).
+
+    A kept group counts as an accepted draft and a removed one as a
+    rejected draft, so spot checks feed the kept rate that unlocks
+    auto-filing. Removed files are deleted from the dataset.
+
+    Returns:
+        The dataset files removed
+
+    Raises:
+        ValueError: The category or a file name is not safe
+    """
+    folder = safe_join(clips_dir, name, "dataset", category)
+    if folder is None:
+        raise ValueError("Invalid category")
+    paths = []
+    for file in files:
+        path = safe_join(folder, file)
+        if path is None:
+            raise ValueError("Invalid file name")
+        paths.append((file, path))
+    removed = []
+    if not keep:
+        for file, path in paths:
+            if os.path.isfile(path):
+                os.unlink(path)
+                removed.append(file)
+    origin: dict[str, Any] = {}
+    for entry in reversed(read_provenance(clips_dir, name)):
+        if entry.get("auto") and entry.get("event_id") == event_id:
+            origin = entry
+            break
+    record_confirmation(
+        clips_dir,
+        name,
+        {
+            "event_id": event_id,
+            "camera": origin.get("camera"),
+            "category": category if keep else None,
+            "suggested_category": category,
+            "source": origin.get("source"),
+            "score": origin.get("score"),
+            "accepted": keep,
+            "spot_check": True,
+            "description_sha256": origin.get("description_sha256"),
+            "files": [],
+            "removed": removed,
+        },
+    )
+    return removed
 
 
 def sure_draft(text: Suggestion | None, jev: Suggestion | None) -> Suggestion | None:

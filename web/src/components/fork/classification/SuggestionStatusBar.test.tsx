@@ -232,4 +232,75 @@ describe("SuggestionStatusBar", () => {
     );
     expect(screen.getByTestId("suggestion-status")).toHaveTextContent("jevOff");
   });
+
+  it("warns about lopsided classes and toggles unsure-first (fork I49, I51)", () => {
+    report = {
+      model: "vehicle_type",
+      total: 0,
+      accepted: 0,
+      rate: null,
+      sources: {},
+      classes: {},
+      cameras: {},
+      first_time: null,
+      last_time: null,
+      dataset: {
+        classes: { suv: 40, sedan: 10 },
+        empty: [],
+        largest: "suv",
+        smallest: "sedan",
+        ratio: 4,
+        lopsided: true,
+      },
+    };
+    const onUnsureFirst = vi.fn();
+    render(
+      <MemoryRouter>
+        <TooltipProvider>
+          <SuggestionStatusBar
+            modelName="vehicle_type"
+            data={response({})}
+            groups={GROUPS}
+            onRefresh={vi.fn()}
+            unsureFirst={false}
+            onUnsureFirst={onUnsureFirst}
+          />
+        </TooltipProvider>
+      </MemoryRouter>,
+    );
+    const lopsided = screen.getByTestId("suggestion-lopsided");
+    expect(lopsided).toHaveTextContent(
+      'lopsided:{"largest":"suv","smallest":"sedan","ratio":4}',
+    );
+    expect(lopsided.getAttribute("href")).toBe(
+      "/classification/suggestions/vehicle_type",
+    );
+    const toggle = screen.getByTestId("train-order-toggle");
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+    expect(onUnsureFirst).toHaveBeenCalledWith(true);
+  });
+
+  it("leaves crops too small to train on out of file-all (fork I50)", () => {
+    report = undefined;
+    render(
+      <MemoryRouter>
+        <TooltipProvider>
+          <SuggestionStatusBar
+            modelName="vehicle_type"
+            data={{
+              ...response({}),
+              too_small: { a: ["a-1.webp", "a-2.webp"] },
+            }}
+            groups={GROUPS}
+            onRefresh={vi.fn()}
+          />
+        </TooltipProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("suggestion-status")).toHaveTextContent(
+      'draftsOnPage:{"count":0}',
+    );
+    expect(screen.queryByTestId("train-order-toggle")).toBeNull();
+  });
 });

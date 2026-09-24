@@ -67,6 +67,27 @@ class AutoFileSuggestionsConfig(FrigateBaseModel):
         title="Minimum reviewed drafts",
         description="How many drafts of a class people must have reviewed before it may be auto-filed.",
     )
+    camera_cooldown: int = Field(
+        default=7200,
+        ge=0,
+        le=604800,
+        title="Same camera cooldown",
+        description="Seconds to wait before auto-filing the same class from the same camera again, so a regular visitor or a parked car does not fill a class with near-identical images (I48).",
+    )
+    per_camera_daily_limit: int = Field(
+        default=10,
+        ge=1,
+        le=1000,
+        title="Per camera daily limit",
+        description="Most groups of one class auto-filed from one camera per day (I48).",
+    )
+    max_model_score: float = Field(
+        default=0.9,
+        ge=0.5,
+        le=1.0,
+        title="Skip sure images",
+        description="Skip train images the trained model already scored at or above this as the drafted class. They teach it nothing new (I49). Images under 100 pixels on a side are always skipped (I50), and a class is never auto-filed past three times the smallest class (I51).",
+    )
 
 
 class ClassificationSuggestionsConfig(FrigateBaseModel):

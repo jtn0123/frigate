@@ -12,11 +12,13 @@ from fastapi.responses import JSONResponse
 from frigate.api.auth import require_role
 from frigate.api.defs.request.fork_classification_suggestions_body import (
     ConfirmSuggestionBody,
+    SpotCheckBody,
 )
 from frigate.api.defs.response.fork_classification_suggestions_response import (
     ClassificationSuggestionsResponse,
     ConfirmSuggestionResponse,
     EventSuggestionsResponse,
+    SpotCheckResponse,
     SuggestionReportResponse,
 )
 from frigate.api.defs.tags import Tags
@@ -103,6 +105,16 @@ def event_models(config: FrigateConfig, label: str) -> list[str]:
     ]
 
 
+def small_train_files(name: str, ids: list[str]) -> dict[str, list[str]]:
+    """Train images of these events too small to train on, keyed by event (I50)."""
+    result: dict[str, list[str]] = {}
+    for event_id, files in suggest.train_files_by_event(CLIPS_DIR, name, ids).items():
+        small = suggest.too_small_train_files(CLIPS_DIR, name, files)
+        if small:
+            result[event_id] = small
+    return result
+
+
 def filed_entry(name: str, event_id: str) -> dict[str, Any] | None:
     """What this event was last filed as under the model, if anything."""
     for entry in reversed(suggest.read_provenance(CLIPS_DIR, name)):
@@ -141,6 +153,10 @@ async def classification_suggestions(
     key = suggest.api_key()
     jev_config = settings.jev
     suggestions = await draft_events(request, events, classes)
+    drafted = [
+        event_id for event_id, entry in suggestions.items() if entry["suggestion"]
+    ]
+    too_small = await asyncio.to_thread(small_train_files, name, drafted)
     _cache, budget = state(request.app, config)
     used = await asyncio.to_thread(budget.used)
     return JSONResponse(
@@ -154,6 +170,7 @@ async def classification_suggestions(
                 "daily_request_limit": jev_config.daily_request_limit,
             },
             "suggestions": suggestions,
+            "too_small": too_small,
         }
     )
 
@@ -292,6 +309,9 @@ async def event_suggestions(request: Request, event_id: str) -> JSONResponse:
                     name, classification_type, classes, event
                 ),
                 "filed": await asyncio.to_thread(filed_entry, name, event_id),
+                "too_small": (
+                    await asyncio.to_thread(small_train_files, name, [event_id])
+                ).get(event_id, []),
             }
         )
     return JSONResponse(content={"event_id": event_id, "models": models})
@@ -314,10 +334,73 @@ async def suggestion_report(request: Request, name: str) -> JSONResponse:
         return unknown_model(name)
     entries = await asyncio.to_thread(suggest.read_provenance, CLIPS_DIR, name)
     checks = await asyncio.to_thread(suggest.read_model_checks, CLIPS_DIR, name)
+    counts = await asyncio.to_thread(suggest.dataset_counts, CLIPS_DIR, name)
     return JSONResponse(
         content={
             "model": name,
             **suggest.summarize_provenance(entries),
             "model_check": suggest.summarize_model_checks(checks),
+            "dataset": suggest.dataset_balance(counts),
+            "training": await asyncio.to_thread(
+                suggest.training_gap, CLIPS_DIR, name, counts
+            ),
+            "recent_auto_filed": await asyncio.to_thread(
+                suggest.recent_auto_filed, CLIPS_DIR, name, entries
+            ),
+        }
+    )
+
+
+@router.post(
+    "/classification/{name}/suggestions/spot-check",
+    response_model=SpotCheckResponse,
+    dependencies=[Depends(require_role(["admin"]))],
+    summary="Keep or remove auto-filed images",
+    description="""Records a person's verdict on a group of images that I44 filed
+    without review. Keep counts as an accepted draft; remove deletes the files
+    from the dataset and counts as a rejected one (fork I52).""",
+)
+async def spot_check_suggestion(
+    request: Request, name: str, body: SpotCheckBody
+) -> JSONResponse:
+    config: FrigateConfig = request.app.frigate_config
+    if name not in config.classification.custom:
+        return unknown_model(name)
+    category = suggest.safe_category(body.category)
+    if not category:
+        return JSONResponse(
+            content={"success": False, "message": "Invalid category", "removed": []},
+            status_code=400,
+        )
+    try:
+        removed = await asyncio.to_thread(
+            suggest.spot_check,
+            CLIPS_DIR,
+            name,
+            body.event_id,
+            category,
+            list(dict.fromkeys(body.files)),
+            body.keep,
+        )
+    except ValueError:
+        return JSONResponse(
+            content={"success": False, "message": "Invalid file name", "removed": []},
+            status_code=400,
+        )
+    except OSError:
+        logger.exception("Failed to remove auto-filed images")
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Failed to remove the images",
+                "removed": [],
+            },
+            status_code=500,
+        )
+    return JSONResponse(
+        content={
+            "success": True,
+            "message": "Kept." if body.keep else f"Removed {len(removed)} image(s).",
+            "removed": removed,
         }
     )

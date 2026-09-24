@@ -115,4 +115,42 @@ describe("SuggestionBadge", () => {
     expect(screen.getByTestId("suggestion-conflict")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
   });
+
+  it("marks an event whose every crop is too small instead of a draft (fork I50)", () => {
+    render(
+      <TooltipProvider>
+        <SuggestionBadge
+          modelName="vehicle_type"
+          eventId="evt-1"
+          files={["a.webp", "b.webp"]}
+          entry={JEV_ENTRY}
+          onRefresh={vi.fn()}
+          tooSmall={["a.webp", "b.webp"]}
+        />
+      </TooltipProvider>,
+    );
+    expect(screen.getByTestId("suggestion-too-small")).toBeInTheDocument();
+    expect(screen.queryByTestId("suggestion-badge")).toBeNull();
+  });
+
+  it("confirms only the crops big enough to train on (fork I50)", async () => {
+    axiosPost.mockResolvedValue({});
+    render(
+      <TooltipProvider>
+        <SuggestionBadge
+          modelName="vehicle_type"
+          eventId="evt-1"
+          files={["a.webp", "b.webp"]}
+          entry={JEV_ENTRY}
+          onRefresh={vi.fn()}
+          tooSmall={["b.webp"]}
+        />
+      </TooltipProvider>,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(axiosPost).toHaveBeenCalledTimes(1));
+    expect(axiosPost.mock.calls[0]?.[1]).toMatchObject({
+      training_files: ["a.webp"],
+    });
+  });
 });

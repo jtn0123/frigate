@@ -7,10 +7,14 @@
  * descriptions, with the latest disagreements linked to Explore.
  */
 
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
+import { baseUrl } from "@/api/baseUrl";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
+import { Button } from "@/components/ui/button";
 import Heading from "@/components/ui/heading";
+import { Toaster } from "@/components/ui/sonner";
 import {
   Table,
   TableBody,
@@ -20,11 +24,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isForkEnabled } from "@/fork/flags";
+import { useSpotCheck } from "@/hooks/fork/use-spot-check";
 import { useSuggestionReport } from "@/hooks/fork/use-suggestion-report";
-import type {
-  Acceptance,
-  ClassAcceptance,
-  SuggestionReport,
+import {
+  datasetImagePath,
+  type Acceptance,
+  type AutoFiledGroup,
+  type ClassAcceptance,
+  type DatasetBalance,
+  type SuggestionReport,
 } from "@/lib/fork/classification-suggestions";
 
 function pct(rate: number | null | undefined): string {
@@ -63,6 +71,7 @@ export default function SuggestionReportPage() {
           {t("classificationSuggestions.report.back")}
         </Link>
       </div>
+      <Toaster />
       {failed && (
         <div className="text-sm text-danger">
           {t("classificationSuggestions.report.failed")}
@@ -79,7 +88,7 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
   const check = report.model_check;
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         <Stat
           label={t("classificationSuggestions.report.reviewed")}
           value={String(report.total)}
@@ -96,7 +105,24 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
           label={t("classificationSuggestions.report.modelAgreement")}
           value={check && check.total > 0 ? pct(check.rate) : "–"}
         />
+        <Stat
+          label={t("classificationSuggestions.report.newSinceTraining")}
+          value={String(report.training?.new_images ?? 0)}
+          hint={
+            report.training && !report.training.has_trained
+              ? t("classificationSuggestions.report.neverTrained")
+              : undefined
+          }
+        />
       </div>
+
+      {report.dataset && <BalanceSection balance={report.dataset} />}
+      {(report.recent_auto_filed?.length ?? 0) > 0 && (
+        <SpotCheckSection
+          model={report.model}
+          groups={report.recent_auto_filed ?? []}
+        />
+      )}
 
       <AcceptanceTable
         testId="report-classes"
@@ -176,12 +202,163 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
   );
 }
 
-function Stat({ label, value }: Readonly<{ label: string; value: string }>) {
+function Stat({
+  label,
+  value,
+  hint,
+}: Readonly<{ label: string; value: string; hint?: string | undefined }>) {
   return (
     <div className="flex flex-col rounded-lg bg-secondary p-3">
       <span className="text-xs text-secondary-foreground">{label}</span>
       <span className="text-xl font-medium">{value}</span>
+      {hint && (
+        <span className="text-xs text-secondary-foreground">{hint}</span>
+      )}
     </div>
+  );
+}
+
+/** Images per class, with a warning when one dwarfs another (fork I51). */
+function BalanceSection({ balance }: Readonly<{ balance: DatasetBalance }>) {
+  const { t } = useTranslation(["fork"]);
+  const entries = Object.entries(balance.classes);
+  if (entries.length === 0) {
+    return null;
+  }
+  return (
+    <section data-testid="report-balance" className="flex flex-col gap-1">
+      <Heading as="h4">{t("classificationSuggestions.report.balance")}</Heading>
+      {balance.lopsided && (
+        <div className="text-sm text-warning">
+          {t("classificationSuggestions.report.lopsided", {
+            largest: balance.largest ?? "",
+            smallest: balance.smallest ?? "",
+            ratio: balance.ratio ?? 0,
+          })}
+        </div>
+      )}
+      {balance.empty.length > 0 && (
+        <div className="text-sm text-secondary-foreground">
+          {t("classificationSuggestions.report.emptyClasses", {
+            list: balance.empty.join(", "),
+          })}
+        </div>
+      )}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("classificationSuggestions.report.class")}</TableHead>
+            <TableHead>
+              {t("classificationSuggestions.report.images")}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.map(([name, count]) => (
+            <TableRow key={name}>
+              <TableCell className="smart-capitalize">{name}</TableCell>
+              <TableCell>{count}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
+
+/** The latest auto-filed groups, each kept or removed with one tap (fork I52). */
+function SpotCheckSection({
+  model,
+  groups,
+}: Readonly<{ model: string; groups: AutoFiledGroup[] }>) {
+  const { t } = useTranslation(["fork"]);
+  const spotCheck = useSpotCheck(model);
+  const [pending, setPending] = useState<string | null>(null);
+
+  const decide = async (group: AutoFiledGroup, keep: boolean) => {
+    const key = `${group.event_id ?? ""}:${group.category}`;
+    setPending(key);
+    try {
+      await spotCheck(group, keep);
+    } finally {
+      setPending(null);
+    }
+  };
+
+  return (
+    <section data-testid="report-spot-check" className="flex flex-col gap-1">
+      <Heading as="h4">
+        {t("classificationSuggestions.report.spotCheck", {
+          count: groups.length,
+        })}
+      </Heading>
+      <div className="text-sm text-secondary-foreground">
+        {t("classificationSuggestions.report.spotCheckHint")}
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {groups.map((group) => {
+          const key = `${group.event_id ?? ""}:${group.category}`;
+          const busy = pending === key;
+          return (
+            <div
+              key={key}
+              data-testid="spot-check-group"
+              className="flex flex-col gap-1 rounded-lg bg-secondary p-2 text-sm"
+            >
+              <img
+                className="aspect-square w-full rounded object-cover"
+                src={`${baseUrl}${datasetImagePath(model, group.category, group.files[0] ?? "")}`}
+                alt={group.category}
+                loading="lazy"
+              />
+              <div className="flex flex-wrap items-center gap-x-2">
+                <span className="font-medium smart-capitalize">
+                  {group.category}
+                </span>
+                <span className="text-xs text-secondary-foreground">
+                  {t("classificationSuggestions.report.imageCount", {
+                    count: group.files.length,
+                  })}
+                </span>
+              </div>
+              <div className="text-xs text-secondary-foreground">
+                {group.camera}
+                {group.time != null &&
+                  ` · ${new Date(group.time * 1000).toLocaleString()}`}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="select"
+                  className="h-6 px-2 text-xs"
+                  disabled={busy}
+                  onClick={() => void decide(group, true)}
+                >
+                  {t("classificationSuggestions.report.keep")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-xs"
+                  disabled={busy}
+                  onClick={() => void decide(group, false)}
+                >
+                  {t("classificationSuggestions.report.remove")}
+                </Button>
+                {group.event_id && (
+                  <Link
+                    to={`/explore?event_id=${encodeURIComponent(group.event_id)}`}
+                    className="ml-auto text-xs text-selected"
+                  >
+                    {t("classificationSuggestions.report.open")}
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

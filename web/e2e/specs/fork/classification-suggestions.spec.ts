@@ -449,4 +449,121 @@ test.describe("Classification suggestions @medium", () => {
     await expect(page.getByTestId("suggestion-badge")).toHaveCount(0);
     expect(asked).toBe(0);
   });
+
+  test("lists unsure events first on request and marks crops too small to train on", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    // The newest event the model already scored 95%; the older one 40%.
+    const sureEvent = "1780673600.0-sure01";
+    const unsureEvent = "1780673500.0-unsure1";
+    const tinyEvent = "1780673400.0-tiny01";
+    const train = [
+      `${sureEvent}-1780673601.0-van-0.95.webp`,
+      `${unsureEvent}-1780673501.0-van-0.4.webp`,
+      `${tinyEvent}-1780673401.0-suv-0.5.webp`,
+    ];
+    const draft = (category: string) => ({
+      text: { category, source: "text", score: null, evidence: "" },
+      jev: null,
+      jev_status: "unknown",
+      suggestion: { category, source: "text", score: null, evidence: "" },
+      conflict: false,
+    });
+
+    await frigateApp.installDefaults({
+      config: { classification: { custom: CUSTOM_MODELS } },
+    });
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/dataset$`),
+      (route) =>
+        route.fulfill({ json: { categories: { van: [], suv: [], none: [] } } }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/train$`),
+      (route) => route.fulfill({ json: train }),
+    );
+    await page.route("**/api/event_ids**", (route) =>
+      route.fulfill({
+        json: [
+          event(sureEvent, "A white van."),
+          event(unsureEvent, "A white van."),
+          event(tinyEvent, "A gray SUV."),
+        ],
+      }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions\\?`),
+      (route) =>
+        route.fulfill({
+          json: {
+            ...SUGGESTIONS,
+            suggestions: {
+              [sureEvent]: draft("van"),
+              [unsureEvent]: draft("van"),
+              [tinyEvent]: draft("suv"),
+            },
+            too_small: { [tinyEvent]: [train[2]] },
+          },
+        }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions/report`),
+      (route) =>
+        route.fulfill({
+          json: {
+            model: MODEL,
+            total: 0,
+            accepted: 0,
+            rate: null,
+            sources: {},
+            classes: {},
+            cameras: {},
+            first_time: null,
+            last_time: null,
+            dataset: {
+              classes: { van: 40, suv: 10, none: 5 },
+              empty: [],
+              largest: "van",
+              smallest: "none",
+              ratio: 8,
+              lopsided: true,
+            },
+          },
+        }),
+    );
+    await page.route("**/clips/**", (route) =>
+      route.fulfill({
+        contentType: "image/webp",
+        body: Buffer.from(
+          "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==",
+          "base64",
+        ),
+      }),
+    );
+
+    await frigateApp.goto("/classification");
+    await page.getByText(MODEL).first().click();
+    const images = page.locator('img[src*="/train/"]');
+    await expect(images).toHaveCount(3, { timeout: 10_000 });
+
+    // The tiny crop shows a marker instead of a draft, and file-all skips it.
+    await expect(page.getByTestId("suggestion-too-small")).toHaveCount(1);
+    await expect(page.getByTestId("suggestion-badge")).toHaveCount(2);
+    const status = page.getByTestId("suggestion-status");
+    await expect(status).toContainText("2 drafts on this page");
+    await expect(page.getByTestId("suggestion-lopsided")).toContainText(
+      "van has 8x the images of none",
+    );
+
+    // Newest first by default, then the least sure event first.
+    await expect(images.first()).toHaveAttribute("src", /sure01/);
+    const toggle = page.getByTestId("train-order-toggle");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(images.first()).toHaveAttribute("src", /unsure1/);
+    await expect(images.nth(1)).toHaveAttribute("src", /tiny01/);
+    await expect(images.last()).toHaveAttribute("src", /sure01/);
+  });
 });

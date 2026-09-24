@@ -37,6 +37,9 @@ type SuggestionStatusBarProps = {
   data: ClassificationSuggestionsResponse | undefined;
   groups: Record<string, { filename: string }[]>;
   onRefresh: () => void;
+  /** Whether the grid lists the least sure events first (fork I49). */
+  unsureFirst?: boolean;
+  onUnsureFirst?: (value: boolean) => void;
 };
 
 export default function SuggestionStatusBar({
@@ -44,6 +47,8 @@ export default function SuggestionStatusBar({
   data,
   groups,
   onRefresh,
+  unsureFirst = false,
+  onUnsureFirst,
 }: Readonly<SuggestionStatusBarProps>) {
   const { t } = useTranslation(["fork", "common"]);
   const { data: report } = useSuggestionReport(modelName);
@@ -52,7 +57,7 @@ export default function SuggestionStatusBar({
   const [pending, setPending] = useState(false);
 
   const drafts = useMemo(
-    () => draftsToFile(data?.suggestions, groups),
+    () => draftsToFile(data?.suggestions, groups, data?.too_small),
     [data, groups],
   );
 
@@ -205,9 +210,34 @@ export default function SuggestionStatusBar({
           })}
         </span>
       )}
+      {report?.dataset?.lopsided && (
+        <Link
+          to={`/classification/suggestions/${encodeURIComponent(modelName)}`}
+          className="text-warning"
+          data-testid="suggestion-lopsided"
+        >
+          {t("classificationSuggestions.lopsided", {
+            largest: report.dataset.largest ?? "",
+            smallest: report.dataset.smallest ?? "",
+            ratio: report.dataset.ratio ?? 0,
+          })}
+        </Link>
+      )}
+      {onUnsureFirst && (
+        <Button
+          size="sm"
+          variant={unsureFirst ? "select" : "outline"}
+          className="h-6 px-2 text-xs"
+          aria-pressed={unsureFirst}
+          data-testid="train-order-toggle"
+          onClick={() => onUnsureFirst(!unsureFirst)}
+        >
+          {t("classificationSuggestions.unsureFirst")}
+        </Button>
+      )}
       {drafts.length > 0 && (
         <Button
-          size="xs"
+          size="sm"
           variant="outline"
           className="h-6 px-2 text-xs"
           disabled={pending}

@@ -74,6 +74,38 @@ Auto-filed images are recorded with `auto: true`. They show as their own
 count in the report and the status line and never count toward the kept
 rate, so a class can only earn auto-filing from a person's confirmations.
 
+### What auto-filing skips (I48 to I51)
+
+More images only help when they are varied. Upstream's docs put it as
+"diversity matters far more than volume", so auto-filing also holds back
+when the images would not teach the model anything:
+
+- **Repeats (I48).** The same class from the same camera waits
+  `auto_file.camera_cooldown` seconds (2 hours) between groups and files at
+  most `auto_file.per_camera_daily_limit` (10) groups a day. The owner's own
+  car in the driveway does not fill the class.
+- **Sure images (I49).** Train images the trained model already scored at
+  or above `auto_file.max_model_score` (0.9) as the drafted class are left
+  in the train grid. They confirm what the model knows; the ones it was
+  unsure about are the ones worth filing. The train grid has an
+  "Unsure first" switch that sorts by the same score.
+- **Tiny crops (I50).** Images under 100 px on a side stretch three to
+  seven times when trained. They are never auto-filed, the grid shows a
+  marker instead of a draft when every image of an event is that small,
+  and File-all and the Explore File button leave them out.
+- **Lopsided classes (I51).** A class is never auto-filed past three times
+  the images of the smallest filled class. The report page lists the
+  images per class, and the status line warns when the dataset is already
+  past that ratio.
+
+### Spot check (I52)
+
+The report page lists the latest auto-filed groups nobody has looked at,
+each with its first image, class, camera and time. Keep records an
+accepted draft; Remove deletes the images from the dataset and records a
+rejected one. Both count toward the class's kept rate, so a class that
+keeps failing spot checks loses auto-filing on its own.
+
 ## Model check (I45)
 
 Once the model is trained and applying classes on its own, the background
@@ -99,9 +131,19 @@ sees it.
 
 `/classification/suggestions/{model}` (Report link on the status line)
 shows the report as tables: reviewed drafts and kept rate, auto-filed
-count, model agreement, then by suggested class, camera and source, the
-trained model's classes against the descriptions, and the latest
-disagreements linked to the event in Explore.
+count, model agreement, images added since the last training (I54), then
+images per class (I51), the spot check (I52), by suggested class, camera
+and source, the trained model's classes against the descriptions, and the
+latest disagreements linked to the event in Explore.
+
+## Attribute verdicts in Explore search (I53)
+
+Upstream's `/events/search` and `/events/explore` copy a fixed list of
+`data` keys into their responses, so with a query typed the detail
+dialog showed an attribute-type model's verdict as unset even when the
+event had one. Both endpoints now pass the attribute-type custom models'
+keys through (`frigate/fork/event_data_keys.py`). Filtering by attribute
+already worked; only the display was missing.
 
 ## Better descriptions
 
@@ -140,6 +182,9 @@ recorded.
   `{event_id, category, training_files, source?, score?, suggested_category?}`.
   Moves the files the same way upstream's categorize endpoint does and
   records the confirmation.
+- `POST /classification/{name}/suggestions/spot-check` (admin, I52): body
+  `{event_id, category, files, keep}`. Records the verdict and, with
+  `keep: false`, deletes the files from the dataset.
 - `GET /classification/{name}/suggestions/report` (admin, I42): reads the
   provenance file and returns, overall and per source, suggested class and
   camera, how many drafts were filed unchanged (`total`, `accepted`, `rate`)
@@ -159,6 +204,5 @@ no suggestions request and renders exactly as upstream.
 
 ## Not in this change
 
-Suggestions in Explore's detail dialog, a structured pass through the
-configured description provider instead of Jev, and a page for the report.
-Those build on the same endpoint and file.
+A structured pass through the configured description provider instead of
+Jev. It would build on the same endpoint and file.

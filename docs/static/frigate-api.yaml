@@ -7635,6 +7635,48 @@ paths:
       security:
         - frigateAdminAuth: []
       x-required-role: admin
+  /classification/{name}/suggestions/spot-check:
+    post:
+      tags:
+        - Classification
+      summary: Keep or remove auto-filed images
+      description: |-
+        **Access:** Admin role required.
+
+        Records a person's verdict on a group of images that I44 filed
+            without review. Keep counts as an accepted draft; remove deletes the files
+            from the dataset and counts as a rejected one (fork I52).
+      operationId: 
+        spot_check_suggestion_classification__name__suggestions_spot_check_post
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpotCheckBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /fork/share:
     get:
       tags:
@@ -8203,6 +8245,51 @@ components:
       required:
         - event_id
       title: AudioTranscriptionBody
+    AutoFiledGroupModel:
+      properties:
+        time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Time
+          description: Unix time it was filed
+        event_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Event Id
+        camera:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Camera
+        category:
+          type: string
+          title: Category
+          description: The dataset class
+        source:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Source
+          description: text or jev
+        score:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Score
+        files:
+          items:
+            type: string
+          type: array
+          title: Files
+          description: Dataset file names
+      type: object
+      required:
+        - category
+      title: AutoFiledGroupModel
+      description: One event's images filed without review, for a spot check 
+        (fork I52).
     BatchExportBody:
       properties:
         items:
@@ -8650,6 +8737,15 @@ components:
           type: object
           title: Suggestions
           description: Keyed by event id; ids without an event are omitted
+        too_small:
+          additionalProperties:
+            items:
+              type: string
+            type: array
+          type: object
+          title: Too Small
+          description: Train images under 100 px on a side, keyed by event (fork
+            I50)
       type: object
       required:
         - model
@@ -8722,6 +8818,46 @@ components:
         - message
       title: ConfirmSuggestionResponse
       description: What the confirmation moved.
+    DatasetBalanceModel:
+      properties:
+        classes:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Classes
+          description: Images per dataset class
+        empty:
+          items:
+            type: string
+          type: array
+          title: Empty
+          description: Classes with no images
+        largest:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Largest
+          description: The fullest class
+        smallest:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Smallest
+          description: The emptiest filled class
+        ratio:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Ratio
+          description: largest / smallest
+        lopsided:
+          type: boolean
+          title: Lopsided
+          description: ratio is over 3
+          default: false
+      type: object
+      title: DatasetBalanceModel
+      description: Whether one class dwarfs another (fork I51).
     DayReview:
       properties:
         day:
@@ -8940,6 +9076,12 @@ components:
             - $ref: '#/components/schemas/FiledModel'
             - type: 'null'
           description: What the event was last filed as, if anything
+        too_small:
+          items:
+            type: string
+          type: array
+          title: Too Small
+          description: Train images under 100 px on a side (fork I50)
       type: object
       required:
         - model
@@ -10476,6 +10618,54 @@ components:
         - similarity
       title: SoundResult
       description: A raw suggestion, not a probability.
+    SpotCheckBody:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+          description: The event the images came from
+        category:
+          type: string
+          title: Category
+          description: The dataset class they were filed into
+        files:
+          items:
+            type: string
+          type: array
+          title: Files
+          description: Dataset file names
+        keep:
+          type: boolean
+          title: Keep
+          description: True keeps them, False deletes them
+      type: object
+      required:
+        - event_id
+        - category
+        - keep
+      title: SpotCheckBody
+      description: A person's verdict on a group of auto-filed images (fork 
+        I52).
+    SpotCheckResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        message:
+          type: string
+          title: Message
+        removed:
+          items:
+            type: string
+          type: array
+          title: Removed
+          description: Dataset files deleted
+      type: object
+      required:
+        - success
+        - message
+      title: SpotCheckResponse
+      description: What a spot check removed (fork I52).
     StageResult:
       properties:
         status:
@@ -10677,6 +10867,19 @@ components:
           $ref: '#/components/schemas/ModelCheckModel'
           description: The trained model's verdicts against the drafts (fork 
             I45)
+        dataset:
+          $ref: '#/components/schemas/DatasetBalanceModel'
+          description: Images per class and whether they are lopsided (fork I51)
+        training:
+          $ref: '#/components/schemas/TrainingGapModel'
+          description: Images added since the last training (fork I54)
+        recent_auto_filed:
+          items:
+            $ref: '#/components/schemas/AutoFiledGroupModel'
+          type: array
+          title: Recent Auto Filed
+          description: Auto-filed groups awaiting a spot check, newest first 
+            (fork I52)
       type: object
       required:
         - total
@@ -10698,6 +10901,30 @@ components:
         - arguments
       title: ToolExecuteRequest
       description: Request model for tool execution.
+    TrainingGapModel:
+      properties:
+        has_trained:
+          type: boolean
+          title: Has Trained
+          default: false
+        last_training_date:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Last Training Date
+        current_images:
+          type: integer
+          minimum: 0.0
+          title: Current Images
+          default: 0
+        new_images:
+          type: integer
+          minimum: 0.0
+          title: New Images
+          default: 0
+      type: object
+      title: TrainingGapModel
+      description: Images added since the model was last trained (fork I54).
     TriggerEmbeddingBody:
       properties:
         type:

@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -606,3 +607,256 @@ class TestModelCheck(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDatasetGuards(unittest.TestCase):
+    """The guards that keep auto-filing from making the dataset worse (I48 to I54)."""
+
+    def setUp(self):
+        self.clips = tempfile.mkdtemp()
+        self.name = "vehicle_type"
+        self.train = os.path.join(self.clips, self.name, "train")
+        os.makedirs(self.train)
+
+    def tearDown(self):
+        shutil.rmtree(self.clips, ignore_errors=True)
+
+    def _image(self, folder: str, name: str, size: int = 120) -> None:
+        os.makedirs(folder, exist_ok=True)
+        cv2.imwrite(os.path.join(folder, name), np.zeros((size, size, 3), np.uint8))
+
+    def test_train_file_names_carry_the_model_verdict(self):
+        self.assertEqual(
+            suggest.train_file_verdict("1780.5-abc-1781.0-mail_truck-0.97.webp"),
+            ("mail_truck", 0.97),
+        )
+        self.assertIsNone(suggest.train_file_verdict("odd-name.webp"))
+        self.assertIsNone(suggest.train_file_verdict("a-b-c-d-e.webp"))
+        files = [
+            "e-1-1.0-suv-0.95.webp",
+            "e-1-2.0-suv-0.5.webp",
+            "e-1-3.0-sedan-0.99.webp",
+            "e-1-4.0-unknown-0.0.webp",
+        ]
+        self.assertEqual(
+            suggest.sure_train_files(files, "SUV", 0.9), ["e-1-1.0-suv-0.95.webp"]
+        )
+        self.assertEqual(suggest.sure_train_files(files, "van", 0.9), [])
+
+    def test_train_files_are_grouped_by_event_with_one_listdir(self):
+        for name in ("e-1-1.0-x-0.0.webp", "e-1-2.0-x-0.0.webp", "e-10-1.0-x-0.0.webp"):
+            self._image(self.train, name)
+        self._image(self.train, "not-a-train-file.png")
+        self.assertEqual(
+            suggest.train_files_by_event(self.clips, self.name, ["e-1", "e-2"]),
+            {"e-1": ["e-1-1.0-x-0.0.webp", "e-1-2.0-x-0.0.webp"], "e-2": []},
+        )
+        self.assertEqual(
+            suggest.train_files_by_event(self.clips, "nope", ["e"]), {"e": []}
+        )
+
+    def test_tiny_crops_are_found_by_reading_the_image(self):
+        self._image(self.train, "e-1-1.0-x-0.0.webp", size=120)
+        self._image(self.train, "e-1-2.0-x-0.0.webp", size=99)
+        with open(os.path.join(self.train, "e-1-3.0-x-0.0.webp"), "wb") as f:
+            f.write(b"not an image")
+        files = [
+            "e-1-1.0-x-0.0.webp",
+            "e-1-2.0-x-0.0.webp",
+            "e-1-3.0-x-0.0.webp",
+            "gone",
+        ]
+        self.assertEqual(
+            suggest.too_small_train_files(self.clips, self.name, files),
+            ["e-1-2.0-x-0.0.webp"],
+        )
+        self.assertIsNone(
+            suggest.image_size(os.path.join(self.train, "e-1-3.0-x-0.0.webp"))
+        )
+
+    def test_auto_file_waits_per_camera(self):
+        now = 1_000_000.0
+        entries = [
+            {"auto": True, "camera": "front", "category": "suv", "time": now - 600},
+            {"auto": True, "camera": "front", "category": "suv", "time": now - 90_000},
+            {"auto": False, "camera": "front", "category": "suv", "time": now - 10},
+            {"auto": True, "camera": "front", "category": "van", "time": now - 10},
+            {"auto": True, "camera": "front", "category": "suv"},
+        ]
+        wait = suggest.auto_file_wait
+        self.assertEqual(wait(entries, "suv", "front", now, 3600, 10), "cooldown")
+        self.assertIsNone(wait(entries, "suv", "front", now, 300, 10))
+        self.assertEqual(wait(entries, "suv", "front", now, 300, 1), "daily_limit")
+        self.assertIsNone(wait(entries, "suv", "side", now, 3600, 1))
+        self.assertIsNone(wait(entries, "sedan", "front", now, 3600, 1))
+
+    def test_dataset_balance_flags_a_class_over_three_times_the_smallest(self):
+        dataset = os.path.join(self.clips, self.name, "dataset")
+        for i in range(7):
+            self._image(os.path.join(dataset, "suv"), f"suv-{i}.png", size=8)
+        for i in range(2):
+            self._image(os.path.join(dataset, "sedan"), f"sedan-{i}.png", size=8)
+        os.makedirs(os.path.join(dataset, "none"))
+        with open(os.path.join(dataset, "suv", "notes.txt"), "w") as f:
+            f.write("ignored")
+        counts = suggest.dataset_counts(self.clips, self.name)
+        self.assertEqual(counts, {"none": 0, "sedan": 2, "suv": 7})
+        balance = suggest.dataset_balance(counts)
+        self.assertEqual(
+            balance,
+            {
+                "classes": counts,
+                "empty": ["none"],
+                "largest": "suv",
+                "smallest": "sedan",
+                "ratio": 3.5,
+                "lopsided": True,
+            },
+        )
+        self.assertFalse(suggest.dataset_balance({"a": 3, "b": 1})["lopsided"])
+        self.assertIsNone(suggest.dataset_balance({"a": 3})["ratio"])
+        self.assertEqual(suggest.dataset_counts(self.clips, "nope"), {})
+        self.assertTrue(suggest.would_unbalance({"a": 3, "b": 1}, "a", 1))
+        self.assertFalse(suggest.would_unbalance({"a": 3, "b": 1}, "b", 1))
+        self.assertFalse(suggest.would_unbalance({"a": 1, "b": 1}, "a", 2))
+        self.assertFalse(suggest.would_unbalance({}, "a", 5), "nothing to compare")
+
+    def test_training_gap_reads_upstream_metadata(self):
+        counts = {"suv": 4, "sedan": 3}
+        self.assertEqual(
+            suggest.training_gap(self.clips, self.name, counts),
+            {
+                "has_trained": False,
+                "last_training_date": None,
+                "current_images": 7,
+                "new_images": 7,
+            },
+        )
+        path = os.path.join(self.clips, self.name, suggest.TRAINING_METADATA_FILE)
+        with open(path, "w") as f:
+            json.dump(
+                {
+                    "last_training_date": "2026-09-20T10:00:00",
+                    "last_training_image_count": 5,
+                },
+                f,
+            )
+        gap = suggest.training_gap(self.clips, self.name, counts)
+        self.assertEqual((gap["has_trained"], gap["new_images"]), (True, 2))
+        self.assertEqual(gap["last_training_date"], "2026-09-20T10:00:00")
+        with open(path, "w") as f:
+            f.write("{broken")
+        self.assertFalse(
+            suggest.training_gap(self.clips, self.name, counts)["has_trained"]
+        )
+
+    def test_spot_check_lists_unchecked_auto_files_and_records_the_verdict(self):
+        dataset = os.path.join(self.clips, self.name, "dataset", "suv")
+        for name in ("suv-a.png", "suv-b.png", "suv-c.png"):
+            self._image(dataset, name, size=8)
+        record = suggest.record_confirmation
+        record(
+            self.clips,
+            self.name,
+            {
+                "event_id": "e-1",
+                "camera": "front",
+                "category": "suv",
+                "suggested_category": "suv",
+                "source": "jev",
+                "score": 0.97,
+                "accepted": True,
+                "auto": True,
+                "description_sha256": "abc",
+                "files": ["suv-a.png", "suv-b.png"],
+            },
+        )
+        record(
+            self.clips,
+            self.name,
+            {
+                "event_id": "e-2",
+                "category": "suv",
+                "suggested_category": "suv",
+                "accepted": True,
+                "auto": True,
+                "files": ["gone.png"],
+            },
+        )
+        record(
+            self.clips,
+            self.name,
+            {
+                "event_id": "e-3",
+                "category": "suv",
+                "suggested_category": "suv",
+                "accepted": True,
+                "auto": True,
+                "files": ["suv-c.png"],
+            },
+        )
+        record(
+            self.clips,
+            self.name,
+            {
+                "event_id": "e-4",
+                "category": "suv",
+                "suggested_category": "suv",
+                "accepted": True,
+                "files": ["suv-c.png"],
+            },
+        )
+        entries = suggest.read_provenance(self.clips, self.name)
+        recent = suggest.recent_auto_filed(self.clips, self.name, entries)
+        self.assertEqual(
+            [r["event_id"] for r in recent],
+            ["e-3", "e-1"],
+            "newest first, files on disk only",
+        )
+        self.assertEqual(recent[1]["files"], ["suv-a.png", "suv-b.png"])
+        self.assertEqual(recent[1]["source"], "jev")
+        self.assertEqual(
+            suggest.recent_auto_filed(self.clips, self.name, entries, limit=1)[0][
+                "event_id"
+            ],
+            "e-3",
+        )
+
+        self.assertEqual(
+            suggest.spot_check(
+                self.clips, self.name, "e-3", "suv", ["suv-c.png"], True
+            ),
+            [],
+        )
+        self.assertTrue(os.path.isfile(os.path.join(dataset, "suv-c.png")))
+        removed = suggest.spot_check(
+            self.clips,
+            self.name,
+            "e-1",
+            "suv",
+            ["suv-a.png", "suv-b.png", "missing.png"],
+            False,
+        )
+        self.assertEqual(removed, ["suv-a.png", "suv-b.png"])
+        self.assertEqual(sorted(os.listdir(dataset)), ["suv-c.png"])
+
+        entries = suggest.read_provenance(self.clips, self.name)
+        self.assertEqual(suggest.recent_auto_filed(self.clips, self.name, entries), [])
+        kept, rejected = entries[-2], entries[-1]
+        self.assertEqual(
+            (kept["accepted"], kept["category"], kept["spot_check"]),
+            (True, "suv", True),
+        )
+        self.assertEqual((rejected["accepted"], rejected["category"]), (False, None))
+        self.assertEqual(
+            (rejected["source"], rejected["score"], rejected["camera"]),
+            ("jev", 0.97, "front"),
+        )
+        self.assertEqual(rejected["description_sha256"], "abc")
+        # Both verdicts count as reviewed drafts of the class, so a class that
+        # keeps failing its spot checks loses its auto-file rate.
+        self.assertEqual(suggest.kept_rate(entries, "suv"), (2 / 3, 3))
+        with self.assertRaises(ValueError):
+            suggest.spot_check(self.clips, self.name, "e", "suv", [""], False)
+        with self.assertRaises(ValueError):
+            suggest.spot_check(self.clips, self.name, "e", "..", ["x.png"], False)

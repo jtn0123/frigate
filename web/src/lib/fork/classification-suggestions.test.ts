@@ -9,6 +9,10 @@ import {
   suggestionsKey,
   type EventSuggestion,
   type Suggestion,
+  datasetImagePath,
+  groupScore,
+  orderGroups,
+  usableFiles,
 } from "./classification-suggestions";
 
 const JEV: Suggestion = {
@@ -103,6 +107,61 @@ describe("classification suggestions", () => {
     ).toEqual([
       { eventId: "a", files: ["a-1.webp", "a-2.webp"], suggestion: JEV },
     ]);
+  });
+
+  it("leaves crops too small to train on out of file-all (fork I50)", () => {
+    const entry: EventSuggestion = {
+      text: null,
+      jev: JEV,
+      jev_status: "answered",
+      suggestion: JEV,
+      conflict: false,
+    };
+    const groups = {
+      a: [{ filename: "a-1.webp" }, { filename: "a-2.webp" }],
+      b: [{ filename: "b-1.webp" }],
+    };
+    expect(usableFiles(["x", "y"], undefined)).toEqual(["x", "y"]);
+    expect(usableFiles(["x", "y"], [])).toEqual(["x", "y"]);
+    expect(usableFiles(["x", "y"], ["y"])).toEqual(["x"]);
+    expect(
+      draftsToFile({ a: entry, b: entry }, groups, {
+        a: ["a-2.webp"],
+        b: ["b-1.webp"],
+      }),
+    ).toEqual([{ eventId: "a", files: ["a-1.webp"], suggestion: JEV }]);
+  });
+
+  it("orders the least sure events first when asked (fork I49)", () => {
+    const groups = {
+      newest: [{ score: 0.95 }, { score: 0.6 }],
+      middle: [{ score: Number.NaN }],
+      oldest: [{ score: 0.6 }],
+    };
+    expect(groupScore(groups.newest)).toBe(0.95);
+    expect(groupScore(groups.middle)).toBe(0);
+    expect(groupScore([])).toBe(0);
+    expect(orderGroups(groups, false).map(([id]) => id)).toEqual([
+      "newest",
+      "middle",
+      "oldest",
+    ]);
+    expect(orderGroups(groups, true).map(([id]) => id)).toEqual([
+      "middle",
+      "oldest",
+      "newest",
+    ]);
+    expect(
+      orderGroups({ a: [{ score: 0.5 }], b: [{ score: 0.5 }] }, true).map(
+        ([id]) => id,
+      ),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("builds the dataset image path (fork I52)", () => {
+    expect(datasetImagePath("vehicle_type", "mail truck", "a b.png")).toBe(
+      "clips/vehicle_type/dataset/mail%20truck/a%20b.png",
+    );
   });
 
   it("rounds a score to a whole percent and has none for text", () => {
