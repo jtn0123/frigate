@@ -311,6 +311,13 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
                 "cameras": {},
                 "first_time": None,
                 "last_time": None,
+                "model_check": {
+                    "total": 0,
+                    "accepted": 0,
+                    "rate": None,
+                    "classes": {},
+                    "recent_disagreements": [],
+                },
             },
         )
         for category, training_file in (

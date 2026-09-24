@@ -1,4 +1,4 @@
-"""Fork (I43, I44): draft a class as soon as a description arrives.
+"""Fork (I43, I44, I45): draft a class as soon as a description arrives.
 
 The train grid asks on demand, so the first time it opened a week of train
 images could be waiting on one day's budget. This worker asks once per
@@ -6,7 +6,8 @@ description as it is written and stores the answer in the same cache the
 grid reads, so the grid finds its answers already there and the daily limit
 is spent evenly over the day. When auto-filing is on, a draft that text and
 Jev agree on is filed here too, once people have kept that class often
-enough (I44).
+enough (I44), and the trained model's own verdict for the event is compared
+with the draft so a drifting model shows up in the report (I45).
 """
 
 import asyncio
@@ -22,6 +23,7 @@ import aiohttp
 from frigate.config import FrigateConfig
 from frigate.const import CLIPS_DIR
 from frigate.fork import classification_suggestions as suggest
+from frigate.models import Event
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +125,58 @@ class SuggestionPrefetch(threading.Thread):
                 results[name] = drafts[job["id"]]
         for name, draft in results.items():
             await asyncio.to_thread(self.auto_file, job, name, draft)
+            await asyncio.to_thread(self.check_model, job, name, draft)
         return results
+
+    def load_event(self, event_id: str) -> dict[str, Any] | None:
+        """The event row's verdict fields, or None when it is gone."""
+        row = (
+            Event.select(Event.sub_label, Event.data)
+            .where(Event.id == event_id)
+            .dicts()
+            .first()
+        )
+        return dict(row) if row else None
+
+    def check_model(
+        self, job: DescriptionJob, name: str, draft: suggest.EventSuggestion
+    ) -> bool | None:
+        """Record whether the trained model agreed with the draft (I45).
+
+        Returns:
+            True or False when both had an answer, None when nothing was recorded
+        """
+        suggestion = draft["suggestion"]
+        model = self.config.classification.custom.get(name)
+        if suggestion is None or model is None or model.object_config is None:
+            return None
+        event = self.load_event(job["id"])
+        if event is None:
+            return None
+        classes = suggest.dataset_classes(self.clips_dir, name)
+        said = suggest.model_verdict(
+            name, model.object_config.classification_type.value, classes, event
+        )
+        if said is None:
+            return None
+        agree = suggest.normalize_class(said) == suggest.normalize_class(
+            suggestion["category"]
+        )
+        suggest.record_model_check(
+            self.clips_dir,
+            name,
+            {
+                "event_id": job["id"],
+                "camera": job["camera"],
+                "model_said": said,
+                "draft": suggestion["category"],
+                "source": suggestion["source"],
+                "score": suggestion["score"],
+                "agree": agree,
+                "description_sha256": suggest.description_sha256(job["description"]),
+            },
+        )
+        return agree
 
     def auto_file(
         self, job: DescriptionJob, name: str, draft: suggest.EventSuggestion

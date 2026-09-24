@@ -147,6 +147,47 @@ export default function SuggestionStatusBar({
           </TooltipContent>
         </Tooltip>
       )}
+      {report?.model_check &&
+        report.model_check.total > 0 &&
+        report.model_check.rate != null && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                data-testid="suggestion-model-check"
+                className="cursor-default"
+              >
+                {t("classificationSuggestions.modelAgrees", {
+                  rate: Math.round(report.model_check.rate * 100),
+                  count: report.model_check.total,
+                })}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-80">
+              {Object.entries(report.model_check.classes).map(
+                ([category, stats]) => (
+                  <div key={category} className="smart-capitalize">
+                    {t("classificationSuggestions.modelClass", {
+                      category,
+                      rate: Math.round((stats.rate ?? 0) * 100),
+                      count: stats.total,
+                    })}
+                    {Object.keys(stats.corrected_to).length > 0 && (
+                      <span className="text-secondary-foreground">
+                        {" "}
+                        {t("classificationSuggestions.descriptionSaid", {
+                          list: Object.entries(stats.corrected_to)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([other, n]) => `${other} ${n}`)
+                            .join(", "),
+                        })}
+                      </span>
+                    )}
+                  </div>
+                ),
+              )}
+            </TooltipContent>
+          </Tooltip>
+        )}
       {report && (report.auto_filed ?? 0) > 0 && (
         <span data-testid="suggestion-auto-filed">
           {t("classificationSuggestions.autoFiled", {

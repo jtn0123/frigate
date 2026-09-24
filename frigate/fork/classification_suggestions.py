@@ -40,6 +40,8 @@ MAX_DESCRIPTION = 4000
 MAX_EVENTS = 100
 UNKNOWN = "unknown"
 PROVENANCE_FILE = ".fork_provenance.jsonl"
+MODEL_CHECK_FILE = ".fork_model_checks.jsonl"
+RECENT_DISAGREEMENTS = 20
 API_KEY_VARS = ("FRIGATE_JEV_API_KEY", "OPENROUTER_API_KEY")
 
 JEV_INSTRUCTIONS = (
@@ -689,22 +691,20 @@ def categorize_train_files(
     return moved
 
 
-def record_confirmation(clips_dir: str, name: str, entry: dict[str, Any]) -> None:
-    """Append what was confirmed and why beside the dataset, one JSON line."""
+def _append_line(clips_dir: str, name: str, file: str, entry: dict[str, Any]) -> None:
     folder = safe_join(clips_dir, name)
     if folder is None:
         raise ValueError("Invalid model name")
     os.makedirs(folder, exist_ok=True)
-    with open(os.path.join(folder, PROVENANCE_FILE), "a", encoding="utf-8") as f:
+    with open(os.path.join(folder, file), "a", encoding="utf-8") as f:
         f.write(json.dumps({"time": time.time(), **entry}, sort_keys=True) + "\n")
 
 
-def read_provenance(clips_dir: str, name: str) -> list[dict[str, Any]]:
-    """Read every confirmation recorded for a model, skipping damaged lines."""
+def _read_lines(clips_dir: str, name: str, file: str) -> list[dict[str, Any]]:
     folder = safe_join(clips_dir, name)
     if folder is None:
         return []
-    path = os.path.join(folder, PROVENANCE_FILE)
+    path = os.path.join(folder, file)
     if not os.path.isfile(path):
         return []
     entries = []
@@ -717,6 +717,91 @@ def read_provenance(clips_dir: str, name: str) -> list[dict[str, Any]]:
             if isinstance(entry, dict):
                 entries.append(entry)
     return entries
+
+
+def record_confirmation(clips_dir: str, name: str, entry: dict[str, Any]) -> None:
+    """Append what was confirmed and why beside the dataset, one JSON line."""
+    _append_line(clips_dir, name, PROVENANCE_FILE, entry)
+
+
+def read_provenance(clips_dir: str, name: str) -> list[dict[str, Any]]:
+    """Read every confirmation recorded for a model, skipping damaged lines."""
+    return _read_lines(clips_dir, name, PROVENANCE_FILE)
+
+
+def record_model_check(clips_dir: str, name: str, entry: dict[str, Any]) -> None:
+    """Append one comparison of the model's verdict with the draft (I45)."""
+    _append_line(clips_dir, name, MODEL_CHECK_FILE, entry)
+
+
+def read_model_checks(clips_dir: str, name: str) -> list[dict[str, Any]]:
+    """Read every model check recorded for a model, skipping damaged lines."""
+    return _read_lines(clips_dir, name, MODEL_CHECK_FILE)
+
+
+def model_verdict(
+    name: str, classification_type: str, classes: list[str], event: dict[str, Any]
+) -> str | None:
+    """What the trained model called this event, if it named one of its classes.
+
+    Sub-label models write the event's sub_label; attribute models write
+    ``data[<model name>]``. Anything else there (a face, a plate, an older
+    class) is not this model's verdict and is ignored.
+    """
+    if classification_type == "attribute":
+        data = event.get("data")
+        value = data.get(name) if isinstance(data, dict) else None
+    else:
+        value = event.get("sub_label")
+    if not isinstance(value, str) or not value:
+        return None
+    wanted = normalize_class(value)
+    for candidate in candidate_classes(classes):
+        if normalize_class(candidate) == wanted:
+            return candidate
+    return None
+
+
+def summarize_model_checks(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """How often the trained model's verdict matched the description's draft.
+
+    Args:
+        entries: Lines of the model check file, as read by read_model_checks
+
+    Returns:
+        Totals overall and per verdict, with what the description said
+        instead, plus the latest disagreements
+    """
+    overall: dict[str, Any] = {"total": 0, "accepted": 0}
+    classes: dict[str, dict[str, Any]] = {}
+    disagreements: list[dict[str, Any]] = []
+    for entry in entries:
+        said = entry.get("model_said")
+        draft = entry.get("draft")
+        if not isinstance(said, str) or not isinstance(draft, str):
+            continue
+        agree = bool(entry.get("agree"))
+        _tally(overall, agree)
+        by_class = classes.setdefault(
+            said, {"total": 0, "accepted": 0, "corrected_to": {}}
+        )
+        _tally(by_class, agree)
+        if not agree:
+            by_class["corrected_to"][draft] = by_class["corrected_to"].get(draft, 0) + 1
+            disagreements.append(
+                {
+                    "time": entry.get("time"),
+                    "event_id": entry.get("event_id"),
+                    "camera": entry.get("camera"),
+                    "model_said": said,
+                    "draft": draft,
+                }
+            )
+    return {
+        **_rate(overall),
+        "classes": {k: _rate(v) for k, v in sorted(classes.items())},
+        "recent_disagreements": disagreements[-RECENT_DISAGREEMENTS:][::-1],
+    }
 
 
 def train_files_for_event(clips_dir: str, name: str, event_id: str) -> list[str]:

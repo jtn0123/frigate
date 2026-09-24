@@ -49,8 +49,23 @@ export type ClassAcceptance = Acceptance & {
   auto_filed?: number;
 };
 
+export type Disagreement = {
+  time: number | null;
+  event_id: string | null;
+  camera: string | null;
+  model_said: string;
+  draft: string;
+};
+
+/** The trained model's verdicts against the drafts (fork I45). */
+export type ModelCheck = Acceptance & {
+  classes: Record<string, ClassAcceptance>;
+  recent_disagreements: Disagreement[];
+};
+
 /** The acceptance report over the provenance file (fork I42). */
 export type SuggestionReport = Acceptance & {
+  model_check?: ModelCheck;
   model: string;
   /** Images filed without review (fork I44), kept out of the rate. */
   auto_filed?: number;

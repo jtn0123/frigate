@@ -8821,6 +8821,41 @@ components:
       required:
         - ids
       title: DeleteFaceImagesBody
+    DisagreementModel:
+      properties:
+        time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Time
+          description: Unix time of the check
+        event_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Event Id
+          description: The event
+        camera:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Camera
+          description: The camera
+        model_said:
+          type: string
+          title: Model Said
+          description: The trained model's class
+        draft:
+          type: string
+          title: Draft
+          description: The class the description supported
+      type: object
+      required:
+        - model_said
+        - draft
+      title: DisagreementModel
+      description: One event where the trained model and the description 
+        disagreed.
     EventCreateResponse:
       properties:
         success:
@@ -9797,6 +9832,45 @@ components:
           default: false
       type: object
       title: MediaSyncBody
+    ModelCheckModel:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          description: Events checked
+          default: 0
+        accepted:
+          type: integer
+          minimum: 0.0
+          title: Accepted
+          description: Events where both agreed
+          default: 0
+        rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Rate
+          description: accepted / total, or none without data
+        classes:
+          additionalProperties:
+            $ref: '#/components/schemas/ClassAcceptanceModel'
+          type: object
+          title: Classes
+          description: Keyed by the model's class; corrected_to is what the 
+            description said instead
+        recent_disagreements:
+          items:
+            $ref: '#/components/schemas/DisagreementModel'
+          type: array
+          title: Recent Disagreements
+          description: Latest disagreements, newest first
+      type: object
+      title: ModelCheckModel
+      description: |-
+        How often the trained model agreed with the description (fork I45).
+
+        ``accepted`` counts agreements here.
     MotionSearchMetricsResponse:
       properties:
         segments_scanned:
@@ -10492,6 +10566,10 @@ components:
             - type: 'null'
           title: Last Time
           description: Unix time of the latest confirmation
+        model_check:
+          $ref: '#/components/schemas/ModelCheckModel'
+          description: The trained model's verdicts against the drafts (fork 
+            I45)
       type: object
       required:
         - total

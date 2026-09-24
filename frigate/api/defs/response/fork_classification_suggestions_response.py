@@ -84,6 +84,33 @@ class ClassAcceptanceModel(AcceptanceModel):
     )
 
 
+class DisagreementModel(BaseModel):
+    """One event where the trained model and the description disagreed."""
+
+    time: float | None = Field(default=None, description="Unix time of the check")
+    event_id: str | None = Field(default=None, description="The event")
+    camera: str | None = Field(default=None, description="The camera")
+    model_said: str = Field(description="The trained model's class")
+    draft: str = Field(description="The class the description supported")
+
+
+class ModelCheckModel(AcceptanceModel):
+    """How often the trained model agreed with the description (fork I45).
+
+    ``accepted`` counts agreements here.
+    """
+
+    total: int = Field(default=0, description="Events checked", ge=0)
+    accepted: int = Field(default=0, description="Events where both agreed", ge=0)
+    classes: dict[str, ClassAcceptanceModel] = Field(
+        default_factory=dict,
+        description="Keyed by the model's class; corrected_to is what the description said instead",
+    )
+    recent_disagreements: list[DisagreementModel] = Field(
+        default_factory=list, description="Latest disagreements, newest first"
+    )
+
+
 class SuggestionReportResponse(AcceptanceModel):
     """Acceptance of the drafts recorded for one model (fork I42)."""
 
@@ -105,4 +132,8 @@ class SuggestionReportResponse(AcceptanceModel):
     )
     last_time: float | None = Field(
         default=None, description="Unix time of the latest confirmation"
+    )
+    model_check: ModelCheckModel = Field(
+        default_factory=ModelCheckModel,
+        description="The trained model's verdicts against the drafts (fork I45)",
     )

@@ -4960,6 +4960,37 @@ export interface components {
              */
             ids: string[];
         };
+        /**
+         * DisagreementModel
+         * @description One event where the trained model and the description disagreed.
+         */
+        DisagreementModel: {
+            /**
+             * Time
+             * @description Unix time of the check
+             */
+            time?: number | null;
+            /**
+             * Event Id
+             * @description The event
+             */
+            event_id?: string | null;
+            /**
+             * Camera
+             * @description The camera
+             */
+            camera?: string | null;
+            /**
+             * Model Said
+             * @description The trained model's class
+             */
+            model_said: string;
+            /**
+             * Draft
+             * @description The class the description supported
+             */
+            draft: string;
+        };
         /** EventCreateResponse */
         EventCreateResponse: {
             /** Success */
@@ -5655,6 +5686,43 @@ export interface components {
             verbose: boolean;
         };
         /**
+         * ModelCheckModel
+         * @description How often the trained model agreed with the description (fork I45).
+         *
+         *     ``accepted`` counts agreements here.
+         */
+        ModelCheckModel: {
+            /**
+             * Total
+             * @description Events checked
+             * @default 0
+             */
+            total: number;
+            /**
+             * Accepted
+             * @description Events where both agreed
+             * @default 0
+             */
+            accepted: number;
+            /**
+             * Rate
+             * @description accepted / total, or none without data
+             */
+            rate?: number | null;
+            /**
+             * Classes
+             * @description Keyed by the model's class; corrected_to is what the description said instead
+             */
+            classes?: {
+                [key: string]: components["schemas"]["ClassAcceptanceModel"];
+            };
+            /**
+             * Recent Disagreements
+             * @description Latest disagreements, newest first
+             */
+            recent_disagreements?: components["schemas"]["DisagreementModel"][];
+        };
+        /**
          * MotionSearchMetricsResponse
          * @description Metrics collected during motion search execution.
          */
@@ -6210,6 +6278,8 @@ export interface components {
              * @description Unix time of the latest confirmation
              */
             last_time?: number | null;
+            /** @description The trained model's verdicts against the drafts (fork I45) */
+            model_check?: components["schemas"]["ModelCheckModel"];
         };
         /**
          * ToolExecuteRequest

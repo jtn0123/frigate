@@ -541,5 +541,68 @@ class TestSummarizeProvenance(unittest.TestCase):
         self.assertEqual(list(report["sources"]), ["none"])
 
 
+class TestModelCheck(unittest.TestCase):
+    def test_verdict_comes_from_the_right_field_and_must_be_a_class(self):
+        classes = ["sedan", "suv", "none"]
+        row = {"sub_label": "SUV", "data": {"vehicle_type": "sedan"}}
+        self.assertEqual(
+            suggest.model_verdict("vehicle_type", "sub_label", classes, row), "suv"
+        )
+        self.assertEqual(
+            suggest.model_verdict("vehicle_type", "attribute", classes, row), "sedan"
+        )
+        self.assertIsNone(
+            suggest.model_verdict(
+                "vehicle_type", "sub_label", classes, {"sub_label": "Bob"}
+            )
+        )
+        self.assertIsNone(
+            suggest.model_verdict("vehicle_type", "attribute", classes, {"data": None})
+        )
+        self.assertIsNone(
+            suggest.model_verdict(
+                "vehicle_type", "sub_label", classes, {"sub_label": "none"}
+            )
+        )
+
+    def test_summary_counts_agreement_and_lists_disagreements_newest_first(self):
+        entries = [
+            {
+                "time": 1,
+                "event_id": "a",
+                "camera": "yard",
+                "model_said": "suv",
+                "draft": "suv",
+                "agree": True,
+            },
+            {
+                "time": 2,
+                "event_id": "b",
+                "camera": "yard",
+                "model_said": "suv",
+                "draft": "sedan",
+                "agree": False,
+            },
+            {
+                "time": 3,
+                "event_id": "c",
+                "camera": "door",
+                "model_said": "van",
+                "draft": "suv",
+                "agree": False,
+            },
+            {"garbage": True},
+        ]
+        report = suggest.summarize_model_checks(entries)
+        self.assertEqual((report["total"], report["accepted"]), (3, 1))
+        self.assertEqual(report["classes"]["suv"]["corrected_to"], {"sedan": 1})
+        self.assertEqual(report["classes"]["suv"]["rate"], 0.5)
+        self.assertEqual(
+            [d["event_id"] for d in report["recent_disagreements"]], ["c", "b"]
+        )
+        self.assertEqual(report["recent_disagreements"][0]["model_said"], "van")
+        self.assertEqual(suggest.summarize_model_checks([])["rate"], None)
+
+
 if __name__ == "__main__":
     unittest.main()

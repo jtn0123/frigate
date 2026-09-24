@@ -63,6 +63,13 @@ class TestSuggestionPrefetch(unittest.TestCase):
             os.makedirs(os.path.join(self.clips, "vehicle_type", "dataset", name))
         os.makedirs(os.path.join(self.clips, "empty_model", "dataset"))
         self.asked: list[dict] = []
+        # No database in these tests: the model check sees no event unless a
+        # test says otherwise.
+        no_event = patch.object(
+            prefetch.SuggestionPrefetch, "load_event", return_value=None
+        )
+        no_event.start()
+        self.addCleanup(no_event.stop)
 
     def tearDown(self):
         shutil.rmtree(self.root, ignore_errors=True)
@@ -253,6 +260,25 @@ class TestSuggestionPrefetch(unittest.TestCase):
             ["evt-1-1.0-unknown-0.0.webp", "evt-1-2.0-unknown-0.0.webp"],
         )
         self.assertIsNone(json.loads(json.dumps(suggest.sure_draft(None, None))))
+
+    def test_check_model_records_agreement_with_the_trained_model(self):
+        worker = self.worker()
+        with patch.object(worker, "load_event", return_value=None):
+            self._process(worker)
+        self.assertEqual(suggest.read_model_checks(self.clips, "vehicle_type"), [])
+
+        with patch.object(worker, "load_event", return_value={"sub_label": "sedan"}):
+            self._process(worker)
+        with patch.object(worker, "load_event", return_value={"sub_label": "suv"}):
+            self._process(worker)
+        with patch.object(worker, "load_event", return_value={"sub_label": "Bob"}):
+            self._process(worker)
+        checks = suggest.read_model_checks(self.clips, "vehicle_type")
+        self.assertEqual([c["agree"] for c in checks], [False, True])
+        self.assertEqual(checks[0]["model_said"], "sedan")
+        self.assertEqual(checks[0]["draft"], "suv")
+        self.assertEqual(checks[0]["event_id"], "evt-1")
+        self.assertNotIn("white SUV", json.dumps(checks), "never the text itself")
 
     def test_queue_full_is_reported_not_raised(self):
         with patch.object(prefetch, "QUEUE_SIZE", 1):

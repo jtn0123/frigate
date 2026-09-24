@@ -74,6 +74,32 @@ Auto-filed images are recorded with `auto: true`. They show as their own
 count in the report and the status line and never count toward the kept
 rate, so a class can only earn auto-filing from a person's confirmations.
 
+## Model check (I45)
+
+Once the model is trained and applying classes on its own, the background
+worker compares its verdict for each described event with the draft and
+appends `agree: true|false` to `.fork_model_checks.jsonl` beside the
+dataset. The report's `model_check` block gives the agreement rate, per
+class what the description said instead, and the latest disagreements,
+and the status line shows the rate. A class whose rate keeps falling is
+the one to retrain. Only class names, ids and a hash of the text are
+stored.
+
+## Better descriptions
+
+The drafts can only be as good as the descriptions. A camera prompt that
+is about packages or people gives thin vehicle text. One line added to
+that camera's `objects.genai.object_prompts.car` (or `prompt`) raises the
+hit rate for both the text match and Jev:
+
+```
+If the object is a vehicle, name its body type (sedan, SUV, pickup, van),
+its color, and any company name or logo on it.
+```
+
+On one owner's server, whose prompt asks about packages, 45% of car
+descriptions got a draft and most of the rest named no body type at all.
+
 ## What is recorded
 
 Every Confirm, and every picker choice on a card with a draft, appends one

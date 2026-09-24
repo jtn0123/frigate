@@ -129,6 +129,20 @@ describe("SuggestionStatusBar", () => {
       cameras: {},
       first_time: 1,
       last_time: 2,
+      model_check: {
+        total: 40,
+        accepted: 36,
+        rate: 0.9,
+        classes: {
+          suv: {
+            total: 40,
+            accepted: 36,
+            rate: 0.9,
+            corrected_to: { sedan: 4 },
+          },
+        },
+        recent_disagreements: [],
+      },
     };
     render(
       <TooltipProvider>
@@ -145,6 +159,9 @@ describe("SuggestionStatusBar", () => {
     expect(bar).toHaveTextContent('kept:{"rate":85,"count":20}');
     expect(screen.getByTestId("suggestion-auto-filed")).toHaveTextContent(
       'autoFiled:{"count":3}',
+    );
+    expect(screen.getByTestId("suggestion-model-check")).toHaveTextContent(
+      'modelAgrees:{"rate":90,"count":40}',
     );
 
     fireEvent.pointerMove(screen.getByTestId("suggestion-kept"));

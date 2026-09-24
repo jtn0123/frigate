@@ -244,6 +244,11 @@ async def suggestion_report(request: Request, name: str) -> JSONResponse:
     if name not in config.classification.custom:
         return unknown_model(name)
     entries = await asyncio.to_thread(suggest.read_provenance, CLIPS_DIR, name)
+    checks = await asyncio.to_thread(suggest.read_model_checks, CLIPS_DIR, name)
     return JSONResponse(
-        content={"model": name, **suggest.summarize_provenance(entries)}
+        content={
+            "model": name,
+            **suggest.summarize_provenance(entries),
+            "model_check": suggest.summarize_model_checks(checks),
+        }
     )
