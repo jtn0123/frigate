@@ -45,7 +45,7 @@ function eventSuggestions(eventId: string, filed: boolean) {
 }
 
 test.describe("Explore suggestion (fork I46)", () => {
-  test("shows the draft, the model's answer, and files in one click", async ({
+  test("shows the draft, the model's answer, and files in one click @mobile", async ({
     frigateApp,
   }) => {
     const { page } = frigateApp;
@@ -55,15 +55,13 @@ test.describe("Explore suggestion (fork I46)", () => {
     await frigateApp.installDefaults({
       config: { classification: { custom: CUSTOM_MODELS } },
     });
-    await page.route(
-      /\/api\/classification\/suggestions\/event\/([^/?]+)/,
-      (route) => {
-        const id = decodeURIComponent(
-          route.request().url().split("/suggestions/event/")[1].split("?")[0],
-        );
-        return route.fulfill({ json: eventSuggestions(id, filed) });
-      },
-    );
+    const eventRoute = /\/api\/classification\/suggestions\/event\/([^/?]+)/;
+    await page.route(eventRoute, (route) => {
+      const id = decodeURIComponent(
+        eventRoute.exec(route.request().url())?.[1] ?? "",
+      );
+      return route.fulfill({ json: eventSuggestions(id, filed) });
+    });
     await page.route(
       new RegExp(`/api/classification/${MODEL}/suggestions/confirm`),
       (route) => {
@@ -111,7 +109,10 @@ test.describe("Explore suggestion (fork I46)", () => {
       return route.fulfill({ json: eventSuggestions("x", false) });
     });
     await page.addInitScript(() => {
-      localStorage.frigateFork = '{"classificationSuggestions":false}';
+      window.localStorage.setItem(
+        "frigateFork",
+        JSON.stringify({ classificationSuggestions: false }),
+      );
     });
     await frigateApp.goto("/explore?labels=car");
     const firstResult = page.locator("[data-start]").first();

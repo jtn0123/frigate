@@ -48,7 +48,7 @@ const REPORT = {
 };
 
 test.describe("Suggestion report page (fork I47)", () => {
-  test("lays the report out as tables with Explore links", async ({
+  test("lays the report out as tables with Explore links @mobile", async ({
     frigateApp,
   }) => {
     const { page } = frigateApp;

@@ -201,7 +201,7 @@ export default function SuggestionStatusBar({
       {report && (report.auto_filed ?? 0) > 0 && (
         <span data-testid="suggestion-auto-filed">
           {t("classificationSuggestions.autoFiled", {
-            count: report.auto_filed,
+            count: report.auto_filed ?? 0,
           })}
         </span>
       )}
