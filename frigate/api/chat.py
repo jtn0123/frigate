@@ -862,13 +862,12 @@ def _create_export_in_thread(
         if "admin" not in _request_roles(request):
             return {"error": "Only admins can attach exports to an existing case."}
         try:
-            await asyncio.to_thread(ExportCase.get, ExportCase.id == export_case_id)
+            ExportCase.get(ExportCase.id == export_case_id)
         except ExportCase.DoesNotExist:
             return {"error": f"Export case '{export_case_id}' not found."}
 
-    # peewee queries block, so they run off the event loop (G3)
-    source_error = await asyncio.to_thread(
-        _validate_export_source, camera, start_time, end_time, playback_source
+    source_error = _validate_export_source(
+        camera, start_time, end_time, playback_source
     )
     if source_error is not None:
         return {"error": source_error}
@@ -928,7 +927,7 @@ def _get_event_image_in_thread(
         return {"error": "image must be 'thumbnail' or 'snapshot'."}
 
     try:
-        event = await asyncio.to_thread(Event.get, Event.id == event_id)
+        event = Event.get(Event.id == event_id)
     except Event.DoesNotExist:
         return {"error": f"Could not find event {event_id}."}
 
