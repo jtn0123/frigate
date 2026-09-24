@@ -262,7 +262,7 @@ def text_suggestion(description: str, classes: list[str]) -> Suggestion | None:
     text = " ".join(description.lower().split())
     if not text or not candidates:
         return None
-    if UNCERTAIN.search(text) or MULTIPLE.search(text) or NEGATED_VEHICLE.search(text):
+    if MULTIPLE.search(text) or NEGATED_VEHICLE.search(text):
         return None
     if len(SUBJECT.findall(text)) > 1:
         return None
@@ -299,6 +299,10 @@ def _phrase_pattern(candidates: list[str]) -> tuple[dict[str, str], re.Pattern[s
 
 def _match_allowed(kind: str, sentence: str, start: int, end: int) -> bool:
     """Apply the per-kind guards to one phrase match inside one sentence."""
+    # Hedging only blocks the sentence it is in: "the car appears stationary"
+    # later in the text says nothing about the type named earlier.
+    if UNCERTAIN.search(sentence):
+        return False
     before = sentence[:start]
     after = sentence[end:]
     if NEGATED.search(before[-24:]):

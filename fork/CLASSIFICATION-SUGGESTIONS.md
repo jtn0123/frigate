@@ -33,7 +33,8 @@ single mistake afterwards.
 1. **Local text match, always on.** `classification.suggestions.enabled`
    (default true). Each class's name, or its known synonyms for vehicle
    types, colors and carriers, is looked for in the description. The match
-   abstains on hedged text (maybe, probably), on negation, on more than one
+   abstains on hedged text (maybe, probably) in the sentence that names the
+   class, on negation, on more than one
    subject, on colors and carriers not tied to a vehicle noun, and whenever
    two classes of the same kind are named. Nothing leaves Frigate.
 2. **Jev, opt-in.** With `classification.suggestions.jev.enabled: true` and

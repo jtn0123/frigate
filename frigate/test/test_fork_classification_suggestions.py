@@ -91,6 +91,12 @@ class TestTextSuggestion(unittest.TestCase):
                 self.assertIsNone(self.draft(text, TYPES), text)
                 self.assertIsNone(self.draft(text, COLORS), text)
 
+    def test_hedging_in_another_sentence_does_not_block(self):
+        text = "A silver SUV is parked on the driveway. The car appears stationary."
+        self.assertEqual(self.draft(text, TYPES), "suv")
+        self.assertEqual(self.draft(text, COLORS), "gray")
+        self.assertIsNone(self.draft("The SUV appears to be parked.", TYPES))
+
     def test_carrier_needs_the_vehicle_not_the_person(self):
         self.assertEqual(self.draft("A UPS delivery truck stops.", CARRIERS), "ups")
         self.assertEqual(
