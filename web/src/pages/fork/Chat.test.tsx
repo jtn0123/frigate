@@ -5,6 +5,15 @@ import type { ChatMessage, PendingToolCall } from "@/types/chat";
 import type { StreamChatCallbacks, StreamChatOptions } from "@/utils/chatUtil";
 import ChatPage from "../Chat";
 
+/** Reads an index the test has just asserted exists. */
+function nth<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`missing item ${index}`);
+  }
+  return item;
+}
+
 type StreamScript = (
   callbacks: StreamChatCallbacks,
   messages: ChatMessage[],
@@ -184,11 +193,11 @@ describe("ChatPage tool approval (D56)", () => {
 
     expect(await screen.findByText("Detect is off.")).toBeInTheDocument();
     expect(stream.calls).toHaveLength(2);
-    const resumed = stream.calls[1];
+    const resumed = nth(stream.calls, 1);
     expect(resumed.options.toolDecisions).toEqual({ a: "approve" });
     // the resend ends with the assistant's pending calls, not a user message
     expect(resumed.messages.at(-1)?.role).toBe("assistant");
-    expect(resumed.messages.at(-1)?.tool_calls?.[0].id).toBe("a");
+    expect(resumed.messages.at(-1)?.tool_calls?.[0]?.id).toBe("a");
     expect(cards()).toHaveLength(0);
     expect(screen.getByLabelText("composer")).toHaveAttribute(
       "placeholder",
@@ -204,7 +213,7 @@ describe("ChatPage tool approval (D56)", () => {
     await startChat();
     await waitFor(() => expect(cards()).toHaveLength(2));
 
-    const [first] = cards();
+    const first = nth(cards(), 0);
     fireEvent.click(
       first.querySelector("button:last-of-type") as HTMLButtonElement,
     );
@@ -215,7 +224,7 @@ describe("ChatPage tool approval (D56)", () => {
     fireEvent.click(screen.getByRole("button", { name: "approval.approve" }));
 
     expect(await screen.findByText("Only the export ran.")).toBeInTheDocument();
-    expect(stream.calls[1].options.toolDecisions).toEqual({
+    expect(nth(stream.calls, 1).options.toolDecisions).toEqual({
       a: "reject",
       b: "approve",
     });
@@ -232,7 +241,7 @@ describe("ChatPage tool approval (D56)", () => {
     await waitFor(() => expect(cards()).toHaveLength(3));
 
     fireEvent.click(
-      screen.getAllByRole("button", { name: "approval.always_allow" })[0],
+      nth(screen.getAllByRole("button", { name: "approval.always_allow" }), 0),
     );
     // both set_camera_state calls are approved; the export still waits
     expect(screen.getAllByText("approval.approved")).toHaveLength(2);
@@ -246,7 +255,7 @@ describe("ChatPage tool approval (D56)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "approval.approve" }));
     expect(await screen.findByText("Done.")).toBeInTheDocument();
-    expect(stream.calls[1].options.toolDecisions).toEqual({
+    expect(nth(stream.calls, 1).options.toolDecisions).toEqual({
       a: "approve",
       b: "approve",
       c: "approve",
@@ -256,7 +265,9 @@ describe("ChatPage tool approval (D56)", () => {
     fireEvent.click(screen.getByRole("button", { name: "send" }));
     expect(await screen.findByText("Done again.")).toBeInTheDocument();
     expect(stream.calls).toHaveLength(4);
-    expect(stream.calls[3].options.toolDecisions).toEqual({ d: "approve" });
+    expect(nth(stream.calls, 3).options.toolDecisions).toEqual({
+      d: "approve",
+    });
     expect(cards()).toHaveLength(0);
 
     fireEvent.click(screen.getByRole("button", { name: "clear always allow" }));
@@ -285,7 +296,7 @@ describe("ChatPage tool approval (D56)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "approval.reject" }));
     expect(await screen.findByText("Done.")).toBeInTheDocument();
-    expect(stream.calls[1].options.toolDecisions).toEqual({
+    expect(nth(stream.calls, 1).options.toolDecisions).toEqual({
       a: "approve",
       b: "reject",
     });
