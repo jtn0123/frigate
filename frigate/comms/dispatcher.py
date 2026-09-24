@@ -37,6 +37,7 @@ from frigate.const import (
     UPDATE_REVIEW_DESCRIPTION,
     UPSERT_REVIEW_SEGMENT,
 )
+from frigate.fork.classification_prefetch import prefetch_for_event
 from frigate.models import Event, Previews, Recordings, ReviewSegment
 from frigate.ptz.onvif import OnvifCommandEnum, OnvifController
 from frigate.types import ModelStatusTypesEnum, TrackedObjectUpdateTypesEnum
@@ -190,6 +191,8 @@ class Dispatcher:
             event: Event = Event.get(Event.id == payload["id"])
             cast(dict, event.data)["description"] = payload["description"]
             event.save()
+            # fork (I43): draft a class for it in the background while it is fresh
+            prefetch_for_event(self.config, event)
             self.publish(
                 "tracked_object_update",
                 json.dumps(

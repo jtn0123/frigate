@@ -28,6 +28,11 @@ class JevSuggestionsConfig(FrigateBaseModel):
         title="Daily request limit",
         description="Maximum provider requests per UTC day, counted across restarts. Answers are cached, so a description is only ever sent once.",
     )
+    background: bool = Field(
+        default=True,
+        title="Ask as descriptions arrive",
+        description="Ask Jev for a class as soon as each description is written, so the train grid finds the answer already cached and the daily limit is spread over the day. Off means Jev is only asked while the train grid is open.",
+    )
     cameras: list[str] = Field(
         default_factory=list,
         title="Cameras",

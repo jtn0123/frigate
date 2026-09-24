@@ -1,0 +1,171 @@
+"""Fork (I43): ask Jev for a class as soon as a description arrives.
+
+The train grid asks on demand, so the first time it opened a week of train
+images could be waiting on one day's budget. This worker asks once per
+description as it is written and stores the answer in the same cache the
+grid reads, so the grid finds its answers already there and the daily limit
+is spent evenly over the day.
+"""
+
+import asyncio
+import logging
+import queue
+import threading
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, TypedDict
+
+import aiohttp
+
+from frigate.config import FrigateConfig
+from frigate.const import CLIPS_DIR
+from frigate.fork import classification_suggestions as suggest
+
+logger = logging.getLogger(__name__)
+
+QUEUE_SIZE = 1000
+
+AskFactory = Callable[[aiohttp.ClientSession], suggest.AskJev]
+
+
+class DescriptionJob(TypedDict):
+    id: str
+    camera: str
+    label: str
+    description: str
+
+
+class SuggestionPrefetch(threading.Thread):
+    """A daemon thread that drafts a class for each queued description."""
+
+    def __init__(
+        self,
+        config: FrigateConfig,
+        clips_dir: str = CLIPS_DIR,
+        ask_factory: AskFactory | None = None,
+    ) -> None:
+        super().__init__(name="fork_suggestion_prefetch", daemon=True)
+        self.config = config
+        self.clips_dir = clips_dir
+        self.ask_factory = ask_factory
+        self.queue: queue.Queue[DescriptionJob | None] = queue.Queue(maxsize=QUEUE_SIZE)
+        self.cache, self.budget = suggest.open_state(Path(config.database.path).parent)
+
+    def submit(self, job: DescriptionJob) -> bool:
+        """Queue one description; False when the queue is full."""
+        try:
+            self.queue.put_nowait(job)
+        except queue.Full:
+            logger.warning("Suggestion prefetch queue is full, skipping one event")
+            return False
+        return True
+
+    def stop(self) -> None:
+        self.queue.put(None)
+
+    def run(self) -> None:
+        while (job := self.queue.get()) is not None:
+            try:
+                asyncio.run(self.process(job))
+            except Exception:
+                # Background task: one bad description must not stop the rest.
+                logger.exception("Suggestion prefetch failed for one event")
+
+    def models_for(self, label: str) -> dict[str, list[str]]:
+        """Custom models that classify this label and already have classes."""
+        result: dict[str, list[str]] = {}
+        for name, model in self.config.classification.custom.items():
+            objects = model.object_config
+            if objects is None or label not in objects.objects:
+                continue
+            classes = suggest.dataset_classes(self.clips_dir, name)
+            if suggest.candidate_classes(classes):
+                result[name] = classes
+        return result
+
+    async def process(self, job: DescriptionJob) -> dict[str, suggest.EventSuggestion]:
+        """Draft a class for the description under every model that applies."""
+        models = self.models_for(job["label"])
+        if not models:
+            return {}
+        settings = self.config.classification.suggestions
+        jev_config = settings.jev
+        jev: suggest.JevSettings = {
+            "model": jev_config.model,
+            "cameras": list(jev_config.cameras),
+            "daily_request_limit": jev_config.daily_request_limit,
+        }
+        event = {
+            "id": job["id"],
+            "camera": job["camera"],
+            "data": {"description": job["description"]},
+        }
+        results: dict[str, suggest.EventSuggestion] = {}
+        async with aiohttp.ClientSession() as session:
+            if self.ask_factory is not None:
+                ask = self.ask_factory(session)
+            else:
+                ask = suggest.make_ask(
+                    session, jev_config.url, suggest.api_key(), jev_config.timeout
+                )
+            for name, classes in models.items():
+                drafts = await suggest.suggest_for_events(
+                    [event],
+                    classes,
+                    settings.enabled,
+                    jev,
+                    self.cache,
+                    self.budget,
+                    ask,
+                )
+                results[name] = drafts[job["id"]]
+        return results
+
+
+_worker: SuggestionPrefetch | None = None
+_lock = threading.Lock()
+
+
+def prefetch_enabled(config: FrigateConfig) -> bool:
+    """Whether descriptions should be drafted as they arrive."""
+    settings = config.classification.suggestions
+    return (
+        settings.enabled
+        and settings.jev.enabled
+        and settings.jev.background
+        and bool(config.classification.custom)
+        and bool(suggest.api_key())
+    )
+
+
+def prefetch_for_event(config: FrigateConfig, event: Any) -> bool:
+    """Queue the event's fresh description for a background draft.
+
+    Args:
+        config: The running config
+        event: The saved Event row
+
+    Returns:
+        Whether the description was queued
+    """
+    if not prefetch_enabled(config):
+        return False
+    data = event.data if isinstance(event.data, dict) else {}
+    description = data.get("description")
+    description = description.strip() if isinstance(description, str) else ""
+    if not description:
+        return False
+    global _worker
+    with _lock:
+        if _worker is None or not _worker.is_alive():
+            _worker = SuggestionPrefetch(config)
+            _worker.start()
+        worker = _worker
+    return worker.submit(
+        {
+            "id": str(event.id),
+            "camera": str(event.camera),
+            "label": str(event.label),
+            "description": description,
+        }
+    )

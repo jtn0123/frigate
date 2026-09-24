@@ -9,6 +9,7 @@ Jev request carries the description text only: no images, camera names,
 event ids or timestamps.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -23,6 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TypedDict
 
+import aiohttp
 import cv2
 
 from frigate.util.identifiers import random_id
@@ -491,6 +493,56 @@ class JevSettings(TypedDict):
     model: str
     cameras: list[str]
     daily_request_limit: int
+
+
+JEV_CONCURRENCY = 4
+
+
+def dataset_classes(clips_dir: str, name: str) -> list[str]:
+    """The model's dataset folders, which are its classes."""
+    folder = safe_join(clips_dir, name, "dataset")
+    if folder is None or not os.path.isdir(folder):
+        return []
+    return sorted(
+        entry
+        for entry in os.listdir(folder)
+        if os.path.isdir(os.path.join(folder, entry))
+    )
+
+
+def open_state(folder: Path) -> tuple["SuggestionCache", "DailyBudget"]:
+    """The answer cache and daily budget files kept beside the database."""
+    return (
+        SuggestionCache(folder / "classification-suggestions.sqlite"),
+        DailyBudget(folder / "classification-suggestions-usage.json"),
+    )
+
+
+def make_ask(
+    session: aiohttp.ClientSession, url: str, key: str, timeout: int
+) -> "AskJev":
+    """One Decisions request per call, a few at a time, never logging the body."""
+    semaphore = asyncio.Semaphore(JEV_CONCURRENCY)
+
+    async def ask(request: dict[str, Any]) -> dict[str, Any]:
+        async with semaphore:
+            try:
+                async with session.post(
+                    url,
+                    json=request,
+                    headers={"Authorization": f"Bearer {key}"},
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                ) as response:
+                    if response.status != 200:
+                        raise JevError(f"status {response.status}")
+                    payload = await response.json()
+            except (TimeoutError, aiohttp.ClientError) as err:
+                raise JevError("request failed") from err
+        if not isinstance(payload, dict):
+            raise JevError("unexpected body")
+        return payload
+
+    return ask
 
 
 def api_key() -> str:

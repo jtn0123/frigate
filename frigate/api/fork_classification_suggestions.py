@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -24,14 +23,12 @@ from frigate.config import FrigateConfig
 from frigate.const import CLIPS_DIR
 from frigate.fork import classification_suggestions as suggest
 from frigate.models import Event
-from frigate.util.path import safe_join
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.classification])
 
 # Provider requests for one page of the grid run a few at a time.
-JEV_CONCURRENCY = 4
 
 
 def unknown_model(name: str) -> JSONResponse:
@@ -46,14 +43,7 @@ def unknown_model(name: str) -> JSONResponse:
 
 def dataset_classes(name: str) -> list[str]:
     """The model's dataset folders, which are its classes."""
-    folder = safe_join(CLIPS_DIR, name, "dataset")
-    if folder is None or not os.path.isdir(folder):
-        return []
-    return sorted(
-        entry
-        for entry in os.listdir(folder)
-        if os.path.isdir(os.path.join(folder, entry))
-    )
+    return suggest.dataset_classes(CLIPS_DIR, name)
 
 
 def load_events(ids: list[str]) -> list[dict[str, Any]]:
@@ -69,38 +59,13 @@ def state(app: Any, config: FrigateConfig) -> tuple[Any, Any]:
     cache = getattr(app, "fork_suggestion_cache", None)
     budget = getattr(app, "fork_suggestion_budget", None)
     if cache is None or budget is None:
-        folder = Path(config.database.path).parent
-        cache = suggest.SuggestionCache(folder / "classification-suggestions.sqlite")
-        budget = suggest.DailyBudget(folder / "classification-suggestions-usage.json")
+        cache, budget = suggest.open_state(Path(config.database.path).parent)
         app.fork_suggestion_cache = cache
         app.fork_suggestion_budget = budget
     return cache, budget
 
 
-def make_ask(
-    session: aiohttp.ClientSession, url: str, key: str, timeout: int
-) -> suggest.AskJev:
-    semaphore = asyncio.Semaphore(JEV_CONCURRENCY)
-
-    async def ask(request: dict[str, Any]) -> dict[str, Any]:
-        async with semaphore:
-            try:
-                async with session.post(
-                    url,
-                    json=request,
-                    headers={"Authorization": f"Bearer {key}"},
-                    timeout=aiohttp.ClientTimeout(total=timeout),
-                ) as response:
-                    if response.status != 200:
-                        raise suggest.JevError(f"status {response.status}")
-                    payload = await response.json()
-            except (TimeoutError, aiohttp.ClientError) as err:
-                raise suggest.JevError("request failed") from err
-        if not isinstance(payload, dict):
-            raise suggest.JevError("unexpected body")
-        return payload
-
-    return ask
+make_ask = suggest.make_ask
 
 
 @router.get(

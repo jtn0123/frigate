@@ -51,6 +51,12 @@ single mistake afterwards.
    gateway.
 3. **Picking one.** Jev wins when both agree or only Jev answered. When they
    name different classes the card shows the disagreement instead.
+   With `jev.background` (default true) the main process also queues each
+   description the moment it is saved and a background thread asks Jev
+   right away, once per custom model that classifies that object label,
+   storing the answer in the same cache. The grid then finds its drafts
+   already there and the daily limit is spent evenly over the day. The
+   cache and the daily limit are shared, so the two paths never ask twice.
 
 Classes are the model's dataset folders. Create the classes first, then the
 drafts can name them. `none` is never suggested.
