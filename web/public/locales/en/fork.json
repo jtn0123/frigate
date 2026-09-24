@@ -642,6 +642,31 @@
     "noTrainImages": "no train images left",
     "modelSaid": "model said {{category}}",
     "viaJev": "Jev {{percent}}%",
-    "viaText": "from the description"
+    "viaText": "from the description",
+    "reportLink": "Report",
+    "report": {
+      "title": "Suggestions report: {{model}}",
+      "back": "Back to classification",
+      "failed": "The report could not be loaded.",
+      "reviewed": "Reviewed",
+      "kept": "Kept",
+      "keptRate": "Kept rate",
+      "autoFiled": "Auto-filed",
+      "modelAgreement": "Model agreement",
+      "byClass": "By suggested class",
+      "class": "Class",
+      "changedTo": "Changed to",
+      "byCamera": "By camera",
+      "camera": "Camera",
+      "bySource": "By source",
+      "source": "Source",
+      "modelCheck": "Trained model vs descriptions",
+      "modelSaid": "Model said",
+      "agreed": "Agreed",
+      "descriptionSaid": "Description said",
+      "recentDisagreements": "Latest disagreements",
+      "saidVsDraft": "model said {{said}}, description said {{draft}}",
+      "open": "Open in Explore"
+    }
   }
 }

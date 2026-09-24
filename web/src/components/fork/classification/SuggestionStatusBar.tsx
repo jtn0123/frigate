@@ -7,6 +7,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { HiSparkles } from "react-icons/hi";
 import { toast } from "sonner";
 import { mutate } from "swr";
@@ -188,6 +189,15 @@ export default function SuggestionStatusBar({
             </TooltipContent>
           </Tooltip>
         )}
+      {report && (report.total > 0 || (report.model_check?.total ?? 0) > 0) && (
+        <Link
+          to={`/classification/suggestions/${encodeURIComponent(modelName)}`}
+          className="text-selected"
+          data-testid="suggestion-report-link"
+        >
+          {t("classificationSuggestions.reportLink")}
+        </Link>
+      )}
       {report && (report.auto_filed ?? 0) > 0 && (
         <span data-testid="suggestion-auto-filed">
           {t("classificationSuggestions.autoFiled", {

@@ -95,6 +95,14 @@ returns the train images still waiting for the event and what it was
 already filed as. Filing goes through the confirm endpoint, so the report
 sees it.
 
+## Report page (I47)
+
+`/classification/suggestions/{model}` (Report link on the status line)
+shows the report as tables: reviewed drafts and kept rate, auto-filed
+count, model agreement, then by suggested class, camera and source, the
+trained model's classes against the descriptions, and the latest
+disagreements linked to the event in Explore.
+
 ## Better descriptions
 
 The drafts can only be as good as the descriptions. A camera prompt that

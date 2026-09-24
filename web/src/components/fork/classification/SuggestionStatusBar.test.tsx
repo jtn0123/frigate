@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ClassificationSuggestionsResponse,
@@ -145,14 +146,16 @@ describe("SuggestionStatusBar", () => {
       },
     };
     render(
-      <TooltipProvider>
-        <SuggestionStatusBar
-          modelName="vehicle_type"
-          data={response({ enabled: true })}
-          groups={GROUPS}
-          onRefresh={vi.fn()}
-        />
-      </TooltipProvider>,
+      <MemoryRouter>
+        <TooltipProvider>
+          <SuggestionStatusBar
+            modelName="vehicle_type"
+            data={response({ enabled: true })}
+            groups={GROUPS}
+            onRefresh={vi.fn()}
+          />
+        </TooltipProvider>
+      </MemoryRouter>,
     );
     const bar = screen.getByTestId("suggestion-status");
     expect(bar).toHaveTextContent("jevNoKey");
@@ -162,6 +165,10 @@ describe("SuggestionStatusBar", () => {
     );
     expect(screen.getByTestId("suggestion-model-check")).toHaveTextContent(
       'modelAgrees:{"rate":90,"count":40}',
+    );
+    expect(screen.getByTestId("suggestion-report-link")).toHaveAttribute(
+      "href",
+      "/classification/suggestions/vehicle_type",
     );
 
     fireEvent.pointerMove(screen.getByTestId("suggestion-kept"));

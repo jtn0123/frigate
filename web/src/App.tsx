@@ -49,6 +49,9 @@ const Logs = lazy(() => import("@/pages/Logs"));
 const AccessDenied = lazy(() => import("@/pages/AccessDenied"));
 const Replay = lazy(() => import("@/pages/Replay"));
 const ShareClipPage = lazy(() => import("@/pages/fork/ShareClipPage"));
+const SuggestionReportPage = lazy(
+  () => import("@/pages/fork/SuggestionReportPage"),
+);
 
 function App() {
   return (
@@ -139,6 +142,11 @@ function DefaultAppView({
               <Route path="/logs" element={<Logs />} />
               <Route path="/faces" element={<FaceLibrary />} />
               <Route path="/classification" element={<Classification />} />
+              {/* fork (I47): the suggestion report of one custom model */}
+              <Route
+                path="/classification/suggestions/:model"
+                element={<SuggestionReportPage />}
+              />
               <Route path="/chat" element={<Chat />} />
               {UIPlayground && (
                 <Route path="/playground" element={<UIPlayground />} />
