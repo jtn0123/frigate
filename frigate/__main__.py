@@ -101,6 +101,9 @@ def main() -> None:
         print("***    End Config Validation Errors                       ***")
         print(_LOG_SEPARATOR)
 
+        if args.validate_config:
+            sys.exit(1)
+
         # attempt to start Frigate in recovery mode
         try:
             config = FrigateConfig.load(install=True, safe_load=True)

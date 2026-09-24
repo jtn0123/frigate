@@ -45,6 +45,8 @@ class TestCameraLogInjection(unittest.TestCase):
 class TestOnvifLogInjection(unittest.IsolatedAsyncioTestCase):
     async def test_unknown_camera_name_cannot_create_log_lines(self):
         controller = object.__new__(OnvifController)
+        controller.config = MagicMock()
+        controller.config.cameras = {"front": MagicMock()}
         controller.camera_configs = {}
         with self.assertLogs("frigate.ptz.onvif", "ERROR") as logs:
             result = await controller._init_single_camera("front\r\nforged")
@@ -54,6 +56,8 @@ class TestOnvifLogInjection(unittest.IsolatedAsyncioTestCase):
 
     async def test_remote_capability_error_cannot_create_log_lines(self):
         controller = object.__new__(OnvifController)
+        controller.config = MagicMock()
+        controller.config.cameras = {"front": MagicMock()}
         onvif = MagicMock()
         onvif.update_xaddrs = AsyncMock()
         onvif.create_media_service = AsyncMock()
@@ -72,6 +76,8 @@ class TestOnvifLogInjection(unittest.IsolatedAsyncioTestCase):
                 return "remote\r\nforged"
 
         controller = object.__new__(OnvifController)
+        controller.config = MagicMock()
+        controller.config.cameras = {"front": MagicMock()}
         onvif = MagicMock()
         onvif.update_xaddrs = AsyncMock()
         onvif.create_media_service = AsyncMock()

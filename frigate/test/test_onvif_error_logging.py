@@ -11,6 +11,8 @@ class TestOnvifErrorLogging(unittest.IsolatedAsyncioTestCase):
         camera_name = "front\r\nforged record"
         error = RuntimeError("remote\r\nforged message")
         controller = object.__new__(OnvifController)
+        controller.config = MagicMock()
+        controller.config.cameras = {camera_name: MagicMock()}
         onvif = MagicMock()
         onvif.update_xaddrs = AsyncMock(side_effect=error)
         controller.cams = {camera_name: {"onvif": onvif}}

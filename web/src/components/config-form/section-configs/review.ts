@@ -12,7 +12,7 @@ const review: SectionConfigOverrides = {
           if (ctx.level === "camera" && ctx.fullCameraConfig) {
             return ctx.fullCameraConfig.record.enabled === false;
           }
-          return ctx.fullConfig.record?.enabled === false;
+          return ctx.fullConfig.record.enabled === false;
         },
       },
       {
@@ -49,9 +49,9 @@ const review: SectionConfigOverrides = {
         position: "before",
         condition: (ctx) => {
           const providers = ctx.fullConfig.genai;
-          if (!providers || Object.keys(providers).length === 0) return true;
+          if (Object.keys(providers).length === 0) return true;
           return !Object.values(providers).some((agent) =>
-            agent.roles?.includes("descriptions"),
+            agent.roles.includes("descriptions"),
           );
         },
       },
@@ -63,13 +63,13 @@ const review: SectionConfigOverrides = {
         severity: "warning",
         position: "after",
         condition: (ctx) => {
-          const genai = ctx.formData?.genai as
+          const genai = ctx.formData.genai as
             Record<string, unknown> | undefined;
           if (genai?.image_source !== "recordings") return false;
           if (ctx.level === "camera" && ctx.fullCameraConfig) {
-            return ctx.fullCameraConfig.record?.enabled === false;
+            return ctx.fullCameraConfig.record.enabled === false;
           }
-          return ctx.fullConfig.record?.enabled === false;
+          return ctx.fullConfig.record.enabled === false;
         },
       },
     ],
@@ -78,6 +78,7 @@ const review: SectionConfigOverrides = {
       "detections.labels": "/configuration/review/#alerts-and-detections",
       genai: "/configuration/genai/genai_review",
       "genai.image_source": "/configuration/genai/genai_review#image-source",
+      "genai.frame_mode": "/configuration/genai/genai_review#frame-mode",
       "genai.additional_concerns":
         "/configuration/genai/genai_review#additional-concerns",
     },
@@ -132,6 +133,11 @@ const review: SectionConfigOverrides = {
         image_source: {
           "ui:options": {
             enumI18nPrefix: "review.imageSource",
+          },
+        },
+        frame_mode: {
+          "ui:options": {
+            enumI18nPrefix: "review.frameMode",
           },
         },
       },
