@@ -234,5 +234,30 @@ class TestManualRelativeMoveMetrics(unittest.IsolatedAsyncioTestCase):
         )
 
 
+class TestRemoveCamera(unittest.IsolatedAsyncioTestCase):
+    async def test_remove_closes_session_and_drops_state(self) -> None:
+        controller = _make_controller(autotracking_enabled=False)
+        controller.status_locks = {CAMERA: MagicMock()}
+        controller.failed_cams = {CAMERA: {"attempts": 1}}
+        session = controller.cams[CAMERA]["onvif"]
+        session.close = AsyncMock()
+
+        await controller._remove_camera(CAMERA)
+
+        session.close.assert_awaited_once()
+        self.assertNotIn(CAMERA, controller.cams)
+        self.assertNotIn(CAMERA, controller.camera_configs)
+        self.assertNotIn(CAMERA, controller.failed_cams)
+        self.assertNotIn(CAMERA, controller.status_locks)
+
+    async def test_remove_unknown_camera_is_noop(self) -> None:
+        controller = _make_controller(autotracking_enabled=False)
+        controller.status_locks = {}
+
+        await controller._remove_camera("missing")
+
+        self.assertIn(CAMERA, controller.cams)
+
+
 if __name__ == "__main__":
     unittest.main()

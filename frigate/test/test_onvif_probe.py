@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from zeep.exceptions import Fault, TransportError
 from zeep.transports import AsyncTransport
 
-from frigate.api.camera import _build_digest_transport, _connect_onvif_camera
+from frigate.api.camera import (
+    _build_digest_transport,
+    _connect_onvif_camera,
+    _supports_continuous_pan_tilt,
+)
 
 
 def _make_camera(update_side_effect=None):
@@ -118,6 +122,26 @@ class TestBuildDigestTransport(unittest.TestCase):
     def test_returns_async_transport(self):
         transport = _build_digest_transport("user", "pass")
         self.assertIsInstance(transport, AsyncTransport)
+
+
+class TestSupportsContinuousPanTilt(unittest.TestCase):
+    def test_object_node_with_continuous_space(self):
+        spaces = MagicMock(ContinuousPanTiltVelocitySpace=["space"])
+        node = MagicMock(SupportedPTZSpaces=spaces)
+        self.assertTrue(_supports_continuous_pan_tilt([node]))
+
+    def test_dict_node_with_continuous_space(self):
+        node = {"SupportedPTZSpaces": {"ContinuousPanTiltVelocitySpace": ["space"]}}
+        self.assertTrue(_supports_continuous_pan_tilt([node]))
+
+    def test_zoom_only_node_is_not_pan_tilt(self):
+        # Varifocal lenses expose the PTZ service with only zoom spaces
+        node = {"SupportedPTZSpaces": {"ContinuousZoomVelocitySpace": ["space"]}}
+        self.assertFalse(_supports_continuous_pan_tilt([node]))
+
+    def test_no_nodes(self):
+        self.assertFalse(_supports_continuous_pan_tilt(None))
+        self.assertFalse(_supports_continuous_pan_tilt([{}]))
 
 
 if __name__ == "__main__":
