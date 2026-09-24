@@ -2538,8 +2538,7 @@ export interface paths {
          * Rename export
          * @description **Access:** Admin role required.
          *
-         *     Renames an export.
-         *         NOTE: This changes the friendly name of the export, not the filename.
+         *     Renames a completed export and its downloaded file.
          */
         patch: operations["export_rename_export__event_id__rename_patch"];
         trace?: never;

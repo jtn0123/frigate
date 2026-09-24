@@ -55,6 +55,7 @@ from frigate.api.defs.response.export_response import (
 )
 from frigate.api.defs.response.generic_response import GenericResponse
 from frigate.api.defs.tags import Tags
+from frigate.api.fork_export_rename import rename_export_file
 from frigate.const import CLIPS_DIR, EXPORT_DIR
 from frigate.jobs.export import (
     ExportJob,
@@ -947,9 +948,7 @@ def export_recording(
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
     summary="Rename export",
-    description="""Renames an export.
-    NOTE: This changes the friendly name of the export, not the filename.
-    """,
+    description="Renames a completed export and its downloaded file.",
 )
 async def export_rename(event_id: str, body: ExportRenameBody, request: Request):
     try:
@@ -966,17 +965,7 @@ async def export_rename(event_id: str, body: ExportRenameBody, request: Request)
             status_code=404,
         )
 
-    export.name = body.name
-    await asyncio.to_thread(export.save)
-    return JSONResponse(
-        content=(
-            {
-                "success": True,
-                "message": "Successfully renamed export.",
-            }
-        ),
-        status_code=200,
-    )
+    return await asyncio.to_thread(rename_export_file, export, body.name)
 
 
 @router.post(

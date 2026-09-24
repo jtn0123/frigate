@@ -4,16 +4,19 @@ import importlib
 import logging
 
 from frigate.config import FrigateConfig
+from frigate.config.classification import AudioTranscriptionModelEnum
 
 logger = logging.getLogger(__name__)
 
 
 def transcription_enabled(config: FrigateConfig) -> bool:
-    """Return True when a camera runs the recordings transcription post-processor.
+    """Return True when a camera needs the local transcription runtime.
 
-    Mirrors the condition EmbeddingMaintainer uses to build
-    AudioTranscriptionPostProcessor.
+    Provider-backed post-processors do not initialize local Whisper.
     """
+    if config.audio_transcription.model != AudioTranscriptionModelEnum.whisper:
+        return False
+
     return any(
         camera.enabled_in_config and camera.audio_transcription.enabled
         for camera in config.cameras.values()

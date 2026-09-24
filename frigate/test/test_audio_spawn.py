@@ -37,6 +37,7 @@ class TestAudioSpawnIfNeeded(unittest.TestCase):
         processor.embeddings_metrics = MagicMock()
         processor.audio_threads = {}
         processor.transcription_model_runner = None
+        processor.genai_manager = None
         processor.stop_event = threading.Event()
         processor.logger = MagicMock()
         return processor

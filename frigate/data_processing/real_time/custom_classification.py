@@ -731,4 +731,5 @@ def write_classification_attempt(
     file = os.path.join(folder, f"{event_id}-{timestamp}-{label}-{score}.webp")
     os.makedirs(folder, exist_ok=True)
     cv2.imwrite(file, frame)
+
     trim_oldest_files(folder, max_files)

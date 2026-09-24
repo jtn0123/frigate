@@ -489,4 +489,5 @@ class FaceRealTimeProcessor(RealTimeProcessorApi):
             )
             os.makedirs(folder, exist_ok=True)
             cv2.imwrite(file, frame)
+
             trim_oldest_files(folder, self.config.face_recognition.save_attempts)

@@ -14,7 +14,11 @@ let swrData: Record<string, unknown> = {};
 const swrKeys: (string | null)[] = [];
 
 vi.mock("axios", () => ({
-  default: { put: (url: string) => axiosPut(url) },
+  default: {
+    put: (url: string) => axiosPut(url),
+    isAxiosError: (error: unknown) =>
+      typeof error === "object" && error !== null && "response" in error,
+  },
 }));
 vi.mock("swr", () => ({
   default: (key: string | null) => {
@@ -34,7 +38,11 @@ vi.mock("react-i18next", async (importOriginal) => ({
   useTranslation: () => ({
     i18n: { language: "en" },
     t: (key: string, opts?: { error?: string }) =>
-      opts?.error ? `${key}:${opts.error}` : key,
+      opts?.error
+        ? `${key}:${opts.error}`
+        : key === "recording.genaiDescription.toast.unknownError"
+          ? "Unknown error"
+          : key,
   }),
 }));
 
@@ -123,7 +131,7 @@ describe("useReviewDescriptions", () => {
   });
 
   it("falls back to the request error message without a server message", async () => {
-    axiosPut.mockRejectedValue({ message: "Network Error" });
+    axiosPut.mockRejectedValue(new Error("Network Error"));
     const { result } = renderHook(() => useReviewDescriptions());
     result.current.generateDescription(REVIEW);
 

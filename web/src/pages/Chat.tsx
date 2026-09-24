@@ -232,7 +232,12 @@ export default function ChatPage() {
     (next: Record<string, ToolDecision>) => {
       setApprovalDecisions(next);
       if (!pendingApprovals) return;
-      if (!pendingApprovals.every((tc) => next[tc.id] !== undefined)) return;
+      if (
+        !pendingApprovals.every((tc) =>
+          Object.prototype.hasOwnProperty.call(next, tc.id),
+        )
+      )
+        return;
       void submitConversation(messages, { toolDecisions: next });
     },
     [messages, pendingApprovals, submitConversation],

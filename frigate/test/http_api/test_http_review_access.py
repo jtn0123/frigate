@@ -53,3 +53,10 @@ class TestReviewsViewedCameraAccess(BaseTestHttp):
             )
         }
         self.assertEqual(marked, {"own1", "own2"})
+
+    def test_manual_generation_requires_admin_even_for_own_camera(self):
+        with AuthTestClient(self.app) as client:
+            response = client.put(
+                "/review/own1/regenerate_description", headers=_LIMITED
+            )
+        self.assertEqual(response.status_code, 403)

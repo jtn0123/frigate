@@ -130,6 +130,10 @@ test.describe("Rail search @high", () => {
     await search.fill("red car");
     await expect(search).toHaveValue("red car");
 
+    await expect(
+      frigateApp.page.getByTestId("command-palette").getByRole("combobox"),
+    ).toHaveValue("red car");
+
     const result = frigateApp.page.getByTestId("footage-result").first();
     await expect(result).toBeVisible();
     await expect(result).toContainText("Backyard");

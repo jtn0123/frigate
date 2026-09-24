@@ -12,11 +12,6 @@ import { ReviewSegment } from "@/types/review";
 // cost far more tokens than preview frames do
 export const MIN_REVIEW_DESCRIPTION_CONTEXT = 32000;
 
-type RegenerateError = {
-  message?: string;
-  response?: { data?: { message?: string } };
-};
-
 /**
  * Gating and dispatch for re-running a review item through GenAI descriptions.
  */
@@ -55,9 +50,17 @@ export function useReviewDescriptions() {
             position: "top-center",
           });
         })
-        .catch((error: RegenerateError) => {
+        .catch((error: unknown) => {
+          const responseMessage = axios.isAxiosError<{ message?: string }>(
+            error,
+          )
+            ? error.response?.data.message
+            : undefined;
           const errorMessage =
-            error.response?.data?.message || error.message || "Unknown error";
+            responseMessage ||
+            (error instanceof Error
+              ? error.message
+              : t("recording.genaiDescription.toast.unknownError"));
           toast.error(
             t("recording.genaiDescription.toast.error", {
               error: errorMessage,

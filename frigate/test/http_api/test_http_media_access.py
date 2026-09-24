@@ -41,6 +41,9 @@ class TestEventMediaCameraAccess(BaseTestHttp):
             get_camera_states=lambda: [state],
             get_camera_state=lambda name: state if name == camera else None,
         )
+        self.app.detected_frames_processor.get_camera_states = lambda: list(
+            self.app.detected_frames_processor.camera_states.values()
+        )
         return tracked
 
     def test_finished_event_snapshot_on_other_camera_is_forbidden(self):

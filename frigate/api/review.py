@@ -686,6 +686,7 @@ async def get_review(request: Request, review_id: str):
     """,
 )
 async def regenerate_review_description(request: Request, review_id: str):
+    """Queue a completed review for description generation."""
     try:
         review: ReviewSegment = await asyncio.to_thread(
             ReviewSegment.get, ReviewSegment.id == review_id

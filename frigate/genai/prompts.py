@@ -19,8 +19,8 @@ from frigate.models import Event
 # Base guidance per response field. `observations` is a reasoning scaffold,
 # not user-facing, so style presets never override it.
 REVIEW_DESCRIPTION_FIELD_GUIDELINES: dict[str, str] = {
-    "observations": "Include the very start of the activity — for example, a vehicle entering the frame or pulling into the driveway — even if it lasts only a few frames and the rest of the clip is dominated by a longer activity. Include each arrival, departure, object handled, and notable change in position or state. Each item is a single concrete fact written as a complete sentence.",
-    "scene": 'Describe how the sequence begins, then the progression of events — all significant movements and actions in order. For example, if a vehicle arrives and then a person exits, describe both sequentially. For named subjects (those with a `←` separator in "Objects in Scene"), always use their name — do not replace them with generic terms. For unnamed objects (e.g., "person", "car"), refer to them naturally with articles (e.g., "a person", "the car"). Your description should align with and support the threat level you assign.',
+    "observations": "Include the very start of the activity (for example, a vehicle entering the frame or pulling into the driveway), even if it lasts only a few frames and the rest of the clip is dominated by a longer activity. Include each arrival, departure, object handled, and notable change in position or state. Each item is a single concrete fact written as a complete sentence.",
+    "scene": 'Describe how the sequence begins, then the progression of events: all significant movements and actions in order. For example, if a vehicle arrives and then a person exits, describe both sequentially. For named subjects (those with a `←` separator in "Objects in Scene"), always use their name; do not replace them with generic terms. For unnamed objects (e.g., "person", "car"), refer to them naturally with articles (e.g., "a person", "the car"). Your description should align with and support the threat level you assign.',
     "title": "Name the primary activity across the observations, together with the location. An activity is what is being done with objects, tools, or surfaces; locomotion through the scene qualifies as the activity only when no other interaction is observed. For named subjects, always use their name. For unnamed objects, refer to them naturally with articles.",
     "shortSummary": "Briefly summarize the primary activity across the observations.",
     "potential_threat_level": "Must be consistent with your scene description and the activity patterns above.",
@@ -41,7 +41,7 @@ REVIEW_RESPONSE_STYLES: dict[str, dict[str, str]] = {
         "shortSummary": "Summarize the primary activity in one short sentence.",
     },
     "detailed": {
-        "scene": 'Describe how the sequence begins, then the progression of events — all significant movements and actions in order, including the specifics that best identify the subjects: colors, clothing, carried items, positions, and paths of movement, plus environmental details like lighting changes when they stand out. Favor the most identifying details over exhaustive coverage, and keep every added detail observational rather than speculative. For named subjects (those with a `←` separator in "Objects in Scene"), always use their name rather than a generic term. For unnamed objects, refer to them naturally with articles. Your description should align with and support the threat level you assign.',
+        "scene": 'Describe how the sequence begins, then the progression of events: all significant movements and actions in order, including the specifics that best identify the subjects: colors, clothing, carried items, positions, and paths of movement, plus environmental details like lighting changes when they stand out. Favor the most identifying details over exhaustive coverage, and keep every added detail observational rather than speculative. For named subjects (those with a `←` separator in "Objects in Scene"), always use their name rather than a generic term. For unnamed objects, refer to them naturally with articles. Your description should align with and support the threat level you assign.',
         "title": 'Write the title as a specific description of who did what and where, in under roughly twelve words, including the most distinguishing visible detail of the subject, such as clothing or vehicle color. Do not assign a role or purpose that is not visibly indicated by a uniform, a marked vehicle, or a "(delivery/service)" tag in Objects in Scene. Name the main thing done, not just movement through the scene, unless movement is all that happens. For named subjects, always use their name.',
         "shortSummary": "Briefly summarize the primary activity across the observations, including the most identifying visible detail, such as vehicle color or clothing.",
     },
@@ -59,6 +59,13 @@ def get_review_field_guidelines(response_style: str = "default") -> dict[str, st
     }
 
 
+# Explains the per-frame labels and tracker notes used by the annotated frame
+# mode. Neither the notes nor this guidance say whether repeated detections are
+# the same subject, since the tracking data cannot tell.
+FRAME_ANNOTATION_GUIDANCE = """- Each image below is immediately preceded by a text label giving its frame number and how many seconds into the sequence it was captured. Use these labels to track the order of events and the time between them.
+- Some images below are preceded by notes from the camera's object tracker recording what changed at that point: an object being first detected, starting to move, reversing direction, stopping, or no longer being detected. These notes come from tracking data rather than from the images, and they are reliable. Use them to establish how many distinct activities occur and in what order, and describe every one of them."""
+
+
 def build_review_description_prompt(
     review_data: dict[str, Any],
     thumbnails: list[bytes],
@@ -66,8 +73,13 @@ def build_review_description_prompt(
     preferred_language: str | None,
     activity_context_prompt: str,
     response_style: str = "default",
+    frame_captions: list[str] | None = None,
 ) -> str:
-    """Build the prompt for review activity description generation."""
+    """Build the prompt for review activity description generation.
+
+    When `frame_captions` is set, each caption is sent directly before its
+    image, so the prompt explains that layout.
+    """
 
     def get_concern_prompt() -> str:
         if concerns:
@@ -93,6 +105,7 @@ def build_review_description_prompt(
             return "\n- (No objects detected)"
 
     fields = get_review_field_guidelines(response_style)
+    frame_guidance = f"\n{FRAME_ANNOTATION_GUIDANCE}" if frame_captions else ""
 
     return f"""
 Your task is to analyze a sequence of images taken in chronological order from a security camera.
@@ -130,7 +143,7 @@ Respond with a JSON object matching the provided schema. Field-specific guidance
 ## Sequence Details
 
 - Camera: {review_data["camera"]}
-- Total frames: {len(thumbnails)} (Frame 1 = earliest, Frame {len(thumbnails)} = latest)
+- Total frames: {len(thumbnails)} (Frame 1 = earliest, Frame {len(thumbnails)} = latest){frame_guidance}
 - Activity started at {review_data["start"]} and lasted {review_data["duration"]} seconds
 - Zones involved: {", ".join(review_data["zones"]) if review_data["zones"] else "None"}
 
@@ -843,7 +856,7 @@ def build_chat_system_prompt(
     filter_routing_section = (
         "\n\nWhen routing a search_objects call, pick filters by the shape of the user's request:\n"
         "- Generic class ('show me all cars today'): set `label` only.\n"
-        "- Specific named entity — a known person ('John'), delivery company ('Amazon'), animal species/breed ('blue jay', 'golden retriever'), or license plate: set `sub_label` only and leave `label` unset. Call get_categorized_object_names first and use the exact spelling it returns; a guessed spelling matches nothing. If the name is absent, say it is not configured rather than searching for it."
+        "- Specific named entity: a known person ('John'), delivery company ('Amazon'), animal species/breed ('blue jay', 'golden retriever'), or license plate: set `sub_label` only and leave `label` unset. Call get_categorized_object_names first and use the exact spelling it returns; a guessed spelling matches nothing. If the name is absent, say it is not configured rather than searching for it."
     )
     if semantic_search_enabled:
         filter_routing_section += "\n- Physical characteristic, appearance, or activity that is NOT a discrete name ('riding a lawn mower', 'someone in a red jacket'): set `semantic_query` with the descriptive phrase, optionally combined with `label`. Never put descriptive phrases in `sub_label`."

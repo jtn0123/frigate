@@ -56,6 +56,7 @@ from .camera.timestamp import TimestampStyleConfig
 from .camera_group import CameraGroupConfig
 from .classification import (
     AudioTranscriptionConfig,
+    AudioTranscriptionModelEnum,
     ClassificationConfig,
     FaceRecognitionConfig,
     LicensePlateRecognitionConfig,
@@ -640,7 +641,7 @@ class FrigateConfig(FrigateBaseModel):
         # set notifications state
         self.notifications.enabled_in_config = self.notifications.enabled
 
-        # validate genai: each role (chat, descriptions, embeddings) at most once
+        # validate genai: each role (chat, descriptions, embeddings, transcribe) at most once
         role_to_name: dict[GenAIRoleEnum, str] = {}
         for name, genai_cfg in self.genai.items():
             for role in genai_cfg.roles:
@@ -1024,6 +1025,35 @@ class FrigateConfig(FrigateBaseModel):
         self.objects.parse_all_objects(self.cameras)
         self.model.create_colormap(sorted(self.objects.all_objects))
         self.model.check_and_load_plus_model(self.plus_api)
+
+        # validate audio_transcription.model when it is a GenAI provider name.
+        # this runs here rather than beside the semantic_search check because the
+        # global->camera merge above is what resolves camera-level enablement.
+        transcription_active = self.audio_transcription.enabled or any(
+            camera.audio_transcription.enabled for camera in self.cameras.values()
+        )
+
+        if (
+            transcription_active
+            and isinstance(self.audio_transcription.model, str)
+            and not isinstance(
+                self.audio_transcription.model, AudioTranscriptionModelEnum
+            )
+        ):
+            if self.audio_transcription.model not in self.genai:
+                raise ValueError(
+                    f"audio_transcription.model '{self.audio_transcription.model}' is not a "
+                    "valid GenAI config key. Must match a key in genai config."
+                )
+
+            if (
+                GenAIRoleEnum.transcribe
+                not in self.genai[self.audio_transcription.model].roles
+            ):
+                raise ValueError(
+                    f"GenAI provider '{self.audio_transcription.model}' must have "
+                    "'transcribe' in its roles for audio transcription."
+                )
 
         # Check audio transcription and audio detection requirements
         if self.audio_transcription.enabled:

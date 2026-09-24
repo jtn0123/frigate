@@ -328,6 +328,16 @@ class TestGetExportCases(DatabaseTestCase):
         self.assertEqual(result["cases"], [])
         self.assertIn("message", result)
 
+    def test_all_camera_access_keeps_empty_cases_visible(self):
+        self.make_case("empty", name="Empty")
+        result = _execute_get_export_cases(_request(), ["driveway", "garage"])
+        self.assertEqual([case["id"] for case in result["cases"]], ["empty"])
+
+    def test_no_camera_access_returns_no_case_names(self):
+        self.make_case("private", name="Private")
+        result = _execute_get_export_cases(_request(), [])
+        self.assertEqual(result["cases"], [])
+
     def test_counts_only_accessible_exports(self):
         self.make_case("case_a", name="Break-in")
         self.make_case("case_b", name="Empty")

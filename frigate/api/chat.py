@@ -567,7 +567,9 @@ async def execute_tool(
 
     if tool_name == "get_categorized_object_names":
         return JSONResponse(
-            content=_execute_get_categorized_object_names(request, allowed_cameras)
+            content=await _execute_get_categorized_object_names(
+                request, allowed_cameras
+            )
         )
 
     if tool_name == "find_similar_objects":
@@ -758,11 +760,13 @@ async def _execute_set_camera_state(
     return {"success": True, "camera": camera, "feature": feature, "value": value}
 
 
-def _execute_get_categorized_object_names(
+async def _execute_get_categorized_object_names(
     request: Request,
     allowed_cameras: list[str],
 ) -> dict[str, Any]:
-    names = get_categorized_object_names(request.app.frigate_config, allowed_cameras)
+    names = await asyncio.to_thread(
+        get_categorized_object_names, request.app.frigate_config, allowed_cameras
+    )
 
     if not names:
         return {
@@ -812,6 +816,17 @@ def _execute_get_export_cases(
 
 
 async def _execute_create_export(
+    request: Request,
+    arguments: dict[str, Any],
+    allowed_cameras: list[str],
+) -> dict[str, Any]:
+    """Execute the tool without blocking the API event loop."""
+    return await asyncio.to_thread(
+        _create_export_in_thread, request, arguments, allowed_cameras
+    )
+
+
+def _create_export_in_thread(
     request: Request,
     arguments: dict[str, Any],
     allowed_cameras: list[str],
@@ -888,6 +903,17 @@ async def _execute_create_export(
 
 
 async def _execute_get_event_image(
+    request: Request,
+    arguments: dict[str, Any],
+    allowed_cameras: list[str],
+) -> dict[str, Any]:
+    """Execute the tool without blocking the API event loop."""
+    return await asyncio.to_thread(
+        _get_event_image_in_thread, request, arguments, allowed_cameras
+    )
+
+
+def _get_event_image_in_thread(
     request: Request,
     arguments: dict[str, Any],
     allowed_cameras: list[str],
@@ -987,7 +1013,7 @@ async def _execute_tool_internal(
             logger.warning(f"Failed to extract tool result: {e}")
             return {"error": "Failed to parse tool result"}
     elif tool_name == "get_categorized_object_names":
-        return _execute_get_categorized_object_names(request, allowed_cameras)
+        return await _execute_get_categorized_object_names(request, allowed_cameras)
     elif tool_name == "find_similar_objects":
         return await _execute_find_similar_objects(request, arguments, allowed_cameras)
     elif tool_name == "set_camera_state":
@@ -1018,7 +1044,9 @@ async def _execute_tool_internal(
     elif tool_name == "get_recap":
         return _execute_get_recap(arguments, allowed_cameras)
     elif tool_name == "get_export_cases":
-        return _execute_get_export_cases(request, allowed_cameras)
+        return await asyncio.to_thread(
+            _execute_get_export_cases, request, allowed_cameras
+        )
     elif tool_name == "create_export":
         return await _execute_create_export(request, arguments, allowed_cameras)
     elif tool_name == "get_event_image":
@@ -1399,7 +1427,7 @@ async def _execute_pending_tools(
                     if isinstance(evt, dict)
                 ]
 
-            # Extract _image_url from tool results — images can only be sent
+            # Extract _image_url from tool results; images can only be sent
             # in user messages, not tool results
             if isinstance(tool_result, dict) and "_image_url" in tool_result:
                 image_url = tool_result.pop("_image_url")
