@@ -1,5 +1,6 @@
 """Chat and LLM tool calling APIs."""
 
+import asyncio
 import base64
 import json
 import logging
@@ -846,12 +847,13 @@ async def _execute_create_export(
         if "admin" not in _request_roles(request):
             return {"error": "Only admins can attach exports to an existing case."}
         try:
-            ExportCase.get(ExportCase.id == export_case_id)
+            await asyncio.to_thread(ExportCase.get, ExportCase.id == export_case_id)
         except ExportCase.DoesNotExist:
             return {"error": f"Export case '{export_case_id}' not found."}
 
-    source_error = _validate_export_source(
-        camera, start_time, end_time, playback_source
+    # peewee queries block, so they run off the event loop (G3)
+    source_error = await asyncio.to_thread(
+        _validate_export_source, camera, start_time, end_time, playback_source
     )
     if source_error is not None:
         return {"error": source_error}
@@ -900,7 +902,7 @@ async def _execute_get_event_image(
         return {"error": "image must be 'thumbnail' or 'snapshot'."}
 
     try:
-        event = Event.get(Event.id == event_id)
+        event = await asyncio.to_thread(Event.get, Event.id == event_id)
     except Event.DoesNotExist:
         return {"error": f"Could not find event {event_id}."}
 
