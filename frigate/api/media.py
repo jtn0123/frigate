@@ -883,7 +883,7 @@ async def event_snapshot(
         # see if the object is currently being tracked
         try:
             camera_states: list[CameraState] = (
-                request.app.detected_frames_processor.camera_states.values()
+                request.app.detected_frames_processor.get_camera_states()
             )
             for camera_state in camera_states:
                 if event_id in camera_state.tracked_objects:
@@ -966,7 +966,7 @@ async def event_thumbnail(
     if not thumbnail_bytes:
         # see if the object is currently being tracked
         try:
-            camera_states = request.app.detected_frames_processor.camera_states.values()
+            camera_states = request.app.detected_frames_processor.get_camera_states()
             for camera_state in camera_states:
                 if event_id in camera_state.tracked_objects:
                     tracked_obj = camera_state.tracked_objects.get(event_id)
@@ -1205,7 +1205,7 @@ async def event_snapshot_clean(request: Request, event_id: str, download: bool =
             # see if the object is currently being tracked
             try:
                 camera_states = (
-                    request.app.detected_frames_processor.camera_states.values()
+                    request.app.detected_frames_processor.get_camera_states()
                 )
                 for camera_state in camera_states:
                     if event_id in camera_state.tracked_objects:

@@ -30,14 +30,16 @@ class TestEventMediaCameraAccess(BaseTestHttp):
         tracked = MagicMock()
         tracked.get_img_bytes.return_value = (b"jpeg", 1.0)
         tracked.get_thumbnail.return_value = b"webp"
+        state = SimpleNamespace(
+            name=camera,
+            tracked_objects={event_id: tracked},
+            camera_config=self.app.frigate_config.cameras[camera],
+        )
+        # the API reads states through the processor's locked accessors (D54)
         self.app.detected_frames_processor = SimpleNamespace(
-            camera_states={
-                camera: SimpleNamespace(
-                    name=camera,
-                    tracked_objects={event_id: tracked},
-                    camera_config=self.app.frigate_config.cameras[camera],
-                )
-            }
+            camera_states={camera: state},
+            get_camera_states=lambda: [state],
+            get_camera_state=lambda name: state if name == camera else None,
         )
         return tracked
 

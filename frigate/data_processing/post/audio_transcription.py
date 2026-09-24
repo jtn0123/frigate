@@ -85,6 +85,10 @@ class AudioTranscriptionPostProcessor(PostProcessorApi):
         """
         event_id = data["event_id"]
         camera_name = data["camera"]
+        camera_config = self.config.cameras.get(camera_name)
+
+        if camera_config is None:
+            return
 
         if data_type == PostProcessDataEnum.recording:
             start_ts = data["frame_time"]
@@ -106,7 +110,7 @@ class AudioTranscriptionPostProcessor(PostProcessorApi):
 
         try:
             audio_data = get_audio_from_recording(
-                self.config.cameras[camera_name].ffmpeg,
+                camera_config.ffmpeg,
                 camera_name,
                 start_ts,
                 end_ts,

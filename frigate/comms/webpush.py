@@ -222,7 +222,9 @@ class WebPushClient(Communicator):
         if topic == "reviews":
             decoded = json.loads(payload)
             camera = decoded["before"]["camera"]
-            if not self.config.cameras[camera].notifications.enabled:
+            camera_config = self.config.cameras.get(camera)
+
+            if camera_config is None or not camera_config.notifications.enabled:
                 return
             if self.is_camera_suspended(camera):
                 logger.debug(f"Notifications for {camera} are currently suspended.")
@@ -236,13 +238,14 @@ class WebPushClient(Communicator):
 
             # ensure notifications are enabled and the specific trigger has
             # notification action enabled
+            camera_config = self.config.cameras.get(camera)
+
             if (
-                not self.config.cameras[camera].notifications.enabled
-                or name not in self.config.cameras[camera].semantic_search.triggers
+                camera_config is None
+                or not camera_config.notifications.enabled
+                or name not in camera_config.semantic_search.triggers
                 or "notification"
-                not in self.config.cameras[camera]
-                .semantic_search.triggers[name]
-                .actions
+                not in camera_config.semantic_search.triggers[name].actions
             ):
                 return
 
@@ -253,7 +256,9 @@ class WebPushClient(Communicator):
         elif topic == "camera_monitoring":
             decoded = json.loads(payload)
             camera = decoded["camera"]
-            if not self.config.cameras[camera].notifications.enabled:
+            camera_config = self.config.cameras.get(camera)
+
+            if camera_config is None or not camera_config.notifications.enabled:
                 return
             if self.is_camera_suspended(camera):
                 logger.debug(f"Notifications for {camera} are currently suspended.")
