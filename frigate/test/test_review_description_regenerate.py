@@ -1,6 +1,8 @@
 """Tests for re-running a review item through GenAI descriptions on demand."""
 
+import os
 import sys
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -22,10 +24,12 @@ for mod in _MOCK_MODULES:
 # maintainer and the processor modules
 from frigate.comms.embeddings_updater import EmbeddingsRequestEnum  # noqa: E402
 from frigate.config.camera.genai import GenAIRoleEnum  # noqa: E402
+from frigate.config.camera.review import ImageSourceEnum  # noqa: E402
 from frigate.data_processing.post import review_descriptions  # noqa: E402
 from frigate.data_processing.post.review_descriptions import (  # noqa: E402
     get_recording_buffer_extension,
 )
+from frigate.data_processing.types import PostProcessDataEnum  # noqa: E402
 from frigate.embeddings import EmbeddingsContext  # noqa: E402
 from frigate.embeddings.maintainer import ReviewDescriptionProcessor  # noqa: E402
 from frigate.genai.manager import GenAIClientManager  # noqa: E402
@@ -170,6 +174,133 @@ class TestEmbeddingsContextRegenerate(unittest.TestCase):
             EmbeddingsRequestEnum.regenerate_review_description.value,
             {"review_id": "r1"},
         )
+
+
+class TestReviewDescriptionProcessData(unittest.TestCase):
+    """The end-of-review path shares its helpers with on demand runs."""
+
+    def _make_processor(self, image_source=ImageSourceEnum.recordings):
+        processor = ReviewDescriptionProcessor.__new__(ReviewDescriptionProcessor)
+        camera = MagicMock()
+        camera.review.genai.enabled = True
+        camera.review.genai.alerts = True
+        camera.review.genai.detections = True
+        camera.review.genai.image_source = image_source
+        camera.review.genai.debug_save_thumbnails = False
+        processor.config = MagicMock()
+        processor.config.cameras = {"front": camera}
+        processor.metrics = MagicMock()
+        processor.review_desc_dps = MagicMock()
+        processor.genai_manager = MagicMock()
+        processor.get_recording_frames = MagicMock(return_value=[b"a"])
+        processor.get_preview_frames_as_bytes = MagicMock(return_value=[b"p"])
+        processor.start_analysis = MagicMock()
+        processor.save_debug_recording_frames = MagicMock()
+        return processor
+
+    def _end(self, camera: str = "front") -> dict:
+        return {
+            "type": "end",
+            "after": {
+                "id": "r1",
+                "camera": camera,
+                "severity": "alert",
+                "start_time": 100.0,
+                "end_time": 130.0,
+                "thumb_path": "/thumb.webp",
+            },
+        }
+
+    def test_recordings_are_padded_before_analysis(self):
+        processor = self._make_processor()
+        processor.config.cameras["front"].review.genai.debug_save_thumbnails = True
+
+        processor.process_data(self._end(), PostProcessDataEnum.review)
+
+        processor.get_recording_frames.assert_called_once_with(
+            "front", 97.0, 133.0, height=480
+        )
+        processor.save_debug_recording_frames.assert_called_once_with("r1", [b"a"])
+        camera_config, final_data, thumbs = processor.start_analysis.call_args.args
+        self.assertIs(camera_config, processor.config.cameras["front"])
+        self.assertEqual((final_data["start_time"], final_data["end_time"]), (97, 133))
+        self.assertEqual(thumbs, [b"a"])
+
+    def test_recording_frames_are_not_saved_without_debug(self):
+        processor = self._make_processor()
+
+        processor.process_data(self._end(), PostProcessDataEnum.review)
+
+        processor.save_debug_recording_frames.assert_not_called()
+        processor.get_preview_frames_as_bytes.assert_not_called()
+        self.assertEqual(processor.start_analysis.call_args.args[2], [b"a"])
+
+    def test_preview_frames_are_used_for_the_preview_source(self):
+        processor = self._make_processor(image_source=ImageSourceEnum.preview)
+
+        processor.process_data(self._end(), PostProcessDataEnum.review)
+
+        processor.get_recording_frames.assert_not_called()
+        processor.start_analysis.assert_called_once()
+        self.assertEqual(processor.start_analysis.call_args.args[2], [b"p"])
+
+    def test_start_analysis_runs_in_a_background_thread(self):
+        processor = ReviewDescriptionProcessor.__new__(ReviewDescriptionProcessor)
+        processor.review_desc_dps = MagicMock()
+        processor.requestor = MagicMock()
+        processor.review_desc_speed = MagicMock()
+        processor.genai_manager = MagicMock()
+        processor.config = MagicMock()
+        processor.config.model.merged_labelmap = {0: "person", 1: "car"}
+        processor.config.model.all_attributes = ["amazon"]
+        camera = MagicMock()
+        final_data = {"id": "r1"}
+
+        with patch.object(review_descriptions.threading, "Thread") as thread:
+            processor.start_analysis(camera, final_data, [b"a"])
+
+        processor.review_desc_dps.update.assert_called_once()
+        self.assertIs(
+            thread.call_args.kwargs["target"], review_descriptions.run_analysis
+        )
+        args = thread.call_args.kwargs["args"]
+        self.assertIs(args[1], processor.genai_manager.description_client)
+        self.assertIs(args[3], camera)
+        self.assertIs(args[4], final_data)
+        self.assertEqual(args[5], [b"a"])
+        self.assertIs(args[6], camera.review.genai)
+        self.assertEqual(args[7], ["person", "car"])
+        self.assertEqual(args[8], ["amazon"])
+        thread.return_value.start.assert_called_once()
+
+    def test_debug_frames_are_written_in_order(self):
+        processor = ReviewDescriptionProcessor.__new__(ReviewDescriptionProcessor)
+
+        with tempfile.TemporaryDirectory() as clips:
+            with patch.object(review_descriptions, "CLIPS_DIR", clips):
+                processor.save_debug_recording_frames("r1", [b"zero", b"one"])
+
+            folder = os.path.join(clips, "genai-requests", "r1")
+            self.assertEqual(sorted(os.listdir(folder)), ["0.jpg", "1.jpg"])
+            with open(os.path.join(folder, "1.jpg"), "rb") as f:
+                self.assertEqual(f.read(), b"one")
+
+    def test_unknown_request_topics_are_ignored(self):
+        processor = ReviewDescriptionProcessor.__new__(ReviewDescriptionProcessor)
+        self.assertIsNone(processor.handle_request("unknown", {}))
+
+    def test_summary_request_without_described_items(self):
+        processor = ReviewDescriptionProcessor.__new__(ReviewDescriptionProcessor)
+
+        with patch.object(review_descriptions.ReviewSegment, "select") as select:
+            query = select.return_value.where.return_value.order_by.return_value
+            query.dicts.return_value.iterator.return_value = []
+            resp = processor.handle_request(
+                EmbeddingsRequestEnum.summarize_review.value,
+                {"start_ts": 100.0, "end_ts": 200.0},
+            )
+
+        self.assertEqual(resp, "No activity was found during this time period.")
 
 
 class TestGenAIRoleInfo(unittest.TestCase):

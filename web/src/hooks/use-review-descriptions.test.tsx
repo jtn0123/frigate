@@ -121,4 +121,26 @@ describe("useReviewDescriptions", () => {
       "recording.genaiDescription.toast.error:not enabled",
     );
   });
+
+  it("falls back to the request error message without a server message", async () => {
+    axiosPut.mockRejectedValue({ message: "Network Error" });
+    const { result } = renderHook(() => useReviewDescriptions());
+    result.current.generateDescription(REVIEW);
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(toastError.mock.calls[0][0]).toBe(
+      "recording.genaiDescription.toast.error:Network Error",
+    );
+  });
+
+  it("reports an unknown error when the failure carries no message", async () => {
+    axiosPut.mockRejectedValue({});
+    const { result } = renderHook(() => useReviewDescriptions());
+    result.current.generateDescription(REVIEW);
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(toastError.mock.calls[0][0]).toBe(
+      "recording.genaiDescription.toast.error:Unknown error",
+    );
+  });
 });
