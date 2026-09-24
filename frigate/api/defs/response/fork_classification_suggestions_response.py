@@ -79,12 +79,18 @@ class ClassAcceptanceModel(AcceptanceModel):
     corrected_to: dict[str, int] = Field(
         default_factory=dict, description="Class chosen instead, with counts"
     )
+    auto_filed: int = Field(
+        default=0, description="Images I44 filed without review, not in the rate", ge=0
+    )
 
 
 class SuggestionReportResponse(AcceptanceModel):
     """Acceptance of the drafts recorded for one model (fork I42)."""
 
     model: str = Field(description="The classification model")
+    auto_filed: int = Field(
+        default=0, description="Images I44 filed without review, not in the rate", ge=0
+    )
     sources: dict[str, AcceptanceModel] = Field(
         default_factory=dict, description="Keyed by source: text, jev or none"
     )

@@ -116,6 +116,7 @@ describe("SuggestionStatusBar", () => {
       total: 20,
       accepted: 17,
       rate: 0.85,
+      auto_filed: 3,
       sources: {},
       classes: {
         van: {
@@ -142,6 +143,9 @@ describe("SuggestionStatusBar", () => {
     const bar = screen.getByTestId("suggestion-status");
     expect(bar).toHaveTextContent("jevNoKey");
     expect(bar).toHaveTextContent('kept:{"rate":85,"count":20}');
+    expect(screen.getByTestId("suggestion-auto-filed")).toHaveTextContent(
+      'autoFiled:{"count":3}',
+    );
 
     fireEvent.pointerMove(screen.getByTestId("suggestion-kept"));
     fireEvent.focus(screen.getByTestId("suggestion-kept"));

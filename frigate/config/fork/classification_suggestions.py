@@ -47,6 +47,28 @@ class JevSuggestionsConfig(FrigateBaseModel):
     )
 
 
+class AutoFileSuggestionsConfig(FrigateBaseModel):
+    enabled: bool = Field(
+        default=False,
+        title="Auto-file sure drafts",
+        description="File a train image into its dataset class without review when the local text match and Jev name the same class and people have kept that class's drafts often enough. Auto-filed images never count toward that rate.",
+    )
+    min_kept_rate: float = Field(
+        default=0.9,
+        ge=0.5,
+        le=1.0,
+        title="Minimum kept rate",
+        description="The share of a class's drafts people filed unchanged before it may be auto-filed.",
+    )
+    min_drafts: int = Field(
+        default=20,
+        ge=1,
+        le=10000,
+        title="Minimum reviewed drafts",
+        description="How many drafts of a class people must have reviewed before it may be auto-filed.",
+    )
+
+
 class ClassificationSuggestionsConfig(FrigateBaseModel):
     enabled: bool = Field(
         default=True,
@@ -57,4 +79,9 @@ class ClassificationSuggestionsConfig(FrigateBaseModel):
         default_factory=JevSuggestionsConfig,
         title="Jev",
         description="Optional Jev text extraction through OpenRouter.",
+    )
+    auto_file: AutoFileSuggestionsConfig = Field(
+        default_factory=AutoFileSuggestionsConfig,
+        title="Auto-file",
+        description="File drafts that text and Jev agree on, once a class has earned it.",
     )

@@ -719,6 +719,47 @@ def read_provenance(clips_dir: str, name: str) -> list[dict[str, Any]]:
     return entries
 
 
+def train_files_for_event(clips_dir: str, name: str, event_id: str) -> list[str]:
+    """Train images still waiting for this event, oldest first."""
+    folder = safe_join(clips_dir, name, "train")
+    if folder is None or not os.path.isdir(folder):
+        return []
+    prefix = f"{event_id}-"
+    return sorted(
+        entry
+        for entry in os.listdir(folder)
+        if entry.startswith(prefix) and entry.lower().endswith(".webp")
+    )
+
+
+def sure_draft(text: Suggestion | None, jev: Suggestion | None) -> Suggestion | None:
+    """The draft both sources agree on, or None when either is missing."""
+    if text is None or jev is None:
+        return None
+    suggestion, conflict = choose(text, jev)
+    return None if conflict else suggestion
+
+
+def kept_rate(entries: list[dict[str, Any]], category: str) -> tuple[float | None, int]:
+    """How often people kept drafts of this class, ignoring auto-filed ones.
+
+    Auto-filed images are never counted here, so the rate that unlocks
+    auto-filing can only come from a person's confirmations.
+    """
+    total = accepted = 0
+    wanted = normalize_class(category)
+    for entry in entries:
+        suggested = entry.get("suggested_category")
+        if entry.get("auto") or not isinstance(suggested, str):
+            continue
+        if normalize_class(suggested) != wanted:
+            continue
+        total += 1
+        if entry.get("accepted"):
+            accepted += 1
+    return (accepted / total if total else None), total
+
+
 def safe_category(category: str) -> str | None:
     """Sanitize a class name the way the upstream categorize endpoint does."""
     return sanitize_path_component(category)
@@ -748,17 +789,27 @@ def summarize_provenance(entries: list[dict[str, Any]]) -> dict[str, Any]:
         entries: Lines of the provenance file, as read by read_provenance
 
     Returns:
-        Totals overall, per source, per suggested class and per camera
+        Totals overall, per source, per suggested class and per camera, plus
+        how many images I44 filed on its own (kept out of every rate)
     """
     overall: dict[str, Any] = {"total": 0, "accepted": 0}
     sources: dict[str, dict[str, Any]] = {}
     classes: dict[str, dict[str, Any]] = {}
     cameras: dict[str, dict[str, Any]] = {}
     times: list[float] = []
+    auto_filed = 0
+    auto_by_class: dict[str, int] = {}
     for entry in entries:
         accepted = bool(entry.get("accepted"))
         suggested = entry.get("suggested_category")
         if not isinstance(suggested, str) or not suggested:
+            continue
+        if isinstance(entry.get("time"), (int, float)):
+            times.append(float(entry["time"]))
+        if entry.get("auto"):
+            # Filed by I44 without a person, so it says nothing about trust.
+            auto_filed += 1
+            auto_by_class[suggested] = auto_by_class.get(suggested, 0) + 1
             continue
         _tally(overall, accepted)
         source = entry.get("source") or "none"
@@ -775,12 +826,17 @@ def summarize_provenance(entries: list[dict[str, Any]]) -> dict[str, Any]:
         camera = entry.get("camera")
         if isinstance(camera, str) and camera:
             _tally(cameras.setdefault(camera, {"total": 0, "accepted": 0}), accepted)
-        if isinstance(entry.get("time"), (int, float)):
-            times.append(float(entry["time"]))
+    for category, count in auto_by_class.items():
+        classes.setdefault(category, {"total": 0, "accepted": 0, "corrected_to": {}})[
+            "auto_filed"
+        ] = count
     return {
         **_rate(overall),
+        "auto_filed": auto_filed,
         "sources": {k: _rate(v) for k, v in sorted(sources.items())},
-        "classes": {k: _rate(v) for k, v in sorted(classes.items())},
+        "classes": {
+            k: {"auto_filed": 0, **_rate(v)} for k, v in sorted(classes.items())
+        },
         "cameras": {k: _rate(v) for k, v in sorted(cameras.items())},
         "first_time": min(times) if times else None,
         "last_time": max(times) if times else None,

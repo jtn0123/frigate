@@ -45,11 +45,15 @@ export type Acceptance = {
 
 export type ClassAcceptance = Acceptance & {
   corrected_to: Record<string, number>;
+  /** Images filed without review (fork I44), kept out of the rate. */
+  auto_filed?: number;
 };
 
 /** The acceptance report over the provenance file (fork I42). */
 export type SuggestionReport = Acceptance & {
   model: string;
+  /** Images filed without review (fork I44), kept out of the rate. */
+  auto_filed?: number;
   sources: Record<string, Acceptance>;
   classes: Record<string, ClassAcceptance>;
   cameras: Record<string, Acceptance>;

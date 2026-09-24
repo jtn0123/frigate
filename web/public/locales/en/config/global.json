@@ -1382,6 +1382,22 @@
           "label": "Request timeout",
           "description": "Seconds to wait for one Jev answer."
         }
+      },
+      "auto_file": {
+        "label": "Auto-file",
+        "description": "File drafts that text and Jev agree on, once a class has earned it.",
+        "enabled": {
+          "label": "Auto-file sure drafts",
+          "description": "File a train image into its dataset class without review when the local text match and Jev name the same class and people have kept that class's drafts often enough. Auto-filed images never count toward that rate."
+        },
+        "min_kept_rate": {
+          "label": "Minimum kept rate",
+          "description": "The share of a class's drafts people filed unchanged before it may be auto-filed."
+        },
+        "min_drafts": {
+          "label": "Minimum reviewed drafts",
+          "description": "How many drafts of a class people must have reviewed before it may be auto-filed."
+        }
       }
     }
   },

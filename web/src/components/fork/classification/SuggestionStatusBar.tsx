@@ -147,6 +147,13 @@ export default function SuggestionStatusBar({
           </TooltipContent>
         </Tooltip>
       )}
+      {report && (report.auto_filed ?? 0) > 0 && (
+        <span data-testid="suggestion-auto-filed">
+          {t("classificationSuggestions.autoFiled", {
+            count: report.auto_filed,
+          })}
+        </span>
+      )}
       {drafts.length > 0 && (
         <Button
           size="xs"

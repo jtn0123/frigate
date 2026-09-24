@@ -61,6 +61,19 @@ single mistake afterwards.
 Classes are the model's dataset folders. Create the classes first, then the
 drafts can name them. `none` is never suggested.
 
+## Auto-filing (I44)
+
+Off by default. With `classification.suggestions.auto_file.enabled: true`
+the background worker files an event's train images on its own when:
+
+- the local text match and Jev name the same class, and
+- people have kept that class's drafts at least `min_kept_rate` (0.9) of
+  the time over at least `min_drafts` (20) reviews.
+
+Auto-filed images are recorded with `auto: true`. They show as their own
+count in the report and the status line and never count toward the kept
+rate, so a class can only earn auto-filing from a person's confirmations.
+
 ## What is recorded
 
 Every Confirm, and every picker choice on a card with a draft, appends one

@@ -305,6 +305,7 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
                 "total": 0,
                 "accepted": 0,
                 "rate": None,
+                "auto_filed": 0,
                 "sources": {},
                 "classes": {},
                 "cameras": {},

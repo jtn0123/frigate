@@ -1,10 +1,12 @@
-"""Fork (I43): ask Jev for a class as soon as a description arrives.
+"""Fork (I43, I44): draft a class as soon as a description arrives.
 
 The train grid asks on demand, so the first time it opened a week of train
 images could be waiting on one day's budget. This worker asks once per
 description as it is written and stores the answer in the same cache the
 grid reads, so the grid finds its answers already there and the daily limit
-is spent evenly over the day.
+is spent evenly over the day. When auto-filing is on, a draft that text and
+Jev agree on is filed here too, once people have kept that class often
+enough (I44).
 """
 
 import asyncio
@@ -119,7 +121,61 @@ class SuggestionPrefetch(threading.Thread):
                     ask,
                 )
                 results[name] = drafts[job["id"]]
+        for name, draft in results.items():
+            await asyncio.to_thread(self.auto_file, job, name, draft)
         return results
+
+    def auto_file(
+        self, job: DescriptionJob, name: str, draft: suggest.EventSuggestion
+    ) -> list[str]:
+        """File the event's train images when the draft has earned it (I44).
+
+        Returns:
+            The dataset file names written, empty when nothing was filed
+        """
+        settings = self.config.classification.suggestions.auto_file
+        if not settings.enabled:
+            return []
+        sure = suggest.sure_draft(draft["text"], draft["jev"])
+        if sure is None:
+            return []
+        entries = suggest.read_provenance(self.clips_dir, name)
+        rate, reviewed = suggest.kept_rate(entries, sure["category"])
+        if rate is None or rate < settings.min_kept_rate:
+            return []
+        if reviewed < settings.min_drafts:
+            return []
+        category = suggest.safe_category(sure["category"])
+        files = suggest.train_files_for_event(self.clips_dir, name, job["id"])
+        if not category or not files:
+            return []
+        try:
+            moved = suggest.categorize_train_files(
+                self.clips_dir, name, category, files
+            )
+        except (OSError, ValueError):
+            logger.exception("Auto-filing the train images of one event failed")
+            return []
+        suggest.record_confirmation(
+            self.clips_dir,
+            name,
+            {
+                "event_id": job["id"],
+                "camera": job["camera"],
+                "category": category,
+                "suggested_category": sure["category"],
+                "source": sure["source"],
+                "score": sure["score"],
+                "accepted": True,
+                "auto": True,
+                "description_sha256": suggest.description_sha256(job["description"]),
+                "files": moved,
+            },
+        )
+        logger.info(
+            "Auto-filed %d train image(s) into %s/%s", len(moved), name, category
+        )
+        return moved
 
 
 _worker: SuggestionPrefetch | None = None

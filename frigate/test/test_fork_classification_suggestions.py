@@ -518,7 +518,13 @@ class TestSummarizeProvenance(unittest.TestCase):
         )
         self.assertEqual(
             report["classes"]["van"],
-            {"total": 3, "accepted": 2, "rate": 2 / 3, "corrected_to": {"suv": 1}},
+            {
+                "total": 3,
+                "accepted": 2,
+                "rate": 2 / 3,
+                "corrected_to": {"suv": 1},
+                "auto_filed": 0,
+            },
         )
         self.assertEqual(report["classes"]["suv"]["corrected_to"], {"pickup": 1})
         self.assertEqual(report["cameras"]["back"]["total"], 2)

@@ -4791,6 +4791,12 @@ export interface components {
             corrected_to?: {
                 [key: string]: number;
             };
+            /**
+             * Auto Filed
+             * @description Images I44 filed without review, not in the rate
+             * @default 0
+             */
+            auto_filed: number;
         };
         /**
          * ClassificationSuggestionsResponse
@@ -6167,6 +6173,12 @@ export interface components {
              * @description The classification model
              */
             model: string;
+            /**
+             * Auto Filed
+             * @description Images I44 filed without review, not in the rate
+             * @default 0
+             */
+            auto_filed: number;
             /**
              * Sources
              * @description Keyed by source: text, jev or none

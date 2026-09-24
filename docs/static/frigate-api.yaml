@@ -8581,6 +8581,12 @@ components:
           type: object
           title: Corrected To
           description: Class chosen instead, with counts
+        auto_filed:
+          type: integer
+          minimum: 0.0
+          title: Auto Filed
+          description: Images I44 filed without review, not in the rate
+          default: 0
       type: object
       required:
         - total
@@ -10450,6 +10456,12 @@ components:
           type: string
           title: Model
           description: The classification model
+        auto_filed:
+          type: integer
+          minimum: 0.0
+          title: Auto Filed
+          description: Images I44 filed without review, not in the rate
+          default: 0
         sources:
           additionalProperties:
             $ref: '#/components/schemas/AcceptanceModel'

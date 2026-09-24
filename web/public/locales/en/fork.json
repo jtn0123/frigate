@@ -627,6 +627,8 @@
     "fileAllDone_other": "Filed {{count}} of {{total}} drafts",
     "keptClass_one": "{{category}}: kept {{rate}}% of {{count}} draft",
     "keptClass_other": "{{category}}: kept {{rate}}% of {{count}} drafts",
-    "correctedTo": "(changed to {{list}})"
+    "correctedTo": "(changed to {{list}})",
+    "autoFiled_one": "{{count}} auto-filed",
+    "autoFiled_other": "{{count}} auto-filed"
   }
 }
