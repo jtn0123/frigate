@@ -6,7 +6,6 @@ import { ImageShadowOverlay } from "@/components/overlay/ImageShadowOverlay";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import useOptimisticState from "@/hooks/use-optimistic-state";
 import { cn } from "@/lib/utils";
 import { onActivate } from "@/utils/fork/a11y";
 import { wrapAsync } from "@/utils/promise";
@@ -55,11 +54,7 @@ export default function ModelSelectionView({
 }: Readonly<ModelSelectionViewProps>) {
   const { t } = useTranslation(["views/classificationModel"]);
   const [page, setPage] = useOverlayState<ModelType>("objects", "objects");
-  const [pageToggle, setPageToggle] = useOptimisticState(
-    page || "objects",
-    setPage,
-    100,
-  );
+  const pageToggle = page ?? "objects";
   const { data: config, mutate: refreshConfig } = useSWR<FrigateConfig>(
     "config",
     {
@@ -125,7 +120,7 @@ export default function ModelSelectionView({
             value={pageToggle}
             onValueChange={(value: ModelType) => {
               if (value) {
-                setPageToggle(value);
+                setPage(value);
               }
             }}
           >
