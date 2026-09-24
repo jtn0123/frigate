@@ -24,7 +24,10 @@ for mod in _MOCK_MODULES:
 # maintainer and the processor modules
 from frigate.comms.embeddings_updater import EmbeddingsRequestEnum  # noqa: E402
 from frigate.config.camera.genai import GenAIRoleEnum  # noqa: E402
-from frigate.config.camera.review import ImageSourceEnum  # noqa: E402
+from frigate.config.camera.review import (  # noqa: E402
+    ImageSourceEnum,
+    ReviewFrameModeEnum,
+)
 from frigate.data_processing.post import review_descriptions  # noqa: E402
 from frigate.data_processing.post.review_descriptions import (  # noqa: E402
     get_recording_buffer_extension,
@@ -59,13 +62,16 @@ class TestRegenerateReviewDescription(unittest.TestCase):
         camera = MagicMock()
         camera.review.genai.enabled = genai_enabled
         camera.review.genai.debug_save_thumbnails = False
+        camera.review.genai.frame_mode = ReviewFrameModeEnum.frames
         processor.config = MagicMock()
         processor.config.cameras = {"front": camera}
         processor.genai_manager = MagicMock()
         processor.genai_manager.description_client = (
             MagicMock() if client == "client" else client
         )
-        processor.get_recording_frames = MagicMock(return_value=[b"a", b"b"])
+        processor.get_recording_frames = MagicMock(
+            return_value=[(b"a", 100.0), (b"b", 110.0)]
+        )
         processor.start_analysis = MagicMock()
         processor.save_debug_recording_frames = MagicMock()
         return processor
@@ -103,17 +109,13 @@ class TestRegenerateReviewDescription(unittest.TestCase):
         self._run(processor, self._review())
 
         processor.get_recording_frames.assert_called_once_with(
-            "front",
-            97.0,
-            133.0,
-            height=480,
-            frame_mode=processor.config.cameras["front"].review.genai.frame_mode,
+            "front", 97.0, 133.0, height=480, frame_mode=ReviewFrameModeEnum.frames
         )
         processor.start_analysis.assert_called_once()
         camera_config, final_data, thumbs = processor.start_analysis.call_args.args
         self.assertIs(camera_config, processor.config.cameras["front"])
         self.assertEqual(final_data["id"], "r1")
-        self.assertEqual(thumbs, [b"a", b"b"])
+        self.assertEqual(thumbs, [(b"a", 100.0), (b"b", 110.0)])
         processor.save_debug_recording_frames.assert_not_called()
 
     def test_saves_debug_frames_when_enabled(self):
@@ -122,7 +124,7 @@ class TestRegenerateReviewDescription(unittest.TestCase):
         self._run(processor, self._review())
 
         processor.save_debug_recording_frames.assert_called_once_with(
-            "r1", [b"a", b"b"]
+            "r1", [(b"a", 100.0), (b"b", 110.0)]
         )
 
     def test_skips_without_a_descriptions_client(self):
@@ -191,12 +193,13 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         camera.review.genai.detections = True
         camera.review.genai.image_source = image_source
         camera.review.genai.debug_save_thumbnails = False
+        camera.review.genai.frame_mode = ReviewFrameModeEnum.frames
         processor.config = MagicMock()
         processor.config.cameras = {"front": camera}
         processor.metrics = MagicMock()
         processor.review_desc_dps = MagicMock()
         processor.genai_manager = MagicMock()
-        processor.get_recording_frames = MagicMock(return_value=[b"a"])
+        processor.get_recording_frames = MagicMock(return_value=[(b"a", 100.0)])
         processor.get_preview_frames_as_bytes = MagicMock(return_value=[b"p"])
         processor.start_analysis = MagicMock()
         processor.save_debug_recording_frames = MagicMock()
@@ -222,17 +225,15 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         processor.process_data(self._end(), PostProcessDataEnum.review)
 
         processor.get_recording_frames.assert_called_once_with(
-            "front",
-            97.0,
-            133.0,
-            height=480,
-            frame_mode=processor.config.cameras["front"].review.genai.frame_mode,
+            "front", 97.0, 133.0, height=480, frame_mode=ReviewFrameModeEnum.frames
         )
-        processor.save_debug_recording_frames.assert_called_once_with("r1", [b"a"])
+        processor.save_debug_recording_frames.assert_called_once_with(
+            "r1", [(b"a", 100.0)]
+        )
         camera_config, final_data, thumbs = processor.start_analysis.call_args.args
         self.assertIs(camera_config, processor.config.cameras["front"])
         self.assertEqual((final_data["start_time"], final_data["end_time"]), (97, 133))
-        self.assertEqual(thumbs, [b"a"])
+        self.assertEqual(thumbs, [(b"a", 100.0)])
 
     def test_recording_frames_are_not_saved_without_debug(self):
         processor = self._make_processor()
@@ -241,7 +242,7 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
 
         processor.save_debug_recording_frames.assert_not_called()
         processor.get_preview_frames_as_bytes.assert_not_called()
-        self.assertEqual(processor.start_analysis.call_args.args[2], [b"a"])
+        self.assertEqual(processor.start_analysis.call_args.args[2], [(b"a", 100.0)])
 
     def test_preview_frames_are_used_for_the_preview_source(self):
         processor = self._make_processor(image_source=ImageSourceEnum.preview)
@@ -265,7 +266,7 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         final_data = {"id": "r1"}
 
         with patch.object(review_descriptions.threading, "Thread") as thread:
-            processor.start_analysis(camera, final_data, [(b"a", 1.0)])
+            processor.start_analysis(camera, final_data, [(b"a", 100.0)])
 
         processor.review_desc_dps.update.assert_called_once()
         self.assertIs(
@@ -276,7 +277,6 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         self.assertIs(args[3], camera)
         self.assertIs(args[4], final_data)
         self.assertEqual(args[5], [b"a"])
-        # plain frame mode sends no per-frame captions
         self.assertEqual(args[6], [])
         self.assertIs(args[7], camera.review.genai)
         self.assertEqual(args[8], ["car", "person"])
@@ -289,7 +289,7 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         with tempfile.TemporaryDirectory() as clips:
             with patch.object(review_descriptions, "CLIPS_DIR", clips):
                 processor.save_debug_recording_frames(
-                    "r1", [(b"zero", 1.0), (b"one", 2.0)]
+                    "r1", [(b"zero", 100.0), (b"one", 101.0)]
                 )
 
             folder = os.path.join(clips, "genai-requests", "r1")
