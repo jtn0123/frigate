@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ClassificationSuggestionsResponse,
@@ -109,29 +110,53 @@ describe("SuggestionStatusBar", () => {
     expect(bar).not.toHaveTextContent("kept");
   });
 
-  it("explains a missing key and shows the kept rate", () => {
+  it("explains a missing key and shows the kept rate", async () => {
     report = {
       model: "vehicle_type",
       total: 20,
       accepted: 17,
       rate: 0.85,
       sources: {},
-      classes: {},
+      classes: {
+        van: {
+          total: 10,
+          accepted: 8,
+          rate: 0.8,
+          corrected_to: { suv: 2 },
+        },
+      },
       cameras: {},
       first_time: 1,
       last_time: 2,
     };
     render(
-      <SuggestionStatusBar
-        modelName="vehicle_type"
-        data={response({ enabled: true })}
-        groups={GROUPS}
-        onRefresh={vi.fn()}
-      />,
+      <TooltipProvider>
+        <SuggestionStatusBar
+          modelName="vehicle_type"
+          data={response({ enabled: true })}
+          groups={GROUPS}
+          onRefresh={vi.fn()}
+        />
+      </TooltipProvider>,
     );
     const bar = screen.getByTestId("suggestion-status");
     expect(bar).toHaveTextContent("jevNoKey");
     expect(bar).toHaveTextContent('kept:{"rate":85,"count":20}');
+
+    fireEvent.pointerMove(screen.getByTestId("suggestion-kept"));
+    fireEvent.focus(screen.getByTestId("suggestion-kept"));
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(
+          'classificationSuggestions.keptClass:{"category":"van","rate":80,"count":10}',
+        ).length,
+      ).toBeGreaterThan(0),
+    );
+    expect(
+      screen.getAllByText(
+        'classificationSuggestions.correctedTo:{"list":"suv 2"}',
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("files every draft on the page after one confirmation", async () => {

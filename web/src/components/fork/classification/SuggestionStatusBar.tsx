@@ -21,6 +21,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
 import { useSuggestionReport } from "@/hooks/fork/use-suggestion-report";
 import type { ClassificationSuggestionsResponse } from "@/lib/fork/classification-suggestions";
@@ -109,12 +114,38 @@ export default function SuggestionStatusBar({
       </span>
       <span>{jevText}</span>
       {report && report.total > 0 && report.rate != null && (
-        <span>
-          {t("classificationSuggestions.kept", {
-            rate: Math.round(report.rate * 100),
-            count: report.total,
-          })}
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span data-testid="suggestion-kept" className="cursor-default">
+              {t("classificationSuggestions.kept", {
+                rate: Math.round(report.rate * 100),
+                count: report.total,
+              })}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-80">
+            {Object.entries(report.classes).map(([category, stats]) => (
+              <div key={category} className="smart-capitalize">
+                {t("classificationSuggestions.keptClass", {
+                  category,
+                  rate: Math.round((stats.rate ?? 0) * 100),
+                  count: stats.total,
+                })}
+                {Object.keys(stats.corrected_to).length > 0 && (
+                  <span className="text-secondary-foreground">
+                    {" "}
+                    {t("classificationSuggestions.correctedTo", {
+                      list: Object.entries(stats.corrected_to)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([other, n]) => `${other} ${n}`)
+                        .join(", "),
+                    })}
+                  </span>
+                )}
+              </div>
+            ))}
+          </TooltipContent>
+        </Tooltip>
       )}
       {drafts.length > 0 && (
         <Button
