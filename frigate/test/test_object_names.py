@@ -125,6 +125,56 @@ class TestCategorizedObjectNames(unittest.TestCase):
             {"bird": ["blue jay", "cardinal"]},
         )
 
+    def test_missing_face_dir_yields_only_logos(self):
+        config = _config({"front": _camera(["person"], face=True)})
+
+        self.assertFalse(os.path.exists(self.face_dir))
+        self.assertEqual(
+            get_categorized_object_names(config, ["front"]),
+            {"person": ["amazon"]},
+        )
+
+    def test_unreadable_face_dir_is_skipped(self):
+        os.makedirs(os.path.join(self.face_dir, "alice"))
+        config = _config({"front": _camera(["person"], face=True)})
+
+        with patch.object(
+            object_names.os, "listdir", side_effect=PermissionError("denied")
+        ):
+            names = get_categorized_object_names(config, ["front"])
+
+        self.assertEqual(names, {"person": ["amazon"]})
+
+    def test_unreadable_classification_files_are_skipped(self):
+        os.makedirs(os.path.join(self.cache_dir, "birds"))
+        with open(os.path.join(self.cache_dir, "birds", "labelmap.txt"), "w") as f:
+            f.write("blue jay\n")
+        os.makedirs(os.path.join(self.clips_dir, "birds", "dataset", "cardinal"))
+
+        config = _config(
+            {"yard": _camera(["bird"])},
+            custom={
+                "birds": SimpleNamespace(
+                    enabled=True,
+                    object_config=SimpleNamespace(
+                        classification_type=ObjectClassificationType.sub_label,
+                        objects=["bird"],
+                    ),
+                )
+            },
+        )
+
+        with (
+            patch.object(
+                object_names, "load_labels", side_effect=OSError("unreadable")
+            ),
+            patch.object(object_names.os, "listdir", side_effect=OSError("gone")),
+        ):
+            names = get_categorized_object_names(config, ["yard"])
+
+        # no categories could be read, so the object type is omitted entirely
+        self.assertEqual(names, {})
+
 
 if __name__ == "__main__":
     unittest.main()
