@@ -2,8 +2,10 @@ import { useCallback } from "react";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { mutate } from "swr";
 import {
   confirmBody,
+  reportKey,
   type Suggestion,
 } from "@/lib/fork/classification-suggestions";
 
@@ -44,6 +46,7 @@ export function useConfirmSuggestion(modelName: string, onRefresh: () => void) {
         { position: "top-center" },
       );
       onRefresh();
+      void mutate(reportKey(modelName));
       return true;
     },
     [modelName, onRefresh, t],

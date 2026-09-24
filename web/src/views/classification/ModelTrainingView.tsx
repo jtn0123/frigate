@@ -64,6 +64,7 @@ import { useClassificationSuggestions } from "@/hooks/fork/use-classification-su
 import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
 import { pickerProps } from "@/lib/fork/classification-suggestions";
 import SuggestionBadge from "@/components/fork/classification/SuggestionBadge";
+import SuggestionStatusBar from "@/components/fork/classification/SuggestionStatusBar";
 import useApiFilter from "@/hooks/use-api-filter";
 import {
   ClassificationDatasetResponse,
@@ -1200,6 +1201,7 @@ function ObjectTrainGrid({
         setInputFocused={() => {}}
       />
 
+      <SuggestionStatusBar modelName={model.name} data={suggestions} />
       <div
         ref={contentRef}
         className={cn(

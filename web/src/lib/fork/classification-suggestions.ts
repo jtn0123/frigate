@@ -37,6 +37,26 @@ export type ClassificationSuggestionsResponse = {
   suggestions: Record<string, EventSuggestion>;
 };
 
+export type Acceptance = {
+  total: number;
+  accepted: number;
+  rate: number | null;
+};
+
+export type ClassAcceptance = Acceptance & {
+  corrected_to: Record<string, number>;
+};
+
+/** The acceptance report over the provenance file (fork I42). */
+export type SuggestionReport = Acceptance & {
+  model: string;
+  sources: Record<string, Acceptance>;
+  classes: Record<string, ClassAcceptance>;
+  cameras: Record<string, Acceptance>;
+  first_time: number | null;
+  last_time: number | null;
+};
+
 export type ConfirmSuggestionBody = {
   event_id: string;
   category: string;
@@ -97,4 +117,17 @@ export function pickerProps(
     return {};
   }
   return { onCategorize: (category: string) => run(suggestion, category) };
+}
+
+/** The SWR key of the acceptance report, or null without a model. */
+export function reportKey(modelName: string): string | null {
+  return modelName ? `classification/${modelName}/suggestions/report` : null;
+}
+
+/** How many events on the page have a draft to confirm. */
+export function draftCount(
+  suggestions: Record<string, EventSuggestion> | undefined,
+): number {
+  return Object.values(suggestions ?? {}).filter((entry) => entry.suggestion)
+    .length;
 }

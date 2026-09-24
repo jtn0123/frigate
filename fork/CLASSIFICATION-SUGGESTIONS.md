@@ -20,6 +20,10 @@ badge are labeled exactly as before.
 A question mark badge means the two sources disagreed. Label that card by
 hand.
 
+One line above the grid says how many cards on the page have a draft,
+whether Jev is answering (and how much of today's request budget is used,
+or that the key is missing), and how often past drafts were kept as filed.
+
 ## How a draft is made
 
 1. **Local text match, always on.** `classification.suggestions.enabled`

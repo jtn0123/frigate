@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   confirmBody,
+  draftCount,
   percent,
   pickerProps,
+  reportKey,
   suggestionsKey,
   type EventSuggestion,
   type Suggestion,
@@ -60,6 +62,22 @@ describe("classification suggestions", () => {
     const props = pickerProps(entry, run);
     props.onCategorize?.("suv");
     expect(run).toHaveBeenCalledWith(JEV, "suv");
+  });
+
+  it("keys the report by model and counts the drafts on a page", () => {
+    expect(reportKey("")).toBeNull();
+    expect(reportKey("vehicle_type")).toBe(
+      "classification/vehicle_type/suggestions/report",
+    );
+    const entry: EventSuggestion = {
+      text: null,
+      jev: JEV,
+      jev_status: "answered",
+      suggestion: JEV,
+      conflict: false,
+    };
+    expect(draftCount(undefined)).toBe(0);
+    expect(draftCount({ a: entry, b: { ...entry, suggestion: null } })).toBe(1);
   });
 
   it("rounds a score to a whole percent and has none for text", () => {

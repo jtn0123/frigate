@@ -126,6 +126,23 @@ test.describe("Classification suggestions @medium", () => {
       (route) => route.fulfill({ json: SUGGESTIONS }),
     );
     await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions/report`),
+      (route) =>
+        route.fulfill({
+          json: {
+            model: MODEL,
+            total: 20,
+            accepted: 17,
+            rate: 0.85,
+            sources: {},
+            classes: {},
+            cameras: {},
+            first_time: 1,
+            last_time: 2,
+          },
+        }),
+    );
+    await page.route(
       new RegExp(`/api/classification/${MODEL}/suggestions/confirm`),
       async (route) => {
         confirms.push(route.request().postDataJSON());
@@ -159,6 +176,10 @@ test.describe("Classification suggestions @medium", () => {
     await expect(badge).toHaveCount(1, { timeout: 10_000 });
     await expect(badge).toContainText("van");
     await expect(badge).toContainText("97%");
+    const status = page.getByTestId("suggestion-status");
+    await expect(status).toContainText("1 draft on this page");
+    await expect(status).toContainText("Jev: 1 of 200 requests today");
+    await expect(status).toContainText("Kept 85% of 20 drafts");
 
     await badge.getByRole("button", { name: /confirm van/i }).click();
 

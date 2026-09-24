@@ -610,6 +610,13 @@
     "conflict": "Sources disagree: the description reads as {{text}}, Jev says {{jev}}. Label it by hand.",
     "fromJev": "Suggested by Jev from the description",
     "fromDescription": "Suggested from the description",
-    "confirm": "Confirm {{category}}"
+    "confirm": "Confirm {{category}}",
+    "draftsOnPage_one": "{{count}} draft on this page",
+    "draftsOnPage_other": "{{count}} drafts on this page",
+    "jevUsage": "Jev: {{used}} of {{limit}} requests today",
+    "jevNoKey": "Jev: no API key in the environment",
+    "jevOff": "Jev off",
+    "kept_one": "Kept {{rate}}% of {{count}} draft",
+    "kept_other": "Kept {{rate}}% of {{count}} drafts"
   }
 }
