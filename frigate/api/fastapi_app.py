@@ -33,6 +33,7 @@ from frigate.api import (
     record,
     review,
     review_audio,
+    system_history,
 )
 from frigate.api import app as main_app
 from frigate.api.auth import (
@@ -147,6 +148,11 @@ def create_fastapi_app(
     async def startup():
         logger.info("FastAPI started")
         app.state.model_sampler_task = asyncio.create_task(ai_models.model_sampler(app))
+        # fork (D54): keeps the System page's long windows filled with no
+        # browser open; the in-memory stats history only holds 20 minutes
+        app.state.system_history_task = asyncio.create_task(
+            system_history.system_metrics_sampler(app)
+        )
         app.state.replay_watchdog_task = asyncio.create_task(
             debug_replay_auto_stop_watchdog(
                 replay_manager, frigate_config, config_publisher
@@ -160,6 +166,12 @@ def create_fastapi_app(
             sampler.cancel()
             with suppress(asyncio.CancelledError):
                 await sampler
+        history = getattr(app.state, "system_history_task", None)
+        if history is not None:
+            history.cancel()
+            with suppress(asyncio.CancelledError):
+                await history
+            app.state.system_history_task = None
         task = getattr(app.state, "replay_watchdog_task", None)
         if task is not None:
             task.cancel()
@@ -199,6 +211,7 @@ def create_fastapi_app(
     app.include_router(fork_camera_history.router)
     app.include_router(fork_share.router)
     app.include_router(fork_updates.router)
+    app.include_router(system_history.router)
     # every route must declare its own auth gate; fail fast if one is missing
     assert_routes_have_auth_gate(app)
     # App Properties

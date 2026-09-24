@@ -7673,6 +7673,41 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /system/metrics/history:
+    get:
+      tags:
+        - App
+      summary: System metrics over a range longer than the in-memory history
+      description: |-
+        **Access:** Admin role required.
+
+        Return averaged samples of the graphed metrics for one range.
+      operationId: system_metrics_history_system_metrics_history_get
+      parameters:
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            description: One of 1h, 6h, 12h, 24h, 7d, 30d
+            default: 1h
+            title: Range
+          description: One of 1h, 6h, 12h, 24h, 7d, 30d
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
 components:
   schemas:
     AIModelStatus:
