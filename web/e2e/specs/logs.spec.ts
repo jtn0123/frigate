@@ -214,8 +214,8 @@ test.describe("Logs — history @medium", () => {
   }) => {
     test.skip(frigateApp.isMobile, "Wheel scrolling is desktop-only");
     // The newest 100 of 1000 lines load first; scrolling up must request the
-    // range that ends where they begin (Logs.tsx handleScroll, which reads the
-    // visible window from react-logviewer's virtua list).
+    // range that ends where they begin (Logs.tsx loadOlderLines, run when the
+    // virtua list's scroll offset is within one viewport of the top).
     const ranges: string[] = [];
     const newest = Array.from(
       { length: 100 },
@@ -243,7 +243,7 @@ test.describe("Logs — history @medium", () => {
     await expect(frigateApp.page.getByText("newest line 999")).toBeVisible({
       timeout: 10_000,
     });
-    await frigateApp.page.locator(".react-lazylog").hover();
+    await frigateApp.page.getByText("newest line 999").hover();
     await expect(async () => {
       await frigateApp.page.mouse.wheel(0, -20_000);
       expect(ranges[0]).toMatch(/^\d+-900$/);
@@ -385,15 +385,15 @@ test.describe("Logs: severity filter history (UI82) @medium", () => {
       // the filtered read starts at the first line and keeps only warnings
       await expect(page.getByText("line 198", { exact: true })).toHaveCount(0);
 
-      await page.locator(".react-lazylog").hover();
+      await page.getByText("line 199", { exact: true }).hover();
       await expect(async () => {
         await page.mouse.wheel(0, -20_000);
         await expect(page.getByText("line 1", { exact: true })).toBeVisible({
           timeout: 1_000,
         });
       }).toPass({ timeout: 10_000 });
-      // let the 50 ms debounced scroll handler run: every line is already
-      // on screen, so it must not ask for more
+      // give the scroll handler time to run: every line is already on
+      // screen, so it must not ask for more
       await new Promise((resolve) => setTimeout(resolve, 500));
       expect(ranges).toEqual([]);
     },
@@ -439,7 +439,7 @@ test.describe("Logs: history reads (UI84) @medium", () => {
       await expect(page.getByText("newest line 999")).toBeVisible({
         timeout: 10_000,
       });
-      await page.locator(".react-lazylog").hover();
+      await page.getByText("newest line 999").hover();
       await page.mouse.wheel(0, -20_000);
       // keep nudging the list at the top until a second read goes out
       await expect

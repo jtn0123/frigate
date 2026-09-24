@@ -30,7 +30,6 @@
   "dependencies": {
     "@cycjimmy/jsmpeg-player": "^6.1.2",
     "@hookform/resolvers": "^3.10.0",
-    "@melloware/react-logviewer": "^6.1.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.2",
     "@radix-ui/react-checkbox": "^1.1.4",
@@ -103,6 +102,7 @@
     "tailwindcss-animate": "^1.0.7",
     "use-long-press": "^3.2.0",
     "vaul": "^1.1.2",
+    "virtua": "^0.49.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -162,9 +162,6 @@
     "form-data": "4.0.6",
     "i18next-cli": {
       "glob": "11.1.0"
-    },
-    "@melloware/react-logviewer": {
-      "immutable": "5.1.9"
     }
   }
 }

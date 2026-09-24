@@ -186,11 +186,6 @@ html {
   transition: none !important;
 }
 
-.react-lazylog,
-.react-lazylog-searchbar {
-  background-color: transparent !important;
-}
-
 /* Keyboard focus ring for card and menu click targets that are not native
    buttons (role="button" with tabIndex). Native buttons and inputs keep
    the shadcn focus-visible ring from their own classes. */

@@ -11,7 +11,13 @@ import {
   logTypes,
 } from "@/types/log";
 import copy from "copy-to-clipboard";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import axios, { isAxiosError } from "axios";
 import ErrorState from "@/components/fork/ErrorState";
 import LogInfoDialog from "@/components/overlay/LogInfoDialog";
@@ -25,17 +31,15 @@ import { cn } from "@/lib/utils";
 import { parseLogLines } from "@/utils/logUtil";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import scrollIntoView from "scroll-into-view-if-needed";
-import { LazyLog } from "@melloware/react-logviewer";
+import { VList, type VListHandle } from "virtua";
 import useKeyboardListener from "@/hooks/use-keyboard-listener";
-import EnhancedScrollFollow from "@/components/dynamic/EnhancedScrollFollow";
 import { MdCircle } from "react-icons/md";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { debounce } from "lodash";
-import { isIOS, isMobile } from "react-device-detect";
+import { isDesktop, isIOS, isMobile } from "react-device-detect";
 import { isPWA } from "@/utils/isPWA";
 import { isInIframe } from "@/utils/isIFrame";
 import { useTranslation } from "react-i18next";
@@ -52,26 +56,101 @@ class LogStreamStatusError extends Error {
   }
 }
 
+const OLDER_LINES_CHUNK_SIZE = 100;
+const FOLLOW_THRESHOLD_PX = 40;
+
+// Desktop row height. Without it, virtua guesses 40px and the first render
+// leaves the viewport partly empty. Mobile rows are taller, and a low hint
+// there shrinks the scroll room iOS gets while it defers scroll correction
+const ROW_HEIGHT_HINT_PX = 29;
+
+// Stable ids keep row measurements attached to the right line after a prepend
+type LogEntry = { id: number; text: string };
+
+// shift anchors the viewport to the end when lines are prepended. stick keeps
+// the newest line in view when lines are appended
+type LogState = { entries: LogEntry[]; shift: boolean; stick: boolean };
+
 function Logs() {
   const { t } = useTranslation(["views/system"]);
   const [logService, setLogService] = useState<LogType>("frigate");
   const { cameraFilter, clearCameraFilter } = useCameraLogFilter(logService);
   const isWebsocket = logService === "websocket";
   const tabsRef = useRef<HTMLDivElement | null>(null);
-  const lazyLogWrapperRef = useRef<HTMLDivElement>(null);
-  const [logs, setLogs] = useState<string[]>([]);
+  const logWrapperRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<VListHandle>(null);
+  const [logState, setLogState] = useState<LogState>({
+    entries: [],
+    shift: false,
+    stick: true,
+  });
   const [filterSeverity, setFilterSeverity] = useState<LogSeverity[]>();
   const hasFilter = !!filterSeverity?.length || !!cameraFilter;
   const [selectedLog, setSelectedLog] = useState<LogLine>();
-  const lazyLogRef = useRef<LazyLog>(null);
   const [isLoading, setIsLoading] = useState(true);
   // UI50: a failed or malformed load used to leave an empty table and a
   // toast carrying the raw JavaScript error; it now shows an error state
   const [loadError, setLoadError] = useState<unknown>(undefined);
+  const [follow, setFollow] = useState(true);
   const lastFetchedIndexRef = useRef(-1);
-  // fork (UI84): set while an older range is read, so scrolling cannot ask
-  // for the same range twice
-  const fetchingHistoryRef = useRef(false);
+  const loadingOlderRef = useRef(false);
+  const firstIdRef = useRef(0);
+  const lastIdRef = useRef(0);
+
+  // The last wheel or key scroll went up. The view can still sit at the
+  // bottom for a moment, so position alone would keep following
+  const scrolledUpRef = useRef(false);
+
+  // lines
+
+  const isFollowing = useCallback(() => {
+    const list = listRef.current;
+    if (!list || scrolledUpRef.current) return false;
+
+    return (
+      list.scrollSize - list.scrollOffset - list.viewportSize <
+      FOLLOW_THRESHOLD_PX
+    );
+  }, []);
+
+  const resetLines = useCallback((lines: string[]) => {
+    firstIdRef.current = 0;
+    lastIdRef.current = lines.length;
+    setLogState({
+      entries: lines.map((text, id) => ({ id, text })),
+      shift: false,
+      stick: true,
+    });
+  }, []);
+
+  const appendLines = useCallback(
+    (lines: string[]) => {
+      const entries = lines
+        .filter((text) => text.trim())
+        .map((text) => ({ id: lastIdRef.current++, text }));
+      if (!entries.length) return;
+
+      const stick = isFollowing();
+      setLogState((prev) => ({
+        entries: [...prev.entries, ...entries],
+        shift: false,
+        stick,
+      }));
+    },
+    [isFollowing],
+  );
+
+  const prependLines = useCallback((lines: string[]) => {
+    firstIdRef.current -= lines.length;
+    const firstId = firstIdRef.current;
+    const entries = lines.map((text, i) => ({ id: firstId + i, text }));
+
+    setLogState((prev) => ({
+      entries: [...entries, ...prev.entries],
+      shift: true,
+      stick: false,
+    }));
+  }, []);
 
   useEffect(() => {
     document.title = t("documentTitle.logs." + logService);
@@ -129,8 +208,7 @@ function Logs() {
           response.data &&
           Array.isArray(response.data.lines)
         ) {
-          const filteredLines = filterLines(response.data.lines);
-          return filteredLines;
+          return response.data.lines as string[];
         }
       } catch (error) {
         const errorMessage =
@@ -142,16 +220,19 @@ function Logs() {
           },
         );
       }
-      return [];
+      return null;
     },
-    [logService, filterLines, t],
+    [logService, t],
   );
 
   const fetchInitialLogs = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     setLoadError(undefined);
     try {
-      const response = await axios.get(`logs/${logService}`, {
+      const response = await axios.get<{
+        lines?: string[];
+        totalLines: number;
+      }>(`logs/${logService}`, {
         params: { start: hasFilter ? 0 : -100 },
       });
       if (
@@ -159,13 +240,12 @@ function Logs() {
         response.data &&
         Array.isArray(response.data.lines)
       ) {
-        const filteredLines = filterLines(response.data.lines);
-        setLogs(filteredLines);
-        // fork (UI82, UI131): a filter reads from the first line, so
-        // there is nothing older to fetch
-        lastFetchedIndexRef.current = hasFilter
-          ? 0
-          : response.data.totalLines - filteredLines.length;
+        resetLines(filterLines(response.data.lines));
+
+        // A filtered load fetches the whole file, so nothing older remains
+        // (fork UI82, UI131: this includes the camera filter)
+        lastFetchedIndexRef.current =
+          response.data.totalLines - response.data.lines.length;
         return true;
       }
       // a 200 without { lines } (e.g. a proxy's HTML page) is not a log
@@ -177,7 +257,7 @@ function Logs() {
     } finally {
       setIsLoading(false);
     }
-  }, [logService, filterLines, hasFilter]);
+  }, [logService, filterLines, hasFilter, resetLines]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -206,10 +286,7 @@ function Logs() {
 
         // Filter and append complete lines
         if (lines.length > 0) {
-          const filteredLines = filterLines(lines);
-          if (filteredLines.length > 0) {
-            lazyLogRef.current?.appendLines(filteredLines);
-          }
+          appendLines(filterLines(lines));
         }
         // Process next chunk
         return processStreamChunk(reader);
@@ -240,27 +317,34 @@ function Logs() {
           );
         }
       });
-  }, [logService, filterLines, t]);
+  }, [logService, filterLines, appendLines, t]);
 
   const retryLogs = useCallback(() => {
-    setLogs([]);
+    resetLines([]);
     lastFetchedIndexRef.current = -1;
     void fetchInitialLogs().then((loaded) => {
       if (loaded && !logSettings.disableStreaming) {
         fetchLogsStream();
       }
     });
-  }, [fetchInitialLogs, fetchLogsStream, logSettings.disableStreaming]);
+  }, [
+    fetchInitialLogs,
+    fetchLogsStream,
+    logSettings.disableStreaming,
+    resetLines,
+  ]);
 
   useEffect(() => {
     if (isWebsocket) {
       setIsLoading(false);
-      setLogs([]);
+      resetLines([]);
       return;
     }
 
     setIsLoading(true);
-    setLogs([]);
+    setFollow(true);
+    scrolledUpRef.current = false;
+    resetLines([]);
     lastFetchedIndexRef.current = -1;
     void fetchInitialLogs().then((loaded) => {
       // Start streaming after a successful initial load
@@ -278,69 +362,48 @@ function Logs() {
 
   // handlers
 
-  const prependLines = useCallback((newLines: string[]) => {
-    if (!lazyLogRef.current) return;
+  const loadOlderLines = useCallback(async () => {
+    const end = lastFetchedIndexRef.current;
+    if (loadingOlderRef.current || end <= 0) return;
 
-    const newLinesArray = newLines.map(
-      (line) => new Uint8Array(new TextEncoder().encode(line + "\n")),
-    );
+    loadingOlderRef.current = true;
+    const start = Math.max(0, end - OLDER_LINES_CHUNK_SIZE);
+    const lines = await fetchLogRange(start, end);
+    loadingOlderRef.current = false;
 
-    lazyLogRef.current.setState((prevState) => ({
-      ...prevState,
-      lines: prevState.lines.unshift(...newLinesArray),
-      count: prevState.count + newLines.length,
-    }));
-  }, []);
+    // A service or filter change resets the index while the request is in flight
+    if (!lines || lastFetchedIndexRef.current !== end) return;
 
-  // debounced
-  const handleScroll = useMemo(
-    () =>
-      debounce(() => {
-        // virtua 0.49 (react-logviewer 6.5) replaced findStartIndex() and
-        // findEndIndex() with findItemIndex(offset) over the scroll window.
-        const list = lazyLogRef.current?.listRef.current;
-        const scrollThreshold = list
-          ? list.findItemIndex(list.scrollOffset + list.viewportSize)
-          : 10;
-        const startIndex = list ? list.findItemIndex(list.scrollOffset) : 0;
-        const endIndex = list
-          ? list.findItemIndex(list.scrollOffset + list.viewportSize)
-          : 0;
-        const pageSize = endIndex - startIndex;
-        if (
-          scrollThreshold < pageSize + pageSize / 2 &&
-          lastFetchedIndexRef.current > 0 &&
-          !fetchingHistoryRef.current
-        ) {
-          const nextEnd = lastFetchedIndexRef.current;
-          const nextStart = Math.max(0, nextEnd - (pageSize || 100));
-          fetchingHistoryRef.current = true;
+    lastFetchedIndexRef.current = start;
+    prependLines(lines);
+  }, [fetchLogRange, prependLines]);
 
-          void fetchLogRange(nextStart, nextEnd)
-            .then((newLines) => {
-              if (newLines.length > 0) {
-                prependLines(newLines);
-                lastFetchedIndexRef.current = nextStart;
+  // Runs on scroll events and on wheel or key input, because input at the top
+  // or bottom edge doesn't scroll and fires no scroll event
+  const syncScrollState = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
 
-                lazyLogRef.current?.listRef.current?.scrollTo(
-                  newLines.length *
-                    lazyLogRef.current?.listRef.current?.getItemSize(1),
-                );
-              }
-            })
-            .finally(() => {
-              fetchingHistoryRef.current = false;
-            });
-        }
-      }, 50),
-    [fetchLogRange, prependLines],
-  );
+    setFollow(isFollowing());
+
+    if (list.scrollOffset < list.viewportSize) {
+      void loadOlderLines();
+    }
+  }, [isFollowing, loadOlderLines]);
+
+  useLayoutEffect(() => {
+    if (isLoading || !logState.stick || !logState.entries.length) return;
+
+    listRef.current?.scrollToIndex(logState.entries.length - 1, {
+      align: "end",
+    });
+  }, [isLoading, logState]);
 
   // fork (UI83): copy reads the log itself. Re-running the page's load
   // copied the lines from before it, and swapped the view for a spinner or,
   // when the read failed, the error screen.
   const handleCopyLogs = useCallback(() => {
-    if (!logs.length) return;
+    if (!logState.entries.length) return;
     axios
       .get<{ lines?: string[] }>(`logs/${logService}`, {
         params: { start: hasFilter ? 0 : -100 },
@@ -356,11 +419,11 @@ function Logs() {
       .catch(() => {
         toast.error(t("logs.copy.error"));
       });
-  }, [logs.length, logService, hasFilter, filterLines, t]);
+  }, [logState.entries.length, logService, hasFilter, filterLines, t]);
 
   // fork (UI116): copy and download have nothing to act on while the logs
   // failed to load or none came back
-  const noLogsToAct = loadError != null || logs.length === 0;
+  const noLogsToAct = loadError != null || logState.entries.length === 0;
 
   const handleDownloadLogs = useCallback(() => {
     axios
@@ -388,77 +451,34 @@ function Logs() {
       .catch(() => {});
   }, [logService, cameraFilter, filterLines]);
 
-  const handleRowClick = useCallback(
-    (rowInfo: { lineNumber: number; rowIndex: number }) => {
-      const clickedLine = parseLogLines(logService, [
-        logs[rowInfo.rowIndex],
-      ])[0];
-      setSelectedLog(clickedLine);
-    },
-    [logs, logService],
-  );
-
   // keyboard listener
 
   useKeyboardListener(
     ["PageDown", "PageUp", "ArrowDown", "ArrowUp"],
     (key, modifiers) => {
-      if (!key || !modifiers.down || !lazyLogWrapperRef.current) {
+      const list = listRef.current;
+      if (!key || !modifiers.down || !list) {
         return true;
       }
 
-      const container =
-        lazyLogWrapperRef.current.querySelector(".react-lazylog");
-
-      const logLineHeight = container?.querySelector(".log-line")?.clientHeight;
-
-      if (!logLineHeight) {
+      const rowHeight = list.getItemSize(list.findItemIndex(list.scrollOffset));
+      if (!rowHeight) {
         return true;
       }
 
-      const scrollAmount = key.includes("Page")
-        ? logLineHeight * 10
-        : logLineHeight;
+      const rows = key.includes("Page") ? 10 : 1;
       const direction = key.includes("Down") ? 1 : -1;
-      container?.scrollBy({ top: scrollAmount * direction });
+      scrolledUpRef.current = direction < 0;
+      list.scrollBy(rowHeight * rows * direction);
+      syncScrollState();
       return true;
     },
-  );
-
-  // format lines
-
-  const lineBufferRef = useRef<string>("");
-
-  const formatPart = useCallback(
-    (text: string) => {
-      lineBufferRef.current += text;
-
-      if (text.endsWith("\n")) {
-        const completeLine = lineBufferRef.current.trim();
-        lineBufferRef.current = "";
-
-        if (completeLine) {
-          const parsedLine = parseLogLines(logService, [completeLine])[0];
-          return (
-            <LogLineData
-              line={parsedLine}
-              logService={logService}
-              onClickSeverity={() => setFilterSeverity([parsedLine.severity])}
-              onSelect={() => setSelectedLog(parsedLine)}
-            />
-          );
-        }
-      }
-
-      return null;
-    },
-    [logService, setFilterSeverity, setSelectedLog],
   );
 
   useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
       e.preventDefault();
-      if (!lazyLogWrapperRef.current) return;
+      if (!logWrapperRef.current) return;
 
       const selection = window.getSelection();
       if (!selection) return;
@@ -526,7 +546,7 @@ function Logs() {
       e.clipboardData?.setData("text/plain", copyText);
     };
 
-    const content = lazyLogWrapperRef.current;
+    const content = logWrapperRef.current;
     content?.addEventListener("copy", handleCopy);
     return () => {
       content?.removeEventListener("copy", handleCopy);
@@ -552,7 +572,6 @@ function Logs() {
               value={logService}
               onValueChange={(value: LogType) => {
                 if (value) {
-                  setLogs([]);
                   setFilterSeverity(undefined);
                   setLogService(value);
                 }
@@ -663,7 +682,13 @@ function Logs() {
             </div>
           </div>
 
-          <div ref={lazyLogWrapperRef} className="size-full">
+          <div
+            ref={logWrapperRef}
+            className="min-h-0 flex-1"
+            onPointerDown={() => {
+              scrolledUpRef.current = false;
+            }}
+          >
             {loadError ? (
               <ErrorState
                 className="m-auto"
@@ -678,40 +703,46 @@ function Logs() {
             ) : isLoading ? (
               <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
             ) : (
-              <EnhancedScrollFollow
-                startFollowing={!isLoading}
-                onCustomScroll={handleScroll}
-                render={({ follow, onScroll }) => (
-                  <>
-                    {follow && !logSettings.disableStreaming && (
-                      <div className="absolute right-1 top-3">
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <MdCircle className="mr-2 size-2 animate-pulse cursor-default text-selected shadow-selected drop-shadow-md" />
-                          </TooltipTrigger>
-                          <TooltipContent>{t("logs.tips")}</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    )}
-                    <LazyLog
-                      ref={lazyLogRef}
-                      enableLineNumbers={false}
-                      selectableLines
-                      lineClassName="text-primary bg-background"
-                      highlightLineClassName="bg-primary/20"
-                      onRowClick={handleRowClick}
-                      formatPart={formatPart}
-                      text={logs.join("\n")}
-                      follow={follow}
-                      onScroll={onScroll}
-                      loadingComponent={
-                        <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
-                      }
-                      loading={isLoading}
-                    />
-                  </>
+              <>
+                {follow && !logSettings.disableStreaming && (
+                  <div className="absolute right-1 top-3">
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <MdCircle className="mr-2 size-2 animate-pulse cursor-default text-selected shadow-selected drop-shadow-md" />
+                      </TooltipTrigger>
+                      <TooltipContent>{t("logs.tips")}</TooltipContent>
+                    </Tooltip>
+                  </div>
                 )}
-              />
+                <VList
+                  ref={listRef}
+                  itemSize={isDesktop ? ROW_HEIGHT_HINT_PX : undefined}
+                  data={logState.entries}
+                  shift={logState.shift}
+                  onScroll={syncScrollState}
+                  onWheel={(e) => {
+                    if (!e.deltaY) return;
+
+                    scrolledUpRef.current = e.deltaY < 0;
+                    syncScrollState();
+                  }}
+                >
+                  {(entry) => {
+                    const line = parseLogLines(logService, [entry.text])[0];
+                    return (
+                      <LogLineData
+                        key={entry.id}
+                        line={line}
+                        logService={logService}
+                        onClickSeverity={() =>
+                          setFilterSeverity([line.severity])
+                        }
+                        onSelect={() => setSelectedLog(line)}
+                      />
+                    );
+                  }}
+                </VList>
+              </>
             )}
           </div>
         </div>
