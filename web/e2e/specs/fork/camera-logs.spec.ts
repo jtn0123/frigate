@@ -41,6 +41,14 @@ test("camera log link filters initial history, copy, and can be cleared @high @m
   expect(starts[0]).toBe("0");
   await page.getByLabel("Copy to Clipboard").click();
   await expect.poll(() => readClipboard(page)).toBe(lines[0]);
+  // On mobile the notification overlaps the filter control. Dismiss it as a
+  // user would; hovering the next control can keep the toast timer paused.
+  const copiedToast = page
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: "Copied logs to clipboard" });
+  await expect(copiedToast).toBeVisible();
+  await copiedToast.getByRole("button", { name: "Close toast" }).click();
+  await expect(copiedToast).toBeHidden();
   await page.getByRole("button", { name: "Show all logs" }).click();
   await expect(
     page.getByText("Other garage failed", { exact: true }),

@@ -377,10 +377,12 @@ test.describe("Logs: severity filter history (UI82) @medium", () => {
       await expect(page.getByText("line 199", { exact: true })).toBeVisible({
         timeout: 10_000,
       });
+      // Use the visible tail row. Clicking the first warning scrolls upward
+      // and can request older history before the severity filter is applied.
       // exact: each log row is a button whose name includes its severity
       await page
         .getByRole("button", { name: "Warning", exact: true })
-        .first()
+        .last()
         .click();
       // the filtered read starts at the first line and keeps only warnings
       await expect(page.getByText("line 198", { exact: true })).toHaveCount(0);
