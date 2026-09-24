@@ -861,6 +861,29 @@ def _rate(bucket: dict[str, Any]) -> dict[str, Any]:
     return {**bucket, "rate": bucket["accepted"] / total if total else None}
 
 
+def _tally_reviewed(
+    entry: dict[str, Any],
+    suggested: str,
+    accepted: bool,
+    sources: dict[str, dict[str, Any]],
+    classes: dict[str, dict[str, Any]],
+    cameras: dict[str, dict[str, Any]],
+) -> None:
+    """Count one person-reviewed confirmation under its source, class and camera."""
+    source = entry.get("source") or "none"
+    _tally(sources.setdefault(str(source), {"total": 0, "accepted": 0}), accepted)
+    by_class = classes.setdefault(
+        suggested, {"total": 0, "accepted": 0, "corrected_to": {}}
+    )
+    _tally(by_class, accepted)
+    chosen = entry.get("category")
+    if not accepted and isinstance(chosen, str) and chosen:
+        by_class["corrected_to"][chosen] = by_class["corrected_to"].get(chosen, 0) + 1
+    camera = entry.get("camera")
+    if isinstance(camera, str) and camera:
+        _tally(cameras.setdefault(camera, {"total": 0, "accepted": 0}), accepted)
+
+
 def summarize_provenance(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """Count how often each source's and class's drafts were kept as-is.
 
@@ -897,20 +920,7 @@ def summarize_provenance(entries: list[dict[str, Any]]) -> dict[str, Any]:
             auto_by_class[suggested] = auto_by_class.get(suggested, 0) + 1
             continue
         _tally(overall, accepted)
-        source = entry.get("source") or "none"
-        _tally(sources.setdefault(str(source), {"total": 0, "accepted": 0}), accepted)
-        by_class = classes.setdefault(
-            suggested, {"total": 0, "accepted": 0, "corrected_to": {}}
-        )
-        _tally(by_class, accepted)
-        chosen = entry.get("category")
-        if not accepted and isinstance(chosen, str) and chosen:
-            by_class["corrected_to"][chosen] = (
-                by_class["corrected_to"].get(chosen, 0) + 1
-            )
-        camera = entry.get("camera")
-        if isinstance(camera, str) and camera:
-            _tally(cameras.setdefault(camera, {"total": 0, "accepted": 0}), accepted)
+        _tally_reviewed(entry, suggested, accepted, sources, classes, cameras)
     for category, count in auto_by_class.items():
         classes.setdefault(category, {"total": 0, "accepted": 0, "corrected_to": {}})[
             "auto_filed"

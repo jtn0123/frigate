@@ -601,7 +601,7 @@ class TestModelCheck(unittest.TestCase):
             [d["event_id"] for d in report["recent_disagreements"]], ["c", "b"]
         )
         self.assertEqual(report["recent_disagreements"][0]["model_said"], "van")
-        self.assertEqual(suggest.summarize_model_checks([])["rate"], None)
+        self.assertIsNone(suggest.summarize_model_checks([])["rate"])
 
 
 if __name__ == "__main__":

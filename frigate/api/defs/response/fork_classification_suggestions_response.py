@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+MODEL_DESCRIPTION = "The classification model"
+
 
 class SuggestionModel(BaseModel):
     """One draft class and where it came from."""
@@ -47,7 +49,7 @@ class JevStateModel(BaseModel):
 class ClassificationSuggestionsResponse(BaseModel):
     """Suggestions for the requested events of one model."""
 
-    model: str = Field(description="The classification model")
+    model: str = Field(description=MODEL_DESCRIPTION)
     classes: list[str] = Field(description="Dataset classes a draft can name")
     jev: JevStateModel
     suggestions: dict[str, EventSuggestionModel] = Field(
@@ -73,7 +75,7 @@ class FiledModel(BaseModel):
 class EventModelSuggestionModel(BaseModel):
     """One custom model's view of one event (fork I46)."""
 
-    model: str = Field(description="The classification model")
+    model: str = Field(description=MODEL_DESCRIPTION)
     classes: list[str] = Field(description="Dataset classes a draft can name")
     suggestion: EventSuggestionModel
     training_files: list[str] = Field(
@@ -145,7 +147,7 @@ class ModelCheckModel(AcceptanceModel):
 class SuggestionReportResponse(AcceptanceModel):
     """Acceptance of the drafts recorded for one model (fork I42)."""
 
-    model: str = Field(description="The classification model")
+    model: str = Field(description=MODEL_DESCRIPTION)
     auto_filed: int = Field(
         default=0, description="Images I44 filed without review, not in the rate", ge=0
     )
