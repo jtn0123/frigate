@@ -59,7 +59,7 @@ class TestOnvifLogInjection(unittest.IsolatedAsyncioTestCase):
         onvif.create_media_service = AsyncMock()
         onvif.get_definition.side_effect = RuntimeError("remote\r\nforged")
         controller.cams = {"front": {"onvif": onvif}}
-        # _init_onvif skips a camera missing from the config (D54)
+        # _init_onvif skips a camera missing from the config (D58)
         controller.config = MagicMock()
         with self.assertLogs("frigate.ptz.onvif", "ERROR") as logs:
             result = await controller._init_onvif("front")
@@ -79,7 +79,7 @@ class TestOnvifLogInjection(unittest.IsolatedAsyncioTestCase):
         onvif.create_media_service = AsyncMock()
         onvif.get_definition.side_effect = RemoteError()
         controller.cams = {"front": {"onvif": onvif}}
-        # _init_onvif skips a camera missing from the config (D54)
+        # _init_onvif skips a camera missing from the config (D58)
         controller.config = MagicMock()
         with self.assertLogs("frigate.ptz.onvif", "ERROR") as logs:
             result = await controller._init_onvif("front")

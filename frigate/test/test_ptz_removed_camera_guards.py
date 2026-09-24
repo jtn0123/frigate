@@ -1,4 +1,4 @@
-"""PTZ control for a camera that was removed at runtime (D54).
+"""PTZ control for a camera that was removed at runtime (D58).
 
 Removing a camera pops its config and PTZ metrics while ONVIF requests and
 queued autotracker moves can still name it. Those calls must return quietly,

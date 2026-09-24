@@ -160,7 +160,7 @@ const click = (name: string) =>
     fireEvent.click(screen.getByRole("button", { name }));
   });
 
-describe("RecordingView range selection (D54)", () => {
+describe("RecordingView range selection (D58)", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });

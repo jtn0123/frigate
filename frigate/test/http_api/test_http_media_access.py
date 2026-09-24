@@ -35,7 +35,7 @@ class TestEventMediaCameraAccess(BaseTestHttp):
             tracked_objects={event_id: tracked},
             camera_config=self.app.frigate_config.cameras[camera],
         )
-        # the API reads states through the processor's locked accessors (D54)
+        # the API reads states through the processor's locked accessors (D58)
         self.app.detected_frames_processor = SimpleNamespace(
             camera_states={camera: state},
             get_camera_states=lambda: [state],

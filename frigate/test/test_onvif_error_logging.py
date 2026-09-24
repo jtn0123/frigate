@@ -14,7 +14,7 @@ class TestOnvifErrorLogging(unittest.IsolatedAsyncioTestCase):
         onvif = MagicMock()
         onvif.update_xaddrs = AsyncMock(side_effect=error)
         controller.cams = {camera_name: {"onvif": onvif}}
-        # _init_onvif skips a camera missing from the config (D54)
+        # _init_onvif skips a camera missing from the config (D58)
         controller.config = MagicMock()
 
         with self.assertLogs(logger, "ERROR") as captured:

@@ -154,7 +154,7 @@ class TestRecordRestartThrash(unittest.TestCase):
         self.assertEqual(self.start_ffmpeg.call_count, 2)
 
     def test_a_stall_logs_the_ffmpeg_output_once_after_stopping_it(self):
-        """Fork (D54): the stalled recorder is stopped, its output is logged
+        """Fork (D58): the stalled recorder is stopped, its output is logged
         through the restart log, and the new process starts from scratch."""
         dog = watchdog([95, 1, 1, 1, 1])
         process = dog.ffmpeg_other_processes[0]

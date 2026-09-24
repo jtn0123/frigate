@@ -12,7 +12,7 @@ def _norfair_object(global_id: int, hit_counter: int) -> SimpleNamespace:
 
 class TestDeregisterWithMaxFrames(unittest.TestCase):
     def test_other_objects_of_the_label_are_kept(self):
-        """D54 (upstream #24418): the filter used to keep an object only when
+        """D58 (upstream #24418): the filter used to keep an object only when
         it was both not the target and already expiring, so every healthy car
         was dropped along with the one leaving."""
         norfair = SimpleNamespace(

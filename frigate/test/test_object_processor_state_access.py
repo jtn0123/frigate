@@ -1,4 +1,4 @@
-"""TrackedObjectProcessor reads camera states through its lock (D54).
+"""TrackedObjectProcessor reads camera states through its lock (D58).
 
 Camera states are added and popped on the processor thread while API and
 dispatcher threads read them, so every reader resolves the state once and

@@ -1,5 +1,5 @@
 """Sub label and plate edits find in-progress objects through a camera state
-snapshot (D54).
+snapshot (D58).
 
 An object that is still being tracked has no Event row yet, so the endpoints
 look through the processor's camera states. They take a list copy so a camera

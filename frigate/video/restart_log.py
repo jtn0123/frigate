@@ -163,7 +163,7 @@ class RestartLog:
         last = self._dumped.get(signature)
         if last is None or now - last[0] >= REPEAT_WINDOW_SECONDS:
             self._dumped[signature] = (now, 0)
-            # LogPipe.dump prints the "last 100 lines" heading itself (D54).
+            # LogPipe.dump prints the "last 100 lines" heading itself (D58).
             logpipe.dump()
         else:
             dumped_at, repeats = last[0], last[1] + 1

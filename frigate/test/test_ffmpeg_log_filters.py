@@ -39,7 +39,7 @@ HEADING = "The following ffmpeg logs include the last 100 lines prior to exit."
 
 
 def body(logs):
-    """The records a dump logged after its heading (D54)."""
+    """The records a dump logged after its heading (D58)."""
     records = logs.records
     assert records[0].getMessage() == HEADING, records[0].getMessage()
     return records[1:]

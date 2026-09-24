@@ -1,4 +1,4 @@
-"""Audio maintainers hold their camera's metrics object (D54).
+"""Audio maintainers hold their camera's metrics object (D58).
 
 The maintainer used to index the camera_metrics manager dict on every chunk,
 which broke once the camera maintainer popped the entry for a removed camera.

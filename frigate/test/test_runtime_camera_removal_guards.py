@@ -1,4 +1,4 @@
-"""Guards for data that still names a camera after it was removed at runtime (D54).
+"""Guards for data that still names a camera after it was removed at runtime (D58).
 
 A camera deleted from the config can keep showing up for a moment in frames,
 detections and notifications that were already queued. Each consumer below

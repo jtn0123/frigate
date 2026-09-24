@@ -490,7 +490,7 @@ class CameraWatchdog(threading.Thread):
             self.record_stale_threshold,
         )
         self.record_restart_time = now
-        # Fork (D54): upstream now dumps ffmpeg's output on this restart too.
+        # Fork (D58): upstream now dumps ffmpeg's output on this restart too.
         # Stop first so the output runs up to exit, then log it through the
         # restart log so a recurring stall is throttled like any exit (D11).
         stop_ffmpeg(process["process"], self.logger)
