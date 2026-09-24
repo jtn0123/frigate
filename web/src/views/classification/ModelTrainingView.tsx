@@ -61,6 +61,8 @@ import { IoMdArrowRoundBack } from "react-icons/io";
 import TrainFilterDialog from "@/components/overlay/dialog/TrainFilterDialog";
 import { matchesTrainClass } from "@/lib/fork/classification-train";
 import { useClassificationSuggestions } from "@/hooks/fork/use-classification-suggestions";
+import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
+import { pickerProps } from "@/lib/fork/classification-suggestions";
 import SuggestionBadge from "@/components/fork/classification/SuggestionBadge";
 import useApiFilter from "@/hooks/use-api-filter";
 import {
@@ -1108,6 +1110,7 @@ function ObjectTrainGrid({
     model.name,
     eventIdsQuery,
   );
+  const confirmSuggestion = useConfirmSuggestion(model.name, onRefresh);
 
   const threshold = useMemo(() => {
     return {
@@ -1241,6 +1244,16 @@ function ObjectTrainGrid({
                     modelName={model.name}
                     image={data.filename}
                     onRefresh={onRefresh}
+                    {...pickerProps(
+                      suggestions?.suggestions[key],
+                      (suggestion, category) =>
+                        void confirmSuggestion(
+                          key,
+                          [data.filename],
+                          suggestion,
+                          category,
+                        ),
+                    )}
                   >
                     <BlurredIconButton>
                       <TbCategoryPlus className="size-5" />

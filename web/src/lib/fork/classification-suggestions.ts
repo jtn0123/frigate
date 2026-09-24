@@ -57,15 +57,20 @@ export function suggestionsKey(
   return [`classification/${modelName}/suggestions`, { ids: eventIds }];
 }
 
-/** The confirm request for accepting a draft as-is on every image of an event. */
+/**
+ * The confirm request for filing images of an event that had a draft. With
+ * no category the draft is accepted as-is; with one, the person overrode it
+ * and the record shows the draft next to what they chose.
+ */
 export function confirmBody(
   eventId: string,
   files: string[],
   suggestion: Suggestion,
+  category: string = suggestion.category,
 ): ConfirmSuggestionBody {
   return {
     event_id: eventId,
-    category: suggestion.category,
+    category,
     training_files: files,
     source: suggestion.source,
     score: suggestion.score,
@@ -76,4 +81,20 @@ export function confirmBody(
 /** A whole-percent score for display, or null when the source has none. */
 export function percent(suggestion: Suggestion): number | null {
   return suggestion.score == null ? null : Math.round(suggestion.score * 100);
+}
+
+/**
+ * Props that route the class picker through the confirm endpoint when the
+ * event has a draft, so a hand-picked class is recorded as a correction.
+ * Without a draft the picker keeps upstream's categorize call.
+ */
+export function pickerProps(
+  entry: EventSuggestion | undefined,
+  run: (suggestion: Suggestion, category: string) => void,
+): { onCategorize?: (category: string) => void } {
+  const suggestion = entry?.suggestion;
+  if (!suggestion) {
+    return {};
+  }
+  return { onCategorize: (category: string) => run(suggestion, category) };
 }

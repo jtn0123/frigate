@@ -175,6 +175,93 @@ test.describe("Classification suggestions @medium", () => {
     await expect(page.getByTestId("suggestion-badge")).toHaveCount(0);
   });
 
+  test("records a hand-picked class on a card with a draft", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    const confirms: unknown[] = [];
+    let categorized = 0;
+
+    await frigateApp.installDefaults({
+      config: { classification: { custom: CUSTOM_MODELS } },
+    });
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/dataset/categorize`),
+      (route) => {
+        categorized += 1;
+        return route.fulfill({ json: { success: true } });
+      },
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/dataset$`),
+      (route) =>
+        route.fulfill({ json: { categories: { van: [], suv: [], none: [] } } }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/train$`),
+      (route) => route.fulfill({ json: [TRAIN[0]] }),
+    );
+    await page.route("**/api/event_ids**", (route) =>
+      route.fulfill({ json: [event(EVENT_VAN, "A white van is parked.")] }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions\\?`),
+      (route) => route.fulfill({ json: SUGGESTIONS }),
+    );
+    await page.route(
+      new RegExp(`/api/classification/${MODEL}/suggestions/confirm`),
+      (route) => {
+        confirms.push(route.request().postDataJSON());
+        return route.fulfill({
+          json: { success: true, message: "ok", moved: ["suv-1.png"] },
+        });
+      },
+    );
+    await page.route("**/clips/**", (route) =>
+      route.fulfill({
+        contentType: "image/webp",
+        body: Buffer.from(
+          "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==",
+          "base64",
+        ),
+      }),
+    );
+
+    await frigateApp.goto("/classification");
+    await page.getByText(MODEL).first().click();
+    await expect(page.getByTestId("suggestion-badge")).toHaveCount(1, {
+      timeout: 10_000,
+    });
+
+    // Open the event's images (a dialog on desktop, a page on phones), then
+    // the per-image class picker: a dropdown on desktop, a drawer on phones.
+    await page.locator('img[src*="/train/"]').first().click();
+    const card = page
+      .locator('img[src*="/train/"]')
+      .last()
+      .locator("xpath=ancestor::div[contains(@class, 'aspect-square')][1]");
+    const trigger = card.locator("[aria-haspopup]").first();
+    await expect(trigger).toBeVisible({ timeout: 5_000 });
+    await trigger.click();
+    await page
+      .locator('[role="menu"], [role="dialog"]')
+      .getByText(/^suv$/i)
+      .first()
+      .click();
+
+    await expect.poll(() => confirms.length).toBe(1);
+    expect(confirms[0]).toEqual({
+      event_id: EVENT_VAN,
+      category: "suv",
+      training_files: [TRAIN[0]],
+      source: "jev",
+      score: 0.97,
+      suggested_category: "van",
+    });
+    expect(categorized).toBe(0);
+    await expect(page.getByText(/filed 1 image as suv/i)).toBeVisible();
+  });
+
   test("shows nothing when the flag is off", async ({ frigateApp }) => {
     const { page } = frigateApp;
     let asked = 0;

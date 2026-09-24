@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   confirmBody,
   percent,
+  pickerProps,
   suggestionsKey,
+  type EventSuggestion,
   type Suggestion,
 } from "./classification-suggestions";
 
@@ -32,6 +34,32 @@ describe("classification suggestions", () => {
       score: 0.966,
       suggested_category: "van",
     });
+  });
+
+  it("records an override next to the draft it replaced", () => {
+    expect(confirmBody("evt-1", ["a.webp"], JEV, "suv")).toMatchObject({
+      category: "suv",
+      suggested_category: "van",
+      source: "jev",
+    });
+  });
+
+  it("routes the picker through confirm only when the event has a draft", () => {
+    const entry: EventSuggestion = {
+      text: null,
+      jev: JEV,
+      jev_status: "answered",
+      suggestion: JEV,
+      conflict: false,
+    };
+    const run = vi.fn<(suggestion: Suggestion, category: string) => void>();
+
+    expect(pickerProps(undefined, run)).toEqual({});
+    expect(pickerProps({ ...entry, suggestion: null }, run)).toEqual({});
+
+    const props = pickerProps(entry, run);
+    props.onCategorize?.("suv");
+    expect(run).toHaveBeenCalledWith(JEV, "suv");
   });
 
   it("rounds a score to a whole percent and has none for text", () => {

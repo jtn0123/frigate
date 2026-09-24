@@ -8,11 +8,9 @@
  */
 
 import { useCallback, useState } from "react";
-import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { HiSparkles } from "react-icons/hi";
 import { LuCheck, LuCircleHelp } from "react-icons/lu";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -20,8 +18,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
 import {
-  confirmBody,
   percent,
   type EventSuggestion,
 } from "@/lib/fork/classification-suggestions";
@@ -46,32 +44,18 @@ export default function SuggestionBadge({
 
   const suggestion = entry?.suggestion ?? null;
 
+  const confirmSuggestion = useConfirmSuggestion(modelName, onRefresh);
   const confirm = useCallback(async () => {
     if (!suggestion || pending) {
       return;
     }
     setPending(true);
     try {
-      await axios.post(
-        `classification/${modelName}/suggestions/confirm`,
-        confirmBody(eventId, files, suggestion),
-      );
-      toast.success(
-        t("classificationSuggestions.confirmed", {
-          category: suggestion.category,
-          count: files.length,
-        }),
-        { position: "top-center" },
-      );
-      onRefresh();
-    } catch {
-      toast.error(t("classificationSuggestions.confirmFailed"), {
-        position: "top-center",
-      });
+      await confirmSuggestion(eventId, files, suggestion);
     } finally {
       setPending(false);
     }
-  }, [suggestion, pending, modelName, eventId, files, onRefresh, t]);
+  }, [suggestion, pending, confirmSuggestion, eventId, files]);
 
   if (!entry) {
     return null;
