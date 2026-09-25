@@ -111,7 +111,7 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
           hint={
             report.training && !report.training.has_trained
               ? t("classificationSuggestions.report.neverTrained")
-              : undefined
+              : ""
           }
         />
       </div>
@@ -206,7 +206,7 @@ function Stat({
   label,
   value,
   hint,
-}: Readonly<{ label: string; value: string; hint?: string | undefined }>) {
+}: Readonly<{ label: string; value: string; hint?: string }>) {
   return (
     <div className="flex flex-col rounded-lg bg-secondary p-3">
       <span className="text-xs text-secondary-foreground">{label}</span>

@@ -911,25 +911,31 @@ def auto_file_wait(
     otherwise fill a class with near-identical images.
     """
     wanted = normalize_class(category)
-    last: float | None = None
-    today = 0
-    for entry in entries:
-        if not entry.get("auto") or entry.get("camera") != camera:
-            continue
-        filed = entry.get("category")
-        if not isinstance(filed, str) or normalize_class(filed) != wanted:
-            continue
-        filed_at = entry.get("time")
-        if not isinstance(filed_at, (int, float)):
-            continue
-        last = filed_at if last is None else max(last, filed_at)
-        if now - filed_at < DAY:
-            today += 1
-    if last is not None and now - last < cooldown:
+    times = [
+        filed_at
+        for entry in entries
+        if (filed_at := _auto_filed_at(entry, wanted, camera)) is not None
+    ]
+    if times and now - max(times) < cooldown:
         return "cooldown"
-    if today >= per_day:
+    if sum(1 for filed_at in times if now - filed_at < DAY) >= per_day:
         return "daily_limit"
     return None
+
+
+def _auto_filed_at(
+    entry: dict[str, Any], wanted: str, camera: str | None
+) -> float | None:
+    """When this provenance entry auto-filed `wanted` from `camera`, else None."""
+    if not entry.get("auto") or entry.get("camera") != camera:
+        return None
+    filed = entry.get("category")
+    if not isinstance(filed, str) or normalize_class(filed) != wanted:
+        return None
+    filed_at = entry.get("time")
+    if not isinstance(filed_at, (int, float)):
+        return None
+    return float(filed_at)
 
 
 def dataset_counts(clips_dir: str, name: str) -> dict[str, int]:

@@ -185,7 +185,7 @@ describe("SuggestionReportPage", () => {
         name: "classificationSuggestions.report.keep",
       }),
     );
-    await waitFor(() => expect(spotChecks.length).toBe(2));
+    await waitFor(() => expect(spotChecks).toHaveLength(2));
     expect(spotChecks[1]).toEqual(["evt-1", true]);
   });
 
