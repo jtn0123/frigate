@@ -3,14 +3,15 @@
  * those are tiny crops, a button that sorts the least sure events first
  * and a button that files every draft after one confirmation (fork I41,
  * I42, I49, I50). Jev's budget, the kept rate and the model check read
- * inline on wide screens and behind an info button on phones.
+ * inline on wide screens and behind an info button on phones. A one-line
+ * hint above the row explains the pills until it is dismissed.
  */
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { HiSparkles } from "react-icons/hi";
-import { LuArrowDownUp, LuInfo } from "react-icons/lu";
+import { LuArrowDownUp, LuInfo, LuX } from "react-icons/lu";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import {
@@ -35,6 +36,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
+import { useSuggestionHint } from "@/hooks/fork/use-suggestion-hint";
 import { useSuggestionReport } from "@/hooks/fork/use-suggestion-report";
 import type {
   ClassificationSuggestionsResponse,
@@ -66,6 +68,7 @@ export default function SuggestionStatusBar({
 }: Readonly<SuggestionStatusBarProps>) {
   const { t } = useTranslation(["fork", "common"]);
   const { data: report } = useSuggestionReport(modelName);
+  const [hintSeen, dismissHint] = useSuggestionHint();
   const confirmSuggestion = useConfirmSuggestion(modelName, onRefresh);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -131,121 +134,141 @@ export default function SuggestionStatusBar({
     (report.total > 0 || (report.model_check?.total ?? 0) > 0);
 
   return (
-    <div
-      data-testid="suggestion-status"
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pb-1 text-xs text-secondary-foreground"
-    >
-      <span className="flex items-center gap-1 font-medium text-primary">
-        <HiSparkles className="size-3 text-selected" />
-        {t("classificationSuggestions.draftsOnPage", {
-          count: drafts.length,
-        })}
-      </span>
-      {small > 0 && (
-        <span data-testid="suggestion-small" className="text-warning">
-          {t("classificationSuggestions.smallDrafts", { count: small })}
-        </span>
-      )}
-      {report?.dataset?.lopsided && (
-        <Link
-          to={reportPath}
-          className="text-warning"
-          data-testid="suggestion-lopsided"
+    <>
+      {!hintSeen && (
+        <div
+          data-testid="suggestion-hint"
+          className="mx-1 mb-2 flex items-start gap-2 rounded-lg bg-secondary p-3 text-sm text-primary"
         >
-          {t("classificationSuggestions.lopsided", {
-            largest: report.dataset.largest ?? "",
-            smallest: report.dataset.smallest ?? "",
-            ratio: report.dataset.ratio ?? 0,
-          })}
-        </Link>
-      )}
-      <span className="hidden items-center gap-x-3 md:flex">
-        <Details jevText={jevText} report={report} />
-      </span>
-      {hasReport && (
-        <Link
-          to={reportPath}
-          className="text-selected"
-          data-testid="suggestion-report-link"
-        >
-          {t("classificationSuggestions.reportLink")}
-        </Link>
-      )}
-      <Popover>
-        <PopoverTrigger asChild>
+          <HiSparkles className="mt-0.5 size-4 shrink-0 text-selected" />
+          <span className="flex-1">{t("classificationSuggestions.hint")}</span>
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
-            className="size-6 md:hidden"
-            aria-label={t("classificationSuggestions.details")}
-            data-testid="suggestion-details"
-          >
-            <LuInfo className="size-4" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="flex w-auto max-w-80 flex-col gap-1 p-3 text-xs"
-        >
-          <Details jevText={jevText} report={report} />
-        </PopoverContent>
-      </Popover>
-      <span className="ml-auto flex items-center gap-2">
-        {onUnsureFirst && (
-          <Button
-            size="sm"
-            variant={unsureFirst ? "select" : "outline"}
             className="h-7 gap-1 px-2 text-xs"
-            aria-pressed={unsureFirst}
-            data-testid="train-order-toggle"
-            onClick={() => onUnsureFirst(!unsureFirst)}
+            onClick={dismissHint}
           >
-            <LuArrowDownUp className="size-3.5" />
-            {t("classificationSuggestions.unsureFirst")}
+            {t("classificationSuggestions.hintDismiss")}
+            <LuX className="size-3.5" />
           </Button>
+        </div>
+      )}
+      <div
+        data-testid="suggestion-status"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pb-1 text-xs text-secondary-foreground"
+      >
+        <span className="flex items-center gap-1 font-medium text-primary">
+          <HiSparkles className="size-3 text-selected" />
+          {t("classificationSuggestions.draftsOnPage", {
+            count: drafts.length,
+          })}
+        </span>
+        {small > 0 && (
+          <span data-testid="suggestion-small" className="text-warning">
+            {t("classificationSuggestions.smallDrafts", { count: small })}
+          </span>
         )}
-        {drafts.length > 0 && (
-          <Button
-            size="sm"
-            variant="select"
-            className="h-7 px-2.5 text-xs"
-            disabled={pending}
-            onClick={() => setConfirmOpen(true)}
+        {report?.dataset?.lopsided && (
+          <Link
+            to={reportPath}
+            className="text-warning"
+            data-testid="suggestion-lopsided"
           >
-            {t("classificationSuggestions.fileAll", { count: drafts.length })}
-          </Button>
+            {t("classificationSuggestions.lopsided", {
+              largest: report.dataset.largest ?? "",
+              smallest: report.dataset.smallest ?? "",
+              ratio: report.dataset.ratio ?? 0,
+            })}
+          </Link>
         )}
-      </span>
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent data-testid="file-all-dialog">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("classificationSuggestions.fileAllTitle", {
-                count: drafts.length,
-              })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("classificationSuggestions.fileAllDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("button.cancel", { ns: "common" })}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmOpen(false);
-                void fileAll();
-              }}
+        <span className="hidden items-center gap-x-3 md:flex">
+          <Details jevText={jevText} report={report} />
+        </span>
+        {hasReport && (
+          <Link
+            to={reportPath}
+            className="text-selected"
+            data-testid="suggestion-report-link"
+          >
+            {t("classificationSuggestions.reportLink")}
+          </Link>
+        )}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              size="xs"
+              variant="ghost"
+              className="size-6 md:hidden"
+              aria-label={t("classificationSuggestions.details")}
+              data-testid="suggestion-details"
             >
-              {t("classificationSuggestions.fileAll", {
-                count: drafts.length,
-              })}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+              <LuInfo className="size-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="flex w-auto max-w-80 flex-col gap-1 p-3 text-xs"
+          >
+            <Details jevText={jevText} report={report} />
+          </PopoverContent>
+        </Popover>
+        <span className="ml-auto flex items-center gap-2">
+          {onUnsureFirst && (
+            <Button
+              size="sm"
+              variant={unsureFirst ? "select" : "outline"}
+              className="h-7 gap-1 px-2 text-xs"
+              aria-pressed={unsureFirst}
+              data-testid="train-order-toggle"
+              onClick={() => onUnsureFirst(!unsureFirst)}
+            >
+              <LuArrowDownUp className="size-3.5" />
+              {t("classificationSuggestions.unsureFirst")}
+            </Button>
+          )}
+          {drafts.length > 0 && (
+            <Button
+              size="sm"
+              variant="select"
+              className="h-7 px-2.5 text-xs"
+              disabled={pending}
+              onClick={() => setConfirmOpen(true)}
+            >
+              {t("classificationSuggestions.fileAll", { count: drafts.length })}
+            </Button>
+          )}
+        </span>
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent data-testid="file-all-dialog">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("classificationSuggestions.fileAllTitle", {
+                  count: drafts.length,
+                })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("classificationSuggestions.fileAllDescription")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>
+                {t("button.cancel", { ns: "common" })}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmOpen(false);
+                  void fileAll();
+                }}
+              >
+                {t("classificationSuggestions.fileAll", {
+                  count: drafts.length,
+                })}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </>
   );
 }
 

@@ -177,11 +177,17 @@ test.describe("Classification suggestions @medium", () => {
     await expect(badge).toContainText("van");
     await expect(badge).toContainText("97%");
     const status = page.getByTestId("suggestion-status");
-    await expect(status).toContainText("1 draft on this page");
-    await expect(status).toContainText("Jev: 1 of 200 requests today");
-    await expect(status).toContainText("Kept 85% of 20 drafts");
+    await expect(status).toContainText("1 suggestion");
+    await expect(status).toContainText("Jev: 1 of 200 today");
+    await expect(status).toContainText("Kept 85% of 20 suggestions");
 
-    await badge.getByRole("button", { name: /confirm van/i }).click();
+    // The one-line hint shows until dismissed.
+    const hint = page.getByTestId("suggestion-hint");
+    await expect(hint).toContainText("Tap the check to accept it");
+    await hint.getByRole("button", { name: /got it/i }).click();
+    await expect(hint).toHaveCount(0);
+
+    await badge.getByRole("button", { name: /accept van/i }).click();
 
     await expect.poll(() => confirms.length).toBe(1);
     expect(confirms[0]).toEqual({
@@ -192,7 +198,7 @@ test.describe("Classification suggestions @medium", () => {
       score: 0.97,
       suggested_category: "van",
     });
-    await expect(page.getByText(/filed 2 images as van/i)).toBeVisible();
+    await expect(page.getByText(/accepted 2 images as van/i)).toBeVisible();
     await expect(page.getByTestId("suggestion-badge")).toHaveCount(0);
   });
 
@@ -280,7 +286,7 @@ test.describe("Classification suggestions @medium", () => {
       suggested_category: "van",
     });
     expect(categorized).toBe(0);
-    await expect(page.getByText(/filed 1 image as suv/i)).toBeVisible();
+    await expect(page.getByText(/accepted 1 image as suv/i)).toBeVisible();
   });
 
   test("files every draft on the page after one confirmation", async ({
@@ -377,14 +383,14 @@ test.describe("Classification suggestions @medium", () => {
     await frigateApp.goto("/classification");
     await page.getByText(MODEL).first().click();
     const status = page.getByTestId("suggestion-status");
-    await expect(status).toContainText("2 drafts on this page", {
+    await expect(status).toContainText("2 suggestions", {
       timeout: 10_000,
     });
 
-    await status.getByRole("button", { name: /file all 2 drafts/i }).click();
+    await status.getByRole("button", { name: /accept all 2/i }).click();
     const dialog = page.getByTestId("file-all-dialog");
-    await expect(dialog).toContainText("File 2 drafts as suggested?");
-    await dialog.getByRole("button", { name: /file all 2 drafts/i }).click();
+    await expect(dialog).toContainText("Accept 2 suggestions?");
+    await dialog.getByRole("button", { name: /accept all 2/i }).click();
 
     await expect.poll(() => confirms.length).toBe(2);
     // The grid orders groups differently on phones; only the set matters.
@@ -402,7 +408,7 @@ test.describe("Classification suggestions @medium", () => {
         }),
       ]),
     );
-    await expect(page.getByText(/filed 2 of 2 drafts/i)).toBeVisible();
+    await expect(page.getByText(/accepted 2 of 2/i)).toBeVisible();
   });
 
   test("shows nothing when the flag is off", async ({ frigateApp }) => {
@@ -551,8 +557,8 @@ test.describe("Classification suggestions @medium", () => {
     await expect(page.getByTestId("suggestion-badge")).toHaveCount(3);
     await expect(page.getByTestId("suggestion-too-small")).toHaveCount(1);
     const status = page.getByTestId("suggestion-status");
-    await expect(status).toContainText("3 drafts on this page");
-    await expect(status).toContainText("1 with tiny crops");
+    await expect(status).toContainText("3 suggestions");
+    await expect(status).toContainText("1 too small to train well");
     await expect(page.getByTestId("suggestion-lopsided")).toContainText(
       "van has 8x the images of none",
     );

@@ -10,6 +10,13 @@ import type {
 import SuggestionStatusBar from "./SuggestionStatusBar";
 
 let report: SuggestionReport | undefined;
+let hintSeen = true;
+const dismissHint = vi.fn(() => {
+  hintSeen = true;
+});
+vi.mock("@/hooks/fork/use-suggestion-hint", () => ({
+  useSuggestionHint: () => [hintSeen, dismissHint],
+}));
 vi.mock("@/hooks/fork/use-suggestion-report", () => ({
   useSuggestionReport: () => ({ data: report }),
 }));
@@ -81,6 +88,28 @@ describe("SuggestionStatusBar", () => {
     confirmCalls.length = 0;
     toastSuccess.mockReset();
     toastWarning.mockReset();
+  });
+
+  it("shows the how-it-works hint until it is dismissed", () => {
+    report = undefined;
+    hintSeen = false;
+    render(
+      <MemoryRouter>
+        <TooltipProvider>
+          <SuggestionStatusBar
+            modelName="vehicle_type"
+            data={response({})}
+            groups={GROUPS}
+            onRefresh={vi.fn()}
+          />
+        </TooltipProvider>
+      </MemoryRouter>,
+    );
+    const hint = screen.getByTestId("suggestion-hint");
+    expect(hint).toHaveTextContent("classificationSuggestions.hint");
+    fireEvent.click(screen.getByText("classificationSuggestions.hintDismiss"));
+    expect(dismissHint).toHaveBeenCalledTimes(1);
+    hintSeen = true;
   });
 
   it("renders nothing before the suggestions arrive", () => {

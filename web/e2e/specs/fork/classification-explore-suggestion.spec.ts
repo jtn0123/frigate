@@ -86,7 +86,7 @@ test.describe("Explore suggestion (fork I46)", () => {
       "model said sedan",
     );
 
-    await box.getByRole("button", { name: "File" }).click();
+    await box.getByRole("button", { name: "Accept" }).click();
     await expect.poll(() => confirms.length).toBe(1);
     expect(confirms[0]).toMatchObject({
       category: "suv",
@@ -94,8 +94,8 @@ test.describe("Explore suggestion (fork I46)", () => {
       source: "jev",
       training_files: ["evt-1.0-unknown-0.0.webp"],
     });
-    await expect(box).toContainText("filed as suv");
-    await expect(box.getByRole("button", { name: "File" })).toHaveCount(0);
+    await expect(box).toContainText("accepted as suv");
+    await expect(box.getByRole("button", { name: "Accept" })).toHaveCount(0);
   });
 
   test("stays silent with the flag off", async ({ frigateApp }) => {

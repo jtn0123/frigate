@@ -23,7 +23,7 @@ hand.
 One line above the grid says how many cards on the page have a draft,
 whether Jev is answering (and how much of today's request budget is used,
 or that the key is missing), and how often past drafts were kept as filed.
-Its "File all" button files every draft on the page after one
+Its "Accept all" button files every draft on the page after one
 confirmation, one event at a time, and reports how many went through. Use
 it once the kept rate has earned that trust; the class picker fixes any
 single mistake afterwards.
@@ -88,7 +88,7 @@ when the images would not teach the model anything:
   or above `auto_file.max_model_score` (0.9) as the drafted class are left
   in the train grid. They confirm what the model knows; the ones it was
   unsure about are the ones worth filing. The train grid has an
-  "Unsure first" switch that sorts by the same score.
+  "Least sure first" switch that sorts by the same score.
 - **Tiny crops (I50).** Images under 100 px on a side stretch three to
   seven times when trained, so they are never auto-filed. People still see
   the draft: the badge, the Explore row and the status line flag events
