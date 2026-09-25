@@ -214,7 +214,6 @@ export default function SuggestionBadge({
   const acceptRef = useRef<HTMLButtonElement>(null);
 
   const suggestion = entry?.suggestion ?? null;
-  const maybe = suggestion ? null : (entry?.maybe ?? null);
   const tiny = allTooSmall(files, tooSmall);
   const choices = pickableClasses(classes);
 
@@ -284,6 +283,7 @@ export default function SuggestionBadge({
   }
 
   if (!suggestion && !entry.conflict) {
+    const maybe = entry.maybe ?? null;
     return (
       <MaybeOrBlank
         maybe={maybe}
@@ -298,9 +298,6 @@ export default function SuggestionBadge({
   }
 
   if (!suggestion) {
-    if (!entry.conflict) {
-      return null;
-    }
     const names = {
       text: displayClass(entry.text?.category ?? ""),
       jev: displayClass(entry.jev?.category ?? ""),
