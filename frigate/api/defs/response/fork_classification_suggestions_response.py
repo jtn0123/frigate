@@ -59,6 +59,11 @@ class ClassificationSuggestionsResponse(BaseModel):
         default_factory=dict,
         description="Train images under 100 px on a side, keyed by event (fork I50)",
     )
+    omitted: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct ids past the per-request cap that were not drafted",
+    )
 
 
 class ConfirmSuggestionResponse(BaseModel):
@@ -67,6 +72,14 @@ class ConfirmSuggestionResponse(BaseModel):
     success: bool
     message: str
     moved: list[str] = Field(default_factory=list, description="New dataset file names")
+
+
+class UndoSuggestionResponse(BaseModel):
+    """How many images an undo moved back to the train grid."""
+
+    success: bool
+    message: str
+    restored: int = Field(default=0, ge=0, description="Images moved back")
 
 
 class FiledModel(BaseModel):
@@ -121,7 +134,10 @@ class ClassAcceptanceModel(AcceptanceModel):
         default_factory=dict, description="Class chosen instead, with counts"
     )
     auto_filed: int = Field(
-        default=0, description="Images I44 filed without review, not in the rate", ge=0
+        default=0, description="Groups I44 filed without review, not in the rate", ge=0
+    )
+    bulk_accepted: int = Field(
+        default=0, description="Groups filed by Accept all, not in the rate", ge=0
     )
 
 
@@ -201,7 +217,13 @@ class SuggestionReportResponse(AcceptanceModel):
 
     model: str = Field(description=MODEL_DESCRIPTION)
     auto_filed: int = Field(
-        default=0, description="Images I44 filed without review, not in the rate", ge=0
+        default=0, description="Groups I44 filed without review, not in the rate", ge=0
+    )
+    bulk_accepted: int = Field(
+        default=0, description="Groups filed by Accept all, not in the rate", ge=0
+    )
+    undone: int = Field(
+        default=0, description="Confirmations later undone, not in any count", ge=0
     )
     sources: dict[str, AcceptanceModel] = Field(
         default_factory=dict, description="Keyed by source: text, jev or none"

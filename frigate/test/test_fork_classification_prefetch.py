@@ -179,16 +179,25 @@ class TestSuggestionPrefetch(unittest.TestCase):
         os.makedirs(folder, exist_ok=True)
         cv2.imwrite(os.path.join(folder, name), np.zeros((8, 8, 3), dtype=np.uint8))
 
-    def _reviewed(self, category: str, count: int, auto: bool = False) -> None:
+    def _reviewed(
+        self,
+        category: str,
+        count: int,
+        auto: bool = False,
+        bulk: bool = False,
+        event_id: str | None = None,
+    ) -> None:
         for _ in range(count):
             suggest.record_confirmation(
                 self.clips,
                 "vehicle_type",
                 {
+                    "event_id": event_id,
                     "suggested_category": category,
                     "category": category,
                     "accepted": True,
                     "auto": auto,
+                    "bulk": bulk,
                 },
             )
 
@@ -250,6 +259,43 @@ class TestSuggestionPrefetch(unittest.TestCase):
         self.assertEqual(report["auto_filed"], 4)
         self.assertEqual(report["total"], 2, "auto-filed stays out of the rate")
         self.assertEqual(report["classes"]["suv"]["auto_filed"], 4)
+
+    def test_bulk_and_undone_accepts_do_not_earn_auto_filing(self):
+        auto = {"enabled": True, "min_kept_rate": 0.9, "min_drafts": 2}
+        self._train_image("evt-1-1.0-unknown-0.0.webp")
+        train = os.path.join(self.clips, "vehicle_type", "train")
+        worker = self.worker(auto_file=auto)
+
+        self._reviewed("suv", 5, bulk=True)
+        self._process(worker)
+        self.assertEqual(len(os.listdir(train)), 1, "bulk accepts are not reviews")
+
+        self._reviewed("suv", 1)
+        self._reviewed("suv", 1, event_id="evt-7")
+        suggest.record_confirmation(
+            self.clips,
+            "vehicle_type",
+            {"event_id": "evt-7", "category": "suv", "undo": True, "files": []},
+        )
+        self._process(worker)
+        self.assertEqual(len(os.listdir(train)), 1, "the undone accept left min_drafts")
+
+        self._reviewed("suv", 1, event_id="evt-8")
+        self._process(worker)
+        self.assertEqual(os.listdir(train), [], "two standing reviews earn it")
+        last = suggest.read_provenance(self.clips, "vehicle_type")[-1]
+        self.assertTrue(last["auto"])
+        self.assertEqual(last["train_files"], ["evt-1-1.0-unknown-0.0.webp"])
+
+    def test_auto_file_leaves_a_group_a_person_filed_first(self):
+        auto = {"enabled": True, "min_kept_rate": 0.9, "min_drafts": 1}
+        self._reviewed("suv", 1)
+        self._train_image("evt-1-1.0-unknown-0.0.webp")
+        with patch.object(
+            suggest, "file_train_images", side_effect=suggest.AlreadyFiledError("x")
+        ):
+            self._process(self.worker(auto_file=auto))
+        self.assertEqual(len(suggest.read_provenance(self.clips, "vehicle_type")), 1)
 
     def test_auto_file_waits_for_the_camera_cooldown_and_daily_limit(self):
         auto = {"enabled": True, "min_kept_rate": 0.9, "min_drafts": 1}

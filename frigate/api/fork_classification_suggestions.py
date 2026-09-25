@@ -13,6 +13,7 @@ from frigate.api.auth import require_role
 from frigate.api.defs.request.fork_classification_suggestions_body import (
     ConfirmSuggestionBody,
     SpotCheckBody,
+    UndoSuggestionBody,
 )
 from frigate.api.defs.response.fork_classification_suggestions_response import (
     ClassificationSuggestionsResponse,
@@ -20,6 +21,7 @@ from frigate.api.defs.response.fork_classification_suggestions_response import (
     EventSuggestionsResponse,
     SpotCheckResponse,
     SuggestionReportResponse,
+    UndoSuggestionResponse,
 )
 from frigate.api.defs.tags import Tags
 from frigate.config import FrigateConfig
@@ -117,7 +119,8 @@ def small_train_files(name: str, ids: list[str]) -> dict[str, list[str]]:
 
 def filed_entry(name: str, event_id: str) -> dict[str, Any] | None:
     """What this event was last filed as under the model, if anything."""
-    for entry in reversed(suggest.read_provenance(CLIPS_DIR, name)):
+    entries, _undone = suggest.active_entries(suggest.read_provenance(CLIPS_DIR, name))
+    for entry in reversed(entries):
         if entry.get("event_id") == event_id and isinstance(entry.get("category"), str):
             return {"category": entry["category"], "auto": bool(entry.get("auto"))}
     return None
@@ -130,7 +133,8 @@ def filed_entry(name: str, event_id: str) -> dict[str, Any] | None:
     summary="Suggest dataset classes for train images",
     description="""Drafts a dataset class for each listed event from its description,
     locally and optionally through Jev. Drafts are for a person to confirm; nothing is
-    labeled by this call.""",
+    labeled by this call. At most 400 distinct ids are drafted per call; `omitted`
+    says how many past that were dropped.""",
 )
 async def classification_suggestions(
     request: Request, name: str, ids: str = ""
@@ -145,6 +149,7 @@ async def classification_suggestions(
         item = item.strip()
         if item and item not in wanted:
             wanted.append(item)
+    omitted = max(0, len(wanted) - suggest.MAX_EVENTS)
     wanted = wanted[: suggest.MAX_EVENTS]
 
     classes = await asyncio.to_thread(dataset_classes, name)
@@ -171,6 +176,7 @@ async def classification_suggestions(
             },
             "suggestions": suggestions,
             "too_small": too_small,
+            "omitted": omitted,
         }
     )
 
@@ -186,12 +192,11 @@ def confirm(
         .first()
     )
     description = ((event or {}).get("data") or {}).get("description")
-    moved = suggest.categorize_train_files(
-        CLIPS_DIR, name, category, list(dict.fromkeys(body.training_files))
-    )
-    suggest.record_confirmation(
+    moved = suggest.file_train_images(
         CLIPS_DIR,
         name,
+        category,
+        list(dict.fromkeys(body.training_files)),
         {
             "event_id": body.event_id,
             "camera": (event or {}).get("camera"),
@@ -202,10 +207,10 @@ def confirm(
             "accepted": body.suggested_category is not None
             and suggest.normalize_class(body.suggested_category)
             == suggest.normalize_class(category),
+            "bulk": body.bulk,
             "description_sha256": suggest.description_sha256(description)
             if isinstance(description, str) and description.strip()
             else None,
-            "files": moved,
         },
     )
     return moved, None
@@ -217,11 +222,21 @@ def confirm(
     dependencies=[Depends(require_role(["admin"]))],
     summary="Confirm a suggested class for train images",
     description="""Moves the event's train images into the chosen dataset class and
-    records which suggestion, if any, led to it beside the dataset.""",
+    records which suggestion, if any, led to it beside the dataset. `bulk: true`
+    marks a group filed by Accept all, which the report counts apart and the
+    kept rate ignores. Returns 404 with the message "already accepted" when none
+    of the files are left in the train folder (the group was filed already), and
+    404 with another message when only some of them are missing.""",
 )
 async def confirm_suggestion(
     request: Request, name: str, body: ConfirmSuggestionBody
 ) -> JSONResponse:
+    """File an event's train images under a class and record the draft.
+
+    Returns 404 with the message "already accepted" when none of the files
+    are left in the train folder, so a second click or a second tab can tell
+    the group was filed already.
+    """
     config: FrigateConfig = request.app.frigate_config
     if name not in config.classification.custom:
         return unknown_model(name)
@@ -235,6 +250,11 @@ async def confirm_suggestion(
 
     try:
         moved, _ = await asyncio.to_thread(confirm, name, body, category)
+    except suggest.AlreadyFiledError:
+        return JSONResponse(
+            content={"success": False, "message": "already accepted", "moved": []},
+            status_code=404,
+        )
     except FileNotFoundError:
         return JSONResponse(
             content={
@@ -265,6 +285,66 @@ async def confirm_suggestion(
             "success": True,
             "message": "Successfully categorized images.",
             "moved": moved,
+        }
+    )
+
+
+@router.post(
+    "/classification/{name}/suggestions/undo",
+    response_model=UndoSuggestionResponse,
+    dependencies=[Depends(require_role(["admin"]))],
+    summary="Undo an accepted suggestion",
+    description="""Moves the listed dataset images of an accepted group back into the
+    train folder, skipping any that are already gone, and records the undo beside
+    the dataset so the confirmation no longer counts toward the kept rate or the
+    auto-file gate. File names must be bare names from confirm's `moved`.""",
+)
+async def undo_suggestion(
+    request: Request, name: str, body: UndoSuggestionBody
+) -> JSONResponse:
+    """Move an accepted group back to the train grid and record the undo."""
+    config: FrigateConfig = request.app.frigate_config
+    if name not in config.classification.custom:
+        return unknown_model(name)
+    category = suggest.safe_category(body.category)
+    if not category:
+        return JSONResponse(
+            content={"success": False, "message": "Invalid category", "restored": 0},
+            status_code=400,
+        )
+    try:
+        restored = await asyncio.to_thread(
+            suggest.restore_train_files,
+            CLIPS_DIR,
+            name,
+            body.event_id,
+            category,
+            list(dict.fromkeys(body.files)),
+        )
+    except ValueError:
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Invalid event id or file name",
+                "restored": 0,
+            },
+            status_code=400,
+        )
+    except OSError:
+        logger.exception("Failed to move accepted images back to the train folder")
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Failed to move the images back",
+                "restored": 0,
+            },
+            status_code=500,
+        )
+    return JSONResponse(
+        content={
+            "success": True,
+            "message": f"Moved {len(restored)} image(s) back.",
+            "restored": len(restored),
         }
     )
 

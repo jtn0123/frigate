@@ -200,6 +200,10 @@ class SuggestionPrefetch(threading.Thread):
     ) -> list[str]:
         """File the event's train images when the draft has earned it (I44).
 
+        Only a person's one-at-a-time confirmations earn it: auto-filed
+        groups, bulk accepts and undone confirmations are left out of the
+        kept rate and of min_drafts.
+
         Returns:
             The dataset file names written, empty when nothing was filed
         """
@@ -237,28 +241,31 @@ class SuggestionPrefetch(threading.Thread):
             logger.debug("Auto-filing %s/%s waits: class is lopsided", name, category)
             return []
         try:
-            moved = suggest.categorize_train_files(
-                self.clips_dir, name, category, files
+            moved = suggest.file_train_images(
+                self.clips_dir,
+                name,
+                category,
+                files,
+                {
+                    "event_id": job["id"],
+                    "camera": job["camera"],
+                    "category": category,
+                    "suggested_category": sure["category"],
+                    "source": sure["source"],
+                    "score": sure["score"],
+                    "accepted": True,
+                    "auto": True,
+                    "description_sha256": suggest.description_sha256(
+                        job["description"]
+                    ),
+                },
             )
+        except suggest.AlreadyFiledError:
+            # A person filed the group between the listing and the move.
+            return []
         except (OSError, ValueError):
             logger.exception("Auto-filing the train images of one event failed")
             return []
-        suggest.record_confirmation(
-            self.clips_dir,
-            name,
-            {
-                "event_id": job["id"],
-                "camera": job["camera"],
-                "category": category,
-                "suggested_category": sure["category"],
-                "source": sure["source"],
-                "score": sure["score"],
-                "accepted": True,
-                "auto": True,
-                "description_sha256": suggest.description_sha256(job["description"]),
-                "files": moved,
-            },
-        )
         logger.info(
             "Auto-filed %d train image(s) into %s/%s", len(moved), name, category
         )

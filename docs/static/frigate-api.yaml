@@ -7491,7 +7491,8 @@ paths:
 
         Drafts a dataset class for each listed event from its description,
             locally and optionally through Jev. Drafts are for a person to confirm; nothing is
-            labeled by this call.
+            labeled by this call. At most 400 distinct ids are drafted per call; `omitted`
+            says how many past that were dropped.
       operationId: 
         classification_suggestions_classification__name__suggestions_get
       parameters:
@@ -7533,7 +7534,11 @@ paths:
         **Access:** Admin role required.
 
         Moves the event's train images into the chosen dataset class and
-            records which suggestion, if any, led to it beside the dataset.
+            records which suggestion, if any, led to it beside the dataset. `bulk: true`
+            marks a group filed by Accept all, which the report counts apart and the
+            kept rate ignores. Returns 404 with the message "already accepted" when none
+            of the files are left in the train folder (the group was filed already), and
+            404 with another message when only some of them are missing.
       operationId: 
         confirm_suggestion_classification__name__suggestions_confirm_post
       parameters:
@@ -7556,6 +7561,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfirmSuggestionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
+  /classification/{name}/suggestions/undo:
+    post:
+      tags:
+        - Classification
+      summary: Undo an accepted suggestion
+      description: |-
+        **Access:** Admin role required.
+
+        Moves the listed dataset images of an accepted group back into the
+            train folder, skipping any that are already gone, and records the undo beside
+            the dataset so the confirmation no longer counts toward the kept rate or the
+            auto-file gate. File names must be bare names from confirm's `moved`.
+      operationId: undo_suggestion_classification__name__suggestions_undo_post
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UndoSuggestionBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UndoSuggestionResponse'
         '422':
           description: Validation Error
           content:
@@ -8708,7 +8755,13 @@ components:
           type: integer
           minimum: 0.0
           title: Auto Filed
-          description: Images I44 filed without review, not in the rate
+          description: Groups I44 filed without review, not in the rate
+          default: 0
+        bulk_accepted:
+          type: integer
+          minimum: 0.0
+          title: Bulk Accepted
+          description: Groups filed by Accept all, not in the rate
           default: 0
       type: object
       required:
@@ -8746,6 +8799,13 @@ components:
           title: Too Small
           description: Train images under 100 px on a side, keyed by event (fork
             I50)
+        omitted:
+          type: integer
+          minimum: 0.0
+          title: Omitted
+          description: Distinct ids past the per-request cap that were not 
+            drafted
+          default: 0
       type: object
       required:
         - model
@@ -8792,6 +8852,12 @@ components:
             - type: 'null'
           title: Suggested Category
           description: The class that was suggested, so edits can be told apart
+        bulk:
+          type: boolean
+          title: Bulk
+          description: Filed by Accept all rather than one card at a time; kept 
+            out of the kept rate and the auto-file gate
+          default: false
       type: object
       required:
         - event_id
@@ -10831,7 +10897,19 @@ components:
           type: integer
           minimum: 0.0
           title: Auto Filed
-          description: Images I44 filed without review, not in the rate
+          description: Groups I44 filed without review, not in the rate
+          default: 0
+        bulk_accepted:
+          type: integer
+          minimum: 0.0
+          title: Bulk Accepted
+          description: Groups filed by Accept all, not in the rate
+          default: 0
+        undone:
+          type: integer
+          minimum: 0.0
+          title: Undone
+          description: Confirmations later undone, not in any count
           default: 0
         sources:
           additionalProperties:
@@ -10949,6 +11027,51 @@ components:
         - thumbnail
         - description
       title: TriggerType
+    UndoSuggestionBody:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+          description: The event the images belong to
+        category:
+          type: string
+          title: Category
+          description: The dataset class they were filed into
+        files:
+          items:
+            type: string
+          type: array
+          maxItems: 64
+          minItems: 1
+          title: Files
+          description: Dataset file names returned by confirm, basenames only
+      type: object
+      required:
+        - event_id
+        - category
+        - files
+      title: UndoSuggestionBody
+      description: Move an accepted group back to the train grid (fork I41).
+    UndoSuggestionResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        message:
+          type: string
+          title: Message
+        restored:
+          type: integer
+          minimum: 0.0
+          title: Restored
+          description: Images moved back
+          default: 0
+      type: object
+      required:
+        - success
+        - message
+      title: UndoSuggestionResponse
+      description: How many images an undo moved back to the train grid.
     VLMMonitorRequest:
       properties:
         camera:

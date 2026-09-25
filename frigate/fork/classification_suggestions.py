@@ -37,7 +37,10 @@ logger = logging.getLogger(__name__)
 MIN_SCORE = 0.9
 MIN_MARGIN = 0.2
 MAX_DESCRIPTION = 4000
-MAX_EVENTS = 100
+# Local drafting is cheap, and every Jev request is cached per description and
+# reserved against the daily budget first, so a longer page cannot spend more
+# than daily_request_limit in a day.
+MAX_EVENTS = 400
 UNKNOWN = "unknown"
 PROVENANCE_FILE = ".fork_provenance.jsonl"
 MODEL_CHECK_FILE = ".fork_model_checks.jsonl"
@@ -656,6 +659,25 @@ class JevError(Exception):
     """The provider did not return a usable Decisions response."""
 
 
+class AlreadyFiledError(FileNotFoundError):
+    """None of the train files are left, so the group was already filed."""
+
+
+_dataset_locks: dict[str, threading.Lock] = {}
+_dataset_locks_guard = threading.Lock()
+
+
+def dataset_lock(clips_dir: str, name: str) -> threading.Lock:
+    """One lock per model folder for every move between train and dataset.
+
+    A confirm, an undo and auto-filing each move a whole group and write its
+    provenance line while holding it, so none of them sees a half-moved group.
+    """
+    key = os.path.join(clips_dir, name)
+    with _dataset_locks_guard:
+        return _dataset_locks.setdefault(key, threading.Lock())
+
+
 def categorize_train_files(
     clips_dir: str, name: str, category: str, files: list[str]
 ) -> list[str]:
@@ -671,7 +693,8 @@ def categorize_train_files(
         The new dataset file names, in the order given
 
     Raises:
-        FileNotFoundError: A train file does not exist
+        AlreadyFiledError: None of the train files exist
+        FileNotFoundError: Some of the train files do not exist
         ValueError: A file name or the target folder is not safe
     """
     folder = safe_join(clips_dir, name, "dataset", category)
@@ -682,21 +705,200 @@ def categorize_train_files(
         path = safe_join(clips_dir, name, "train", file)
         if path is None:
             raise ValueError("Invalid file name")
-        if not os.path.isfile(path):
-            raise FileNotFoundError(file)
         sources.append(path)
-    os.makedirs(folder, exist_ok=True)
-    moved = []
+    missing = [path for path in sources if not os.path.isfile(path)]
+    if sources and len(missing) == len(sources):
+        raise AlreadyFiledError(files[0])
+    if missing:
+        raise FileNotFoundError(os.path.basename(missing[0]))
+    # Read every image before writing any, so an unreadable one fails the
+    # whole group instead of leaving it half moved and unrecorded.
+    images = []
     for path in sources:
-        new_name = f"{category}-{time.time()}-{random_id(6)}.png"
         # use opencv because webp images can not be used to train
         image = cv2.imread(path)
         if image is None:
             raise ValueError("Unreadable image")
+        images.append(image)
+    os.makedirs(folder, exist_ok=True)
+    moved = []
+    for path, image in zip(sources, images):
+        new_name = f"{category}-{time.time()}-{random_id(6)}.png"
         cv2.imwrite(os.path.join(folder, new_name), image)
         os.unlink(path)
         moved.append(new_name)
     return moved
+
+
+def file_train_images(
+    clips_dir: str,
+    name: str,
+    category: str,
+    files: list[str],
+    entry: dict[str, Any],
+) -> list[str]:
+    """Move a group into a class and record it, holding the model's lock.
+
+    Args:
+        clips_dir: The clips root
+        name: The model name
+        category: The dataset class, already sanitized
+        files: Train file names to move
+        entry: The provenance fields; files and train_files are filled in
+
+    Returns:
+        The new dataset file names, in the order given
+
+    Raises:
+        AlreadyFiledError: None of the train files exist
+        FileNotFoundError: Some of the train files do not exist
+        ValueError: A file name or the target folder is not safe
+    """
+    with dataset_lock(clips_dir, name):
+        moved = categorize_train_files(clips_dir, name, category, files)
+        # train_files keeps the original names so an undo can restore them.
+        record_confirmation(
+            clips_dir, name, {**entry, "files": moved, "train_files": list(files)}
+        )
+    return moved
+
+
+def _is_basename(file: str) -> bool:
+    return (
+        bool(file)
+        and file == os.path.basename(file)
+        and "/" not in file
+        and "\\" not in file
+        and ".." not in file
+    )
+
+
+def _original_train_names(
+    entries: list[dict[str, Any]], event_id: str, category: str
+) -> dict[str, str]:
+    """Map dataset file names back to the train names a confirm recorded."""
+    wanted = normalize_class(category)
+    names: dict[str, str] = {}
+    for entry in entries:
+        filed = entry.get("category")
+        files = entry.get("files")
+        train_files = entry.get("train_files")
+        if (
+            entry.get("undo")
+            or entry.get("event_id") != event_id
+            or not isinstance(filed, str)
+            or normalize_class(filed) != wanted
+            or not isinstance(files, list)
+            or not isinstance(train_files, list)
+            or len(files) != len(train_files)
+        ):
+            continue
+        for dataset_name, train_name in zip(files, train_files):
+            if isinstance(dataset_name, str) and isinstance(train_name, str):
+                names[dataset_name] = train_name
+    return names
+
+
+def restore_train_files(
+    clips_dir: str, name: str, event_id: str, category: str, files: list[str]
+) -> list[str]:
+    """Undo an accept: move dataset images back to the train grid.
+
+    Files already gone from the class are skipped. Each image gets its
+    original train name back when the confirm recorded it, otherwise a new
+    one that groups it under the event again. An undo line is appended so
+    the undone confirmation stops counting toward the kept rate.
+
+    Args:
+        clips_dir: The clips root
+        name: The model name
+        event_id: The event the images belong to
+        category: The dataset class they were filed into, already sanitized
+        files: Dataset file names, basenames only
+
+    Returns:
+        The dataset file names that were moved back
+
+    Raises:
+        ValueError: The category, the event id or a file name is not safe
+    """
+    folder = safe_join(clips_dir, name, "dataset", category)
+    train = safe_join(clips_dir, name, "train")
+    if folder is None or train is None:
+        raise ValueError("Invalid category")
+    paths = []
+    for file in files:
+        path = safe_join(folder, file) if _is_basename(file) else None
+        if path is None:
+            raise ValueError("Invalid file name")
+        paths.append((file, path))
+    if not _is_basename(event_id) or sanitize_path_component(event_id) != event_id:
+        raise ValueError("Invalid event id")
+    restored = []
+    with dataset_lock(clips_dir, name):
+        originals = _original_train_names(
+            read_provenance(clips_dir, name), event_id, category
+        )
+        os.makedirs(train, exist_ok=True)
+        for file, path in paths:
+            if not os.path.isfile(path):
+                continue
+            # cv2's stubs say imread never returns None; it does for bad files.
+            image: Any = cv2.imread(path)
+            if image is None:
+                logger.warning("Skipping an unreadable dataset image on undo")
+                continue
+            target = safe_join(train, originals.get(file, ""))
+            if target is None or os.path.exists(target):
+                # Upstream's train name, so the grid groups it under the event.
+                target = os.path.join(
+                    train, f"{event_id}-{time.time()}-unknown-0.0.webp"
+                )
+            cv2.imwrite(target, image)
+            os.unlink(path)
+            restored.append(file)
+        record_confirmation(
+            clips_dir,
+            name,
+            {
+                "event_id": event_id,
+                "category": category,
+                "undo": True,
+                "files": restored,
+            },
+        )
+    return restored
+
+
+def active_entries(
+    entries: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int]:
+    """Drop undo lines and the confirmations they undid.
+
+    An undo cancels every earlier line for the same event and class; a
+    confirmation made after the undo counts again.
+
+    Returns:
+        The remaining lines in their order, and how many were undone
+    """
+    undone: set[tuple[Any, str]] = set()
+    kept: list[dict[str, Any]] = []
+    dropped = 0
+    for entry in reversed(entries):
+        category = entry.get("category")
+        key = (
+            entry.get("event_id"),
+            normalize_class(category) if isinstance(category, str) else "",
+        )
+        if entry.get("undo"):
+            undone.add(key)
+            continue
+        if key in undone:
+            dropped += 1
+            continue
+        kept.append(entry)
+    kept.reverse()
+    return kept, dropped
 
 
 def _append_line(clips_dir: str, name: str, file: str, entry: dict[str, Any]) -> None:
@@ -1135,16 +1337,17 @@ def sure_draft(text: Suggestion | None, jev: Suggestion | None) -> Suggestion | 
 
 
 def kept_rate(entries: list[dict[str, Any]], category: str) -> tuple[float | None, int]:
-    """How often people kept drafts of this class, ignoring auto-filed ones.
+    """How often people kept drafts of this class, one draft at a time.
 
-    Auto-filed images are never counted here, so the rate that unlocks
-    auto-filing can only come from a person's confirmations.
+    Auto-filed groups, bulk accepts and undone confirmations are never
+    counted here, so the rate that unlocks auto-filing can only come from a
+    person's single, standing confirmations.
     """
     total = accepted = 0
     wanted = normalize_class(category)
-    for entry in entries:
+    for entry in active_entries(entries)[0]:
         suggested = entry.get("suggested_category")
-        if entry.get("auto") or not isinstance(suggested, str):
+        if entry.get("auto") or entry.get("bulk") or not isinstance(suggested, str):
             continue
         if normalize_class(suggested) != wanted:
             continue
@@ -1207,7 +1410,8 @@ def summarize_provenance(entries: list[dict[str, Any]]) -> dict[str, Any]:
 
     Returns:
         Totals overall, per source, per suggested class and per camera, plus
-        how many images I44 filed on its own (kept out of every rate)
+        how many groups I44 filed on its own and how many were bulk accepted
+        (both kept out of every rate), and how many were undone
     """
     overall: dict[str, Any] = {"total": 0, "accepted": 0}
     sources: dict[str, dict[str, Any]] = {}
@@ -1216,7 +1420,10 @@ def summarize_provenance(entries: list[dict[str, Any]]) -> dict[str, Any]:
     times: list[float] = []
     auto_filed = 0
     auto_by_class: dict[str, int] = {}
-    for entry in entries:
+    bulk_accepted = 0
+    bulk_by_class: dict[str, int] = {}
+    active, undone = active_entries(entries)
+    for entry in active:
         accepted = bool(entry.get("accepted"))
         suggested = entry.get("suggested_category")
         if not isinstance(suggested, str) or not suggested:
@@ -1228,18 +1435,30 @@ def summarize_provenance(entries: list[dict[str, Any]]) -> dict[str, Any]:
             auto_filed += 1
             auto_by_class[suggested] = auto_by_class.get(suggested, 0) + 1
             continue
+        if entry.get("bulk"):
+            # Accepted with the whole page at once, so nobody looked at it.
+            bulk_accepted += 1
+            bulk_by_class[suggested] = bulk_by_class.get(suggested, 0) + 1
+            continue
         _tally(overall, accepted)
         _tally_reviewed(entry, suggested, accepted, sources, classes, cameras)
-    for category, count in auto_by_class.items():
-        classes.setdefault(category, {"total": 0, "accepted": 0, "corrected_to": {}})[
-            "auto_filed"
-        ] = count
+    for field, by_class in (
+        ("auto_filed", auto_by_class),
+        ("bulk_accepted", bulk_by_class),
+    ):
+        for category, count in by_class.items():
+            classes.setdefault(
+                category, {"total": 0, "accepted": 0, "corrected_to": {}}
+            )[field] = count
     return {
         **_rate(overall),
         "auto_filed": auto_filed,
+        "bulk_accepted": bulk_accepted,
+        "undone": undone,
         "sources": {k: _rate(v) for k, v in sorted(sources.items())},
         "classes": {
-            k: {"auto_filed": 0, **_rate(v)} for k, v in sorted(classes.items())
+            k: {"auto_filed": 0, "bulk_accepted": 0, **_rate(v)}
+            for k, v in sorted(classes.items())
         },
         "cameras": {k: _rate(v) for k, v in sorted(cameras.items())},
         "first_time": min(times) if times else None,

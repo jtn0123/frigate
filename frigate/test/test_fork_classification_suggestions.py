@@ -461,6 +461,76 @@ class TestFilesAndProvenance(unittest.TestCase):
             suggest.categorize_train_files(self.clips, "vehicle_type", "van", [".."])
         self.assertEqual(sorted(os.listdir(self.train)), ["a.webp", "b.webp"])
 
+    def test_a_group_with_no_files_left_was_already_filed(self):
+        suggest.categorize_train_files(self.clips, "vehicle_type", "van", ["a.webp"])
+        with self.assertRaises(suggest.AlreadyFiledError):
+            suggest.categorize_train_files(
+                self.clips, "vehicle_type", "van", ["a.webp"]
+            )
+        with self.assertRaises(FileNotFoundError) as raised:
+            suggest.categorize_train_files(
+                self.clips, "vehicle_type", "van", ["a.webp", "b.webp"]
+            )
+        self.assertNotIsInstance(raised.exception, suggest.AlreadyFiledError)
+        self.assertEqual(os.listdir(self.train), ["b.webp"])
+
+    def test_undo_moves_the_group_back_under_its_train_names(self):
+        moved = suggest.file_train_images(
+            self.clips,
+            "vehicle_type",
+            "van",
+            ["a.webp", "b.webp"],
+            {"event_id": "e1", "category": "van", "suggested_category": "van"},
+        )
+        entry = suggest.read_provenance(self.clips, "vehicle_type")[0]
+        self.assertEqual(entry["files"], moved)
+        self.assertEqual(entry["train_files"], ["a.webp", "b.webp"])
+        dataset = os.path.join(self.clips, "vehicle_type", "dataset", "van")
+        os.unlink(os.path.join(dataset, moved[1]))
+
+        restored = suggest.restore_train_files(
+            self.clips, "vehicle_type", "e1", "van", [moved[0], moved[1]]
+        )
+
+        self.assertEqual(restored, [moved[0]], "files already gone are skipped")
+        self.assertEqual(os.listdir(self.train), ["a.webp"])
+        self.assertEqual(os.listdir(dataset), [])
+        undo = suggest.read_provenance(self.clips, "vehicle_type")[-1]
+        self.assertEqual(
+            {k: v for k, v in undo.items() if k != "time"},
+            {"event_id": "e1", "category": "van", "undo": True, "files": [moved[0]]},
+        )
+        self.assertIsInstance(undo["time"], float)
+
+    def test_undo_without_a_recorded_train_name_groups_under_the_event(self):
+        dataset = os.path.join(self.clips, "vehicle_type", "dataset", "van")
+        os.makedirs(dataset)
+        cv2.imwrite(
+            os.path.join(dataset, "van-1.png"), np.zeros((8, 8, 3), dtype=np.uint8)
+        )
+        with open(os.path.join(dataset, "van-2.png"), "w") as f:
+            f.write("not an image")
+        restored = suggest.restore_train_files(
+            self.clips, "vehicle_type", "evt-1", "van", ["van-1.png", "van-2.png"]
+        )
+        self.assertEqual(restored, ["van-1.png"], "an unreadable file stays put")
+        self.assertEqual(os.listdir(dataset), ["van-2.png"])
+        self.assertEqual(
+            len(suggest.train_files_for_event(self.clips, "vehicle_type", "evt-1")), 1
+        )
+
+    def test_undo_rejects_paths_and_unsafe_event_ids(self):
+        for files in (["../a.webp"], ["sub/a.png"], ["a..png"], [""]):
+            with self.assertRaises(ValueError):
+                suggest.restore_train_files(
+                    self.clips, "vehicle_type", "e1", "van", files
+                )
+        with self.assertRaises(ValueError):
+            suggest.restore_train_files(
+                self.clips, "vehicle_type", "../e1", "van", ["van-1.png"]
+            )
+        self.assertEqual(suggest.read_provenance(self.clips, "vehicle_type"), [])
+
     def test_read_provenance_skips_damaged_lines_and_missing_files(self):
         self.assertEqual(suggest.read_provenance(self.clips, "vehicle_type"), [])
         path = os.path.join(self.clips, "vehicle_type", suggest.PROVENANCE_FILE)
@@ -525,11 +595,46 @@ class TestSummarizeProvenance(unittest.TestCase):
                 "rate": 2 / 3,
                 "corrected_to": {"suv": 1},
                 "auto_filed": 0,
+                "bulk_accepted": 0,
             },
         )
         self.assertEqual(report["classes"]["suv"]["corrected_to"], {"pickup": 1})
         self.assertEqual(report["cameras"]["back"]["total"], 2)
         self.assertEqual((report["first_time"], report["last_time"]), (100.0, 400.0))
+
+    def test_bulk_accepts_are_counted_apart_from_the_rate(self):
+        entries = [
+            self.entry(),
+            self.entry(event_id="e2", bulk=True),
+            self.entry(event_id="e3", bulk=True, suggested_category="suv"),
+            self.entry(event_id="e4", category="suv", accepted=False, bulk=False),
+        ]
+        report = suggest.summarize_provenance(entries)
+        self.assertEqual((report["total"], report["accepted"]), (2, 1))
+        self.assertEqual(report["bulk_accepted"], 2)
+        self.assertEqual(report["classes"]["van"]["bulk_accepted"], 1)
+        self.assertEqual(report["classes"]["suv"]["bulk_accepted"], 1)
+        self.assertEqual(report["classes"]["suv"]["total"], 0)
+        self.assertEqual(report["sources"]["jev"]["total"], 2)
+        self.assertEqual(suggest.kept_rate(entries, "van"), (0.5, 2))
+
+    def test_undone_confirmations_leave_every_count(self):
+        undo = {"event_id": "e1", "category": "van", "undo": True, "files": []}
+        entries = [
+            self.entry(),
+            self.entry(event_id="e2"),
+            self.entry(event_id="e1", category="suv", accepted=False),
+            undo,
+            # Filed again after the undo, so this one counts.
+            self.entry(event_id="e1", category="suv", accepted=False, time=500.0),
+        ]
+        report = suggest.summarize_provenance(entries)
+        self.assertEqual(report["undone"], 1)
+        self.assertEqual((report["total"], report["accepted"]), (3, 1))
+        self.assertEqual(suggest.kept_rate(entries, "van"), (1 / 3, 3))
+        self.assertEqual(
+            suggest.active_entries([self.entry(), undo]), ([], 1), "undo line dropped"
+        )
 
     def test_ignores_lines_without_a_suggested_class(self):
         entries = [

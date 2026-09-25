@@ -5,21 +5,30 @@ import { toast } from "sonner";
 import { mutate } from "swr";
 import {
   confirmBody,
+  isAlreadyAccepted,
   reportKey,
+  serverMessage,
   type Suggestion,
 } from "@/lib/fork/classification-suggestions";
+import { useUndoSuggestion } from "@/hooks/fork/use-undo-suggestion";
 
 /**
  * Files images of an event through the fork's confirm endpoint (fork I41).
  *
  * Shared by the badge (accept the draft on every image), the class picker
- * (override the draft on one image) and the file-all action, so every path
- * records the suggestion beside the label. Resolves to whether the files
- * were moved. Quiet calls skip the toast and refresh so a bulk caller can
- * report once at the end.
+ * (override the draft on one image) and Accept all, so every path records
+ * the suggestion beside the label. Resolves to whether the files are in the
+ * dataset now, which a 404 "already accepted" also counts as. A single call
+ * resolves only after the grid has refreshed, so the badge stays disabled
+ * until its card is gone. Bulk calls send `bulk: true` and skip the toast
+ * and the refresh so Accept all can report once at the end.
  */
-export function useConfirmSuggestion(modelName: string, onRefresh: () => void) {
+export function useConfirmSuggestion(
+  modelName: string,
+  onRefresh: () => unknown,
+) {
   const { t } = useTranslation(["fork"]);
+  const undo = useUndoSuggestion(modelName, onRefresh);
 
   return useCallback(
     async (
@@ -27,23 +36,50 @@ export function useConfirmSuggestion(modelName: string, onRefresh: () => void) {
       files: string[],
       suggestion: Suggestion,
       category?: string,
-      quiet = false,
+      bulk = false,
     ): Promise<boolean> => {
-      const body = confirmBody(eventId, files, suggestion, category);
+      const body = confirmBody(eventId, files, suggestion, category, bulk);
+      const refresh = () =>
+        Promise.all([onRefresh(), mutate(reportKey(modelName))]);
+      let moved: string[] = [];
       try {
-        await axios.post(
+        const response = await axios.post<{ moved?: unknown }>(
           `classification/${modelName}/suggestions/confirm`,
           body,
         );
-      } catch {
-        if (!quiet) {
-          toast.error(t("classificationSuggestions.confirmFailed"), {
-            position: "top-center",
-          });
+        if (Array.isArray(response.data.moved)) {
+          moved = response.data.moved.filter(
+            (name): name is string => typeof name === "string",
+          );
+        }
+      } catch (error) {
+        const response = axios.isAxiosError(error) ? error.response : undefined;
+        if (isAlreadyAccepted(response?.status, response?.data)) {
+          if (!bulk) {
+            toast.info(t("classificationSuggestions.alreadyAccepted"), {
+              position: "top-center",
+            });
+            await refresh();
+          }
+          return true;
+        }
+        if (!bulk) {
+          const message = serverMessage(response?.data);
+          toast.error(
+            category == null
+              ? t("classificationSuggestions.confirmFailed")
+              : t("classificationSuggestions.overrideFailed", { category }),
+            {
+              position: "top-center",
+              ...(message ? { description: message } : {}),
+            },
+          );
+          // The card may be stale (filed in another tab); show what is true.
+          await refresh();
         }
         return false;
       }
-      if (quiet) {
+      if (bulk) {
         return true;
       }
       toast.success(
@@ -51,12 +87,26 @@ export function useConfirmSuggestion(modelName: string, onRefresh: () => void) {
           category: body.category,
           count: files.length,
         }),
-        { position: "top-center" },
+        {
+          position: "top-center",
+          ...(moved.length > 0
+            ? {
+                action: {
+                  label: t("classificationSuggestions.undo"),
+                  onClick: () =>
+                    void undo({
+                      event_id: eventId,
+                      category: body.category,
+                      files: moved,
+                    }),
+                },
+              }
+            : {}),
+        },
       );
-      onRefresh();
-      void mutate(reportKey(modelName));
+      await refresh();
       return true;
     },
-    [modelName, onRefresh, t],
+    [modelName, onRefresh, t, undo],
   );
 }

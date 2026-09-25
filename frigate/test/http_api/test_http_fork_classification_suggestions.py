@@ -106,6 +106,7 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
             },
         )
         self.assertEqual(set(body["suggestions"]), {"evt-1", "evt-2"})
+        self.assertEqual(body["omitted"], 0)
         self.assertEqual(body["suggestions"]["evt-1"]["suggestion"]["category"], "van")
         self.assertEqual(body["suggestions"]["evt-1"]["jev_status"], "disabled")
         self.assertIsNone(body["suggestions"]["evt-2"]["suggestion"])
@@ -266,16 +267,17 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
             ).status_code,
             400,
         )
+        missing = client.post(
+            "/classification/vehicle_type/suggestions/confirm",
+            json={
+                "event_id": "evt-1",
+                "category": "van",
+                "training_files": ["evt-1-1.0-unknown-0.0.webp", "nope.webp"],
+            },
+        )
+        self.assertEqual(missing.status_code, 404)
         self.assertEqual(
-            client.post(
-                "/classification/vehicle_type/suggestions/confirm",
-                json={
-                    "event_id": "evt-1",
-                    "category": "van",
-                    "training_files": ["nope.webp"],
-                },
-            ).status_code,
-            404,
+            missing.json()["message"], "One of the train images no longer exists"
         )
         self.assertEqual(
             client.post(
@@ -294,6 +296,142 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
                 os.path.join(self.clips, "vehicle_type", suggest.PROVENANCE_FILE)
             )
         )
+
+    def test_confirming_a_filed_group_again_says_already_accepted(self):
+        client = AuthTestClient(self.app)
+        body = {
+            "event_id": "evt-1",
+            "category": "van",
+            "training_files": [
+                "evt-1-1.0-unknown-0.0.webp",
+                "evt-1-2.0-unknown-0.0.webp",
+            ],
+            "suggested_category": "van",
+        }
+        url = "/classification/vehicle_type/suggestions/confirm"
+        self.assertEqual(client.post(url, json=body).status_code, 200)
+
+        again = client.post(url, json=body)
+
+        self.assertEqual(again.status_code, 404)
+        self.assertEqual(
+            again.json(),
+            {"success": False, "message": "already accepted", "moved": []},
+        )
+        self.assertEqual(
+            len(suggest.read_provenance(self.clips, "vehicle_type")),
+            1,
+            "nothing recorded for the second click",
+        )
+
+    def test_bulk_confirm_is_recorded_and_kept_out_of_the_rate(self):
+        self._event("evt-1", "A white van is parked.")
+        client = AuthTestClient(self.app)
+        url = "/classification/vehicle_type/suggestions/confirm"
+        for training_file, bulk in (
+            ("evt-1-1.0-unknown-0.0.webp", True),
+            ("evt-1-2.0-unknown-0.0.webp", False),
+        ):
+            response = client.post(
+                url,
+                json={
+                    "event_id": "evt-1",
+                    "category": "van",
+                    "training_files": [training_file],
+                    "source": "text",
+                    "suggested_category": "van",
+                    "bulk": bulk,
+                },
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+        entries = suggest.read_provenance(self.clips, "vehicle_type")
+        self.assertEqual([entry["bulk"] for entry in entries], [True, False])
+
+        report = client.get("/classification/vehicle_type/suggestions/report").json()
+
+        self.assertEqual((report["total"], report["accepted"]), (1, 1))
+        self.assertEqual(report["bulk_accepted"], 1)
+        self.assertEqual(report["classes"]["van"]["bulk_accepted"], 1)
+        self.assertEqual(report["classes"]["van"]["total"], 1)
+
+    def test_undo_moves_an_accepted_group_back_and_leaves_the_rate(self):
+        self._event("evt-1", "A white van is parked.")
+        client = AuthTestClient(self.app)
+        train_files = ["evt-1-1.0-unknown-0.0.webp", "evt-1-2.0-unknown-0.0.webp"]
+        moved = client.post(
+            "/classification/vehicle_type/suggestions/confirm",
+            json={
+                "event_id": "evt-1",
+                "category": "van",
+                "training_files": train_files,
+                "source": "text",
+                "suggested_category": "van",
+            },
+        ).json()["moved"]
+        url = "/classification/vehicle_type/suggestions/undo"
+
+        response = client.post(
+            url,
+            json={
+                "event_id": "evt-1",
+                "category": "van",
+                "files": [*moved, "gone.png"],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json(),
+            {"success": True, "message": "Moved 2 image(s) back.", "restored": 2},
+        )
+        self.assertEqual(sorted(os.listdir(self.train)), train_files)
+        dataset = os.path.join(self.clips, "vehicle_type", "dataset", "van")
+        self.assertEqual(os.listdir(dataset), [])
+        undo = suggest.read_provenance(self.clips, "vehicle_type")[-1]
+        self.assertTrue(undo["undo"])
+        self.assertEqual((undo["event_id"], undo["category"]), ("evt-1", "van"))
+        self.assertEqual(undo["files"], moved)
+        report = client.get("/classification/vehicle_type/suggestions/report").json()
+        self.assertEqual((report["total"], report["undone"]), (0, 1))
+        event = client.get("/classification/suggestions/event/evt-1").json()
+        self.assertIsNone(event["models"][0]["filed"], "undone means not filed")
+        self.assertEqual(event["models"][0]["training_files"], train_files)
+
+        again = client.post(
+            url, json={"event_id": "evt-1", "category": "van", "files": moved}
+        )
+        self.assertEqual(again.json()["restored"], 0)
+        for bad in (
+            {"event_id": "evt-1", "category": "..", "files": ["a.png"]},
+            {"event_id": "evt-1", "category": "van", "files": ["../a.png"]},
+            {"event_id": "evt-1", "category": "van", "files": ["sub/a.png"]},
+            {"event_id": "../evt-1", "category": "van", "files": ["a.png"]},
+        ):
+            self.assertEqual(client.post(url, json=bad).status_code, 400, bad)
+        self.assertEqual(
+            client.post(
+                url, json={"event_id": "evt-1", "category": "van", "files": []}
+            ).status_code,
+            422,
+        )
+        self.assertEqual(
+            client.post(
+                "/classification/nope/suggestions/undo",
+                json={"event_id": "evt-1", "category": "van", "files": ["a.png"]},
+            ).status_code,
+            404,
+        )
+
+    def test_ids_past_the_cap_are_counted_as_omitted(self):
+        self._event("evt-1", "A white van is parked.")
+        ids = ["evt-1", *(f"x-{i}" for i in range(suggest.MAX_EVENTS + 4)), "evt-1"]
+        client = AuthTestClient(self.app)
+        body = client.get(
+            "/classification/vehicle_type/suggestions", params={"ids": ",".join(ids)}
+        ).json()
+        self.assertEqual(suggest.MAX_EVENTS, 400)
+        self.assertEqual(body["omitted"], 5, "duplicates are not counted")
+        self.assertEqual(set(body["suggestions"]), {"evt-1"})
 
     def test_event_suggestions_cover_every_model_for_the_label(self):
         self._event("evt-1", "A white van is parked.")
@@ -362,6 +500,8 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
                 "accepted": 0,
                 "rate": None,
                 "auto_filed": 0,
+                "bulk_accepted": 0,
+                "undone": 0,
                 "sources": {},
                 "classes": {},
                 "cameras": {},
@@ -447,6 +587,14 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
             client.post(
                 "/classification/vehicle_type/suggestions/spot-check",
                 json={"event_id": "evt-1", "category": "van", "keep": True},
+                headers=headers,
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            client.post(
+                "/classification/vehicle_type/suggestions/undo",
+                json={"event_id": "evt-1", "category": "van", "files": ["a.png"]},
                 headers=headers,
             ).status_code,
             403,

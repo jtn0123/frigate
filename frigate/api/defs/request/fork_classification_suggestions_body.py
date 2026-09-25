@@ -22,6 +22,25 @@ class ConfirmSuggestionBody(BaseModel):
         default=None,
         description="The class that was suggested, so edits can be told apart",
     )
+    bulk: bool = Field(
+        default=False,
+        description=(
+            "Filed by Accept all rather than one card at a time; kept out of "
+            "the kept rate and the auto-file gate"
+        ),
+    )
+
+
+class UndoSuggestionBody(BaseModel):
+    """Move an accepted group back to the train grid (fork I41)."""
+
+    event_id: str = Field(description="The event the images belong to")
+    category: str = Field(description="The dataset class they were filed into")
+    files: list[str] = Field(
+        min_length=1,
+        max_length=64,
+        description="Dataset file names returned by confirm, basenames only",
+    )
 
 
 class SpotCheckBody(BaseModel):
