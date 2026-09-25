@@ -4056,7 +4056,8 @@ export interface paths {
          *
          *     Drafts a dataset class for each listed event from its description,
          *         locally and optionally through Jev. Drafts are for a person to confirm; nothing is
-         *         labeled by this call.
+         *         labeled by this call. At most 400 distinct ids are drafted per call; `omitted`
+         *         says how many past that were dropped.
          */
         get: operations["classification_suggestions_classification__name__suggestions_get"];
         put?: never;
@@ -4081,9 +4082,38 @@ export interface paths {
          * @description **Access:** Admin role required.
          *
          *     Moves the event's train images into the chosen dataset class and
-         *         records which suggestion, if any, led to it beside the dataset.
+         *         records which suggestion, if any, led to it beside the dataset. `bulk: true`
+         *         marks a group filed by Accept all, which the report counts apart and the
+         *         kept rate ignores. Returns 404 with the message "already accepted" when none
+         *         of the files are left in the train folder (the group was filed already), and
+         *         404 with another message when only some of them are missing.
          */
         post: operations["confirm_suggestion_classification__name__suggestions_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classification/{name}/suggestions/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo an accepted suggestion
+         * @description **Access:** Admin role required.
+         *
+         *     Moves the listed dataset images of an accepted group back into the
+         *         train folder, skipping any that are already gone, and records the undo beside
+         *         the dataset so the confirmation no longer counts toward the kept rate or the
+         *         auto-file gate. File names must be bare names from confirm's `moved`.
+         */
+        post: operations["undo_suggestion_classification__name__suggestions_undo_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4873,10 +4903,16 @@ export interface components {
             };
             /**
              * Auto Filed
-             * @description Images I44 filed without review, not in the rate
+             * @description Groups I44 filed without review, not in the rate
              * @default 0
              */
             auto_filed: number;
+            /**
+             * Bulk Accepted
+             * @description Groups filed by Accept all, not in the rate
+             * @default 0
+             */
+            bulk_accepted: number;
         };
         /**
          * ClassificationSuggestionsResponse
@@ -4908,6 +4944,12 @@ export interface components {
             too_small?: {
                 [key: string]: string[];
             };
+            /**
+             * Omitted
+             * @description Distinct ids past the per-request cap that were not drafted
+             * @default 0
+             */
+            omitted: number;
         };
         /** ConfirmSuggestionBody */
         ConfirmSuggestionBody: {
@@ -4941,6 +4983,12 @@ export interface components {
              * @description The class that was suggested, so edits can be told apart
              */
             suggested_category?: string | null;
+            /**
+             * Bulk
+             * @description Filed by Accept all rather than one card at a time; kept out of the kept rate and the auto-file gate
+             * @default false
+             */
+            bulk: boolean;
         };
         /**
          * ConfirmSuggestionResponse
@@ -6473,10 +6521,22 @@ export interface components {
             model: string;
             /**
              * Auto Filed
-             * @description Images I44 filed without review, not in the rate
+             * @description Groups I44 filed without review, not in the rate
              * @default 0
              */
             auto_filed: number;
+            /**
+             * Bulk Accepted
+             * @description Groups filed by Accept all, not in the rate
+             * @default 0
+             */
+            bulk_accepted: number;
+            /**
+             * Undone
+             * @description Confirmations later undone, not in any count
+             * @default 0
+             */
+            undone: number;
             /**
              * Sources
              * @description Keyed by source: text, jev or none
@@ -6569,6 +6629,43 @@ export interface components {
          * @enum {string}
          */
         TriggerType: "thumbnail" | "description";
+        /**
+         * UndoSuggestionBody
+         * @description Move an accepted group back to the train grid (fork I41).
+         */
+        UndoSuggestionBody: {
+            /**
+             * Event Id
+             * @description The event the images belong to
+             */
+            event_id: string;
+            /**
+             * Category
+             * @description The dataset class they were filed into
+             */
+            category: string;
+            /**
+             * Files
+             * @description Dataset file names returned by confirm, basenames only
+             */
+            files: string[];
+        };
+        /**
+         * UndoSuggestionResponse
+         * @description How many images an undo moved back to the train grid.
+         */
+        UndoSuggestionResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Restored
+             * @description Images moved back
+             * @default 0
+             */
+            restored: number;
+        };
         /**
          * VLMMonitorRequest
          * @description Request model for starting a VLM watch job.
@@ -12528,6 +12625,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfirmSuggestionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_suggestion_classification__name__suggestions_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UndoSuggestionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UndoSuggestionResponse"];
                 };
             };
             /** @description Validation Error */

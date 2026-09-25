@@ -37,6 +37,8 @@ export type ClassificationSuggestionsResponse = {
   suggestions: Record<string, EventSuggestion>;
   /** Train images under 100 px on a side, keyed by event (fork I50). */
   too_small?: Record<string, string[]>;
+  /** Ids past the server's cap, left without a draft this time. */
+  omitted?: number;
 };
 
 export type Acceptance = {
@@ -49,6 +51,8 @@ export type ClassAcceptance = Acceptance & {
   corrected_to: Record<string, number>;
   /** Images filed without review (fork I44), kept out of the rate. */
   auto_filed?: number;
+  /** Drafts accepted through Accept all. */
+  bulk_accepted?: number;
 };
 
 export type Disagreement = {
@@ -103,6 +107,8 @@ export type SuggestionReport = Acceptance & {
   model: string;
   /** Images filed without review (fork I44), kept out of the rate. */
   auto_filed?: number;
+  /** Drafts accepted through Accept all. */
+  bulk_accepted?: number;
   sources: Record<string, Acceptance>;
   classes: Record<string, ClassAcceptance>;
   cameras: Record<string, Acceptance>;
@@ -117,6 +123,15 @@ export type ConfirmSuggestionBody = {
   source: SuggestionSource | null;
   score: number | null;
   suggested_category: string | null;
+  /** Sent by Accept all, so the report can tell bulk accepts apart. */
+  bulk?: boolean;
+};
+
+/** Moves an accepted group's dataset files back to the train folder. */
+export type UndoSuggestionBody = {
+  event_id: string;
+  category: string;
+  files: string[];
 };
 
 /** The SWR key for one page of the grid, or null when there is nothing to ask. */
@@ -140,6 +155,7 @@ export function confirmBody(
   files: string[],
   suggestion: Suggestion,
   category: string = suggestion.category,
+  bulk = false,
 ): ConfirmSuggestionBody {
   return {
     event_id: eventId,
@@ -148,7 +164,31 @@ export function confirmBody(
     source: suggestion.source,
     score: suggestion.score,
     suggested_category: suggestion.category,
+    ...(bulk ? { bulk: true } : {}),
   };
+}
+
+/**
+ * Whether a failed confirm only means the group was filed already, by
+ * another tab, a double tap or the background worker. The server answers
+ * 404 with this message; callers count it as done.
+ */
+export function isAlreadyAccepted(status: number | undefined, data: unknown) {
+  return (
+    status === 404 &&
+    typeof data === "object" &&
+    data != null &&
+    (data as { message?: unknown }).message === "already accepted"
+  );
+}
+
+/** The server's own message from an error response, when it sent one. */
+export function serverMessage(data: unknown): string | undefined {
+  if (typeof data !== "object" || data == null) {
+    return undefined;
+  }
+  const message = (data as { message?: unknown }).message;
+  return typeof message === "string" && message ? message : undefined;
 }
 
 /** A whole-percent score for display, or null when the source has none. */
@@ -224,14 +264,69 @@ export function draftsToFile(
   return drafts;
 }
 
-/** How many of the drafts have only tiny crops (fork I50). */
-export function smallDraftCount(
+/** How many images the drafts cover (fork I50: counts read in photos). */
+export function draftImageCount(drafts: DraftToFile[]): number {
+  return drafts.reduce((sum, draft) => sum + draft.files.length, 0);
+}
+
+/** The images of the drafts whose every crop is tiny (fork I50). */
+export function tinyImageCount(
   drafts: DraftToFile[],
   tooSmall: Record<string, string[]> | undefined,
 ): number {
-  return drafts.filter((draft) =>
-    allTooSmall(draft.files, tooSmall?.[draft.eventId]),
-  ).length;
+  return draftImageCount(
+    drafts.filter((draft) =>
+      allTooSmall(draft.files, tooSmall?.[draft.eventId]),
+    ),
+  );
+}
+
+/**
+ * The drafts Accept all files: every one, or with skipTiny those that have
+ * at least one image big enough to teach the model something (fork I50).
+ */
+export function draftsToRun(
+  drafts: DraftToFile[],
+  tooSmall: Record<string, string[]> | undefined,
+  skipTiny: boolean,
+): DraftToFile[] {
+  if (!skipTiny) {
+    return drafts;
+  }
+  return drafts.filter(
+    (draft) => !allTooSmall(draft.files, tooSmall?.[draft.eventId]),
+  );
+}
+
+/** Drafts per suggested class, largest first, for Accept all's preview. */
+export function draftsPerClass(drafts: DraftToFile[]): [string, number][] {
+  const counts: Record<string, number> = {};
+  for (const draft of drafts) {
+    const category = draft.suggestion.category;
+    counts[category] = (counts[category] ?? 0) + 1;
+  }
+  return Object.entries(counts).sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+  );
+}
+
+/**
+ * Images on the page, and how many of them the server answered for: ids
+ * past its cap come back without an entry (fork I41).
+ */
+export function answeredImageCount(
+  suggestions: Record<string, EventSuggestion> | undefined,
+  groups: Record<string, { filename: string }[]>,
+): { answered: number; total: number } {
+  let answered = 0;
+  let total = 0;
+  for (const [eventId, items] of Object.entries(groups)) {
+    total += items.length;
+    if (suggestions?.[eventId]) {
+      answered += items.length;
+    }
+  }
+  return { answered, total };
 }
 
 /**
@@ -303,4 +398,10 @@ export type EventSuggestionsResponse = {
 /** SWR key of the per-event drafts, for the Explore detail dialog. */
 export function eventSuggestionsKey(eventId: string) {
   return `classification/suggestions/event/${encodeURIComponent(eventId)}`;
+}
+
+/** "vehicle_type" reads as "Vehicle type"; the raw id means nothing to people. */
+export function modelLabel(model: string): string {
+  const words = model.replaceAll("_", " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }

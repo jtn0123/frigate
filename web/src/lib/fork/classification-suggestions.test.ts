@@ -13,7 +13,14 @@ import {
   groupScore,
   orderGroups,
   allTooSmall,
-  smallDraftCount,
+  answeredImageCount,
+  draftImageCount,
+  draftsPerClass,
+  draftsToRun,
+  isAlreadyAccepted,
+  serverMessage,
+  tinyImageCount,
+  modelLabel,
 } from "./classification-suggestions";
 
 const JEV: Suggestion = {
@@ -131,7 +138,7 @@ describe("classification suggestions", () => {
       { eventId: "a", files: ["a-1.webp", "a-2.webp"], suggestion: JEV },
       { eventId: "b", files: ["b-1.webp"], suggestion: JEV },
     ]);
-    expect(smallDraftCount(drafts, { a: ["a-2.webp"], b: ["b-1.webp"] })).toBe(
+    expect(tinyImageCount(drafts, { a: ["a-2.webp"], b: ["b-1.webp"] })).toBe(
       1,
     );
   });
@@ -171,5 +178,80 @@ describe("classification suggestions", () => {
   it("rounds a score to a whole percent and has none for text", () => {
     expect(percent(JEV)).toBe(97);
     expect(percent({ ...JEV, source: "text", score: null })).toBeNull();
+  });
+
+  it("marks Accept all's calls as bulk and nothing else", () => {
+    expect(
+      confirmBody("evt-1", ["a.webp"], JEV, undefined, true),
+    ).toMatchObject({ category: "van", bulk: true });
+    expect(confirmBody("evt-1", ["a.webp"], JEV)).not.toHaveProperty("bulk");
+  });
+
+  it("tells an already accepted group from a real failure", () => {
+    expect(isAlreadyAccepted(404, { message: "already accepted" })).toBe(true);
+    expect(isAlreadyAccepted(404, { message: "Unknown model" })).toBe(false);
+    expect(isAlreadyAccepted(400, { message: "already accepted" })).toBe(false);
+    expect(isAlreadyAccepted(undefined, undefined)).toBe(false);
+    expect(serverMessage({ message: "Invalid category" })).toBe(
+      "Invalid category",
+    );
+    expect(serverMessage({ message: "" })).toBeUndefined();
+    expect(serverMessage("<html>")).toBeUndefined();
+    expect(serverMessage(null)).toBeUndefined();
+  });
+
+  it("counts Accept all's drafts in photos and by class (fork I42, I50)", () => {
+    const suv: Suggestion = { ...JEV, category: "suv" };
+    const drafts = [
+      { eventId: "a", files: ["a-1", "a-2"], suggestion: JEV },
+      { eventId: "b", files: ["b-1"], suggestion: suv },
+      { eventId: "c", files: ["c-1"], suggestion: JEV },
+    ];
+    const tooSmall = { a: ["a-1", "a-2"], b: ["x"] };
+    expect(draftImageCount(drafts)).toBe(4);
+    expect(tinyImageCount(drafts, tooSmall)).toBe(2);
+    expect(tinyImageCount(drafts, undefined)).toBe(0);
+    expect(draftsToRun(drafts, tooSmall, false)).toBe(drafts);
+    expect(draftsToRun(drafts, tooSmall, true).map((d) => d.eventId)).toEqual([
+      "b",
+      "c",
+    ]);
+    expect(draftsPerClass(drafts)).toEqual([
+      ["van", 2],
+      ["suv", 1],
+    ]);
+    expect(draftsPerClass(drafts.slice(1))).toEqual([
+      ["suv", 1],
+      ["van", 1],
+    ]);
+  });
+
+  it("counts the photos the server answered for", () => {
+    const entry: EventSuggestion = {
+      text: null,
+      jev: null,
+      jev_status: "unknown",
+      suggestion: null,
+      conflict: false,
+    };
+    const groups = {
+      a: [{ filename: "a-1" }, { filename: "a-2" }],
+      b: [{ filename: "b-1" }],
+    };
+    expect(answeredImageCount({ a: entry }, groups)).toEqual({
+      answered: 2,
+      total: 3,
+    });
+    expect(answeredImageCount(undefined, groups)).toEqual({
+      answered: 0,
+      total: 3,
+    });
+  });
+});
+
+describe("modelLabel", () => {
+  it("turns a model id into words", () => {
+    expect(modelLabel("vehicle_type")).toBe("Vehicle type");
+    expect(modelLabel("dog")).toBe("Dog");
   });
 });
