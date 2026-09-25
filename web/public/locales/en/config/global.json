@@ -1343,6 +1343,74 @@
           "description": "Interval (seconds) between periodic classification runs for state classification."
         }
       }
+    },
+    "suggestions": {
+      "label": "Classification suggestions",
+      "description": "Suggest dataset classes for train images from event descriptions.",
+      "enabled": {
+        "label": "Suggest classes from descriptions",
+        "description": "Show a suggested class on the train grid of custom classification models, read locally from each event's description. Nothing leaves Frigate unless Jev is enabled."
+      },
+      "jev": {
+        "label": "Jev",
+        "description": "Optional Jev text extraction through OpenRouter.",
+        "enabled": {
+          "label": "Ask Jev",
+          "description": "Send the description text of train images to Jev through OpenRouter for a class suggestion. Needs FRIGATE_JEV_API_KEY or OPENROUTER_API_KEY in the environment. Only the text is sent: no images, camera names, ids or timestamps."
+        },
+        "model": {
+          "label": "Jev model",
+          "description": "The OpenRouter Decisions model to ask."
+        },
+        "url": {
+          "label": "Decisions URL",
+          "description": "Where Decisions requests are posted. Change it to route through a gateway."
+        },
+        "daily_request_limit": {
+          "label": "Daily request limit",
+          "description": "Maximum provider requests per UTC day, counted across restarts. Answers are cached, so a description is only ever sent once."
+        },
+        "background": {
+          "label": "Ask as descriptions arrive",
+          "description": "Ask Jev for a class as soon as each description is written, so the train grid finds the answer already cached and the daily limit is spread over the day. Off means Jev is only asked while the train grid is open."
+        },
+        "cameras": {
+          "label": "Cameras",
+          "description": "Only send descriptions from these cameras. Empty means every camera."
+        },
+        "timeout": {
+          "label": "Request timeout",
+          "description": "Seconds to wait for one Jev answer."
+        }
+      },
+      "auto_file": {
+        "label": "Auto-file",
+        "description": "File drafts that text and Jev agree on, once a class has earned it.",
+        "enabled": {
+          "label": "Auto-file sure drafts",
+          "description": "File a train image into its dataset class without review when the local text match and Jev name the same class and people have kept that class's drafts often enough. Auto-filed images never count toward that rate."
+        },
+        "min_kept_rate": {
+          "label": "Minimum kept rate",
+          "description": "The share of a class's drafts people filed unchanged before it may be auto-filed."
+        },
+        "min_drafts": {
+          "label": "Minimum reviewed drafts",
+          "description": "How many drafts of a class people must have reviewed before it may be auto-filed."
+        },
+        "camera_cooldown": {
+          "label": "Same camera cooldown",
+          "description": "Seconds to wait before auto-filing the same class from the same camera again, so a regular visitor or a parked car does not fill a class with near-identical images (I48)."
+        },
+        "per_camera_daily_limit": {
+          "label": "Per camera daily limit",
+          "description": "Most groups of one class auto-filed from one camera per day (I48)."
+        },
+        "max_model_score": {
+          "label": "Skip sure images",
+          "description": "Skip train images the trained model already scored at or above this as the drafted class. They teach it nothing new (I49). Images under 100 pixels on a side are always skipped (I50), and a class is never auto-filed past three times the smallest class (I51)."
+        }
+      }
     }
   },
   "semantic_search": {

@@ -7481,6 +7481,249 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /classification/{name}/suggestions:
+    get:
+      tags:
+        - Classification
+      summary: Suggest dataset classes for train images
+      description: |-
+        **Access:** Admin role required.
+
+        Drafts a dataset class for each listed event from its description,
+            locally and optionally through Jev. Drafts are for a person to confirm; nothing is
+            labeled by this call. At most 400 distinct ids are drafted per call; `omitted`
+            says how many past that were dropped.
+      operationId: 
+        classification_suggestions_classification__name__suggestions_get
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+        - name: ids
+          in: query
+          required: false
+          schema:
+            type: string
+            default: ''
+            title: Ids
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassificationSuggestionsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
+  /classification/{name}/suggestions/confirm:
+    post:
+      tags:
+        - Classification
+      summary: Confirm a suggested class for train images
+      description: |-
+        **Access:** Admin role required.
+
+        Moves the event's train images into the chosen dataset class and
+            records which suggestion, if any, led to it beside the dataset. `bulk: true`
+            marks a group filed by Accept all, which the report counts apart and the
+            kept rate ignores. Returns 404 with the message "already accepted" when none
+            of the files are left in the train folder (the group was filed already), and
+            404 with another message when only some of them are missing.
+      operationId: 
+        confirm_suggestion_classification__name__suggestions_confirm_post
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmSuggestionBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmSuggestionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
+  /classification/{name}/suggestions/undo:
+    post:
+      tags:
+        - Classification
+      summary: Undo an accepted suggestion
+      description: |-
+        **Access:** Admin role required.
+
+        Moves the listed dataset images of an accepted group back into the
+            train folder, skipping any that are already gone, and records the undo beside
+            the dataset so the confirmation no longer counts toward the kept rate or the
+            auto-file gate. File names must be bare names from confirm's `moved`.
+      operationId: undo_suggestion_classification__name__suggestions_undo_post
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UndoSuggestionBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UndoSuggestionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
+  /classification/suggestions/event/{event_id}:
+    get:
+      tags:
+        - Classification
+      summary: Suggest dataset classes for one event
+      description: |-
+        **Access:** Admin role required.
+
+        Drafts a class for the event under every custom model that classifies
+            its label, with the train images still waiting for it, what the trained model
+            called it, and what it was already filed as. For the Explore detail dialog.
+      operationId: 
+        event_suggestions_classification_suggestions_event__event_id__get
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Event Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventSuggestionsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
+  /classification/{name}/suggestions/report:
+    get:
+      tags:
+        - Classification
+      summary: Report how often suggested classes were kept
+      description: |-
+        **Access:** Admin role required.
+
+        Reads the confirmations recorded beside the model's dataset and counts, overall and per source, suggested class and camera, how many drafts were filed unchanged (fork I42).
+      operationId: 
+        suggestion_report_classification__name__suggestions_report_get
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionReportResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
+  /classification/{name}/suggestions/spot-check:
+    post:
+      tags:
+        - Classification
+      summary: Keep or remove auto-filed images
+      description: |-
+        **Access:** Admin role required.
+
+        Records a person's verdict on a group of images that I44 filed
+            without review. Keep counts as an accepted draft; remove deletes the files
+            from the dataset and counts as a rejected one (fork I52).
+      operationId: 
+        spot_check_suggestion_classification__name__suggestions_spot_check_post
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpotCheckBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /fork/share:
     get:
       tags:
@@ -7829,6 +8072,30 @@ components:
         - shared_gpus
       title: AIModelsResponse
       description: Model inventory plus shared device and queue context.
+    AcceptanceModel:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          description: Confirmations recorded
+        accepted:
+          type: integer
+          minimum: 0.0
+          title: Accepted
+          description: Drafts filed under the suggested class
+        rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Rate
+          description: accepted / total, or none without data
+      type: object
+      required:
+        - total
+        - accepted
+      title: AcceptanceModel
+      description: How many drafts were filed unchanged (fork I42).
     ActiveProfileResponse:
       properties:
         active_profile:
@@ -8025,6 +8292,51 @@ components:
       required:
         - event_id
       title: AudioTranscriptionBody
+    AutoFiledGroupModel:
+      properties:
+        time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Time
+          description: Unix time it was filed
+        event_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Event Id
+        camera:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Camera
+        category:
+          type: string
+          title: Category
+          description: The dataset class
+        source:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Source
+          description: text or jev
+        score:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Score
+        files:
+          items:
+            type: string
+          type: array
+          title: Files
+          description: Dataset file names
+      type: object
+      required:
+        - category
+      title: AutoFiledGroupModel
+      description: One event's images filed without review, for a spot check 
+        (fork I52).
     BatchExportBody:
       properties:
         items:
@@ -8415,6 +8727,203 @@ components:
         - role
       title: ChatMessage
       description: A single message in a chat conversation.
+    ClassAcceptanceModel:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          description: Confirmations recorded
+        accepted:
+          type: integer
+          minimum: 0.0
+          title: Accepted
+          description: Drafts filed under the suggested class
+        rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Rate
+          description: accepted / total, or none without data
+        corrected_to:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Corrected To
+          description: Class chosen instead, with counts
+        auto_filed:
+          type: integer
+          minimum: 0.0
+          title: Auto Filed
+          description: Groups I44 filed without review, not in the rate
+          default: 0
+        bulk_accepted:
+          type: integer
+          minimum: 0.0
+          title: Bulk Accepted
+          description: Groups filed by Accept all, not in the rate
+          default: 0
+      type: object
+      required:
+        - total
+        - accepted
+      title: ClassAcceptanceModel
+      description: Acceptance of one suggested class and what it was corrected 
+        to.
+    ClassificationSuggestionsResponse:
+      properties:
+        model:
+          type: string
+          title: Model
+          description: The classification model
+        classes:
+          items:
+            type: string
+          type: array
+          title: Classes
+          description: Dataset classes a draft can name
+        jev:
+          $ref: '#/components/schemas/JevStateModel'
+        suggestions:
+          additionalProperties:
+            $ref: '#/components/schemas/EventSuggestionModel'
+          type: object
+          title: Suggestions
+          description: Keyed by event id; ids without an event are omitted
+        too_small:
+          additionalProperties:
+            items:
+              type: string
+            type: array
+          type: object
+          title: Too Small
+          description: Train images under 100 px on a side, keyed by event (fork
+            I50)
+        omitted:
+          type: integer
+          minimum: 0.0
+          title: Omitted
+          description: Distinct ids past the per-request cap that were not 
+            drafted
+          default: 0
+      type: object
+      required:
+        - model
+        - classes
+        - jev
+        - suggestions
+      title: ClassificationSuggestionsResponse
+      description: Suggestions for the requested events of one model.
+    ConfirmSuggestionBody:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+          description: The event the train images belong to
+        category:
+          type: string
+          title: Category
+          description: The dataset class to file the images under
+        training_files:
+          items:
+            type: string
+          type: array
+          maxItems: 64
+          minItems: 1
+          title: Training Files
+          description: Train file names to move into the class
+        source:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Source
+          description: 'Which source suggested the class: text, jev, or none if edited'
+        score:
+          anyOf:
+            - type: number
+              maximum: 1.0
+              minimum: 0.0
+            - type: 'null'
+          title: Score
+          description: The suggestion's score, if any
+        suggested_category:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Suggested Category
+          description: The class that was suggested, so edits can be told apart
+        bulk:
+          type: boolean
+          title: Bulk
+          description: Filed by Accept all rather than one card at a time; kept 
+            out of the kept rate and the auto-file gate
+          default: false
+      type: object
+      required:
+        - event_id
+        - category
+        - training_files
+      title: ConfirmSuggestionBody
+    ConfirmSuggestionResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        message:
+          type: string
+          title: Message
+        moved:
+          items:
+            type: string
+          type: array
+          title: Moved
+          description: New dataset file names
+      type: object
+      required:
+        - success
+        - message
+      title: ConfirmSuggestionResponse
+      description: What the confirmation moved.
+    DatasetBalanceModel:
+      properties:
+        classes:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Classes
+          description: Images per dataset class
+        empty:
+          items:
+            type: string
+          type: array
+          title: Empty
+          description: Classes with no images
+        largest:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Largest
+          description: The fullest class
+        smallest:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Smallest
+          description: The emptiest filled class
+        ratio:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Ratio
+          description: largest / smallest
+        lopsided:
+          type: boolean
+          title: Lopsided
+          description: ratio is over 3
+          default: false
+      type: object
+      title: DatasetBalanceModel
+      description: Whether one class dwarfs another (fork I51).
     DayReview:
       properties:
         day:
@@ -8550,6 +9059,41 @@ components:
       required:
         - ids
       title: DeleteFaceImagesBody
+    DisagreementModel:
+      properties:
+        time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Time
+          description: Unix time of the check
+        event_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Event Id
+          description: The event
+        camera:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Camera
+          description: The camera
+        model_said:
+          type: string
+          title: Model Said
+          description: The trained model's class
+        draft:
+          type: string
+          title: Draft
+          description: The class the description supported
+      type: object
+      required:
+        - model_said
+        - draft
+      title: DisagreementModel
+      description: One event where the trained model and the description 
+        disagreed.
     EventCreateResponse:
       properties:
         success:
@@ -8567,6 +9111,50 @@ components:
         - message
         - event_id
       title: EventCreateResponse
+    EventModelSuggestionModel:
+      properties:
+        model:
+          type: string
+          title: Model
+          description: The classification model
+        classes:
+          items:
+            type: string
+          type: array
+          title: Classes
+          description: Dataset classes a draft can name
+        suggestion:
+          $ref: '#/components/schemas/EventSuggestionModel'
+        training_files:
+          items:
+            type: string
+          type: array
+          title: Training Files
+          description: Train images still waiting for the event
+        model_said:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Model Said
+          description: The trained model's class for the event
+        filed:
+          anyOf:
+            - $ref: '#/components/schemas/FiledModel'
+            - type: 'null'
+          description: What the event was last filed as, if anything
+        too_small:
+          items:
+            type: string
+          type: array
+          title: Too Small
+          description: Train images under 100 px on a side (fork I50)
+      type: object
+      required:
+        - model
+        - classes
+        - suggestion
+      title: EventModelSuggestionModel
+      description: One custom model's view of one event (fork I46).
     EventMultiDeleteResponse:
       properties:
         success:
@@ -8679,6 +9267,62 @@ components:
         - model_type
         - data
       title: EventResponse
+    EventSuggestionModel:
+      properties:
+        text:
+          anyOf:
+            - $ref: '#/components/schemas/SuggestionModel'
+            - type: 'null'
+          description: Local text match, if any
+        jev:
+          anyOf:
+            - $ref: '#/components/schemas/SuggestionModel'
+            - type: 'null'
+          description: Jev draft, if any
+        jev_status:
+          type: string
+          title: Jev Status
+          description: answered, unknown, disabled, no_description, no_classes, 
+            camera_not_allowed, budget or error
+        suggestion:
+          anyOf:
+            - $ref: '#/components/schemas/SuggestionModel'
+            - type: 'null'
+          description: The draft to show, or none when unsure
+        conflict:
+          type: boolean
+          title: Conflict
+          description: The two sources named different classes
+        maybe:
+          anyOf:
+            - $ref: '#/components/schemas/SuggestionModel'
+            - type: 'null'
+          description: A weaker Jev lean shown only when there is no draft; 
+            never filed by Accept all or auto-filing
+      type: object
+      required:
+        - jev_status
+        - conflict
+      title: EventSuggestionModel
+      description: Both sources for one event and the draft the grid should 
+        show.
+    EventSuggestionsResponse:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+          description: The event
+        models:
+          items:
+            $ref: '#/components/schemas/EventModelSuggestionModel'
+          type: array
+          title: Models
+      type: object
+      required:
+        - event_id
+      title: EventSuggestionsResponse
+      description: Drafts for one event under every model that applies (fork 
+        I46).
     EventUploadPlusResponse:
       properties:
         success:
@@ -9207,6 +9851,22 @@ components:
                 "john_doe": ["face1.webp", "face2.jpg"],
                 "jane_smith": ["face3.png"]
             }
+    FiledModel:
+      properties:
+        category:
+          type: string
+          title: Category
+          description: The dataset class
+        auto:
+          type: boolean
+          title: Auto
+          description: Filed by I44 without review
+      type: object
+      required:
+        - category
+        - auto
+      title: FiledModel
+      description: What an event's train images were filed as (fork I46).
     ForkReleaseModel:
       properties:
         tag:
@@ -9408,6 +10068,34 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    JevStateModel:
+      properties:
+        enabled:
+          type: boolean
+          title: Enabled
+          description: classification.suggestions.jev.enabled
+        configured:
+          type: boolean
+          title: Configured
+          description: An API key is present in the environment
+        used_today:
+          type: integer
+          minimum: 0.0
+          title: Used Today
+          description: Provider requests counted today
+        daily_request_limit:
+          type: integer
+          minimum: 0.0
+          title: Daily Request Limit
+          description: The configured daily cap
+      type: object
+      required:
+        - enabled
+        - configured
+        - used_today
+        - daily_request_limit
+      title: JevStateModel
+      description: Whether Jev can be asked right now.
     Last24HoursReview:
       properties:
         reviewed_alert:
@@ -9465,6 +10153,45 @@ components:
           default: false
       type: object
       title: MediaSyncBody
+    ModelCheckModel:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          description: Events checked
+          default: 0
+        accepted:
+          type: integer
+          minimum: 0.0
+          title: Accepted
+          description: Events where both agreed
+          default: 0
+        rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Rate
+          description: accepted / total, or none without data
+        classes:
+          additionalProperties:
+            $ref: '#/components/schemas/ClassAcceptanceModel'
+          type: object
+          title: Classes
+          description: Keyed by the model's class; corrected_to is what the 
+            description said instead
+        recent_disagreements:
+          items:
+            $ref: '#/components/schemas/DisagreementModel'
+          type: array
+          title: Recent Disagreements
+          description: Latest disagreements, newest first
+      type: object
+      title: ModelCheckModel
+      description: |-
+        How often the trained model agreed with the description (fork I45).
+
+        ``accepted`` counts agreements here.
     MotionSearchMetricsResponse:
       properties:
         segments_scanned:
@@ -9963,6 +10690,54 @@ components:
         - similarity
       title: SoundResult
       description: A raw suggestion, not a probability.
+    SpotCheckBody:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+          description: The event the images came from
+        category:
+          type: string
+          title: Category
+          description: The dataset class they were filed into
+        files:
+          items:
+            type: string
+          type: array
+          title: Files
+          description: Dataset file names
+        keep:
+          type: boolean
+          title: Keep
+          description: True keeps them, False deletes them
+      type: object
+      required:
+        - event_id
+        - category
+        - keep
+      title: SpotCheckBody
+      description: A person's verdict on a group of auto-filed images (fork 
+        I52).
+    SpotCheckResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        message:
+          type: string
+          title: Message
+        removed:
+          items:
+            type: string
+          type: array
+          title: Removed
+          description: Dataset files deleted
+      type: object
+      required:
+        - success
+        - message
+      title: SpotCheckResponse
+      description: What a spot check removed (fork I52).
     StageResult:
       properties:
         status:
@@ -10075,6 +10850,127 @@ components:
           default: 1
       type: object
       title: SubmitPlusBody
+    SuggestionModel:
+      properties:
+        category:
+          type: string
+          title: Category
+          description: Dataset class the description supports
+        source:
+          type: string
+          title: Source
+          description: text (local match) or jev
+        score:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Score
+          description: Jev probability of the category, if from Jev
+        evidence:
+          type: string
+          title: Evidence
+          description: The sentence of the description that matched
+          default: ''
+      type: object
+      required:
+        - category
+        - source
+      title: SuggestionModel
+      description: One draft class and where it came from.
+    SuggestionReportResponse:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+          description: Confirmations recorded
+        accepted:
+          type: integer
+          minimum: 0.0
+          title: Accepted
+          description: Drafts filed under the suggested class
+        rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Rate
+          description: accepted / total, or none without data
+        model:
+          type: string
+          title: Model
+          description: The classification model
+        auto_filed:
+          type: integer
+          minimum: 0.0
+          title: Auto Filed
+          description: Groups I44 filed without review, not in the rate
+          default: 0
+        bulk_accepted:
+          type: integer
+          minimum: 0.0
+          title: Bulk Accepted
+          description: Groups filed by Accept all, not in the rate
+          default: 0
+        undone:
+          type: integer
+          minimum: 0.0
+          title: Undone
+          description: Confirmations later undone, not in any count
+          default: 0
+        sources:
+          additionalProperties:
+            $ref: '#/components/schemas/AcceptanceModel'
+          type: object
+          title: Sources
+          description: 'Keyed by source: text, jev or none'
+        classes:
+          additionalProperties:
+            $ref: '#/components/schemas/ClassAcceptanceModel'
+          type: object
+          title: Classes
+          description: Keyed by the suggested class
+        cameras:
+          additionalProperties:
+            $ref: '#/components/schemas/AcceptanceModel'
+          type: object
+          title: Cameras
+          description: Keyed by camera
+        first_time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: First Time
+          description: Unix time of the earliest confirmation
+        last_time:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Last Time
+          description: Unix time of the latest confirmation
+        model_check:
+          $ref: '#/components/schemas/ModelCheckModel'
+          description: The trained model's verdicts against the drafts (fork 
+            I45)
+        dataset:
+          $ref: '#/components/schemas/DatasetBalanceModel'
+          description: Images per class and whether they are lopsided (fork I51)
+        training:
+          $ref: '#/components/schemas/TrainingGapModel'
+          description: Images added since the last training (fork I54)
+        recent_auto_filed:
+          items:
+            $ref: '#/components/schemas/AutoFiledGroupModel'
+          type: array
+          title: Recent Auto Filed
+          description: Auto-filed groups awaiting a spot check, newest first 
+            (fork I52)
+      type: object
+      required:
+        - total
+        - accepted
+        - model
+      title: SuggestionReportResponse
+      description: Acceptance of the drafts recorded for one model (fork I42).
     ToolExecuteRequest:
       properties:
         tool_name:
@@ -10089,6 +10985,30 @@ components:
         - arguments
       title: ToolExecuteRequest
       description: Request model for tool execution.
+    TrainingGapModel:
+      properties:
+        has_trained:
+          type: boolean
+          title: Has Trained
+          default: false
+        last_training_date:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Last Training Date
+        current_images:
+          type: integer
+          minimum: 0.0
+          title: Current Images
+          default: 0
+        new_images:
+          type: integer
+          minimum: 0.0
+          title: New Images
+          default: 0
+      type: object
+      title: TrainingGapModel
+      description: Images added since the model was last trained (fork I54).
     TriggerEmbeddingBody:
       properties:
         type:
@@ -10113,6 +11033,51 @@ components:
         - thumbnail
         - description
       title: TriggerType
+    UndoSuggestionBody:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+          description: The event the images belong to
+        category:
+          type: string
+          title: Category
+          description: The dataset class they were filed into
+        files:
+          items:
+            type: string
+          type: array
+          maxItems: 64
+          minItems: 1
+          title: Files
+          description: Dataset file names returned by confirm, basenames only
+      type: object
+      required:
+        - event_id
+        - category
+        - files
+      title: UndoSuggestionBody
+      description: Move an accepted group back to the train grid (fork I41).
+    UndoSuggestionResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        message:
+          type: string
+          title: Message
+        restored:
+          type: integer
+          minimum: 0.0
+          title: Restored
+          description: Images moved back
+          default: 0
+      type: object
+      required:
+        - success
+        - message
+      title: UndoSuggestionResponse
+      description: How many images an undo moved back to the train grid.
     VLMMonitorRequest:
       properties:
         camera:

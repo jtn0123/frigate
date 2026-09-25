@@ -3,6 +3,7 @@ from enum import Enum
 from pydantic import ConfigDict, Field, field_validator
 
 from .base import FrigateBaseModel
+from .fork.classification_suggestions import ClassificationSuggestionsConfig
 
 _MODEL_SIZE = "Model size"
 _DEVICE_OVERRIDE_DESCRIPTION = "This is an override, to target a specific device. See https://onnxruntime.ai/docs/execution-providers/ for more information"
@@ -196,6 +197,12 @@ class ClassificationConfig(FrigateBaseModel):
         default={},
         title="Custom Classification Models",
         description="Configuration for custom classification models used for objects or state detection.",
+    )
+    # fork (I41): drafts for the train grid, read from event descriptions
+    suggestions: ClassificationSuggestionsConfig = Field(
+        default_factory=ClassificationSuggestionsConfig,
+        title="Classification suggestions",
+        description="Suggest dataset classes for train images from event descriptions.",
     )
 
 

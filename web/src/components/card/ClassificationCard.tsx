@@ -47,6 +47,8 @@ type ClassificationCardProps = {
   count?: number;
   onClick: (data: ClassificationItemData, meta: boolean) => void;
   children?: React.ReactNode;
+  /** fork: rendered in place of the name in the bottom row */
+  labelSlot?: React.ReactNode;
 };
 export const ClassificationCard = forwardRef<
   HTMLDivElement,
@@ -64,6 +66,7 @@ export const ClassificationCard = forwardRef<
     count,
     onClick,
     children,
+    labelSlot,
   },
   ref,
 ) {
@@ -167,15 +170,18 @@ export const ClassificationCard = forwardRef<
           className={cn(
             "flex flex-col items-start text-white",
             data.score != undefined ? "text-xs" : "text-sm",
+            labelSlot != undefined && "min-w-0 max-w-full",
           )}
         >
-          <div className="break-all smart-capitalize">
-            {data.name.toLowerCase() == "unknown"
-              ? t("details.unknown")
-              : data.name.toLowerCase() == "none"
-                ? t("details.none")
-                : data.name}
-          </div>
+          {labelSlot ?? (
+            <div className="break-all smart-capitalize">
+              {data.name.toLowerCase() == "unknown"
+                ? t("details.unknown")
+                : data.name.toLowerCase() == "none"
+                  ? t("details.none")
+                  : data.name}
+            </div>
+          )}
           {data.score != undefined && (
             <div
               className={cn(
@@ -207,6 +213,8 @@ type GroupedClassificationCardProps = {
   noClassificationLabel?: string;
   onClick: (data: ClassificationItemData | undefined) => void;
   children?: (data: ClassificationItemData) => React.ReactNode;
+  /** fork: shown in place of the name on the grid card */
+  labelSlot?: React.ReactNode;
 };
 export function GroupedClassificationCard({
   group,
@@ -217,6 +225,7 @@ export function GroupedClassificationCard({
   noClassificationLabel = "details.none",
   onClick,
   children,
+  labelSlot,
 }: Readonly<GroupedClassificationCardProps>) {
   const navigate = useNavigate();
   const { t } = useTranslation(["views/explore", i18nLibrary]);
@@ -318,6 +327,7 @@ export function GroupedClassificationCard({
         clickable={true}
         i18nLibrary={i18nLibrary}
         count={group.length}
+        labelSlot={labelSlot}
         onClick={(_, meta) => {
           if (meta || selectedItems.length > 0) {
             onClick(undefined);

@@ -4043,6 +4043,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/classification/{name}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest dataset classes for train images
+         * @description **Access:** Admin role required.
+         *
+         *     Drafts a dataset class for each listed event from its description,
+         *         locally and optionally through Jev. Drafts are for a person to confirm; nothing is
+         *         labeled by this call. At most 400 distinct ids are drafted per call; `omitted`
+         *         says how many past that were dropped.
+         */
+        get: operations["classification_suggestions_classification__name__suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classification/{name}/suggestions/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a suggested class for train images
+         * @description **Access:** Admin role required.
+         *
+         *     Moves the event's train images into the chosen dataset class and
+         *         records which suggestion, if any, led to it beside the dataset. `bulk: true`
+         *         marks a group filed by Accept all, which the report counts apart and the
+         *         kept rate ignores. Returns 404 with the message "already accepted" when none
+         *         of the files are left in the train folder (the group was filed already), and
+         *         404 with another message when only some of them are missing.
+         */
+        post: operations["confirm_suggestion_classification__name__suggestions_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classification/{name}/suggestions/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo an accepted suggestion
+         * @description **Access:** Admin role required.
+         *
+         *     Moves the listed dataset images of an accepted group back into the
+         *         train folder, skipping any that are already gone, and records the undo beside
+         *         the dataset so the confirmation no longer counts toward the kept rate or the
+         *         auto-file gate. File names must be bare names from confirm's `moved`.
+         */
+        post: operations["undo_suggestion_classification__name__suggestions_undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classification/suggestions/event/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest dataset classes for one event
+         * @description **Access:** Admin role required.
+         *
+         *     Drafts a class for the event under every custom model that classifies
+         *         its label, with the train images still waiting for it, what the trained model
+         *         called it, and what it was already filed as. For the Explore detail dialog.
+         */
+        get: operations["event_suggestions_classification_suggestions_event__event_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classification/{name}/suggestions/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report how often suggested classes were kept
+         * @description **Access:** Admin role required.
+         *
+         *     Reads the confirmations recorded beside the model's dataset and counts, overall and per source, suggested class and camera, how many drafts were filed unchanged (fork I42).
+         */
+        get: operations["suggestion_report_classification__name__suggestions_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/classification/{name}/suggestions/spot-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep or remove auto-filed images
+         * @description **Access:** Admin role required.
+         *
+         *     Records a person's verdict on a group of images that I44 filed
+         *         without review. Keep counts as an accepted draft; remove deletes the files
+         *         from the dataset and counts as a rejected one (fork I52).
+         */
+        post: operations["spot_check_suggestion_classification__name__suggestions_spot_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/share": {
         parameters: {
             query?: never;
@@ -4245,6 +4392,27 @@ export interface components {
             history_status: string;
         };
         /**
+         * AcceptanceModel
+         * @description How many drafts were filed unchanged (fork I42).
+         */
+        AcceptanceModel: {
+            /**
+             * Total
+             * @description Confirmations recorded
+             */
+            total: number;
+            /**
+             * Accepted
+             * @description Drafts filed under the suggested class
+             */
+            accepted: number;
+            /**
+             * Rate
+             * @description accepted / total, or none without data
+             */
+            rate?: number | null;
+        };
+        /**
          * ActiveProfileResponse
          * @description Current persisted profile selection.
          */
@@ -4364,6 +4532,38 @@ export interface components {
              * @description ID of the event to transcribe audio for
              */
             event_id: string;
+        };
+        /**
+         * AutoFiledGroupModel
+         * @description One event's images filed without review, for a spot check (fork I52).
+         */
+        AutoFiledGroupModel: {
+            /**
+             * Time
+             * @description Unix time it was filed
+             */
+            time?: number | null;
+            /** Event Id */
+            event_id?: string | null;
+            /** Camera */
+            camera?: string | null;
+            /**
+             * Category
+             * @description The dataset class
+             */
+            category: string;
+            /**
+             * Source
+             * @description text or jev
+             */
+            source?: string | null;
+            /** Score */
+            score?: number | null;
+            /**
+             * Files
+             * @description Dataset file names
+             */
+            files?: string[];
         };
         /** BatchExportBody */
         BatchExportBody: {
@@ -4674,6 +4874,176 @@ export interface components {
              */
             tool_calls?: Record<string, never>[] | null;
         };
+        /**
+         * ClassAcceptanceModel
+         * @description Acceptance of one suggested class and what it was corrected to.
+         */
+        ClassAcceptanceModel: {
+            /**
+             * Total
+             * @description Confirmations recorded
+             */
+            total: number;
+            /**
+             * Accepted
+             * @description Drafts filed under the suggested class
+             */
+            accepted: number;
+            /**
+             * Rate
+             * @description accepted / total, or none without data
+             */
+            rate?: number | null;
+            /**
+             * Corrected To
+             * @description Class chosen instead, with counts
+             */
+            corrected_to?: {
+                [key: string]: number;
+            };
+            /**
+             * Auto Filed
+             * @description Groups I44 filed without review, not in the rate
+             * @default 0
+             */
+            auto_filed: number;
+            /**
+             * Bulk Accepted
+             * @description Groups filed by Accept all, not in the rate
+             * @default 0
+             */
+            bulk_accepted: number;
+        };
+        /**
+         * ClassificationSuggestionsResponse
+         * @description Suggestions for the requested events of one model.
+         */
+        ClassificationSuggestionsResponse: {
+            /**
+             * Model
+             * @description The classification model
+             */
+            model: string;
+            /**
+             * Classes
+             * @description Dataset classes a draft can name
+             */
+            classes: string[];
+            jev: components["schemas"]["JevStateModel"];
+            /**
+             * Suggestions
+             * @description Keyed by event id; ids without an event are omitted
+             */
+            suggestions: {
+                [key: string]: components["schemas"]["EventSuggestionModel"];
+            };
+            /**
+             * Too Small
+             * @description Train images under 100 px on a side, keyed by event (fork I50)
+             */
+            too_small?: {
+                [key: string]: string[];
+            };
+            /**
+             * Omitted
+             * @description Distinct ids past the per-request cap that were not drafted
+             * @default 0
+             */
+            omitted: number;
+        };
+        /** ConfirmSuggestionBody */
+        ConfirmSuggestionBody: {
+            /**
+             * Event Id
+             * @description The event the train images belong to
+             */
+            event_id: string;
+            /**
+             * Category
+             * @description The dataset class to file the images under
+             */
+            category: string;
+            /**
+             * Training Files
+             * @description Train file names to move into the class
+             */
+            training_files: string[];
+            /**
+             * Source
+             * @description Which source suggested the class: text, jev, or none if edited
+             */
+            source?: string | null;
+            /**
+             * Score
+             * @description The suggestion's score, if any
+             */
+            score?: number | null;
+            /**
+             * Suggested Category
+             * @description The class that was suggested, so edits can be told apart
+             */
+            suggested_category?: string | null;
+            /**
+             * Bulk
+             * @description Filed by Accept all rather than one card at a time; kept out of the kept rate and the auto-file gate
+             * @default false
+             */
+            bulk: boolean;
+        };
+        /**
+         * ConfirmSuggestionResponse
+         * @description What the confirmation moved.
+         */
+        ConfirmSuggestionResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Moved
+             * @description New dataset file names
+             */
+            moved?: string[];
+        };
+        /**
+         * DatasetBalanceModel
+         * @description Whether one class dwarfs another (fork I51).
+         */
+        DatasetBalanceModel: {
+            /**
+             * Classes
+             * @description Images per dataset class
+             */
+            classes?: {
+                [key: string]: number;
+            };
+            /**
+             * Empty
+             * @description Classes with no images
+             */
+            empty?: string[];
+            /**
+             * Largest
+             * @description The fullest class
+             */
+            largest?: string | null;
+            /**
+             * Smallest
+             * @description The emptiest filled class
+             */
+            smallest?: string | null;
+            /**
+             * Ratio
+             * @description largest / smallest
+             */
+            ratio?: number | null;
+            /**
+             * Lopsided
+             * @description ratio is over 3
+             * @default false
+             */
+            lopsided: boolean;
+        };
         /** DayReview */
         DayReview: {
             /**
@@ -4764,6 +5134,37 @@ export interface components {
              */
             ids: string[];
         };
+        /**
+         * DisagreementModel
+         * @description One event where the trained model and the description disagreed.
+         */
+        DisagreementModel: {
+            /**
+             * Time
+             * @description Unix time of the check
+             */
+            time?: number | null;
+            /**
+             * Event Id
+             * @description The event
+             */
+            event_id?: string | null;
+            /**
+             * Camera
+             * @description The camera
+             */
+            camera?: string | null;
+            /**
+             * Model Said
+             * @description The trained model's class
+             */
+            model_said: string;
+            /**
+             * Draft
+             * @description The class the description supported
+             */
+            draft: string;
+        };
         /** EventCreateResponse */
         EventCreateResponse: {
             /** Success */
@@ -4772,6 +5173,40 @@ export interface components {
             message: string;
             /** Event Id */
             event_id: string;
+        };
+        /**
+         * EventModelSuggestionModel
+         * @description One custom model's view of one event (fork I46).
+         */
+        EventModelSuggestionModel: {
+            /**
+             * Model
+             * @description The classification model
+             */
+            model: string;
+            /**
+             * Classes
+             * @description Dataset classes a draft can name
+             */
+            classes: string[];
+            suggestion: components["schemas"]["EventSuggestionModel"];
+            /**
+             * Training Files
+             * @description Train images still waiting for the event
+             */
+            training_files?: string[];
+            /**
+             * Model Said
+             * @description The trained model's class for the event
+             */
+            model_said?: string | null;
+            /** @description What the event was last filed as, if anything */
+            filed?: components["schemas"]["FiledModel"] | null;
+            /**
+             * Too Small
+             * @description Train images under 100 px on a side (fork I50)
+             */
+            too_small?: string[];
         };
         /** EventMultiDeleteResponse */
         EventMultiDeleteResponse: {
@@ -4818,6 +5253,43 @@ export interface components {
             model_type: string | null;
             /** Data */
             data: Record<string, never>;
+        };
+        /**
+         * EventSuggestionModel
+         * @description Both sources for one event and the draft the grid should show.
+         */
+        EventSuggestionModel: {
+            /** @description Local text match, if any */
+            text?: components["schemas"]["SuggestionModel"] | null;
+            /** @description Jev draft, if any */
+            jev?: components["schemas"]["SuggestionModel"] | null;
+            /**
+             * Jev Status
+             * @description answered, unknown, disabled, no_description, no_classes, camera_not_allowed, budget or error
+             */
+            jev_status: string;
+            /** @description The draft to show, or none when unsure */
+            suggestion?: components["schemas"]["SuggestionModel"] | null;
+            /**
+             * Conflict
+             * @description The two sources named different classes
+             */
+            conflict: boolean;
+            /** @description A weaker Jev lean shown only when there is no draft; never filed by Accept all or auto-filing */
+            maybe?: components["schemas"]["SuggestionModel"] | null;
+        };
+        /**
+         * EventSuggestionsResponse
+         * @description Drafts for one event under every model that applies (fork I46).
+         */
+        EventSuggestionsResponse: {
+            /**
+             * Event Id
+             * @description The event
+             */
+            event_id: string;
+            /** Models */
+            models?: components["schemas"]["EventModelSuggestionModel"][];
         };
         /** EventUploadPlusResponse */
         EventUploadPlusResponse: {
@@ -5217,6 +5689,22 @@ export interface components {
             [key: string]: string[];
         };
         /**
+         * FiledModel
+         * @description What an event's train images were filed as (fork I46).
+         */
+        FiledModel: {
+            /**
+             * Category
+             * @description The dataset class
+             */
+            category: string;
+            /**
+             * Auto
+             * @description Filed by I44 without review
+             */
+            auto: boolean;
+        };
+        /**
          * ForkReleaseModel
          * @description One published fork release carrying a build marker.
          */
@@ -5370,6 +5858,32 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * JevStateModel
+         * @description Whether Jev can be asked right now.
+         */
+        JevStateModel: {
+            /**
+             * Enabled
+             * @description classification.suggestions.jev.enabled
+             */
+            enabled: boolean;
+            /**
+             * Configured
+             * @description An API key is present in the environment
+             */
+            configured: boolean;
+            /**
+             * Used Today
+             * @description Provider requests counted today
+             */
+            used_today: number;
+            /**
+             * Daily Request Limit
+             * @description The configured daily cap
+             */
+            daily_request_limit: number;
+        };
         /** Last24HoursReview */
         Last24HoursReview: {
             /** Reviewed Alert */
@@ -5409,6 +5923,43 @@ export interface components {
              * @default false
              */
             verbose: boolean;
+        };
+        /**
+         * ModelCheckModel
+         * @description How often the trained model agreed with the description (fork I45).
+         *
+         *     ``accepted`` counts agreements here.
+         */
+        ModelCheckModel: {
+            /**
+             * Total
+             * @description Events checked
+             * @default 0
+             */
+            total: number;
+            /**
+             * Accepted
+             * @description Events where both agreed
+             * @default 0
+             */
+            accepted: number;
+            /**
+             * Rate
+             * @description accepted / total, or none without data
+             */
+            rate?: number | null;
+            /**
+             * Classes
+             * @description Keyed by the model's class; corrected_to is what the description said instead
+             */
+            classes?: {
+                [key: string]: components["schemas"]["ClassAcceptanceModel"];
+            };
+            /**
+             * Recent Disagreements
+             * @description Latest disagreements, newest first
+             */
+            recent_disagreements?: components["schemas"]["DisagreementModel"][];
         };
         /**
          * MotionSearchMetricsResponse
@@ -5807,6 +6358,47 @@ export interface components {
             similarity: number;
         };
         /**
+         * SpotCheckBody
+         * @description A person's verdict on a group of auto-filed images (fork I52).
+         */
+        SpotCheckBody: {
+            /**
+             * Event Id
+             * @description The event the images came from
+             */
+            event_id: string;
+            /**
+             * Category
+             * @description The dataset class they were filed into
+             */
+            category: string;
+            /**
+             * Files
+             * @description Dataset file names
+             */
+            files?: string[];
+            /**
+             * Keep
+             * @description True keeps them, False deletes them
+             */
+            keep: boolean;
+        };
+        /**
+         * SpotCheckResponse
+         * @description What a spot check removed (fork I52).
+         */
+        SpotCheckResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Removed
+             * @description Dataset files deleted
+             */
+            removed?: string[];
+        };
+        /**
          * StageResult
          * @description Expose state without internal error details.
          */
@@ -5878,6 +6470,119 @@ export interface components {
             include_annotation: number;
         };
         /**
+         * SuggestionModel
+         * @description One draft class and where it came from.
+         */
+        SuggestionModel: {
+            /**
+             * Category
+             * @description Dataset class the description supports
+             */
+            category: string;
+            /**
+             * Source
+             * @description text (local match) or jev
+             */
+            source: string;
+            /**
+             * Score
+             * @description Jev probability of the category, if from Jev
+             */
+            score?: number | null;
+            /**
+             * Evidence
+             * @description The sentence of the description that matched
+             * @default
+             */
+            evidence: string;
+        };
+        /**
+         * SuggestionReportResponse
+         * @description Acceptance of the drafts recorded for one model (fork I42).
+         */
+        SuggestionReportResponse: {
+            /**
+             * Total
+             * @description Confirmations recorded
+             */
+            total: number;
+            /**
+             * Accepted
+             * @description Drafts filed under the suggested class
+             */
+            accepted: number;
+            /**
+             * Rate
+             * @description accepted / total, or none without data
+             */
+            rate?: number | null;
+            /**
+             * Model
+             * @description The classification model
+             */
+            model: string;
+            /**
+             * Auto Filed
+             * @description Groups I44 filed without review, not in the rate
+             * @default 0
+             */
+            auto_filed: number;
+            /**
+             * Bulk Accepted
+             * @description Groups filed by Accept all, not in the rate
+             * @default 0
+             */
+            bulk_accepted: number;
+            /**
+             * Undone
+             * @description Confirmations later undone, not in any count
+             * @default 0
+             */
+            undone: number;
+            /**
+             * Sources
+             * @description Keyed by source: text, jev or none
+             */
+            sources?: {
+                [key: string]: components["schemas"]["AcceptanceModel"];
+            };
+            /**
+             * Classes
+             * @description Keyed by the suggested class
+             */
+            classes?: {
+                [key: string]: components["schemas"]["ClassAcceptanceModel"];
+            };
+            /**
+             * Cameras
+             * @description Keyed by camera
+             */
+            cameras?: {
+                [key: string]: components["schemas"]["AcceptanceModel"];
+            };
+            /**
+             * First Time
+             * @description Unix time of the earliest confirmation
+             */
+            first_time?: number | null;
+            /**
+             * Last Time
+             * @description Unix time of the latest confirmation
+             */
+            last_time?: number | null;
+            /** @description The trained model's verdicts against the drafts (fork I45) */
+            model_check?: components["schemas"]["ModelCheckModel"];
+            /** @description Images per class and whether they are lopsided (fork I51) */
+            dataset?: components["schemas"]["DatasetBalanceModel"];
+            /** @description Images added since the last training (fork I54) */
+            training?: components["schemas"]["TrainingGapModel"];
+            /**
+             * Recent Auto Filed
+             * @description Auto-filed groups awaiting a spot check, newest first (fork I52)
+             */
+            recent_auto_filed?: components["schemas"]["AutoFiledGroupModel"][];
+        };
+        /**
          * ToolExecuteRequest
          * @description Request model for tool execution.
          */
@@ -5886,6 +6591,29 @@ export interface components {
             tool_name: string;
             /** Arguments */
             arguments: Record<string, never>;
+        };
+        /**
+         * TrainingGapModel
+         * @description Images added since the model was last trained (fork I54).
+         */
+        TrainingGapModel: {
+            /**
+             * Has Trained
+             * @default false
+             */
+            has_trained: boolean;
+            /** Last Training Date */
+            last_training_date?: string | null;
+            /**
+             * Current Images
+             * @default 0
+             */
+            current_images: number;
+            /**
+             * New Images
+             * @default 0
+             */
+            new_images: number;
         };
         /** TriggerEmbeddingBody */
         TriggerEmbeddingBody: {
@@ -5903,6 +6631,43 @@ export interface components {
          * @enum {string}
          */
         TriggerType: "thumbnail" | "description";
+        /**
+         * UndoSuggestionBody
+         * @description Move an accepted group back to the train grid (fork I41).
+         */
+        UndoSuggestionBody: {
+            /**
+             * Event Id
+             * @description The event the images belong to
+             */
+            event_id: string;
+            /**
+             * Category
+             * @description The dataset class they were filed into
+             */
+            category: string;
+            /**
+             * Files
+             * @description Dataset file names returned by confirm, basenames only
+             */
+            files: string[];
+        };
+        /**
+         * UndoSuggestionResponse
+         * @description How many images an undo moved back to the train grid.
+         */
+        UndoSuggestionResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /**
+             * Restored
+             * @description Images moved back
+             * @default 0
+             */
+            restored: number;
+        };
         /**
          * VLMMonitorRequest
          * @description Request model for starting a VLM watch job.
@@ -11794,6 +12559,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CameraHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    classification_suggestions_classification__name__suggestions_get: {
+        parameters: {
+            query?: {
+                ids?: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassificationSuggestionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_suggestion_classification__name__suggestions_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmSuggestionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmSuggestionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_suggestion_classification__name__suggestions_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UndoSuggestionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UndoSuggestionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    event_suggestions_classification_suggestions_event__event_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventSuggestionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggestion_report_classification__name__suggestions_report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionReportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    spot_check_suggestion_classification__name__suggestions_spot_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpotCheckBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotCheckResponse"];
                 };
             };
             /** @description Validation Error */

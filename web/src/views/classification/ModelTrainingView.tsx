@@ -60,6 +60,15 @@ import { useNavigate } from "react-router-dom";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import TrainFilterDialog from "@/components/overlay/dialog/TrainFilterDialog";
 import { matchesTrainClass } from "@/lib/fork/classification-train";
+import { useClassificationSuggestions } from "@/hooks/fork/use-classification-suggestions";
+import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
+import {
+  orderGroups,
+  pickerProps,
+} from "@/lib/fork/classification-suggestions";
+import { useUnsureFirst } from "@/hooks/fork/use-train-order";
+import SuggestionBadge from "@/components/fork/classification/SuggestionBadge";
+import SuggestionStatusBar from "@/components/fork/classification/SuggestionStatusBar";
 import useApiFilter from "@/hooks/use-api-filter";
 import {
   ClassificationDatasetResponse,
@@ -148,10 +157,12 @@ export default function ModelTrainingView({
 
   const [trainFilter, setTrainFilter] = useApiFilter<TrainFilter>();
 
-  const refreshAll = useCallback(() => {
-    void refreshTrain();
-    void refreshDataset();
-  }, [refreshTrain, refreshDataset]);
+  // fork (I41): resolve once both lists are back, so an accept stays
+  // disabled until its card has left the grid
+  const refreshAll = useCallback(
+    () => Promise.all([refreshTrain(), refreshDataset()]),
+    [refreshTrain, refreshDataset],
+  );
 
   // image multiselect
 
@@ -568,6 +579,12 @@ export default function ModelTrainingView({
           onRefresh={refreshAll}
           onClickImages={onClickImages}
           onDelete={onDelete}
+          onTrain={
+            (modelState == "complete" || modelState == "failed") &&
+            trainingMetadata?.dataset_changed
+              ? trainModel
+              : undefined
+          }
         />
       ) : (
         <DatasetGrid
@@ -902,8 +919,11 @@ type TrainGridProps = {
   trainFilter?: TrainFilter;
   selectedImages: string[];
   onClickImages: (images: string[], ctrl: boolean) => void;
-  onRefresh: () => void;
+  // fork (I41): a promise the accepts wait on before re-enabling
+  onRefresh: () => unknown;
   onDelete: (ids: string[]) => void;
+  // fork (I54): the Train button's action, for the Train now bar
+  onTrain?: () => void;
 };
 function TrainGrid({
   model,
@@ -915,6 +935,7 @@ function TrainGrid({
   onClickImages,
   onRefresh,
   onDelete,
+  onTrain,
 }: Readonly<TrainGridProps>) {
   const trainData = useMemo<ClassificationItemData[]>(
     () =>
@@ -992,6 +1013,7 @@ function TrainGrid({
       selectedImages={selectedImages}
       onClickImages={onClickImages}
       onRefresh={onRefresh}
+      onTrain={onTrain}
     />
   );
 }
@@ -1064,7 +1086,8 @@ type ObjectTrainGridProps = {
   trainData?: ClassificationItemData[];
   selectedImages: string[];
   onClickImages: (images: string[], ctrl: boolean) => void;
-  onRefresh: () => void;
+  onRefresh: () => unknown;
+  onTrain?: () => void;
 };
 function ObjectTrainGrid({
   model,
@@ -1074,6 +1097,7 @@ function ObjectTrainGrid({
   selectedImages,
   onClickImages,
   onRefresh,
+  onTrain,
 }: Readonly<ObjectTrainGridProps>) {
   // item data
 
@@ -1100,6 +1124,22 @@ function ObjectTrainGrid({
     "event_ids",
     { ids: eventIdsQuery },
   ]);
+
+  // fork (I41): drafts from each event's description, confirmed in one click
+  const { data: suggestions } = useClassificationSuggestions(
+    model.name,
+    eventIdsQuery,
+  );
+  const confirmSuggestion = useConfirmSuggestion(model.name, onRefresh);
+  // fork (I49): the least sure events first, so review teaches the model most
+  // (held until the stored choice is read, so the grid does not jump)
+  const [unsureFirst, setUnsureFirst, orderLoaded] = useUnsureFirst();
+  const orderedGroups = useMemo(
+    () => (orderLoaded ? orderGroups(groups, unsureFirst) : []),
+    [orderLoaded, groups, unsureFirst],
+  );
+  // fork (I42): Accept all holds the single accepts while it runs
+  const [filing, setFiling] = useState(false);
 
   const threshold = useMemo(() => {
     return {
@@ -1195,15 +1235,44 @@ function ObjectTrainGrid({
           "scrollbar-container grid grid-cols-2 gap-3 overflow-y-scroll p-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12",
         )}
       >
-        {Object.entries(groups).map(([key, group]) => {
+        <SuggestionStatusBar
+          className="col-span-full"
+          modelName={model.name}
+          data={suggestions}
+          groups={groups}
+          onRefresh={onRefresh}
+          unsureFirst={unsureFirst}
+          onUnsureFirst={setUnsureFirst}
+          onFiling={setFiling}
+          onTrain={onTrain}
+        />
+        {orderedGroups.map(([key, group]) => {
           const event = events?.find((ev) => ev.id == key);
           const classifiedEvent = createClassifiedEvent(event);
+          const draft = suggestions?.suggestions[key];
 
           return (
-            <div key={key} className="aspect-square w-full">
+            <div
+              key={key}
+              className="relative aspect-square w-full [container-type:inline-size]"
+            >
               <GroupedClassificationCard
                 group={group}
                 classifiedEvent={classifiedEvent}
+                labelSlot={
+                  draft ? (
+                    <SuggestionBadge
+                      modelName={model.name}
+                      eventId={key}
+                      files={group.map((item) => item.filename)}
+                      entry={draft}
+                      onRefresh={onRefresh}
+                      tooSmall={suggestions.too_small?.[key]}
+                      disabled={filing}
+                      classes={suggestions.classes}
+                    />
+                  ) : undefined
+                }
                 threshold={threshold}
                 selectedItems={selectedImages}
                 i18nLibrary="views/classificationModel"
@@ -1223,6 +1292,16 @@ function ObjectTrainGrid({
                     modelName={model.name}
                     image={data.filename}
                     onRefresh={onRefresh}
+                    {...pickerProps(
+                      suggestions?.suggestions[key],
+                      (suggestion, category) =>
+                        void confirmSuggestion(
+                          key,
+                          [data.filename],
+                          suggestion,
+                          category,
+                        ),
+                    )}
                   >
                     <BlurredIconButton>
                       <TbCategoryPlus className="size-5" />
