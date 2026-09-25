@@ -547,11 +547,12 @@ test.describe("Classification suggestions @medium", () => {
     const images = page.locator('img[src*="/train/"]');
     await expect(images).toHaveCount(3, { timeout: 10_000 });
 
-    // The tiny crop shows a marker instead of a draft, and file-all skips it.
+    // The tiny crop keeps its draft and is flagged on the badge and the status line.
+    await expect(page.getByTestId("suggestion-badge")).toHaveCount(3);
     await expect(page.getByTestId("suggestion-too-small")).toHaveCount(1);
-    await expect(page.getByTestId("suggestion-badge")).toHaveCount(2);
     const status = page.getByTestId("suggestion-status");
-    await expect(status).toContainText("2 drafts on this page");
+    await expect(status).toContainText("3 drafts on this page");
+    await expect(status).toContainText("1 with tiny crops");
     await expect(page.getByTestId("suggestion-lopsided")).toContainText(
       "van has 8x the images of none",
     );

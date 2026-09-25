@@ -30,7 +30,11 @@ import {
 import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
 import { useSuggestionReport } from "@/hooks/fork/use-suggestion-report";
 import type { ClassificationSuggestionsResponse } from "@/lib/fork/classification-suggestions";
-import { draftsToFile, reportKey } from "@/lib/fork/classification-suggestions";
+import {
+  draftsToFile,
+  reportKey,
+  smallDraftCount,
+} from "@/lib/fork/classification-suggestions";
 
 type SuggestionStatusBarProps = {
   modelName: string;
@@ -57,8 +61,12 @@ export default function SuggestionStatusBar({
   const [pending, setPending] = useState(false);
 
   const drafts = useMemo(
-    () => draftsToFile(data?.suggestions, groups, data?.too_small),
+    () => draftsToFile(data?.suggestions, groups),
     [data, groups],
+  );
+  const small = useMemo(
+    () => smallDraftCount(drafts, data?.too_small),
+    [drafts, data],
   );
 
   const fileAll = useCallback(async () => {
@@ -118,6 +126,11 @@ export default function SuggestionStatusBar({
           count: drafts.length,
         })}
       </span>
+      {small > 0 && (
+        <span data-testid="suggestion-small" className="text-warning">
+          {t("classificationSuggestions.smallDrafts", { count: small })}
+        </span>
+      )}
       <span>{jevText}</span>
       {report && report.total > 0 && report.rate != null && (
         <Tooltip>

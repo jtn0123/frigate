@@ -281,7 +281,7 @@ describe("SuggestionStatusBar", () => {
     expect(onUnsureFirst).toHaveBeenCalledWith(true);
   });
 
-  it("leaves crops too small to train on out of file-all (fork I50)", () => {
+  it("counts the drafts made only of tiny crops without dropping them (fork I50)", () => {
     report = undefined;
     render(
       <MemoryRouter>
@@ -299,7 +299,10 @@ describe("SuggestionStatusBar", () => {
       </MemoryRouter>,
     );
     expect(screen.getByTestId("suggestion-status")).toHaveTextContent(
-      'draftsOnPage:{"count":0}',
+      'draftsOnPage:{"count":1}',
+    );
+    expect(screen.getByTestId("suggestion-small")).toHaveTextContent(
+      'smallDrafts:{"count":1}',
     );
     expect(screen.queryByTestId("train-order-toggle")).toBeNull();
   });

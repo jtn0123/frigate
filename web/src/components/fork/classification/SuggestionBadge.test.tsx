@@ -116,7 +116,7 @@ describe("SuggestionBadge", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("marks an event whose every crop is too small instead of a draft (fork I50)", () => {
+  it("keeps the draft and flags an event whose every crop is tiny (fork I50)", () => {
     render(
       <TooltipProvider>
         <SuggestionBadge
@@ -130,10 +130,10 @@ describe("SuggestionBadge", () => {
       </TooltipProvider>,
     );
     expect(screen.getByTestId("suggestion-too-small")).toBeInTheDocument();
-    expect(screen.queryByTestId("suggestion-badge")).toBeNull();
+    expect(screen.getByTestId("suggestion-badge")).toHaveTextContent("van");
   });
 
-  it("confirms only the crops big enough to train on (fork I50)", async () => {
+  it("files every crop on confirm, tiny ones included (fork I50)", async () => {
     axiosPost.mockResolvedValue({});
     render(
       <TooltipProvider>
@@ -150,7 +150,8 @@ describe("SuggestionBadge", () => {
     fireEvent.click(screen.getByRole("button"));
     await waitFor(() => expect(axiosPost).toHaveBeenCalledTimes(1));
     expect(axiosPost.mock.calls[0]?.[1]).toMatchObject({
-      training_files: ["a.webp"],
+      training_files: ["a.webp", "b.webp"],
     });
+    expect(screen.queryByTestId("suggestion-too-small")).toBeNull();
   });
 });

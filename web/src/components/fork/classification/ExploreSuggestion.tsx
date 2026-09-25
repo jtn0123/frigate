@@ -17,7 +17,7 @@ import { useEventSuggestions } from "@/hooks/fork/use-event-suggestions";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import {
   percent,
-  usableFiles,
+  allTooSmall,
   type EventModelSuggestion,
 } from "@/lib/fork/classification-suggestions";
 import { cn } from "@/lib/utils";
@@ -71,7 +71,8 @@ function ModelRow({ eventId, row, onFiled }: Readonly<ModelRowProps>) {
   const [pending, setPending] = useState(false);
   const confirmSuggestion = useConfirmSuggestion(row.model, onFiled);
   const suggestion = row.suggestion.suggestion;
-  const files = usableFiles(row.training_files, row.too_small);
+  const files = row.training_files;
+  const tiny = allTooSmall(files, row.too_small);
 
   const file = useCallback(async () => {
     if (!suggestion || pending) {
@@ -119,15 +120,25 @@ function ModelRow({ eventId, row, onFiled }: Readonly<ModelRowProps>) {
               </span>
             </span>
             {files.length > 0 ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-6 px-2 text-xs"
-                disabled={pending}
-                onClick={() => void file()}
-              >
-                {t("classificationSuggestions.file")}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-xs"
+                  disabled={pending}
+                  onClick={() => void file()}
+                >
+                  {t("classificationSuggestions.file")}
+                </Button>
+                {tiny && (
+                  <span
+                    data-testid="suggestion-too-small"
+                    className="text-xs text-warning"
+                  >
+                    {t("classificationSuggestions.tooSmall")}
+                  </span>
+                )}
+              </>
             ) : (
               <span className="text-xs text-secondary-foreground">
                 {t("classificationSuggestions.noTrainImages")}

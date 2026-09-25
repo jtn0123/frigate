@@ -90,9 +90,11 @@ when the images would not teach the model anything:
   unsure about are the ones worth filing. The train grid has an
   "Unsure first" switch that sorts by the same score.
 - **Tiny crops (I50).** Images under 100 px on a side stretch three to
-  seven times when trained. They are never auto-filed, the grid shows a
-  marker instead of a draft when every image of an event is that small,
-  and File-all and the Explore File button leave them out.
+  seven times when trained, so they are never auto-filed. People still see
+  the draft: the badge, the Explore row and the status line flag events
+  whose every image is that small, and filing them stays the person's call,
+  since upstream saves crops at the detect stream's size and on a sub
+  stream most cars are under 100 px.
 - **Lopsided classes (I51).** A class is never auto-filed past three times
   the images of the smallest filled class. The report page lists the
   images per class, and the status line warns when the dataset is already

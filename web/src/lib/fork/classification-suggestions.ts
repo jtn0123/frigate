@@ -191,35 +191,47 @@ export type DraftToFile = {
   suggestion: Suggestion;
 };
 
-/** The files worth filing: everything but the crops too small to train on (fork I50). */
-export function usableFiles(
+/**
+ * Whether every train image of an event is under 100 px on a side (fork
+ * I50). A warning for the person filing, never a block: upstream saves
+ * these crops at the detect stream's size, so on a sub stream most cars
+ * are that small.
+ */
+export function allTooSmall(
   files: string[],
   tooSmall: string[] | undefined,
-): string[] {
-  if (!tooSmall || tooSmall.length === 0) {
-    return files;
-  }
-  return files.filter((file) => !tooSmall.includes(file));
+): boolean {
+  return (
+    files.length > 0 &&
+    tooSmall != null &&
+    files.every((file) => tooSmall.includes(file))
+  );
 }
 
 /** Every event on the page with a draft and its train images, for file-all. */
 export function draftsToFile(
   suggestions: Record<string, EventSuggestion> | undefined,
   groups: Record<string, { filename: string }[]>,
-  tooSmall?: Record<string, string[]>,
 ): DraftToFile[] {
   const drafts: DraftToFile[] = [];
   for (const [eventId, items] of Object.entries(groups)) {
     const suggestion = suggestions?.[eventId]?.suggestion;
-    const files = usableFiles(
-      items.map((item) => item.filename),
-      tooSmall?.[eventId],
-    );
+    const files = items.map((item) => item.filename);
     if (suggestion && files.length > 0) {
       drafts.push({ eventId, files, suggestion });
     }
   }
   return drafts;
+}
+
+/** How many of the drafts have only tiny crops (fork I50). */
+export function smallDraftCount(
+  drafts: DraftToFile[],
+  tooSmall: Record<string, string[]> | undefined,
+): number {
+  return drafts.filter((draft) =>
+    allTooSmall(draft.files, tooSmall?.[draft.eventId]),
+  ).length;
 }
 
 /**

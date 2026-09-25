@@ -686,8 +686,10 @@
       "removedGroup_other": "Removed {{count}} images from {{category}}",
       "spotCheckFailed": "Could not record the spot check. Try again."
     },
-    "tooSmall": "Drafted as {{category}}, but every image is under 100 px on a side and would stretch when trained. Ignore it or leave it.",
+    "tooSmall": "Crops under 100 px: they stretch when trained",
     "unsureFirst": "Unsure first",
-    "lopsided": "Classes lopsided: {{largest}} has {{ratio}}x the images of {{smallest}}"
+    "lopsided": "Classes lopsided: {{largest}} has {{ratio}}x the images of {{smallest}}",
+    "smallDrafts_one": "{{count}} with tiny crops",
+    "smallDrafts_other": "{{count}} with tiny crops"
   }
 }

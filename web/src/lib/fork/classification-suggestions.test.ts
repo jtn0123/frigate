@@ -12,7 +12,8 @@ import {
   datasetImagePath,
   groupScore,
   orderGroups,
-  usableFiles,
+  allTooSmall,
+  smallDraftCount,
 } from "./classification-suggestions";
 
 const JEV: Suggestion = {
@@ -109,7 +110,7 @@ describe("classification suggestions", () => {
     ]);
   });
 
-  it("leaves crops too small to train on out of file-all (fork I50)", () => {
+  it("flags drafts whose every crop is tiny without dropping them (fork I50)", () => {
     const entry: EventSuggestion = {
       text: null,
       jev: JEV,
@@ -121,15 +122,18 @@ describe("classification suggestions", () => {
       a: [{ filename: "a-1.webp" }, { filename: "a-2.webp" }],
       b: [{ filename: "b-1.webp" }],
     };
-    expect(usableFiles(["x", "y"], undefined)).toEqual(["x", "y"]);
-    expect(usableFiles(["x", "y"], [])).toEqual(["x", "y"]);
-    expect(usableFiles(["x", "y"], ["y"])).toEqual(["x"]);
-    expect(
-      draftsToFile({ a: entry, b: entry }, groups, {
-        a: ["a-2.webp"],
-        b: ["b-1.webp"],
-      }),
-    ).toEqual([{ eventId: "a", files: ["a-1.webp"], suggestion: JEV }]);
+    expect(allTooSmall(["x", "y"], undefined)).toBe(false);
+    expect(allTooSmall(["x", "y"], ["y"])).toBe(false);
+    expect(allTooSmall(["x", "y"], ["x", "y"])).toBe(true);
+    expect(allTooSmall([], [])).toBe(false);
+    const drafts = draftsToFile({ a: entry, b: entry }, groups);
+    expect(drafts).toEqual([
+      { eventId: "a", files: ["a-1.webp", "a-2.webp"], suggestion: JEV },
+      { eventId: "b", files: ["b-1.webp"], suggestion: JEV },
+    ]);
+    expect(smallDraftCount(drafts, { a: ["a-2.webp"], b: ["b-1.webp"] })).toBe(
+      1,
+    );
   });
 
   it("orders the least sure events first when asked (fork I49)", () => {

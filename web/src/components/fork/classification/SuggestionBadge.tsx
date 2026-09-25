@@ -20,8 +20,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useConfirmSuggestion } from "@/hooks/fork/use-confirm-suggestion";
 import {
+  allTooSmall,
   percent,
-  usableFiles,
   type EventSuggestion,
 } from "@/lib/fork/classification-suggestions";
 
@@ -31,7 +31,7 @@ type SuggestionBadgeProps = {
   files: string[];
   entry: EventSuggestion | undefined;
   onRefresh: () => void;
-  /** Train images too small to train on, left out of the confirm (fork I50). */
+  /** Train images under 100 px on a side, flagged on the badge (fork I50). */
   tooSmall?: string[];
 };
 
@@ -47,7 +47,7 @@ export default function SuggestionBadge({
   const [pending, setPending] = useState(false);
 
   const suggestion = entry?.suggestion ?? null;
-  const usable = usableFiles(files, tooSmall);
+  const tiny = allTooSmall(files, tooSmall);
 
   const confirmSuggestion = useConfirmSuggestion(modelName, onRefresh);
   const confirm = useCallback(async () => {
@@ -56,34 +56,14 @@ export default function SuggestionBadge({
     }
     setPending(true);
     try {
-      await confirmSuggestion(eventId, usable, suggestion);
+      await confirmSuggestion(eventId, files, suggestion);
     } finally {
       setPending(false);
     }
-  }, [suggestion, pending, confirmSuggestion, eventId, usable]);
+  }, [suggestion, pending, confirmSuggestion, eventId, files]);
 
   if (!entry) {
     return null;
-  }
-
-  if (suggestion && usable.length === 0) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            data-testid="suggestion-too-small"
-            className="absolute left-1 top-1 z-10 flex size-6 items-center justify-center rounded-md bg-black/60 text-white/80"
-          >
-            <LuShrink className="size-4" />
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          {t("classificationSuggestions.tooSmall", {
-            category: suggestion.category,
-          })}
-        </TooltipContent>
-      </Tooltip>
-    );
   }
 
   if (!suggestion) {
@@ -134,6 +114,13 @@ export default function SuggestionBadge({
                 {score}%
               </span>
             )}
+            {tiny && (
+              <LuShrink
+                data-testid="suggestion-too-small"
+                aria-label={t("classificationSuggestions.tooSmall")}
+                className="size-3 shrink-0 text-warning"
+              />
+            )}
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-72">
@@ -141,6 +128,11 @@ export default function SuggestionBadge({
           {suggestion.evidence && (
             <div className="text-secondary-foreground">
               {suggestion.evidence}
+            </div>
+          )}
+          {tiny && (
+            <div className="text-warning">
+              {t("classificationSuggestions.tooSmall")}
             </div>
           )}
         </TooltipContent>
