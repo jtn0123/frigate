@@ -690,6 +690,7 @@
     "unsureFirst": "Unsure first",
     "lopsided": "Classes lopsided: {{largest}} has {{ratio}}x the images of {{smallest}}",
     "smallDrafts_one": "{{count}} with tiny crops",
-    "smallDrafts_other": "{{count}} with tiny crops"
+    "smallDrafts_other": "{{count}} with tiny crops",
+    "details": "Details"
   }
 }

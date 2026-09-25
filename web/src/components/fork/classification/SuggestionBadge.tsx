@@ -100,17 +100,18 @@ export default function SuggestionBadge({
   return (
     <div
       data-testid="suggestion-badge"
-      className="absolute left-1 top-1 z-10 flex max-w-[calc(100%-3rem)] items-center gap-1 rounded-md bg-black/60 py-0.5 pl-1.5 pr-0.5 text-xs text-white"
+      className="absolute left-1 top-1 z-10 flex max-w-[calc(100%-2.75rem)] items-center gap-1 rounded-md bg-black/60 py-0.5 pl-1.5 pr-0.5 text-xs text-white"
     >
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="flex min-w-0 items-center gap-1">
-            <HiSparkles className="size-3 shrink-0 text-selected" />
+            {/* The class name always wins the space; the rest yields on narrow cards. */}
+            <HiSparkles className="size-3 shrink-0 text-selected [@container(max-width:11rem)]:hidden" />
             <span className="truncate smart-capitalize">
               {suggestion.category}
             </span>
             {score != null && (
-              <span className="shrink-0 text-white/70 [@container(max-width:10rem)]:hidden">
+              <span className="shrink-0 text-white/70 [@container(max-width:13rem)]:hidden">
                 {score}%
               </span>
             )}
