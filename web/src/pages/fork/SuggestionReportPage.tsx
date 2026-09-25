@@ -2,9 +2,10 @@
  * The suggestion report for one custom classification model (fork I47).
  *
  * Everything the status line's tooltips hint at, on one page: how often
- * people kept the drafts, per class, camera and source, how many images
- * were auto-filed, and how often the trained model agreed with the
- * descriptions, with the latest disagreements linked to Explore.
+ * people accepted the guesses, per class, camera and source, how many were
+ * added automatically or in bulk, and how often the trained model agreed
+ * with the descriptions, with the latest disagreements linked to Explore.
+ * Every number carries a one-line explanation in plain words.
  */
 
 import { useState } from "react";
@@ -12,7 +13,17 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { baseUrl } from "@/api/baseUrl";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
-import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button, buttonVariants } from "@/components/ui/button";
 import Heading from "@/components/ui/heading";
 import { Toaster } from "@/components/ui/sonner";
 import {
@@ -33,6 +44,7 @@ import {
   type ClassAcceptance,
   type DatasetBalance,
   type SuggestionReport,
+  modelLabel,
 } from "@/lib/fork/classification-suggestions";
 
 function pct(rate: number | null | undefined): string {
@@ -65,7 +77,9 @@ export default function SuggestionReportPage() {
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Heading as="h2">
-          {t("classificationSuggestions.report.title", { model })}
+          {t("classificationSuggestions.report.title", {
+            model: modelLabel(model),
+          })}
         </Heading>
         <Link to="/classification" className="text-sm text-selected">
           {t("classificationSuggestions.report.back")}
@@ -92,22 +106,29 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
         <Stat
           label={t("classificationSuggestions.report.reviewed")}
           value={String(report.total)}
+          description={t("classificationSuggestions.report.reviewedHint")}
         />
         <Stat
           label={t("classificationSuggestions.report.keptRate")}
           value={pct(report.rate)}
+          description={t("classificationSuggestions.report.keptRateHint")}
         />
         <Stat
           label={t("classificationSuggestions.report.autoFiled")}
           value={String(report.auto_filed ?? 0)}
+          description={t("classificationSuggestions.report.autoFiledHint")}
         />
         <Stat
           label={t("classificationSuggestions.report.modelAgreement")}
           value={check && check.total > 0 ? pct(check.rate) : "–"}
+          description={t("classificationSuggestions.report.modelAgreementHint")}
         />
         <Stat
           label={t("classificationSuggestions.report.newSinceTraining")}
           value={String(report.training?.new_images ?? 0)}
+          description={t(
+            "classificationSuggestions.report.newSinceTrainingHint",
+          )}
           hint={
             report.training && !report.training.has_trained
               ? t("classificationSuggestions.report.neverTrained")
@@ -115,6 +136,18 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
           }
         />
       </div>
+      {report.bulk_accepted != null && (
+        <div data-testid="report-bulk" className="flex flex-col text-sm">
+          <span>
+            {t("classificationSuggestions.report.bulkAccepted", {
+              count: report.bulk_accepted,
+            })}
+          </span>
+          <span className="text-xs text-secondary-foreground">
+            {t("classificationSuggestions.report.bulkAcceptedHint")}
+          </span>
+        </div>
+      )}
 
       {report.dataset && <BalanceSection balance={report.dataset} />}
       {(report.recent_auto_filed?.length ?? 0) > 0 && (
@@ -127,20 +160,28 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
       <AcceptanceTable
         testId="report-classes"
         title={t("classificationSuggestions.report.byClass")}
+        description={t("classificationSuggestions.report.byClassHint")}
         firstColumn={t("classificationSuggestions.report.class")}
         rows={report.classes}
         changedHeader={t("classificationSuggestions.report.changedTo")}
         autoHeader={t("classificationSuggestions.report.autoFiled")}
+        bulkHeader={
+          report.bulk_accepted != null
+            ? t("classificationSuggestions.report.bulkAcceptedColumn")
+            : undefined
+        }
       />
       <AcceptanceTable
         testId="report-cameras"
         title={t("classificationSuggestions.report.byCamera")}
+        description={t("classificationSuggestions.report.byCameraHint")}
         firstColumn={t("classificationSuggestions.report.camera")}
         rows={report.cameras}
       />
       <AcceptanceTable
         testId="report-sources"
         title={t("classificationSuggestions.report.bySource")}
+        description={t("classificationSuggestions.report.bySourceHint")}
         firstColumn={t("classificationSuggestions.report.source")}
         rows={report.sources}
       />
@@ -150,6 +191,7 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
           <AcceptanceTable
             testId="report-model-check"
             title={t("classificationSuggestions.report.modelCheck")}
+            description={t("classificationSuggestions.report.modelCheckHint")}
             firstColumn={t("classificationSuggestions.report.modelSaid")}
             rows={check.classes}
             acceptedHeader={t("classificationSuggestions.report.agreed")}
@@ -165,6 +207,9 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
               <Heading as="h4">
                 {t("classificationSuggestions.report.recentDisagreements")}
               </Heading>
+              <div className="text-sm text-secondary-foreground">
+                {t("classificationSuggestions.report.recentDisagreementsHint")}
+              </div>
               <ul className="flex flex-col gap-1 text-sm">
                 {check.recent_disagreements.map((d, i) => (
                   <li
@@ -205,12 +250,20 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
 function Stat({
   label,
   value,
+  description,
   hint,
-}: Readonly<{ label: string; value: string; hint?: string }>) {
+}: Readonly<{
+  label: string;
+  value: string;
+  /** One line saying what the number counts, in plain words. */
+  description: string;
+  hint?: string;
+}>) {
   return (
     <div className="flex flex-col rounded-lg bg-secondary p-3">
       <span className="text-xs text-secondary-foreground">{label}</span>
       <span className="text-xl font-medium">{value}</span>
+      <span className="text-xs text-secondary-foreground">{description}</span>
       {hint && (
         <span className="text-xs text-secondary-foreground">{hint}</span>
       )}
@@ -228,6 +281,9 @@ function BalanceSection({ balance }: Readonly<{ balance: DatasetBalance }>) {
   return (
     <section data-testid="report-balance" className="flex flex-col gap-1">
       <Heading as="h4">{t("classificationSuggestions.report.balance")}</Heading>
+      <div className="text-sm text-secondary-foreground">
+        {t("classificationSuggestions.report.balanceHint")}
+      </div>
       {balance.lopsided && (
         <div className="text-sm text-warning">
           {t("classificationSuggestions.report.lopsided", {
@@ -266,7 +322,10 @@ function BalanceSection({ balance }: Readonly<{ balance: DatasetBalance }>) {
   );
 }
 
-/** The latest auto-filed groups, each kept or removed with one tap (fork I52). */
+/**
+ * The latest auto-filed groups, each kept with one tap or removed after a
+ * confirmation, since a removal deletes the photos for good (fork I52).
+ */
 function SpotCheckSection({
   model,
   groups,
@@ -274,6 +333,7 @@ function SpotCheckSection({
   const { t } = useTranslation(["fork"]);
   const spotCheck = useSpotCheck(model);
   const [pending, setPending] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<AutoFiledGroup | null>(null);
 
   const decide = async (group: AutoFiledGroup, keep: boolean) => {
     const key = `${group.event_id ?? ""}:${group.category}`;
@@ -332,6 +392,10 @@ function SpotCheckSection({
                   variant="select"
                   className="h-6 px-2 text-xs"
                   disabled={busy}
+                  aria-label={t("classificationSuggestions.report.keepAria", {
+                    category: group.category,
+                    camera: group.camera ?? "",
+                  })}
                   onClick={() => void decide(group, true)}
                 >
                   {t("classificationSuggestions.report.keep")}
@@ -341,7 +405,11 @@ function SpotCheckSection({
                   variant="outline"
                   className="h-6 px-2 text-xs"
                   disabled={busy}
-                  onClick={() => void decide(group, false)}
+                  aria-label={t("classificationSuggestions.report.removeAria", {
+                    category: group.category,
+                    camera: group.camera ?? "",
+                  })}
+                  onClick={() => setRemoving(group)}
                 >
                   {t("classificationSuggestions.report.remove")}
                 </Button>
@@ -358,6 +426,46 @@ function SpotCheckSection({
           );
         })}
       </div>
+      <AlertDialog
+        open={removing != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoving(null);
+          }
+        }}
+      >
+        <AlertDialogContent data-testid="spot-check-remove-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("classificationSuggestions.report.removeTitle", {
+                count: removing?.files.length ?? 1,
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("classificationSuggestions.report.removeDescription", {
+                category: removing?.category ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("button.cancel", { ns: "common" })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "destructive" })}
+              onClick={() => {
+                const group = removing;
+                setRemoving(null);
+                if (group) {
+                  void decide(group, false);
+                }
+              }}
+            >
+              {t("classificationSuggestions.report.remove")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -365,21 +473,26 @@ function SpotCheckSection({
 type AcceptanceTableProps = {
   testId: string;
   title: string;
+  /** One line saying what the table counts, in plain words. */
+  description: string;
   firstColumn: string;
   rows: Record<string, Acceptance | ClassAcceptance>;
   acceptedHeader?: string;
   changedHeader?: string;
   autoHeader?: string;
+  bulkHeader?: string | undefined;
 };
 
 function AcceptanceTable({
   testId,
   title,
+  description,
   firstColumn,
   rows,
   acceptedHeader,
   changedHeader,
   autoHeader,
+  bulkHeader,
 }: Readonly<AcceptanceTableProps>) {
   const { t } = useTranslation(["fork"]);
   const entries = Object.entries(rows);
@@ -389,6 +502,7 @@ function AcceptanceTable({
   return (
     <section data-testid={testId} className="flex flex-col gap-1">
       <Heading as="h4">{title}</Heading>
+      <div className="text-sm text-secondary-foreground">{description}</div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -401,6 +515,7 @@ function AcceptanceTable({
             </TableHead>
             {changedHeader && <TableHead>{changedHeader}</TableHead>}
             {autoHeader && <TableHead>{autoHeader}</TableHead>}
+            {bulkHeader && <TableHead>{bulkHeader}</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -421,6 +536,11 @@ function AcceptanceTable({
               {autoHeader && (
                 <TableCell>
                   {"auto_filed" in stats ? (stats.auto_filed ?? 0) : 0}
+                </TableCell>
+              )}
+              {bulkHeader && (
+                <TableCell>
+                  {"bulk_accepted" in stats ? (stats.bulk_accepted ?? 0) : 0}
                 </TableCell>
               )}
             </TableRow>

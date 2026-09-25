@@ -47,7 +47,7 @@ describe("SuggestionReportPage", () => {
   it("shows a spinner, then the tables and disagreements", () => {
     const { unmount } = renderPage();
     expect(screen.getByTestId("suggestion-report")).toHaveTextContent(
-      'title:{"model":"vehicle_type"}',
+      'title:{"model":"Vehicle type"}',
     );
     expect(screen.queryByTestId("report-classes")).toBeNull();
     unmount();
@@ -58,6 +58,7 @@ describe("SuggestionReportPage", () => {
       accepted: 17,
       rate: 0.85,
       auto_filed: 5,
+      bulk_accepted: 3,
       sources: { jev: { total: 15, accepted: 13, rate: 13 / 15 } },
       classes: {
         van: {
@@ -66,6 +67,7 @@ describe("SuggestionReportPage", () => {
           rate: 0.8,
           corrected_to: { suv: 2 },
           auto_filed: 5,
+          bulk_accepted: 3,
         },
       },
       cameras: { yard: { total: 20, accepted: 17, rate: 0.85 } },
@@ -95,8 +97,31 @@ describe("SuggestionReportPage", () => {
       },
     };
     renderPage();
-    expect(screen.getByTestId("report-classes")).toHaveTextContent(
-      "van108 (80%)suv 25",
+    const page = screen.getByTestId("suggestion-report");
+    // Every headline number carries its one-line explanation.
+    for (const key of [
+      "reviewedHint",
+      "keptRateHint",
+      "autoFiledHint",
+      "modelAgreementHint",
+      "newSinceTrainingHint",
+    ]) {
+      expect(page).toHaveTextContent(`classificationSuggestions.report.${key}`);
+    }
+    const bulk = screen.getByTestId("report-bulk");
+    expect(bulk).toHaveTextContent(
+      'classificationSuggestions.report.bulkAccepted:{"count":3}',
+    );
+    expect(bulk).toHaveTextContent(
+      "classificationSuggestions.report.bulkAcceptedHint",
+    );
+    const classes = screen.getByTestId("report-classes");
+    expect(classes).toHaveTextContent("van108 (80%)suv 253");
+    expect(classes).toHaveTextContent(
+      "classificationSuggestions.report.bulkAcceptedColumn",
+    );
+    expect(classes).toHaveTextContent(
+      "classificationSuggestions.report.byClassHint",
     );
     expect(screen.getByTestId("report-cameras")).toHaveTextContent(
       "yard2017 (85%)",
@@ -167,6 +192,7 @@ describe("SuggestionReportPage", () => {
     expect(screen.getByTestId("suggestion-report")).toHaveTextContent(
       "neverTrained",
     );
+    expect(screen.queryByTestId("report-bulk")).toBeNull();
     const check = screen.getByTestId("report-spot-check");
     expect(check).toHaveTextContent('spotCheck:{"count":1}');
     const group = screen.getByTestId("spot-check-group");
@@ -174,15 +200,33 @@ describe("SuggestionReportPage", () => {
       "http://frigate/clips/vehicle_type/dataset/suv/suv-a.png",
     );
     expect(group).toHaveTextContent('imageCount:{"count":2}');
+    const removeName =
+      'classificationSuggestions.report.removeAria:{"category":"suv","camera":"yard"}';
+
+    // Remove asks first; Cancel leaves the photos alone.
+    fireEvent.click(screen.getByRole("button", { name: removeName }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent(
+      'classificationSuggestions.report.removeTitle:{"count":2}',
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: 'button.cancel:{"ns":"common"}' }),
+    );
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(spotChecks).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: removeName }));
+    await screen.findByRole("alertdialog");
     fireEvent.click(
       screen.getByRole("button", {
         name: "classificationSuggestions.report.remove",
       }),
     );
     await waitFor(() => expect(spotChecks).toEqual([["evt-1", false]]));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     fireEvent.click(
       screen.getByRole("button", {
-        name: "classificationSuggestions.report.keep",
+        name: 'classificationSuggestions.report.keepAria:{"category":"suv","camera":"yard"}',
       }),
     );
     await waitFor(() => expect(spotChecks).toHaveLength(2));

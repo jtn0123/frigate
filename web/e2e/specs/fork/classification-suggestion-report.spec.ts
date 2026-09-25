@@ -3,7 +3,9 @@
  *
  * /classification/suggestions/{model} reads the same report endpoint as the
  * status line and lays it out as tables, with the latest disagreements
- * between the trained model and the descriptions linked to Explore.
+ * between the trained model and the descriptions linked to Explore. Every
+ * number has a plain-words line under it, bulk accepts show apart from the
+ * accepted rate, and removing an automatic addition asks first.
  */
 
 import { test, expect } from "../../fixtures/frigate-test";
@@ -15,6 +17,7 @@ const REPORT = {
   accepted: 17,
   rate: 0.85,
   auto_filed: 5,
+  bulk_accepted: 3,
   sources: { jev: { total: 15, accepted: 13, rate: 13 / 15 } },
   classes: {
     van: {
@@ -23,6 +26,7 @@ const REPORT = {
       rate: 0.8,
       corrected_to: { suv: 2 },
       auto_filed: 5,
+      bulk_accepted: 3,
     },
   },
   cameras: { backyard: { total: 20, accepted: 17, rate: 0.85 } },
@@ -75,9 +79,22 @@ test.describe("Suggestion report page (fork I47)", () => {
 
     await frigateApp.goto(`/classification/suggestions/${MODEL}`);
     const report = page.getByTestId("suggestion-report");
-    await expect(report).toContainText("Suggestions report: vehicle_type");
+    await expect(report).toContainText("Suggestions report: Vehicle type");
     await expect(report).toContainText("85%");
-    await expect(page.getByTestId("report-classes")).toContainText("suv 2");
+    await expect(report).toContainText("Guesses you accepted");
+    await expect(report).toContainText(
+      "Share of reviewed guesses added without changing the class",
+    );
+    await expect(report).toContainText("Added automatically");
+    await expect(report).toContainText("Model agrees with descriptions");
+    await expect(report).not.toContainText("Kept rate");
+    await expect(report).not.toContainText("Auto-filed");
+    await expect(page.getByTestId("report-bulk")).toContainText(
+      "Accepted in bulk (not counted): 3",
+    );
+    const classes = page.getByTestId("report-classes");
+    await expect(classes).toContainText("suv 2");
+    await expect(classes).toContainText("Accepted in bulk (not counted)");
     await expect(page.getByTestId("report-model-check")).toContainText(
       "sedan 4",
     );
@@ -92,7 +109,7 @@ test.describe("Suggestion report page (fork I47)", () => {
     await expect(page).toHaveURL(/\/classification$/);
   });
 
-  test("shows class balance and lets a spot check remove an auto-filed group", async ({
+  test("shows class balance and removes an automatic addition after asking", async ({
     frigateApp,
   }) => {
     const { page } = frigateApp;
@@ -179,7 +196,23 @@ test.describe("Suggestion report page (fork I47)", () => {
     const group = page.getByTestId("spot-check-group");
     await expect(group).toHaveCount(1);
     await expect(group).toContainText("2 images");
-    await group.getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByTestId("report-spot-check")).toContainText(
+      "Removing one takes it out of training and counts against that class",
+    );
+    const remove = group.getByRole("button", {
+      name: "Remove the van photos from backyard",
+    });
+
+    // Cancel leaves the photos in training.
+    await remove.click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText("Remove these 2 photos from training?");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(spotChecks).toHaveLength(0);
+
+    await remove.click();
+    await dialog.getByRole("button", { name: "Remove" }).click();
     await expect.poll(() => spotChecks.length).toBe(1);
     expect(spotChecks[0]).toEqual({
       event_id: "1780673409.365581-abc123",
