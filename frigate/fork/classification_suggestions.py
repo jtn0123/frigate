@@ -32,6 +32,10 @@ from frigate.util.path import safe_join, sanitize_path_component
 
 logger = logging.getLogger(__name__)
 
+# Messages for names that do not resolve inside the model's folders
+INVALID_CATEGORY = "Invalid category"
+INVALID_FILE_NAME = "Invalid file name"
+
 # Provisional gates on the Jev distribution: the winner must be this sure and
 # this far ahead of the runner-up before it is shown as a draft.
 MIN_SCORE = 0.9
@@ -699,12 +703,12 @@ def categorize_train_files(
     """
     folder = safe_join(clips_dir, name, "dataset", category)
     if folder is None:
-        raise ValueError("Invalid category")
+        raise ValueError(INVALID_CATEGORY)
     sources = []
     for file in files:
         path = safe_join(clips_dir, name, "train", file)
         if path is None:
-            raise ValueError("Invalid file name")
+            raise ValueError(INVALID_FILE_NAME)
         sources.append(path)
     missing = [path for path in sources if not os.path.isfile(path)]
     if sources and len(missing) == len(sources):
@@ -799,6 +803,27 @@ def _original_train_names(
     return names
 
 
+def _restore_one(path: str, train: str, original: str, event_id: str) -> bool:
+    """Move one dataset image back into the train folder.
+
+    Returns False when the file is already gone or cannot be read.
+    """
+    if not os.path.isfile(path):
+        return False
+    # cv2's stubs say imread never returns None; it does for bad files.
+    image: Any = cv2.imread(path)
+    if image is None:
+        logger.warning("Skipping an unreadable dataset image on undo")
+        return False
+    target = safe_join(train, original)
+    if target is None or os.path.exists(target):
+        # Upstream's train name, so the grid groups it under the event.
+        target = os.path.join(train, f"{event_id}-{time.time()}-unknown-0.0.webp")
+    cv2.imwrite(target, image)
+    os.unlink(path)
+    return True
+
+
 def restore_train_files(
     clips_dir: str, name: str, event_id: str, category: str, files: list[str]
 ) -> list[str]:
@@ -825,38 +850,25 @@ def restore_train_files(
     folder = safe_join(clips_dir, name, "dataset", category)
     train = safe_join(clips_dir, name, "train")
     if folder is None or train is None:
-        raise ValueError("Invalid category")
+        raise ValueError(INVALID_CATEGORY)
     paths = []
     for file in files:
         path = safe_join(folder, file) if _is_basename(file) else None
         if path is None:
-            raise ValueError("Invalid file name")
+            raise ValueError(INVALID_FILE_NAME)
         paths.append((file, path))
     if not _is_basename(event_id) or sanitize_path_component(event_id) != event_id:
         raise ValueError("Invalid event id")
-    restored = []
     with dataset_lock(clips_dir, name):
         originals = _original_train_names(
             read_provenance(clips_dir, name), event_id, category
         )
         os.makedirs(train, exist_ok=True)
-        for file, path in paths:
-            if not os.path.isfile(path):
-                continue
-            # cv2's stubs say imread never returns None; it does for bad files.
-            image: Any = cv2.imread(path)
-            if image is None:
-                logger.warning("Skipping an unreadable dataset image on undo")
-                continue
-            target = safe_join(train, originals.get(file, ""))
-            if target is None or os.path.exists(target):
-                # Upstream's train name, so the grid groups it under the event.
-                target = os.path.join(
-                    train, f"{event_id}-{time.time()}-unknown-0.0.webp"
-                )
-            cv2.imwrite(target, image)
-            os.unlink(path)
-            restored.append(file)
+        restored = [
+            file
+            for file, path in paths
+            if _restore_one(path, train, originals.get(file, ""), event_id)
+        ]
         record_confirmation(
             clips_dir,
             name,
@@ -1290,12 +1302,12 @@ def spot_check(
     """
     folder = safe_join(clips_dir, name, "dataset", category)
     if folder is None:
-        raise ValueError("Invalid category")
+        raise ValueError(INVALID_CATEGORY)
     paths = []
     for file in files:
         path = safe_join(folder, file)
         if path is None:
-            raise ValueError("Invalid file name")
+            raise ValueError(INVALID_FILE_NAME)
         paths.append((file, path))
     removed = []
     if not keep:

@@ -91,7 +91,7 @@ function focusWhenReady(button: HTMLButtonElement) {
 }
 
 function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 /** The evidence sentence with the words of the class name marked. */
@@ -103,7 +103,7 @@ function highlight(evidence: string, category: string): ReactNode[] {
   if (words.length === 0) {
     return [evidence];
   }
-  const pattern = new RegExp(`\\b(${words.join("|")})(e?s)?\\b`, "gi");
+  const pattern = new RegExp(String.raw`\b(${words.join("|")})(e?s)?\b`, "gi");
   const parts: ReactNode[] = [];
   let last = 0;
   for (const match of evidence.matchAll(pattern)) {
@@ -258,8 +258,8 @@ export default function SuggestionBadge({
             {tone && (
               <span
                 data-testid="suggestion-confidence"
-                role="img"
-                aria-label={toneLabels[tone]}
+                title={toneLabels[tone]}
+                aria-hidden
                 className={cn(
                   "size-2 shrink-0 rounded-full",
                   tone === "high" && "bg-green-500",

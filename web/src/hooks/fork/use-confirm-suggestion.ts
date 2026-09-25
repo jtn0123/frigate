@@ -41,43 +41,11 @@ export function useConfirmSuggestion(
       const body = confirmBody(eventId, files, suggestion, category, bulk);
       const refresh = () =>
         Promise.all([onRefresh(), mutate(reportKey(modelName))]);
-      let moved: string[] = [];
+      let moved: string[];
       try {
-        const response = await axios.post<{ moved?: unknown }>(
-          `classification/${modelName}/suggestions/confirm`,
-          body,
-        );
-        if (Array.isArray(response.data.moved)) {
-          moved = response.data.moved.filter(
-            (name): name is string => typeof name === "string",
-          );
-        }
+        moved = await postConfirm(modelName, body);
       } catch (error) {
-        const response = axios.isAxiosError(error) ? error.response : undefined;
-        if (isAlreadyAccepted(response?.status, response?.data)) {
-          if (!bulk) {
-            toast.info(t("classificationSuggestions.alreadyAccepted"), {
-              position: "top-center",
-            });
-            await refresh();
-          }
-          return true;
-        }
-        if (!bulk) {
-          const message = serverMessage(response?.data);
-          toast.error(
-            category == null
-              ? t("classificationSuggestions.confirmFailed")
-              : t("classificationSuggestions.overrideFailed", { category }),
-            {
-              position: "top-center",
-              ...(message ? { description: message } : {}),
-            },
-          );
-          // The card may be stale (filed in another tab); show what is true.
-          await refresh();
-        }
-        return false;
+        return handleConfirmError(error, { bulk, category, t, refresh });
       }
       if (bulk) {
         return true;
@@ -89,19 +57,7 @@ export function useConfirmSuggestion(
         }),
         {
           position: "top-center",
-          ...(moved.length > 0
-            ? {
-                action: {
-                  label: t("classificationSuggestions.undo"),
-                  onClick: () =>
-                    void undo({
-                      event_id: eventId,
-                      category: body.category,
-                      files: moved,
-                    }),
-                },
-              }
-            : {}),
+          ...undoAction(t, undo, eventId, body.category, moved),
         },
       );
       await refresh();
@@ -109,4 +65,84 @@ export function useConfirmSuggestion(
     },
     [modelName, onRefresh, t, undo],
   );
+}
+
+type Translate = ReturnType<typeof useTranslation>["t"];
+type Undo = ReturnType<typeof useUndoSuggestion>;
+
+/** Post the confirm body and return the dataset names of the moved images. */
+async function postConfirm(
+  modelName: string,
+  body: ReturnType<typeof confirmBody>,
+): Promise<string[]> {
+  const response = await axios.post<{ moved?: unknown }>(
+    `classification/${modelName}/suggestions/confirm`,
+    body,
+  );
+  if (!Array.isArray(response.data.moved)) {
+    return [];
+  }
+  return response.data.moved.filter(
+    (name): name is string => typeof name === "string",
+  );
+}
+
+type ErrorContext = {
+  bulk: boolean;
+  category: string | undefined;
+  t: Translate;
+  refresh: () => Promise<unknown>;
+};
+
+/**
+ * Turn a failed confirm into the user-facing outcome: "already accepted"
+ * counts as done, anything else shows why. Bulk calls stay silent.
+ */
+async function handleConfirmError(
+  error: unknown,
+  { bulk, category, t, refresh }: ErrorContext,
+): Promise<boolean> {
+  const response = axios.isAxiosError(error) ? error.response : undefined;
+  const already = isAlreadyAccepted(response?.status, response?.data);
+  if (bulk) {
+    return already;
+  }
+  if (already) {
+    toast.info(t("classificationSuggestions.alreadyAccepted"), {
+      position: "top-center",
+    });
+  } else {
+    const message = serverMessage(response?.data);
+    toast.error(
+      category == null
+        ? t("classificationSuggestions.confirmFailed")
+        : t("classificationSuggestions.overrideFailed", { category }),
+      {
+        position: "top-center",
+        ...(message ? { description: message } : {}),
+      },
+    );
+  }
+  // The card may be stale (filed in another tab); show what is true.
+  await refresh();
+  return already;
+}
+
+/** The toast's Undo button, only when something was moved. */
+function undoAction(
+  t: Translate,
+  undo: Undo,
+  eventId: string,
+  category: string,
+  moved: string[],
+) {
+  if (moved.length === 0) {
+    return {};
+  }
+  return {
+    action: {
+      label: t("classificationSuggestions.undo"),
+      onClick: () => void undo({ event_id: eventId, category, files: moved }),
+    },
+  };
 }

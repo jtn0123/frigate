@@ -165,11 +165,13 @@ function ReportBody({ report }: Readonly<{ report: SuggestionReport }>) {
         rows={report.classes}
         changedHeader={t("classificationSuggestions.report.changedTo")}
         autoHeader={t("classificationSuggestions.report.autoFiled")}
-        bulkHeader={
-          report.bulk_accepted != null
-            ? t("classificationSuggestions.report.bulkAcceptedColumn")
-            : undefined
-        }
+        {...(report.bulk_accepted != null
+          ? {
+              bulkHeader: t(
+                "classificationSuggestions.report.bulkAcceptedColumn",
+              ),
+            }
+          : {})}
       />
       <AcceptanceTable
         testId="report-cameras"
@@ -480,7 +482,7 @@ type AcceptanceTableProps = {
   acceptedHeader?: string;
   changedHeader?: string;
   autoHeader?: string;
-  bulkHeader?: string | undefined;
+  bulkHeader?: string;
 };
 
 function AcceptanceTable({

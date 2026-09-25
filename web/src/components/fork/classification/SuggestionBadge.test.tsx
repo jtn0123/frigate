@@ -86,7 +86,7 @@ describe("SuggestionBadge", () => {
     // The percent lives in the popover; the pill shows a colored dot.
     expect(badge).not.toHaveTextContent("97%");
     expect(screen.getByTestId("suggestion-confidence")).toHaveAttribute(
-      "aria-label",
+      "title",
       "classificationSuggestions.confidenceHigh",
     );
 
@@ -141,7 +141,7 @@ describe("SuggestionBadge", () => {
     );
     expect(screen.getByTitle("delivery truck")).toBeInTheDocument();
     expect(screen.getByTestId("suggestion-confidence")).toHaveAttribute(
-      "aria-label",
+      "title",
       "classificationSuggestions.confidenceMedium",
     );
   });

@@ -177,7 +177,7 @@ test.describe("Classification suggestions @medium", () => {
     await expect(badge).toHaveCount(1, { timeout: 10_000 });
     await expect(badge).toContainText("van?");
     await expect(badge.getByTestId("suggestion-confidence")).toHaveAttribute(
-      "aria-label",
+      "title",
       "High confidence",
     );
 

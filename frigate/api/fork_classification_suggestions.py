@@ -244,7 +244,11 @@ async def confirm_suggestion(
     category = suggest.safe_category(body.category)
     if not category or suggest.normalize_class(category) in {"", "none"}:
         return JSONResponse(
-            content={"success": False, "message": "Invalid category", "moved": []},
+            content={
+                "success": False,
+                "message": suggest.INVALID_CATEGORY,
+                "moved": [],
+            },
             status_code=400,
         )
 
@@ -266,7 +270,11 @@ async def confirm_suggestion(
         )
     except ValueError:
         return JSONResponse(
-            content={"success": False, "message": "Invalid file name", "moved": []},
+            content={
+                "success": False,
+                "message": suggest.INVALID_FILE_NAME,
+                "moved": [],
+            },
             status_code=400,
         )
     except OSError:
@@ -309,7 +317,11 @@ async def undo_suggestion(
     category = suggest.safe_category(body.category)
     if not category:
         return JSONResponse(
-            content={"success": False, "message": "Invalid category", "restored": 0},
+            content={
+                "success": False,
+                "message": suggest.INVALID_CATEGORY,
+                "restored": 0,
+            },
             status_code=400,
         )
     try:
@@ -449,7 +461,11 @@ async def spot_check_suggestion(
     category = suggest.safe_category(body.category)
     if not category:
         return JSONResponse(
-            content={"success": False, "message": "Invalid category", "removed": []},
+            content={
+                "success": False,
+                "message": suggest.INVALID_CATEGORY,
+                "removed": [],
+            },
             status_code=400,
         )
     try:
@@ -464,7 +480,11 @@ async def spot_check_suggestion(
         )
     except ValueError:
         return JSONResponse(
-            content={"success": False, "message": "Invalid file name", "removed": []},
+            content={
+                "success": False,
+                "message": suggest.INVALID_FILE_NAME,
+                "removed": [],
+            },
             status_code=400,
         )
     except OSError:
