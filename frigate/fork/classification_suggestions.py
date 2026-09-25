@@ -40,6 +40,10 @@ INVALID_FILE_NAME = "Invalid file name"
 # this far ahead of the runner-up before it is shown as a draft.
 MIN_SCORE = 0.9
 MIN_MARGIN = 0.2
+# A weaker lean is still shown, as a "maybe" the person must pick by hand. It
+# never enters Accept all or auto-filing.
+MAYBE_SCORE = 0.55
+MAYBE_MARGIN = 0.1
 MAX_DESCRIPTION = 4000
 # Local drafting is cheap, and every Jev request is cached per description and
 # reserved against the daily budget first, so a longer page cannot spend more
@@ -85,6 +89,7 @@ class EventSuggestion(TypedDict):
     jev_status: str
     suggestion: Suggestion | None
     conflict: bool
+    maybe: Suggestion | None
 
 
 # Known class vocabulary: kind, phrases that name it in a description, and the
@@ -403,14 +408,18 @@ def parse_jev_answer(payload: Any, classes: list[str]) -> dict[str, Any]:
     return {"choice": winner, "probabilities": distribution}
 
 
-def jev_suggestion(answer: dict[str, Any]) -> Suggestion | None:
+def jev_suggestion(
+    answer: dict[str, Any],
+    min_score: float = MIN_SCORE,
+    min_margin: float = MIN_MARGIN,
+) -> Suggestion | None:
     """Apply the score and margin gates to a validated answer."""
     distribution: dict[str, float] = answer["probabilities"]
     ranked = sorted(distribution, key=distribution.__getitem__, reverse=True)
     winner = ranked[0]
     score = distribution[winner]
     runner_up = distribution[ranked[1]] if len(ranked) > 1 else 0.0
-    if winner == UNKNOWN or score < MIN_SCORE or score - runner_up < MIN_MARGIN:
+    if winner == UNKNOWN or score < min_score or score - runner_up < min_margin:
         return None
     return {
         "category": winner,
@@ -609,18 +618,25 @@ async def suggest_for_events(
         description = description.strip() if isinstance(description, str) else ""
         text = text_suggestion(description, classes) if text_enabled else None
         jev_draft: Suggestion | None = None
+        answer: dict[str, Any] | None = None
         status = "disabled"
         if jev is not None and cache is not None and budget is not None and ask:
-            status, jev_draft = await _ask_jev(
+            status, answer = await _ask_jev(
                 event, description, classes, jev, cache, budget, ask
             )
+        if answer is not None:
+            jev_draft = jev_suggestion(answer)
         suggestion, conflict = choose(text, jev_draft)
+        maybe = None
+        if answer is not None and suggestion is None and not conflict:
+            maybe = jev_suggestion(answer, MAYBE_SCORE, MAYBE_MARGIN)
         result[event["id"]] = {
             "text": text,
             "jev": jev_draft,
             "jev_status": status,
             "suggestion": suggestion,
             "conflict": conflict,
+            "maybe": maybe,
         }
     return result
 
@@ -633,7 +649,8 @@ async def _ask_jev(
     cache: SuggestionCache,
     budget: DailyBudget,
     ask: AskJev,
-) -> tuple[str, Suggestion | None]:
+) -> tuple[str, dict[str, Any] | None]:
+    """Jev's validated answer for one event, from the cache or one request."""
     if not description:
         return "no_description", None
     if jev["cameras"] and event.get("camera") not in jev["cameras"]:
@@ -655,8 +672,7 @@ async def _ask_jev(
             logger.warning("Jev suggestion request failed for one event")
             return "error", None
         cache.put(sha, contract, answer)
-    draft = jev_suggestion(answer)
-    return ("answered" if draft else "unknown"), draft
+    return ("answered" if jev_suggestion(answer) else "unknown"), answer
 
 
 class JevError(Exception):

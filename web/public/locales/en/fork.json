@@ -691,7 +691,7 @@
     "tooSmall": "Tiny photo: fine to accept, it teaches less",
     "unsureFirst": "Least sure first",
     "lopsided": "{{largest}} has {{ratio}}x more photos than {{smallest}}. Add more {{smallest}} photos before training.",
-    "hint": "The label on a photo is a guess, read from its AI description. Tap the check if it is right, and the photo moves into that class. Wrong? Tap the photo to choose. No label means no guess. When done, tap Train at the top right.",
+    "hint": "The label on a photo is a guess, read from its AI description. Tap the check if it is right. Tap the name to see why or to pick another class. Cards marked Pick a class have no guess. When done, tap Train at the top right.",
     "hintDismiss": "Got it",
     "filedAsAuto": "In training as {{category}} (added automatically)",
     "fileAria": "Add as {{category}} for {{model}}",
@@ -723,6 +723,19 @@
     "undo": "Undo",
     "undone_one": "Moved {{count}} image back",
     "undone_other": "Moved {{count}} images back",
-    "undoFailed": "Could not undo. Move the photos back from the class's tab."
+    "undoFailed": "Could not undo. Move the photos back from the class's tab.",
+    "pickLabel": "Or pick the class:",
+    "pickOnlyLabel": "Pick the class:",
+    "pickAria": "File as {{category}}",
+    "pickClass": "Pick a class",
+    "maybeLabel": "{{category}}, maybe",
+    "maybeWhy": "The AI helper leans this way, but the description doesn't say for sure. Pick the class yourself.",
+    "noGuess": {
+      "unclear": "The description doesn't say which of your classes this is.",
+      "noClass": "The description doesn't name one of your classes.",
+      "noDescription": "This event has no AI description yet, so there is nothing to read.",
+      "budget": "The AI helper's daily limit is used up. Guesses resume tomorrow.",
+      "error": "The AI helper didn't answer. Reload the page to try again."
+    }
   }
 }

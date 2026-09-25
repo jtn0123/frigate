@@ -5275,6 +5275,8 @@ export interface components {
              * @description The two sources named different classes
              */
             conflict: boolean;
+            /** @description A weaker Jev lean shown only when there is no draft; never filed by Accept all or auto-filing */
+            maybe?: components["schemas"]["SuggestionModel"] | null;
         };
         /**
          * EventSuggestionsResponse

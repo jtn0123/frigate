@@ -35,6 +35,13 @@ class EventSuggestionModel(BaseModel):
         default=None, description="The draft to show, or none when unsure"
     )
     conflict: bool = Field(description="The two sources named different classes")
+    maybe: SuggestionModel | None = Field(
+        default=None,
+        description=(
+            "A weaker Jev lean shown only when there is no draft; never filed "
+            "by Accept all or auto-filing"
+        ),
+    )
 
 
 class JevStateModel(BaseModel):

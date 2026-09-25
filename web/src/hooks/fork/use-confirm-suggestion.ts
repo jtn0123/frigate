@@ -34,7 +34,7 @@ export function useConfirmSuggestion(
     async (
       eventId: string,
       files: string[],
-      suggestion: Suggestion,
+      suggestion: Suggestion | null,
       category?: string,
       bulk = false,
     ): Promise<boolean> => {

@@ -1260,15 +1260,16 @@ function ObjectTrainGrid({
                 group={group}
                 classifiedEvent={classifiedEvent}
                 labelSlot={
-                  draft?.suggestion || draft?.conflict ? (
+                  draft ? (
                     <SuggestionBadge
                       modelName={model.name}
                       eventId={key}
                       files={group.map((item) => item.filename)}
                       entry={draft}
                       onRefresh={onRefresh}
-                      tooSmall={suggestions?.too_small?.[key]}
+                      tooSmall={suggestions.too_small?.[key]}
                       disabled={filing}
+                      classes={suggestions.classes}
                     />
                   ) : undefined
                 }

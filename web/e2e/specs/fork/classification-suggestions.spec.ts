@@ -529,6 +529,87 @@ test.describe("Classification suggestions @medium", () => {
     await expect(badge).toHaveCount(1);
   });
 
+  test("files a card with no guess, or a maybe, from its class picker @mobile", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    const confirms: Record<string, unknown>[] = [];
+    await mockTrainPage(frigateApp, {
+      train: () => TRAIN,
+      events: [
+        event(EVENT_VAN, "A car is parked."),
+        event(EVENT_OTHER, "A red car behind the fence."),
+      ],
+      suggestions: {
+        ...SUGGESTIONS,
+        suggestions: {
+          [EVENT_VAN]: {
+            text: null,
+            jev: null,
+            jev_status: "unknown",
+            suggestion: null,
+            conflict: false,
+            maybe: { category: "suv", source: "jev", score: 0.8, evidence: "" },
+          },
+          [EVENT_OTHER]: {
+            text: null,
+            jev: null,
+            jev_status: "unknown",
+            suggestion: null,
+            conflict: false,
+            maybe: null,
+          },
+        },
+      },
+      onConfirm: (body, route) => {
+        confirms.push(body);
+        return route.fulfill({
+          json: { success: true, message: "ok", moved: ["x.png"] },
+        });
+      },
+    });
+
+    await frigateApp.goto("/classification");
+    await page.getByText(MODEL).first().click();
+    const blank = page.getByTestId("suggestion-blank");
+    const maybe = page.getByTestId("suggestion-maybe");
+    await expect(blank).toHaveCount(1, { timeout: 10_000 });
+    await expect(maybe).toContainText("suv, maybe");
+    // Neither state files with one tap, and Accept all has nothing to take.
+    await expect(page.getByTestId("suggestion-accept")).toHaveCount(0);
+
+    await blank.getByRole("button", { name: /pick a class/i }).click();
+    const why = page.getByTestId("suggestion-why");
+    await expect(why).toContainText(
+      "The description doesn't say which of your classes this is.",
+    );
+    await expect(
+      why.getByRole("button", { name: /file as none/i }),
+    ).toHaveCount(0);
+    await why.getByRole("button", { name: "File as van" }).click();
+    await expect.poll(() => confirms.length).toBe(1);
+    // Filing closes the popover before the next card is opened.
+    await expect(why).toHaveCount(0);
+    expect(confirms[0]).toEqual({
+      event_id: EVENT_OTHER,
+      category: "van",
+      training_files: [TRAIN[2]],
+      source: null,
+      score: null,
+      suggested_category: null,
+    });
+
+    await maybe.getByRole("button", { name: /why suv/i }).click();
+    await expect(why).toContainText("doesn't say for sure");
+    await why.getByRole("button", { name: "File as suv" }).click();
+    await expect.poll(() => confirms.length).toBe(2);
+    expect(confirms[1]).toMatchObject({
+      event_id: EVENT_VAN,
+      category: "suv",
+      suggested_category: null,
+    });
+  });
+
   test("does not flash the hint once it has been dismissed", async ({
     frigateApp,
   }) => {

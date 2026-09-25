@@ -338,6 +338,33 @@ class TestSuggestForEvents(unittest.TestCase):
             self.assertEqual(result["one"]["jev_status"], "answered")
         self.assertEqual(self.budget.used(), 1)
 
+    def test_a_weaker_lean_is_a_maybe_and_never_a_draft(self):
+        answers = {"lean": 0.8, "sure": 0.96, "shrug": 0.3}
+
+        async def ask(request):
+            return choice("suv", TYPES, answers[request["state"]["description"]])
+
+        result = self.run_suggest(
+            [event(text, id=text) for text in answers], TYPES, ask
+        )
+        lean = result["lean"]
+        self.assertIsNone(lean["suggestion"])
+        self.assertEqual(lean["jev_status"], "unknown")
+        self.assertEqual(lean["maybe"]["category"], "suv")
+        self.assertEqual(lean["maybe"]["score"], 0.8)
+        self.assertEqual(result["sure"]["suggestion"]["category"], "suv")
+        self.assertIsNone(result["sure"]["maybe"])
+        self.assertIsNone(result["shrug"]["suggestion"])
+        self.assertIsNone(result["shrug"]["maybe"])
+
+    def test_no_maybe_when_the_text_already_drafted(self):
+        async def ask(request):
+            return choice("van", TYPES, 0.7)
+
+        result = self.run_suggest([event("A white van.")], TYPES, ask)
+        self.assertEqual(result["one"]["suggestion"]["source"], "text")
+        self.assertIsNone(result["one"]["maybe"])
+
     def test_jev_and_text_disagreeing_shows_nothing(self):
         async def ask(request):
             return choice("suv", TYPES, 0.96)

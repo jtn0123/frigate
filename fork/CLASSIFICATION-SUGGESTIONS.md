@@ -23,11 +23,23 @@ the next card's check, so a keyboard can work down the grid. On a phone
 the check has a 44 px hit area. The existing class picker still works for
 edits: on a card with a guess it files the image through the same confirm
 endpoint, so the draft and the class you chose are recorded together.
-Cards with no guess are labeled exactly as before.
+Every popover also ends with one button per class ("Or pick the class:"),
+so a wrong guess is fixed in one tap; the pick is recorded with the draft
+it replaced.
+
+A card with no guess shows a dashed "Pick a class" button instead of
+"None". Its popover says why in plain words (the description doesn't name
+one of the classes, the event has no description yet, the AI helper hit its
+daily limit, or it could not be reached) and lists the classes as buttons.
+A class named "none" is never offered. When Jev leaned toward a class but
+below the draft gate (a score of 0.55 or more and a margin of 0.1 or more),
+the button reads "Sedan, maybe" and that class comes first in the list. A
+maybe is never a guess: it has no accept check, Accept all and auto-filing
+skip it, and filing it records no `suggested_category`, so it never moves
+the kept rate.
 
 When the two sources disagree, the label row shows both classes with a
-question mark icon. Its popover says so; pick one yourself with the class
-picker.
+question mark icon. Its popover says so and lists the classes to pick from.
 
 The first row of the grid is a status line. It scrolls away with the
 cards. It counts in photos: "12 of 30 photos have a guess". It also says
@@ -239,7 +251,7 @@ recorded.
 ## Endpoints
 
 - `GET /classification/{name}/suggestions?ids=a,b` (admin): drafts for up to
-  400 distinct events, plus whether Jev is enabled, configured, and how much
+  400 distinct events (each with a `maybe` when Jev leaned without drafting), plus whether Jev is enabled, configured, and how much
   of the day's budget is used. `omitted` counts the ids past 400 that were
   dropped (0 when none were). A longer page cannot spend more Jev requests:
   each answer is cached per description and every request is counted against

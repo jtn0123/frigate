@@ -21,6 +21,8 @@ import {
   serverMessage,
   tinyImageCount,
   modelLabel,
+  noGuessReason,
+  pickableClasses,
 } from "./classification-suggestions";
 
 const JEV: Suggestion = {
@@ -253,5 +255,44 @@ describe("modelLabel", () => {
   it("turns a model id into words", () => {
     expect(modelLabel("vehicle_type")).toBe("Vehicle type");
     expect(modelLabel("dog")).toBe("Dog");
+  });
+});
+
+describe("no-guess helpers", () => {
+  it("drops the none class and blanks from the picker", () => {
+    expect(pickableClasses(["sedan", "None", " ", "suv"])).toEqual([
+      "sedan",
+      "suv",
+    ]);
+    expect(pickableClasses(undefined)).toEqual([]);
+  });
+
+  it("explains a missing guess from the Jev status", () => {
+    const entry = (jev_status: string) => ({
+      text: null,
+      jev: null,
+      jev_status,
+      suggestion: null,
+      conflict: false,
+    });
+    expect(noGuessReason(entry("unknown"))).toBe("noGuess.unclear");
+    expect(noGuessReason(entry("budget"))).toBe("noGuess.budget");
+    expect(noGuessReason(entry("error"))).toBe("noGuess.error");
+    expect(noGuessReason(entry("no_description"))).toBe(
+      "noGuess.noDescription",
+    );
+    expect(noGuessReason(entry("disabled"))).toBe("noGuess.noClass");
+    expect(noGuessReason(undefined)).toBe("noGuess.noClass");
+  });
+
+  it("builds a confirm body with nothing suggested for a hand pick", () => {
+    expect(confirmBody("e", ["a.webp"], null, "suv")).toEqual({
+      event_id: "e",
+      category: "suv",
+      training_files: ["a.webp"],
+      source: null,
+      score: null,
+      suggested_category: null,
+    });
   });
 });

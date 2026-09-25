@@ -21,6 +21,8 @@ export type EventSuggestion = {
   jev_status: string;
   suggestion: Suggestion | null;
   conflict: boolean;
+  /** A weaker Jev lean, shown only without a draft; never bulk-filed. */
+  maybe?: Suggestion | null;
 };
 
 export type JevState = {
@@ -146,26 +148,47 @@ export function suggestionsKey(
 }
 
 /**
- * The confirm request for filing images of an event that had a draft. With
- * no category the draft is accepted as-is; with one, the person overrode it
- * and the record shows the draft next to what they chose.
+ * The confirm request for filing images of an event. With a draft and no
+ * category the draft is accepted as-is; with a category, the person overrode
+ * it and the record shows the draft next to what they chose. Without a draft
+ * (a hand pick on a card with no guess, or a "maybe") nothing is recorded as
+ * suggested, so the pick never counts toward the kept rate.
  */
 export function confirmBody(
   eventId: string,
   files: string[],
-  suggestion: Suggestion,
-  category: string = suggestion.category,
+  suggestion: Suggestion | null,
+  category: string | undefined = suggestion?.category,
   bulk = false,
 ): ConfirmSuggestionBody {
   return {
     event_id: eventId,
-    category,
+    category: category ?? "",
     training_files: files,
-    source: suggestion.source,
-    score: suggestion.score,
-    suggested_category: suggestion.category,
+    source: suggestion?.source ?? null,
+    score: suggestion?.score ?? null,
+    suggested_category: suggestion?.category ?? null,
     ...(bulk ? { bulk: true } : {}),
   };
+}
+
+/** The model's classes a person can file into, in the server's order. */
+export function pickableClasses(classes: string[] | undefined): string[] {
+  return (classes ?? []).filter(
+    (name) => name.trim() !== "" && name.toLowerCase() !== "none",
+  );
+}
+
+/** Why a card has no guess, as a fork.json key under classificationSuggestions. */
+const NO_GUESS_REASONS: Record<string, string> = {
+  no_description: "noGuess.noDescription",
+  budget: "noGuess.budget",
+  error: "noGuess.error",
+  unknown: "noGuess.unclear",
+};
+
+export function noGuessReason(entry: EventSuggestion | undefined): string {
+  return NO_GUESS_REASONS[entry?.jev_status ?? ""] ?? "noGuess.noClass";
 }
 
 /**
