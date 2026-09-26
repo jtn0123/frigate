@@ -342,6 +342,7 @@ export class AutoQualityGovernor {
     if (handled) {
       // the low stream starts with a clean record
       this.resetStallHistory();
+      this.armUpswitchProbe();
     }
     return handled;
   }

@@ -96,3 +96,84 @@ describe("adaptive recording quality", () => {
     governor.destroy();
   });
 });
+
+describe("adaptive quality edge conditions", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-25T12:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+  it("ignores invalid estimates and learns camera bitrate only once", () => {
+    const governor = new AutoQualityGovernor(() => false);
+    expect(governor.shouldStartLow()).toBe(false);
+    expect(governor.shouldRetryMain()).toBe(true);
+    governor.seed(5_000_000);
+    governor.seed(1);
+    expect(governor.bandwidthEstimate).toBe(5_000_000);
+    for (const value of [0, -1, NaN, Infinity])
+      governor.bandwidthSample(value, 1, true);
+    expect(governor.bandwidthEstimate).toBe(5_000_000);
+    expect(governor.shouldStartLow()).toBe(false);
+    governor.learnMainBitrate(0);
+    governor.learnMainBitrate(10_000_000);
+    governor.learnMainBitrate(1);
+    expect(governor.shouldStartLow()).toBe(true);
+    expect(governor.shouldRetryMain()).toBe(false);
+    governor.bandwidthSample(20_000_000, undefined, true);
+    governor.bandwidthSample(20_000_000, 0, true);
+    expect(governor.shouldStartLow()).toBe(false);
+    governor.destroy();
+  });
+  it("requires consecutive low samples and propagates unhandled fatal errors", () => {
+    const down = vi.fn(() => false);
+    const governor = new AutoQualityGovernor(down);
+    governor.bandwidthSample(1, 100, true);
+    governor.bandwidthSample(200, 100, true);
+    governor.bandwidthSample(1, 100, true);
+    governor.bandwidthSample(1, 100, true);
+    expect(down).not.toHaveBeenCalled();
+    expect(governor.fatalNetworkError()).toBe(false);
+    expect(down).toHaveBeenCalledWith("fatal-error");
+    governor.bandwidthSample(1, 100, true);
+    expect(down).toHaveBeenLastCalledWith("bandwidth");
+    governor.destroy();
+  });
+  it("counts cumulative stalls, ignores duplicate starts and expires old episodes", () => {
+    const down = vi.fn(() => false);
+    const governor = new AutoQualityGovernor(down);
+    governor.stallEnded();
+    for (let i = 0; i < 2; i++) {
+      governor.stallStarted();
+      governor.stallStarted();
+      vi.advanceTimersByTime(3000);
+      governor.stallEnded();
+    }
+    expect(governor.shouldRetryMain()).toBe(false);
+    governor.stallStarted();
+    vi.advanceTimersByTime(1000);
+    expect(down).toHaveBeenCalledWith("stall");
+    expect(governor.shouldRetryMain()).toBe(false);
+    governor.stallEnded();
+    vi.advanceTimersByTime(60001);
+    expect(governor.shouldRetryMain()).toBe(true);
+    governor.destroy();
+  });
+  it("allows a long seek grace and resets its timers on a manual pin", () => {
+    const down = vi.fn(() => true);
+    const governor = new AutoQualityGovernor(down);
+    governor.noteSeek();
+    governor.stallStarted();
+    vi.advanceTimersByTime(9999);
+    expect(down).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(down).toHaveBeenCalledWith("stall");
+    governor.stallStarted();
+    governor.stallEnded();
+    expect(governor.shouldRetryMain()).toBe(true);
+    governor.sourceLoadStarted();
+    governor.resetStallHistory();
+    vi.advanceTimersByTime(10000);
+    expect(down).toHaveBeenCalledTimes(1);
+    governor.destroy();
+  });
+});

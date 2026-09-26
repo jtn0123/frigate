@@ -926,6 +926,16 @@ class TestHttpMedia(BaseTestHttp):
                 assert clip["keyFrameDurations"] == [10000]
                 assert "clipFrom" not in clip
 
+    def test_vod_missing_recordings_does_not_log_untrusted_camera_names(self):
+        from frigate.api.media import _vod_response
+
+        with patch("frigate.api.media.resolve_coverage", return_value=[]):
+            with self.assertLogs("frigate.api.media", level="ERROR") as captured:
+                response = _vod_response("camera\nFORGED ENTRY", 1000, 1020)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(len(captured.records), 1)
+        self.assertNotIn("FORGED ENTRY", captured.records[0].getMessage())
+
     def test_vod_no_recordings_returns_404(self):
         """No recordings in range preserves the legacy 404 response."""
         with AuthTestClient(self.app) as client:

@@ -780,9 +780,7 @@ def _vod_response(
         )
 
     if not clips:
-        logger.error(
-            f"No recordings found for {camera_name} during the requested time range"
-        )
+        logger.error("No recordings found during the requested time range")
         return JSONResponse(
             content={
                 "success": False,
@@ -793,11 +791,10 @@ def _vod_response(
 
     if len(clips) > NGINX_VOD_MAX_CLIPS:
         logger.warning(
-            "VOD: %s needs %d clips between %s and %s, exceeding nginx's "
+            "VOD range needs %d clips between %s and %s, exceeding nginx's "
             "limit of %d; playback of this range will fail. This usually "
             "means the camera produced abnormally short recording segments "
             "(check the stream's timestamps)",
-            camera_name,
             len(clips),
             start_ts,
             end_ts,
