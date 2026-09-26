@@ -9,59 +9,65 @@ from frigate.const import STREAM_TYPE_MAIN, STREAM_TYPE_SUB
 from frigate.video.ffmpeg import CameraWatchdog
 
 
+def build_watchdog(
+    sub_enabled: bool = True, output_args: dict | None = None
+) -> CameraWatchdog:
+    config = FrigateConfig(
+        **{
+            "mqtt": {"host": "mqtt"},
+            "cameras": {
+                "front_door": {
+                    "ffmpeg": {
+                        "output_args": output_args or {},
+                        "inputs": [
+                            {
+                                "path": "rtsp://10.0.0.1:554/video",
+                                "roles": ["record"],
+                            },
+                            {
+                                "path": "rtsp://10.0.0.1:554/video2",
+                                "roles": ["detect", "record_sub"],
+                            },
+                        ],
+                    },
+                    "record": {
+                        "enabled": True,
+                        "sub": {"enabled": sub_enabled},
+                    },
+                }
+            },
+        }
+    )
+    camera_config = config.cameras["front_door"]
+
+    with (
+        patch("frigate.video.ffmpeg.LogPipe"),
+        patch("frigate.video.ffmpeg.InterProcessRequestor"),
+        patch("frigate.video.ffmpeg.RecordingsDataSubscriber"),
+        patch("frigate.video.ffmpeg.CameraConfigUpdateSubscriber"),
+    ):
+        watchdog = CameraWatchdog(
+            camera_config,
+            1,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+        )
+
+    watchdog.requestor = MagicMock()
+    return watchdog
+
+
 class TestCameraWatchdogStreamHealth(unittest.TestCase):
     def _build_watchdog(
         self, sub_enabled: bool = True, output_args: dict | None = None
     ) -> CameraWatchdog:
-        config = FrigateConfig(
-            **{
-                "mqtt": {"host": "mqtt"},
-                "cameras": {
-                    "front_door": {
-                        "ffmpeg": {
-                            "output_args": output_args or {},
-                            "inputs": [
-                                {
-                                    "path": "rtsp://10.0.0.1:554/video",
-                                    "roles": ["record"],
-                                },
-                                {
-                                    "path": "rtsp://10.0.0.1:554/video2",
-                                    "roles": ["detect", "record_sub"],
-                                },
-                            ],
-                        },
-                        "record": {
-                            "enabled": True,
-                            "sub": {"enabled": sub_enabled},
-                        },
-                    }
-                },
-            }
-        )
-        camera_config = config.cameras["front_door"]
-
-        with (
-            patch("frigate.video.ffmpeg.LogPipe"),
-            patch("frigate.video.ffmpeg.InterProcessRequestor"),
-            patch("frigate.video.ffmpeg.RecordingsDataSubscriber"),
-            patch("frigate.video.ffmpeg.CameraConfigUpdateSubscriber"),
-        ):
-            watchdog = CameraWatchdog(
-                camera_config,
-                1,
-                MagicMock(),
-                MagicMock(),
-                MagicMock(),
-                MagicMock(),
-                MagicMock(),
-                MagicMock(),
-                MagicMock(),
-                MagicMock(),
-            )
-
-        watchdog.requestor = MagicMock()
-        return watchdog
+        return build_watchdog(sub_enabled, output_args)
 
     def test_stale_sub_does_not_mark_main_stale(self):
         watchdog = self._build_watchdog()

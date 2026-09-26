@@ -1,11 +1,12 @@
 """Utilities for stats."""
 
 import logging
+import re
 import shutil
 import time
 from json import JSONDecodeError
 from multiprocessing.managers import DictProxy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 from requests.exceptions import RequestException
@@ -23,6 +24,9 @@ from frigate.util.services import (
     get_fs_type,
 )
 from frigate.version import VERSION
+
+if TYPE_CHECKING:
+    from frigate.storage import StorageMaintainer
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +48,49 @@ def get_latest_version(config: FrigateConfig) -> str:
         return "unknown"
 
 
+def _version_tuple(value: str) -> tuple[int, int, int] | None:
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", value or "")
+
+    if match is None:
+        return None
+
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+# a build's git hash suffix is not a prerelease marker
+PRERELEASE_PATTERN = re.compile(r"^\d+\.\d+\.\d+-(?:beta|rc)", re.IGNORECASE)
+
+
+def _is_prerelease(value: str) -> bool:
+    return PRERELEASE_PATTERN.match(value or "") is not None
+
+
+def is_newer_version(current: str, latest: str) -> bool:
+    """Whether latest is a release newer than the running version.
+
+    Build suffixes after the third number are ignored, and a value that does
+    not parse (disabled, unknown) is never newer. A prerelease is behind the
+    final release of the same number, so 0.19.0-beta2 is behind 0.19.0.
+    """
+    current_tuple = _version_tuple(current)
+    latest_tuple = _version_tuple(latest)
+
+    if current_tuple is None or latest_tuple is None:
+        return False
+
+    if current_tuple == latest_tuple:
+        return _is_prerelease(current) and not _is_prerelease(latest)
+
+    return latest_tuple > current_tuple
+
+
 def stats_init(
     config: FrigateConfig,
     camera_metrics: DictProxy,
     embeddings_metrics: DataProcessorMetrics,
     detectors: dict[str, ObjectDetectProcess],
     processes: dict[str, int],
+    storage_maintainer: "StorageMaintainer | None" = None,
 ) -> StatsTrackingTypes:
     stats_tracking: StatsTrackingTypes = {
         "camera_metrics": camera_metrics,
@@ -59,6 +100,7 @@ def stats_init(
         "latest_frigate_version": get_latest_version(config),
         "last_updated": int(time.time()),
         "processes": processes,
+        "storage_maintainer": storage_maintainer,
     }
     return stats_tracking
 
@@ -97,6 +139,98 @@ def get_detector_stats(
         detector_stats[name] = detector_stat
 
     return detector_stats
+
+
+def embeddings_stats(
+    config: FrigateConfig, embeddings_metrics: DataProcessorMetrics | None
+) -> dict[str, Any]:
+    """Enrichment speed metrics plus the device each enrichment loaded on."""
+    stats: dict[str, Any] = {}
+
+    if not embeddings_metrics:
+        return stats
+
+    # Add metrics based on what's enabled
+    if config.semantic_search.enabled:
+        stats.update(
+            {
+                "image_embedding_speed": round(
+                    embeddings_metrics.image_embeddings_speed.value * 1000, 2
+                ),
+                "image_embedding": round(
+                    embeddings_metrics.image_embeddings_eps.value, 2
+                ),
+                "text_embedding_speed": round(
+                    embeddings_metrics.text_embeddings_speed.value * 1000, 2
+                ),
+                "text_embedding": round(
+                    embeddings_metrics.text_embeddings_eps.value, 2
+                ),
+            }
+        )
+
+    if config.face_recognition.enabled:
+        stats["face_recognition_speed"] = round(
+            embeddings_metrics.face_rec_speed.value * 1000, 2
+        )
+        stats["face_recognition"] = round(embeddings_metrics.face_rec_fps.value, 2)
+
+    if config.lpr.enabled:
+        stats["plate_recognition_speed"] = round(
+            embeddings_metrics.alpr_speed.value * 1000, 2
+        )
+        stats["plate_recognition"] = round(embeddings_metrics.alpr_pps.value, 2)
+
+        if embeddings_metrics.yolov9_lpr_pps.value > 0.0:
+            stats["yolov9_plate_detection_speed"] = round(
+                embeddings_metrics.yolov9_lpr_speed.value * 1000, 2
+            )
+            stats["yolov9_plate_detection"] = round(
+                embeddings_metrics.yolov9_lpr_pps.value, 2
+            )
+
+    if embeddings_metrics.review_desc_speed.value > 0.0:
+        stats["review_description_speed"] = round(
+            embeddings_metrics.review_desc_speed.value * 1000, 2
+        )
+        stats["review_description_events_per_second"] = round(
+            embeddings_metrics.review_desc_dps.value, 2
+        )
+
+    if embeddings_metrics.object_desc_speed.value > 0.0:
+        stats["object_description_speed"] = round(
+            embeddings_metrics.object_desc_speed.value * 1000, 2
+        )
+        stats["object_description_events_per_second"] = round(
+            embeddings_metrics.object_desc_dps.value, 2
+        )
+
+    for key in embeddings_metrics.classification_speeds.keys():
+        stats[f"{key}_classification_speed"] = round(
+            embeddings_metrics.classification_speeds[key].value * 1000, 2
+        )
+        stats[f"{key}_classification_events_per_second"] = round(
+            embeddings_metrics.classification_cps[key].value, 2
+        )
+
+    devices = dict(embeddings_metrics.runtime_devices)
+
+    if devices:
+        stats["devices"] = devices
+
+    return stats
+
+
+def skipped_percent(skipped_fps: float, camera_fps: float, enabled: bool) -> float:
+    """Percent of a camera's frames dropped before detection.
+
+    camera_fps counts the dropped frames too. A disabled camera keeps its last
+    readings, so it reports zero.
+    """
+    if not enabled or camera_fps <= 0:
+        return 0.0
+
+    return round(skipped_fps / camera_fps * 100, 1)
 
 
 def stats_snapshot(
@@ -169,6 +303,11 @@ def stats_snapshot(
             "camera_fps": round(camera_stats.camera_fps.value, 2),
             "process_fps": round(camera_stats.process_fps.value, 2),
             "skipped_fps": round(camera_stats.skipped_fps.value, 2),
+            "skipped_pct": skipped_percent(
+                camera_stats.skipped_fps.value,
+                current_fps,
+                config.cameras[name].enabled,
+            ),
             "detection_fps": round(camera_stats.detection_fps.value, 2),
             "detection_enabled": config.cameras[name].detect.enabled,
             "pid": pid,
@@ -195,78 +334,9 @@ def stats_snapshot(
     stats["skipped_fps"] = round(total_skipped_fps, 2)
     stats["detection_fps"] = round(total_detection_fps, 2)
 
-    stats["embeddings"] = {}
-
-    # Get metrics if available
-    embeddings_metrics = stats_tracking.get("embeddings_metrics")
-
-    if embeddings_metrics:
-        # Add metrics based on what's enabled
-        if config.semantic_search.enabled:
-            stats["embeddings"].update(
-                {
-                    "image_embedding_speed": round(
-                        embeddings_metrics.image_embeddings_speed.value * 1000, 2
-                    ),
-                    "image_embedding": round(
-                        embeddings_metrics.image_embeddings_eps.value, 2
-                    ),
-                    "text_embedding_speed": round(
-                        embeddings_metrics.text_embeddings_speed.value * 1000, 2
-                    ),
-                    "text_embedding": round(
-                        embeddings_metrics.text_embeddings_eps.value, 2
-                    ),
-                }
-            )
-
-        if config.face_recognition.enabled:
-            stats["embeddings"]["face_recognition_speed"] = round(
-                embeddings_metrics.face_rec_speed.value * 1000, 2
-            )
-            stats["embeddings"]["face_recognition"] = round(
-                embeddings_metrics.face_rec_fps.value, 2
-            )
-
-        if config.lpr.enabled:
-            stats["embeddings"]["plate_recognition_speed"] = round(
-                embeddings_metrics.alpr_speed.value * 1000, 2
-            )
-            stats["embeddings"]["plate_recognition"] = round(
-                embeddings_metrics.alpr_pps.value, 2
-            )
-
-            if embeddings_metrics.yolov9_lpr_pps.value > 0.0:
-                stats["embeddings"]["yolov9_plate_detection_speed"] = round(
-                    embeddings_metrics.yolov9_lpr_speed.value * 1000, 2
-                )
-                stats["embeddings"]["yolov9_plate_detection"] = round(
-                    embeddings_metrics.yolov9_lpr_pps.value, 2
-                )
-
-        if embeddings_metrics.review_desc_speed.value > 0.0:
-            stats["embeddings"]["review_description_speed"] = round(
-                embeddings_metrics.review_desc_speed.value * 1000, 2
-            )
-            stats["embeddings"]["review_description_events_per_second"] = round(
-                embeddings_metrics.review_desc_dps.value, 2
-            )
-
-        if embeddings_metrics.object_desc_speed.value > 0.0:
-            stats["embeddings"]["object_description_speed"] = round(
-                embeddings_metrics.object_desc_speed.value * 1000, 2
-            )
-            stats["embeddings"]["object_description_events_per_second"] = round(
-                embeddings_metrics.object_desc_dps.value, 2
-            )
-
-        for key in embeddings_metrics.classification_speeds.keys():
-            stats["embeddings"][f"{key}_classification_speed"] = round(
-                embeddings_metrics.classification_speeds[key].value * 1000, 2
-            )
-            stats["embeddings"][f"{key}_classification_events_per_second"] = round(
-                embeddings_metrics.classification_cps[key].value, 2
-            )
+    stats["embeddings"] = embeddings_stats(
+        config, stats_tracking.get("embeddings_metrics")
+    )
 
     hardware_stats.update_stats(stats)
 
@@ -276,12 +346,17 @@ def stats_snapshot(
         if bandwidth_stats:
             stats["bandwidth_usages"] = bandwidth_stats
 
+    storage_maintainer = stats_tracking.get("storage_maintainer")
+
     stats["service"] = {
         "uptime": (int(time.time()) - stats_tracking["started"]),
         "version": VERSION,
         "latest_version": stats_tracking["latest_frigate_version"],
         "storage": {},
         "last_updated": int(time.time()),
+        "retention_unmet": bool(
+            storage_maintainer and storage_maintainer.retention_unmet
+        ),
     }
 
     for path in [RECORD_DIR, CLIPS_DIR, CACHE_DIR]:

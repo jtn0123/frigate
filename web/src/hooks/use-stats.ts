@@ -1,11 +1,7 @@
 import { AIModelsResponse } from "@/types/aiModels";
-import {
-  CameraDetectThreshold,
-  CameraFfmpegThreshold,
-  InferenceThreshold,
-} from "@/types/graph";
-import { FrigateStats, PotentialProblem } from "@/types/stats";
-import { useEffect, useState, useMemo } from "react";
+import { InferenceThreshold } from "@/types/graph";
+import { FrigateStats, PotentialProblem, ProblemSeverity } from "@/types/stats";
+import { useMemo, useState, useEffect } from "react";
 import useSWR from "swr";
 import { useApi } from "@/api/fork/client";
 import useDeepMemo from "./use-deep-memo";
@@ -19,6 +15,17 @@ import { softwareDecodingCameras } from "@/lib/fork/camera-health";
 import { isStatsStale } from "@/lib/fork/stats-staleness";
 
 import { useTranslation } from "react-i18next";
+
+function problem(
+  severity: ProblemSeverity,
+  text: string,
+  relevantLink?: string,
+): PotentialProblem {
+  return { text, severity, relevantLink };
+}
+
+// matches SKIPPED_DETECTIONS_PCT in frigate/stats/emitter.py
+const SKIPPED_DETECTIONS_PCT = 5;
 
 export default function useStats(stats: FrigateStats | undefined) {
   const { t } = useTranslation(["views/system"]);
@@ -68,7 +75,7 @@ export default function useStats(stats: FrigateStats | undefined) {
     ) {
       problems.push({
         text: t("models.readiness.attention"),
-        color: "text-warning",
+        severity: "warning",
         relevantLink: "/system#models",
       });
     }
@@ -85,7 +92,7 @@ export default function useStats(stats: FrigateStats | undefined) {
     ) {
       problems.push({
         text: t("models.server.unavailable"),
-        color: "text-warning",
+        severity: "warning",
         relevantLink: "/system#models",
       });
     }
@@ -97,7 +104,7 @@ export default function useStats(stats: FrigateStats | undefined) {
     ) {
       problems.push({
         text: t("models.server.pressureWarning"),
-        color: "text-warning",
+        severity: "warning",
         relevantLink: "/system#models",
       });
     }
@@ -111,7 +118,7 @@ export default function useStats(stats: FrigateStats | undefined) {
     ) {
       problems.push({
         text: t("models.readiness.stale"),
-        color: "text-warning",
+        severity: "warning",
         relevantLink: "/system#health",
       });
     }
@@ -125,39 +132,36 @@ export default function useStats(stats: FrigateStats | undefined) {
       return problems;
     }
 
-    // check shm level
-    const shm = memoizedStats.service.storage["/dev/shm"];
-    if (shm?.total && shm?.min_shm && shm.total < shm.min_shm) {
-      problems.push({
-        text: t("stats.shmTooLow", {
-          total: shm.total,
-          min: shm.min_shm,
-        }),
-        color: "text-danger",
-        relevantLink: "/system#storage",
-      });
+    if (memoizedStats.service.retention_unmet) {
+      problems.push(
+        problem("error", t("stats.retentionUnmet"), "/system#storage"),
+      );
     }
 
     // check detectors for high inference speeds
     Object.entries(memoizedStats["detectors"]).forEach(([key, det]) => {
       if (det["inference_speed"] > InferenceThreshold.error) {
-        problems.push({
-          text: t("stats.detectIsVerySlow", {
-            detect: formatDetectorName(key),
-            speed: det["inference_speed"],
-          }),
-          color: "text-danger",
-          relevantLink: "/system#general",
-        });
+        problems.push(
+          problem(
+            "error",
+            t("stats.detectIsVerySlow", {
+              detect: formatDetectorName(key),
+              speed: det["inference_speed"],
+            }),
+            "/system#general",
+          ),
+        );
       } else if (det["inference_speed"] > InferenceThreshold.warning) {
-        problems.push({
-          text: t("stats.detectIsSlow", {
-            detect: formatDetectorName(key),
-            speed: det["inference_speed"],
-          }),
-          color: "text-orange-400",
-          relevantLink: "/system#general",
-        });
+        problems.push(
+          problem(
+            "warning",
+            t("stats.detectIsSlow", {
+              detect: formatDetectorName(key),
+              speed: det["inference_speed"],
+            }),
+            "/system#general",
+          ),
+        );
       }
     });
 
@@ -174,13 +178,15 @@ export default function useStats(stats: FrigateStats | undefined) {
 
       const cameraName = config.cameras?.[name]?.friendly_name ?? name;
       if (config.cameras?.[name]?.enabled && cam["camera_fps"] == 0) {
-        problems.push({
-          text: t("stats.cameraIsOffline", {
-            camera: capitalizeFirstLetter(capitalizeAll(cameraName)),
-          }),
-          color: "text-danger",
-          relevantLink: "logs",
-        });
+        problems.push(
+          problem(
+            "error",
+            t("stats.cameraIsOffline", {
+              camera: capitalizeFirstLetter(capitalizeAll(cameraName)),
+            }),
+            "logs",
+          ),
+        );
       }
     });
 
@@ -196,66 +202,49 @@ export default function useStats(stats: FrigateStats | undefined) {
             ns: "fork",
             camera: capitalizeFirstLetter(capitalizeAll(cameraName)),
           }),
-          color: "text-orange-400",
+          severity: "warning",
           relevantLink: "/system#health",
         });
       });
     }
 
-    // check camera cpu usages
+    // check for skipped detections
     Object.entries(memoizedStats["cameras"]).forEach(([name, cam]) => {
       // Skip replay cameras
       if (isReplayCamera(name)) {
         return;
       }
 
-      const ffmpegAvg = Number.parseFloat(
-        memoizedStats["cpu_usages"][cam["ffmpeg_pid"]]?.cpu_average,
-      );
-      const detectAvg = Number.parseFloat(
-        memoizedStats["cpu_usages"][cam["pid"]]?.cpu_average,
-      );
-
       const cameraName = config?.cameras?.[name]?.friendly_name ?? name;
 
       if (
-        !Number.isNaN(ffmpegAvg) &&
-        ffmpegAvg >= CameraFfmpegThreshold.error
+        config?.cameras?.[name]?.enabled &&
+        cam["skipped_pct"] >= SKIPPED_DETECTIONS_PCT
       ) {
-        problems.push({
-          text: t("stats.ffmpegHighCpuUsage", {
-            camera: capitalizeFirstLetter(capitalizeAll(cameraName)),
-            ffmpegAvg,
-          }),
-          color: "text-danger",
-          relevantLink: "/system#cameras",
-        });
-      }
-
-      if (
-        !Number.isNaN(detectAvg) &&
-        detectAvg >= CameraDetectThreshold.error
-      ) {
-        problems.push({
-          text: t("stats.detectHighCpuUsage", {
-            camera: capitalizeFirstLetter(capitalizeAll(cameraName)),
-            detectAvg,
-          }),
-          color: "text-danger",
-          relevantLink: "/system#cameras",
-        });
+        problems.push(
+          problem(
+            "warning",
+            t("stats.cameraSkippedDetections", {
+              camera: capitalizeFirstLetter(capitalizeAll(cameraName)),
+              pct: cam["skipped_pct"],
+            }),
+            "/system#cameras",
+          ),
+        );
       }
     });
 
     // Add message if debug replay is active
     if (replayActive) {
-      problems.push({
-        text: t("stats.debugReplayActive", {
-          defaultValue: "Debug replay session is active",
-        }),
-        color: "text-selected",
-        relevantLink: "/replay",
-      });
+      problems.push(
+        problem(
+          "info",
+          t("stats.debugReplayActive", {
+            defaultValue: "Debug replay session is active",
+          }),
+          "/replay",
+        ),
+      );
     }
 
     return problems;

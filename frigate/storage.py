@@ -39,6 +39,9 @@ class StorageMaintainer(threading.Thread):
         self.config = config
         self.stop_event = stop_event
         self.camera_storage_stats: dict[str, dict] = {}
+
+        # read by stats; true while maintenance has to delete retained recordings
+        self.retention_unmet = False
         self.config_subscriber = CameraConfigUpdateSubscriber(
             self.config,
             self.config.cameras,
@@ -342,8 +345,11 @@ class StorageMaintainer(threading.Thread):
                 except FileNotFoundError:
                     # this file was not found so we must assume no space was cleaned up
                     pass
+
+            self.retention_unmet = True
         else:
             logger.info(f"Cleaned up {deleted_segments_size:.2f} MB of recordings")
+            self.retention_unmet = False
 
         logger.debug(f"Expiring {len(deleted_recordings)} recordings")
         # delete up to 100,000 at a time
@@ -406,23 +412,28 @@ class StorageMaintainer(threading.Thread):
 
         self.calculate_camera_bandwidth()
         while not self.stop_event.wait(300):
-            updated_topics = self.config_subscriber.check_for_updates()
-
-            for camera in updated_topics.get(CameraConfigUpdateEnum.record.name, []):
-                if camera in self.camera_storage_stats:
-                    self.camera_storage_stats[camera]["needs_refresh"] = True
-
-            if not self.camera_storage_stats or True in [
-                r["needs_refresh"] for r in self.camera_storage_stats.values()
-            ]:
-                self.calculate_camera_bandwidth()
-                logger.debug(f"Default camera bandwidths: {self.camera_storage_stats}.")
-
-            if self.check_storage_needs_cleanup():
-                logger.info(
-                    "Less than 1 hour of recording space left, running storage maintenance..."
-                )
-                self.reduce_storage_consumption()
+            self._maintain_once()
 
         self.config_subscriber.stop()
         logger.info("Exiting storage maintainer...")
+
+    def _maintain_once(self) -> None:
+        updated_topics = self.config_subscriber.check_for_updates()
+
+        for camera in updated_topics.get(CameraConfigUpdateEnum.record.name, []):
+            if camera in self.camera_storage_stats:
+                self.camera_storage_stats[camera]["needs_refresh"] = True
+
+        if not self.camera_storage_stats or True in [
+            r["needs_refresh"] for r in self.camera_storage_stats.values()
+        ]:
+            self.calculate_camera_bandwidth()
+            logger.debug(f"Default camera bandwidths: {self.camera_storage_stats}.")
+
+        if self.check_storage_needs_cleanup():
+            logger.info(
+                "Less than 1 hour of recording space left, running storage maintenance..."
+            )
+            self.reduce_storage_consumption()
+        else:
+            self.retention_unmet = False

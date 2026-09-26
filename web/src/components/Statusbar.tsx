@@ -1,11 +1,10 @@
-import { useEmbeddingsReindexProgress } from "@/api/ws";
-import { StatusBarMessagesContext } from "@/context/statusbar-context";
-import useStats, { useAutoFrigateStats } from "@/hooks/use-stats";
+import { useAutoFrigateStats } from "@/hooks/use-stats";
+import useStatusMessages from "@/hooks/use-status-messages";
 import { cn } from "@/lib/utils";
 import type { ProfilesApiResponse } from "@/types/profile";
 import { getProfileColor } from "@/utils/profileColors";
 import { useIsAdmin } from "@/hooks/use-is-admin";
-import { useContext, useEffect, useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 
@@ -14,13 +13,16 @@ import { MdCircle } from "react-icons/md";
 import { Link } from "react-router-dom";
 import StatusIssuesChip from "@/components/fork/StatusIssuesChip";
 
+// Notice checks load the configuration rule registry only for admins.
+const StatusBarNotices = lazy(
+  () => import("@/components/health/StatusBarNotices"),
+);
+
 export default function Statusbar() {
   const { t } = useTranslation(["views/system"]);
   const isAdmin = useIsAdmin();
 
-  const { messages, addMessage, clearMessages } = useContext(
-    StatusBarMessagesContext,
-  )!;
+  const messages = useStatusMessages();
 
   const stats = useAutoFrigateStats();
 
@@ -33,21 +35,6 @@ export default function Statusbar() {
 
     return Number.parseInt(systemCpu);
   }, [stats]);
-
-  const { potentialProblems } = useStats(stats);
-
-  useEffect(() => {
-    clearMessages("stats");
-    potentialProblems.forEach((problem) => {
-      addMessage(
-        "stats",
-        problem.text,
-        problem.color,
-        undefined,
-        problem.relevantLink,
-      );
-    });
-  }, [potentialProblems, addMessage, clearMessages]);
 
   const { data: profilesData } = useSWR<ProfilesApiResponse>("profiles");
 
@@ -63,28 +50,6 @@ export default function Statusbar() {
       color: getProfileColor(profilesData.active_profile, allNames),
     };
   }, [profilesData]);
-
-  const { payload: reindexState } = useEmbeddingsReindexProgress();
-
-  useEffect(() => {
-    if (reindexState) {
-      if (reindexState.status == "indexing") {
-        clearMessages("embeddings-reindex");
-        addMessage(
-          "embeddings-reindex",
-          t("stats.reindexingEmbeddings", {
-            processed: Math.floor(
-              (reindexState.processed_objects / reindexState.total_objects) *
-                100,
-            ),
-          }),
-        );
-      }
-      if (reindexState.status === "completed") {
-        clearMessages("embeddings-reindex");
-      }
-    }
-  }, [reindexState, addMessage, clearMessages, t]);
 
   return (
     // fork: dark:text-primary-variant, as secondary-foreground is 3.4:1 here
@@ -186,14 +151,29 @@ export default function Statusbar() {
           ))}
       </div>
       <div className="no-scrollbar ml-4 flex h-full min-w-0 items-center gap-2 overflow-x-auto">
-        {Object.entries(messages).length === 0 ? (
-          <div className="flex items-center gap-2 text-sm">
-            <FaCheck className="size-3 text-green-500" />
-            {t("stats.healthy")}
-          </div>
+        {messages.length === 0 ? (
+          isAdmin ? (
+            <Link
+              to="/system#notices"
+              className="flex items-center gap-2 text-sm"
+            >
+              <FaCheck className="size-3 text-green-500" />
+              {t("stats.healthy")}
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2 text-sm">
+              <FaCheck className="size-3 text-green-500" />
+              {t("stats.healthy")}
+            </div>
+          )
         ) : (
           // fork (UI110): one chip that lists the messages in a popover
-          <StatusIssuesChip messages={messages} />
+          isAdmin && <StatusIssuesChip messages={{ status: messages }} />
+        )}
+        {isAdmin && (
+          <Suspense fallback={null}>
+            <StatusBarNotices />
+          </Suspense>
         )}
       </div>
     </div>

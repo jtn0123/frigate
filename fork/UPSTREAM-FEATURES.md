@@ -14,6 +14,7 @@ This work targets the fork's `next` branch. The starting point was
 | B16 | Multiple Birdseye inclusion modes and review activity | `d6a18e79a`, `f4cf1e153` |
 | B17 | Main/sub recordings, independent retention, adaptive playback and stream-aware exports | `1498231eb`, `e77155a4f`, `6ba9dd92e`, `3f2020933`, `53fb6c8da`, `82be9fff5` |
 | B18 | Multiple detection models, camera scenes, hardware discovery and model editor | `8fe35ace3`, `27a40a507`, `46796fe9e`, `aaf18b81b`, `6ae805097`, `d183f03fe`, `7821ecbb4`, `6791df797`, `b99c87f27` |
+| B19 | Persistent notices, acknowledgement and mute, hardware and stream health checks | `f3a31e2fb`, `70ce193e0`, `e3029beba`, `7bc32fd4c`, `9664d9cea`; recommendation helpers from `fb8ab56c4` |
 
 ## Fork compatibility
 
@@ -34,6 +35,11 @@ override. This fork retains its existing bundled dependencies and service
 identity; it does not adopt upstream's separate privilege-management changes.
 The runtime installers apply only to configured detector types.
 
+Notices are admin-only over both REST and WebSocket. The System health tab and
+admin inbox link retain the existing camera-history Health tab, review inbox
+read state, AI telemetry warnings, and compact status controls. Camera deletion
+resolves its notices; authentication notices retain the fork's sanitized logging.
+
 ## Validation boundaries
 
 Backend checks run in the fork's thin test image using Python 3.11. Frontend
@@ -46,7 +52,10 @@ The recording checkpoint passed the backend gate (2,212 Frigate tests plus
 browser tests with 14 platform skips. The model checkpoint's combined browser
 run passed 134 tests with 14 platform skips; the backend gate passed
 2,350 Frigate tests (one skipped) and 116 companion tests, including mypy and
-the generated API check. The focused settings suite passed 55 tests.
+the generated API check. The focused settings suite passed 55 tests. The notices backend gate passed
+2,519 Frigate tests (one skipped) and 116 companion tests. Its admin-only
+checks are loaded separately, keeping the eager bundle at 385,873 gzip bytes
+under the unchanged 405,000-byte budget.
 
 ## Branch review
 

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from frigate.app import FrigateApp
 from frigate.comms.dispatcher import Dispatcher
+from frigate.comms.mqtt import MqttClient
 from frigate.comms.runtime_state import RuntimeStatePersistence
 from frigate.config import BirdseyeModeEnum
 
@@ -510,3 +511,84 @@ class TestStartupAppliesConfigLayersBeforeWorkersStart(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNoticeWiring(unittest.TestCase):
+    """The dispatcher forwards update_notice requests and publishes the list."""
+
+    def setUp(self) -> None:
+        self.registry = MagicMock()
+        self.registry.active.return_value = [{"id": "detector_stuck:ov"}]
+        config = MagicMock()
+        config.cameras = {}
+
+        with (
+            patch("frigate.comms.dispatcher.CameraActivityManager"),
+            patch("frigate.comms.dispatcher.AudioActivityManager"),
+        ):
+            self.dispatcher = Dispatcher(
+                config,
+                MagicMock(),
+                MagicMock(),
+                {},
+                [],
+                notice_registry=self.registry,
+            )
+
+    def test_registry_listener_is_subscribed(self) -> None:
+        self.registry.subscribe.assert_called_once_with(
+            self.dispatcher._publish_notices
+        )
+
+    def test_update_request_reaches_registry(self) -> None:
+        update = {
+            "action": "raise",
+            "kind": "model_download_failed",
+            "scope": "yolo/model.onnx",
+            "params": {"file": "model.onnx", "error": "timeout"},
+        }
+
+        self.dispatcher._receive("update_notice", update)
+
+        self.registry.apply.assert_called_once_with(update)
+
+    def test_malformed_request_does_not_raise(self) -> None:
+        self.registry.apply.side_effect = RuntimeError("boom")
+
+        self.dispatcher._receive("update_notice", "not a dict")
+        self.dispatcher._receive(
+            "update_notice", {"action": "raise", "kind": "x", "params": {}}
+        )
+
+        self.registry.apply.assert_called_once()
+
+    def test_publish_local_skips_mqtt(self) -> None:
+        mqtt = MagicMock(spec=MqttClient)
+        other = MagicMock()
+        self.dispatcher.comms = [mqtt, other]
+
+        self.dispatcher.publish_local("notices", "[]")
+
+        mqtt.publish.assert_not_called()
+        other.publish.assert_called_once_with("notices", "[]", False)
+
+    def test_listener_publishes_active_list(self) -> None:
+        self.dispatcher.publish_local = MagicMock()
+
+        self.dispatcher._publish_notices()
+
+        self.dispatcher.publish_local.assert_called_once_with(
+            "notices", '[{"id": "detector_stuck:ov"}]'
+        )
+
+    def test_reconnect_includes_notices(self) -> None:
+        self.dispatcher.publish_local = MagicMock()
+        self.dispatcher.camera_activity.last_camera_activity = {}
+        self.dispatcher.audio_activity.current_audio_detections = {}
+        self.dispatcher.web_push_client = None
+
+        self.dispatcher._receive("onConnect", "")
+
+        self.dispatcher.publish_local.assert_called_once_with(
+            "notices", '[{"id": "detector_stuck:ov"}]'
+        )

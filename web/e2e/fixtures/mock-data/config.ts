@@ -16,10 +16,12 @@ const configSnapshot = JSON.parse(
 );
 
 export type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+  [P in keyof T]?: NonNullable<T[P]> extends object
+    ? DeepPartial<NonNullable<T[P]>>
+    : T[P];
 };
 
-function deepMerge<T extends Record<string, unknown>>(
+export function deepMerge<T extends object>(
   base: T,
   overrides?: DeepPartial<T>,
 ): T {

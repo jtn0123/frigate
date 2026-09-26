@@ -37,10 +37,8 @@ export default function StatusIssuesChip({
     () => Object.values(messages).flat(),
     [messages],
   );
-  // a message without a color has always been drawn as an error
-  const severe = issues.some(
-    (issue) => !issue.color || issue.color === "text-danger",
-  );
+  // Preserve severity styling in the compact fork issue chip.
+  const severe = issues.some((issue) => issue.severity === "error");
 
   if (issues.length === 0) {
     return null;
@@ -77,10 +75,17 @@ export default function StatusIssuesChip({
           {t("statusAlerts.label")}
         </div>
         <ul className="max-h-[60dvh] divide-y divide-border overflow-y-auto">
-          {issues.map(({ id, text, color, link }) => (
+          {issues.map(({ id, text, severity, link }) => (
             <li key={id} className="flex items-start gap-2 px-3 py-2.5">
               <IoIosWarning
-                className={cn("mt-0.5 size-4 shrink-0", color || "text-danger")}
+                className={cn(
+                  "mt-0.5 size-4 shrink-0",
+                  severity === "error"
+                    ? "text-danger"
+                    : severity === "warning"
+                      ? "text-orange-400"
+                      : "text-selected",
+                )}
                 aria-hidden
               />
               <div className="flex min-w-0 flex-1 flex-col gap-1">

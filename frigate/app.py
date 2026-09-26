@@ -62,6 +62,8 @@ from frigate.log import _stop_logging
 from frigate.models import (
     Event,
     Export,
+    Notice,
+    NoticeStats,
     Previews,
     Recordings,
     RecordingsToDelete,
@@ -72,6 +74,8 @@ from frigate.models import (
     Trigger,
     User,
 )
+from frigate.notices import install_registry
+from frigate.notices.registry import NoticeRegistry
 from frigate.object_detection.base import ObjectDetectProcess
 from frigate.object_detection.util import detection_frame_size
 from frigate.output.output import OutputProcess
@@ -286,6 +290,8 @@ class FrigateApp:
         models = [
             Event,
             Export,
+            Notice,
+            NoticeStats,
             Previews,
             Recordings,
             RecordingsToDelete,
@@ -308,6 +314,10 @@ class FrigateApp:
                 logger.error("Unable to write to /config to save export state")
 
             migrate_exports(self.config.ffmpeg, list(self.config.cameras.keys()))
+
+    def install_notice_registry(self) -> None:
+        self.notice_registry = NoticeRegistry()
+        install_registry(self.notice_registry)
 
     def init_embeddings_client(self) -> None:
         # Create a client for other processes to use
@@ -347,6 +357,7 @@ class FrigateApp:
             self.onvif_controller,
             self.ptz_metrics,
             comms,
+            notice_registry=self.notice_registry,
         )
 
     def init_profile_manager(self) -> None:
@@ -504,6 +515,7 @@ class FrigateApp:
                 self.embeddings_metrics,
                 self.detectors,
                 self.processes,
+                self.storage_maintainer,
             ),
             self.stop_event,
         )
@@ -640,6 +652,7 @@ class FrigateApp:
         self.init_embeddings_manager()
         self.bind_database()
         self.check_db_data_migrations()
+        self.install_notice_registry()
 
         # Clean up any stale replay camera artifacts (filesystem + DB)
         cleanup_replay_cameras()
@@ -697,6 +710,7 @@ class FrigateApp:
                     self.dispatcher,
                     self.profile_manager,
                     config_holder=self.config_holder,
+                    notice_registry=self.notice_registry,
                 ),
                 host="127.0.0.1",
                 port=5001,

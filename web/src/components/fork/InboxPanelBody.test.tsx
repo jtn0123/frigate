@@ -11,6 +11,9 @@ import {
 } from "@/lib/fork/inbox-store";
 import InboxPanelBody from "./InboxPanelBody";
 
+const auth = vi.hoisted(() => ({ admin: true }));
+vi.mock("@/hooks/use-is-admin", () => ({ useIsAdmin: () => auth.admin }));
+
 vi.mock("@/api/fork/client", () => ({
   useApi: () => ({ data: { cameras: { front_door: {} } } }),
 }));
@@ -128,5 +131,35 @@ describe("InboxPanelBody", () => {
     fireEvent.click(screen.getByRole("switch", { name: /inbox.mute.camera/ }));
     expect(getInboxState().settings.mutedCameras).toEqual(["front_door"]);
     expect(screen.getByText("inbox.quietHours.active")).toBeInTheDocument();
+  });
+});
+
+describe("system notices navigation", () => {
+  it("offers admins a link without changing review read state", () => {
+    auth.admin = true;
+    const onNavigate = vi.fn();
+    render(
+      <MemoryRouter>
+        <InboxPanelBody onNavigate={onNavigate} />
+      </MemoryRouter>,
+    );
+    const before = getInboxState();
+    fireEvent.click(
+      screen.getByRole("button", { name: "inbox.systemNotices" }),
+    );
+    expect(onNavigate).toHaveBeenCalledOnce();
+    expect(getInboxState()).toBe(before);
+  });
+  it("keeps the admin notice entry out of the viewer inbox", () => {
+    auth.admin = false;
+    render(
+      <MemoryRouter>
+        <InboxPanelBody onNavigate={vi.fn()} />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.queryByRole("button", { name: "inbox.systemNotices" }),
+    ).not.toBeInTheDocument();
+    auth.admin = true;
   });
 });

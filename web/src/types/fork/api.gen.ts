@@ -2664,6 +2664,201 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hardware/hwaccel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hwaccel Recommendation
+         * @description **Access:** Admin role required.
+         *
+         *     Get the hardware decoding this system can do.
+         *
+         *     Args:
+         *         detector: Hardware key of the detection hardware in use, which biases
+         *             the recommendation toward that hardware's GPU
+         *         codecs: Comma separated codecs of the streams that will be decoded,
+         *             used to drop families that cannot decode one of them
+         *
+         *     Returns:
+         *         The recommended family (empty when none fits) and every usable family
+         */
+        get: operations["hwaccel_recommendation_hardware_hwaccel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Notices
+         * @description **Access:** Admin role required.
+         *
+         *     Get notices, most severe first.
+         *
+         *     Args:
+         *         include_hidden: Also return acknowledged and muted notices, for the
+         *             hidden list
+         *
+         *     Returns:
+         *         The notices
+         */
+        get: operations["get_notices_notices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Notice Stats
+         * @description **Access:** Admin role required.
+         *
+         *     Get lifetime occurrence counts per notice kind.
+         */
+        get: operations["get_notice_stats_notices_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/muted_checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Muted Checks
+         * @description **Access:** Admin role required.
+         *
+         *     Get the muted config and stream check rows, newest first.
+         */
+        get: operations["get_muted_checks_notices_muted_checks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unhide All Notices
+         * @description **Access:** Admin role required.
+         *
+         *     Show every acknowledged and muted notice and check row again.
+         */
+        delete: operations["unhide_all_notices_notices_hidden_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/{notice_id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Notice
+         * @description **Access:** Admin role required.
+         *
+         *     Hide a notice until it happens again.
+         *
+         *     Config and stream check rows and the update notice never repeat, so they
+         *     can only be muted.
+         */
+        post: operations["acknowledge_notice_notices__notice_id__acknowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/{notice_id}/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mute Notice
+         * @description **Access:** Admin role required.
+         *
+         *     Hide a notice or a config or stream check row for good.
+         */
+        post: operations["mute_notice_notices__notice_id__mute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/{notice_id}/hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unhide Notice
+         * @description **Access:** Admin role required.
+         *
+         *     Show an acknowledged or muted notice or check row again.
+         */
+        delete: operations["unhide_notice_notices__notice_id__hidden_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -5520,6 +5715,40 @@ export interface components {
              * @description How to identify this unit among others of the same kind, for example 'PCIe 1'.
              */
             label: string;
+        };
+        /**
+         * HwaccelFamily
+         * @description A kind of hardware decoding, and the presets that drive it.
+         */
+        HwaccelFamily: {
+            /**
+             * Family key
+             * @description Stable identifier for this kind of hardware decoding.
+             */
+            key: string;
+            /**
+             * Presets
+             * @description The ffmpeg preset for each codec this family decodes, or a single 'any' preset when it decodes every codec.
+             */
+            presets: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * HwaccelRecommendation
+         * @description The hardware decoding this system can do.
+         */
+        HwaccelRecommendation: {
+            /**
+             * Recommended family
+             * @description Key of the family that fits this system best, or an empty string when none does.
+             */
+            recommended: string;
+            /**
+             * Available families
+             * @description Every family this system's hardware can use, best first.
+             */
+            available?: components["schemas"]["HwaccelFamily"][];
         };
         /** Last24HoursReview */
         Last24HoursReview: {
@@ -9723,6 +9952,222 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DetectionHardware"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hwaccel_recommendation_hardware_hwaccel_get: {
+        parameters: {
+            query?: {
+                detector?: string | null;
+                codecs?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HwaccelRecommendation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notices_notices_get: {
+        parameters: {
+            query?: {
+                include_hidden?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notice_stats_notices_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_muted_checks_notices_muted_checks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    unhide_all_notices_notices_hidden_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    acknowledge_notice_notices__notice_id__acknowledge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mute_notice_notices__notice_id__mute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unhide_notice_notices__notice_id__hidden_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

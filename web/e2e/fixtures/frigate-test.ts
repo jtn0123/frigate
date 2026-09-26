@@ -23,6 +23,7 @@ import {
 } from "../helpers/api-mocker";
 import { WsMocker } from "../helpers/ws-mocker";
 import { waitForAppReady } from "../helpers/app-ready";
+import { statsFactory } from "./mock-data/stats";
 import { installErrorCollector, type ErrorCollector } from "./error-collector";
 import { GLOBAL_ALLOWLIST } from "./error-allowlist";
 import { startBrowserCoverage, saveBrowserCoverage } from "./browser-coverage";
@@ -55,7 +56,7 @@ export class FrigateApp {
       return route.fallback();
     });
 
-    await this.ws.install(this.page);
+    await this.ws.install(this.page, statsFactory(overrides?.stats));
     await this.api.install(overrides);
     // media goes last so its per-event routes win over the broader
     // `**/api/events**` list route, which otherwise answers thumbnail and

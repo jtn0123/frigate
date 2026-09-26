@@ -18,10 +18,13 @@ import {
   LuHardDrive,
   LuHeartPulse,
   LuSearchCode,
+  LuShieldCheck,
 } from "react-icons/lu";
 import { FaVideo } from "react-icons/fa";
 
 import { useHashState } from "@/hooks/use-overlay-state";
+import NoticeFilterButton from "@/components/health/NoticeFilterButton";
+import { DEFAULT_NOTICE_FILTER, NoticeFilter } from "@/types/health";
 import { Toaster } from "@/components/ui/sonner";
 
 import { useTranslation } from "react-i18next";
@@ -42,7 +45,10 @@ const AIModelMetrics = lazy(() => import("@/views/system/AIModelMetrics"));
 
 const CameraHealthView = lazy(() => import("@/views/fork/CameraHealthView"));
 
+const HealthMetrics = lazy(() => import("@/views/system/HealthMetrics"));
+
 const allMetrics = [
+  "notices",
   "general",
   "enrichments",
   "models",
@@ -78,6 +84,10 @@ function System() {
       metrics.splice(metrics.indexOf("health"), 1);
     }
 
+    if (!isForkEnabled("systemNotices")) {
+      metrics.splice(metrics.indexOf("notices"), 1);
+    }
+
     return metrics;
   }, [config]);
 
@@ -85,6 +95,9 @@ function System() {
 
   const [hashPage, setPage] = useHashState<SystemMetric>();
   const page = hashPage && metrics.includes(hashPage) ? hashPage : "general";
+  const [noticeFilter, setNoticeFilter] = useState<NoticeFilter>(
+    DEFAULT_NOTICE_FILTER,
+  );
   const [lastUpdated, setLastUpdated] = useState<number>(0);
 
   useEffect(() => {
@@ -130,6 +143,7 @@ function System() {
               value={item}
               aria-label={t("selectTab", { tab: t(item + ".title") })}
             >
+              {item == "notices" && <LuShieldCheck className="size-4" />}
               {item == "general" && <LuActivity className="size-4" />}
               {item == "enrichments" && <LuSearchCode className="size-4" />}
               {item == "models" && <LuCpu className="size-4" />}
@@ -146,7 +160,13 @@ function System() {
 
         <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center gap-3">
           <ShareViewButton compact={phoneTouch} />
-          {page !== "health" && Boolean(lastUpdated) && (
+          {page === "notices" && (
+            <NoticeFilterButton
+              filter={noticeFilter}
+              onFilterChange={setNoticeFilter}
+            />
+          )}
+          {page !== "health" && page !== "notices" && Boolean(lastUpdated) && (
             <div className="h-full content-center text-sm text-muted-foreground">
               {t("lastRefreshed")}
               <TimeAgo time={lastUpdated * 1000} dense />
@@ -184,6 +204,7 @@ function System() {
         />
       )}
       <RouteSuspense fallback={<PageLoading />}>
+        {page === "notices" && <HealthMetrics noticeFilter={noticeFilter} />}
         {page === "general" && (
           <div className="contents">
             <GeneralMetrics

@@ -562,6 +562,28 @@ class TestHttp(unittest.TestCase):
         assert Recordings.get(Recordings.id == rec_k2_id)
         assert Recordings.get(Recordings.id == rec_k3_id)
 
+    def test_unmet_retention_sets_the_live_flag(self):
+        config = FrigateConfig(**self.minimal_config)
+        storage = StorageMaintainer(config, MagicMock())
+        storage.camera_storage_stats = {
+            "front_door": {"needs_refresh": False, "usage": 10, "bandwidth": 10}
+        }
+
+        with patch.object(storage, "expected_hourly_bandwidth", return_value=100.0):
+            storage.reduce_storage_consumption()
+
+        self.assertTrue(storage.retention_unmet)
+
+    def test_clean_run_clears_the_live_flag(self):
+        config = FrigateConfig(**self.minimal_config)
+        storage = StorageMaintainer(config, MagicMock())
+        storage.retention_unmet = True
+
+        with patch.object(storage, "check_storage_needs_cleanup", return_value=False):
+            storage._maintain_once()
+
+        self.assertFalse(storage.retention_unmet)
+
 
 def _insert_mock_event(
     id: str,

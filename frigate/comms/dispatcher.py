@@ -11,6 +11,7 @@ from peewee import IntegrityError
 from frigate.camera import PTZMetrics
 from frigate.camera.activity_manager import AudioActivityManager, CameraActivityManager
 from frigate.comms.base_communicator import Communicator
+from frigate.comms.mqtt import MqttClient
 from frigate.comms.runtime_state import RuntimeStatePersistence
 from frigate.comms.webpush import WebPushClient
 from frigate.config import (
@@ -40,10 +41,12 @@ from frigate.const import (
     UPDATE_EVENT_DESCRIPTION,
     UPDATE_JOB_STATE,
     UPDATE_MODEL_STATE,
+    UPDATE_NOTICE,
     UPDATE_REVIEW_DESCRIPTION,
     UPSERT_REVIEW_SEGMENT,
 )
 from frigate.models import Event, Previews, Recordings, ReviewSegment
+from frigate.notices.registry import NoticeRegistry
 from frigate.ptz.onvif import OnvifCommandEnum, OnvifController
 from frigate.types import ModelStatusTypesEnum, TrackedObjectUpdateTypesEnum
 from frigate.util.object import get_camera_regions_grid
@@ -62,12 +65,18 @@ class Dispatcher:
         onvif: OnvifController,
         ptz_metrics: dict[str, PTZMetrics],
         communicators: list[Communicator],
+        notice_registry: NoticeRegistry | None = None,
     ) -> None:
         self.config = config
         self.config_updater = config_updater
         self.onvif = onvif
         self.ptz_metrics = ptz_metrics
         self.comms = communicators
+        self.notice_registry = notice_registry
+
+        if notice_registry is not None:
+            notice_registry.subscribe(self._publish_notices)
+
         self.camera_activity = CameraActivityManager(config, self.publish)
         self.audio_activity = AudioActivityManager(config, self.publish)
         self.model_state: dict[str, ModelStatusTypesEnum] = {}
@@ -238,6 +247,16 @@ class Dispatcher:
                 self.model_state[model] = ModelStatusTypesEnum[state]
                 self.publish("model_state", json.dumps(self.model_state))
 
+        def handle_update_notice() -> None:
+            if self.notice_registry is None or not isinstance(payload, dict):
+                return
+
+            try:
+                self.notice_registry.apply(payload)
+            except Exception:
+                # a raise here would kill the REP thread for every process
+                logger.exception("Failed to apply notice update")
+
         def handle_model_state() -> None:
             self.publish("model_state", json.dumps(self.model_state.copy()))
 
@@ -337,6 +356,7 @@ class Dispatcher:
                 json.dumps(self.embeddings_reindex.copy()),
             )
             self.publish("birdseye_layout", json.dumps(self.birdseye_layout.copy()))
+            self._publish_notices()
             self.publish("audio_detections", json.dumps(audio_detections))
             self.publish(
                 "profile/state",
@@ -361,6 +381,7 @@ class Dispatcher:
             UPDATE_REVIEW_DESCRIPTION: handle_update_review_description,
             UPDATE_MODEL_STATE: handle_update_model_state,
             UPDATE_JOB_STATE: handle_update_job_state,
+            UPDATE_NOTICE: handle_update_notice,
             UPDATE_EMBEDDINGS_REINDEX_PROGRESS: handle_update_embeddings_reindex_progress,
             UPDATE_BIRDSEYE_LAYOUT: handle_update_birdseye_layout,
             UPDATE_AUDIO_TRANSCRIPTION_STATE: handle_update_audio_transcription_state,
@@ -420,6 +441,23 @@ class Dispatcher:
         """Handle publishing to communicators."""
         for comm in self.comms:
             comm.publish(topic, payload, retain)
+
+    def publish_local(self, topic: str, payload: Any) -> None:
+        """Publish to every communicator except MQTT.
+
+        Used for topics whose external schema is not settled yet.
+        """
+        for comm in self.comms:
+            if isinstance(comm, MqttClient):
+                continue
+
+            comm.publish(topic, payload, False)
+
+    def _publish_notices(self) -> None:
+        if self.notice_registry is None:
+            return
+
+        self.publish_local("notices", json.dumps(self.notice_registry.active()))
 
     def stop(self) -> None:
         self.camera_activity.stop()
