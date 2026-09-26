@@ -77,8 +77,12 @@ Backend checks use Python 3.11 in the fork's thin ARM64 test image, including
 the pinned ONNX Runtime 1.30 wheel. Frontend and Playwright tests exercise the
 actual components with mocked camera/API data. They do not establish physical
 accelerator compatibility, real-camera recording reliability, native Safari
-behavior, or a full production-image build. Remote CI and SonarCloud have not
-run for this local branch. Nothing has been pushed, merged, promoted or deployed.
+behavior, or a full production-image build. PR #107 is open against `next`. Its initial remote web, lint and CodeQL
+checks passed; the runtime smoke test exposed a root-owned legacy test config
+that prevented migration. The corrected fixture passed local non-root startup,
+CPU inference, recording, playback, preview, permission and shutdown checks.
+Remote CI and SonarCloud validation are in progress. Nothing has been merged,
+promoted or deployed.
 
 ## Branch review
 

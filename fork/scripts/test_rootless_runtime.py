@@ -1,8 +1,10 @@
 """Verify a non-root Frigate runtime with an isolated synthetic camera."""
 
 import argparse
+import io
 import json
 import subprocess
+import tarfile
 import tempfile
 import time
 import uuid
@@ -41,9 +43,15 @@ FFMPEG = "/usr/lib/ffmpeg/8.0/bin/ffmpeg"
 CACHE_TMPFS = "/tmp/cache:uid=65534,gid=65534,mode=0700,size=1000000000"
 
 
-def docker(*args: str, check: bool = True) -> subprocess.CompletedProcess:
+def docker(
+    *args: str, check: bool = True, input_data: bytes | None = None
+) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["docker", *args], capture_output=True, check=check, timeout=180
+        ["docker", *args],
+        input=input_data,
+        capture_output=True,
+        check=check,
+        timeout=180,
     )
 
 
@@ -104,8 +112,6 @@ def run(image: str) -> None:
     try:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            config = root / "config.yml"
-            config.write_text(CONFIG)
             video = root / "synthetic.mp4"
             video.write_bytes(
                 docker(
@@ -154,7 +160,23 @@ def run(image: str) -> None:
                 CACHE_TMPFS,
                 image,
             )
-            docker("cp", str(config), f"{name}:/config/config.yml")
+            # Docker cp normally creates root-owned files. The legacy config
+            # must be writable by the runtime user so startup can migrate it.
+            archive = io.BytesIO()
+            config_bytes = CONFIG.encode()
+            with tarfile.open(fileobj=archive, mode="w") as config_archive:
+                info = tarfile.TarInfo("config.yml")
+                info.size = len(config_bytes)
+                info.uid = info.gid = 65534
+                info.mode = 0o600
+                config_archive.addfile(info, io.BytesIO(config_bytes))
+            docker(
+                "cp",
+                "--archive",
+                "-",
+                f"{name}:/config/",
+                input_data=archive.getvalue(),
+            )
             docker("cp", str(video), f"{name}:/tmp/synthetic.mp4")
             docker("start", name)
             print("Checking non-root startup and recording", flush=True)
@@ -286,6 +308,12 @@ assert pathlib.Path('/tmp/latest.jpg').stat().st_size > 1000
             ):
                 raise RuntimeError("Non-root runtime did not shut down cleanly")
             print("Clean non-root shutdown passed", flush=True)
+    except (RuntimeError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        # This container only uses the synthetic test configuration. Preserve its
+        # startup errors before cleanup so CI failures identify the failing service.
+        result = docker("logs", name, check=False)
+        print((result.stdout + result.stderr).decode(errors="replace"), flush=True)
+        raise
     finally:
         docker("rm", "--force", name, check=False)
 
