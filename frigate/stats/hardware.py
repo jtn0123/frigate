@@ -207,6 +207,42 @@ POLLERS: dict[str, Callable[[FrigateConfig], HardwarePollResult]] = {
 }
 
 
+def _vaapi_hardware() -> str:
+    """VAAPI is shared by AMD and Intel, so the loaded driver decides."""
+    if _is_amd_vaapi():
+        return "amd_gpu"
+
+    return "intel_gpu"
+
+
+def _detector_hardware(detector: str, device: str | None) -> str | None:
+    """Map a detector type and its device to a hardware name."""
+    match detector:
+        case "rknn":
+            return "rockchip"
+        case "axengine":
+            return "axengine"
+        case "tensorrt":
+            return "jetson"
+        case "openvino":
+            return _openvino_hardware(device)
+        case "onnx":
+            return _present_gpu()
+
+    return None
+
+
+def _openvino_hardware(device: str | None) -> str | None:
+    """OpenVINO runs on the Intel NPU or GPU; CPU and other devices need neither."""
+    if device == "NPU":
+        return "intel_npu"
+
+    if device is None or device.startswith("GPU"):
+        return "intel_gpu"
+
+    return None
+
+
 def _hwaccel_hardware(args: str) -> str | None:
     """Map an ffmpeg hwaccel arg string (preset or raw args) to a hardware name."""
     if "cuvid" in args or "nvidia" in args:
@@ -218,7 +254,7 @@ def _hwaccel_hardware(args: str) -> str | None:
     elif FFMPEG_HWACCEL_AMF in args or "amf" in args:
         return "amd_gpu"
     elif "vaapi" in args:
-        return "amd_gpu" if _is_amd_vaapi() else "intel_gpu"
+        return _vaapi_hardware()
     elif "preset-rk" in args or "rkmpp" in args:
         return "rockchip"
     elif "v4l2m2m" in args or "rpi" in args:
@@ -278,6 +314,24 @@ class HardwareStats:
         if self._config_subscriber.check_for_updates():
             self.update_config()
 
+        hardware_futures = self._submit_hardware_polls()
+        cpu_future = self._executor.submit(get_cpu_stats)
+        futures: list[Future[Any]] = [*hardware_futures, cpu_future]
+        done, _ = wait(futures, timeout=POLL_TIMEOUT_SECONDS)
+
+        gpu_usages, npu_usages = self._collect_hardware_results(hardware_futures, done)
+
+        if gpu_usages:
+            all_stats["gpu_usages"] = gpu_usages
+
+        if npu_usages:
+            all_stats["npu_usages"] = npu_usages
+
+        if cpu_future in done:
+            self._collect_cpu_result(cpu_future, all_stats)
+
+    def _submit_hardware_polls(self) -> dict[Future[HardwarePollResult], str]:
+        """Submit a poll for each monitored hardware not cooling down from an error."""
         now = time.monotonic()
         hardware_futures: dict[Future[HardwarePollResult], str] = {}
 
@@ -292,10 +346,14 @@ class HardwareStats:
 
             hardware_futures[self._executor.submit(poll)] = name
 
-        cpu_future = self._executor.submit(get_cpu_stats)
-        futures: list[Future[Any]] = [*hardware_futures, cpu_future]
-        done, _ = wait(futures, timeout=POLL_TIMEOUT_SECONDS)
+        return hardware_futures
 
+    def _collect_hardware_results(
+        self,
+        hardware_futures: dict[Future[HardwarePollResult], str],
+        done: set[Future[Any]],
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        """Merge finished poll results, latching an error for any that failed."""
         gpu_usages: dict[str, dict[str, Any]] = {}
         npu_usages: dict[str, dict[str, Any]] = {}
 
@@ -318,20 +376,19 @@ class HardwareStats:
             if not result.ok:
                 self._errors[name] = time.monotonic()
 
-        if gpu_usages:
-            all_stats["gpu_usages"] = gpu_usages
+        return gpu_usages, npu_usages
 
-        if npu_usages:
-            all_stats["npu_usages"] = npu_usages
+    @staticmethod
+    def _collect_cpu_result(cpu_future: Future[Any], all_stats: dict[str, Any]) -> None:
+        """Fill cpu usage stats from a finished cpu poll."""
+        try:
+            cpu_stats = cpu_future.result()
+        except Exception:
+            logger.exception("Failed to collect cpu stats")
+            return
 
-        if cpu_future in done:
-            try:
-                cpu_stats = cpu_future.result()
-            except Exception:
-                logger.exception("Failed to collect cpu stats")
-            else:
-                if cpu_stats:
-                    all_stats["cpu_usages"] = cpu_stats
+        if cpu_stats:
+            all_stats["cpu_usages"] = cpu_stats
 
     def stop(self) -> None:
         self._config_subscriber.stop()
@@ -342,17 +399,11 @@ class HardwareStats:
         hwaccel_args: list[str] = []
 
         for camera in self.config.cameras.values():
-            args = camera.ffmpeg.hwaccel_args
+            camera_args = [camera.ffmpeg.hwaccel_args] + [
+                stream_input.hwaccel_args for stream_input in camera.ffmpeg.inputs
+            ]
 
-            if isinstance(args, list):
-                args = " ".join(args)
-
-            if args and args not in hwaccel_args:
-                hwaccel_args.append(args)
-
-            for stream_input in camera.ffmpeg.inputs:
-                args = stream_input.hwaccel_args
-
+            for args in camera_args:
                 if isinstance(args, list):
                     args = " ".join(args)
 
@@ -375,24 +426,28 @@ class HardwareStats:
 
         for model in self.config.models:
             for spec in self.config.devices_for_model(model):
-                if spec.detector == "rknn":
-                    names.add("rockchip")
-                elif spec.detector == "axengine":
-                    names.add("axengine")
-                elif spec.detector == "tensorrt":
-                    names.add("jetson")
-                elif spec.detector == "openvino":
-                    if spec.device == "NPU":
-                        names.add("intel_npu")
-                    elif spec.device is None or spec.device.startswith("GPU"):
-                        names.add("intel_gpu")
-                elif spec.detector == "onnx":
-                    gpu = _present_gpu()
+                name = _detector_hardware(spec.detector, spec.device)
 
-                    if gpu is not None:
-                        names.add(gpu)
+                if name is not None:
+                    names.add(name)
 
         return names
+
+    def _semantic_search_uses_gpu(self) -> bool:
+        """Whether semantic search runs a local model on the GPU."""
+        semantic = self.config.semantic_search
+
+        if not semantic.enabled:
+            return False
+
+        # GenAI providers run remotely and use no local hardware
+        if semantic.model is not None and not isinstance(
+            semantic.model, SemanticSearchModelEnum
+        ):
+            return False
+
+        default_device = "GPU" if semantic.model_size == "large" else "CPU"
+        return (semantic.device or default_device) != "CPU"
 
     def _scan_enrichments(self) -> set[str]:
         """Hardware used by enabled enrichments, resolved to the present GPU."""
@@ -400,32 +455,15 @@ class HardwareStats:
         names: set[str] = set()
         gpu = _present_gpu()
 
-        if gpu is not None:
-            semantic = config.semantic_search
-
-            if (
-                semantic.enabled
-                # GenAI providers run remotely and use no local hardware
-                and (
-                    semantic.model is None
-                    or isinstance(semantic.model, SemanticSearchModelEnum)
-                )
-                and (
-                    semantic.device
-                    or ("GPU" if semantic.model_size == "large" else "CPU")
-                )
-                != "CPU"
-            ):
-                names.add(gpu)
-
-            if (
+        if gpu is not None and (
+            self._semantic_search_uses_gpu()
+            or (
                 config.face_recognition.enabled
                 and (config.face_recognition.device or "GPU") != "CPU"
-            ):
-                names.add(gpu)
-
-            if config.lpr.enabled and (config.lpr.device or "AUTO") != "CPU":
-                names.add(gpu)
+            )
+            or (config.lpr.enabled and (config.lpr.device or "AUTO") != "CPU")
+        ):
+            names.add(gpu)
 
         # audio transcription runs on CUDA only
         transcription_configs = [config.audio_transcription] + [

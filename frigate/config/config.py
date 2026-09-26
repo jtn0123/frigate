@@ -773,49 +773,70 @@ class FrigateConfig(FrigateBaseModel):
         claimed_devices: dict[str, SceneEnum] = {}
 
         for index, model in enumerate(self.models):
-            scene = model.scene.value
-
-            if model.scene in model_devices:
-                raise ValueError(
-                    f"Multiple models are configured with a scene of '{scene}'. Each model must use a different scene."
-                )
-
-            if not model.devices:
-                raise ValueError(
-                    f"Model '{scene}' must list at least one entry under devices."
-                )
-
-            try:
-                devices = [parse_device(device) for device in model.devices]
-            except DeviceParseError as err:
-                raise ValueError(
-                    f"Model '{scene}' has an invalid device: {err}"
-                ) from err
-
-            detectors = {device.detector for device in devices}
-
-            if len(detectors) > 1:
-                raise ValueError(
-                    f"Model '{scene}' mixes the {', '.join(sorted(detectors))} detectors. All of a model's devices must use the same detector."
-                )
-
-            for device in devices:
-                if device.raw in claimed_devices and not device.shareable:
-                    other = claimed_devices[device.raw]
-                    where = (
-                        f"twice by model '{scene}'"
-                        if other == model.scene
-                        else f"by both the '{other.value}' and '{scene}' models"
-                    )
-                    raise ValueError(
-                        f"Device '{device.raw}' is used {where}, but it can only run one detection process."
-                    )
-
-                claimed_devices[device.raw] = model.scene
-
+            devices = self._parse_model_devices(model, model_devices)
+            self._claim_model_devices(model.scene, devices, claimed_devices)
             self.models[index] = self._load_model(model, devices[0].detector)
             model_devices[model.scene] = devices
 
+        self._model_devices = model_devices
+        self._aggregate_model_metadata()
+
+    @staticmethod
+    def _parse_model_devices(
+        model: ModelConfig, model_devices: dict[SceneEnum, list[DeviceSpec]]
+    ) -> list[DeviceSpec]:
+        """Validate a model's scene and devices and parse its device strings."""
+        scene = model.scene.value
+
+        if model.scene in model_devices:
+            raise ValueError(
+                f"Multiple models are configured with a scene of '{scene}'. Each model must use a different scene."
+            )
+
+        if not model.devices:
+            raise ValueError(
+                f"Model '{scene}' must list at least one entry under devices."
+            )
+
+        try:
+            devices = [parse_device(device) for device in model.devices]
+        except DeviceParseError as err:
+            raise ValueError(f"Model '{scene}' has an invalid device: {err}") from err
+
+        detectors = {device.detector for device in devices}
+
+        if len(detectors) > 1:
+            raise ValueError(
+                f"Model '{scene}' mixes the {', '.join(sorted(detectors))} detectors. All of a model's devices must use the same detector."
+            )
+
+        return devices
+
+    @staticmethod
+    def _claim_model_devices(
+        model_scene: SceneEnum,
+        devices: list[DeviceSpec],
+        claimed_devices: dict[str, SceneEnum],
+    ) -> None:
+        """Claim a model's devices, rejecting any unshareable device reuse."""
+        scene = model_scene.value
+
+        for device in devices:
+            if device.raw in claimed_devices and not device.shareable:
+                other = claimed_devices[device.raw]
+                where = (
+                    f"twice by model '{scene}'"
+                    if other == model_scene
+                    else f"by both the '{other.value}' and '{scene}' models"
+                )
+                raise ValueError(
+                    f"Device '{device.raw}' is used {where}, but it can only run one detection process."
+                )
+
+            claimed_devices[device.raw] = model_scene
+
+    def _aggregate_model_metadata(self) -> None:
+        """Merge attributes and labels across every loaded model."""
         attributes: set[str] = set()
         attribute_logos: set[str] = set()
         attributes_map: dict[str, set[str]] = {}
@@ -829,7 +850,6 @@ class FrigateConfig(FrigateBaseModel):
             for label, label_attributes in model.attributes_map.items():
                 attributes_map.setdefault(label, set()).update(label_attributes)
 
-        self._model_devices = model_devices
         self._all_attributes = sorted(attributes)
         self._all_attribute_logos = sorted(attribute_logos)
         self._all_attributes_map = {

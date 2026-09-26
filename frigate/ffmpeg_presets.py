@@ -19,6 +19,7 @@ from frigate.version import VERSION
 
 _SOFTWARE_SCALE_FILTER = "-r {0} -vf fps={0},scale={1}:{2}"
 _TIMESTAMP_INPUT_FLAGS = "+genpts+discardcorrupt"
+_V4L2M2M_H264_BIRDSEYE_ENCODE = "{0} -hide_banner {1} -c:v h264_v4l2m2m {2}"
 
 logger = logging.getLogger(__name__)
 
@@ -156,10 +157,10 @@ PRESETS_HW_ACCEL_SCALE["preset-rk-h265"] = PRESETS_HW_ACCEL_SCALE[FFMPEG_HWACCEL
 # Presets for FFMPEG Stream Encoding (birdseye feature)
 
 PRESETS_HW_ACCEL_ENCODE_BIRDSEYE = {
-    "preset-rpi-64-h264": "{0} -hide_banner {1} -c:v h264_v4l2m2m {2}",
+    "preset-rpi-64-h264": _V4L2M2M_H264_BIRDSEYE_ENCODE,
     "preset-rpi-64-h265": "{0} -hide_banner {1} -c:v hevc_v4l2m2m {2}",
-    "preset-apple-silicon-h264": "{0} -hide_banner {1} -c:v h264_v4l2m2m {2}",
-    "preset-apple-silicon-h265": "{0} -hide_banner {1} -c:v h264_v4l2m2m {2}",
+    "preset-apple-silicon-h264": _V4L2M2M_H264_BIRDSEYE_ENCODE,
+    "preset-apple-silicon-h265": _V4L2M2M_H264_BIRDSEYE_ENCODE,
     # -vaapi_device is required in addition to -hwaccel_device: this is the only
     # birdseye preset that uses hwupload, and ffmpeg 8 initializes filters before
     # the decoder creates a device, so hwupload cannot see an -hwaccel_device one.

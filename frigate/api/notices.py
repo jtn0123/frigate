@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.notices])
 
+NOTICE_NOT_FOUND = "Notice not found"
+
 
 @router.get("/notices", dependencies=[Depends(require_role(["admin"]))])
 def get_notices(request: Request, include_hidden: bool = False) -> JSONResponse:
@@ -61,7 +63,7 @@ def acknowledge_notice(request: Request, notice_id: str) -> JSONResponse:
     """
     if not request.app.notice_registry.acknowledge(notice_id):
         return JSONResponse(
-            content={"success": False, "message": "Notice not found"},
+            content={"success": False, "message": NOTICE_NOT_FOUND},
             status_code=404,
         )
 
@@ -76,7 +78,7 @@ def mute_notice(request: Request, notice_id: str) -> JSONResponse:
     """Hide a notice or a config or stream check row for good."""
     if not request.app.notice_registry.mute(notice_id):
         return JSONResponse(
-            content={"success": False, "message": "Notice not found"},
+            content={"success": False, "message": NOTICE_NOT_FOUND},
             status_code=404,
         )
 
@@ -91,7 +93,7 @@ def unhide_notice(request: Request, notice_id: str) -> JSONResponse:
     """Show an acknowledged or muted notice or check row again."""
     if not request.app.notice_registry.unhide(notice_id):
         return JSONResponse(
-            content={"success": False, "message": "Notice not found"},
+            content={"success": False, "message": NOTICE_NOT_FOUND},
             status_code=404,
         )
 

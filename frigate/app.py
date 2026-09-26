@@ -384,7 +384,9 @@ class FrigateApp:
             try:
                 api_types[detector_type].ensure_dependencies()
             except RuntimeDependencyError as err:
-                logger.error("Unable to prepare the %s runtime: %s", detector_type, err)
+                logger.exception(
+                    "Unable to prepare the %s runtime: %s", detector_type, err
+                )
 
     def start_detectors(self) -> None:
         model_cameras: dict[SceneEnum, list[str]] = {

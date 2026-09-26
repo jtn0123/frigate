@@ -48,17 +48,17 @@ class StorageMaintainer(threading.Thread):
             [CameraConfigUpdateEnum.record],
         )
 
-    def _recording_stream_types(self, camera: str) -> tuple[str, ...]:
+    def _recording_stream_types(self, camera: str) -> list[str]:
         """Return the stream types the camera is currently recording."""
         camera_config = self.config.cameras.get(camera)
 
         if camera_config is None or not camera_config.record.enabled:
-            return ()
+            return []
 
         if camera_config.record.sub.enabled:
-            return (STREAM_TYPE_MAIN, STREAM_TYPE_SUB)
+            return [STREAM_TYPE_MAIN, STREAM_TYPE_SUB]
 
-        return (STREAM_TYPE_MAIN,)
+        return [STREAM_TYPE_MAIN]
 
     def expected_hourly_bandwidth(self) -> float:
         """Return the MB/hr the cameras are expected to write.

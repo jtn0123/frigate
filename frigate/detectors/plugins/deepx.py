@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import struct
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
@@ -435,36 +436,9 @@ def read_ppu_layout(path: str) -> PpuLayout | None:
 
             for chip in data.get("compiled_data", {}).values():
                 for npu in chip.values():
-                    # v8 has a PPU table; v7's output tensor shapes hold the same grids
-                    if npu.get("ppu", {}).get("size"):
-                        grids = _ppu_grids_from_table(section(npu["ppu"]))
-                    elif npu.get("rmap_info", {}).get("size"):
-                        outputs = json.loads(section(npu["rmap_info"])).get(
-                            "outputs", []
-                        )
-                        grids = _ppu_grids_from_outputs(outputs, ppu)
-                        if grids and anchor_based is None:
-                            anchor_based = _ppu_outputs_are_anchor_based(outputs, ppu)
-                    else:
-                        continue
-
-                    if not grids:
-                        continue
-
-                    scales = tuple(grids[k] for k in sorted(grids))
-                    centre_boxes = None
-                    bbox_node = _ppu_bbox_node(ppu)
-                    if anchor_based is False and len(scales) == 1 and bbox_node:
-                        nodes = []
-                        try:
-                            for entry in (data.get(DXNN_GRAPH_SECTION) or {}).values():
-                                nodes += _onnx_nodes(section(entry))
-                        except (OSError, ValueError, IndexError, KeyError, TypeError):
-                            nodes = []
-
-                        centre_boxes = ppu_boxes_are_centres(nodes, bbox_node)
-
-                    return PpuLayout(anchor_based, scales, centre_boxes)
+                    layout = _npu_ppu_layout(npu, ppu, anchor_based, data, section)
+                    if layout is not None:
+                        return layout
 
             return None
     except (
@@ -477,6 +451,51 @@ def read_ppu_layout(path: str) -> PpuLayout | None:
         struct.error,
     ):
         return None
+
+
+def _npu_ppu_layout(
+    npu: dict,
+    ppu: dict | None,
+    anchor_based: bool | None,
+    data: dict,
+    section: Callable[[dict], bytes],
+) -> PpuLayout | None:
+    """The PPU layout one compiled NPU entry describes, or None when it has none."""
+    # v8 has a PPU table; v7's output tensor shapes hold the same grids
+    if npu.get("ppu", {}).get("size"):
+        grids = _ppu_grids_from_table(section(npu["ppu"]))
+    elif npu.get("rmap_info", {}).get("size"):
+        outputs = json.loads(section(npu["rmap_info"])).get("outputs", [])
+        grids = _ppu_grids_from_outputs(outputs, ppu)
+        if grids and anchor_based is None:
+            anchor_based = _ppu_outputs_are_anchor_based(outputs, ppu)
+    else:
+        return None
+
+    if not grids:
+        return None
+
+    scales = tuple(grids[k] for k in sorted(grids))
+    centre_boxes = None
+    bbox_node = _ppu_bbox_node(ppu)
+    if anchor_based is False and len(scales) == 1 and bbox_node:
+        centre_boxes = ppu_boxes_are_centres(
+            _dxnn_graph_nodes(data, section), bbox_node
+        )
+
+    return PpuLayout(anchor_based, scales, centre_boxes)
+
+
+def _dxnn_graph_nodes(data: dict, section: Callable[[dict], bytes]) -> list[dict]:
+    """The ONNX nodes of the graph sections in a .dxnn, or none if unreadable."""
+    nodes: list[dict] = []
+    try:
+        for entry in (data.get(DXNN_GRAPH_SECTION) or {}).values():
+            nodes += _onnx_nodes(section(entry))
+    except (OSError, ValueError, IndexError, KeyError, TypeError):
+        return []
+
+    return nodes
 
 
 def _ppu_grids_from_table(table: bytes) -> dict[int, tuple[int, int]]:
@@ -582,21 +601,25 @@ def _onnx_nodes(blob: bytes) -> list[dict]:
             if graph_field != ONNX_NODE_FIELD:
                 continue
 
-            entry = {"input": [], "output": [], "name": "", "op_type": ""}
-            for node_field, value in _proto_fields(node):
-                key = ONNX_NODE_FIELDS.get(node_field)
-                if key is None:
-                    continue
-
-                text = value.decode("utf-8", "replace")
-                if key in ("input", "output"):
-                    entry[key].append(text)
-                else:
-                    entry[key] = text
-
-            nodes.append(entry)
+            nodes.append(_onnx_node(node))
 
     return nodes
+
+
+def _onnx_node(node: bytes) -> dict:
+    entry: dict = {"input": [], "output": [], "name": "", "op_type": ""}
+    for node_field, value in _proto_fields(node):
+        key = ONNX_NODE_FIELDS.get(node_field)
+        if key is None:
+            continue
+
+        text = value.decode("utf-8", "replace")
+        if key in ("input", "output"):
+            entry[key].append(text)
+        else:
+            entry[key] = text
+
+    return entry
 
 
 def _upstream_concat(node: dict | None, producers: dict) -> dict | None:
@@ -1006,18 +1029,19 @@ class DeepxDetector(DetectionApi):
                 "with DX-COM 2.4.0 or later."
             )
 
+        if layout.centre_boxes is None:
+            box_format = ""
+        elif layout.centre_boxes:
+            box_format = ", boxes as a centre and size"
+        else:
+            box_format = ", boxes as two corners"
+
         logger.info(
             "DEEPX PPU head from the model: %s, %d scale(s), grids %s%s",
             "anchor-based" if layout.anchor_based else "anchor-free",
             layout.scale_count,
             layout.grids,
-            ""
-            if layout.centre_boxes is None
-            else (
-                ", boxes as a centre and size"
-                if layout.centre_boxes
-                else ", boxes as two corners"
-            ),
+            box_format,
         )
         return layout
 

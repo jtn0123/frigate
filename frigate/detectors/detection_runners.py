@@ -427,20 +427,9 @@ class OpenVINOModelRunner(BaseModelRunner):
 
         # Compile model under the shared lock
         with _OPENVINO_LOCK:
-            try:
-                self.compiled_model = self.ov_core.compile_model(
-                    model=model_path, device_name=device, config=compile_config
-                )
-            except RuntimeError as e:
-                if not compile_config:
-                    raise
-
-                logger.debug(
-                    f"Failed to compile with {compile_config}, retrying without: {e}"
-                )
-                self.compiled_model = self.ov_core.compile_model(
-                    model=model_path, device_name=device
-                )
+            self.compiled_model = self._compile_model(
+                model_path, device, compile_config
+            )
 
             # Create reusable inference request
             self.infer_request = self.compiled_model.create_infer_request()
@@ -455,6 +444,23 @@ class OpenVINOModelRunner(BaseModelRunner):
             except RuntimeError:
                 # model is complex and has dynamic shape
                 pass
+
+    def _compile_model(
+        self, model_path: str, device: str, compile_config: dict[str, str]
+    ) -> Any:
+        """Compile the model, retrying without the compile-time config on failure."""
+        try:
+            return self.ov_core.compile_model(
+                model=model_path, device_name=device, config=compile_config
+            )
+        except RuntimeError as e:
+            if not compile_config:
+                raise
+
+            logger.debug(
+                f"Failed to compile with {compile_config}, retrying without: {e}"
+            )
+            return self.ov_core.compile_model(model=model_path, device_name=device)
 
     @property
     def device_name(self) -> str:
@@ -711,34 +717,53 @@ def _record_runner(
     return runner
 
 
+def _get_rknn_runner(model_path: str) -> BaseModelRunner | None:
+    """Return an RKNN runner when the model converts for the RKNN NPU."""
+    if not is_rknn_compatible(model_path):
+        return None
+
+    rknn_path = auto_convert_model(model_path)
+
+    if rknn_path:
+        return RKNNModelRunner(rknn_path)
+
+    return None
+
+
+def _get_ane_runner(model_path: str, model_type: str) -> BaseModelRunner | None:
+    """Return an ONNX runner on the Neural Engine when one is available."""
+    ane_devices = get_lighter_ane_devices()
+
+    if not ane_devices:
+        return None
+
+    sess_options = get_ort_session_options(model_type) or ort.SessionOptions()
+    sess_options.add_provider_for_devices(ane_devices, {})
+
+    try:
+        session = ort.InferenceSession(model_path, sess_options=sess_options)
+    except Exception as e:
+        logger.warning(
+            f"Failed to load {model_path} on the Neural Engine, using the default providers: {e}"
+        )
+        return None
+
+    return ONNXModelRunner(session, model_type=model_type)
+
+
 def get_optimized_runner(
     model_path: str, device: str | None, model_type: str, **kwargs
 ) -> BaseModelRunner:
     """Get an optimized runner for the hardware."""
     device = device or "AUTO"
 
-    if device != "CPU" and is_rknn_compatible(model_path):
-        rknn_path = auto_convert_model(model_path)
+    if device != "CPU":
+        accelerated = _get_rknn_runner(model_path) or _get_ane_runner(
+            model_path, model_type
+        )
 
-        if rknn_path:
-            return _record_runner(model_path, model_type, RKNNModelRunner(rknn_path))
-
-    if device != "CPU" and (ane_devices := get_lighter_ane_devices()):
-        sess_options = get_ort_session_options(model_type) or ort.SessionOptions()
-        sess_options.add_provider_for_devices(ane_devices, {})
-
-        try:
-            session = ort.InferenceSession(model_path, sess_options=sess_options)
-        except Exception as e:
-            logger.warning(
-                f"Failed to load {model_path} on the Neural Engine, using the default providers: {e}"
-            )
-        else:
-            return _record_runner(
-                model_path,
-                model_type,
-                ONNXModelRunner(session, model_type=model_type),
-            )
+        if accelerated is not None:
+            return _record_runner(model_path, model_type, accelerated)
 
     providers, options = get_ort_providers(device == "CPU", device, **kwargs)
 

@@ -21,6 +21,13 @@ def found(key: str) -> DetectionHardware:
     )
 
 
+def write_device_tree(proc_root: str) -> None:
+    """Write a Raspberry Pi 5 device tree under the fixture proc root."""
+    os.makedirs(os.path.join(proc_root, "device-tree"), exist_ok=True)
+    with open(os.path.join(proc_root, "device-tree", "compatible"), "w") as f:
+        f.write("raspberrypi,5-model-b\x00brcm,bcm2712\x00")
+
+
 class HwaccelRecommendationTestCase(unittest.TestCase):
     """Points every read at an empty fixture tree, so nothing is found by default."""
 
@@ -77,11 +84,6 @@ class HwaccelRecommendationTestCase(unittest.TestCase):
         os.makedirs(device)
         with open(os.path.join(device, "vendor"), "w") as f:
             f.write(f"{vendor}\n")
-
-    def write_device_tree(self) -> None:
-        os.makedirs(os.path.join(self.proc_root, "device-tree"), exist_ok=True)
-        with open(os.path.join(self.proc_root, "device-tree", "compatible"), "w") as f:
-            f.write("raspberrypi,5-model-b\x00brcm,bcm2712\x00")
 
 
 class TestPriority(HwaccelRecommendationTestCase):
@@ -177,7 +179,7 @@ class TestAvailableFamilies(HwaccelRecommendationTestCase):
         self.assertEqual(self.available(["onnx:nvidia"]), ["nvidia"])
 
     def test_a_pi_does_not_offer_desktop_gpu_families(self):
-        self.write_device_tree()
+        write_device_tree(self.proc_root)
         self.assertEqual(self.available(), ["rpi"])
 
     def test_an_intel_system_does_not_offer_the_pi_family(self):
@@ -194,7 +196,7 @@ class TestAvailableFamilies(HwaccelRecommendationTestCase):
         self.assertIn("vaapi", offered)
 
     def test_a_gpu_wins_over_the_pi_fallback(self):
-        self.write_device_tree()
+        write_device_tree(self.proc_root)
         self.assertEqual(self.recommend(["onnx:nvidia"]), "nvidia")
 
     def test_the_recommendation_is_always_offered(self):

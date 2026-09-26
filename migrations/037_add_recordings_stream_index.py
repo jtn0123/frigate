@@ -26,7 +26,10 @@ import peewee as pw
 SQL = pw.SQL
 
 
-def migrate(migrator, database, fake=False, **kwargs):
+# peewee_migrate calls migrate(migrator, database, fake=...) and rollback the
+# same way. Both only queue SQL on the migrator (which also handles fake runs),
+# so the database and fake arguments are accepted and not used.
+def migrate(migrator, *_args, **_kwargs):
     # time-ordered per-stream lookups (bandwidth estimation, pinned-stream
     # queries) need this ordering; without it, a per-stream ORDER BY
     # start_time query on a camera with no rows for that stream walks the
@@ -39,5 +42,7 @@ def migrate(migrator, database, fake=False, **kwargs):
     migrator.sql('DROP INDEX IF EXISTS "recordings_camera_stream_type"')
 
 
-def rollback(migrator, database, fake=False, **kwargs):
+def rollback(migrator, *_args, **_kwargs):
+    # Rollback is intentionally unsupported: the index only speeds up queries,
+    # so leaving it in place is harmless to the previous schema.
     pass

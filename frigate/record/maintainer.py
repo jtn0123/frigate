@@ -538,10 +538,9 @@ class RecordingMaintainer(threading.Thread):
             self.object_recordings_info,
             self.audio_recordings_info,
         ):
-            for camera in list(recordings_info.keys()):
+            for camera, info in list(recordings_info.items()):
                 if camera in cameras_with_cache:
                     continue
-                info = recordings_info[camera]
                 while info and info[0][0] < expire_before:
                     info.pop(0)
 

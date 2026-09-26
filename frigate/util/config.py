@@ -239,7 +239,6 @@ def migrate_frigate_config(config_file: str):
         new_config = migrate_019_0(new_config)
         with open(config_file, "w") as f:
             yaml.dump(new_config, f)
-        previous_version = "0.19-0"
 
     if needs_models:
         logger.info("Migrating frigate detectors and model to models...")
@@ -841,6 +840,57 @@ def migrate_019_0(config: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]
     return new_config
 
 
+def _migrated_device(detector: dict[str, Any]) -> tuple[str, str]:
+    """Return a legacy detector's migrated type and its device string."""
+    detector_type = detector.get("type", "cpu")
+    device = detector.get(DETECTOR_DEVICE_FIELDS.get(detector_type, "device"))
+
+    # hailo8l named one device, but the detector drives every Hailo device
+    if detector_type == "hailo8l":
+        detector_type = "hailo"
+
+    device_string = detector_type if device is None else f"{detector_type}:{device}"
+    return detector_type, device_string
+
+
+def _log_dropped_detector_options(
+    name: str, detector_type: str, detector: dict[str, Any]
+) -> None:
+    """Log the legacy detector options the models migration drops."""
+    dropped = [
+        option
+        for option in DROPPED_DETECTOR_OPTIONS.get(detector_type, [])
+        if option in detector
+    ]
+
+    if dropped:
+        logger.error(
+            "Detector '%s' had the %s options set, which are no longer supported and have been removed",
+            name,
+            ", ".join(dropped),
+        )
+
+
+def _merge_detector_model_path(
+    name: str, detector: dict[str, Any], model_path: str | None
+) -> str | None:
+    """Keep the first detector model_path, warning when a later one differs."""
+    detector_model_path = detector.get("model_path")
+
+    if detector_model_path:
+        if model_path is None:
+            return detector_model_path
+
+        if model_path != detector_model_path:
+            logger.warning(
+                "Detector '%s' set a different model_path than an earlier detector, using '%s' for the migrated model",
+                name,
+                model_path,
+            )
+
+    return model_path
+
+
 def migrate_models(config: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Merge the detectors and model keys into a single models list.
 
@@ -866,14 +916,7 @@ def migrate_models(config: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any
 
     for name, detector in detectors.items():
         detector = detector or {}
-        detector_type = detector.get("type", "cpu")
-        device = detector.get(DETECTOR_DEVICE_FIELDS.get(detector_type, "device"))
-
-        # hailo8l named one device, but the detector drives every Hailo device
-        if detector_type == "hailo8l":
-            detector_type = "hailo"
-
-        device_string = detector_type if device is None else f"{detector_type}:{device}"
+        detector_type, device_string = _migrated_device(detector)
 
         # repeating a device now means running an extra inference process on it,
         # which is what several detectors on one device used to mean. Only
@@ -884,30 +927,8 @@ def migrate_models(config: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any
         if shareable or device_string not in devices:
             devices.append(device_string)
 
-        dropped = [
-            option
-            for option in DROPPED_DETECTOR_OPTIONS.get(detector_type, [])
-            if option in detector
-        ]
-
-        if dropped:
-            logger.error(
-                "Detector '%s' had the %s options set, which are no longer supported and have been removed",
-                name,
-                ", ".join(dropped),
-            )
-
-        detector_model_path = detector.get("model_path")
-
-        if detector_model_path:
-            if model_path is None:
-                model_path = detector_model_path
-            elif model_path != detector_model_path:
-                logger.warning(
-                    "Detector '%s' set a different model_path than an earlier detector, using '%s' for the migrated model",
-                    name,
-                    model_path,
-                )
+        _log_dropped_detector_options(name, detector_type, detector)
+        model_path = _merge_detector_model_path(name, detector, model_path)
 
     detector_types = {device.partition(":")[0] for device in devices}
 

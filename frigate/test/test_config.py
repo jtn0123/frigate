@@ -155,8 +155,9 @@ class TestConfig(unittest.TestCase):
             ],
         }
 
+        merged = deep_merge(config, self.minimal)
         with self.assertRaises(ValidationError):
-            FrigateConfig(**(deep_merge(config, self.minimal)))
+            FrigateConfig(**merged)
 
     @patch("frigate.detectors.detector_config.load_labels")
     def test_camera_scene_without_a_model_falls_back_to_all(self, mock_labels):
@@ -240,8 +241,9 @@ class TestConfig(unittest.TestCase):
             },
         }
 
+        merged = deep_merge(config, self.minimal)
         with self.assertRaises(ValidationError):
-            FrigateConfig(**(deep_merge(config, self.minimal)))
+            FrigateConfig(**merged)
 
     @patch("frigate.detectors.detector_config.load_labels")
     def test_models_must_use_unique_scenes(self, mock_labels):
@@ -253,32 +255,36 @@ class TestConfig(unittest.TestCase):
             ],
         }
 
+        merged = deep_merge(config, self.minimal)
         with self.assertRaises(ValidationError):
-            FrigateConfig(**(deep_merge(config, self.minimal)))
+            FrigateConfig(**merged)
 
     @patch("frigate.detectors.detector_config.load_labels")
     def test_model_devices_must_share_a_detector(self, mock_labels):
         mock_labels.return_value = {}
         config = {"models": [{"devices": ["cpu", "openvino:CPU"]}]}
 
+        merged = deep_merge(config, self.minimal)
         with self.assertRaises(ValidationError):
-            FrigateConfig(**(deep_merge(config, self.minimal)))
+            FrigateConfig(**merged)
 
     @patch("frigate.detectors.detector_config.load_labels")
     def test_model_requires_a_known_detector(self, mock_labels):
         mock_labels.return_value = {}
         config = {"models": [{"devices": ["not_a_detector:0"]}]}
 
+        merged = deep_merge(config, self.minimal)
         with self.assertRaises(ValidationError):
-            FrigateConfig(**(deep_merge(config, self.minimal)))
+            FrigateConfig(**merged)
 
     @patch("frigate.detectors.detector_config.load_labels")
     def test_model_requires_a_device(self, mock_labels):
         mock_labels.return_value = {}
         config = {"models": [{"devices": []}]}
 
+        merged = deep_merge(config, self.minimal)
         with self.assertRaises(ValidationError):
-            FrigateConfig(**(deep_merge(config, self.minimal)))
+            FrigateConfig(**merged)
 
     @patch("frigate.detectors.detector_config.load_labels")
     def test_shareable_devices_may_repeat(self, mock_labels):
@@ -295,8 +301,9 @@ class TestConfig(unittest.TestCase):
         mock_labels.return_value = {}
         config = {"models": [{"devices": ["edgetpu:pci:0", "edgetpu:pci:0"]}]}
 
+        merged = deep_merge(config, self.minimal)
         with self.assertRaises(ValidationError):
-            FrigateConfig(**(deep_merge(config, self.minimal)))
+            FrigateConfig(**merged)
 
     def test_invalid_mqtt_config(self):
         config = {

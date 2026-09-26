@@ -320,48 +320,65 @@ def _write_symlink(dest: Path, target: str) -> None:
     os.symlink(sibling, dest)
 
 
+def _extract_zip(path: Path, mappings: list[ArchiveMapping]) -> list[str]:
+    """Extract the mapped members of a zip archive and return their paths."""
+    written: list[str] = []
+
+    with zipfile.ZipFile(path) as archive:
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+
+            mode = info.external_attr >> 16
+
+            for mapping, relative in _mappings_for(info.filename, mappings):
+                dest = _safe_dest(_dest_root(mapping), relative)
+
+                if stat.S_ISLNK(mode):
+                    _write_symlink(dest, archive.read(info).decode())
+                else:
+                    with archive.open(info) as source:
+                        _write_member(dest, source, mode)
+
+                written.append(str(dest))
+
+    return written
+
+
+def _extract_tar(path: Path, mappings: list[ArchiveMapping]) -> list[str]:
+    """Extract the mapped members of a tar archive and return their paths."""
+    written: list[str] = []
+
+    with tarfile.open(path, "r:*") as archive:
+        for member in archive:
+            if not (member.isfile() or member.issym()):
+                continue
+
+            for mapping, relative in _mappings_for(member.name, mappings):
+                dest = _safe_dest(_dest_root(mapping), relative)
+
+                if member.issym():
+                    _write_symlink(dest, member.linkname)
+                else:
+                    source = archive.extractfile(member)
+                    assert source is not None
+                    with source:
+                        _write_member(dest, source, member.mode)
+
+                written.append(str(dest))
+
+    return written
+
+
 def _extract_archive(path: Path, artifact: Artifact) -> list[str]:
     """Extract mapped members into the user base and return their paths."""
     machine = platform.machine()
     mappings = [m for m in artifact.mappings if not m.machines or machine in m.machines]
-    written: list[str] = []
 
     if path.name.endswith(".zip"):
-        with zipfile.ZipFile(path) as archive:
-            for info in archive.infolist():
-                if info.is_dir():
-                    continue
-
-                mode = info.external_attr >> 16
-
-                for mapping, relative in _mappings_for(info.filename, mappings):
-                    dest = _safe_dest(_dest_root(mapping), relative)
-
-                    if stat.S_ISLNK(mode):
-                        _write_symlink(dest, archive.read(info).decode())
-                    else:
-                        with archive.open(info) as source:
-                            _write_member(dest, source, mode)
-
-                    written.append(str(dest))
+        written = _extract_zip(path, mappings)
     else:
-        with tarfile.open(path, "r:*") as archive:
-            for member in archive:
-                if not (member.isfile() or member.issym()):
-                    continue
-
-                for mapping, relative in _mappings_for(member.name, mappings):
-                    dest = _safe_dest(_dest_root(mapping), relative)
-
-                    if member.issym():
-                        _write_symlink(dest, member.linkname)
-                    else:
-                        source = archive.extractfile(member)
-                        assert source is not None
-                        with source:
-                            _write_member(dest, source, member.mode)
-
-                    written.append(str(dest))
+        written = _extract_tar(path, mappings)
 
     if not written:
         raise RuntimeDependencyError(f"{path.name} contained no expected files")

@@ -672,6 +672,24 @@ def _build_vod_clip(
     return clip, plan.duration_ms
 
 
+def _collect_vod_media_signature(
+    row: Any,
+    video_codecs: set[str],
+    audio_presence: set[bool],
+    audio_params: set[tuple[str | None, int | None]],
+) -> None:
+    """Record one clip's media signature into the manifest-wide sets."""
+    if row.video_codec is not None:
+        video_codecs.add(row.video_codec)
+    audio_presence.add(row.has_audio is not False)
+    # legacy rows contribute no signature, so uniformly-unknown
+    # history keeps the legacy shape
+    if row.has_audio is not False and (
+        row.audio_codec is not None or row.audio_rate is not None
+    ):
+        audio_params.add((row.audio_codec, row.audio_rate))
+
+
 def _vod_response(
     camera_name: str,
     start_ts: float,
@@ -735,15 +753,7 @@ def _vod_response(
         clips.append(built[0])
         durations.append(built[1])
         span_streams.add(span_is_main)
-        if row.video_codec is not None:
-            video_codecs.add(row.video_codec)
-        audio_presence.add(row.has_audio is not False)
-        # legacy rows contribute no signature, so uniformly-unknown
-        # history keeps the legacy shape
-        if row.has_audio is not False and (
-            row.audio_codec is not None or row.audio_rate is not None
-        ):
-            audio_params.add((row.audio_codec, row.audio_rate))
+        _collect_vod_media_signature(row, video_codecs, audio_presence, audio_params)
 
     # nginx-vod requires a uniform track count per sequence, and adding or
     # removing an audio track across an MSE discontinuity is unproven

@@ -1365,7 +1365,7 @@ async def get_video_properties(
                 audio_rate,
                 audio_codec,
             )
-        except (json.JSONDecodeError, ValueError, KeyError, sp.SubprocessError):
+        except (ValueError, KeyError, sp.SubprocessError):
             return False, 0, 0, None, None, -1, None, None, None
         finally:
             # callers run in a per-cycle event loop, and an ffprobe still

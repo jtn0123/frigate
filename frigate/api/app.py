@@ -1400,10 +1400,10 @@ def plusModels(request: Request, filterByCurrentModelDetector: bool = False):
     primary_model = config.primary_model
 
     # current model type
-    modelType = primary_model.model_type
+    model_type = primary_model.model_type
 
-    # current detectorType for comparing to supportedDetectors
-    detectorType = config.devices_for_model(primary_model)[0].detector
+    # current detector type for comparing to supportedDetectors
+    detector_type = config.devices_for_model(primary_model)[0].detector
 
     validModels = []
 
@@ -1411,7 +1411,9 @@ def plusModels(request: Request, filterByCurrentModelDetector: bool = False):
         filter(
             lambda m: (
                 not filterByCurrentModelDetector
-                or (detectorType in m["supportedDetectors"] and modelType in m["type"])
+                or (
+                    detector_type in m["supportedDetectors"] and model_type in m["type"]
+                )
             ),
             modelList,
         ),

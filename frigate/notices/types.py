@@ -55,6 +55,8 @@ class NoticeKind:
             return None
 
 
+_SYSTEM_CAMERAS_LINK = "/system#cameras"
+
 _KINDS = (
     NoticeKind(
         "detector_stuck", NoticeSeverity.warning, "detector", link="/system#general"
@@ -64,13 +66,13 @@ _KINDS = (
         "skipped_detections",
         NoticeSeverity.warning,
         "camera",
-        link="/system#cameras",
+        link=_SYSTEM_CAMERAS_LINK,
     ),
     NoticeKind(
-        "ffmpeg_high_cpu", NoticeSeverity.warning, "camera", link="/system#cameras"
+        "ffmpeg_high_cpu", NoticeSeverity.warning, "camera", link=_SYSTEM_CAMERAS_LINK
     ),
     NoticeKind(
-        "detect_high_cpu", NoticeSeverity.warning, "camera", link="/system#cameras"
+        "detect_high_cpu", NoticeSeverity.warning, "camera", link=_SYSTEM_CAMERAS_LINK
     ),
     NoticeKind("shm_too_low", NoticeSeverity.warning, "system", link="/system#storage"),
     # one row per user per burst; the login log lines carry the address

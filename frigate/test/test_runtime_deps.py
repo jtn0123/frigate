@@ -88,8 +88,6 @@ class RuntimeDepsTestCase(unittest.TestCase):
         self.cache = root / "cache"
         self.downloads: list[str] = []
         self.download_content: bytes | None = None
-        self.sys_path = list(sys.path)
-        runtime_deps._loaded_libs.clear()
 
         def download(url: str, save_path: str, silent: bool = False) -> Path:
             self.downloads.append(url)
@@ -101,8 +99,12 @@ class RuntimeDepsTestCase(unittest.TestCase):
             return Path(save_path)
 
         self.patches = [
-            patch.object(runtime_deps, "user_base", lambda: self.base),
-            patch.object(runtime_deps, "user_site", lambda: self.site),
+            # activate() inserts into sys.path and records preloaded libraries,
+            # so both are swapped for copies that are restored after each test
+            patch.object(sys, "path", list(sys.path)),
+            patch.dict(runtime_deps._loaded_libs, {}, clear=True),
+            patch.object(runtime_deps, "user_base", return_value=self.base),
+            patch.object(runtime_deps, "user_site", return_value=self.site),
             patch.object(runtime_deps, "cache_dir", lambda name: self.cache / name),
             patch.object(runtime_deps.site, "ENABLE_USER_SITE", True),
             patch(
@@ -119,7 +121,6 @@ class RuntimeDepsTestCase(unittest.TestCase):
         for p in reversed(self.patches):
             p.stop()
 
-        sys.path[:] = self.sys_path
         self.tmp.cleanup()
 
     def archive_manifest(
@@ -426,7 +427,9 @@ class TestRootGuard(RuntimeDepsTestCase):
         manifest = self.archive_manifest(b"data")
 
         with (
-            patch.object(runtime_deps, "user_base", lambda: Path("/config/.local")),
+            patch.object(
+                runtime_deps, "user_base", return_value=Path("/config/.local")
+            ),
             patch("os.geteuid", return_value=0),
             patch.dict("os.environ", {"FRIGATE_ROOT_SERVICES": "frigate"}),
         ):
@@ -449,7 +452,7 @@ class TestRootGuard(RuntimeDepsTestCase):
 
     def test_root_owned_base_is_allowed_under_granular_root(self) -> None:
         with (
-            patch.object(runtime_deps, "user_base", lambda: Path("/root/.local")),
+            patch.object(runtime_deps, "user_base", return_value=Path("/root/.local")),
             patch("frigate.util.config.Path.stat", return_value=Mock(st_mode=0o40700)),
             patch("os.geteuid", return_value=0),
             patch.dict("os.environ", {"FRIGATE_ROOT_SERVICES": "frigate"}),
@@ -458,7 +461,9 @@ class TestRootGuard(RuntimeDepsTestCase):
 
     def test_escape_hatch_is_not_guarded(self) -> None:
         with (
-            patch.object(runtime_deps, "user_base", lambda: Path("/config/.local")),
+            patch.object(
+                runtime_deps, "user_base", return_value=Path("/config/.local")
+            ),
             patch("os.geteuid", return_value=0),
             patch.dict("os.environ", {"FRIGATE_RUN_AS_ROOT": "true"}),
         ):
@@ -472,7 +477,9 @@ class TestRootGuard(RuntimeDepsTestCase):
         self.site.mkdir(parents=True)
 
         with (
-            patch.object(runtime_deps, "user_base", lambda: Path("/config/.local")),
+            patch.object(
+                runtime_deps, "user_base", return_value=Path("/config/.local")
+            ),
             patch("os.geteuid", return_value=0),
             patch.dict("os.environ", {"FRIGATE_ROOT_SERVICES": "frigate"}),
         ):

@@ -19,7 +19,9 @@ RUN pip3 install --break-system-packages -q --require-hashes --only-binary :all:
 # B20: exercise the new plugin-provider API against the same pinned ONNX
 # Runtime wheel as production; the released base still contains 1.22.
 COPY fork/requirements-runtime-${TARGETARCH}.lock /tmp/runtime.lock
-RUN awk '/^onnxruntime==/ {found=1} found && /^[^[:space:]#]/ && !/^onnxruntime==/ {exit} found {print}' /tmp/runtime.lock > /tmp/onnxruntime.lock \
+RUN awk \
+    '/^onnxruntime==/ {found=1} found && /^[^[:space:]#]/ && !/^onnxruntime==/ {exit} found {print}' \
+    /tmp/runtime.lock > /tmp/onnxruntime.lock \
   && test -s /tmp/onnxruntime.lock \
   && pip3 install --break-system-packages -q --require-hashes --only-binary :all: --no-deps -r /tmp/onnxruntime.lock
 COPY fork/scripts /opt/frigate/fork/scripts

@@ -84,11 +84,12 @@ class TestHailo(unittest.TestCase):
                 )
 
     def test_missing_sdk_has_actionable_error(self):
+        input_store, output_store = Mock(), Mock()
         with (
             patch.dict(sys.modules, {"hailo_platform": None}),
             self.assertRaisesRegex(ImportError, "installs it at startup"),
         ):
-            hailo.HailoAsyncInference("x", Mock(), Mock())
+            hailo.HailoAsyncInference("x", input_store, output_store)
 
     def test_callback_routes_each_request_and_reports_errors(self):
         engine, _ = self.engine()

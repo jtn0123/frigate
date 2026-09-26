@@ -41,8 +41,10 @@ LIGHTER_VIRTIO_VENDOR = "0x4c474854"
 # ffprobe names h265 streams hevc
 CODEC_ALIASES = {"hevc": "h265"}
 
-# e.g. "13th Gen Intel(R) Core(TM) i5-13500"
-INTEL_GEN_PATTERN = re.compile(r"(\d+)th Gen")
+# e.g. "13th Gen Intel(R) Core(TM) i5-13500". The lookbehind anchors each
+# attempt at the start of a digit run, so a long run is scanned once instead
+# of once per digit; the leftmost match always starts there anyway
+INTEL_GEN_PATTERN = re.compile(r"(?<!\d)(\d+)th Gen")
 # Core Ultra dropped the generation prefix and is newer than all of them
 INTEL_ULTRA_PATTERN = re.compile(r"Core\(TM\) Ultra")
 INTEL_GEN_LATEST = 99
@@ -52,12 +54,15 @@ INTEL_GEN_LATEST = 99
 INTEL_QSV_MIN_GEN = 13
 INTEL_QSV_SUPPORTED_GEN = 8
 
+# hardware key of an Intel GPU, which decodes through its iGPU families
+OPENVINO_GPU = "openvino:GPU"
+
 # decode capable detection hardware, in recommendation priority order
 DECODE_HARDWARE = (
     "onnx:nvidia",
     "tensorrt",
     "rknn",
-    "openvino:GPU",
+    OPENVINO_GPU,
     "onnx:amd",
     LIGHTER_MEDIA,
     RASPBERRY_PI,
@@ -196,7 +201,7 @@ def _families(key: str, generation: int | None) -> list[HwaccelFamily]:
     if key == RASPBERRY_PI:
         return [FAMILY_RPI]
 
-    if key == "openvino:GPU":
+    if key == OPENVINO_GPU:
         return _intel_families(generation)
 
     return []
@@ -230,7 +235,7 @@ def _decode_hardware(detector_key: str | None) -> list[str]:
 
     # an Intel NPU decodes through the iGPU next to it
     if detector_key == "openvino:NPU":
-        detector_key = "openvino:GPU"
+        detector_key = OPENVINO_GPU
 
     ordered = [key for key in DECODE_HARDWARE if key in present]
 
@@ -258,7 +263,7 @@ def hwaccel_options(
     """
     wanted = {CODEC_ALIASES.get(codec, codec) for codec in codecs or set()}
     hardware = _decode_hardware(detector_key)
-    generation = _intel_generation() if "openvino:GPU" in hardware else None
+    generation = _intel_generation() if OPENVINO_GPU in hardware else None
 
     available: list[HwaccelFamily] = []
     recommended = ""

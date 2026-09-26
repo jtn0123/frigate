@@ -16,7 +16,6 @@ router = APIRouter(tags=[Tags.hardware])
 
 @router.get(
     "/hardware/probe",
-    response_model=list[DetectionHardware],
     dependencies=[Depends(require_role(["admin"]))],
 )
 def probe_hardware(refresh: bool = False) -> list[DetectionHardware]:
@@ -33,7 +32,6 @@ def probe_hardware(refresh: bool = False) -> list[DetectionHardware]:
 
 @router.get(
     "/hardware/hwaccel",
-    response_model=HwaccelRecommendation,
     dependencies=[Depends(require_role(["admin"]))],
 )
 def hwaccel_recommendation(

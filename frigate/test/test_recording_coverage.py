@@ -72,14 +72,17 @@ class TestRecordingCoverage(CoverageDbTestCase):
         intervals = resolve_coverage("front_door", 1000.0, 1020.0)
         # boundaries: 1000,1003,1010,1013,1020
         assert [round(i.start_time) for i in intervals] == [1000, 1003, 1010, 1013]
-        assert intervals[0].main is not None and intervals[0].sub is None
-        assert intervals[1].main is not None and intervals[1].sub is not None
+        assert intervals[0].main is not None
+        assert intervals[0].sub is None
+        assert intervals[1].main is not None
+        assert intervals[1].sub is not None
 
     def test_sub_only_when_main_expired(self):
         self._insert("s1", 1000.0, 1010.0, "sub")
         intervals = resolve_coverage("front_door", 1000.0, 1010.0)
         assert len(intervals) == 1
-        assert intervals[0].main is None and intervals[0].sub is not None
+        assert intervals[0].main is None
+        assert intervals[0].sub is not None
 
     def test_gap_when_neither_exists(self):
         self._insert("m1", 1000.0, 1010.0, "main")
@@ -171,7 +174,8 @@ class TestRecordingCoverage(CoverageDbTestCase):
         self._insert("o2", 1000.0, 1010.0, "sub", camera="back_yard")
         intervals = resolve_coverage("front_door", 1000.0, 1010.0)
         assert len(intervals) == 1
-        assert intervals[0].main is not None and intervals[0].sub is None
+        assert intervals[0].main is not None
+        assert intervals[0].sub is None
         assert resolve_coverage("side_gate", 1000.0, 1010.0) == []
 
     def test_realized_timeline_snap_lead_in(self):
@@ -234,7 +238,8 @@ class TestRecordingCoverage(CoverageDbTestCase):
         plan = " ".join(
             row[-1] for row in self.db.execute_sql("EXPLAIN QUERY PLAN " + sql, params)
         )
-        assert "start_time>?" in plan and "start_time<?" in plan, plan
+        assert "start_time>?" in plan, plan
+        assert "start_time<?" in plan, plan
 
     def test_longest_segment_spanning_window_start_included(self):
         # a maximum-length segment overlapping `after` sits right at the

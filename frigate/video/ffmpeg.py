@@ -116,6 +116,42 @@ def capture_frames(
         frame_index = 0 if frame_index == shm_frame_count - 1 else frame_index + 1
 
 
+def _check_record_staleness(
+    watchdog: "CameraWatchdog",
+    process: dict[str, Any],
+    streams: list[str],
+    now: float,
+    now_utc: datetime,
+    can_restart: bool,
+) -> bool:
+    """Restart a stalled recorder, or mark its fresh streams online.
+
+    A module function rather than a method, so watchdog test doubles that bind
+    only the methods they exercise still reach it.
+
+    Returns:
+        True when the process was restarted for a stall
+    """
+    reason = next(
+        (
+            reason
+            for stream in streams
+            if (reason := watchdog._stream_staleness(stream, now_utc)) is not None
+        ),
+        None,
+    )
+    if reason is not None and can_restart:
+        watchdog._restart_stalled_record(process, now_utc, reason)
+        return True
+    if reason is None:
+        for stream in streams:
+            watchdog._send_record_status(stream, "online", now)
+        process["latest_segment_time"] = max(
+            watchdog.latest_cache_segment_time[stream] for stream in streams
+        )
+    return False
+
+
 class CameraWatchdog(threading.Thread):
     def __init__(
         self,
@@ -566,26 +602,11 @@ class CameraWatchdog(threading.Thread):
             poll = process["process"].poll()
             streams = self._recorded_streams(process["roles"])
             now_utc = datetime.now().astimezone(UTC)
-            if streams:
-                reason = next(
-                    (
-                        reason
-                        for stream in streams
-                        if (reason := self._stream_staleness(stream, now_utc))
-                        is not None
-                    ),
-                    None,
-                )
-                if reason is not None and can_restart:
-                    self._restart_stalled_record(process, now_utc, reason)
-                    restarted = True
-                    continue
-                if reason is None:
-                    for stream in streams:
-                        self._send_record_status(stream, "online", now)
-                    process["latest_segment_time"] = max(
-                        self.latest_cache_segment_time[stream] for stream in streams
-                    )
+            if streams and _check_record_staleness(
+                self, process, streams, now, now_utc, can_restart
+            ):
+                restarted = True
+                continue
             if poll is None or not can_restart:
                 continue
             for role in process["roles"]:

@@ -337,11 +337,7 @@ class HailoDetector(DetectionApi):
             self.url = None
 
     def is_url(self, url: str) -> bool:
-        return (
-            url.startswith("http://")
-            or url.startswith("https://")
-            or url.startswith("www.")
-        )
+        return url.startswith(("http://", "https://", "www."))
 
     @staticmethod
     def extract_model_name(path: str = None, url: str = None) -> str:
@@ -416,7 +412,12 @@ class HailoDetector(DetectionApi):
         if isinstance(infer_results, list) and len(infer_results) == 1:
             infer_results = infer_results[0]
 
-        threshold = 0.4
+        all_detections = self._collect_detections(infer_results, threshold=0.4)
+        return self._to_detection_rows(all_detections)
+
+    @staticmethod
+    def _collect_detections(infer_results, threshold: float) -> list[list]:
+        """Flatten per-class NMS output into rows scoring at least the threshold."""
         all_detections = []
         for class_id, detection_set in enumerate(infer_results):
             if not isinstance(detection_set, np.ndarray) or detection_set.size == 0:
@@ -428,16 +429,20 @@ class HailoDetector(DetectionApi):
                 if score < threshold:
                     continue
                 all_detections.append([class_id, score, det[0], det[1], det[2], det[3]])
+        return all_detections
 
+    @staticmethod
+    def _to_detection_rows(all_detections: list[list]) -> np.ndarray:
+        """Pad or truncate the detections to the fixed 20 rows Frigate expects."""
         if len(all_detections) == 0:
-            detections_array = np.zeros((20, 6), dtype=np.float32)
-        else:
-            detections_array = np.array(all_detections, dtype=np.float32)
-            if detections_array.shape[0] > 20:
-                detections_array = detections_array[:20, :]
-            elif detections_array.shape[0] < 20:
-                pad = np.zeros((20 - detections_array.shape[0], 6), dtype=np.float32)
-                detections_array = np.vstack((detections_array, pad))
+            return np.zeros((20, 6), dtype=np.float32)
+
+        detections_array = np.array(all_detections, dtype=np.float32)
+        if detections_array.shape[0] > 20:
+            detections_array = detections_array[:20, :]
+        elif detections_array.shape[0] < 20:
+            pad = np.zeros((20 - detections_array.shape[0], 6), dtype=np.float32)
+            detections_array = np.vstack((detections_array, pad))
 
         return detections_array
 

@@ -1,6 +1,7 @@
 """Merge main and sub stream recording rows into a unified coverage timeline."""
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -117,6 +118,38 @@ def known_video_codecs(intervals: list[CoverageInterval]) -> set[str]:
     }
 
 
+def _newest_known_values(
+    newest_first: list[Any], fields: tuple[str, ...]
+) -> dict[str, Any]:
+    """Map each field to its newest non-NULL value across the rows."""
+    values: dict[str, Any] = dict.fromkeys(fields)
+
+    for field in fields:
+        for row in newest_first:
+            value = getattr(row, field)
+            if value is not None:
+                values[field] = value
+                break
+
+    return values
+
+
+def _duration_weighted_bitrate(rows: Iterable[Any]) -> int | None:
+    """Average bits per second across rows, or None without a usable row."""
+    # segment_size is stored in MiB; totalling bytes and seconds
+    # weights by duration, unlike averaging per-row ratios
+    total_bytes = 0.0
+    total_seconds = 0.0
+    for row in rows:
+        size = row.segment_size
+        if size is None or size <= 0 or row.duration is None or row.duration <= 0:
+            continue
+        total_bytes += size * 1024 * 1024
+        total_seconds += row.duration
+
+    return int(total_bytes * 8 / total_seconds) if total_seconds > 0 else None
+
+
 def stream_media_summary(
     intervals: list[CoverageInterval],
 ) -> dict[str, dict[str, Any]]:
@@ -141,30 +174,8 @@ def stream_media_summary(
             continue
 
         newest_first = sorted(rows.values(), key=lambda r: r.start_time, reverse=True)
-        stream_summary: dict[str, Any] = {field: None for field in fields}
-
-        for field in fields:
-            for row in newest_first:
-                value = getattr(row, field)
-                if value is not None:
-                    stream_summary[field] = value
-                    break
-
-        # segment_size is stored in MiB; totalling bytes and seconds
-        # weights by duration, unlike averaging per-row ratios
-        total_bytes = 0.0
-        total_seconds = 0.0
-        for row in rows.values():
-            size = row.segment_size
-            if size is None or size <= 0 or row.duration is None or row.duration <= 0:
-                continue
-            total_bytes += size * 1024 * 1024
-            total_seconds += row.duration
-
-        stream_summary["bitrate"] = (
-            int(total_bytes * 8 / total_seconds) if total_seconds > 0 else None
-        )
-
+        stream_summary = _newest_known_values(newest_first, fields)
+        stream_summary["bitrate"] = _duration_weighted_bitrate(rows.values())
         summary[stream_type] = stream_summary
 
     return summary
@@ -243,6 +254,17 @@ def null_audio_glitches(
     return result
 
 
+def _span_row(interval: CoverageInterval, stream: str | None) -> tuple[Any, bool]:
+    """Pick the row serving an interval and whether it is the main stream's."""
+    if stream == STREAM_TYPE_MAIN:
+        return interval.main, True
+    if stream == STREAM_TYPE_SUB:
+        return interval.sub, False
+    if interval.main is not None:
+        return interval.main, True
+    return interval.sub, False
+
+
 def build_spans(
     intervals: list[CoverageInterval], stream: str | None
 ) -> list[list[Any]]:
@@ -258,14 +280,7 @@ def build_spans(
     spans: list[list[Any]] = []
     last_is_main: bool | None = None
     for interval in intervals:
-        if stream == STREAM_TYPE_MAIN:
-            row, is_main = interval.main, True
-        elif stream == STREAM_TYPE_SUB:
-            row, is_main = interval.sub, False
-        elif interval.main is not None:
-            row, is_main = interval.main, True
-        else:
-            row, is_main = interval.sub, False
+        row, is_main = _span_row(interval, stream)
         if row is None:
             continue
         if spans and spans[-1][0] == row:

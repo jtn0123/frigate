@@ -195,7 +195,7 @@ class TestNoticeRegistry(RegistryTestCase):
         self.assertFalse(
             self.registry.acknowledge("config:detect:fps-greater-than-five:global")
         )
-        self.assertEqual(self.registry.active()[0]["acknowledgeable"], False)
+        self.assertFalse(self.registry.active()[0]["acknowledgeable"])
 
     def test_hidden_notices_listed_only_when_requested(self):
         self.registry.raise_notice("detector_stuck", scope="ov", params={})
