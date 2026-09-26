@@ -25,3 +25,18 @@ it("uses a stable fallback when browser storage is blocked", () => {
   expect(id).not.toBe("");
   expect(getDeviceId()).toBe(id);
 });
+
+it("uses cryptographic random bytes when randomUUID is unavailable over HTTP", async () => {
+  vi.resetModules();
+  localStorage.removeItem("frigateDeviceId");
+  const getRandomValues = vi.fn((bytes: Uint8Array) => bytes.fill(17));
+  vi.stubGlobal("crypto", { getRandomValues });
+  try {
+    const { getDeviceId: freshId } = await import("./device-profile");
+    expect(freshId()).toBe("111111111111");
+    expect(freshId()).toBe("111111111111");
+    expect(getRandomValues).toHaveBeenCalledOnce();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

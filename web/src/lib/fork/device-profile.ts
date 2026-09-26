@@ -21,7 +21,9 @@ function mintId(): string {
   if (typeof c.randomUUID === "function") {
     return c.randomUUID().replace(/-/g, "").slice(0, 12);
   }
-  return Math.random().toString(36).slice(2, 14);
+  return Array.from(c.getRandomValues(new Uint8Array(6)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 let sessionId: string | undefined;
