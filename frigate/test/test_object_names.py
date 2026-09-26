@@ -26,10 +26,8 @@ def _config(cameras, known_plates=None, custom=None):
     }
     return SimpleNamespace(
         cameras=cameras,
-        model=SimpleNamespace(
-            attributes_map=attributes_map,
-            all_attribute_logos=["amazon", "ups"],
-        ),
+        all_attributes_map=attributes_map,
+        all_attribute_logos=["amazon", "ups"],
         lpr=SimpleNamespace(known_plates=known_plates or {}),
         classification=SimpleNamespace(custom=custom or {}),
     )

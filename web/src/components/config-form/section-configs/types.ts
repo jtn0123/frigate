@@ -35,6 +35,8 @@ export type ConditionalMessage = {
   action?: (ctx: MessageConditionContext) => MessageAction | undefined;
   /** fork (UI117): filled in by useConfigMessages from `action` */
   resolvedAction?: MessageAction;
+  /** Evaluate this message against saved config in system health. */
+  health?: boolean | ((ctx: MessageConditionContext) => boolean);
 };
 
 /** fork (UI117): the link a message can offer beside its text */

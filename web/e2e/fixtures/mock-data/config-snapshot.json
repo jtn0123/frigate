@@ -57,68 +57,58 @@
       "amd_gpu_stats": true,
       "intel_gpu_stats": true,
       "network_bandwidth": false,
+      "history": { "enabled": true, "retain_days": 30 },
       "intel_gpu_device": null
     },
     "version_check": true
   },
   "tls": { "enabled": true },
   "ui": { "timezone": null, "time_format": "browser", "unit_system": "metric" },
-  "detectors": {
-    "cpu": {
-      "type": "cpu",
-      "model": {
-        "path": "/cpu_model.tflite",
-        "labelmap_path": null,
-        "width": 320,
-        "height": 320,
-        "labelmap": {},
-        "attributes_map": {
-          "person": ["amazon", "face"],
-          "car": [
-            "amazon",
-            "an_post",
-            "canada_post",
-            "dhl",
-            "dpd",
-            "fedex",
-            "gls",
-            "license_plate",
-            "nzpost",
-            "postnl",
-            "postnord",
-            "purolator",
-            "royal_mail",
-            "ups",
-            "usps"
-          ],
-          "truck": ["license_plate"],
-          "garbage_truck": ["license_plate"],
-          "motorcycle": ["license_plate"],
-          "bus": ["license_plate"],
-          "school_bus": ["license_plate"]
-        },
-        "input_tensor": "nhwc",
-        "input_pixel_format": "rgb",
-        "input_dtype": "int",
-        "model_type": "ssd"
+  "models": [
+    {
+      "scene": "all",
+      "devices": ["cpu"],
+      "path": "/cpu_model.tflite",
+      "labelmap_path": null,
+      "width": 320,
+      "height": 320,
+      "labelmap": {},
+      "attributes_map": {
+        "person": ["amazon", "face"],
+        "car": [
+          "amazon",
+          "an_post",
+          "canada_post",
+          "dhl",
+          "dpd",
+          "fedex",
+          "gls",
+          "license_plate",
+          "nzpost",
+          "postnl",
+          "postnord",
+          "purolator",
+          "royal_mail",
+          "ups",
+          "usps"
+        ],
+        "truck": ["license_plate"],
+        "garbage_truck": ["license_plate"],
+        "motorcycle": ["license_plate"],
+        "bus": ["license_plate"],
+        "school_bus": ["license_plate"]
       },
-      "model_path": null
-    }
-  },
-  "model": {
-    "path": null,
-    "labelmap_path": null,
-    "width": 320,
-    "height": 320,
-    "labelmap": {},
-    "attributes_map": {
-      "person": ["amazon", "face"],
-      "car": [
+      "input_tensor": "nhwc",
+      "input_pixel_format": "rgb",
+      "input_dtype": "int",
+      "model_type": "ssd",
+      "all_attributes": [
         "amazon",
         "an_post",
         "canada_post",
         "dhl",
         "dpd",
+        "face",
         "fedex",
         "gls",
         "license_plate",
@@ -130,36 +120,9 @@
         "ups",
         "usps"
       ],
-      "truck": ["license_plate"],
-      "garbage_truck": ["license_plate"],
-      "motorcycle": ["license_plate"],
-      "bus": ["license_plate"],
-      "school_bus": ["license_plate"]
-    },
-    "input_tensor": "nhwc",
-    "input_pixel_format": "rgb",
-    "input_dtype": "int",
-    "model_type": "ssd",
-    "all_attributes": [
-      "amazon",
-      "an_post",
-      "canada_post",
-      "dhl",
-      "dpd",
-      "face",
-      "fedex",
-      "gls",
-      "license_plate",
-      "nzpost",
-      "postnl",
-      "postnord",
-      "purolator",
-      "royal_mail",
-      "ups",
-      "usps"
-    ],
-    "colormap": {}
-  },
+      "colormap": {}
+    }
+  ],
   "genai": {},
   "cameras": {
     "front_door": {
@@ -171,6 +134,7 @@
         "max_not_heard": 30,
         "min_volume": 500,
         "listen": ["bark", "fire_alarm", "speech", "yell"],
+        "labelmap": {},
         "filters": {
           "bark": { "threshold": 0.8 },
           "fire_alarm": { "threshold": 0.8 },
@@ -185,11 +149,12 @@
         "enabled_in_config": false,
         "live_enabled": false
       },
-      "birdseye": { "enabled": true, "mode": "objects", "order": 0 },
+      "birdseye": { "enabled": true, "modes": ["all_objects"], "order": 0 },
       "detect": {
         "enabled": false,
         "height": 720,
         "width": 1280,
+        "scene": "all",
         "fps": 5,
         "min_initialized": 2,
         "max_disappeared": 25,
@@ -215,7 +180,8 @@
         "input_args": "preset-rtsp-generic",
         "output_args": {
           "detect": ["-threads", "2", "-f", "rawvideo", "-pix_fmt", "yuv420p"],
-          "record": "preset-record-generic-audio-aac"
+          "record": "preset-record-generic-audio-aac",
+          "record_sub": []
         },
         "retry_interval": 10.0,
         "apple_compatibility": false,
@@ -305,6 +271,13 @@
           "chapters": "review_items"
         },
         "preview": { "quality": "medium" },
+        "sub": {
+          "enabled": false,
+          "continuous": { "days": 0 },
+          "motion": { "days": 0 },
+          "alerts": { "days": 10, "mode": "motion" },
+          "detections": { "days": 10, "mode": "motion" }
+        },
         "enabled_in_config": false
       },
       "review": {
@@ -407,6 +380,7 @@
         "max_not_heard": 30,
         "min_volume": 500,
         "listen": ["bark", "fire_alarm", "speech", "yell"],
+        "labelmap": {},
         "filters": {
           "bark": { "threshold": 0.8 },
           "fire_alarm": { "threshold": 0.8 },
@@ -421,11 +395,12 @@
         "enabled_in_config": false,
         "live_enabled": false
       },
-      "birdseye": { "enabled": true, "mode": "objects", "order": 0 },
+      "birdseye": { "enabled": true, "modes": ["all_objects"], "order": 0 },
       "detect": {
         "enabled": false,
         "height": 720,
         "width": 1280,
+        "scene": "all",
         "fps": 5,
         "min_initialized": 2,
         "max_disappeared": 25,
@@ -451,7 +426,8 @@
         "input_args": "preset-rtsp-generic",
         "output_args": {
           "detect": ["-threads", "2", "-f", "rawvideo", "-pix_fmt", "yuv420p"],
-          "record": "preset-record-generic-audio-aac"
+          "record": "preset-record-generic-audio-aac",
+          "record_sub": []
         },
         "retry_interval": 10.0,
         "apple_compatibility": false,
@@ -541,6 +517,13 @@
           "chapters": "review_items"
         },
         "preview": { "quality": "medium" },
+        "sub": {
+          "enabled": false,
+          "continuous": { "days": 0 },
+          "motion": { "days": 0 },
+          "alerts": { "days": 10, "mode": "motion" },
+          "detections": { "days": 10, "mode": "motion" }
+        },
         "enabled_in_config": false
       },
       "review": {
@@ -643,6 +626,7 @@
         "max_not_heard": 30,
         "min_volume": 500,
         "listen": ["bark", "fire_alarm", "speech", "yell"],
+        "labelmap": {},
         "filters": {
           "bark": { "threshold": 0.8 },
           "fire_alarm": { "threshold": 0.8 },
@@ -657,11 +641,12 @@
         "enabled_in_config": false,
         "live_enabled": false
       },
-      "birdseye": { "enabled": true, "mode": "objects", "order": 0 },
+      "birdseye": { "enabled": true, "modes": ["all_objects"], "order": 0 },
       "detect": {
         "enabled": false,
         "height": 720,
         "width": 1280,
+        "scene": "all",
         "fps": 5,
         "min_initialized": 2,
         "max_disappeared": 25,
@@ -687,7 +672,8 @@
         "input_args": "preset-rtsp-generic",
         "output_args": {
           "detect": ["-threads", "2", "-f", "rawvideo", "-pix_fmt", "yuv420p"],
-          "record": "preset-record-generic-audio-aac"
+          "record": "preset-record-generic-audio-aac",
+          "record_sub": []
         },
         "retry_interval": 10.0,
         "apple_compatibility": false,
@@ -777,6 +763,13 @@
           "chapters": "review_items"
         },
         "preview": { "quality": "medium" },
+        "sub": {
+          "enabled": false,
+          "continuous": { "days": 0 },
+          "motion": { "days": 0 },
+          "alerts": { "days": 10, "mode": "motion" },
+          "detections": { "days": 10, "mode": "motion" }
+        },
         "enabled_in_config": false
       },
       "review": {
@@ -876,6 +869,7 @@
     "max_not_heard": 30,
     "min_volume": 500,
     "listen": ["bark", "fire_alarm", "speech", "yell"],
+    "labelmap": {},
     "filters": {
       "bark": { "threshold": 0.8 },
       "fire_alarm": { "threshold": 0.8 },
@@ -887,7 +881,7 @@
   },
   "birdseye": {
     "enabled": true,
-    "mode": "objects",
+    "modes": ["all_objects"],
     "restream": false,
     "width": 1280,
     "height": 720,
@@ -900,6 +894,7 @@
     "enabled": false,
     "height": null,
     "width": null,
+    "scene": "all",
     "fps": 5,
     "min_initialized": null,
     "max_disappeared": null,
@@ -918,7 +913,8 @@
     "input_args": "preset-rtsp-generic",
     "output_args": {
       "detect": ["-threads", "2", "-f", "rawvideo", "-pix_fmt", "yuv420p"],
-      "record": "preset-record-generic-audio-aac"
+      "record": "preset-record-generic-audio-aac",
+      "record_sub": []
     },
     "retry_interval": 10.0,
     "apple_compatibility": false,
@@ -929,6 +925,60 @@
   "objects": {
     "track": ["person"],
     "filters": {
+      "amazon": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "an_post": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "canada_post": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "dhl": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "dpd": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "face": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
       "fedex": {
         "min_area": 0,
         "max_area": 24000000,
@@ -947,7 +997,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "amazon": {
+      "license_plate": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -956,7 +1006,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "canada_post": {
+      "nzpost": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -965,7 +1015,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "face": {
+      "postnl": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -1001,60 +1051,6 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "dhl": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "license_plate": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "nzpost": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "an_post": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "usps": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "dpd": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
       "ups": {
         "min_area": 0,
         "max_area": 24000000,
@@ -1064,7 +1060,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "postnl": {
+      "usps": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -1111,6 +1107,13 @@
       "chapters": "review_items"
     },
     "preview": { "quality": "medium" },
+    "sub": {
+      "enabled": false,
+      "continuous": { "days": 0 },
+      "motion": { "days": 0 },
+      "alerts": { "days": 10, "mode": "motion" },
+      "detections": { "days": 10, "mode": "motion" }
+    },
     "enabled_in_config": null
   },
   "review": {

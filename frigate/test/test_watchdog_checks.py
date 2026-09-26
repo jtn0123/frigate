@@ -12,16 +12,16 @@ class WatchdogChecksTests(unittest.TestCase):
     def test_segment_updates_ignore_other_cameras_and_clear_missing_latest(self):
         dog = watchdog([])
         dog.segment_subscriber.check_for_update.side_effect = [
-            ("recordings/valid", ("other", 999, None)),
-            ("recordings/invalid", ("back", 12, None)),
-            ("recordings/valid", ("back", 15, None)),
-            ("recordings/latest", ("back", None, None)),
+            ("recordings/valid", ("other", "main", 999, None)),
+            ("recordings/invalid", ("back", "main", 12, None)),
+            ("recordings/valid", ("back", "main", 15, None)),
+            ("recordings/latest", ("back", "main", None, None)),
             (None, None),
         ]
         dog._drain_segment_updates()
-        self.assertEqual(dog.latest_invalid_segment_time, 12)
-        self.assertEqual(dog.latest_valid_segment_time, 15)
-        self.assertEqual(dog.latest_cache_segment_time, 0)
+        self.assertEqual(dog.latest_invalid_segment_time["main"], 12)
+        self.assertEqual(dog.latest_valid_segment_time["main"], 15)
+        self.assertEqual(dog.latest_cache_segment_time["main"], 0)
 
     def test_dead_capture_logs_once_and_waits_for_backoff(self):
         dog = watchdog([])
@@ -67,13 +67,13 @@ class WatchdogChecksTests(unittest.TestCase):
             "No new recording segments were created",
         )
         dog.record_enable_time = None
-        dog.record_restart_time = START
+        dog._grant_restart_grace(["main"], START)
         self.assertIsNone(dog._record_stall_reason(START + timedelta(seconds=149)))
         self.assertEqual(
             dog._record_stall_reason(START + timedelta(seconds=150)),
             "No new recording segments were created",
         )
-        dog.record_restart_time = None
+        dog.stream_grace_until.clear()
         for cache, valid, invalid, expected in (
             (150, 150, None, None),
             (151, 151, None, "No new recording segments were created"),
@@ -83,13 +83,13 @@ class WatchdogChecksTests(unittest.TestCase):
             (None, None, None, None),
         ):
             with self.subTest(cache=cache, valid=valid, invalid=invalid):
-                dog.latest_cache_segment_time = (
+                dog.latest_cache_segment_time["main"] = (
                     0 if cache is None else START.timestamp() - cache
                 )
-                dog.latest_valid_segment_time = (
+                dog.latest_valid_segment_time["main"] = (
                     0 if valid is None else START.timestamp() - valid
                 )
-                dog.latest_invalid_segment_time = (
+                dog.latest_invalid_segment_time["main"] = (
                     0 if invalid is None else START.timestamp() - invalid
                 )
                 self.assertEqual(dog._record_stall_reason(START), expected)
@@ -116,7 +116,7 @@ class WatchdogChecksTests(unittest.TestCase):
         FakeDatetime.current = START + timedelta(seconds=2)
         dog._check_record_processes(FakeDatetime.current.timestamp())
         start.assert_called_once()
-        self.assertEqual(dog.record_restart_time, START)
+        self.assertEqual(dog.stream_grace_until["main"], START + timedelta(seconds=150))
         FakeDatetime.current = START + timedelta(seconds=150)
         dog._check_record_processes(FakeDatetime.current.timestamp())
         self.assertEqual(start.call_count, 2)
@@ -131,7 +131,7 @@ class WatchdogChecksTests(unittest.TestCase):
         process["process"].poll.return_value = 1
         dog._check_record_processes(START.timestamp())
         start.assert_called_once()
-        self.assertIsNone(dog.record_restart_time)
+        self.assertEqual(dog.stream_grace_until, {})
 
     @patch("frigate.video.ffmpeg.start_or_restart_ffmpeg")
     @patch("frigate.video.ffmpeg.datetime", FakeDatetime)
@@ -141,4 +141,4 @@ class WatchdogChecksTests(unittest.TestCase):
         dog.ffmpeg_other_processes[0]["process"].poll.return_value = 1
         dog._check_record_processes(START.timestamp())
         start.assert_called_once()
-        self.assertEqual(dog.record_restart_time, START)
+        self.assertEqual(dog.stream_grace_until["main"], START + timedelta(seconds=150))

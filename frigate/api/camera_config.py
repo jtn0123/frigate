@@ -102,6 +102,9 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
             if app.dispatcher is not None:
                 app.dispatcher.clear_runtime_state_for_camera(camera_name)
 
+            if app.notice_registry is not None:
+                app.notice_registry.resolve_camera(camera_name)
+
             # Publish removal to stop ffmpeg processes and clean up runtime state
             app.config_publisher.publish_update(
                 CameraConfigUpdateTopic(CameraConfigUpdateEnum.remove, camera_name),

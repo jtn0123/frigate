@@ -730,6 +730,32 @@ export function extractSchemaSection(
 }
 
 /**
+ * The properties applySchemaDefaults walks: the schema's own, falling back to
+ * the non-null object branch of anyOf/oneOf schemas when top-level properties
+ * are not present.
+ */
+function schemaDefaultsProperties(schemaObj: Record<string, unknown>): unknown {
+  const properties = schemaObj.properties;
+  if (isSchemaObject(properties)) {
+    return properties;
+  }
+
+  const branches = (schemaObj.anyOf ?? schemaObj.oneOf) as
+    unknown[] | undefined;
+  if (!Array.isArray(branches)) {
+    return properties;
+  }
+
+  const objectBranch = branches.find(
+    (s) =>
+      isSchemaObject(s) &&
+      (s as Record<string, unknown>).type !== "null" &&
+      isSchemaObject((s as Record<string, unknown>).properties),
+  ) as Record<string, unknown> | undefined;
+  return objectBranch ? objectBranch.properties : properties;
+}
+
+/**
  * Merges default values from schema into form data.
  *
  * Handles anyOf/oneOf schemas (e.g., `anyOf: [MotionConfig, null]`) by
@@ -739,27 +765,17 @@ export function applySchemaDefaults(
   schema: RJSFSchema,
   formData: Record<string, unknown> = {},
 ): Record<string, unknown> {
-  const result = { ...formData };
-  const schemaObj = schema as Record<string, unknown>;
-
-  // Resolve properties, falling back to the non-null object branch of
-  // anyOf/oneOf schemas when top-level properties are not present.
-  let properties = schemaObj.properties;
-  if (!isSchemaObject(properties)) {
-    const branches = (schemaObj.anyOf ?? schemaObj.oneOf) as
-      unknown[] | undefined;
-    if (Array.isArray(branches)) {
-      const objectBranch = branches.find(
-        (s) =>
-          isSchemaObject(s) &&
-          (s as Record<string, unknown>).type !== "null" &&
-          isSchemaObject((s as Record<string, unknown>).properties),
-      ) as Record<string, unknown> | undefined;
-      if (objectBranch) {
-        properties = objectBranch.properties;
-      }
-    }
+  // An array section (models) carries its defaults on the item schema, not
+  // here. Spreading an array below would turn it into an object keyed by
+  // index, so hand it back untouched.
+  if (Array.isArray(formData)) {
+    return formData;
   }
+
+  const result = { ...formData };
+  const properties = schemaDefaultsProperties(
+    schema as Record<string, unknown>,
+  );
 
   if (!isSchemaObject(properties)) {
     return result;

@@ -43,6 +43,7 @@ function statsAt(lastUpdated: number): FrigateStats {
     detectors: {},
     processes: {},
     service: {
+      retention_unmet: false,
       last_updated: lastUpdated,
       uptime: 1000,
       storage: {},

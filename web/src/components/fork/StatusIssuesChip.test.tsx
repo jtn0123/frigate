@@ -19,10 +19,10 @@ const messages: StatusMessagesState = {
     {
       id: "a",
       text: "Host collector is missing or stale.",
-      color: "text-warning",
+      severity: "warning",
       link: "/system#models",
     },
-    { id: "b", text: "AI or telemetry needs attention", color: "text-warning" },
+    { id: "b", text: "AI or telemetry needs attention", severity: "warning" },
   ],
 };
 
@@ -66,7 +66,9 @@ describe("StatusIssuesChip", () => {
   });
 
   it("turns red when a message is an error", () => {
-    renderChip({ stats: [{ id: "c", text: "Detectors are slow" }] });
+    renderChip({
+      stats: [{ id: "c", text: "Detectors are slow", severity: "error" }],
+    });
     expect(screen.getByTestId("status-issues-chip").className).toContain("red");
   });
 });

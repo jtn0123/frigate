@@ -24,6 +24,7 @@ export type CameraStats = {
   pid: number;
   process_fps: number;
   skipped_fps: number;
+  skipped_pct: number;
   connection_quality: "excellent" | "fair" | "poor" | "unusable";
   expected_fps: number;
   reconnects_last_hour: number;
@@ -87,6 +88,9 @@ export type EmbeddingsStats = {
   face_embedding_speed: number;
   plate_recognition_speed: number;
   text_embedding_speed: number;
+  face_recognition_speed?: number;
+  yolov9_plate_detection_speed?: number;
+  devices?: Record<string, string>;
 };
 
 export type ExtraProcessStats = {
@@ -123,6 +127,7 @@ export type ServiceStats = {
   uptime: number;
   latest_version: string;
   version: string;
+  retention_unmet: boolean;
 };
 
 export type StorageStats = {
@@ -134,9 +139,29 @@ export type StorageStats = {
   shm_frame_count?: number;
 };
 
+export type StreamStorage = {
+  usage: number;
+  bandwidth: number | null;
+};
+
+export type CameraStorage = {
+  [camera: string]: {
+    bandwidth: number;
+    usage: number;
+    usage_percent: number;
+    // absent for stream types with no segments on disk
+    streams?: {
+      main?: StreamStorage;
+      sub?: StreamStorage;
+    };
+  };
+};
+
+export type ProblemSeverity = "error" | "warning" | "info";
+
 export type PotentialProblem = {
   text: string;
-  color: string;
+  severity: ProblemSeverity;
   relevantLink?: string;
 };
 

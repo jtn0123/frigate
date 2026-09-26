@@ -28,6 +28,7 @@ from frigate.const import (
     ATTRIBUTE_LABEL_DISPLAY_MAP,
     CACHE_DIR,
     CLIPS_DIR,
+    STREAM_TYPE_MAIN,
     UPDATE_REVIEW_DESCRIPTION,
 )
 from frigate.data_processing.types import PostProcessDataEnum
@@ -458,8 +459,12 @@ class ReviewDescriptionProcessor(PostProcessorApi):
                 thumbs,
                 captions,
                 camera_config.review.genai,
-                sorted(self.config.model.merged_labelmap.values()),
-                self.config.model.all_attributes,
+                sorted(
+                    self.config.model_for_camera(
+                        str(final_data["camera"])
+                    ).merged_labelmap.values()
+                ),
+                self.config.model_for_camera(str(final_data["camera"])).all_attributes,
             ),
         ).start()
 
@@ -574,6 +579,7 @@ class ReviewDescriptionProcessor(PostProcessorApi):
                     )
                     .where((ts >= Recordings.start_time) & (ts <= Recordings.end_time))
                     .where(Recordings.camera == camera)
+                    .where(Recordings.stream_type == STREAM_TYPE_MAIN)
                     .order_by(Recordings.start_time.desc())
                     .limit(1)
                     .get()

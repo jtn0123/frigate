@@ -1,8 +1,15 @@
 import { baseUrl } from "@/api/baseUrl";
-import { LivePlayerError, PlayerStatsType } from "@/types/live";
+import {
+  LivePlayerError,
+  PlayerStatsType,
+  TwoWayTalkError,
+} from "@/types/live";
+import { FrigateConfig } from "@/types/frigateConfig";
+import { parseWebRTCMessage, webRTCIceServers } from "@/utils/webrtcUtil";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { wrapAsync } from "@/utils/promise";
 import { closePeerConnection } from "@/lib/fork/peer-connection";
+import useSWR from "swr";
 
 type WebRtcPlayerProps = {
   className?: string;
@@ -17,6 +24,7 @@ type WebRtcPlayerProps = {
   setStats?: (stats: PlayerStatsType) => void;
   onPlaying?: () => void;
   onError?: (error: LivePlayerError) => void;
+  onMicrophoneError?: (error: TwoWayTalkError) => void;
 };
 
 export default function WebRtcPlayer({
@@ -32,8 +40,24 @@ export default function WebRtcPlayer({
   setStats,
   onPlaying,
   onError,
+  onMicrophoneError,
 }: Readonly<WebRtcPlayerProps>) {
   // metadata
+
+  const { data: config } = useSWR<FrigateConfig>("config");
+
+  // Keyed on the serialized list so an unrelated config update doesn't
+  // reconnect every WebRTC player.
+  const iceServersKey = JSON.stringify(
+    config?.go2rtc.webrtc?.ice_servers ?? [],
+  );
+  const iceServers = useMemo(
+    () =>
+      webRTCIceServers(
+        JSON.parse(iceServersKey) as Parameters<typeof webRTCIceServers>[0],
+      ),
+    [iceServersKey],
+  );
 
   const wsURL = useMemo(() => {
     return `${baseUrl.replace(/^http/, "ws")}live/webrtc/api/ws?src=${camera}`;
@@ -56,6 +80,10 @@ export default function WebRtcPlayer({
   const pcRef = useRef<RTCPeerConnection | undefined>(undefined);
   const wsRef = useRef<WebSocket | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  // Separate sendonly-audio connection for two-way talk: go2rtc only wires the
+  // backchannel from a connection's initial offer.
+  const micPcRef = useRef<RTCPeerConnection | undefined>(undefined);
+  const micWsRef = useRef<WebSocket | null>(null);
   const [bufferTimeout, setBufferTimeout] = useState<NodeJS.Timeout>();
   const videoLoadTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
@@ -67,7 +95,7 @@ export default function WebRtcPlayer({
 
       const pc = new RTCPeerConnection({
         bundlePolicy: "max-bundle",
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        iceServers,
       });
 
       const localTracks = [];
@@ -113,7 +141,7 @@ export default function WebRtcPlayer({
       videoRef.current.srcObject = new MediaStream(localTracks);
       return pc;
     },
-    [videoRef],
+    [videoRef, iceServers],
   );
 
   async function getMediaTracks(
@@ -131,6 +159,43 @@ export default function WebRtcPlayer({
     }
   }
 
+  // Offer/answer/ICE exchange over the WebSocket; shared by both connections.
+  const startSignaling = useCallback((pc: RTCPeerConnection, ws: WebSocket) => {
+    ws.addEventListener("open", () => {
+      pc.addEventListener("icecandidate", (ev) => {
+        if (!ev.candidate) return;
+        ws.send(
+          JSON.stringify({
+            type: "webrtc/candidate",
+            value: ev.candidate.candidate,
+          }),
+        );
+      });
+
+      void pc
+        .createOffer()
+        .then((offer) => pc.setLocalDescription(offer))
+        .then(() => {
+          ws.send(
+            JSON.stringify({
+              type: "webrtc/offer",
+              value: pc.localDescription?.sdp,
+            }),
+          );
+        });
+    });
+
+    ws.addEventListener("message", (ev) => {
+      const msg = parseWebRTCMessage(ev.data);
+      if (!msg) return;
+      if (msg.type === "webrtc/candidate") {
+        void pc.addIceCandidate({ candidate: msg.value, sdpMid: "0" });
+      } else if (msg.type === "webrtc/answer") {
+        void pc.setRemoteDescription({ type: "answer", sdp: msg.value });
+      }
+    });
+  }, []);
+
   const connect = useCallback(
     async (
       aPc: Promise<RTCPeerConnection | undefined>,
@@ -147,46 +212,9 @@ export default function WebRtcPlayer({
 
       pcRef.current = pc;
       wsRef.current = new WebSocket(wsURL);
-      const ws = wsRef.current;
-
-      ws.addEventListener("open", () => {
-        pcRef.current?.addEventListener("icecandidate", (ev) => {
-          if (!ev.candidate) return;
-          const msg = {
-            type: "webrtc/candidate",
-            value: ev.candidate.candidate,
-          };
-          ws.send(JSON.stringify(msg));
-        });
-
-        void pcRef.current
-          ?.createOffer()
-          .then((offer) => pcRef.current?.setLocalDescription(offer))
-          .then(() => {
-            const msg = {
-              type: "webrtc/offer",
-              value: pcRef.current?.localDescription?.sdp,
-            };
-            ws.send(JSON.stringify(msg));
-          });
-      });
-
-      ws.addEventListener("message", (ev) => {
-        const msg = JSON.parse(ev.data);
-        if (msg.type === "webrtc/candidate") {
-          void pcRef.current?.addIceCandidate({
-            candidate: msg.value,
-            sdpMid: "0",
-          });
-        } else if (msg.type === "webrtc/answer") {
-          void pcRef.current?.setRemoteDescription({
-            type: "answer",
-            sdp: msg.value,
-          });
-        }
-      });
+      startSignaling(pc, wsRef.current);
     },
-    [wsURL],
+    [wsURL, startSignaling],
   );
 
   useEffect(() => {
@@ -202,10 +230,7 @@ export default function WebRtcPlayer({
     // effect is cleaned up must not open a socket nobody closes
     let cancelled = false;
     const isCancelled = () => cancelled;
-    const aPc = PeerConnection(
-      microphoneEnabled ? "video+audio+microphone" : "video+audio",
-      isCancelled,
-    );
+    const aPc = PeerConnection("video+audio", isCancelled);
     void connect(aPc, isCancelled);
 
     return () => {
@@ -220,14 +245,77 @@ export default function WebRtcPlayer({
         pcRef.current = undefined;
       }
     };
+  }, [camera, connect, PeerConnection, pcRef, videoRef, playbackEnabled]);
+
+  // Backchannel connection, alive only while the mic is on.
+  useEffect(() => {
+    if (!microphoneEnabled || !playbackEnabled) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const tracks = await getMediaTracks("user", {
+        video: false,
+        audio: true,
+      });
+
+      if (cancelled) {
+        tracks.forEach((track) => track.stop());
+        return;
+      }
+
+      if (tracks.length === 0) {
+        onMicrophoneError?.("microphone");
+        return;
+      }
+
+      const pc = new RTCPeerConnection({
+        bundlePolicy: "max-bundle",
+        iceServers,
+      });
+      tracks.forEach((track) =>
+        pc.addTransceiver(track, { direction: "sendonly" }),
+      );
+
+      micPcRef.current = pc;
+      const ws = new WebSocket(wsURL);
+      micWsRef.current = ws;
+      startSignaling(pc, ws);
+
+      // go2rtc sends an error instead of an answer when it can't attach the
+      // microphone to the camera's backchannel.
+      ws.addEventListener("message", (ev) => {
+        const msg = parseWebRTCMessage(ev.data);
+        if (!msg) return;
+        if (msg.type !== "error" || cancelled) {
+          return;
+        }
+        onMicrophoneError?.("refused");
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      micPcRef.current?.getSenders().forEach((sender) => sender.track?.stop());
+      if (micWsRef.current) {
+        micWsRef.current.close();
+        micWsRef.current = null;
+      }
+      if (micPcRef.current) {
+        micPcRef.current.close();
+        micPcRef.current = undefined;
+      }
+    };
   }, [
-    camera,
-    connect,
-    PeerConnection,
-    pcRef,
-    videoRef,
-    playbackEnabled,
     microphoneEnabled,
+    playbackEnabled,
+    wsURL,
+    startSignaling,
+    iceServers,
+    camera,
+    onMicrophoneError,
   ]);
 
   // ios compat
@@ -342,7 +430,6 @@ export default function WebRtcPlayer({
       setStats?.({
         streamType: "-",
         bandwidth: 0,
-        latency: undefined,
         totalFrames: 0,
         droppedFrames: undefined,
         decodedFrames: 0,

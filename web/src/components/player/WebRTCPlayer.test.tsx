@@ -2,6 +2,13 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebRtcPlayer from "./WebRTCPlayer";
 
+const fixture = vi.hoisted(() => ({
+  config: {
+    go2rtc: { webrtc: { ice_servers: [{ urls: "stun:test.invalid:3478" }] } },
+  },
+}));
+vi.mock("swr", () => ({ default: () => ({ data: fixture.config }) }));
+
 class FakeTrack {
   stop = vi.fn();
   constructor(public kind: string) {}
@@ -12,7 +19,7 @@ class FakePeerConnection {
   senders: { track: FakeTrack | null }[] = [];
   close = vi.fn();
   addEventListener = vi.fn();
-  constructor() {
+  constructor(public configuration: RTCConfiguration) {
     FakePeerConnection.instances.push(this);
   }
   addTransceiver(trackOrKind: FakeTrack | string) {
@@ -72,6 +79,47 @@ afterEach(() => {
 });
 
 describe("WebRTC two-way talk", () => {
+  it("reports microphone permission failure while keeping video connected", async () => {
+    getUserMedia.mockRejectedValue(new Error("Permission denied"));
+    const onMicrophoneError = vi.fn();
+    const { unmount } = render(
+      <WebRtcPlayer
+        camera="front_door"
+        microphoneEnabled
+        onMicrophoneError={onMicrophoneError}
+      />,
+    );
+    await settle();
+    expect(onMicrophoneError).toHaveBeenCalledWith("microphone");
+    expect(FakeSocket.instances).toHaveLength(1);
+    expect(FakePeerConnection.instances[0].close).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it("reports a rejected backchannel and releases its microphone on cleanup", async () => {
+    const mic = new FakeTrack("audio");
+    getUserMedia.mockResolvedValue({ getTracks: () => [mic] });
+    const onMicrophoneError = vi.fn();
+    const { unmount } = render(
+      <WebRtcPlayer
+        camera="front_door"
+        microphoneEnabled
+        onMicrophoneError={onMicrophoneError}
+      />,
+    );
+    await settle();
+    await act(() =>
+      FakeSocket.instances[1].dispatchEvent(
+        new MessageEvent("message", {
+          data: JSON.stringify({ type: "error", value: "refused" }),
+        }),
+      ),
+    );
+    expect(onMicrophoneError).toHaveBeenCalledWith("refused");
+    unmount();
+    expect(mic.stop).toHaveBeenCalledOnce();
+  });
+
   it("stops the microphone when two-way talk is turned off", async () => {
     const mic = new FakeTrack("audio");
     getUserMedia.mockResolvedValue({ getTracks: () => [mic] });
@@ -79,11 +127,17 @@ describe("WebRTC two-way talk", () => {
       <WebRtcPlayer camera="front_door" microphoneEnabled />,
     );
     await settle();
-    expect(FakeSocket.instances).toHaveLength(1);
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect(FakePeerConnection.instances[0].configuration.iceServers).toEqual(
+      fixture.config.go2rtc.webrtc.ice_servers,
+    );
 
     rerender(<WebRtcPlayer camera="front_door" microphoneEnabled={false} />);
 
-    expect(FakePeerConnection.instances[0].close).toHaveBeenCalledOnce();
+    expect(FakePeerConnection.instances[0].close).not.toHaveBeenCalled();
+    expect(FakePeerConnection.instances[1].close).toHaveBeenCalledOnce();
+    expect(FakeSocket.instances[0].close).not.toHaveBeenCalled();
+    expect(FakeSocket.instances).toHaveLength(2);
     expect(mic.stop).toHaveBeenCalledOnce();
   });
 

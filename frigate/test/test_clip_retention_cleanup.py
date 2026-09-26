@@ -12,7 +12,13 @@ class TestClipRetentionCleanup(unittest.TestCase):
     def test_removed_camera_clip_expiry_does_not_unlink_snapshot_paths(self):
         retained = SimpleNamespace(retain=SimpleNamespace(days=1))
         config = SimpleNamespace(
-            cameras={}, record=SimpleNamespace(alerts=retained, detections=retained)
+            cameras={},
+            record=SimpleNamespace(
+                alerts=retained,
+                detections=retained,
+                effective_alert_days=1,
+                effective_detection_days=1,
+            ),
         )
         cleanup = EventCleanup(config, Mock(), Mock())
         expired = SimpleNamespace(id="expired", camera="removed")

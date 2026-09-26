@@ -62,7 +62,9 @@ test.describe("LPR known plates picker @medium @mobile", () => {
     const picker = page.getByRole("dialog");
     await expect(picker.getByText("Detected plates")).toBeVisible();
     await expect(picker.getByRole("option", { name: "ABC123" })).toBeVisible();
+    await expect(picker.getByRole("combobox")).toBeFocused();
     await page.keyboard.type("XYZ789");
+    await expect(picker.getByRole("combobox")).toHaveValue("XYZ789");
     // an exact match hides the free-text row, so Enter takes the detected plate
     await expect(picker.getByRole("option")).toHaveCount(1);
     await expect(picker.getByRole("option", { name: "XYZ789" })).toBeVisible();
@@ -72,7 +74,9 @@ test.describe("LPR known plates picker @medium @mobile", () => {
     await expect(picked).toBeVisible();
 
     await picked.click();
+    await expect(picker.getByRole("combobox")).toBeFocused();
     await page.keyboard.type("^AB.*");
+    await expect(picker.getByRole("combobox")).toHaveValue("^AB.*");
     await expect(
       page.getByRole("option", { name: 'Use "^AB.*"' }),
     ).toBeVisible();

@@ -116,3 +116,40 @@ describe("DynamicVideoController.seekToTimestamp", () => {
     expect(setNoRecording).toHaveBeenLastCalledWith(false);
   });
 });
+
+it("maps keyframe lead-in and clamps progress past the final segment", () => {
+  const { controller } = setup();
+  controller.newPlayback({
+    recordings: [{ ...segment(100, 110), duration: 12 }, segment(120, 130)],
+    timeRange: { after: 100, before: 130 },
+  });
+  expect(controller.getProgress(1)).toBe(100);
+  expect(controller.getProgress(7)).toBe(105);
+  expect(controller.getProgress(14)).toBe(122);
+  expect(controller.getProgress(99)).toBe(130);
+  controller.newPlayback({
+    recordings: [],
+    timeRange: { after: 100, before: 130 },
+  });
+  expect(controller.getProgress(5)).toBe(0);
+});
+it("honors play intent at the current position without waiting for a seek event", async () => {
+  const { controller, video, pause } = setup();
+  const play = vi.spyOn(video, "play").mockResolvedValue(undefined);
+  video.currentTime = 0;
+  controller.seekToTimestamp(HOUR + 60, true);
+  await Promise.resolve();
+  expect(play).toHaveBeenCalledOnce();
+  controller.seekToTimestamp(HOUR + 60, false);
+  expect(pause).toHaveBeenCalled();
+});
+it("ignores seeks outside its playback window and pauses when previews are unavailable", () => {
+  const { controller, seeks, pause } = setup();
+  controller.seekToTimestamp(HOUR - 1);
+  controller.seekToTimestamp(HOUR + 3601);
+  expect(seeks).toEqual([]);
+  controller.scrubToTimestamp(HOUR + 70, true);
+  expect(pause).toHaveBeenCalledOnce();
+  controller.scrubToTimestamp(HOUR + 71);
+  expect(pause).toHaveBeenCalledOnce();
+});

@@ -44,11 +44,12 @@ import WsMessageFeed from "@/components/ws/WsMessageFeed";
 import { LuExternalLink, LuInfo, LuSquare } from "react-icons/lu";
 
 import { MdReplay } from "react-icons/md";
-import { isDesktop, isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import Logo from "@/components/Logo";
 import { Separator } from "@/components/ui/separator";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import DebugDrawingLayer from "@/components/overlay/DebugDrawingLayer";
+import { getPrimaryModel } from "@/utils/modelUtil";
 import { IoMdArrowRoundBack } from "react-icons/io";
 
 type DebugReplayStatus = {
@@ -110,6 +111,8 @@ const DEBUG_OPTION_I18N_KEY: Record<keyof DebugOptions, string> = {
 };
 
 export default function Replay() {
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
   const { t } = useTranslation(["views/replay", "views/settings", "common"]);
   const navigate = useNavigate();
   const { getLocaleDocUrl } = useDocDomain();
@@ -646,7 +649,7 @@ function ObjectList({
     if (!config) {
       return;
     }
-    return config.model?.colormap;
+    return getPrimaryModel(config)?.colormap;
   }, [config]);
 
   const getColorForObjectName = useCallback(

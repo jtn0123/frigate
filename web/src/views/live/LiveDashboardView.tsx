@@ -28,12 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  isDesktop,
-  isMobile,
-  isMobileOnly,
-  isTablet,
-} from "react-device-detect";
+import { useViewport } from "@/hooks/fork/use-viewport";
 import { useApi } from "@/api/fork/client";
 import ErrorState from "@/components/fork/ErrorState";
 import DraggableGridLayout from "./DraggableGridLayout";
@@ -45,6 +40,7 @@ import { onActivate } from "@/utils/fork/a11y";
 import {
   AudioState,
   LivePlayerError,
+  LivePlayerMode,
   StatsState,
   VolumeState,
 } from "@/types/live";
@@ -76,6 +72,7 @@ export default function LiveDashboardView({
   toggleFullscreen,
 }: Readonly<LiveDashboardViewProps>) {
   const { t } = useTranslation(["views/live", "fork"]);
+  const { isMobile, isDesktop, isTablet } = useViewport();
 
   const { data: config } = useApi("/config");
 
@@ -279,6 +276,16 @@ export default function LiveDashboardView({
     return streams;
   }, [cameras, currentGroupStreamingSettings]);
 
+  // Per-camera streaming-technology choice from the camera group settings.
+  const preferredModes = useMemo(() => {
+    const modes: { [cameraName: string]: LivePlayerMode | undefined } = {};
+    cameras.forEach((camera) => {
+      modes[camera.name] =
+        currentGroupStreamingSettings?.[camera.name]?.playerMode;
+    });
+    return modes;
+  }, [cameras, currentGroupStreamingSettings]);
+
   const {
     preferredLiveModes,
     setPreferredLiveModes,
@@ -286,7 +293,8 @@ export default function LiveDashboardView({
     isRestreamedStates,
     supportsAudioOutputStates,
     streamMetadata,
-  } = useCameraLiveMode(cameras, windowVisible, activeStreams);
+    webRTCUsableStates,
+  } = useCameraLiveMode(cameras, windowVisible, activeStreams, preferredModes);
 
   const birdseyeConfig = useMemo(() => config?.birdseye, [config]);
 
@@ -294,7 +302,7 @@ export default function LiveDashboardView({
     (cameraName: string, error: LivePlayerError) => {
       setPreferredLiveModes((prevModes) => {
         const newModes = { ...prevModes };
-        if (error === "mse-decode") {
+        if (error === "mse-decode" && webRTCUsableStates[cameraName]) {
           newModes[cameraName] = "webrtc";
         } else {
           newModes[cameraName] = "jsmpeg";
@@ -302,7 +310,7 @@ export default function LiveDashboardView({
         return newModes;
       });
     },
-    [setPreferredLiveModes],
+    [setPreferredLiveModes, webRTCUsableStates],
   );
 
   // audio states
@@ -415,7 +423,7 @@ export default function LiveDashboardView({
           <div className="w-[45%]">
             <CameraGroupSelector />
           </div>
-          {(!cameraGroup || cameraGroup == "default" || isMobileOnly) && (
+          {(!cameraGroup || cameraGroup == "default" || isMobile) && (
             <div className="flex items-center gap-1">
               {/* fork (UI126): the two layout buttons are one choice, so they
                   are a pressed pair with translated names; their labels were
@@ -528,7 +536,7 @@ export default function LiveDashboardView({
             </ScrollArea>
           )}
 
-          {!cameraGroup || cameraGroup == "default" || isMobileOnly ? (
+          {!cameraGroup || cameraGroup == "default" || isMobile ? (
             <>
               <div
                 className={cn(
@@ -721,7 +729,7 @@ export default function LiveDashboardView({
               fullscreen={fullscreen}
               toggleFullscreen={toggleFullscreen}
               preferredLiveModes={preferredLiveModes}
-              setPreferredLiveModes={setPreferredLiveModes}
+              handleError={handleError}
               resetPreferredLiveMode={resetPreferredLiveMode}
               isRestreamedStates={isRestreamedStates}
               supportsAudioOutputStates={supportsAudioOutputStates}

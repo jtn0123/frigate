@@ -1,0 +1,150 @@
+import { toast } from "sonner";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { FaCircleCheck } from "react-icons/fa6";
+import HealthProblemRow from "@/components/health/HealthProblemRow";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useHealthProblems } from "@/hooks/use-health-problems";
+import type { NoticeFilter } from "@/types/health";
+
+type NoticesPaneProps = {
+  filter: NoticeFilter;
+};
+
+export default function NoticesPane({ filter }: Readonly<NoticesPaneProps>) {
+  const { t } = useTranslation(["views/system", "views/settings", "common"]);
+  const { problems, hidden, loading, unhideAll } = useHealthProblems(
+    t,
+    filter.showHidden,
+  );
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const shown = useMemo(
+    () =>
+      problems.filter((problem) =>
+        filter.severities.includes(problem.severity),
+      ),
+    [problems, filter.severities],
+  );
+
+  const shownHidden = useMemo(
+    () =>
+      hidden?.filter((problem) => filter.severities.includes(problem.severity)),
+    [hidden, filter.severities],
+  );
+
+  let noticesContent: React.ReactNode;
+  if (loading) {
+    noticesContent = <Skeleton className="h-24 w-full" />;
+  } else if (problems.length === 0) {
+    noticesContent = (
+      <div className="flex items-center gap-2 px-1 py-2 text-sm">
+        <FaCircleCheck className="size-4 text-success" />
+        <span>{t("health.notices.empty")}</span>
+      </div>
+    );
+  } else if (shown.length === 0) {
+    noticesContent = (
+      <div className="px-1 py-2 text-sm text-muted-foreground">
+        {t("health.notices.noMatches")}
+      </div>
+    );
+  } else {
+    noticesContent = (
+      <div className="flex flex-col">
+        {shown.map((problem) => (
+          <HealthProblemRow key={problem.id} problem={problem} />
+        ))}
+      </div>
+    );
+  }
+
+  let hiddenContent: React.ReactNode;
+  if (shownHidden === undefined) {
+    hiddenContent = <Skeleton className="h-10 w-full" />;
+  } else if (shownHidden.length === 0) {
+    hiddenContent = (
+      <div className="px-1 py-2 text-sm text-muted-foreground">
+        {t("health.notices.noneHidden")}
+      </div>
+    );
+  } else {
+    hiddenContent = (
+      <div className="flex flex-col">
+        {shownHidden.map((problem) => (
+          <HealthProblemRow key={problem.id} problem={problem} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="text-md font-medium text-primary-variant">
+        {t("health.notices.title")}
+      </div>
+      <div className="rounded-lg bg-background_alt p-2.5 md:rounded-2xl">
+        {noticesContent}
+      </div>
+      {filter.showHidden && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm text-muted-foreground">
+              {t("health.notices.hiddenTitle")}
+            </div>
+            {hidden && hidden.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmClear(true)}
+              >
+                {t("health.notices.showAll")}
+              </Button>
+            )}
+          </div>
+          <div className="rounded-lg bg-background_alt p-2.5 md:rounded-2xl">
+            {hiddenContent}
+          </div>
+        </div>
+      )}
+      <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("health.notices.showAllTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("health.notices.showAllDesc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("button.cancel", { ns: "common" })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "destructive" })}
+              onClick={() => {
+                void unhideAll().catch(() =>
+                  toast.error(t("health.notices.actionFailed")),
+                );
+              }}
+            >
+              {t("health.notices.showAll")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

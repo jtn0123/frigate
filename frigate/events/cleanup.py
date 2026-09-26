@@ -195,9 +195,11 @@ class EventCleanup(threading.Thread):
 
     def expire_clips(self) -> list[str]:
         ## Expire events from unlisted cameras based on the global config
+        # effective days cover the sub window, keeping tracked objects in
+        # Explore while sub recordings and review items still exist
         expire_days = max(
-            self.config.record.alerts.retain.days,
-            self.config.record.detections.retain.days,
+            self.config.record.effective_alert_days,
+            self.config.record.effective_detection_days,
         )
         update_params = {"has_clip": False}
 
@@ -240,11 +242,13 @@ class EventCleanup(threading.Thread):
 
         ## Expire events from cameras based on the camera config
         for name, camera in self.config.cameras.items():
+            # effective days cover the sub window, keeping tracked objects
+            # in Explore while sub recordings and review items still exist
             alert_expire_date = (
-                now - datetime.timedelta(days=camera.record.alerts.retain.days)
+                now - datetime.timedelta(days=camera.record.effective_alert_days)
             ).timestamp()
             detection_expire_date = (
-                now - datetime.timedelta(days=camera.record.detections.retain.days)
+                now - datetime.timedelta(days=camera.record.effective_detection_days)
             ).timestamp()
             # grab all events after specific time
             expired_events = (

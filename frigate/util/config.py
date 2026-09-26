@@ -4,11 +4,15 @@ import asyncio
 import logging
 import os
 import shutil
+import stat
+from pathlib import Path
 from typing import Any
 
 from ruamel.yaml import YAML
 
 from frigate.const import (
+    BASE_DIR,
+    CACHE_DIR,
     CONFIG_DIR,
     DEFAULT_FFMPEG_VERSION,
     EXPORT_DIR,
@@ -20,8 +24,73 @@ from frigate.util.services import get_video_properties
 
 logger = logging.getLogger(__name__)
 
-CURRENT_CONFIG_VERSION = "0.18-0"
+CURRENT_CONFIG_VERSION = "0.19-0"
 DEFAULT_CONFIG_FILE = os.path.join(CONFIG_DIR, "config.yml")
+
+# the detector field that used to hold the device, for detectors that named it
+# something other than "device"
+DETECTOR_DEVICE_FIELDS = {
+    "cpu": "num_threads",
+    "rknn": "num_cores",
+    "deepstack": "api_url",
+    "degirum": "location",
+    "zmq": "endpoint",
+}
+
+# detector options that have no equivalent in a device string. The remote
+# detectors that use them are being reworked, so they are dropped rather than
+# carried over.
+DROPPED_DETECTOR_OPTIONS = {
+    "deepstack": ["api_timeout", "api_key"],
+    "degirum": ["zoo", "token"],
+    "zmq": ["request_timeout_ms", "linger_ms"],
+}
+
+
+# Trees the unprivileged runtime user can write. A root frigate service must
+# not execute a binary from any of them; a compromised uid-1000 process could
+# plant one and be root after the next restart.
+RUNTIME_USER_WRITABLE_DIRS = (CONFIG_DIR, BASE_DIR, CACHE_DIR)
+
+
+def frigate_service_is_granular_root() -> bool:
+    """Report whether FRIGATE_ROOT_SERVICES runs frigate as root.
+
+    The escape hatch is excluded: it never sweeps /config and leaves no
+    unprivileged service running, so custom binaries stay as safe as they
+    were before the privilege drop.
+    """
+    if os.geteuid() != 0:
+        return False
+
+    if os.environ.get("FRIGATE_RUN_AS_ROOT", "false") == "true":
+        return False
+
+    entries = os.environ.get("FRIGATE_ROOT_SERVICES", "").split(",")
+    return any("".join(entry.split()) == "frigate" for entry in entries)
+
+
+def is_runtime_user_writable(path: str) -> bool:
+    """Report whether a path resolves inside a runtime-user-writable tree."""
+    resolved = os.path.realpath(path)
+    if any(
+        resolved == root or resolved.startswith(f"{root}{os.sep}")
+        for root in RUNTIME_USER_WRITABLE_DIRS
+    ):
+        return True
+
+    # Also reject publicly writable ancestors, including custom temporary
+    # mounts, rather than assuming that only the standard temp paths are unsafe.
+    candidate = Path(resolved)
+    for parent in (candidate, *candidate.parents):
+        try:
+            if parent.stat().st_mode & stat.S_IWOTH:
+                return True
+        except FileNotFoundError:
+            continue
+        except PermissionError:
+            return True
+    return False
 
 
 def resolve_ffmpeg_path(path: str, binary: str = "ffmpeg") -> str:
@@ -87,12 +156,30 @@ def migrate_frigate_config(config_file: str):
 
     previous_version = str(config.get("version", "0.13"))
 
-    if previous_version == CURRENT_CONFIG_VERSION:
+    # 0.19 is unreleased, so a config may already be stamped with the current
+    # version and still use the pre-models detectors and model keys
+    needs_models = "detectors" in config or "model" in config
+
+    # likewise, it may already be on the models list and still name the hailo
+    # detector by its old key
+    needs_detector_rename = any(
+        isinstance(device, str) and device.partition(":")[0] == "hailo8l"
+        for model in (config.get("models") or [])
+        if isinstance(model, dict)
+        for device in (model.get("devices") or [])
+    )
+
+    if (
+        previous_version == CURRENT_CONFIG_VERSION
+        and not needs_models
+        and not needs_detector_rename
+    ):
         logger.info("frigate config does not need migration...")
         return
 
     logger.info("copying config as backup...")
     shutil.copy(config_file, os.path.join(CONFIG_DIR, "backup_config.yaml"))
+    new_config = config
 
     if previous_version < "0.14":
         logger.info(f"Migrating frigate config from {previous_version} to 0.14...")
@@ -146,6 +233,24 @@ def migrate_frigate_config(config_file: str):
         with open(config_file, "w") as f:
             yaml.dump(new_config, f)
         previous_version = "0.18-0"
+
+    if previous_version < "0.19-0":
+        logger.info(f"Migrating frigate config from {previous_version} to 0.19-0...")
+        new_config = migrate_019_0(new_config)
+        with open(config_file, "w") as f:
+            yaml.dump(new_config, f)
+
+    if needs_models:
+        logger.info("Migrating frigate detectors and model to models...")
+        new_config = migrate_models(new_config)
+        with open(config_file, "w") as f:
+            yaml.dump(new_config, f)
+
+    if needs_detector_rename:
+        logger.info("Migrating renamed frigate detectors...")
+        new_config = rename_hailo_detector(new_config)
+        with open(config_file, "w") as f:
+            yaml.dump(new_config, f)
 
     logger.info("Finished frigate config migration...")
 
@@ -525,6 +630,28 @@ def _convert_legacy_mask_to_dict(
     return result
 
 
+# the 0.18 scalar Birdseye modes, mapped to their activity mode names
+_LEGACY_BIRDSEYE_MODES = {
+    "continuous": "continuous",
+    "motion": "motion",
+    "objects": "all_objects",
+}
+
+
+def _migrate_birdseye_mode(birdseye: dict[str, Any] | None) -> None:
+    """Convert a scalar Birdseye mode to an activity mode list."""
+    if not birdseye or not isinstance(birdseye.get("mode"), str):
+        return
+
+    legacy_mode = birdseye["mode"]
+
+    if legacy_mode not in _LEGACY_BIRDSEYE_MODES:
+        return
+
+    del birdseye["mode"]
+    birdseye["modes"] = [_LEGACY_BIRDSEYE_MODES[legacy_mode]]
+
+
 def migrate_018_0(config: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Handle migrating frigate config to 0.18-0"""
     new_config = config.copy()
@@ -655,6 +782,171 @@ def migrate_018_0(config: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]
         del new_config["ui"]
 
     new_config["version"] = "0.18-0"
+    return new_config
+
+
+def rename_hailo_detector(
+    config: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Rename the hailo8l detector, which drives every Hailo device.
+
+    Args:
+        config: The loaded config
+
+    Returns:
+        The config with every models entry naming the detector 'hailo'
+    """
+    new_config = config.copy()
+
+    for model in new_config.get("models") or []:
+        if not isinstance(model, dict):
+            continue
+
+        devices = model.get("devices")
+
+        if not isinstance(devices, list):
+            continue
+
+        # assigned per index so ruamel keeps the comments on the list
+        for index, device in enumerate(devices):
+            if not isinstance(device, str):
+                continue
+
+            detector, separator, rest = device.partition(":")
+
+            if detector == "hailo8l":
+                devices[index] = f"hailo{separator}{rest}"
+
+    return new_config
+
+
+def migrate_019_0(config: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Handle migrating Frigate config to 0.19-0."""
+    new_config = rename_hailo_detector(config)
+
+    _migrate_birdseye_mode(new_config.get("birdseye"))
+
+    for name, camera in new_config.get("cameras", {}).items():
+        camera_config: dict[str, dict[str, Any]] = camera.copy()
+        _migrate_birdseye_mode(camera_config.get("birdseye"))
+
+        for profile in camera_config.get("profiles", {}).values():
+            if isinstance(profile, dict):
+                _migrate_birdseye_mode(profile.get("birdseye"))
+
+        new_config["cameras"][name] = camera_config
+
+    new_config["version"] = "0.19-0"
+    return new_config
+
+
+def _migrated_device(detector: dict[str, Any]) -> tuple[str, str]:
+    """Return a legacy detector's migrated type and its device string."""
+    detector_type = detector.get("type", "cpu")
+    device = detector.get(DETECTOR_DEVICE_FIELDS.get(detector_type, "device"))
+
+    # hailo8l named one device, but the detector drives every Hailo device
+    if detector_type == "hailo8l":
+        detector_type = "hailo"
+
+    device_string = detector_type if device is None else f"{detector_type}:{device}"
+    return detector_type, device_string
+
+
+def _log_dropped_detector_options(
+    name: str, detector_type: str, detector: dict[str, Any]
+) -> None:
+    """Log the legacy detector options the models migration drops."""
+    dropped = [
+        option
+        for option in DROPPED_DETECTOR_OPTIONS.get(detector_type, [])
+        if option in detector
+    ]
+
+    if dropped:
+        logger.error(
+            "Detector '%s' had the %s options set, which are no longer supported and have been removed",
+            name,
+            ", ".join(dropped),
+        )
+
+
+def _merge_detector_model_path(
+    name: str, detector: dict[str, Any], model_path: str | None
+) -> str | None:
+    """Keep the first detector model_path, warning when a later one differs."""
+    detector_model_path = detector.get("model_path")
+
+    if detector_model_path:
+        if model_path is None:
+            return detector_model_path
+
+        if model_path != detector_model_path:
+            logger.warning(
+                "Detector '%s' set a different model_path than an earlier detector, using '%s' for the migrated model",
+                name,
+                model_path,
+            )
+
+    return model_path
+
+
+def migrate_models(config: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Merge the detectors and model keys into a single models list.
+
+    Every config before this change ran one model across all of its detectors,
+    so this always produces exactly one model.
+
+    Args:
+        config: The loaded config
+
+    Returns:
+        The config with a models list in place of detectors and model
+    """
+    # imported lazily so loading the detector plugins is not a cost of importing
+    # this module
+    from frigate.detectors.detector_types import config_types
+
+    new_config = config.copy()
+    detectors: dict[str, Any] = new_config.pop("detectors", None) or {}
+    model: dict[str, Any] = new_config.pop("model", None) or {}
+
+    devices: list[str] = []
+    model_path: str | None = None
+
+    for name, detector in detectors.items():
+        detector = detector or {}
+        detector_type, device_string = _migrated_device(detector)
+
+        # repeating a device now means running an extra inference process on it,
+        # which is what several detectors on one device used to mean. Only
+        # collapse repeats of hardware that can serve a single process.
+        config_class = config_types.get(detector_type)
+        shareable = config_class.shareable if config_class else True
+
+        if shareable or device_string not in devices:
+            devices.append(device_string)
+
+        _log_dropped_detector_options(name, detector_type, detector)
+        model_path = _merge_detector_model_path(name, detector, model_path)
+
+    detector_types = {device.partition(":")[0] for device in devices}
+
+    if len(detector_types) > 1:
+        logger.error(
+            "Detectors of more than one type (%s) were configured. A model now runs on one detector type, so the migrated config will need to be corrected by hand",
+            ", ".join(sorted(detector_types)),
+        )
+
+    entry: dict[str, Any] = {"scene": "all", **model}
+
+    if model_path:
+        entry["path"] = model_path
+
+    # a config with no detectors ran a single cpu detector
+    entry["devices"] = devices or ["cpu"]
+
+    new_config["models"] = [entry]
     return new_config
 
 

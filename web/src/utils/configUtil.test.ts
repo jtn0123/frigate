@@ -287,6 +287,7 @@ describe("getSectionConfig", () => {
   it("layers level overrides on the base and replaces arrays wholesale", () => {
     const camera = getSectionConfig("detect", "camera");
     expect(camera.restartRequired).toEqual([
+      "scene",
       "fps",
       "width",
       "height",
@@ -312,7 +313,7 @@ describe("getSectionConfig", () => {
 
 describe("hidden fields and attribute labels", () => {
   const config = cfg({
-    model: { all_attributes: ["face", "license_plate"] },
+    models: [{ scene: "all", all_attributes: ["face", "license_plate"] }],
     objects: { track: ["person", "face"] },
     cameras: {
       lpr_cam: { type: "lpr", objects: { track: ["license_plate"] } },

@@ -69,6 +69,12 @@
           "title": "Listen types",
           "type": "array"
         },
+        "labelmap": {
+          "additionalProperties": { "type": "string" },
+          "description": "Overrides or remapping entries to merge into the standard audio labelmap.",
+          "title": "Audio labelmap customization",
+          "type": "object"
+        },
         "filters": {
           "anyOf": [
             {
@@ -245,31 +251,6 @@
       "title": "AuthConfig",
       "type": "object"
     },
-    "BaseDetectorConfig": {
-      "additionalProperties": true,
-      "properties": {
-        "type": {
-          "default": "cpu",
-          "description": "Type of detector to use for object detection (for example 'cpu', 'edgetpu', 'openvino').",
-          "title": "Detector Type",
-          "type": "string"
-        },
-        "model": {
-          "anyOf": [{ "$ref": "#/$defs/ModelConfig" }, { "type": "null" }],
-          "default": null,
-          "description": "Detector-specific model configuration options (path, input size, etc.).",
-          "title": "Detector specific model configuration"
-        },
-        "model_path": {
-          "anyOf": [{ "type": "string" }, { "type": "null" }],
-          "default": null,
-          "description": "File path to the detector model binary if required by the chosen detector.",
-          "title": "Detector specific model path"
-        }
-      },
-      "title": "BaseDetectorConfig",
-      "type": "object"
-    },
     "BirdClassificationConfig": {
       "additionalProperties": false,
       "properties": {
@@ -299,11 +280,11 @@
           "title": "Enable Birdseye",
           "type": "boolean"
         },
-        "mode": {
-          "$ref": "#/$defs/BirdseyeModeEnum",
-          "default": "objects",
-          "description": "Mode for including cameras in Birdseye: 'objects', 'motion', or 'continuous'.",
-          "title": "Tracking mode"
+        "modes": {
+          "description": "Activity types that include cameras in Birdseye.",
+          "items": { "$ref": "#/$defs/BirdseyeModeEnum" },
+          "title": "Activity types",
+          "type": "array"
         },
         "order": {
           "default": 0,
@@ -324,11 +305,11 @@
           "title": "Enable Birdseye",
           "type": "boolean"
         },
-        "mode": {
-          "$ref": "#/$defs/BirdseyeModeEnum",
-          "default": "objects",
-          "description": "Mode for including cameras in Birdseye: 'objects', 'motion', or 'continuous'.",
-          "title": "Tracking mode"
+        "modes": {
+          "description": "Activity types that include cameras in Birdseye.",
+          "items": { "$ref": "#/$defs/BirdseyeModeEnum" },
+          "title": "Activity types",
+          "type": "array"
         },
         "restream": {
           "default": false,
@@ -402,7 +383,7 @@
       "type": "object"
     },
     "BirdseyeModeEnum": {
-      "enum": ["objects", "motion", "continuous"],
+      "enum": ["continuous", "motion", "all_objects", "alerts", "detections"],
       "title": "BirdseyeModeEnum",
       "type": "string"
     },
@@ -987,7 +968,7 @@
       "type": "object"
     },
     "CameraRoleEnum": {
-      "enum": ["audio", "record", "detect"],
+      "enum": ["audio", "record", "record_sub", "detect"],
       "title": "CameraRoleEnum",
       "type": "string"
     },
@@ -1234,6 +1215,12 @@
           "default": null,
           "description": "Width (pixels) of frames used for the detect stream; leave empty to use the native stream resolution.",
           "title": "Detect width"
+        },
+        "scene": {
+          "$ref": "#/$defs/SceneEnum",
+          "default": "all",
+          "description": "The environment this camera looks at, used to pick which of the configured models runs on it. Cameras left on 'all' run the model configured with a scene of 'all'.",
+          "title": "Detect scene"
         },
         "fps": {
           "default": 5,
@@ -1503,6 +1490,14 @@
           "default": "preset-record-generic-audio-aac",
           "description": "Default output arguments for record role streams.",
           "title": "Record output arguments"
+        },
+        "record_sub": {
+          "anyOf": [
+            { "type": "string" },
+            { "items": { "type": "string" }, "type": "array" }
+          ],
+          "description": "Output arguments for record_sub role streams. The record output arguments are used when this is not set.",
+          "title": "Sub stream record output arguments"
         }
       },
       "title": "FfmpegOutputArgsConfig",
@@ -2000,6 +1995,18 @@
     "ModelConfig": {
       "additionalProperties": false,
       "properties": {
+        "scene": {
+          "$ref": "#/$defs/SceneEnum",
+          "default": "all",
+          "description": "The camera environment this model is used for. Cameras select a model by setting detect.scene to a matching value, and 'all' is used by any camera that does not set one.",
+          "title": "Model scene"
+        },
+        "devices": {
+          "description": "Hardware this model runs on, as '<detector>' or '<detector>:<device>' (for example 'edgetpu:pci:0' or 'openvino:GPU'). Listing the same device more than once runs additional inference processes on it.",
+          "items": { "type": "string" },
+          "title": "Detection hardware",
+          "type": "array"
+        },
         "path": {
           "anyOf": [{ "type": "string" }, { "type": "null" }],
           "default": null,
@@ -2706,6 +2713,11 @@
           "description": "Settings controlling the quality of recording previews shown in the UI.",
           "title": "Preview config"
         },
+        "sub": {
+          "$ref": "#/$defs/RecordSubConfig",
+          "description": "Settings for recording a second, lower quality stream.",
+          "title": "Sub stream recording"
+        },
         "enabled_in_config": {
           "anyOf": [{ "type": "boolean" }, { "type": "null" }],
           "default": null,
@@ -2774,6 +2786,39 @@
         }
       },
       "title": "RecordRetainConfig",
+      "type": "object"
+    },
+    "RecordSubConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable recording of a second, lower quality stream for adaptive quality playback and extended retention.",
+          "title": "Enable sub stream recording",
+          "type": "boolean"
+        },
+        "continuous": {
+          "$ref": "#/$defs/RecordRetainConfig",
+          "description": "Number of days to retain sub stream recordings regardless of tracked objects or motion.",
+          "title": "Sub stream continuous retention"
+        },
+        "motion": {
+          "$ref": "#/$defs/RecordRetainConfig",
+          "description": "Number of days to retain sub stream recordings triggered by motion.",
+          "title": "Sub stream motion retention"
+        },
+        "alerts": {
+          "$ref": "#/$defs/ReviewRetainConfig",
+          "description": "Retention settings for sub stream recordings of alerts.",
+          "title": "Sub stream alert retention"
+        },
+        "detections": {
+          "$ref": "#/$defs/ReviewRetainConfig",
+          "description": "Retention settings for sub stream recordings of detections.",
+          "title": "Sub stream detection retention"
+        }
+      },
+      "title": "RecordSubConfig",
       "type": "object"
     },
     "ReplaceRule": {
@@ -2869,6 +2914,12 @@
       },
       "title": "ReviewRetainConfig",
       "type": "object"
+    },
+    "SceneEnum": {
+      "description": "The camera environment a detection model is intended for.",
+      "enum": ["all", "indoor", "outdoor", "indoor_thermal", "outdoor_thermal"],
+      "title": "SceneEnum",
+      "type": "string"
     },
     "SemanticSearchConfig": {
       "additionalProperties": false,
@@ -3045,6 +3096,11 @@
           "title": "Network bandwidth",
           "type": "boolean"
         },
+        "history": {
+          "$ref": "#/$defs/StatsHistoryConfig",
+          "description": "Options for the stored history the System page graphs.",
+          "title": "System metrics history"
+        },
         "intel_gpu_device": {
           "anyOf": [{ "type": "string" }, { "type": "null" }],
           "default": null,
@@ -3053,6 +3109,28 @@
         }
       },
       "title": "StatsConfig",
+      "type": "object"
+    },
+    "StatsHistoryConfig": {
+      "additionalProperties": false,
+      "description": "Fork (D54): system metrics kept past the in-memory stats window.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Store a sample of system metrics every minute so the System page can graph windows longer than the 20 minutes held in memory.",
+          "title": "System metrics history",
+          "type": "boolean"
+        },
+        "retain_days": {
+          "default": 30,
+          "description": "Days of system metrics history to keep. Samples are rolled up as they age, so a month is a few thousand rows.",
+          "maximum": 365,
+          "minimum": 1,
+          "title": "System metrics history retention",
+          "type": "integer"
+        }
+      },
+      "title": "StatsHistoryConfig",
       "type": "object"
     },
     "TelemetryConfig": {
@@ -3389,17 +3467,11 @@
       "description": "User interface preferences such as timezone, time/date formatting, and units.",
       "title": "UI"
     },
-    "detectors": {
-      "additionalProperties": { "$ref": "#/$defs/BaseDetectorConfig" },
-      "default": { "cpu": { "type": "cpu" } },
-      "description": "Configuration for object detectors (CPU, GPU, ONNX backends) and any detector-specific model settings.",
-      "title": "Detector hardware",
-      "type": "object"
-    },
-    "model": {
-      "$ref": "#/$defs/ModelConfig",
-      "description": "Settings to configure a custom object detection model and its input shape.",
-      "title": "Detection model"
+    "models": {
+      "description": "Object detection models and the hardware each one runs on. Cameras pick a model by matching their detect.scene against a model's scene.",
+      "items": { "$ref": "#/$defs/ModelConfig" },
+      "title": "Detection models",
+      "type": "array"
     },
     "genai": {
       "additionalProperties": { "$ref": "#/$defs/GenAIConfig" },
