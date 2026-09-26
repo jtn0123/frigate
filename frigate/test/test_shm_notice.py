@@ -53,6 +53,17 @@ class TestShmNotice(unittest.TestCase):
 
         self.resolve_notice.assert_called_once_with("shm_too_low")
 
+    def test_storage_collection_can_omit_shm_or_use_another_mount_key(self):
+        for storage in ({}, {"memory-mount": TOO_SMALL}):
+            with self.subTest(storage=storage), patch.object(emitter, "flush_notices"):
+                self.emitter._update_notices(
+                    {"cameras": {}, "service": {"uptime": 0, "storage": storage}}, 0
+                )
+        self.resolve_notice.assert_called_once_with("shm_too_low")
+        self.raise_notice.assert_called_once_with(
+            "shm_too_low", params={"total": 64.0, "min": 180}
+        )
+
     def test_missing_shm_is_not_a_problem(self):
         self.emitter._update_shm_notice({})
 

@@ -275,7 +275,17 @@ class StatsEmitter(threading.Thread):
                     raise_notice(kind, scope=camera, params={"cpu": averages[camera]})
 
         # shm too small for the cameras
-        self._update_shm_notice(stats["service"]["storage"]["/dev/shm"])
+        # Identify the shared-memory entry by its requirement metadata. Missing
+        # storage telemetry during startup must not terminate the emitter.
+        shm = next(
+            (
+                value
+                for value in stats["service"]["storage"].values()
+                if "min_shm" in value
+            ),
+            {},
+        )
+        self._update_shm_notice(shm)
 
         # repeats of batched kinds, such as failed logins
         flush_notices()
