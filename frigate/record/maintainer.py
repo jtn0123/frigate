@@ -532,13 +532,13 @@ class RecordingMaintainer(threading.Thread):
     ) -> None:
         expire_before = datetime.datetime.now().timestamp() - STALE_RECORDINGS_INFO_TTL
         # a camera is still active when any of its streams cached segments
-        cameras_with_cache = {camera for camera, _ in grouped_recordings}
+        cameras_with_cache = {key[0] for key in grouped_recordings}
 
         for recordings_info in (
             self.object_recordings_info,
             self.audio_recordings_info,
         ):
-            for camera, info in list(recordings_info.items()):
+            for camera, info in recordings_info.items():
                 if camera in cameras_with_cache:
                     continue
                 while info and info[0][0] < expire_before:

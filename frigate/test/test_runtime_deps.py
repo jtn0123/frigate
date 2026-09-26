@@ -98,10 +98,12 @@ class RuntimeDepsTestCase(unittest.TestCase):
             Path(save_path).write_bytes(self.download_content)
             return Path(save_path)
 
+        # activate() inserts into sys.path; tests read this copy of it
+        self.sys_path = list(sys.path)
         self.patches = [
             # activate() inserts into sys.path and records preloaded libraries,
             # so both are swapped for copies that are restored after each test
-            patch.object(sys, "path", list(sys.path)),
+            patch.object(sys, "path", self.sys_path),
             patch.dict(runtime_deps._loaded_libs, {}, clear=True),
             patch.object(runtime_deps, "user_base", return_value=self.base),
             patch.object(runtime_deps, "user_site", return_value=self.site),
@@ -485,7 +487,7 @@ class TestRootGuard(RuntimeDepsTestCase):
         ):
             activate(RuntimeManifest(name="test", version="1", artifacts=()))
 
-        self.assertNotIn(str(self.site), sys.path)
+        self.assertNotIn(str(self.site), self.sys_path)
 
 
 class TestActivate(RuntimeDepsTestCase):
@@ -494,15 +496,15 @@ class TestActivate(RuntimeDepsTestCase):
 
         activate(RuntimeManifest(name="test", version="1", artifacts=()))
 
-        self.assertIn(str(self.site), sys.path)
+        self.assertIn(str(self.site), self.sys_path)
         system = [
             i
-            for i, p in enumerate(sys.path)
+            for i, p in enumerate(self.sys_path)
             if p.endswith(("site-packages", "dist-packages")) and p != str(self.site)
         ]
 
         if system:
-            self.assertLess(sys.path.index(str(self.site)), system[0])
+            self.assertLess(self.sys_path.index(str(self.site)), system[0])
 
     def test_preloads_libraries_in_order_with_rtld_global(self) -> None:
         lib = self.base / "lib"

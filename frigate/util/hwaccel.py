@@ -41,10 +41,8 @@ LIGHTER_VIRTIO_VENDOR = "0x4c474854"
 # ffprobe names h265 streams hevc
 CODEC_ALIASES = {"hevc": "h265"}
 
-# e.g. "13th Gen Intel(R) Core(TM) i5-13500". The lookbehind anchors each
-# attempt at the start of a digit run, so a long run is scanned once instead
-# of once per digit; the leftmost match always starts there anyway
-INTEL_GEN_PATTERN = re.compile(r"(?<!\d)(\d+)th Gen")
+# e.g. "13th Gen Intel(R) Core(TM) i5-13500"
+INTEL_GEN_SUFFIX = "th Gen"
 # Core Ultra dropped the generation prefix and is newer than all of them
 INTEL_ULTRA_PATTERN = re.compile(r"Core\(TM\) Ultra")
 INTEL_GEN_LATEST = 99
@@ -138,15 +136,37 @@ def _intel_generation() -> int | None:
         if not line.startswith("model name"):
             continue
 
-        match = INTEL_GEN_PATTERN.search(line)
+        generation = intel_generation_digits(line)
 
-        if match:
-            return int(match.group(1))
+        if generation:
+            return int(generation)
 
         if INTEL_ULTRA_PATTERN.search(line):
             return INTEL_GEN_LATEST
 
         break
+
+    return None
+
+
+def intel_generation_digits(line: str) -> str | None:
+    """Return the digits right before the first "th Gen" they precede.
+
+    A linear scan instead of a regex: a digit run followed by the wrong
+    suffix would otherwise be rescanned from every digit.
+    """
+    start = 0
+
+    while (suffix := line.find(INTEL_GEN_SUFFIX, start)) != -1:
+        begin = suffix
+
+        while begin > 0 and line[begin - 1].isdecimal():
+            begin -= 1
+
+        if begin < suffix:
+            return line[begin:suffix]
+
+        start = suffix + 1
 
     return None
 
