@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 const SEVERITY_COLOR: Record<ProblemSeverity, string> = {
   error: "text-danger",
-  warning: "text-orange-400",
+  warning: "text-warning",
   info: "text-selected",
 };
 

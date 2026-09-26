@@ -7,7 +7,7 @@ import ErrorState from "@/components/fork/ErrorState";
 import { lazy, useEffect, useMemo, useState } from "react";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { isDesktop } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 
 import { wrapAsync } from "@/utils/promise";
 import { cn } from "@/lib/utils";
@@ -63,6 +63,8 @@ function isSystemMetric(value: string): value is SystemMetric {
 }
 
 function System() {
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
   const { t } = useTranslation(["views/system"]);
   const { data: config } = useApi("/config", {
     revalidateOnFocus: false,

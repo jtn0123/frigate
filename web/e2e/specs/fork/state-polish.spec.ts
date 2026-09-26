@@ -267,14 +267,17 @@ test.describe("Status bar warning chip (UI110) @high", () => {
   );
 
   test(
-    "the chip and its list fit a 412 px window",
+    "the narrow-window status control and its list fit a 412 px window",
     { tag: "@desktop-only" },
     async ({ frigateApp }) => {
       const page = frigateApp.page;
       await page.setViewportSize({ width: 412, height: 915 });
       await frigateApp.goto("/");
-      const list = await openStatusIssues(page);
-      for (const locator of [page.getByTestId("status-issues-chip"), list]) {
+      const trigger = page.getByTestId("status-alert-trigger");
+      await trigger.click();
+      const list = page.getByTestId("status-message-list");
+      await expect(list).toBeVisible();
+      for (const locator of [trigger, list]) {
         const box = await locator.boundingBox();
         expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
         expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(412);

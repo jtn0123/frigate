@@ -55,7 +55,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { isDesktop, isMobileOnly } from "react-device-detect";
+import { isMobileOnly } from "react-device-detect";
+import { useIsDesktop } from "@/hooks/fork/use-viewport";
 import { Trans, useTranslation } from "react-i18next";
 import {
   LuFolderCheck,
@@ -78,6 +79,7 @@ import {
 } from "@/types/classification";
 
 export default function FaceLibrary() {
+  const isDesktop = useIsDesktop();
   const { t } = useTranslation(["views/faceLibrary"]);
 
   const { data: config } = useSWR<FrigateConfig>("config");

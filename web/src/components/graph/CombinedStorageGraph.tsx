@@ -334,7 +334,7 @@ export function CombinedStorageGraph({
                     {((row.usage / totalStorage.total) * 100).toFixed(2)}%
                   </TableCell>
                   <TableCell>
-                    {isAggregate ? "—" : `${getUnitSize(row.bandwidth)} / hour`}
+                    {isAggregate ? "-" : `${getUnitSize(row.bandwidth)} / hour`}
                     {getStreamSplit(row, "bandwidth")}
                   </TableCell>
                 </TableRow>

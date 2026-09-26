@@ -16,6 +16,8 @@ This work targets the fork's `next` branch. The starting point was
 | B18 | Multiple detection models, camera scenes, hardware discovery and model editor | `8fe35ace3`, `27a40a507`, `46796fe9e`, `aaf18b81b`, `6ae805097`, `d183f03fe`, `7821ecbb4`, `6791df797`, `b99c87f27` |
 | B19 | Persistent notices, acknowledgement and mute, hardware and stream health checks | `f3a31e2fb`, `70ce193e0`, `e3029beba`, `7bc32fd4c`, `9664d9cea`; recommendation helpers from `fb8ab56c4` |
 | B20 | DEEPX NPU and lighter Apple Neural Engine, video presets and discovery | `af0ba1919`, `c959df32c`; ONNX Runtime prerequisite from `944328911` |
+| UI141 | Responsive shell, screen-size layouts, touch resize and capability-based picture-in-picture | recovered from `56e02f38e` on `section/features4` |
+| D63 | Plate-picker focus and rapid-reopening regression fix | Found during integration browser testing |
 
 ## Fork compatibility
 
@@ -46,27 +48,49 @@ CODEOWNERS and device-ACL bootstrap changes. DEEPX host installation remains an
 explicit operator step. ONNX Runtime 1.30 is hash-pinned for both architectures,
 and the thin test image installs that same wheel to exercise its provider API.
 
-## Validation boundaries
+Responsive layouts retain the fork router, preloading, phone insets and touch
+controls. Layout backups carry each screen-size variant and remap it to the
+receiving browser. Legacy backups still import. Reset and group deletion clear
+the relevant variants. A regression test reproduces a late storage read
+overwriting the newly selected viewport before the persistence fix.
 
-Backend checks run in the fork's thin test image using Python 3.11. Frontend
-unit tests and Playwright exercise the fork's actual components with mocked
-camera/API data. They do not establish physical accelerator compatibility,
-real-camera recording reliability, or Safari browser-engine behavior.
+## Validation
 
-The recording checkpoint passed the backend gate (2,212 Frigate tests plus
-116 companion/benchmark/monitoring tests), 19 focused player tests, and 93
-browser tests with 14 platform skips. The model checkpoint's combined browser
-run passed 134 tests with 14 platform skips; the backend gate passed
-2,350 Frigate tests (one skipped) and 116 companion tests, including mypy and
-the generated API check. The focused settings suite passed 55 tests. The notices backend gate passed
-2,519 Frigate tests (one skipped) and 116 companion tests. Its admin-only
-checks are loaded separately, keeping the eager bundle at 385,873 gzip bytes
-under the unchanged 405,000-byte budget.
+The final combined `make check` passed on 2026-09-25 against `origin/next`
+`bb55f28f8`, with the integration on `section/upstream-feature-integration`.
+
+| Check | Result |
+| --- | --- |
+| Frigate backend unit tests | 2,565 tests, one existing skip |
+| Audio, benchmark and monitoring tests | 116 passed |
+| Fork tooling unit tests | 196 passed |
+| Frontend unit tests | 852 passed across 134 files |
+| Playwright, desktop/mobile/tablet | 909 passed, 101 platform skips, zero failures or flaky tests |
+| Eager bundle | 386,284 gzip bytes, below the unchanged 405,000-byte budget |
+| Other gates | ESLint, app/e2e/fork TypeScript, type ratchet, i18n, Ruff, Python mypy, generated API spec and gitleaks passed |
+
+Hardware support also passed 147 focused backend tests. Responsive persistence,
+backup and reset passed 27 focused unit tests. The layout race was reproduced
+before its fix; the plate-picker regression passed on desktop and mobile.
+
+Backend checks use Python 3.11 in the fork's thin ARM64 test image, including
+the pinned ONNX Runtime 1.30 wheel. Frontend and Playwright tests exercise the
+actual components with mocked camera/API data. They do not establish physical
+accelerator compatibility, real-camera recording reliability, native Safari
+behavior, or a full production-image build. Remote CI and SonarCloud have not
+run for this local branch. Nothing has been pushed, merged, promoted or deployed.
 
 ## Branch review
 
-PRs #94 and #99 were already merged. PR #103's unmerged vehicle-label experiment
-is excluded. The separate classification-suggestions work in PR #105 is not
-duplicated here. PR #106 concerns image-size documentation. The unmerged
-`section/features4` branch contains useful responsive-layout work to recover
-selectively, rather than merging its entire older branch history.
+Refreshed against `origin/next` at `bb55f28f8`. PRs #94 and #99 are merged.
+
+| Branch or PR | Disposition |
+| --- | --- |
+| `section/vehicle-label-trial`, PR #103 | Closed and unmerged; excluded as requested |
+| `section/classification-suggestions`, PR #105 | Open against `next`; existing separate work, not duplicated here |
+| `dependabot/npm_and_yarn/docs/image-size-2.0.4`, PR #106 | Open docs dependency update |
+| `section/features4` | Responsive work recovered as UI141 without merging the older branch history |
+| `claude/open-pull-requests-ak6psd` | Only merge commits remain outside `next` |
+| `pr99` | Non-merge patches already have equivalents on `next` |
+| `pr-assets` | Screenshot publication branch, not application features |
+| `dev` | Upstream tracking branch, not a fork feature branch |

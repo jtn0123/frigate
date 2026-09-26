@@ -1,5 +1,12 @@
 import type { FieldPathList, FieldProps, RJSFSchema } from "@rjsf/utils";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 import {
@@ -83,6 +90,14 @@ function PlateCombobox({
     changeOpen(true);
     onAutoOpened();
   }, [autoOpen, onAutoOpened, changeOpen]);
+
+  // Reopening during the close animation reuses the mounted focus scope.
+  useLayoutEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [open]);
 
   const trimmedSearch = searchValue.trim();
 

@@ -1,3 +1,4 @@
+import { allLayoutKeysForGroup } from "@/lib/fork/live-layout";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -168,9 +169,10 @@ export default function UiSettingsView() {
 
     Object.entries(config.camera_groups).forEach(
       wrapAsync(async ([cameraName]) => {
-        await deleteUserNamespacedKey(
-          `${cameraName}-draggable-layout`,
-          username,
+        await Promise.all(
+          allLayoutKeysForGroup(cameraName).map((key) =>
+            deleteUserNamespacedKey(key, username),
+          ),
         )
           .then(() => {
             toast.success(

@@ -28,12 +28,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  isDesktop,
-  isMobile,
-  isMobileOnly,
-  isTablet,
-} from "react-device-detect";
+import { useViewport } from "@/hooks/fork/use-viewport";
 import { useApi } from "@/api/fork/client";
 import ErrorState from "@/components/fork/ErrorState";
 import DraggableGridLayout from "./DraggableGridLayout";
@@ -77,6 +72,7 @@ export default function LiveDashboardView({
   toggleFullscreen,
 }: Readonly<LiveDashboardViewProps>) {
   const { t } = useTranslation(["views/live", "fork"]);
+  const { isMobile, isDesktop, isTablet } = useViewport();
 
   const { data: config } = useApi("/config");
 
@@ -427,7 +423,7 @@ export default function LiveDashboardView({
           <div className="w-[45%]">
             <CameraGroupSelector />
           </div>
-          {(!cameraGroup || cameraGroup == "default" || isMobileOnly) && (
+          {(!cameraGroup || cameraGroup == "default" || isMobile) && (
             <div className="flex items-center gap-1">
               {/* fork (UI126): the two layout buttons are one choice, so they
                   are a pressed pair with translated names; their labels were
@@ -540,7 +536,7 @@ export default function LiveDashboardView({
             </ScrollArea>
           )}
 
-          {!cameraGroup || cameraGroup == "default" || isMobileOnly ? (
+          {!cameraGroup || cameraGroup == "default" || isMobile ? (
             <>
               <div
                 className={cn(

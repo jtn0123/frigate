@@ -7,7 +7,7 @@ import StatusMessageList from "../StatusMessageList";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import useNavigation from "@/hooks/use-navigation";
 import { cn } from "@/lib/utils";
-import { isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import { isPWA } from "@/utils/isPWA";
 import { useTranslation } from "react-i18next";
 import ForkNavItems from "@/components/fork/ForkNavItems";
@@ -17,6 +17,7 @@ import { phoneShell } from "@/lib/fork/phone-shell";
 const GeneralSettings = lazy(() => import("../menu/GeneralSettings"));
 
 function Bottombar() {
+  const isMobile = useIsMobile();
   const navItems = useNavigation("secondary");
 
   // Render 48px touch targets when they fit with even spacing, otherwise fall

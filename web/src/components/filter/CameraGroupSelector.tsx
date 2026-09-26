@@ -81,6 +81,7 @@ import { z } from "zod";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import ActivityIndicator from "../indicators/activity-indicator";
+import { allLayoutKeysForGroup } from "@/lib/fork/live-layout";
 import { useDeleteUserKey } from "@/hooks/fork/use-delete-user-key";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";
@@ -545,7 +546,7 @@ function NewGroupDialog({
         .then((res) => {
           if (res.status === 200) {
             // fork (UI86): only once the group is gone, and only its own
-            void deleteUserKey(`${name}-draggable-layout`);
+            void Promise.all(allLayoutKeysForGroup(name).map(deleteUserKey));
             if (activeGroup == name) {
               // deleting current group
               deleteGroup();

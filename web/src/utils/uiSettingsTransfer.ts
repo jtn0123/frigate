@@ -2,6 +2,14 @@ import { get as getData, set as setData } from "idb-keyval";
 import { z } from "zod";
 import { getUserNamespacedKey } from "@/hooks/use-user-persistence";
 
+import {
+  LAYOUT_VIEWPORTS,
+  layoutKeyForGroup,
+  deviceLayoutKeyForGroup,
+} from "@/lib/fork/live-layout";
+import { getViewportClass } from "@/hooks/fork/use-viewport";
+export { layoutKeyForGroup } from "@/lib/fork/live-layout";
+
 export const UI_SETTINGS_FILE_TYPE = "frigate-ui-settings";
 export const UI_SETTINGS_FILE_VERSION = 1;
 
@@ -128,10 +136,6 @@ export const TRANSFER_KEYS: TransferKey[] = [
   },
 ];
 
-export function layoutKeyForGroup(group: string): string {
-  return `${group}-draggable-layout`;
-}
-
 function storageKey(
   entry: { key: string; namespaced: boolean },
   username: string | undefined,
@@ -183,6 +187,16 @@ export const uiSettingsFileSchema = z.object({
   frigate_version: z.string(),
   sections: z.object({
     layouts: z.record(z.string(), z.array(layoutItemSchema)),
+    viewport_layouts: z
+      .record(
+        z.string(),
+        z.object({
+          mobile: z.array(layoutItemSchema).optional(),
+          tablet: z.array(layoutItemSchema).optional(),
+          desktop: z.array(layoutItemSchema).optional(),
+        }),
+      )
+      .optional(),
     streaming: allGroupsStreamingSettingsSchema,
     preferences: z.record(z.string(), z.unknown()),
   }),
@@ -196,6 +210,9 @@ export async function buildExportPayload(
   username: string | undefined,
 ): Promise<UiSettingsFile> {
   const layouts: UiSettingsFile["sections"]["layouts"] = {};
+  const viewportLayouts: NonNullable<
+    UiSettingsFile["sections"]["viewport_layouts"]
+  > = {};
   let streaming: UiSettingsFile["sections"]["streaming"] = {};
   const preferences: UiSettingsFile["sections"]["preferences"] = {};
 
@@ -205,9 +222,21 @@ export async function buildExportPayload(
         UiSettingsFile["sections"]["layouts"][string]
       >(layoutKeyForGroup(group), true, username);
 
-      if (value !== undefined) {
-        layouts[group] = value;
-      }
+      const variants: NonNullable<
+        UiSettingsFile["sections"]["viewport_layouts"]
+      >[string] = {};
+      await Promise.all(
+        LAYOUT_VIEWPORTS.map(async (viewport) => {
+          const layout = await readTransferable<
+            UiSettingsFile["sections"]["layouts"][string]
+          >(deviceLayoutKeyForGroup(group, viewport), true, username);
+          if (layout !== undefined) variants[viewport] = layout;
+        }),
+      );
+      if (Object.keys(variants).length) viewportLayouts[group] = variants;
+      const fallback =
+        variants[getViewportClass()] ?? value ?? Object.values(variants).at(0);
+      if (fallback !== undefined) layouts[group] = fallback;
     }),
   );
 
@@ -239,7 +268,14 @@ export async function buildExportPayload(
     version: UI_SETTINGS_FILE_VERSION,
     exported_at: new Date().toISOString(),
     frigate_version: frigateVersion,
-    sections: { layouts, streaming, preferences },
+    sections: {
+      layouts,
+      streaming,
+      preferences,
+      ...(Object.keys(viewportLayouts).length
+        ? { viewport_layouts: viewportLayouts }
+        : {}),
+    },
   };
 }
 
@@ -349,7 +385,14 @@ export function summarizeImport(
   knownGroups: string[],
   knownCameras: string[],
 ): ImportSummary {
-  const layoutGroups = Object.keys(file.sections.layouts);
+  const layoutGroups = [
+    ...new Set([
+      ...Object.keys(file.sections.layouts),
+      ...Object.entries(file.sections.viewport_layouts ?? {})
+        .filter(([, variants]) => Object.keys(variants).length > 0)
+        .map(([group]) => group),
+    ]),
+  ];
   const streamingGroups = Object.keys(file.sections.streaming);
   const streamingCameras = new Set<string>();
 
@@ -398,8 +441,44 @@ export async function applyImportPayload(
           getUserNamespacedKey(layoutKeyForGroup(group), username),
           layout,
         ),
+        setData(
+          getUserNamespacedKey(
+            deviceLayoutKeyForGroup(group, getViewportClass()),
+            username,
+          ),
+          file.sections.viewport_layouts?.[group]?.[getViewportClass()] ??
+            layout,
+        ),
       );
     });
+  }
+
+  if (sections.layouts) {
+    Object.entries(file.sections.viewport_layouts ?? {}).forEach(
+      ([group, variants]) => {
+        LAYOUT_VIEWPORTS.forEach((viewport) => {
+          const layout = variants[viewport];
+          // The current viewport was written above; do not race two IDB writes.
+          if (
+            layout !== undefined &&
+            !(
+              viewport === getViewportClass() &&
+              Object.prototype.hasOwnProperty.call(file.sections.layouts, group)
+            )
+          ) {
+            writes.push(
+              setData(
+                getUserNamespacedKey(
+                  deviceLayoutKeyForGroup(group, viewport),
+                  username,
+                ),
+                layout,
+              ),
+            );
+          }
+        });
+      },
+    );
   }
 
   const streamingEntry = TRANSFER_KEYS.find(

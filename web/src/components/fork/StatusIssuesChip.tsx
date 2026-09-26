@@ -83,7 +83,7 @@ export default function StatusIssuesChip({
                   severity === "error"
                     ? "text-danger"
                     : severity === "warning"
-                      ? "text-orange-400"
+                      ? "text-warning"
                       : "text-selected",
                 )}
                 aria-hidden

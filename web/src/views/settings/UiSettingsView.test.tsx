@@ -130,7 +130,7 @@ describe("UiSettingsView", () => {
       "confirmClear.layouts.title",
     );
     fireEvent.click(screen.getByRole("button", { name: "Confirm clear" }));
-    await waitFor(() => expect(fixture.deleteKey).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fixture.deleteKey).toHaveBeenCalledTimes(8));
     expect(fixture.deleteKey).toHaveBeenCalledWith(
       "porch-draggable-layout",
       "operator",

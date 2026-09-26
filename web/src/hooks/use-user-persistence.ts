@@ -107,7 +107,7 @@ export function useUserPersistence<S>(
       return;
     }
     await delData(namespacedKey);
-    setInternalValue(defaultValue);
+    if (loadedKeyRef.current === namespacedKey) setInternalValue(defaultValue);
   }, [namespacedKey, defaultValue]);
 
   useEffect(() => {
@@ -126,6 +126,14 @@ export function useUserPersistence<S>(
     migrationAttemptedRef.current = false;
     setLoaded(false);
 
+    let active = true;
+    const finishLoad = (stored: S | undefined) => {
+      if (!active) return;
+      setInternalValue(stored);
+      loadedKeyRef.current = namespacedKey;
+      setLoaded(true);
+    };
+
     async function loadWithMigration() {
       // For authenticated users, check if we need to migrate from legacy key
       if (isAuthenticated && username && !migrationAttemptedRef.current) {
@@ -138,18 +146,14 @@ export function useUserPersistence<S>(
 
         if (typeof existingNamespacedValue !== "undefined") {
           // Already have namespaced data, use it
-          setInternalValue(existingNamespacedValue);
-          loadedKeyRef.current = namespacedKey;
-          setLoaded(true);
+          finishLoad(existingNamespacedValue);
           return;
         }
 
         // Check if this key has already been migrated (even if value was deleted)
         if (migratedKeys.has(key)) {
           // Already migrated, don't read from legacy key
-          setInternalValue(defaultValue);
-          loadedKeyRef.current = namespacedKey;
-          setLoaded(true);
+          finishLoad(defaultValue);
           return;
         }
 
@@ -160,37 +164,27 @@ export function useUserPersistence<S>(
           await setData(namespacedKey, legacyValue);
           await delData(key);
           await markKeyAsMigrated(username, key);
-          setInternalValue(legacyValue);
-          loadedKeyRef.current = namespacedKey;
-          setLoaded(true);
+          finishLoad(legacyValue);
           return;
         }
 
         // No legacy value, just mark as migrated so we don't check again
         await markKeyAsMigrated(username, key);
-        setInternalValue(defaultValue);
-        loadedKeyRef.current = namespacedKey;
-        setLoaded(true);
+        finishLoad(defaultValue);
         return;
       }
 
       // For unauthenticated users or after migration check, just load normally
       const storedValue = await getData<S>(namespacedKey);
-      if (typeof storedValue !== "undefined") {
-        setInternalValue(storedValue);
-      } else {
-        setInternalValue(defaultValue);
-      }
-      loadedKeyRef.current = namespacedKey;
-      setLoaded(true);
+      finishLoad(storedValue === undefined ? defaultValue : storedValue);
     }
 
     // Consumers gate on this flag and the state already holds the defaults,
     // so a rejected read must still resolve to "loaded".
-    void loadWithMigration().catch(() => {
-      loadedKeyRef.current = namespacedKey;
-      setLoaded(true);
-    });
+    void loadWithMigration().catch(() => finishLoad(defaultValue));
+    return () => {
+      active = false;
+    };
   }, [
     auth.isLoading,
     isAuthenticated,
@@ -205,5 +199,6 @@ export function useUserPersistence<S>(
     return [undefined, setValue, false, deleteValue];
   }
 
-  return [value, setValue, loaded, deleteValue];
+  const ready = loaded && loadedKeyRef.current === namespacedKey;
+  return [ready ? value : defaultValue, setValue, ready, deleteValue];
 }
