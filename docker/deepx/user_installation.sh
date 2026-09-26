@@ -79,7 +79,7 @@ runtime_release="${runtime_version#v}"
 deb_arch=$(dpkg --print-architecture)
 deb_file="/tmp/libdxrt-bin_${runtime_release}_${deb_arch}.deb"
 
-wget -qO "${deb_file}" \
+wget --max-redirect=0 -qO "${deb_file}" \
     "https://raw.githubusercontent.com/DEEPX-AI/dx_rt/${runtime_version}/release/${runtime_release}/libdxrt-bin_${runtime_release}_${deb_arch}.deb"
 
 expected_sha256="${runtime_sha256[${deb_arch}]:-}"
