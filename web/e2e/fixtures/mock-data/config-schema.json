@@ -251,31 +251,6 @@
       "title": "AuthConfig",
       "type": "object"
     },
-    "BaseDetectorConfig": {
-      "additionalProperties": true,
-      "properties": {
-        "type": {
-          "default": "cpu",
-          "description": "Type of detector to use for object detection (for example 'cpu', 'edgetpu', 'openvino').",
-          "title": "Detector Type",
-          "type": "string"
-        },
-        "model": {
-          "anyOf": [{ "$ref": "#/$defs/ModelConfig" }, { "type": "null" }],
-          "default": null,
-          "description": "Detector-specific model configuration options (path, input size, etc.).",
-          "title": "Detector specific model configuration"
-        },
-        "model_path": {
-          "anyOf": [{ "type": "string" }, { "type": "null" }],
-          "default": null,
-          "description": "File path to the detector model binary if required by the chosen detector.",
-          "title": "Detector specific model path"
-        }
-      },
-      "title": "BaseDetectorConfig",
-      "type": "object"
-    },
     "BirdClassificationConfig": {
       "additionalProperties": false,
       "properties": {
@@ -1241,6 +1216,12 @@
           "description": "Width (pixels) of frames used for the detect stream; leave empty to use the native stream resolution.",
           "title": "Detect width"
         },
+        "scene": {
+          "$ref": "#/$defs/SceneEnum",
+          "default": "all",
+          "description": "The environment this camera looks at, used to pick which of the configured models runs on it. Cameras left on 'all' run the model configured with a scene of 'all'.",
+          "title": "Detect scene"
+        },
         "fps": {
           "default": 5,
           "description": "Desired frames per second to run detection on; lower values reduce CPU usage (recommended value is 5, only set higher - at most 10 - if tracking extremely fast moving objects).",
@@ -2014,6 +1995,18 @@
     "ModelConfig": {
       "additionalProperties": false,
       "properties": {
+        "scene": {
+          "$ref": "#/$defs/SceneEnum",
+          "default": "all",
+          "description": "The camera environment this model is used for. Cameras select a model by setting detect.scene to a matching value, and 'all' is used by any camera that does not set one.",
+          "title": "Model scene"
+        },
+        "devices": {
+          "description": "Hardware this model runs on, as '<detector>' or '<detector>:<device>' (for example 'edgetpu:pci:0' or 'openvino:GPU'). Listing the same device more than once runs additional inference processes on it.",
+          "items": { "type": "string" },
+          "title": "Detection hardware",
+          "type": "array"
+        },
         "path": {
           "anyOf": [{ "type": "string" }, { "type": "null" }],
           "default": null,
@@ -2922,6 +2915,12 @@
       "title": "ReviewRetainConfig",
       "type": "object"
     },
+    "SceneEnum": {
+      "description": "The camera environment a detection model is intended for.",
+      "enum": ["all", "indoor", "outdoor", "indoor_thermal", "outdoor_thermal"],
+      "title": "SceneEnum",
+      "type": "string"
+    },
     "SemanticSearchConfig": {
       "additionalProperties": false,
       "properties": {
@@ -3468,17 +3467,11 @@
       "description": "User interface preferences such as timezone, time/date formatting, and units.",
       "title": "UI"
     },
-    "detectors": {
-      "additionalProperties": { "$ref": "#/$defs/BaseDetectorConfig" },
-      "default": { "cpu": { "type": "cpu" } },
-      "description": "Configuration for object detectors (CPU, GPU, ONNX backends) and any detector-specific model settings.",
-      "title": "Detector hardware",
-      "type": "object"
-    },
-    "model": {
-      "$ref": "#/$defs/ModelConfig",
-      "description": "Settings to configure a custom object detection model and its input shape.",
-      "title": "Detection model"
+    "models": {
+      "description": "Object detection models and the hardware each one runs on. Cameras pick a model by matching their detect.scene against a model's scene.",
+      "items": { "$ref": "#/$defs/ModelConfig" },
+      "title": "Detection models",
+      "type": "array"
     },
     "genai": {
       "additionalProperties": { "$ref": "#/$defs/GenAIConfig" },

@@ -31,7 +31,8 @@ class TestObjectNameScope(unittest.TestCase):
                     lpr=SimpleNamespace(enabled=False),
                 )
             },
-            model=SimpleNamespace(all_attribute_logos=[], attributes_map={}),
+            all_attribute_logos=[],
+            all_attributes_map={},
             lpr=SimpleNamespace(known_plates={}),
             classification=SimpleNamespace(
                 custom={

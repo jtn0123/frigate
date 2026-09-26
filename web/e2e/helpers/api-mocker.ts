@@ -22,6 +22,7 @@ import {
   forkUpdatesFactory,
   type ForkUpdatesMock,
 } from "../fixtures/mock-data/fork-updates";
+import { DETECTION_HARDWARE } from "../fixtures/mock-data/hardware";
 import { adminProfile, type UserProfile } from "../fixtures/mock-data/profile";
 import { BASE_STATS, statsFactory } from "../fixtures/mock-data/stats";
 
@@ -55,6 +56,7 @@ export interface ApiMockOverrides {
   forkUpdates?: ForkUpdatesMock;
   // fork (UI131): per-camera history behind the Health tab
   cameraHistory?: Record<string, Partial<CameraHistorySeriesMock>>;
+  hardware?: unknown[];
 }
 
 export class ApiMocker {
@@ -329,6 +331,11 @@ export class ApiMocker {
     // Config set (mutation)
     await this.page.route("**/api/config/set", (route) =>
       route.fulfill({ json: { success: true, require_restart: false } }),
+    );
+
+    // Detection hardware discovery
+    await this.page.route("**/api/hardware/probe**", (route) =>
+      route.fulfill({ json: overrides?.hardware ?? DETECTION_HARDWARE }),
     );
 
     // Go2RTC streams

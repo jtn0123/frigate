@@ -22,7 +22,7 @@ Frigate supports multiple different detectors that work on different types of ha
 **Most Hardware**
 
 - [Coral EdgeTPU](#edge-tpu-detector): The Google Coral EdgeTPU is available in USB, Mini PCIe, and m.2 formats allowing for a wide range of compatibility with devices.
-- [Hailo](#hailo-8): The Hailo8 and Hailo8L AI Acceleration module is available in m.2 format with a HAT for RPi devices, offering a wide range of compatibility with devices.
+- [Hailo](#hailo): The Hailo-8, Hailo-8L and Hailo-8R AI Acceleration modules are available in m.2 format with a HAT for RPi devices, offering a wide range of compatibility with devices.
 - <CommunityBadge /> [MemryX](#memryx-mx3): The MX3 Acceleration module is available in m.2 format, offering broad compatibility across various platforms.
 
 **AMD**
@@ -68,11 +68,65 @@ Frigate supports multiple different detectors that work on different types of ha
 
 :::note
 
-Multiple detectors can not be mixed for object detection (ex: OpenVINO and Coral EdgeTPU can not be used for object detection at the same time).
+A single model can not be spread across different detector types (ex: OpenVINO and Coral EdgeTPU can not run the same model at the same time). Configuring more than one model, each on its own detector type, is supported.
 
 This does not affect using hardware for accelerating other tasks such as [semantic search](./semantic_search.md)
 
 :::
+
+### Configuring models and hardware
+
+Object detection is configured with a `models` list. Each entry describes one model and the hardware it runs on:
+
+```yaml
+models:
+  - devices:
+      - openvino:GPU
+    path: /config/model_cache/yolov9-s.onnx
+    model_type: yolo-generic
+    width: 320
+    height: 320
+```
+
+Each entry in `devices` is a detector type, optionally followed by a colon and a device for that detector, such as `edgetpu:pci:0`, `openvino:NPU`, or `tensorrt:0`. The per-detector sections below document the device values each one accepts. Listing several devices runs the model on all of them, and listing the **same** device more than once runs additional inference processes against it, which can improve throughput on hardware that keeps up with more than one stream:
+
+```yaml
+models:
+  - devices:
+      - openvino:GPU
+      - openvino:GPU
+```
+
+Coral EdgeTPU and MemryX accelerators can only be opened by one process, so those devices can not be repeated.
+
+### Running more than one model
+
+Cameras can be split across models by scene, which is useful when indoor and outdoor cameras benefit from differently trained models. Each model declares the `scene` it is for, and each camera picks one with `detect -> scene`:
+
+```yaml
+models:
+  - scene: outdoor
+    path: plus://your-outdoor-model
+    devices:
+      - edgetpu:pci:0
+  - scene: indoor
+    path: /config/model_cache/indoor.onnx
+    model_type: yolo-generic
+    devices:
+      - openvino:GPU
+
+cameras:
+  driveway:
+    detect:
+      scene: outdoor
+    ...
+  hallway:
+    detect:
+      scene: indoor
+    ...
+```
+
+Available scenes are `all`, `indoor`, `outdoor`, `indoor_thermal`, and `outdoor_thermal`. A model with a scene of `all` is used by every camera that does not set one, and `all` is the default when a model does not declare a scene. Changing a camera's scene requires a restart.
 
 ### Choosing a model size
 
@@ -92,11 +146,11 @@ The best detection accuracy comes from a model trained on images that look like 
 
 # Officially Supported Detectors
 
-Frigate provides a number of builtin detector types. By default, Frigate will use a single CPU detector. Other detectors may require additional configuration as described below. When using multiple detectors they will run in dedicated processes, but pull from a common queue of detection requests from across all cameras.
+Frigate provides a number of builtin detector types. By default, Frigate will use a single CPU detector. Other detectors may require additional configuration as described below. Each of a model's devices runs in a dedicated process, and they pull from a common queue of detection requests from the cameras assigned to that model.
 
 ## Edge TPU Detector
 
-The Edge TPU detector type runs TensorFlow Lite models utilizing the Google Coral delegate for hardware acceleration. To configure an Edge TPU detector, set the `"type"` attribute to `"edgetpu"`.
+The Edge TPU detector type runs TensorFlow Lite models utilizing the Google Coral delegate for hardware acceleration. To use it, prefix a model's device with `edgetpu`.
 
 The Edge TPU device can be specified using the `"device"` attribute according to the [Documentation for the TensorFlow Lite Python API](https://coral.ai/docs/edgetpu/multiple-edgetpu/#using-the-tensorflow-lite-python-api). If not set, the delegate will use the first device it finds.
 
@@ -111,16 +165,15 @@ See [common Edge TPU troubleshooting steps](/troubleshooting/edgetpu) if the Edg
 <ConfigTabs>
 <TabItem value="ui">
 
-Navigate to <NavPath path="Settings > System > Detectors and model" /> and select **EdgeTPU** from the detector type dropdown and click **Add**, then set device to `usb`.
+Navigate to <NavPath path="Settings > System > Detection models" /> and select **Coral EdgeTPU (USB)** from the **Hardware** dropdown.
 
 </TabItem>
 <TabItem value="yaml">
 
 ```yaml
-detectors:
-  coral:
-    type: edgetpu
-    device: usb
+models:
+  - devices:
+      - edgetpu:usb
 ```
 
 </TabItem>
@@ -131,19 +184,16 @@ detectors:
 <ConfigTabs>
 <TabItem value="ui">
 
-Navigate to <NavPath path="Settings > System > Detectors and model" /> and select **EdgeTPU** from the detector type dropdown and click **Add** to add multiple detectors, specifying `usb:0` and `usb:1` as the device for each.
+Navigate to <NavPath path="Settings > System > Detection models" /> and select **Coral EdgeTPU (USB)** from the **Hardware** dropdown and check each Coral the model should run on.
 
 </TabItem>
 <TabItem value="yaml">
 
 ```yaml
-detectors:
-  coral1:
-    type: edgetpu
-    device: usb:0
-  coral2:
-    type: edgetpu
-    device: usb:1
+models:
+  - devices:
+      - edgetpu:usb:0
+      - edgetpu:usb:1
 ```
 
 </TabItem>
@@ -156,16 +206,15 @@ _warning: may have [compatibility issues](https://github.com/blakeblackshear/fri
 <ConfigTabs>
 <TabItem value="ui">
 
-Navigate to <NavPath path="Settings > System > Detectors and model" /> and select **EdgeTPU** from the detector type dropdown and click **Add**, then leave the device field empty.
+Navigate to <NavPath path="Settings > System > Detection models" /> and select the **Coral EdgeTPU** entry from the **Hardware** dropdown.
 
 </TabItem>
 <TabItem value="yaml">
 
 ```yaml
-detectors:
-  coral:
-    type: edgetpu
-    device: ""
+models:
+  - devices:
+      - 'edgetpu:'
 ```
 
 </TabItem>
@@ -176,16 +225,15 @@ detectors:
 <ConfigTabs>
 <TabItem value="ui">
 
-Navigate to <NavPath path="Settings > System > Detectors and model" /> and select **EdgeTPU** from the detector type dropdown and click **Add**, then set device to `pci`.
+Navigate to <NavPath path="Settings > System > Detection models" /> and select **Coral EdgeTPU (PCIe)** from the **Hardware** dropdown.
 
 </TabItem>
 <TabItem value="yaml">
 
 ```yaml
-detectors:
-  coral:
-    type: edgetpu
-    device: pci
+models:
+  - devices:
+      - edgetpu:pci
 ```
 
 </TabItem>
@@ -196,19 +244,16 @@ detectors:
 <ConfigTabs>
 <TabItem value="ui">
 
-Navigate to <NavPath path="Settings > System > Detectors and model" /> and select **EdgeTPU** from the detector type dropdown and click **Add** to add multiple detectors, specifying `pci:0` and `pci:1` as the device for each.
+Navigate to <NavPath path="Settings > System > Detection models" /> and select **Coral EdgeTPU (PCIe)** from the **Hardware** dropdown and check each Coral the model should run on.
 
 </TabItem>
 <TabItem value="yaml">
 
 ```yaml
-detectors:
-  coral1:
-    type: edgetpu
-    device: pci:0
-  coral2:
-    type: edgetpu
-    device: pci:1
+models:
+  - devices:
+      - edgetpu:pci:0
+      - edgetpu:pci:1
 ```
 
 </TabItem>
@@ -219,19 +264,16 @@ detectors:
 <ConfigTabs>
 <TabItem value="ui">
 
-Navigate to <NavPath path="Settings > System > Detectors and model" /> and select **EdgeTPU** from the detector type dropdown and click **Add** to add multiple detectors with different device types (e.g., `usb` and `pci`).
+Navigate to <NavPath path="Settings > System > Detection models" /> and select **Coral EdgeTPU (USB)** from the **Hardware** dropdown. USB and PCIe Corals are listed as separate hardware, so mixing the two on one model has to be done in YAML.
 
 </TabItem>
 <TabItem value="yaml">
 
 ```yaml
-detectors:
-  coral_usb:
-    type: edgetpu
-    device: usb
-  coral_pci:
-    type: edgetpu
-    device: pci
+models:
+  - devices:
+      - edgetpu:usb
+      - edgetpu:pci
 ```
 
 </TabItem>
@@ -243,9 +285,9 @@ detectors:
 
 ---
 
-## Hailo-8
+## Hailo
 
-This detector is available for use with both Hailo-8 and Hailo-8L AI Acceleration Modules. The integration automatically detects your hardware architecture via the Hailo CLI and selects the appropriate default model if no custom model is specified.
+This detector is available for use with the Hailo-8, Hailo-8L and Hailo-8R AI Acceleration Modules. The integration identifies which of them is attached and selects the matching default model if no custom model is specified.
 
 See the [installation docs](../frigate/installation.md#hailo-8) for information on configuring the Hailo hardware.
 
@@ -260,11 +302,11 @@ If no custom model is provided, the Hailo detector downloads a default model fro
 When configuring the Hailo detector, you have two options to specify the model: a local **path** or a **URL**.
 If both are provided, the detector will first check for the model at the given local path. If the file is not found, it will download the model from the specified URL. The model file is cached under `/config/model_cache/hailo`.
 
-<ModelConfigDropdown detectorTitle="Hailo-8/Hailo-8L" models={objectDetectorsModels.hailo8l.models} />
+<ModelConfigDropdown detectorTitle="Hailo" models={objectDetectorsModels.hailo.models} />
 
 For additional ready-to-use models, please visit: https://github.com/hailo-ai/hailo_model_zoo
 
-Hailo8 supports all models in the Hailo Model Zoo that include HailoRT post-processing. You're welcome to choose any of these pre-configured models for your implementation.
+Hailo supports all models in the Hailo Model Zoo that include HailoRT post-processing. You're welcome to choose any of these pre-configured models for your implementation.
 
 > **Note:**
 > The config.path parameter can accept either a local file path or a URL ending with .hef. When provided, the detector will first check if the path is a local file path. If the file exists locally, it will use it directly. If the file is not found locally or if a URL was provided, it will attempt to download the model from the specified URL.
@@ -273,7 +315,7 @@ Hailo8 supports all models in the Hailo Model Zoo that include HailoRT post-proc
 
 ## OpenVINO Detector
 
-The OpenVINO detector type runs an OpenVINO IR model on AMD and Intel CPUs, Intel GPUs and Intel NPUs. To configure an OpenVINO detector, set the `"type"` attribute to `"openvino"`.
+The OpenVINO detector type runs an OpenVINO IR model on AMD and Intel CPUs, Intel GPUs and Intel NPUs. To use it, prefix a model's device with `openvino`.
 
 The OpenVINO device to be used is specified using the `"device"` attribute according to the naming conventions in the [Device Documentation](https://docs.openvino.ai/2025/openvino-workflow/running-inference/inference-devices-and-modes.html). The most common devices are `CPU`, `GPU`, or `NPU`.
 
@@ -286,13 +328,10 @@ OpenVINO is supported on 6th Gen Intel platforms (Skylake) and newer. It will al
 When using many cameras one detector may not be enough to keep up. Multiple detectors can be defined assuming GPU resources are available. An example configuration would be:
 
 ```yaml
-detectors:
-  ov_0:
-    type: openvino
-    device: GPU # or NPU
-  ov_1:
-    type: openvino
-    device: GPU # or NPU
+models:
+  - devices:
+      - openvino:GPU # or NPU
+      - openvino:GPU # or NPU
 ```
 
 :::
@@ -312,6 +351,12 @@ Intel NPUs cannot be used under Home Assistant OS, which does not include the NP
 ---
 
 ## Apple Silicon detector
+
+:::warning
+
+The network-based detectors (Deepstack and the Apple Silicon client) are being reworked. Their extra options no longer have a place in the config, so only the endpoint carried in the device string is honored right now: Deepstack ignores `api_key` and `api_timeout`, and the Apple Silicon client ignores `request_timeout_ms` and `linger_ms`. Anything else is dropped when your config is migrated.
+
+:::
 
 The NPU in Apple Silicon can't be accessed from within a container, so the [Apple Silicon detector client](https://github.com/frigate-nvr/apple-silicon-detector) must first be setup. It is recommended to use the Frigate docker image with `-standard-arm64` suffix, for example `ghcr.io/blakeblackshear/frigate:stable-standard-arm64`.
 
@@ -453,11 +498,10 @@ If the correct build is used for your GPU then the GPU will be detected and used
 When using many cameras one detector may not be enough to keep up. Multiple detectors can be defined assuming GPU resources are available. An example configuration would be:
 
 ```yaml
-detectors:
-  onnx_0:
-    type: onnx
-  onnx_1:
-    type: onnx
+models:
+  - devices:
+      - onnx
+      - onnx
 ```
 
 :::
@@ -470,7 +514,7 @@ detectors:
 
 ## CPU Detector (not recommended)
 
-The CPU detector type runs a TensorFlow Lite model utilizing the CPU without hardware acceleration. It is recommended to use a hardware accelerated detector type instead for better performance. To configure a CPU based detector, set the `"type"` attribute to `"cpu"`.
+The CPU detector type runs a TensorFlow Lite model utilizing the CPU without hardware acceleration. It is recommended to use a hardware accelerated detector type instead for better performance. To use it, set a model's device to `cpu`.
 
 :::danger
 
@@ -480,7 +524,7 @@ The CPU detector is not recommended for general use. If you do not have GPU or E
 
 The number of threads used by the interpreter can be specified using the `"num_threads"` attribute, and defaults to `3.`
 
-A TensorFlow Lite model is provided in the container at `/cpu_model.tflite` and is used by this detector type by default. To provide your own model, bind mount the file into the container and provide the path with `model.path`.
+A TensorFlow Lite model is provided in the container at `/cpu_model.tflite` and is used by this detector type by default. To provide your own model, bind mount the file into the container and provide the path with the model's `path`.
 
 ### Configuration {#configuration-cpu}
 
@@ -489,6 +533,12 @@ A TensorFlow Lite model is provided in the container at `/cpu_model.tflite` and 
 When using CPU detectors, you can add one CPU detector per camera. Adding more detectors than the number of cameras should not improve performance.
 
 ## Deepstack / CodeProject.AI Server Detector
+
+:::warning
+
+The network-based detectors (Deepstack and the Apple Silicon client) are being reworked. Their extra options no longer have a place in the config, so only the endpoint carried in the device string is honored right now: Deepstack ignores `api_key` and `api_timeout`, and the Apple Silicon client ignores `request_timeout_ms` and `linger_ms`. Anything else is dropped when your config is migrated.
+
+:::
 
 The Deepstack / CodeProject.AI Server detector for Frigate allows you to integrate Deepstack and CodeProject.AI object detection capabilities into Frigate. CodeProject.AI and DeepStack are open-source AI platforms that can be run on various devices such as the Raspberry Pi, Nvidia Jetson, and other compatible hardware. It is important to note that the integration is performed over the network, so the inference times may not be as fast as native Frigate detectors, but it still provides an efficient and reliable solution for object detection and tracking.
 
@@ -552,7 +602,7 @@ For detailed instructions on compiling models, refer to the [MemryX Compiler](ht
 
 3. Depending on the model, the compiler may also generate a cropped post-processing network. If present, it will be named with the suffix `_post.onnx`.
 
-4. Bind-mount the `.zip` file into the container and specify its path using `model.path` in your config.
+4. Bind-mount the `.zip` file into the container and specify its path using the model's `path` in your config.
 
 5. Update `labelmap_path` to match your custom model's labels.
 
@@ -682,13 +732,10 @@ If no custom model is provided, the RKNN detector downloads a default model from
 When using many cameras one detector may not be enough to keep up. Multiple detectors can be defined assuming NPU resources are available. An example configuration would be:
 
 ```yaml
-detectors:
-  rknn_0:
-    type: rknn
-    num_cores: 0
-  rknn_1:
-    type: rknn
-    num_cores: 0
+models:
+  - devices:
+      - rknn:0
+      - rknn:0
 ```
 
 :::

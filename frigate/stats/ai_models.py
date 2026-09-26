@@ -12,6 +12,7 @@ import psutil
 
 from frigate.config import FrigateConfig, GenAIConfig
 from frigate.const import MODEL_CACHE_DIR
+from frigate.detectors.device import runner_names
 from frigate.stats.generation_metrics import read_generation_metrics
 
 AUDIO_TELEMETRY = Path(MODEL_CACHE_DIR) / "audio-trial-telemetry/models.json"
@@ -134,9 +135,14 @@ def stats_fresh(stats: dict, now: float | None = None) -> bool:
 def detector_models(config: FrigateConfig, stats: dict, fresh: bool) -> list[dict]:
     """Collect measurements for the configured detector processes."""
     models = []
-    for name, detector in config.detectors.items():
+    assignments = [
+        (model, device)
+        for model in config.models
+        for device in config.devices_for_model(model)
+    ]
+    names = runner_names([device for _, device in assignments])
+    for name, (model, device) in zip(names, assignments):
         measurement = stats.get("detectors", {}).get(name, {})
-        model = detector.model or config.model
         path = model.path
         ram = process_memory(measurement.get("pid")) if fresh else None
         available = fresh and ram is not None
@@ -149,7 +155,7 @@ def detector_models(config: FrigateConfig, stats: dict, fresh: bool) -> list[dic
                 "name": Path(path).name if path else name,
                 "role": "object_detection",
                 "location": "frigate",
-                "device": f"{detector.type} / {getattr(detector, 'device', 'AUTO')}",
+                "device": device.raw,
                 "status": status,
                 "resource_scope": "process",
                 "disk_bytes": disk_size(path),

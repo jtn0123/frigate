@@ -1,7 +1,7 @@
 /** Execute the Settings Save All writes while keeping UI state in the caller. */
 
 import type { RJSFSchema } from "@rjsf/utils";
-import type { ConfigSectionData, JsonObject } from "@/types/configForm";
+import type { ConfigSectionData } from "@/types/configForm";
 import type { FrigateConfig } from "@/types/frigateConfig";
 import {
   buildConfigDataForPath,
@@ -11,7 +11,6 @@ import {
   resolveHiddenFieldEntries,
   sanitizeSectionData,
 } from "@/utils/configUtil";
-import { sortedStrings } from "@/utils/stringSort";
 import { compareGo2RtcStreams } from "./go2rtc-streams";
 
 type SaveApi = {
@@ -49,81 +48,27 @@ export async function savePendingSettings({
     failures: [],
   };
 
-  const hasPendingDetectors = "detectors" in pendingDataBySection;
-  const hasPendingModel = "model" in pendingDataBySection;
-  if (hasPendingDetectors || hasPendingModel) {
+  if ("models" in pendingDataBySection) {
     try {
-      const detectorHiddenFields = resolveHiddenFieldEntries(
-        getSectionConfig("detectors", "global").hiddenFields,
+      const hiddenFields = resolveHiddenFieldEntries(
+        getSectionConfig("models", "global").hiddenFields,
         buildHiddenFieldContext(config, "global"),
       );
-      const modelHiddenFields = resolveHiddenFieldEntries(
-        getSectionConfig("model", "global").hiddenFields,
-        buildHiddenFieldContext(config, "global"),
+      const models = sanitizeSectionData(
+        pendingDataBySection["models"]!,
+        hiddenFields,
       );
-      const sanitizedDetectors = hasPendingDetectors
-        ? sanitizeSectionData(
-            pendingDataBySection["detectors"]!,
-            detectorHiddenFields,
-          )
-        : undefined;
-      const sanitizedModel = hasPendingModel
-        ? sanitizeSectionData(pendingDataBySection["model"]!, modelHiddenFields)
-        : undefined;
-
-      const detectorKeysChanged =
-        sanitizedDetectors !== undefined &&
-        JSON.stringify(
-          sortedStrings(Object.keys(sanitizedDetectors as JsonObject)),
-        ) !==
-          JSON.stringify(
-            sortedStrings(
-              Object.keys(
-                (config.detectors as Record<string, unknown> | undefined) ?? {},
-              ),
-            ),
-          );
-      const newPath = (sanitizedModel as { path?: string } | undefined)?.path;
-      const oldPath = (config.model as { path?: string } | undefined)?.path;
-      const modelTabChanged =
-        sanitizedModel !== undefined &&
-        (typeof newPath === "string" && newPath.startsWith("plus://")) !==
-          (typeof oldPath === "string" && oldPath.startsWith("plus://"));
-
-      if (detectorKeysChanged || modelTabChanged) {
-        try {
-          await api.put("config/set", {
-            requires_restart: 0,
-            config_data: { detectors: null, model: null },
-          });
-        } catch {
-          // The combined write below reports the actual save failure.
-        }
-      }
-
-      const configData: Record<string, unknown> = {};
-      if (sanitizedDetectors !== undefined) {
-        configData["detectors"] = sanitizedDetectors;
-      }
-      if (sanitizedModel !== undefined) {
-        configData["model"] = sanitizedModel;
-      }
       await api.put("config/set", {
         requires_restart: 0,
-        config_data: configData,
+        config_data: { models },
       });
-
-      for (const key of ["detectors", "model"]) {
-        if (key in pendingDataBySection) {
-          result.keysToClear.push(key);
-          result.savedKeys.push(key);
-        }
-      }
+      result.keysToClear.push("models");
+      result.savedKeys.push("models");
       result.successCount++;
       result.anyNeedsRestart = true;
     } catch (error) {
       result.failCount++;
-      result.failures.push({ key: "detectors/model", error });
+      result.failures.push({ key: "models", error });
     }
   }
 
@@ -171,7 +116,7 @@ export async function savePendingSettings({
   }
 
   for (const [key, pendingData] of Object.entries(pendingDataBySection)) {
-    if (key === "detectors" || key === "model" || key === "go2rtc_streams") {
+    if (key === "models" || key === "go2rtc_streams") {
       continue;
     }
     try {

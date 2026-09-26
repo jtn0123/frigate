@@ -4,10 +4,11 @@ import type { ConfigSectionData } from "@/types/configForm";
 import type { FrigateConfig } from "@/types/frigateConfig";
 import { savePendingSettings } from "./settings-save";
 
+const section = (value: unknown) => value as ConfigSectionData;
 const cfg = (value: unknown) => value as FrigateConfig;
 
 const config = cfg({
-  detectors: { coral: { type: "edgetpu", device: "usb" } },
+  models: [{ scene: "all", devices: ["edgetpu:usb"] }],
   go2rtc: { streams: { old: "rtsp://old", front: "rtsp://front" } },
   detect: { enabled: true, fps: 5, width: 1280, height: 720 },
   cameras: {},
@@ -36,10 +37,10 @@ function api() {
 }
 
 describe("savePendingSettings", () => {
-  it("saves detector/model before streams and sections, then reports restart and cleared keys", async () => {
+  it("saves models before streams and sections, then reports restart and cleared keys", async () => {
     const client = api();
     const pending: Record<string, ConfigSectionData> = {
-      detectors: { coral: { type: "edgetpu", device: "pci" } },
+      models: section([{ scene: "all", devices: ["edgetpu:pci"] }]),
       go2rtc_streams: { front: ["rtsp://new"] },
       detect: { enabled: true, fps: 10, width: 1280, height: 720 },
     };
@@ -64,8 +65,8 @@ describe("savePendingSettings", () => {
       successCount: 3,
       failCount: 0,
       anyNeedsRestart: true,
-      savedKeys: ["detectors", "go2rtc_streams", "detect"],
-      keysToClear: ["detectors", "go2rtc_streams", "detect"],
+      savedKeys: ["models", "go2rtc_streams", "detect"],
+      keysToClear: ["models", "go2rtc_streams", "detect"],
     });
   });
 
@@ -97,64 +98,59 @@ describe("savePendingSettings", () => {
     expect(result.failures[0]?.key).toBe("detect");
   });
 
-  it("pre-clears detector/model keys before a changed detector set", async () => {
+  it("replaces the model list in one write and removes runtime-only fields", async () => {
     const client = api();
     const result = await savePendingSettings({
       config,
       fullSchema: schema,
-      pendingDataBySection: { detectors: { new_detector: { type: "cpu" } } },
-      api: client,
-    });
-    expect(client.put.mock.calls[0]?.[1]).toMatchObject({
-      config_data: { detectors: null, model: null },
-    });
-    expect(result.savedKeys).toEqual(["detectors"]);
-    expect(result.anyNeedsRestart).toBe(true);
-  });
-
-  it("pre-clears when switching to a Frigate+ model and saves both model and detector", async () => {
-    const client = api();
-    const result = await savePendingSettings({
-      config: cfg({ ...config, model: { path: "/models/local.tflite" } }),
-      fullSchema: schema,
       pendingDataBySection: {
-        detectors: { coral: { type: "edgetpu", device: "usb" } },
-        model: { path: "plus://new-model" },
+        models: section([
+          {
+            scene: "all",
+            devices: ["cpu"],
+            path: "plus://new-model",
+            colormap: { car: [1, 2, 3] },
+          },
+          {
+            scene: "night",
+            devices: ["onnx"],
+            path: "/models/night.onnx",
+            all_attributes: ["hat"],
+          },
+        ]),
       },
       api: client,
     });
-    expect(client.put).toHaveBeenCalledTimes(2);
-    expect(client.put.mock.calls[0]?.[1]).toMatchObject({
-      config_data: { detectors: null, model: null },
-    });
-    expect(client.put.mock.calls[1]?.[1]).toMatchObject({
+    expect(client.put).toHaveBeenCalledExactlyOnceWith("config/set", {
+      requires_restart: 0,
       config_data: {
-        detectors: { coral: { type: "edgetpu", device: "usb" } },
-        model: { path: "plus://new-model" },
+        models: [
+          { scene: "all", devices: ["cpu"], path: "plus://new-model" },
+          { scene: "night", devices: ["onnx"], path: "/models/night.onnx" },
+        ],
       },
     });
     expect(result).toMatchObject({
       successCount: 1,
       failCount: 0,
-      savedKeys: ["detectors", "model"],
-      keysToClear: ["detectors", "model"],
+      savedKeys: ["models"],
+      keysToClear: ["models"],
       anyNeedsRestart: true,
     });
   });
 
-  it("reports a combined detector/model failure and retains both keys", async () => {
+  it("retains all model edits when the atomic list write fails", async () => {
     const client = api();
     client.put.mockRejectedValue(new Error("offline"));
     const result = await savePendingSettings({
       config,
       fullSchema: schema,
       pendingDataBySection: {
-        detectors: { new_detector: { type: "cpu" } },
-        model: { path: "plus://new-model" },
+        models: section([{ scene: "all", devices: ["cpu"] }]),
       },
       api: client,
     });
-    expect(client.put).toHaveBeenCalledTimes(2);
+    expect(client.put).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       successCount: 0,
       failCount: 1,
@@ -162,7 +158,7 @@ describe("savePendingSettings", () => {
       keysToClear: [],
       anyNeedsRestart: false,
     });
-    expect(result.failures[0]?.key).toBe("detectors/model");
+    expect(result.failures[0]?.key).toBe("models");
   });
 
   it("retains streams for retry if their config write fails", async () => {

@@ -2636,6 +2636,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hardware/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Probe Hardware
+         * @description **Access:** Admin role required.
+         *
+         *     Get the object detection hardware attached to this system.
+         *
+         *     Args:
+         *         refresh: Probe again instead of returning the cached result
+         *
+         *     Returns:
+         *         Every kind of detection hardware that was found
+         */
+        get: operations["probe_hardware_hardware_probe_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -4818,6 +4846,42 @@ export interface components {
              */
             ids: string[];
         };
+        /**
+         * DetectionHardware
+         * @description A kind of detection hardware, and every unit of it that was found.
+         */
+        DetectionHardware: {
+            /**
+             * Hardware key
+             * @description Stable identifier for this kind of hardware.
+             */
+            key: string;
+            /**
+             * Detector type
+             * @description The detector that drives this hardware.
+             */
+            detector: string;
+            /**
+             * Hardware name
+             * @description Human readable name for this kind of hardware.
+             */
+            name: string;
+            /**
+             * Units
+             * @description Each physical piece of this hardware that was found.
+             */
+            units: components["schemas"]["HardwareUnit"][];
+            /**
+             * Unit count
+             * @description How many units were found.
+             */
+            count: number;
+            /**
+             * Unlimited detectors
+             * @description Whether this hardware can run more inference processes than there are units.
+             */
+            unlimited: boolean;
+        };
         /** EventCreateResponse */
         EventCreateResponse: {
             /** Success */
@@ -5440,6 +5504,22 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HardwareUnit
+         * @description One physical piece of hardware.
+         */
+        HardwareUnit: {
+            /**
+             * Device string
+             * @description The value to put in a model's devices list, for example 'edgetpu:pci:1'.
+             */
+            device: string;
+            /**
+             * Unit label
+             * @description How to identify this unit among others of the same kind, for example 'PCIe 1'.
+             */
+            label: string;
         };
         /** Last24HoursReview */
         Last24HoursReview: {
@@ -9612,6 +9692,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenericResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    probe_hardware_hardware_probe_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectionHardware"][];
                 };
             };
             /** @description Validation Error */

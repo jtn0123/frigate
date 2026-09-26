@@ -120,7 +120,7 @@ Additionally, the USB Coral draws a considerable amount of power. If using any o
 
 ### Hailo-8
 
-The Hailo-8 and Hailo-8L AI accelerators are available in both M.2 and HAT form factors for the Raspberry Pi. The M.2 version typically connects to a carrier board for PCIe, which then interfaces with the Raspberry Pi 5 as part of the AI Kit. The HAT version can be mounted directly onto compatible Raspberry Pi models. Both form factors have been successfully tested on x86 platforms as well, making them versatile options for various computing environments.
+The Hailo-8, Hailo-8L and Hailo-8R AI accelerators are available in both M.2 and HAT form factors for the Raspberry Pi. The M.2 version typically connects to a carrier board for PCIe, which then interfaces with the Raspberry Pi 5 as part of the AI Kit. The HAT version can be mounted directly onto compatible Raspberry Pi models. Both form factors have been successfully tested on x86 platforms as well, making them versatile options for various computing environments.
 
 #### Installation
 
@@ -296,7 +296,7 @@ If you are using `docker run`, add this option to your command `--device /dev/ha
 
 #### Configuration
 
-Finally, configure [hardware object detection](/configuration/object_detectors#hailo-8) to complete the setup.
+Finally, configure [hardware object detection](/configuration/object_detectors#hailo) to complete the setup.
 
 ### MemryX MX3
 

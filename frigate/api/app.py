@@ -2,7 +2,6 @@
 
 import asyncio
 import copy
-import json
 import logging
 import os
 import platform
@@ -11,7 +10,6 @@ import urllib
 from datetime import datetime, timedelta
 from functools import reduce
 from io import StringIO
-from pathlib import Path as FilePath
 from typing import Any
 
 import aiofiles
@@ -61,6 +59,7 @@ from frigate.jobs.media_sync import (
     start_media_sync_job,
 )
 from frigate.models import Event, Timeline
+from frigate.plus import load_plus_model_info
 from frigate.stats.model_prometheus import model_metrics
 from frigate.stats.prometheus import get_metrics, update_metrics
 from frigate.types import JobStatusTypesEnum
@@ -316,10 +315,6 @@ def config(request: Request):
     config: dict[str, dict[str, Any]] = config_obj.model_dump(
         mode="json", warnings="none", exclude_none=True
     )
-    config["detectors"] = {
-        name: detector.model_dump(mode="json", warnings="none", exclude_none=True)
-        for name, detector in config_obj.detectors.items()
-    }
 
     # remove environment_vars for non-admin users
     if request.headers.get("remote-role") != "admin":
@@ -400,31 +395,22 @@ def config(request: Request):
         config["go2rtc"]["streams"][stream_name] = cleaned
 
     config["plus"] = {"enabled": request.app.frigate_config.plus_api.is_active()}
-    config["model"]["colormap"] = config_obj.model.colormap
-    config["model"]["all_attributes"] = config_obj.model.all_attributes
-    config["model"]["non_logo_attributes"] = config_obj.model.non_logo_attributes
 
-    # Add model plus data if plus is enabled
-    if config["plus"]["enabled"]:
-        model_path = config.get("model", {}).get("path")
-        if model_path:
-            model_json_path = FilePath(model_path).with_suffix(".json")
-            try:
-                with open(model_json_path) as f:
-                    model_plus_data = json.load(f)
-                config["model"]["plus"] = model_plus_data
-            except FileNotFoundError:
-                config["model"]["plus"] = None
-            except json.JSONDecodeError:
-                config["model"]["plus"] = None
-        else:
-            config["model"]["plus"] = None
+    for index, model in enumerate(config_obj.models):
+        model_dict = config["models"][index]
+        model_dict["colormap"] = model.colormap
+        model_dict["all_attributes"] = model.all_attributes
+        model_dict["non_logo_attributes"] = model.non_logo_attributes
+        model_dict["labelmap"] = model.merged_labelmap
 
-    # use merged labelamp
-    for detector_config in config["detectors"].values():
-        detector_config["model"]["labelmap"] = (
-            request.app.frigate_config.model.merged_labelmap
-        )
+        if not config["plus"]["enabled"]:
+            continue
+
+        # Add model plus data if plus is enabled
+        model_dict["plus"] = None
+
+        if model.path:
+            model_dict["plus"] = load_plus_model_info(os.path.basename(model.path))
 
     return JSONResponse(content=config)
 
@@ -1375,8 +1361,18 @@ def categorized_object_names(
 
 
 @router.get("/audio_labels", dependencies=[Depends(allow_any_authenticated())])
-def get_audio_labels():
+def get_audio_labels(request: Request):
     labels = load_labels("/audio-labelmap.txt", prefill=521)
+
+    # configured overrides group several audio classes under one label, and the
+    # detector merges them over the defaults at runtime. Offer them here too, or
+    # a grouped label could never be picked in the UI.
+    config: FrigateConfig = request.app.frigate_config
+    labels.update(config.audio.labelmap)
+
+    for camera in config.cameras.values():
+        labels.update(camera.audio.labelmap)
+
     return JSONResponse(content=labels)
 
 
@@ -1398,11 +1394,14 @@ def plusModels(request: Request, filterByCurrentModelDetector: bool = False):
 
     modelList = models["list"]
 
+    config: FrigateConfig = request.app.frigate_config
+    primary_model = config.primary_model
+
     # current model type
-    modelType = request.app.frigate_config.model.model_type
+    modelType = primary_model.model_type
 
     # current detectorType for comparing to supportedDetectors
-    detectorType = list(request.app.frigate_config.detectors.values())[0].type
+    detectorType = config.devices_for_model(primary_model)[0].detector
 
     validModels = []
 

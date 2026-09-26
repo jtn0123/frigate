@@ -3,7 +3,7 @@ import logging
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from peewee import DoesNotExist
 from peewee_migrate import Router
@@ -19,6 +19,11 @@ from frigate.test.const import TEST_DB, TEST_DB_CLEANUPS
 
 class TestHttp(unittest.TestCase):
     def setUp(self):
+        # These storage unit tests never start the worker that closes its IPC
+        # subscriber. Keep them isolated from live ZMQ sockets and their teardown.
+        subscriber = patch("frigate.storage.CameraConfigUpdateSubscriber")
+        subscriber.start()
+        self.addCleanup(subscriber.stop)
         # setup clean database for each test run
         migrate_db = SqliteExtDatabase("test.db")
         del logging.getLogger("peewee_migrate").handlers[:]
@@ -90,6 +95,7 @@ class TestHttp(unittest.TestCase):
         }
 
     def tearDown(self):
+        self.db.stop()
         if not self.db.is_closed():
             self.db.close()
 

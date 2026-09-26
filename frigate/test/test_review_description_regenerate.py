@@ -260,10 +260,13 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         processor.review_desc_speed = MagicMock()
         processor.genai_manager = MagicMock()
         processor.config = MagicMock()
-        processor.config.model.merged_labelmap = {0: "person", 1: "car"}
-        processor.config.model.all_attributes = ["amazon"]
+        processor.config.model_for_camera.return_value.merged_labelmap = {
+            0: "person",
+            1: "car",
+        }
+        processor.config.model_for_camera.return_value.all_attributes = ["amazon"]
         camera = MagicMock()
-        final_data = {"id": "r1"}
+        final_data = {"id": "r1", "camera": "front"}
 
         with patch.object(review_descriptions.threading, "Thread") as thread:
             processor.start_analysis(camera, final_data, [(b"a", 100.0)])

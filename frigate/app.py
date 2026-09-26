@@ -49,6 +49,9 @@ from frigate.debug_replay import (
     DebugReplayManager,
     cleanup_replay_cameras,
 )
+from frigate.detectors.detector_config import SceneEnum
+from frigate.detectors.detector_types import api_types
+from frigate.detectors.device import build_detector_config, runner_names
 from frigate.embeddings import EmbeddingProcess, EmbeddingsContext
 from frigate.events.audio import AudioProcessor
 from frigate.events.cleanup import EventCleanup
@@ -70,6 +73,7 @@ from frigate.models import (
     User,
 )
 from frigate.object_detection.base import ObjectDetectProcess
+from frigate.object_detection.util import detection_frame_size
 from frigate.output.output import OutputProcess
 from frigate.ptz.autotrack import PtzAutoTrackerThread
 from frigate.ptz.onvif import OnvifController
@@ -87,6 +91,7 @@ from frigate.util.atomic import ensure_private_directory, write_private_file
 from frigate.util.builtin import empty_and_close_queue
 from frigate.util.image import UntrackedSharedMemory
 from frigate.util.process import FrigateProcess
+from frigate.util.runtime_deps import RuntimeDependencyError
 from frigate.util.services import set_file_limit
 from frigate.version import VERSION
 from frigate.watchdog import FrigateWatchdog
@@ -103,7 +108,9 @@ class FrigateApp:
         self.metrics_manager = manager
         self.audio_process: mp.Process | None = None
         self.stop_event = stop_event
-        self.detection_queue: Queue = mp.Queue()
+        self.detection_queues: dict[SceneEnum, Queue] = {
+            model.scene: mp.Queue() for model in config.models
+        }
         self.detectors: dict[str, ObjectDetectProcess] = {}
         self.detection_shms: list[mp.shared_memory.SharedMemory] = []
         self.log_queue: Queue = mp.Queue()
@@ -348,21 +355,40 @@ class FrigateApp:
         )
         self.dispatcher.profile_manager = self.profile_manager
 
-    def start_detectors(self) -> None:
-        for name in self.config.cameras.keys():
+    def ensure_detector_dependencies(self) -> None:
+        """Install runtimes for the configured detector types.
+
+        Runs before any detector process starts so one install serves them
+        all and the user site is on sys.path before the forkserver copies it.
+        A failure is logged and startup continues; the detector process then
+        fails on its own with a clear import error.
+        """
+        detector_types = {
+            spec.detector
+            for model in self.config.models
+            for spec in self.config.devices_for_model(model)
+        }
+
+        for detector_type in sorted(detector_types):
             try:
-                largest_frame = max(
-                    [
-                        det.model.height * det.model.width * 3
-                        if det.model is not None
-                        else 320
-                        for det in self.config.detectors.values()
-                    ]
-                )
+                api_types[detector_type].ensure_dependencies()
+            except RuntimeDependencyError as err:
+                logger.error("Unable to prepare the %s runtime: %s", detector_type, err)
+
+    def start_detectors(self) -> None:
+        model_cameras: dict[SceneEnum, list[str]] = {
+            model.scene: [] for model in self.config.models
+        }
+
+        for name in self.config.cameras.keys():
+            model = self.config.model_for_camera(name)
+            model_cameras[model.scene].append(name)
+
+            try:
                 shm_in = UntrackedSharedMemory(
                     name=name,
                     create=True,
-                    size=largest_frame,
+                    size=detection_frame_size(model),
                 )
             except FileExistsError:
                 shm_in = UntrackedSharedMemory(name=name)
@@ -377,15 +403,26 @@ class FrigateApp:
             self.detection_shms.append(shm_in)
             self.detection_shms.append(shm_out)
 
-        for name, detector_config in self.config.detectors.items():
-            self.detectors[name] = ObjectDetectProcess(
-                name,
-                self.detection_queue,
-                list(self.config.cameras.keys()),
-                self.config,
-                detector_config,
-                self.stop_event,
-            )
+        # a device may be listed more than once to run additional inference
+        # processes on it, so names are only unique once de-duplicated
+        all_devices = [
+            device
+            for model in self.config.models
+            for device in self.config.devices_for_model(model)
+        ]
+        names = iter(runner_names(all_devices))
+
+        for model in self.config.models:
+            for device in self.config.devices_for_model(model):
+                name = next(names)
+                self.detectors[name] = ObjectDetectProcess(
+                    name,
+                    self.detection_queues[model.scene],
+                    model_cameras[model.scene],
+                    self.config,
+                    build_detector_config(device, model),
+                    self.stop_event,
+                )
 
     def start_ptz_autotracker(self) -> None:
         self.ptz_autotracker_thread = PtzAutoTrackerThread(
@@ -416,7 +453,7 @@ class FrigateApp:
     def start_camera_processor(self) -> None:
         self.camera_maintainer = CameraMaintainer(
             self.config,
-            self.detection_queue,
+            self.detection_queues,
             self.detected_frames_queue,
             self.camera_metrics,
             self.ptz_metrics,
@@ -586,6 +623,7 @@ class FrigateApp:
 
         # Ensure global state.
         self.ensure_dirs()
+        self.ensure_detector_dependencies()
 
         # Set soft file limits.
         set_file_limit()
@@ -699,8 +737,10 @@ class FrigateApp:
         for detector in self.detectors.values():
             detector.stop()
 
-        empty_and_close_queue(self.detection_queue)
-        logger.info("Detection queue closed")
+        for detection_queue in self.detection_queues.values():
+            empty_and_close_queue(detection_queue)
+
+        logger.info("Detection queues closed")
 
         self.detected_frames_processor.join()
         empty_and_close_queue(self.detected_frames_queue)

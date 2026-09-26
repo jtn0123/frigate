@@ -63,7 +63,6 @@ import FrigatePlusSettingsView from "@/views/settings/FrigatePlusSettingsView";
 import MediaSyncSettingsView from "@/views/settings/MediaSyncSettingsView";
 import RegionGridSettingsView from "@/views/settings/RegionGridSettingsView";
 import Go2RtcStreamsSettingsView from "@/views/settings/Go2RtcStreamsSettingsView";
-import DetectorsAndModelSettingsView from "@/views/settings/DetectorsAndModelSettingsView";
 import {
   SingleSectionPage,
   type SettingsPageProps,
@@ -123,7 +122,6 @@ import RestartDialog from "@/components/overlay/dialog/RestartDialog";
 import SaveAllPreviewPopover, {
   type SaveAllPreviewItem,
 } from "@/components/overlay/detail/SaveAllPreviewPopover";
-
 import {
   Tooltip,
   TooltipContent,
@@ -254,6 +252,7 @@ const SystemEnvironmentVariablesSettingsPage = createSectionPage(
 );
 const SystemTelemetrySettingsPage = createSectionPage("telemetry", "global");
 const SystemBirdseyeSettingsPage = createSectionPage("birdseye", "global");
+const SystemDetectionModelsPage = createSectionPage("models", "global");
 const NotificationsSettingsPage = createSectionPage("notifications", "global");
 
 const SystemMqttSettingsPage = createSectionPage("mqtt", "global");
@@ -416,7 +415,7 @@ const settingsGroups = [
       },
       {
         key: "systemDetectorsAndModel",
-        component: DetectorsAndModelSettingsView,
+        component: SystemDetectionModelsPage,
       },
       { key: "systemDatabase", component: SystemDatabaseSettingsPage },
       { key: "systemMqtt", component: SystemMqttSettingsPage },
@@ -568,8 +567,7 @@ const SYSTEM_SECTION_MAPPING: Record<string, SettingsType> = {
   environment_vars: "systemEnvironmentVariables",
   telemetry: "systemTelemetry",
   birdseye: "systemBirdseye",
-  detectors: "systemDetectorsAndModel",
-  model: "systemDetectorsAndModel",
+  models: "systemDetectorsAndModel",
 };
 
 const CAMERA_SECTION_KEYS = new Set<SettingsType>(
@@ -884,8 +882,7 @@ export default function Settings() {
 
   // Show save/undo all buttons only when at least one pending change lives
   // outside the currently visible page. Map each pending key to its menu key
-  // (e.g. both `detectors` and `model` collapse to `systemDetectorsAndModel`)
-  // so a composite page with two pending config-sections still counts as one.
+  // so a page hosting several config-sections still counts as one.
   const showSaveAllButtons = useMemo(() => {
     const pendingKeys = Object.keys(pendingDataBySection);
     if (pendingKeys.length === 0) return false;
