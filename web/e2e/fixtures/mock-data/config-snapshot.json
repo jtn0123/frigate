@@ -217,7 +217,8 @@
         "input_args": "preset-rtsp-generic",
         "output_args": {
           "detect": ["-threads", "2", "-f", "rawvideo", "-pix_fmt", "yuv420p"],
-          "record": "preset-record-generic-audio-aac"
+          "record": "preset-record-generic-audio-aac",
+          "record_sub": []
         },
         "retry_interval": 10.0,
         "apple_compatibility": false,
@@ -307,6 +308,13 @@
           "chapters": "review_items"
         },
         "preview": { "quality": "medium" },
+        "sub": {
+          "enabled": false,
+          "continuous": { "days": 0 },
+          "motion": { "days": 0 },
+          "alerts": { "days": 10, "mode": "motion" },
+          "detections": { "days": 10, "mode": "motion" }
+        },
         "enabled_in_config": false
       },
       "review": {
@@ -454,7 +462,8 @@
         "input_args": "preset-rtsp-generic",
         "output_args": {
           "detect": ["-threads", "2", "-f", "rawvideo", "-pix_fmt", "yuv420p"],
-          "record": "preset-record-generic-audio-aac"
+          "record": "preset-record-generic-audio-aac",
+          "record_sub": []
         },
         "retry_interval": 10.0,
         "apple_compatibility": false,
@@ -544,6 +553,13 @@
           "chapters": "review_items"
         },
         "preview": { "quality": "medium" },
+        "sub": {
+          "enabled": false,
+          "continuous": { "days": 0 },
+          "motion": { "days": 0 },
+          "alerts": { "days": 10, "mode": "motion" },
+          "detections": { "days": 10, "mode": "motion" }
+        },
         "enabled_in_config": false
       },
       "review": {
@@ -691,7 +707,8 @@
         "input_args": "preset-rtsp-generic",
         "output_args": {
           "detect": ["-threads", "2", "-f", "rawvideo", "-pix_fmt", "yuv420p"],
-          "record": "preset-record-generic-audio-aac"
+          "record": "preset-record-generic-audio-aac",
+          "record_sub": []
         },
         "retry_interval": 10.0,
         "apple_compatibility": false,
@@ -781,6 +798,13 @@
           "chapters": "review_items"
         },
         "preview": { "quality": "medium" },
+        "sub": {
+          "enabled": false,
+          "continuous": { "days": 0 },
+          "motion": { "days": 0 },
+          "alerts": { "days": 10, "mode": "motion" },
+          "detections": { "days": 10, "mode": "motion" }
+        },
         "enabled_in_config": false
       },
       "review": {
@@ -923,7 +947,8 @@
     "input_args": "preset-rtsp-generic",
     "output_args": {
       "detect": ["-threads", "2", "-f", "rawvideo", "-pix_fmt", "yuv420p"],
-      "record": "preset-record-generic-audio-aac"
+      "record": "preset-record-generic-audio-aac",
+      "record_sub": []
     },
     "retry_interval": 10.0,
     "apple_compatibility": false,
@@ -934,25 +959,7 @@
   "objects": {
     "track": ["person"],
     "filters": {
-      "face": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "amazon": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "dhl": {
+      "purolator": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -970,7 +977,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "postnl": {
+      "canada_post": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -988,16 +995,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "postnord": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "gls": {
+      "amazon": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -1015,15 +1013,6 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "canada_post": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
       "usps": {
         "min_area": 0,
         "max_area": 24000000,
@@ -1033,7 +1022,16 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "royal_mail": {
+      "face": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "dpd": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -1051,6 +1049,33 @@
         "min_score": 0.7,
         "mask": {}
       },
+      "royal_mail": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "gls": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "postnl": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
       "an_post": {
         "min_area": 0,
         "max_area": 24000000,
@@ -1060,7 +1085,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "purolator": {
+      "dhl": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -1069,7 +1094,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "dpd": {
+      "postnord": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -1116,6 +1141,13 @@
       "chapters": "review_items"
     },
     "preview": { "quality": "medium" },
+    "sub": {
+      "enabled": false,
+      "continuous": { "days": 0 },
+      "motion": { "days": 0 },
+      "alerts": { "days": 10, "mode": "motion" },
+      "detections": { "days": 10, "mode": "motion" }
+    },
     "enabled_in_config": null
   },
   "review": {

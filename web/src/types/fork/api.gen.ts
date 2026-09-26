@@ -3376,6 +3376,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vod/{camera_name}/{stream}/start/{start_ts}/end/{end_ts}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vod Ts Stream
+         * @description **Access:** Authenticated user with access to the referenced camera.
+         *
+         *     Returns an HLS playlist pinned to one stream type (main or sub) for the specified timestamp-range on the specified camera. Append /master.m3u8 or /index.m3u8 for HLS playback.
+         */
+        get: operations["vod_ts_stream_vod__camera_name___stream__start__start_ts__end__end_ts__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events/{event_id}/snapshot.jpg": {
         parameters: {
             query?: never;
@@ -3850,6 +3872,32 @@ export interface paths {
          *     Returns hourly summary for recordings of given camera
          */
         get: operations["recordings_summary__camera_name__recordings_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/{camera_name}/recordings/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recordings Coverage
+         * @description **Access:** Authenticated user with access to the referenced camera.
+         *
+         *     Returns merged recording coverage spans plus codec compatibility.
+         *
+         *     codecs_compatible is false only when more than one known video codec
+         *     appears across the range's rows, the case where the merged vod route
+         *     degrades to a single-stream manifest.
+         */
+        get: operations["recordings_coverage__camera_name__recordings_coverage_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4387,6 +4435,12 @@ export interface components {
              * @description Optional description for a newly created export case
              */
             new_case_description?: string | null;
+            /**
+             * Recorded stream to export
+             * @description Which recorded stream every item in the batch is exported from. 'auto' uses the merged timeline, preferring the main stream and falling back to the sub stream where main has aged out. 'main' or 'sub' pins the exports to that stream.
+             * @default auto
+             */
+            stream: components["schemas"]["ExportStreamEnum"];
         };
         /** BatchExportItem */
         BatchExportItem: {
@@ -5118,6 +5172,12 @@ export interface components {
              * @description Optional chapter metadata to embed in the export. When omitted, the camera's configured export chapter mode is used.
              */
             chapters?: components["schemas"]["ChaptersEnum"] | null;
+            /**
+             * Recorded stream to export
+             * @description Which recorded stream to export. 'auto' uses the merged timeline, preferring the main stream and falling back to the sub stream where main has aged out. 'main' or 'sub' pins the export to that stream alone.
+             * @default auto
+             */
+            stream: components["schemas"]["ExportStreamEnum"];
         };
         /** ExportRecordingsCustomBody */
         ExportRecordingsCustomBody: {
@@ -5157,6 +5217,17 @@ export interface components {
             /** Friendly name */
             name: string;
         };
+        /**
+         * ExportStreamEnum
+         * @description Which recorded stream an export should be built from.
+         *
+         *     ``auto`` keeps the merged timeline: main where it exists, sub filling
+         *     the gaps main has already aged out of. Pinning to one stream trades
+         *     that coverage for a uniform source, which is always a plain stream
+         *     copy since nothing hands off mid-export.
+         * @enum {string}
+         */
+        ExportStreamEnum: "auto" | "main" | "sub";
         /**
          * Extension
          * @enum {string}
@@ -5937,6 +6008,15 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /**
+         * VodStreamPreference
+         * @description Stream pin for the path-segment VOD route.
+         *
+         *     nginx-vod derives its mapping fetch URI from the playlist URL path
+         *     (query params are dropped), so the preference must be a path segment.
+         * @enum {string}
+         */
+        VodStreamPreference: "main" | "sub";
     };
     responses: never;
     parameters: never;
@@ -10773,6 +10853,42 @@ export interface operations {
             };
         };
     };
+    vod_ts_stream_vod__camera_name___stream__start__start_ts__end__end_ts__get: {
+        parameters: {
+            query?: {
+                force_discontinuity?: boolean;
+            };
+            header?: never;
+            path: {
+                camera_name: string | null;
+                stream: components["schemas"]["VodStreamPreference"];
+                start_ts: number;
+                end_ts: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     event_snapshot_events__event_id__snapshot_jpg_get: {
         parameters: {
             query?: {
@@ -11494,6 +11610,41 @@ export interface operations {
         parameters: {
             query?: {
                 timezone?: string;
+            };
+            header?: never;
+            path: {
+                camera_name: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recordings_coverage__camera_name__recordings_coverage_get: {
+        parameters: {
+            query: {
+                after: number;
+                before: number;
+                timelines?: boolean;
             };
             header?: never;
             path: {

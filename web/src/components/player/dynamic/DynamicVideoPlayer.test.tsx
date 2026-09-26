@@ -8,14 +8,22 @@ const state = vi.hoisted(() => ({
   player: undefined as PlayerProps | undefined,
   readyState: 2,
   config: { cameras: { front: { detect: {} }, back: { detect: {} } } },
-  recordings: [{ start_time: 100, end_time: 200, duration: 100 }],
+  coverage: {
+    spans: [{ start_time: 100, end_time: 200, streams: ["main"] }],
+    streams: { main: { video_codec: "h264", has_audio: true } },
+    timelines: {
+      auto: [{ start_time: 100, end_time: 200, duration: 100000 }],
+      main: [{ start_time: 100, end_time: 200, duration: 100000 }],
+    },
+    codecs_compatible: true,
+  },
   preview: {},
 }));
 
 vi.mock("@/api", () => ({ useApiHost: () => "/api/" }));
 vi.mock("swr", () => ({
   default: (key: unknown) => ({
-    data: key === "config" ? state.config : state.recordings,
+    data: key === "config" ? state.config : state.coverage,
   }),
 }));
 vi.mock("@/context/detail-stream-context", () => ({

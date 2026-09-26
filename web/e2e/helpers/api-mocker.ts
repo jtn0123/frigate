@@ -92,6 +92,16 @@ export class ApiMocker {
     await this.page.route("**/api/review/event/*", (route) =>
       route.fulfill({ json: null }),
     );
+    await this.page.route("**/api/*/recordings/coverage**", (route) =>
+      route.fulfill({
+        json: {
+          spans: [],
+          streams: {},
+          codecs_compatible: true,
+          timelines: { auto: [], main: [], sub: [] },
+        },
+      }),
+    );
     await this.page.route("**/api/*/recordings?**", (route) =>
       route.fulfill({ json: [] }),
     );

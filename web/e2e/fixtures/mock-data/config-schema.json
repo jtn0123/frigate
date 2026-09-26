@@ -993,7 +993,7 @@
       "type": "object"
     },
     "CameraRoleEnum": {
-      "enum": ["audio", "record", "detect"],
+      "enum": ["audio", "record", "record_sub", "detect"],
       "title": "CameraRoleEnum",
       "type": "string"
     },
@@ -1509,6 +1509,14 @@
           "default": "preset-record-generic-audio-aac",
           "description": "Default output arguments for record role streams.",
           "title": "Record output arguments"
+        },
+        "record_sub": {
+          "anyOf": [
+            { "type": "string" },
+            { "items": { "type": "string" }, "type": "array" }
+          ],
+          "description": "Output arguments for record_sub role streams. The record output arguments are used when this is not set.",
+          "title": "Sub stream record output arguments"
         }
       },
       "title": "FfmpegOutputArgsConfig",
@@ -2712,6 +2720,11 @@
           "description": "Settings controlling the quality of recording previews shown in the UI.",
           "title": "Preview config"
         },
+        "sub": {
+          "$ref": "#/$defs/RecordSubConfig",
+          "description": "Settings for recording a second, lower quality stream.",
+          "title": "Sub stream recording"
+        },
         "enabled_in_config": {
           "anyOf": [{ "type": "boolean" }, { "type": "null" }],
           "default": null,
@@ -2780,6 +2793,39 @@
         }
       },
       "title": "RecordRetainConfig",
+      "type": "object"
+    },
+    "RecordSubConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable recording of a second, lower quality stream for adaptive quality playback and extended retention.",
+          "title": "Enable sub stream recording",
+          "type": "boolean"
+        },
+        "continuous": {
+          "$ref": "#/$defs/RecordRetainConfig",
+          "description": "Number of days to retain sub stream recordings regardless of tracked objects or motion.",
+          "title": "Sub stream continuous retention"
+        },
+        "motion": {
+          "$ref": "#/$defs/RecordRetainConfig",
+          "description": "Number of days to retain sub stream recordings triggered by motion.",
+          "title": "Sub stream motion retention"
+        },
+        "alerts": {
+          "$ref": "#/$defs/ReviewRetainConfig",
+          "description": "Retention settings for sub stream recordings of alerts.",
+          "title": "Sub stream alert retention"
+        },
+        "detections": {
+          "$ref": "#/$defs/ReviewRetainConfig",
+          "description": "Retention settings for sub stream recordings of detections.",
+          "title": "Sub stream detection retention"
+        }
+      },
+      "title": "RecordSubConfig",
       "type": "object"
     },
     "ReplaceRule": {

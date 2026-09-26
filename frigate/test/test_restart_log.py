@@ -289,6 +289,7 @@ class TestWatchdogResetHook(unittest.TestCase):
         history: list[dict] = []
         return SimpleNamespace(
             config=SimpleNamespace(name="back"),
+            detect_process_records_sub=False,
             logger=logger,
             logpipe=FakeLogPipe(lines),
             restart_log=RestartLog("back", logger, history),
