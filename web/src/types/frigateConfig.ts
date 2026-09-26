@@ -1,5 +1,6 @@
 import type { IconName } from "@/components/icons/luIcons";
 import { TriggerAction, TriggerType } from "./trigger";
+import { LivePlayerMode } from "./live";
 
 export interface UiConfig {
   timezone?: string;
@@ -349,6 +350,7 @@ export type StreamType = "no-streaming" | "smart" | "continuous";
 export type CameraStreamingSettings = {
   streamName: string;
   streamType: StreamType;
+  playerMode?: LivePlayerMode;
   compatibilityMode: boolean;
   playAudio: boolean;
   volume: number;
@@ -494,8 +496,13 @@ export interface FrigateConfig {
 
   go2rtc: {
     streams: Record<string, string | string[]>;
-    webrtc: {
-      candidates: string[];
+    webrtc?: {
+      candidates?: string[];
+      ice_servers?: {
+        urls: string | string[];
+        username?: string;
+        credential?: string;
+      }[];
     };
   };
 

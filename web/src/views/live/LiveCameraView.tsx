@@ -13,6 +13,7 @@ import {
 import CameraFeatureToggle from "@/components/dynamic/CameraFeatureToggle";
 import FilterSwitch from "@/components/filter/FilterSwitch";
 import LivePlayer from "@/components/player/LivePlayer";
+import StreamTechnologySelect from "@/components/player/StreamTechnologySelect";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import {
@@ -27,11 +28,18 @@ import {
 } from "@/components/ui/popover";
 import { useResizeObserver } from "@/hooks/resize-observer";
 import useKeyboardListener from "@/hooks/use-keyboard-listener";
+import {
+  useWebRTCAvailableForStream,
+  useWebRTCGloballyAvailable,
+} from "@/hooks/use-webrtc-availability";
 import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
 import {
   LivePlayerError,
+  TwoWayTalkError,
+  LivePlayerMode,
   LiveStreamMetadata,
   VideoResolutionType,
+  WebRTCUnavailableReason,
 } from "@/types/live";
 import type { components } from "@/types/fork/api.gen";
 import { RecordingStartingPoint } from "@/types/record";
@@ -165,6 +173,23 @@ export default function LiveCameraView({
       Object.values(camera.live.streams)[0],
     );
 
+  const [
+    userPreferredLiveMode,
+    setUserPreferredLiveMode,
+    userPreferredLiveModeLoaded,
+  ] = useUserPersistence<LivePlayerMode>(
+    `${camera.name}-preferred-live-mode`,
+    "mse",
+  );
+
+  const [forceLowBandwidth, setForceLowBandwidth, forceLowBandwidthLoaded] =
+    useUserPersistence<boolean>(`${camera.name}-force-low-bandwidth`, false);
+
+  // useUserPersistence seeds state with the defaults and loads asynchronously,
+  // so until this is true the values above are not the user's choices.
+  const preferencesLoaded =
+    streamNameLoaded && userPreferredLiveModeLoaded && forceLowBandwidthLoaded;
+
   const isRestreamed = useMemo(
     () =>
       config &&
@@ -194,6 +219,43 @@ export default function LiveCameraView({
       dedupingInterval: 60000,
     },
   );
+
+  const webRTCAvailability = useWebRTCAvailableForStream(
+    cameraMetadata,
+    streamName,
+  );
+  const isWebRTCAvailable = webRTCAvailability.available;
+
+  // Two-way talk is the sendonly backchannel: global, not per-stream.
+  const { globallyAvailable: webRTCGloballyAvailable } =
+    useWebRTCGloballyAvailable();
+
+  // "checking" means the probe has not answered yet, and it re-enters that on
+  // every mount, so treating it as unavailable downgrades the saved choice.
+  const webRTCVerdictPending = webRTCAvailability.reason === "checking";
+  const webRTCUsable = isWebRTCAvailable || webRTCVerdictPending;
+
+  // Resolves the saved preference without overwriting it. Transient error
+  // fallbacks layer on top in preferredLiveMode.
+  const resolvedUserMode = useMemo<LivePlayerMode>(() => {
+    const mseSupported =
+      "MediaSource" in window || "ManagedMediaSource" in window;
+    if (!isRestreamed) {
+      return "jsmpeg";
+    }
+    // jsmpeg is the force low-bandwidth switch, not a technology choice.
+    const requested =
+      !userPreferredLiveMode || userPreferredLiveMode === "jsmpeg"
+        ? "mse"
+        : userPreferredLiveMode;
+    if (requested === "webrtc" && !webRTCUsable) {
+      return mseSupported ? "mse" : "jsmpeg";
+    }
+    if (requested === "mse" && !mseSupported) {
+      return webRTCUsable ? "webrtc" : "jsmpeg";
+    }
+    return requested;
+  }, [userPreferredLiveMode, webRTCUsable, isRestreamed]);
 
   const { twoWayAudio: supports2WayTalk, audioOutput: supportsAudioOutput } =
     useMemo(() => detectCameraAudioFeatures(cameraMetadata), [cameraMetadata]);
@@ -369,11 +431,15 @@ export default function LiveCameraView({
   });
 
   const preferredLiveMode = useMemo(() => {
-    if (mic) {
+    if (mic && isWebRTCAvailable) {
       return "webrtc";
     }
 
-    if (webRTC && isRestreamed) {
+    if (forceLowBandwidth) {
+      return "jsmpeg";
+    }
+
+    if (webRTC && isRestreamed && isWebRTCAvailable) {
       return "webrtc";
     }
 
@@ -385,16 +451,37 @@ export default function LiveCameraView({
       return "jsmpeg";
     }
 
-    if (!("MediaSource" in window || "ManagedMediaSource" in window)) {
+    if (
+      !("MediaSource" in window || "ManagedMediaSource" in window) &&
+      isWebRTCAvailable
+    ) {
       return "webrtc";
     }
 
-    if (!isRestreamed) {
-      return "jsmpeg";
-    }
+    return resolvedUserMode;
+  }, [
+    lowBandwidth,
+    forceLowBandwidth,
+    mic,
+    webRTC,
+    isRestreamed,
+    resolvedUserMode,
+    isWebRTCAvailable,
+  ]);
 
-    return "mse";
-  }, [lowBandwidth, mic, webRTC, isRestreamed]);
+  // A latched error fallback would keep overriding the user's new choice.
+  useEffect(() => {
+    setWebRTC(false);
+    setLowBandwidth(false);
+  }, [userPreferredLiveMode, streamName, forceLowBandwidth]);
+
+  // A fallback chosen before the verdict arrived was made on incomplete info.
+  useEffect(() => {
+    if (!webRTCVerdictPending) {
+      setWebRTC(false);
+      setLowBandwidth(false);
+    }
+  }, [webRTCVerdictPending]);
 
   useKeyboardListener(["m", "Escape"], (key, modifiers) => {
     if (!modifiers.down) {
@@ -504,11 +591,9 @@ export default function LiveCameraView({
   const handleError = useCallback(
     (e: LivePlayerError) => {
       if (e) {
-        if (
-          !webRTC &&
-          config &&
-          config.go2rtc?.webrtc?.candidates?.length > 0
-        ) {
+        // WebRTC can now be the user's own choice, so the fallback flag no
+        // longer implies untried: hopping to the mode that just failed sticks.
+        if (preferredLiveMode !== "webrtc" && webRTCUsable) {
           setWebRTC(true);
         } else {
           setWebRTC(false);
@@ -516,7 +601,15 @@ export default function LiveCameraView({
         }
       }
     },
-    [config, webRTC],
+    [preferredLiveMode, webRTCUsable],
+  );
+
+  const handleMicrophoneError = useCallback(
+    (error: TwoWayTalkError) => {
+      setMic(false);
+      toast.error(t(`twoWayTalk.error.${error}`), { position: "top-center" });
+    },
+    [t],
   );
 
   return (
@@ -655,9 +748,11 @@ export default function LiveCameraView({
                 Icon={mic ? FaMicrophone : FaMicrophoneSlash}
                 isActive={mic}
                 title={
-                  mic
-                    ? t("twoWayTalk.disable", { ns: "views/live" })
-                    : t("twoWayTalk.enable", { ns: "views/live" })
+                  !webRTCGloballyAvailable
+                    ? t("twoWayTalk.requiresWebRTC", { ns: "views/live" })
+                    : mic
+                      ? t("twoWayTalk.disable", { ns: "views/live" })
+                      : t("twoWayTalk.enable", { ns: "views/live" })
                 }
                 onClick={() => {
                   setMic(!mic);
@@ -665,7 +760,7 @@ export default function LiveCameraView({
                     setAudio(true);
                   }
                 }}
-                disabled={!cameraEnabled || debug}
+                disabled={!cameraEnabled || debug || !webRTCGloballyAvailable}
               />
             )}
             {supportsAudioOutput && preferredLiveMode != "jsmpeg" && (
@@ -694,12 +789,18 @@ export default function LiveCameraView({
               fullscreen={fullscreen}
               streamName={streamName ?? ""}
               setStreamName={setStreamName}
+              userPreferredLiveMode={resolvedUserMode}
+              setUserPreferredLiveMode={setUserPreferredLiveMode}
+              forceLowBandwidth={forceLowBandwidth ?? false}
+              setForceLowBandwidth={setForceLowBandwidth}
               preferredLiveMode={preferredLiveMode}
               playInBackground={playInBackground ?? false}
               setPlayInBackground={setPlayInBackground}
               showStats={showStats}
               setShowStats={setShowStats}
               isRestreamed={isRestreamed ?? false}
+              isWebRTCAvailable={isWebRTCAvailable}
+              webRTCUnavailableReason={webRTCAvailability.reason}
               setLowBandwidth={setLowBandwidth}
               supportsAudioOutput={supportsAudioOutput}
               supports2WayTalk={supports2WayTalk}
@@ -781,12 +882,14 @@ export default function LiveCameraView({
                   micEnabled={mic}
                   iOSCompatFullScreen={isIOS}
                   preferredLiveMode={preferredLiveMode}
+                  autoLive={preferencesLoaded}
                   useWebGL={true}
                   streamName={streamName ?? ""}
                   pip={pip}
                   containerRef={containerRef}
                   setFullResolution={setFullResolution}
                   onError={handleError}
+                  onMicrophoneError={handleMicrophoneError}
                 />
               </div>
             </TransformComponent>
@@ -841,12 +944,18 @@ type FrigateCameraFeaturesProps = {
   fullscreen: boolean;
   streamName: string;
   setStreamName?: (value: string | undefined) => void;
-  preferredLiveMode: string;
+  userPreferredLiveMode: LivePlayerMode;
+  setUserPreferredLiveMode: (value: LivePlayerMode | undefined) => void;
+  forceLowBandwidth: boolean;
+  setForceLowBandwidth: (value: boolean | undefined) => void;
+  preferredLiveMode: LivePlayerMode;
   playInBackground: boolean;
   setPlayInBackground: (value: boolean | undefined) => void;
   showStats: boolean;
   setShowStats: (value: boolean) => void;
   isRestreamed: boolean;
+  isWebRTCAvailable: boolean;
+  webRTCUnavailableReason?: WebRTCUnavailableReason;
   setLowBandwidth: React.Dispatch<React.SetStateAction<boolean>>;
   supportsAudioOutput: boolean;
   supports2WayTalk: boolean;
@@ -863,12 +972,18 @@ function FrigateCameraFeatures({
   fullscreen,
   streamName,
   setStreamName,
+  userPreferredLiveMode,
+  setUserPreferredLiveMode,
+  forceLowBandwidth,
+  setForceLowBandwidth,
   preferredLiveMode,
   playInBackground,
   setPlayInBackground,
   showStats,
   setShowStats,
   isRestreamed,
+  isWebRTCAvailable,
+  webRTCUnavailableReason,
   setLowBandwidth,
   supportsAudioOutput,
   supports2WayTalk,
@@ -900,6 +1015,10 @@ function FrigateCameraFeatures({
   // roles
 
   const isAdmin = useIsAdmin();
+
+  const streamSelectLabel = Object.keys(camera.live.streams).find(
+    (key) => camera.live.streams[key] === streamName,
+  );
 
   // manual event
 
@@ -1266,17 +1385,13 @@ function FrigateCameraFeatures({
                       </Label>
                       <Select
                         value={streamName}
-                        disabled={debug}
+                        disabled={debug || forceLowBandwidth}
                         onValueChange={(value) => {
                           setStreamName?.(value);
                         }}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue>
-                            {Object.keys(camera.live.streams).find(
-                              (key) => camera.live.streams[key] === streamName,
-                            )}
-                          </SelectValue>
+                          <SelectValue>{streamSelectLabel}</SelectValue>
                         </SelectTrigger>
 
                         <SelectContent>
@@ -1396,6 +1511,8 @@ function FrigateCameraFeatures({
                         )}
 
                       {preferredLiveMode == "jsmpeg" &&
+                        userPreferredLiveMode != "jsmpeg" &&
+                        !forceLowBandwidth &&
                         !debug &&
                         isRestreamed && (
                           <div className="flex flex-col items-center gap-3">
@@ -1422,6 +1539,55 @@ function FrigateCameraFeatures({
                         )}
                     </div>
                   )}
+                {isRestreamed &&
+                  Object.values(camera.live.streams).length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor="streaming-mode">{t("stream.mode")}</Label>
+                      <StreamTechnologySelect
+                        value={userPreferredLiveMode}
+                        onValueChange={setUserPreferredLiveMode}
+                        isWebRTCAvailable={isWebRTCAvailable}
+                        webRTCUnavailableReason={webRTCUnavailableReason}
+                        disabled={debug || forceLowBandwidth}
+                      />
+                      {debug ? (
+                        <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
+                          <LuX className="size-4 text-danger" />
+                          <div>{t("stream.debug.technology")}</div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {t("stream.technology.description")}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                {isRestreamed &&
+                  Object.values(camera.live.streams).length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <Label
+                          className="mx-0 cursor-pointer text-primary"
+                          htmlFor="forcelowbandwidth"
+                        >
+                          {t("stream.lowBandwidth.force.label")}
+                        </Label>
+                        <Switch
+                          className="ml-1"
+                          id="forcelowbandwidth"
+                          disabled={debug}
+                          checked={forceLowBandwidth}
+                          onCheckedChange={(checked) =>
+                            setForceLowBandwidth(checked)
+                          }
+                        />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {t("stream.lowBandwidth.force.desc")}
+                      </p>
+                    </div>
+                  )}
+
                 {isRestreamed && (
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
@@ -1633,14 +1799,10 @@ function FrigateCameraFeatures({
                   onValueChange={(value) => {
                     setStreamName?.(value);
                   }}
-                  disabled={debug}
+                  disabled={debug || forceLowBandwidth}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue>
-                      {Object.keys(camera.live.streams).find(
-                        (key) => camera.live.streams[key] === streamName,
-                      )}
-                    </SelectValue>
+                    <SelectValue>{streamSelectLabel}</SelectValue>
                   </SelectTrigger>
 
                   <SelectContent>
@@ -1662,8 +1824,10 @@ function FrigateCameraFeatures({
 
                 {debug && (
                   <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
-                    <LuX className="size-8 text-danger" />
-                    <div>{t("stream.debug.picker")}</div>
+                    <>
+                      <LuX className="size-8 text-danger" />
+                      <div>{t("stream.debug.picker")}</div>
+                    </>
                   </div>
                 )}
 
@@ -1754,27 +1918,60 @@ function FrigateCameraFeatures({
                       )}
                     </div>
                   )}
-                {preferredLiveMode == "jsmpeg" && isRestreamed && (
-                  <div className="mt-2 flex flex-col items-center gap-3">
-                    <div className="flex flex-row items-center gap-2">
-                      <IoIosWarning className="mr-1 size-8 text-danger" />
-                      <p className="text-sm">{t("stream.lowBandwidth.tips")}</p>
-                    </div>
-                    <Button
-                      className={`flex items-center gap-2.5 rounded-lg`}
-                      aria-label={t("stream.lowBandwidth.resetStream")}
-                      variant="outline"
-                      size="sm"
-                      disabled={debug}
-                      onClick={() => setLowBandwidth(false)}
-                    >
-                      <MdOutlineRestartAlt className="size-5 text-primary-variant" />
-                      <div className="text-primary-variant">
-                        {t("stream.lowBandwidth.resetStream")}
+                {preferredLiveMode == "jsmpeg" &&
+                  userPreferredLiveMode != "jsmpeg" &&
+                  !forceLowBandwidth &&
+                  isRestreamed && (
+                    <div className="mt-2 flex flex-col items-center gap-3">
+                      <div className="flex flex-row items-center gap-2">
+                        <IoIosWarning className="mr-1 size-8 text-danger" />
+                        <p className="text-sm">
+                          {t("stream.lowBandwidth.tips")}
+                        </p>
                       </div>
-                    </Button>
-                  </div>
-                )}
+                      <Button
+                        className={`flex items-center gap-2.5 rounded-lg`}
+                        aria-label={t("stream.lowBandwidth.resetStream")}
+                        variant="outline"
+                        size="sm"
+                        disabled={debug}
+                        onClick={() => setLowBandwidth(false)}
+                      >
+                        <MdOutlineRestartAlt className="size-5 text-primary-variant" />
+                        <div className="text-primary-variant">
+                          {t("stream.lowBandwidth.resetStream")}
+                        </div>
+                      </Button>
+                    </div>
+                  )}
+              </div>
+            )}
+            {isRestreamed && Object.values(camera.live.streams).length > 0 && (
+              <div className="px-2">
+                <div className="mb-1 text-sm">{t("stream.mode")}</div>
+                <StreamTechnologySelect
+                  value={userPreferredLiveMode}
+                  onValueChange={setUserPreferredLiveMode}
+                  isWebRTCAvailable={isWebRTCAvailable}
+                  webRTCUnavailableReason={webRTCUnavailableReason}
+                  disabled={debug || forceLowBandwidth}
+                />
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("stream.technology.description")}
+                </p>
+              </div>
+            )}
+            {isRestreamed && Object.values(camera.live.streams).length > 0 && (
+              <div className="flex flex-col gap-2">
+                <FilterSwitch
+                  label={t("stream.lowBandwidth.force.label")}
+                  isChecked={forceLowBandwidth}
+                  onCheckedChange={(checked) => setForceLowBandwidth(checked)}
+                  disabled={debug}
+                />
+                <p className="mx-2 -mt-2 text-sm text-muted-foreground">
+                  {t("stream.lowBandwidth.force.desc")}
+                </p>
               </div>
             )}
             <div className="flex flex-col gap-1 px-2">

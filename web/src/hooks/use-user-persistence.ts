@@ -185,7 +185,12 @@ export function useUserPersistence<S>(
       setLoaded(true);
     }
 
-    void loadWithMigration();
+    // Consumers gate on this flag and the state already holds the defaults,
+    // so a rejected read must still resolve to "loaded".
+    void loadWithMigration().catch(() => {
+      loadedKeyRef.current = namespacedKey;
+      setLoaded(true);
+    });
   }, [
     auth.isLoading,
     isAuthenticated,

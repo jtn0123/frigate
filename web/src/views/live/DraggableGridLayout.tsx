@@ -22,6 +22,7 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import {
   AudioState,
+  LivePlayerError,
   LivePlayerMode,
   LiveStreamMetadata,
   StatsState,
@@ -66,9 +67,7 @@ type DraggableGridLayoutProps = {
   fullscreen: boolean;
   toggleFullscreen: () => void;
   preferredLiveModes: { [key: string]: LivePlayerMode };
-  setPreferredLiveModes: React.Dispatch<
-    React.SetStateAction<{ [key: string]: LivePlayerMode }>
-  >;
+  handleError: (cameraName: string, error: LivePlayerError) => void;
   resetPreferredLiveMode: (cameraName: string) => void;
   isRestreamedStates: { [key: string]: boolean };
   supportsAudioOutputStates: {
@@ -90,7 +89,7 @@ export default function DraggableGridLayout({
   fullscreen,
   toggleFullscreen,
   preferredLiveModes,
-  setPreferredLiveModes,
+  handleError,
   resetPreferredLiveMode,
   isRestreamedStates,
   supportsAudioOutputStates,
@@ -671,17 +670,7 @@ export default function DraggableGridLayout({
                     onClick={() => {
                       !isEditMode && onSelectCamera(camera.name);
                     }}
-                    onError={(e) => {
-                      setPreferredLiveModes((prevModes) => {
-                        const newModes = { ...prevModes };
-                        if (e === "mse-decode") {
-                          newModes[camera.name] = "webrtc";
-                        } else {
-                          newModes[camera.name] = "jsmpeg";
-                        }
-                        return newModes;
-                      });
-                    }}
+                    onError={(e) => handleError(camera.name, e)}
                     onResetLiveMode={() => resetPreferredLiveMode(camera.name)}
                     playAudio={audioStates[camera.name]}
                     volume={volumeStates[camera.name]}

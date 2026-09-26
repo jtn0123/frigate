@@ -133,7 +133,7 @@ When using the [DeepStack detector plugin](/configuration/object_detectors), Fri
 For [WebRTC live streaming](/configuration/live), Frigate uses STUN for NAT traversal:
 
 - **go2rtc** defaults to a local STUN listener (`stun:8555`), no internet required.
-- **The web UI's WebRTC player** includes a fallback to Google's public STUN server (`stun:stun.l.google.com:19302`), which requires internet.
+- **The web UI** uses the servers in `go2rtc.webrtc.ice_servers` for its WebRTC player and for the WebRTC connectivity check it runs when the Live view loads. If none are set, it uses Google's public STUN server (`stun:stun.l.google.com:19302`), which requires internet access from the browser. Set `ice_servers` to a STUN or TURN server on your network to avoid this.
 
 ## Home Assistant Supervisor
 
