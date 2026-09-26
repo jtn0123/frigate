@@ -69,24 +69,20 @@ function PlateCombobox({
   const [searchValue, setSearchValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const changeOpen = useCallback(
+    (next: boolean) => {
+      // Seed before mounting the input so autofocus can select synchronously.
+      setSearchValue(next ? value : "");
+      setOpen(next);
+    },
+    [value],
+  );
+
   useEffect(() => {
     if (!autoOpen) return;
-    setOpen(true);
+    changeOpen(true);
     onAutoOpened();
-  }, [autoOpen, onAutoOpened]);
-
-  // Seed the search box with the current plate and select it, so the first
-  // keystroke replaces the plate instead of appending to it.
-  useEffect(() => {
-    if (!open) {
-      setSearchValue("");
-      return;
-    }
-
-    setSearchValue(value);
-    const frame = requestAnimationFrame(() => inputRef.current?.select());
-    return () => cancelAnimationFrame(frame);
-  }, [open, value]);
+  }, [autoOpen, onAutoOpened, changeOpen]);
 
   const trimmedSearch = searchValue.trim();
 
@@ -109,7 +105,7 @@ function PlateCombobox({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={changeOpen}>
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -133,6 +129,11 @@ function PlateCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          inputRef.current?.focus();
+          inputRef.current?.select();
+        }}
         align="start"
         className="w-[--radix-popover-trigger-width] p-0"
       >
