@@ -45,7 +45,7 @@ type QualitySelectorProps = QualitySubtitleProps & {
   quality: PlaybackQuality;
   onSetQuality: (quality: PlaybackQuality) => void;
   setControlsOpen?: (open: boolean) => void;
-  containerRef?: React.MutableRefObject<HTMLDivElement | null>;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 };
 
 function useQualitySubtitles({
@@ -99,32 +99,38 @@ function useQualitySubtitles({
     [t],
   );
 
-  const subtitles = useMemo<Partial<Record<PlaybackQuality, string>>>(
-    () => ({
-      auto: autoLow
-        ? t(
-            autoLowReason === "codec"
-              ? "quality.autoLowCodec"
-              : autoLowReason === "saveData"
-                ? "quality.autoLowSaveData"
-                : "quality.autoLow",
-          )
-        : undefined,
-      // a stream absent from the summary has no footage in this range,
-      // and a pin is never silently substituted
-      main:
-        streams && !streams.main
-          ? t("quality.noRecordings")
-          : mainUnsupported
-            ? t("quality.notSupportedBrowser")
-            : streamSubtitle(streams?.main),
+  const subtitles = useMemo<Partial<Record<PlaybackQuality, string>>>(() => {
+    let auto: string | undefined;
+    if (!autoLow) {
+      auto = undefined;
+    } else if (autoLowReason === "codec") {
+      auto = t("quality.autoLowCodec");
+    } else if (autoLowReason === "saveData") {
+      auto = t("quality.autoLowSaveData");
+    } else {
+      auto = t("quality.autoLow");
+    }
+
+    // a stream absent from the summary has no footage in this range,
+    // and a pin is never silently substituted
+    let main: string | undefined;
+    if (streams && !streams.main) {
+      main = t("quality.noRecordings");
+    } else if (mainUnsupported) {
+      main = t("quality.notSupportedBrowser");
+    } else {
+      main = streamSubtitle(streams?.main);
+    }
+
+    return {
+      auto,
+      main,
       sub:
         streams && !streams.sub
           ? t("quality.noRecordings")
           : streamSubtitle(streams?.sub),
-    }),
-    [autoLow, autoLowReason, mainUnsupported, streamSubtitle, streams, t],
-  );
+    };
+  }, [autoLow, autoLowReason, mainUnsupported, streamSubtitle, streams, t]);
 
   return subtitles;
 }

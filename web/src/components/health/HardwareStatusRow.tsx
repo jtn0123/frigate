@@ -10,7 +10,9 @@ const MESSAGE_COLOR: Record<HardwareRow["state"], string> = {
   unknown: "text-muted-foreground",
 };
 
-export default function HardwareStatusRow({ row }: { row: HardwareRow }) {
+export default function HardwareStatusRow({
+  row,
+}: Readonly<{ row: HardwareRow }>) {
   return (
     <div
       className="flex items-start gap-2 text-sm"

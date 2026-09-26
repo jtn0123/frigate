@@ -104,7 +104,7 @@ const getSceneOptions = (itemSchema: RJSFSchema | undefined): string[] => {
     : [];
 };
 
-export function ModelsField(props: FieldProps) {
+export function ModelsField(props: Readonly<FieldProps>) {
   const {
     schema,
     uiSchema,

@@ -51,6 +51,18 @@ export default function Statusbar() {
     };
   }, [profilesData]);
 
+  const healthyIndicator = isAdmin ? (
+    <Link to="/system#notices" className="flex items-center gap-2 text-sm">
+      <FaCheck className="size-3 text-green-500" />
+      {t("stats.healthy")}
+    </Link>
+  ) : (
+    <div className="flex items-center gap-2 text-sm">
+      <FaCheck className="size-3 text-green-500" />
+      {t("stats.healthy")}
+    </div>
+  );
+
   return (
     // fork: dark:text-primary-variant, as secondary-foreground is 3.4:1 here
     <div className="absolute bottom-0 left-0 right-0 z-10 flex h-8 w-full items-center justify-between border-t border-secondary-highlight bg-background_alt px-4 dark:text-primary-variant">
@@ -151,25 +163,10 @@ export default function Statusbar() {
           ))}
       </div>
       <div className="no-scrollbar ml-4 flex h-full min-w-0 items-center gap-2 overflow-x-auto">
-        {messages.length === 0 ? (
-          isAdmin ? (
-            <Link
-              to="/system#notices"
-              className="flex items-center gap-2 text-sm"
-            >
-              <FaCheck className="size-3 text-green-500" />
-              {t("stats.healthy")}
-            </Link>
-          ) : (
-            <div className="flex items-center gap-2 text-sm">
-              <FaCheck className="size-3 text-green-500" />
-              {t("stats.healthy")}
-            </div>
-          )
-        ) : (
-          // fork (UI110): one chip that lists the messages in a popover
-          isAdmin && <StatusIssuesChip messages={{ status: messages }} />
-        )}
+        {messages.length === 0
+          ? healthyIndicator
+          : // fork (UI110): one chip that lists the messages in a popover
+            isAdmin && <StatusIssuesChip messages={{ status: messages }} />}
         {isAdmin && (
           <Suspense fallback={null}>
             <StatusBarNotices />

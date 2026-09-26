@@ -49,7 +49,7 @@ function toProblem(
     scopeIsCamera,
     text: t(message.messageKey, {
       ns: "views/settings",
-      ...(message.values ?? {}),
+      ...message.values,
     }),
     docLink: message.docLink,
     link: settingsLink(section, ctx.level, ctx.cameraName),

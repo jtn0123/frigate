@@ -60,13 +60,16 @@ export function InputRolesWidget(props: WidgetProps) {
             !checked &&
             conflictingRole !== undefined &&
             selectedRoles.includes(conflictingRole);
-          const hint = usedByOtherInput
-            ? t("configForm.inputRoles.roleInUse", { ns: "views/settings" })
-            : hasConflict
-              ? t("configForm.inputRoles.recordSubConflict", {
-                  ns: "views/settings",
-                })
-              : undefined;
+          let hint: string | undefined;
+          if (usedByOtherInput) {
+            hint = t("configForm.inputRoles.roleInUse", {
+              ns: "views/settings",
+            });
+          } else if (hasConflict) {
+            hint = t("configForm.inputRoles.recordSubConflict", {
+              ns: "views/settings",
+            });
+          }
           const label = t(`configForm.inputRoles.options.${role}`, {
             ns: "views/settings",
             defaultValue: role,

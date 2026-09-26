@@ -103,6 +103,25 @@ export function useHealthProblems(
       const external = link !== undefined && EXTERNAL_LINK.test(link);
       const isCamera = notice.category === "camera";
 
+      let meta: string;
+      if (notice.muted_at !== null) {
+        meta = t("health.notices.mutedAt", {
+          ns: "views/system",
+          time: formatTime(notice.muted_at),
+        });
+      } else if (notice.acknowledged_at !== null) {
+        meta = t("health.notices.acknowledgedAt", {
+          ns: "views/system",
+          time: formatTime(notice.acknowledged_at),
+        });
+      } else {
+        meta = t("health.notices.firstSeen", {
+          ns: "views/system",
+          time: formatTime(notice.first_seen),
+          count: notice.count,
+        });
+      }
+
       return {
         id: `notice:${notice.id}`,
         source: "registry",
@@ -116,22 +135,7 @@ export function useHealthProblems(
           replace: notice.params,
           count: notice.count,
         }),
-        meta:
-          notice.muted_at !== null
-            ? t("health.notices.mutedAt", {
-                ns: "views/system",
-                time: formatTime(notice.muted_at),
-              })
-            : notice.acknowledged_at !== null
-              ? t("health.notices.acknowledgedAt", {
-                  ns: "views/system",
-                  time: formatTime(notice.acknowledged_at),
-                })
-              : t("health.notices.firstSeen", {
-                  ns: "views/system",
-                  time: formatTime(notice.first_seen),
-                  count: notice.count,
-                }),
+        meta,
         link: external ? undefined : link,
         externalLink: external ? link : undefined,
         ...(hiddenAt(notice) > 0
@@ -213,7 +217,8 @@ export function useHealthProblems(
       }),
     ];
 
-    return rows.sort((a, b) => b.at - a.at).map(({ row }) => row);
+    rows.sort((a, b) => b.at - a.at);
+    return rows.map(({ row }) => row);
   }, [
     showHidden,
     hiddenNotices,

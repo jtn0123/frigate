@@ -20,7 +20,7 @@ type NoticeFilterButtonProps = {
 export default function NoticeFilterButton({
   filter,
   onFilterChange,
-}: NoticeFilterButtonProps) {
+}: Readonly<NoticeFilterButtonProps>) {
   const { t } = useTranslation(["views/system", "components/filter"]);
   const [open, setOpen] = useState(false);
   const active =

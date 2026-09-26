@@ -197,7 +197,7 @@ export function detectionRows({
       };
     }
 
-    const missingRunner = modelRunners.find(
+    const missingRunner = modelRunners.some(
       (name) => !Object.prototype.hasOwnProperty.call(stats.detectors, name),
     );
 
@@ -655,14 +655,7 @@ export function enrichmentRows({
         };
       }
 
-      // implicit defaults (GPU for face recognition and large semantic
-      // search) accept any accelerator; only an explicit override is matched
-      // against its own hardware
-      const keys = spec.explicit
-        ? acceleratorKeysFor(spec.requested, spec.nvidiaOnly)
-        : spec.nvidiaOnly
-          ? ["onnx:nvidia"]
-          : ANY_ACCELERATOR;
+      const keys = enrichmentKeys(spec);
 
       if (!keys) {
         return {
@@ -708,51 +701,100 @@ export function enrichmentRows({
         return { id, state: "ok", label, detail: spec.requested };
       }
 
-      if (!runtime) {
-        return {
-          id,
-          state: "unknown",
-          label,
-          message:
-            startup || !stats
-              ? t("health.hardware.justStarted", { ns: "views/system" })
-              : t("health.hardware.modelNotRunYet", { ns: "views/system" }),
-        };
-      }
-
-      if (
-        runtimeIsCpu &&
-        present &&
-        spec.explicit &&
-        spec.requested.toUpperCase() !== "AUTO"
-      ) {
-        return {
-          id,
-          state: "error",
-          label,
-          detail: "CPU",
-          message: t("health.hardware.fellBackToCpu", {
-            ns: "views/system",
-            device: spec.requested,
-          }),
-        };
-      }
-
-      // a model that keeps up on the CPU needs no accelerator
-      if (runtimeIsCpu && present && inferenceIsSlow(stats, spec.id)) {
-        return {
-          id,
-          state: "warning",
-          label,
-          detail: "CPU",
-          message: t("health.hardware.cpuDespiteAccelerator", {
-            ns: "views/system",
-          }),
-        };
-      }
-
-      return { id, state: "ok", label, detail: runtimeIsCpu ? "CPU" : runtime };
+      return enrichmentRuntimeRow({
+        spec,
+        id,
+        label,
+        present,
+        runtime,
+        runtimeIsCpu,
+        stats,
+        startup,
+        t,
+      });
     });
+}
+
+/**
+ * The probe keys an enrichment's device is matched against. Implicit defaults
+ * (GPU for face recognition and large semantic search) accept any
+ * accelerator; only an explicit override is matched against its own hardware.
+ */
+function enrichmentKeys(spec: EnrichmentSpec): string[] | undefined {
+  if (spec.explicit) {
+    return acceleratorKeysFor(spec.requested, spec.nvidiaOnly);
+  }
+  return spec.nvidiaOnly ? ["onnx:nvidia"] : ANY_ACCELERATOR;
+}
+
+type EnrichmentRuntimeArgs = {
+  spec: EnrichmentSpec;
+  id: string;
+  label: string;
+  present: boolean;
+  runtime: string | undefined;
+  runtimeIsCpu: boolean;
+  stats: FrigateStats | undefined;
+  startup: boolean;
+  t: TFunction;
+};
+
+/** The row for an enrichment once its reported runtime device decides it. */
+function enrichmentRuntimeRow({
+  spec,
+  id,
+  label,
+  present,
+  runtime,
+  runtimeIsCpu,
+  stats,
+  startup,
+  t,
+}: EnrichmentRuntimeArgs): HardwareRow {
+  if (!runtime) {
+    return {
+      id,
+      state: "unknown",
+      label,
+      message:
+        startup || !stats
+          ? t("health.hardware.justStarted", { ns: "views/system" })
+          : t("health.hardware.modelNotRunYet", { ns: "views/system" }),
+    };
+  }
+
+  if (
+    runtimeIsCpu &&
+    present &&
+    spec.explicit &&
+    spec.requested.toUpperCase() !== "AUTO"
+  ) {
+    return {
+      id,
+      state: "error",
+      label,
+      detail: "CPU",
+      message: t("health.hardware.fellBackToCpu", {
+        ns: "views/system",
+        device: spec.requested,
+      }),
+    };
+  }
+
+  // a model that keeps up on the CPU needs no accelerator
+  if (runtimeIsCpu && present && inferenceIsSlow(stats, spec.id)) {
+    return {
+      id,
+      state: "warning",
+      label,
+      detail: "CPU",
+      message: t("health.hardware.cpuDespiteAccelerator", {
+        ns: "views/system",
+      }),
+    };
+  }
+
+  return { id, state: "ok", label, detail: runtimeIsCpu ? "CPU" : runtime };
 }
 
 // ------------------------------------------------------- camera connections
@@ -781,11 +823,7 @@ export function cameraConnectionCells(
     .map((camera): CameraConnectionCell | undefined => {
       const cam = cameraStats[camera.name];
 
-      if (
-        !cam ||
-        !cam.connection_quality ||
-        cam.connection_quality === "excellent"
-      ) {
+      if (!cam?.connection_quality || cam.connection_quality === "excellent") {
         return undefined;
       }
 

@@ -21,7 +21,7 @@ import HardwareStatusRow from "@/components/health/HardwareStatusRow";
 import { useHardwareHealth } from "@/hooks/use-hardware-health";
 import { useHealthChecks } from "@/hooks/use-health-checks";
 import type { FrigateConfig } from "@/types/frigateConfig";
-import type { HardwareRow } from "@/utils/health";
+import type { CameraConnectionCell, HardwareRow } from "@/utils/health";
 import { streamHealth } from "@/utils/streamHealth";
 
 function Card({
@@ -30,7 +30,7 @@ function Card({
   action,
   subtitle,
   children,
-}: {
+}: Readonly<{
   title: string;
   className?: string;
   /** an icon button right after the title */
@@ -38,7 +38,7 @@ function Card({
   /** a muted line under the title */
   subtitle?: React.ReactNode;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <div
       className={cn(
@@ -65,12 +65,12 @@ function InlineAction({
   busy,
   disabled,
   onClick,
-}: {
+}: Readonly<{
   label: string;
   busy?: boolean;
   disabled?: boolean;
   onClick: () => void;
-}) {
+}>) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -96,7 +96,10 @@ function InlineAction({
   );
 }
 
-function Group({ title, rows }: { title: string; rows: HardwareRow[] }) {
+function Group({
+  title,
+  rows,
+}: Readonly<{ title: string; rows: HardwareRow[] }>) {
   const { t } = useTranslation(["views/system"]);
 
   return (
@@ -221,6 +224,52 @@ function HardwareHeading() {
   );
 }
 
+function CameraConnections({
+  statsLoaded,
+  cameras,
+}: Readonly<{ statsLoaded: boolean; cameras: CameraConnectionCell[] }>) {
+  const { t } = useTranslation(["views/system"]);
+
+  if (!statsLoaded) {
+    return <Skeleton className="h-10 w-full" />;
+  }
+
+  if (cameras.length === 0) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <FaCircleCheck className="size-4 text-success" />
+        {t("health.hardware.allCamerasExcellent")}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {cameras.map((cell) => (
+        <div
+          key={cell.camera}
+          className="flex items-center gap-2 text-sm"
+          data-testid={`camera-connection-${cell.camera}`}
+        >
+          <ConnectionQualityIndicator
+            quality={cell.quality}
+            expectedFps={cell.expectedFps}
+            reconnects={cell.reconnects}
+            stalls={cell.stalls}
+          />
+          <CameraNameLabel camera={cell.camera} className="smart-capitalize" />
+          <span className="text-muted-foreground">
+            {t("health.hardware.fps", {
+              camera: cell.cameraFps.toFixed(1),
+              expected: cell.expectedFps,
+            })}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function HardwarePane() {
   const { t } = useTranslation(["views/system"]);
   const { rows, statsLoaded } = useHardwareHealth();
@@ -231,64 +280,31 @@ export default function HardwarePane() {
       {!rows ? (
         <Skeleton className="h-40 w-full rounded-lg md:rounded-2xl" />
       ) : (
-        <>
-          <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-              <Group
-                title={t("health.hardware.objectDetection")}
-                rows={rows.detection}
-              />
-              <Group
-                title={t("health.hardware.hardwareAcceleration")}
-                rows={rows.hwaccel}
-              />
-              <Group
-                title={t("health.hardware.enrichments.title")}
-                rows={rows.enrichments}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <StreamsGroup />
-              <Card title={t("health.hardware.cameraConnections")}>
-                {!statsLoaded ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : rows.cameras.length === 0 ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <FaCircleCheck className="size-4 text-success" />
-                    {t("health.hardware.allCamerasExcellent")}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                    {rows.cameras.map((cell) => (
-                      <div
-                        key={cell.camera}
-                        className="flex items-center gap-2 text-sm"
-                        data-testid={`camera-connection-${cell.camera}`}
-                      >
-                        <ConnectionQualityIndicator
-                          quality={cell.quality}
-                          expectedFps={cell.expectedFps}
-                          reconnects={cell.reconnects}
-                          stalls={cell.stalls}
-                        />
-                        <CameraNameLabel
-                          camera={cell.camera}
-                          className="smart-capitalize"
-                        />
-                        <span className="text-muted-foreground">
-                          {t("health.hardware.fps", {
-                            camera: cell.cameraFps.toFixed(1),
-                            expected: cell.expectedFps,
-                          })}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </div>
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            <Group
+              title={t("health.hardware.objectDetection")}
+              rows={rows.detection}
+            />
+            <Group
+              title={t("health.hardware.hardwareAcceleration")}
+              rows={rows.hwaccel}
+            />
+            <Group
+              title={t("health.hardware.enrichments.title")}
+              rows={rows.enrichments}
+            />
           </div>
-        </>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <StreamsGroup />
+            <Card title={t("health.hardware.cameraConnections")}>
+              <CameraConnections
+                statsLoaded={statsLoaded}
+                cameras={rows.cameras}
+              />
+            </Card>
+          </div>
+        </div>
       )}
     </div>
   );

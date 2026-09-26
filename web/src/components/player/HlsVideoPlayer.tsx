@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import Hls, { HlsConfig } from "hls.js";
+import Hls, { ErrorData, HlsConfig } from "hls.js";
 import { isDesktop, isMobile } from "react-device-detect";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import VideoControls from "./VideoControls";
@@ -33,6 +33,27 @@ const unsupportedErrorCodes: number[] = [
   MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED,
   MediaError.MEDIA_ERR_DECODE,
 ];
+
+/** Recovers from a fatal hls.js media error, spending the recovery budget. */
+function handleFatalMediaError(
+  hls: Hls,
+  data: ErrorData,
+  onFatalCodecError: (() => boolean) | undefined,
+  recoveryBudgetRef: { current: number },
+) {
+  // retrying the same codec cannot succeed, so a codec error
+  // prefers a quality downswitch over recovery
+  const isCodecError =
+    data.details === Hls.ErrorDetails.BUFFER_INCOMPATIBLE_CODECS_ERROR ||
+    data.details === Hls.ErrorDetails.BUFFER_ADD_CODEC_ERROR;
+  if (isCodecError && onFatalCodecError?.()) {
+    return;
+  }
+  if (!isCodecError && recoveryBudgetRef.current > 0) {
+    recoveryBudgetRef.current -= 1;
+    hls.recoverMediaError();
+  }
+}
 
 export interface HlsSource {
   playlist: string;
@@ -266,19 +287,12 @@ export default function HlsVideoPlayer({
             hls.startLoad();
           }
         } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          // retrying the same codec cannot succeed, so a codec error
-          // prefers a quality downswitch over recovery
-          const isCodecError =
-            data.details ===
-              Hls.ErrorDetails.BUFFER_INCOMPATIBLE_CODECS_ERROR ||
-            data.details === Hls.ErrorDetails.BUFFER_ADD_CODEC_ERROR;
-          if (isCodecError && qualitySignalsRef.current.onFatalCodecError?.()) {
-            return;
-          }
-          if (!isCodecError && mediaRecoveryBudgetRef.current > 0) {
-            mediaRecoveryBudgetRef.current -= 1;
-            hls.recoverMediaError();
-          }
+          handleFatalMediaError(
+            hls,
+            data,
+            qualitySignalsRef.current.onFatalCodecError,
+            mediaRecoveryBudgetRef,
+          );
         }
         return;
       }

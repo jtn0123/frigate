@@ -21,7 +21,7 @@ export function StatusMessageItem({
   message,
   className,
   onNavigate,
-}: StatusMessageItemProps) {
+}: Readonly<StatusMessageItemProps>) {
   const content = (
     <div
       className={cn(
@@ -59,7 +59,7 @@ export default function StatusMessageList({
   messages,
   className,
   onNavigate,
-}: StatusMessageListProps) {
+}: Readonly<StatusMessageListProps>) {
   return (
     <div
       className={cn("flex flex-col gap-2", className)}

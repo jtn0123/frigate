@@ -48,8 +48,8 @@ type StallEpisode = {
 export class AutoQualityGovernor {
   // returns false when quality is pinned, sub is unavailable, or the
   // player is already low
-  private requestDownswitch: (reason: DownswitchReason) => boolean;
-  private requestUpswitch: (() => void) | undefined;
+  private readonly requestDownswitch: (reason: DownswitchReason) => boolean;
+  private readonly requestUpswitch: (() => void) | undefined;
 
   private episodes: StallEpisode[] = [];
   private openEpisode: { start: number; graced: boolean } | null = null;
@@ -81,9 +81,7 @@ export class AutoQualityGovernor {
 
   /** Seed the connection estimate persisted from earlier sessions. */
   seed(bandwidthEstimateBps: number | undefined) {
-    if (this.bandwidthEstimateBps === undefined) {
-      this.bandwidthEstimateBps = bandwidthEstimateBps;
-    }
+    this.bandwidthEstimateBps ??= bandwidthEstimateBps;
   }
 
   /**

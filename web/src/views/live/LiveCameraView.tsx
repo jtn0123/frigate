@@ -612,6 +612,15 @@ export default function LiveCameraView({
     [t],
   );
 
+  let micTitle: string;
+  if (!webRTCGloballyAvailable) {
+    micTitle = t("twoWayTalk.requiresWebRTC", { ns: "views/live" });
+  } else if (mic) {
+    micTitle = t("twoWayTalk.disable", { ns: "views/live" });
+  } else {
+    micTitle = t("twoWayTalk.enable", { ns: "views/live" });
+  }
+
   return (
     <TransformWrapper
       minScale={1.0}
@@ -747,13 +756,7 @@ export default function LiveCameraView({
                 variant={fullscreen ? "overlay" : "primary"}
                 Icon={mic ? FaMicrophone : FaMicrophoneSlash}
                 isActive={mic}
-                title={
-                  !webRTCGloballyAvailable
-                    ? t("twoWayTalk.requiresWebRTC", { ns: "views/live" })
-                    : mic
-                      ? t("twoWayTalk.disable", { ns: "views/live" })
-                      : t("twoWayTalk.enable", { ns: "views/live" })
-                }
+                title={micTitle}
                 onClick={() => {
                   setMic(!mic);
                   if (!mic && !audio) {
@@ -1824,10 +1827,8 @@ function FrigateCameraFeatures({
 
                 {debug && (
                   <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
-                    <>
-                      <LuX className="size-8 text-danger" />
-                      <div>{t("stream.debug.picker")}</div>
-                    </>
+                    <LuX className="size-8 text-danger" />
+                    <div>{t("stream.debug.picker")}</div>
                   </div>
                 )}
 

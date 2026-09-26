@@ -53,7 +53,7 @@ export function streamHealth(
   const cameras: Partial<FrigateConfig["cameras"]> = config.cameras;
   Object.entries(results.byCamera).forEach(([name, check]) => {
     const camera = cameras[name];
-    if (!camera || !camera.enabled) {
+    if (!camera?.enabled) {
       return;
     }
     checked += 1;
@@ -81,7 +81,7 @@ export function streamHealth(
       const result = check.streams.at(index);
       const streamNumber = index + 1;
 
-      if (!result || !result.success) {
+      if (!result?.success) {
         state.flagged = true;
         problems.push({
           id: `stream:${name}:${index}:probe`,

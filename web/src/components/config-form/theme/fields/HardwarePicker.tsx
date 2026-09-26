@@ -35,7 +35,7 @@ export function HardwarePicker({
   cameraCount,
   disabled,
   onChange,
-}: HardwarePickerProps) {
+}: Readonly<HardwarePickerProps>) {
   const { t } = useTranslation(["views/settings", "common"]);
 
   const { data: hardware, isLoading } =

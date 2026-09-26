@@ -125,9 +125,7 @@ export function probeWebRTCAvailability(
   iceServers: RTCIceServer[],
   timeoutMs: number = 5000,
 ): Promise<WebRTCProbeResult> {
-  if (!probePromise) {
-    probePromise = runProbe(testStream, iceServers, timeoutMs);
-  }
+  probePromise ??= runProbe(testStream, iceServers, timeoutMs);
   return probePromise;
 }
 

@@ -33,10 +33,10 @@ const ICON_BUTTON_CLASS =
 function RowAction({
   label,
   children,
-}: {
+}: Readonly<{
   label: string;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
@@ -47,7 +47,9 @@ function RowAction({
   );
 }
 
-export default function HealthProblemRow({ problem }: HealthProblemRowProps) {
+export default function HealthProblemRow({
+  problem,
+}: Readonly<HealthProblemRowProps>) {
   const { t } = useTranslation(["views/system", "common"]);
   const { getLocaleDocUrl } = useDocDomain();
   const hasDetails = problem.scope || problem.meta;

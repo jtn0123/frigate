@@ -57,7 +57,7 @@ export function ModelSourcePicker({
   disabled,
   onPathChange,
   customFields,
-}: ModelSourcePickerProps) {
+}: Readonly<ModelSourcePickerProps>) {
   const { t } = useTranslation(["views/settings"]);
   const { data: config } = useSWR<FrigateConfig>("config");
 
@@ -115,6 +115,15 @@ export function ModelSourcePicker({
         : t("frigatePlus.modelInfo.plusModelType.userModel")
     }) ${model.name} (${model.width}x${model.height})`;
 
+  let triggerLabel: string;
+  if (selectedId && availableModels?.[selectedId]) {
+    triggerLabel = describe(availableModels[selectedId]);
+  } else if (isLoading) {
+    triggerLabel = t("frigatePlus.modelInfo.loadingAvailableModels");
+  } else {
+    triggerLabel = t("detectionModels.plusModel.noModelSelected");
+  }
+
   return (
     <Tabs value={tab} onValueChange={handleTabChange}>
       <TabsList className="mb-4">
@@ -132,11 +141,7 @@ export function ModelSourcePicker({
           disabled={disabled}
         >
           <SelectTrigger className="w-full max-w-2xl">
-            {selectedId && availableModels?.[selectedId]
-              ? describe(availableModels[selectedId])
-              : isLoading
-                ? t("frigatePlus.modelInfo.loadingAvailableModels")
-                : t("detectionModels.plusModel.noModelSelected")}
+            {triggerLabel}
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>

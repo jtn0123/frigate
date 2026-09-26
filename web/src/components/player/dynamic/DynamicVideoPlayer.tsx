@@ -57,6 +57,36 @@ const SOURCE_START_GRID_S = 10;
 // natural chunk advance) keep the held frame
 const REPOSITION_PREVIEW_THRESHOLD_S = 2;
 
+/** Grid-aligned start of the source window for a seek inside the chunk. */
+function sourceWindowStart(
+  startTimestamp: number | undefined,
+  timeRange: TimeRange,
+): number | undefined {
+  if (
+    startTimestamp !== undefined &&
+    startTimestamp > timeRange.after &&
+    startTimestamp < timeRange.before
+  ) {
+    return Math.max(
+      timeRange.after,
+      Math.floor(startTimestamp / SOURCE_START_GRID_S) * SOURCE_START_GRID_S,
+    );
+  }
+
+  return undefined;
+}
+
+/** Auto quality plays the sub stream once the governor has downswitched. */
+function effectivePlaybackQuality(
+  resolvedQuality: PlaybackQuality,
+  autoLowQuality: boolean,
+): PlaybackQuality {
+  if (resolvedQuality === "auto" && autoLowQuality) {
+    return "sub";
+  }
+  return resolvedQuality;
+}
+
 /**
  * Dynamically switches between video playback and scrubbing preview player.
  */
@@ -227,16 +257,7 @@ export default function DynamicVideoPlayer({
 
   // adjusted during render: an effect lands one commit late, briefly
   // painting the stale video frame between drag preview and load bridge
-  const nextSourceAfter =
-    startTimestamp !== undefined &&
-    startTimestamp > timeRange.after &&
-    startTimestamp < timeRange.before
-      ? Math.max(
-          timeRange.after,
-          Math.floor(startTimestamp / SOURCE_START_GRID_S) *
-            SOURCE_START_GRID_S,
-        )
-      : undefined;
+  const nextSourceAfter = sourceWindowStart(startTimestamp, timeRange);
 
   if (nextSourceAfter !== sourceAfter) {
     setSourceAfter(nextSourceAfter);
@@ -447,12 +468,10 @@ export default function DynamicVideoPlayer({
   const tryDownswitchRef = useRef<(reason: string) => boolean>(() => false);
   const tryUpswitchRef = useRef<() => void>(() => {});
   const governorRef = useRef<AutoQualityGovernor | null>(null);
-  if (governorRef.current === null) {
-    governorRef.current = new AutoQualityGovernor(
-      (reason) => tryDownswitchRef.current(reason),
-      () => tryUpswitchRef.current(),
-    );
-  }
+  governorRef.current ??= new AutoQualityGovernor(
+    (reason) => tryDownswitchRef.current(reason),
+    () => tryUpswitchRef.current(),
+  );
   const governor = governorRef.current;
 
   // callers pass an inline callback, so keeping it out of the notify
@@ -639,8 +658,10 @@ export default function DynamicVideoPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const effectiveQuality: PlaybackQuality =
-    resolvedQuality === "auto" && autoLowQuality ? "sub" : resolvedQuality;
+  const effectiveQuality = effectivePlaybackQuality(
+    resolvedQuality,
+    autoLowQuality,
+  );
 
   const onStallStart = useCallback(() => governor.stallStarted(), [governor]);
   const onStallEnd = useCallback(() => governor.stallEnded(), [governor]);

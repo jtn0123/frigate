@@ -29,7 +29,7 @@ function getBirdseyeModeLabel(mode: string, context?: FormContext): string {
   });
 }
 
-export function BirdseyeModesWidget(props: WidgetProps) {
+export function BirdseyeModesWidget(props: Readonly<WidgetProps>) {
   return (
     <SwitchesWidget
       {...props}

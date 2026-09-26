@@ -24,7 +24,7 @@ export default function StreamTechnologySelect({
   isWebRTCAvailable,
   webRTCUnavailableReason,
   disabled,
-}: StreamTechnologySelectProps) {
+}: Readonly<StreamTechnologySelectProps>) {
   const { t } = useTranslation(["views/live"]);
 
   const isChecking = webRTCUnavailableReason === "checking";

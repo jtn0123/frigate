@@ -41,7 +41,8 @@ export function getDeviceId(): string {
   } catch {
     // Storage blocked (private mode, disabled cookies): fall back to a
     // session-only id so callers still get a usable key.
-    return (sessionId ??= mintId());
+    sessionId ??= mintId();
+    return sessionId;
   }
 }
 

@@ -23,6 +23,17 @@ import type {
 } from "@/context/statusbar-context";
 import { cn } from "@/lib/utils";
 
+// anything that is not an error or a warning reads as informational
+function severityIconClass(severity: StatusMessage["severity"]): string {
+  if (severity === "error") {
+    return "text-danger";
+  }
+  if (severity === "warning") {
+    return "text-warning";
+  }
+  return "text-selected";
+}
+
 type StatusIssuesChipProps = {
   messages: StatusMessagesState;
 };
@@ -80,11 +91,7 @@ export default function StatusIssuesChip({
               <IoIosWarning
                 className={cn(
                   "mt-0.5 size-4 shrink-0",
-                  severity === "error"
-                    ? "text-danger"
-                    : severity === "warning"
-                      ? "text-warning"
-                      : "text-selected",
+                  severityIconClass(severity),
                 )}
                 aria-hidden
               />

@@ -6,7 +6,9 @@ type HealthMetricsProps = {
   noticeFilter: NoticeFilter;
 };
 
-export default function HealthMetrics({ noticeFilter }: HealthMetricsProps) {
+export default function HealthMetrics({
+  noticeFilter,
+}: Readonly<HealthMetricsProps>) {
   return (
     <div className="scrollbar-container mt-4 flex size-full flex-col gap-4 overflow-y-auto">
       <NoticesPane filter={noticeFilter} />

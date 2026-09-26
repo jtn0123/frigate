@@ -475,9 +475,7 @@ test.describe("System health notices @medium @mobile", () => {
   });
 });
 
-test.describe("System - Health tab mobile @medium @mobile", () => {
-  test.skip(({ frigateApp }) => !frigateApp.isMobile, "Mobile-only");
-
+test.describe("System - Health tab mobile @medium @mobile-only", () => {
   test("notices render at mobile viewport", async ({ frigateApp }) => {
     await installDefaults(frigateApp, {
       stats: QUIET_STATS,
@@ -776,8 +774,9 @@ test.describe("System - Health notices sources @medium", () => {
     ).toHaveAttribute("href", "/settings?page=cameraDetect&camera=garage");
   });
 
-  test("status bar problems stay out of the list", async ({ frigateApp }) => {
-    test.skip(frigateApp.isMobile, "Status bar is desktop-only");
+  test("status bar problems stay out of the list @desktop-only", async ({
+    frigateApp,
+  }) => {
     await installDefaults(frigateApp, {
       stats: {
         service: { retention_unmet: true },
@@ -995,7 +994,7 @@ test.describe("System - Health notices sources @medium", () => {
       frigateApp.page.getByRole("button", { name: "Run again" }),
     ).toBeVisible();
     // axios leaves ":" unescaped in query strings
-    expect(requests.filter((u) => u.includes("paths=camera:")).length).toBe(3);
+    expect(requests.filter((u) => u.includes("paths=camera:"))).toHaveLength(3);
   });
 
   test("non-AAC audio is fine when recordings transcode to AAC", async ({
@@ -1092,7 +1091,7 @@ test.describe("System - Health notices sources @medium", () => {
     await recheck.click();
     await expect(frigateApp.page.getByText(/^Probed/)).toBeVisible();
     await expect(recheck).toBeEnabled();
-    expect(probes.length).toBe(1);
+    expect(probes).toHaveLength(1);
   });
 
   test("a camera notice link opens that camera's settings page", async ({
@@ -1125,10 +1124,9 @@ test.describe("System - Health notices sources @medium", () => {
     );
   });
 
-  test("status bar healthy text links to the Health tab", async ({
+  test("status bar healthy text links to the Health tab @desktop-only", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Status bar is desktop-only");
     await installDefaults(frigateApp, { stats: QUIET_STATS });
     await frigateApp.goto("/");
 
@@ -1138,10 +1136,9 @@ test.describe("System - Health notices sources @medium", () => {
     await expect(frigateApp.page).toHaveURL(/\/system#notices/);
   });
 
-  test("status bar counts shown notices next to the health text", async ({
+  test("status bar counts shown notices next to the health text @desktop-only", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Status bar is desktop-only");
     await installDefaults(frigateApp, {
       stats: QUIET_STATS,
       notices: [EVENT_NOTICE],
@@ -1158,10 +1155,9 @@ test.describe("System - Health notices sources @medium", () => {
     ).toBeVisible();
   });
 
-  test("status bar shows viewers no problems or health text", async ({
+  test("status bar shows viewers no problems or health text @desktop-only", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Status bar is desktop-only");
     await installDefaults(frigateApp, {
       profile: viewerProfile(),
       stats: {
@@ -1187,10 +1183,9 @@ test.describe("System - Health notices sources @medium", () => {
     cameras: { front_door: { camera_fps: 0 } },
   };
 
-  test("status bar lists problems by severity in the compact chip", async ({
+  test("status bar lists problems by severity in the compact chip @desktop-only", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Status bar is desktop-only");
     await installDefaults(frigateApp, { stats: TWO_PROBLEM_STATS });
     await frigateApp.goto("/");
 
@@ -1214,8 +1209,9 @@ test.describe("System - Health notices sources @medium", () => {
     await expect(list).toHaveCount(0);
   });
 
-  test("mobile status drawer stacks every problem", async ({ frigateApp }) => {
-    test.skip(!frigateApp.isMobile, "Mobile-only");
+  test("mobile status drawer stacks every problem @mobile-only", async ({
+    frigateApp,
+  }) => {
     await installDefaults(frigateApp, { stats: TWO_PROBLEM_STATS });
     await frigateApp.goto("/");
 

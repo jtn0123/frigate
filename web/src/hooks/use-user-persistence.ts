@@ -176,7 +176,7 @@ export function useUserPersistence<S>(
 
       // For unauthenticated users or after migration check, just load normally
       const storedValue = await getData<S>(namespacedKey);
-      finishLoad(storedValue === undefined ? defaultValue : storedValue);
+      finishLoad(storedValue ?? defaultValue);
     }
 
     // Consumers gate on this flag and the state already holds the defaults,

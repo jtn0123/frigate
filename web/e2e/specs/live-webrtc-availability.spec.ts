@@ -48,12 +48,10 @@ async function readIdb(page: Page, key: string) {
   }, key);
 }
 
-test.describe("WebRTC availability gating @critical", () => {
+test.describe("WebRTC availability gating @critical @desktop-only", () => {
   test("desktop: WebRTC option is disabled when no candidates or ice_servers", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Desktop dropdown only");
-
     await frigateApp.installDefaults({
       config: {
         go2rtc: {
@@ -116,8 +114,6 @@ test.describe("WebRTC availability gating @critical", () => {
   test("desktop: the WebRTC option reports the pending connectivity check", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Desktop dropdown only");
-
     // Hold the signaling socket open so the probe stays pending. Left alone it
     // fails fast against the preview server and resolves to unreachable, which
     // is the state the first test already covers.
@@ -177,8 +173,6 @@ test.describe("WebRTC availability gating @critical", () => {
   test("desktop: JSMpeg is no longer offered in the technology selector", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Desktop dropdown only");
-
     await frigateApp.installDefaults({
       config: {
         go2rtc: {
@@ -228,8 +222,6 @@ test.describe("WebRTC availability gating @critical", () => {
   test("desktop: force low-bandwidth switch disables the technology and stream selectors", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Desktop dropdown only");
-
     await frigateApp.installDefaults({
       config: {
         go2rtc: {
@@ -295,8 +287,6 @@ test.describe("WebRTC availability gating @critical", () => {
   test("desktop: saving group streaming settings keeps an unavailable WebRTC choice", async ({
     frigateApp,
   }) => {
-    test.skip(frigateApp.isMobile, "Desktop context menu only");
-
     await frigateApp.installDefaults({
       config: {
         go2rtc: {
@@ -348,12 +338,10 @@ test.describe("WebRTC availability gating @critical", () => {
   });
 });
 
-test.describe("WebRTC availability gating @critical @mobile", () => {
+test.describe("WebRTC availability gating @critical @mobile-only", () => {
   test("mobile: WebRTC option is disabled when no candidates or ice_servers", async ({
     frigateApp,
   }) => {
-    test.skip(!frigateApp.isMobile, "Mobile drawer only");
-
     await frigateApp.installDefaults({
       config: {
         go2rtc: {

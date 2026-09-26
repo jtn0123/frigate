@@ -52,8 +52,7 @@ export function ffprobeToTestResult(
   entry: FfprobeEntry | undefined,
 ): TestResult {
   if (
-    !entry ||
-    entry.return_code !== 0 ||
+    entry?.return_code !== 0 ||
     !entry.stdout ||
     typeof entry.stdout !== "object"
   ) {
@@ -78,8 +77,8 @@ export function ffprobeToTestResult(
     ? `${videoStream.width}x${videoStream.height}`
     : undefined;
   const fps = videoStream?.avg_frame_rate
-    ? parseFloat(videoStream.avg_frame_rate.split("/")[0]) /
-      parseFloat(videoStream.avg_frame_rate.split("/")[1])
+    ? Number.parseFloat(videoStream.avg_frame_rate.split("/")[0]) /
+      Number.parseFloat(videoStream.avg_frame_rate.split("/")[1])
     : undefined;
 
   return {
@@ -87,8 +86,151 @@ export function ffprobeToTestResult(
     resolution,
     videoCodec: videoStream?.codec_name,
     audioCodec: audioStream?.codec_name,
-    fps: fps && !isNaN(fps) ? fps : undefined,
+    fps: fps && !Number.isNaN(fps) ? fps : undefined,
   };
+}
+
+/** Brand-specific warnings about the stream URL (Reolink). */
+function reolinkIssues(input: StreamIssueInput, t: TFunction): StreamIssue[] {
+  const result: StreamIssue[] = [];
+  const streamUrl = input.url.toLowerCase();
+  if (streamUrl.startsWith("rtsp://")) {
+    result.push({
+      type: "warning",
+      rule: "reolink-rtsp",
+      message: t("cameraWizard.step4.issues.brands.reolink-rtsp", {
+        ns: "views/settings",
+      }),
+    });
+  }
+
+  if (streamUrl.startsWith("http://") && !input.useFfmpeg) {
+    result.push({
+      type: "warning",
+      rule: "reolink-http",
+      message: t("cameraWizard.step4.issues.brands.reolink-http", {
+        ns: "views/settings",
+      }),
+    });
+  }
+  return result;
+}
+
+/** The audio verdict for a stream that has the record role. */
+function recordAudioIssue(
+  testResult: TestResult | undefined,
+  t: TFunction,
+): StreamIssue {
+  if (!testResult?.audioCodec) {
+    return {
+      type: "warning",
+      rule: "no-audio",
+      message: t("cameraWizard.step4.issues.noAudioWarning", {
+        ns: "views/settings",
+      }),
+    };
+  }
+
+  if (testResult.audioCodec.toLowerCase() === "aac") {
+    return {
+      type: "good",
+      rule: "audio-codec",
+      message: t("cameraWizard.step4.issues.audioCodecGood", {
+        ns: "views/settings",
+        codec: testResult.audioCodec,
+      }),
+    };
+  }
+
+  return {
+    type: "error",
+    rule: "audio-codec-record",
+    message: t("cameraWizard.step4.issues.audioCodecRecordError", {
+      ns: "views/settings",
+    }),
+  };
+}
+
+/** Probed width and height, or zeros when the resolution is missing. */
+function probedDimensions(resolution: string | undefined): [number, number] {
+  if (resolution) {
+    const [w, h] = resolution.split("x").map(Number);
+    if (!Number.isNaN(w) && !Number.isNaN(h)) {
+      return [w, h];
+    }
+  }
+  return [0, 0];
+}
+
+/** The resolution verdict for a probed stream that has the detect role. */
+function detectResolutionIssue(
+  testResult: TestResult,
+  t: TFunction,
+): StreamIssue | undefined {
+  const probedResolution = testResult.resolution;
+  const [probedWidth, probedHeight] = probedDimensions(probedResolution);
+
+  if (probedWidth <= 0 || probedHeight <= 0) {
+    return {
+      type: "error",
+      rule: "resolution-unknown",
+      message: t("cameraWizard.step4.issues.resolutionUnknown", {
+        ns: "views/settings",
+      }),
+    };
+  }
+
+  const minDimension = Math.min(probedWidth, probedHeight);
+  const maxDimension = Math.max(probedWidth, probedHeight);
+  if (minDimension > 1080) {
+    return {
+      type: "warning",
+      rule: "resolution-high",
+      message: t("cameraWizard.step4.issues.resolutionHigh", {
+        ns: "views/settings",
+        resolution: probedResolution,
+      }),
+    };
+  }
+
+  if (maxDimension < 640) {
+    return {
+      type: "error",
+      rule: "resolution-low",
+      message: t("cameraWizard.step4.issues.resolutionLow", {
+        ns: "views/settings",
+        resolution: probedResolution,
+      }),
+    };
+  }
+  return undefined;
+}
+
+/** Brand-specific warnings about using a substream for detect. */
+function substreamIssues(input: StreamIssueInput, t: TFunction): StreamIssue[] {
+  const result: StreamIssue[] = [];
+  const detects = input.roles.includes("detect");
+
+  if (input.brand === "dahua" && detects && input.url.includes("subtype=1")) {
+    result.push({
+      type: "warning",
+      rule: "dahua-substream",
+      message: t("cameraWizard.step4.issues.dahua.substreamWarning", {
+        ns: "views/settings",
+      }),
+    });
+  }
+
+  if (input.brand === "hikvision" && detects && input.url.includes("/102")) {
+    result.push({
+      type: "warning",
+      rule: "hikvision-substream",
+      message: t("cameraWizard.step4.issues.hikvision.substreamWarning", {
+        ns: "views/settings",
+      }),
+    });
+  }
+  return result;
 }
 
 /** The wizard's Stream Validation rules, unchanged, over plain input. */
@@ -100,26 +242,7 @@ export function getStreamIssues(
   const { roles, testResult } = input;
 
   if (input.brand === "reolink") {
-    const streamUrl = input.url.toLowerCase();
-    if (streamUrl.startsWith("rtsp://")) {
-      result.push({
-        type: "warning",
-        rule: "reolink-rtsp",
-        message: t("cameraWizard.step4.issues.brands.reolink-rtsp", {
-          ns: "views/settings",
-        }),
-      });
-    }
-
-    if (streamUrl.startsWith("http://") && !input.useFfmpeg) {
-      result.push({
-        type: "warning",
-        rule: "reolink-http",
-        message: t("cameraWizard.step4.issues.brands.reolink-http", {
-          ns: "views/settings",
-        }),
-      });
-    }
+    result.push(...reolinkIssues(input, t));
   }
 
   if (testResult?.videoCodec) {
@@ -137,35 +260,7 @@ export function getStreamIssues(
   }
 
   if (roles.includes("record")) {
-    if (testResult?.audioCodec) {
-      const audioCodec = testResult.audioCodec.toLowerCase();
-      if (audioCodec === "aac") {
-        result.push({
-          type: "good",
-          rule: "audio-codec",
-          message: t("cameraWizard.step4.issues.audioCodecGood", {
-            ns: "views/settings",
-            codec: testResult.audioCodec,
-          }),
-        });
-      } else {
-        result.push({
-          type: "error",
-          rule: "audio-codec-record",
-          message: t("cameraWizard.step4.issues.audioCodecRecordError", {
-            ns: "views/settings",
-          }),
-        });
-      }
-    } else {
-      result.push({
-        type: "warning",
-        rule: "no-audio",
-        message: t("cameraWizard.step4.issues.noAudioWarning", {
-          ns: "views/settings",
-        }),
-      });
-    }
+    result.push(recordAudioIssue(testResult, t));
   }
 
   if (roles.includes("audio") && !testResult?.audioCodec) {
@@ -189,77 +284,13 @@ export function getStreamIssues(
   }
 
   if (roles.includes("detect") && testResult) {
-    const probedResolution = testResult.resolution;
-    let probedWidth = 0;
-    let probedHeight = 0;
-    if (probedResolution) {
-      const [w, h] = probedResolution.split("x").map(Number);
-      if (!isNaN(w) && !isNaN(h)) {
-        probedWidth = w;
-        probedHeight = h;
-      }
-    }
-
-    if (probedWidth <= 0 || probedHeight <= 0) {
-      result.push({
-        type: "error",
-        rule: "resolution-unknown",
-        message: t("cameraWizard.step4.issues.resolutionUnknown", {
-          ns: "views/settings",
-        }),
-      });
-    } else {
-      const minDimension = Math.min(probedWidth, probedHeight);
-      const maxDimension = Math.max(probedWidth, probedHeight);
-      if (minDimension > 1080) {
-        result.push({
-          type: "warning",
-          rule: "resolution-high",
-          message: t("cameraWizard.step4.issues.resolutionHigh", {
-            ns: "views/settings",
-            resolution: probedResolution,
-          }),
-        });
-      } else if (maxDimension < 640) {
-        result.push({
-          type: "error",
-          rule: "resolution-low",
-          message: t("cameraWizard.step4.issues.resolutionLow", {
-            ns: "views/settings",
-            resolution: probedResolution,
-          }),
-        });
-      }
+    const resolutionIssue = detectResolutionIssue(testResult, t);
+    if (resolutionIssue) {
+      result.push(resolutionIssue);
     }
   }
 
-  if (
-    input.brand === "dahua" &&
-    roles.includes("detect") &&
-    input.url.includes("subtype=1")
-  ) {
-    result.push({
-      type: "warning",
-      rule: "dahua-substream",
-      message: t("cameraWizard.step4.issues.dahua.substreamWarning", {
-        ns: "views/settings",
-      }),
-    });
-  }
-
-  if (
-    input.brand === "hikvision" &&
-    roles.includes("detect") &&
-    input.url.includes("/102")
-  ) {
-    result.push({
-      type: "warning",
-      rule: "hikvision-substream",
-      message: t("cameraWizard.step4.issues.hikvision.substreamWarning", {
-        ns: "views/settings",
-      }),
-    });
-  }
+  result.push(...substreamIssues(input, t));
 
   return result;
 }
@@ -281,11 +312,12 @@ export function resolveRestreamSource(
   }
 
   const configured = streams[name];
-  const sources = Array.isArray(configured)
-    ? configured
-    : configured
-      ? [configured]
-      : [];
+  let sources: string[] = [];
+  if (Array.isArray(configured)) {
+    sources = configured;
+  } else if (configured) {
+    sources = [configured];
+  }
   const source = sources.find((s) => !s.startsWith(`ffmpeg:${name}`));
 
   if (!source) {
