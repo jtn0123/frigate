@@ -57,6 +57,7 @@
       "amd_gpu_stats": true,
       "intel_gpu_stats": true,
       "network_bandwidth": false,
+      "history": { "enabled": true, "retain_days": 30 },
       "intel_gpu_device": null
     },
     "version_check": true
@@ -171,6 +172,7 @@
         "max_not_heard": 30,
         "min_volume": 500,
         "listen": ["bark", "fire_alarm", "speech", "yell"],
+        "labelmap": {},
         "filters": {
           "bark": { "threshold": 0.8 },
           "fire_alarm": { "threshold": 0.8 },
@@ -185,7 +187,7 @@
         "enabled_in_config": false,
         "live_enabled": false
       },
-      "birdseye": { "enabled": true, "mode": "objects", "order": 0 },
+      "birdseye": { "enabled": true, "modes": ["all_objects"], "order": 0 },
       "detect": {
         "enabled": false,
         "height": 720,
@@ -407,6 +409,7 @@
         "max_not_heard": 30,
         "min_volume": 500,
         "listen": ["bark", "fire_alarm", "speech", "yell"],
+        "labelmap": {},
         "filters": {
           "bark": { "threshold": 0.8 },
           "fire_alarm": { "threshold": 0.8 },
@@ -421,7 +424,7 @@
         "enabled_in_config": false,
         "live_enabled": false
       },
-      "birdseye": { "enabled": true, "mode": "objects", "order": 0 },
+      "birdseye": { "enabled": true, "modes": ["all_objects"], "order": 0 },
       "detect": {
         "enabled": false,
         "height": 720,
@@ -643,6 +646,7 @@
         "max_not_heard": 30,
         "min_volume": 500,
         "listen": ["bark", "fire_alarm", "speech", "yell"],
+        "labelmap": {},
         "filters": {
           "bark": { "threshold": 0.8 },
           "fire_alarm": { "threshold": 0.8 },
@@ -657,7 +661,7 @@
         "enabled_in_config": false,
         "live_enabled": false
       },
-      "birdseye": { "enabled": true, "mode": "objects", "order": 0 },
+      "birdseye": { "enabled": true, "modes": ["all_objects"], "order": 0 },
       "detect": {
         "enabled": false,
         "height": 720,
@@ -876,6 +880,7 @@
     "max_not_heard": 30,
     "min_volume": 500,
     "listen": ["bark", "fire_alarm", "speech", "yell"],
+    "labelmap": {},
     "filters": {
       "bark": { "threshold": 0.8 },
       "fire_alarm": { "threshold": 0.8 },
@@ -887,7 +892,7 @@
   },
   "birdseye": {
     "enabled": true,
-    "mode": "objects",
+    "modes": ["all_objects"],
     "restream": false,
     "width": 1280,
     "height": 720,
@@ -929,42 +934,6 @@
   "objects": {
     "track": ["person"],
     "filters": {
-      "fedex": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "gls": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "amazon": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "canada_post": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
       "face": {
         "min_area": 0,
         "max_area": 24000000,
@@ -974,25 +943,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "postnord": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "purolator": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "royal_mail": {
+      "amazon": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -1019,34 +970,7 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "nzpost": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "an_post": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "usps": {
-        "min_area": 0,
-        "max_area": 24000000,
-        "min_ratio": 0,
-        "max_ratio": 24000000,
-        "threshold": 0.7,
-        "min_score": 0.7,
-        "mask": {}
-      },
-      "dpd": {
+      "postnl": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,
@@ -1064,7 +988,88 @@
         "min_score": 0.7,
         "mask": {}
       },
-      "postnl": {
+      "postnord": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "gls": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "nzpost": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "canada_post": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "usps": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "royal_mail": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "fedex": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "an_post": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "purolator": {
+        "min_area": 0,
+        "max_area": 24000000,
+        "min_ratio": 0,
+        "max_ratio": 24000000,
+        "threshold": 0.7,
+        "min_score": 0.7,
+        "mask": {}
+      },
+      "dpd": {
         "min_area": 0,
         "max_area": 24000000,
         "min_ratio": 0,

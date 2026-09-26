@@ -170,7 +170,7 @@ class TestConfig(unittest.TestCase):
     def test_override_birdseye(self):
         config = {
             "mqtt": {"host": "mqtt"},
-            "birdseye": {"enabled": True, "mode": "continuous"},
+            "birdseye": {"enabled": True, "modes": ["continuous"]},
             "cameras": {
                 "back": {
                     "ffmpeg": {
@@ -183,19 +183,28 @@ class TestConfig(unittest.TestCase):
                         "width": 1920,
                         "fps": 5,
                     },
-                    "birdseye": {"enabled": False, "mode": "motion"},
+                    "birdseye": {
+                        "enabled": False,
+                        "modes": ["motion"],
+                    },
                 }
             },
         }
 
         frigate_config = FrigateConfig(**config)
         assert not frigate_config.cameras["back"].birdseye.enabled
-        assert frigate_config.cameras["back"].birdseye.mode is BirdseyeModeEnum.motion
+        assert frigate_config.cameras["back"].birdseye.modes == [
+            BirdseyeModeEnum.motion
+        ]
 
     def test_override_birdseye_non_inheritable(self):
         config = {
             "mqtt": {"host": "mqtt"},
-            "birdseye": {"enabled": True, "mode": "continuous", "height": 1920},
+            "birdseye": {
+                "enabled": True,
+                "modes": ["continuous"],
+                "height": 1920,
+            },
             "cameras": {
                 "back": {
                     "ffmpeg": {
@@ -217,29 +226,38 @@ class TestConfig(unittest.TestCase):
 
     def test_inherit_birdseye(self):
         config = {
-            "mqtt": {"host": "mqtt"},
-            "birdseye": {"enabled": True, "mode": "continuous"},
-            "cameras": {
-                "back": {
-                    "ffmpeg": {
-                        "inputs": [
-                            {"path": "rtsp://10.0.0.1:554/video", "roles": ["detect"]}
-                        ]
-                    },
-                    "detect": {
-                        "height": 1080,
-                        "width": 1920,
-                        "fps": 5,
-                    },
-                }
-            },
+            **self.minimal,
+            "birdseye": {"enabled": True, "modes": ["continuous"]},
         }
 
         frigate_config = FrigateConfig(**config)
         assert frigate_config.cameras["back"].birdseye.enabled
-        assert (
-            frigate_config.cameras["back"].birdseye.mode is BirdseyeModeEnum.continuous
-        )
+        assert frigate_config.cameras["back"].birdseye.modes == [
+            BirdseyeModeEnum.continuous
+        ]
+
+    def test_camera_modes_replace_the_global_list(self):
+        """A camera list fully replaces the global one, it does not merge into it."""
+        config = {
+            **self.minimal,
+            "birdseye": {"modes": ["motion", "all_objects"]},
+        }
+        config["cameras"]["back"]["birdseye"] = {"modes": ["alerts"]}
+
+        frigate_config = FrigateConfig(**config)
+        assert frigate_config.cameras["back"].birdseye.modes == [
+            BirdseyeModeEnum.alerts
+        ]
+
+    def test_camera_can_select_no_modes(self):
+        config = {
+            **self.minimal,
+            "birdseye": {"modes": ["motion"]},
+        }
+        config["cameras"]["back"]["birdseye"] = {"modes": []}
+
+        frigate_config = FrigateConfig(**config)
+        assert frigate_config.cameras["back"].birdseye.modes == []
 
     def test_override_tracked_objects(self):
         config = {

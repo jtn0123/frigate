@@ -74,9 +74,9 @@
       "label": "Enable Birdseye",
       "description": "Enable or disable the Birdseye view feature."
     },
-    "mode": {
-      "label": "Tracking mode",
-      "description": "Mode for including cameras in Birdseye: 'objects', 'motion', or 'continuous'."
+    "modes": {
+      "label": "Activity types",
+      "description": "Activity types that include cameras in Birdseye."
     },
     "order": {
       "label": "Position",

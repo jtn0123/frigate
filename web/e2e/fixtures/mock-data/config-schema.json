@@ -69,6 +69,12 @@
           "title": "Listen types",
           "type": "array"
         },
+        "labelmap": {
+          "additionalProperties": { "type": "string" },
+          "description": "Overrides or remapping entries to merge into the standard audio labelmap.",
+          "title": "Audio labelmap customization",
+          "type": "object"
+        },
         "filters": {
           "anyOf": [
             {
@@ -299,11 +305,11 @@
           "title": "Enable Birdseye",
           "type": "boolean"
         },
-        "mode": {
-          "$ref": "#/$defs/BirdseyeModeEnum",
-          "default": "objects",
-          "description": "Mode for including cameras in Birdseye: 'objects', 'motion', or 'continuous'.",
-          "title": "Tracking mode"
+        "modes": {
+          "description": "Activity types that include cameras in Birdseye.",
+          "items": { "$ref": "#/$defs/BirdseyeModeEnum" },
+          "title": "Activity types",
+          "type": "array"
         },
         "order": {
           "default": 0,
@@ -324,11 +330,11 @@
           "title": "Enable Birdseye",
           "type": "boolean"
         },
-        "mode": {
-          "$ref": "#/$defs/BirdseyeModeEnum",
-          "default": "objects",
-          "description": "Mode for including cameras in Birdseye: 'objects', 'motion', or 'continuous'.",
-          "title": "Tracking mode"
+        "modes": {
+          "description": "Activity types that include cameras in Birdseye.",
+          "items": { "$ref": "#/$defs/BirdseyeModeEnum" },
+          "title": "Activity types",
+          "type": "array"
         },
         "restream": {
           "default": false,
@@ -402,7 +408,7 @@
       "type": "object"
     },
     "BirdseyeModeEnum": {
-      "enum": ["objects", "motion", "continuous"],
+      "enum": ["continuous", "motion", "all_objects", "alerts", "detections"],
       "title": "BirdseyeModeEnum",
       "type": "string"
     },
@@ -3045,6 +3051,11 @@
           "title": "Network bandwidth",
           "type": "boolean"
         },
+        "history": {
+          "$ref": "#/$defs/StatsHistoryConfig",
+          "description": "Options for the stored history the System page graphs.",
+          "title": "System metrics history"
+        },
         "intel_gpu_device": {
           "anyOf": [{ "type": "string" }, { "type": "null" }],
           "default": null,
@@ -3053,6 +3064,28 @@
         }
       },
       "title": "StatsConfig",
+      "type": "object"
+    },
+    "StatsHistoryConfig": {
+      "additionalProperties": false,
+      "description": "Fork (D54): system metrics kept past the in-memory stats window.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Store a sample of system metrics every minute so the System page can graph windows longer than the 20 minutes held in memory.",
+          "title": "System metrics history",
+          "type": "boolean"
+        },
+        "retain_days": {
+          "default": 30,
+          "description": "Days of system metrics history to keep. Samples are rolled up as they age, so a month is a few thousand rows.",
+          "maximum": 365,
+          "minimum": 1,
+          "title": "System metrics history retention",
+          "type": "integer"
+        }
+      },
+      "title": "StatsHistoryConfig",
       "type": "object"
     },
     "TelemetryConfig": {

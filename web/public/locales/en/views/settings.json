@@ -1695,6 +1695,16 @@
       "summary": "{{count}} selected",
       "empty": "No zones available"
     },
+    "birdseyeModes": {
+      "summary": "{{count}} selected",
+      "options": {
+        "continuous": "Continuous",
+        "motion": "Motion",
+        "all_objects": "All objects",
+        "alerts": "Alerts",
+        "detections": "Detections"
+      }
+    },
     "inputRoles": {
       "summary": "{{count}} roles selected",
       "empty": "No roles available",
@@ -1900,11 +1910,6 @@
     }
   },
   "birdseye": {
-    "trackingMode": {
-      "objects": "Objects",
-      "motion": "Motion",
-      "continuous": "Continuous"
-    },
     "cameraOrder": {
       "label": "Camera order",
       "description": "Drag cameras to set their order in the Birdseye layout.",
@@ -2019,7 +2024,7 @@
       "noRecordRole": "No streams have the record role defined. Recording will not function."
     },
     "birdseye": {
-      "objectsModeDetectDisabled": "This camera will not appear in Birdseye. Birdseye is set to 'objects' mode, which only shows cameras where object detection is running, and detection is turned off for this camera.",
+      "objectTrackingDetectDisabled": "Birdseye includes tracked objects, but object detection is disabled for this camera. The camera will not appear in Birdseye.",
       "openDetectSettings": "Open detect settings"
     },
     "snapshots": {
