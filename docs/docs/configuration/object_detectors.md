@@ -24,6 +24,7 @@ Frigate supports multiple different detectors that work on different types of ha
 - [Coral EdgeTPU](#edge-tpu-detector): The Google Coral EdgeTPU is available in USB, Mini PCIe, and m.2 formats allowing for a wide range of compatibility with devices.
 - [Hailo](#hailo): The Hailo-8, Hailo-8L and Hailo-8R AI Acceleration modules are available in m.2 format with a HAT for RPi devices, offering a wide range of compatibility with devices.
 - <CommunityBadge /> [MemryX](#memryx-mx3): The MX3 Acceleration module is available in m.2 format, offering broad compatibility across various platforms.
+- <CommunityBadge /> [DEEPX](#deepx-npu): The DEEPX NPU is available in m.2 format and as a HAT+ for the Raspberry Pi 5, offering broad compatibility across various platforms.
 
 **AMD**
 
@@ -33,6 +34,7 @@ Frigate supports multiple different detectors that work on different types of ha
 **Apple Silicon**
 
 - [Apple Silicon](#apple-silicon-detector): Apple Silicon can run on M1 and newer Apple Silicon devices.
+- <CommunityBadge /> [ONNX](#apple-neural-engine-lighter): the ONNX detector runs on the Neural Engine of M1 and newer Macs when Frigate runs under the lighter container runtime.
 
 **Intel**
 
@@ -475,7 +477,7 @@ See [ONNX supported models](#onnx) for supported models, there are some caveats:
 
 ## ONNX
 
-ONNX is an open format for building machine learning models, Frigate supports running ONNX models on CPU, OpenVINO, ROCm, and TensorRT. On startup Frigate will automatically try to use a GPU if one is available.
+ONNX is an open format for building machine learning models, Frigate supports running ONNX models on CPU, OpenVINO, ROCm, TensorRT, and a Mac's Neural Engine. On startup Frigate will automatically try to use a GPU if one is available.
 
 :::info
 
@@ -491,6 +493,9 @@ If the correct build is used for your GPU then the GPU will be detected and used
   - Nvidia GPUs will automatically be detected and used with the ONNX detector in the `-tensorrt` Frigate image.
   - Jetson devices will automatically be detected and used with the ONNX detector in the `-tensorrt-jp6` Frigate image.
 
+- **Apple Silicon Mac** <CommunityBadge />
+  - The Neural Engine will automatically be detected and used with the ONNX detector when Frigate runs under lighter with its Neural Engine device. See [Apple Neural Engine (lighter)](#apple-neural-engine-lighter).
+
 :::
 
 :::tip
@@ -505,6 +510,22 @@ models:
 ```
 
 :::
+
+### Apple Neural Engine (lighter) {#apple-neural-engine-lighter}
+
+[lighter](https://github.com/fieldwork-ai/lighter) is an open-source container runtime for macOS. A container started with its `lighter.sh/ane` device gets an ONNX Runtime execution provider that runs models on the Mac's Neural Engine, and the ONNX detector uses it automatically, with the same models and configuration as on any other hardware. It works on M1 and newer Macs with lighter 0.9.2 or newer.
+
+Give the Frigate container the Neural Engine device. With Docker Compose:
+
+```yaml
+services:
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable-standard-arm64
+    devices:
+      - lighter.sh/ane=all
+```
+
+Or with `docker run`, add `--device lighter.sh/ane=all`. Frigate then reports the Neural Engine under **Settings > System > Detection models**, and the ONNX detector's model loads on it. lighter can also decode camera streams on the Mac's media engine; see [Video Decoding](hardware_acceleration_video.md#apple-silicon-mac-lighter).
 
 ### Configuration {#configuration-onnx}
 
@@ -619,6 +640,63 @@ For detailed instructions on compiling models, refer to the [MemryX Compiler](ht
 # ├── yolonas.dfp          (a file ending with .dfp)
 # └── yolonas_post.onnx    (optional; only if the model includes a cropped post-processing network)
 ```
+
+---
+
+## DEEPX NPU
+
+This detector is available for use with the DEEPX NPU, both the DX-M1 M.2 module and the DX-M1M on the Sixfab AI HAT+ for the Raspberry Pi 5. The configuration below applies unchanged to either form factor. DEEPX NPU support in Frigate is developed and maintained by [Sixfab](https://sixfab.com).
+
+See the [installation docs](../frigate/installation.md#deepx-npu) for information on installing the DEEPX kernel driver and runtime on the host and passing the NPU through to the container.
+
+To run a model on a DEEPX NPU, list a `deepx` device on that model.
+
+:::info
+
+The DX-RT Python bindings are not part of the Frigate image. They are downloaded and installed into `/config/.local` the first time a DEEPX device is configured, verified against pinned checksums, and updated automatically when a Frigate release pins a new version. If the container has no internet access, see [Detector runtimes](/frigate/network_requirements#detector-runtimes) for how to provide the files yourself.
+
+:::
+
+### Configuration {#configuration-deepx}
+
+<ModelConfigDropdown detectorTitle="DEEPX" models={objectDetectorsModels.deepx.models} />
+
+Frigate does not bundle a model for this detector. Models must be compiled to DEEPX's `.dxnn` format. Two model types are supported:
+
+- `yolo-generic` for YOLO object detection models, the recommended default. The detector reads the model's output layout from the compiled file, so anchor-based, anchor-free and NMS-in-head models all work with the same configuration, as do models compiled with DEEPX's Post-Processing Unit (PPU) support.
+- `yolox` for YOLOX models compiled without PPU support, whose raw head needs Frigate's YOLOX decoder. A YOLOX model compiled with PPU support works under either `yolox` or `yolo-generic`.
+
+The quickest way to get one is the [DEEPX ModelZoo](https://developer.deepx.ai/modelzoo), which publishes pre-compiled `.dxnn` files for a range of YOLO object detection models. Download the `.dxnn`, bind-mount it into the container, and point the model's `path` at it. Alternatively, compile your own model with the DX-COM compiler. The recommended starting point is `yolox-s_640x640_ppu.dxnn`, the fastest ModelZoo model measured through Frigate:
+
+```yaml
+models:
+  - devices:
+      - deepx:PCIe:0
+    path: /config/model_cache/deepx/yolox-s_640x640_ppu.dxnn
+    labelmap_path: /labelmap/coco-80.txt
+    model_type: yolo-generic
+    width: 640
+    height: 640
+```
+
+For PPU models, use a `.dxnn` compiled with DX-COM 2.4.0 or later. Frigate reads the PPU head layout the compiler writes into the file and refuses to load a PPU model without it.
+
+`model_type` must be set to `yolo-generic` or `yolox` to match the model; `yolo-generic` is the recommended default unless the model is a raw YOLOX export. Frigate defaults it to `ssd`, which this detector does not support, so the detector refuses to start on a model that leaves it unset.
+
+`width` and `height` must match the resolution the model was compiled for. Quantization parameters are baked into the `.dxnn` file at compile time, so no normalization is applied on the host and Frigate's default `input_tensor`, `input_pixel_format`, and `input_dtype` values do not need to be overridden.
+
+A DEEPX device is `PCIe:<index>`, as reported on the detector settings page. The NPU daemon multiplexes across processes, so the same device may be listed more than once to run additional inference processes against it:
+
+```yaml
+models:
+  - devices:
+      - deepx:PCIe:0
+      - deepx:PCIe:0
+```
+
+#### Label maps
+
+The object detection models in the DEEPX ModelZoo are trained on the standard 80-class COCO label set, so `labelmap_path` must be set to `/labelmap/coco-80.txt`. Frigate's default label map uses an extended 91-class COCO scheme, and leaving it in place will cause detections to be reported as the wrong object type. For `yolo-generic` models the label map is also what the detector uses to tell the output layout, so a label map with the wrong number of classes is reported as an error at startup.
 
 ---
 
