@@ -311,12 +311,13 @@ def _write_member(dest: Path, data_source, mode: int) -> None:
 
 def _write_symlink(dest: Path, target: str) -> None:
     # only links to a sibling file are recreated; anything else is dropped
-    if "/" in target or target in ("", ".", ".."):
+    sibling = os.path.basename(target)
+    if sibling != target or sibling in ("", ".", "..") or "\\" in sibling:
         raise RuntimeDependencyError(f"Archive symlink {dest.name} -> {target}")
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.unlink(missing_ok=True)
-    os.symlink(target, dest)
+    os.symlink(sibling, dest)
 
 
 def _extract_archive(path: Path, artifact: Artifact) -> list[str]:

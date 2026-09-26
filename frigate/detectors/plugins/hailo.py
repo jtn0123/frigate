@@ -171,9 +171,9 @@ class HailoAsyncInference:
             self.infer_model.input().set_format_type(getattr(FormatType, input_type))
 
         if output_type is not None:
-            for output_name, output_type in output_type.items():
+            for output_name, output_dtype in output_type.items():
                 self.infer_model.output(output_name).set_format_type(
-                    getattr(FormatType, output_type)
+                    getattr(FormatType, output_dtype)
                 )
 
         self.output_type = output_type

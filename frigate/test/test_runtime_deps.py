@@ -13,9 +13,10 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from frigate.util import runtime_deps
+from frigate.util.config import is_runtime_user_writable
 from frigate.util.runtime_deps import (
     ArchiveDest,
     ArchiveMapping,
@@ -290,6 +291,12 @@ class TestInstall(RuntimeDepsTestCase):
         with self.assertRaises(RuntimeDependencyError):
             ensure_installed(manifest)
 
+    def test_symlink_targets_must_be_single_sibling_names(self):
+        for target in ("../escape", "/absolute", "..", ".", "", r"..\escape"):
+            with self.subTest(target=target), self.assertRaises(RuntimeDependencyError):
+                runtime_deps._write_symlink(self.base / "lib" / "alias", target)
+        self.assertFalse((self.base / "lib" / "alias").exists())
+
     def test_wheel_is_installed_with_pip_into_the_user_site(self) -> None:
         data = b"not really a wheel"
         manifest = RuntimeManifest(
@@ -429,9 +436,21 @@ class TestRootGuard(RuntimeDepsTestCase):
             self.assertIn("FRIGATE_ROOT_SERVICES", str(ctx.exception))
             self.assertIsNotNone(runtime_deps._usable_reason())
 
+    def test_public_writable_ancestor_and_unknown_permissions_are_rejected(self):
+        with patch("frigate.util.config.Path.stat", return_value=Mock(st_mode=0o40777)):
+            self.assertTrue(is_runtime_user_writable("/custom/mount/sdk"))
+        with patch("frigate.util.config.Path.stat", side_effect=PermissionError):
+            self.assertTrue(is_runtime_user_writable("/custom/mount/sdk"))
+        with patch(
+            "frigate.util.config.Path.stat",
+            side_effect=[FileNotFoundError(), Mock(st_mode=0o40777)],
+        ):
+            self.assertTrue(is_runtime_user_writable("/custom/mount/sdk"))
+
     def test_root_owned_base_is_allowed_under_granular_root(self) -> None:
         with (
             patch.object(runtime_deps, "user_base", lambda: Path("/root/.local")),
+            patch("frigate.util.config.Path.stat", return_value=Mock(st_mode=0o40700)),
             patch("os.geteuid", return_value=0),
             patch.dict("os.environ", {"FRIGATE_ROOT_SERVICES": "frigate"}),
         ):

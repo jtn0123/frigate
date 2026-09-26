@@ -4,6 +4,8 @@ import asyncio
 import logging
 import os
 import shutil
+import stat
+from pathlib import Path
 from typing import Any
 
 from ruamel.yaml import YAML
@@ -48,7 +50,7 @@ DROPPED_DETECTOR_OPTIONS = {
 # Trees the unprivileged runtime user can write. A root frigate service must
 # not execute a binary from any of them; a compromised uid-1000 process could
 # plant one and be root after the next restart.
-RUNTIME_USER_WRITABLE_DIRS = (CONFIG_DIR, BASE_DIR, CACHE_DIR, "/dev/shm", "/tmp")
+RUNTIME_USER_WRITABLE_DIRS = (CONFIG_DIR, BASE_DIR, CACHE_DIR)
 
 
 def frigate_service_is_granular_root() -> bool:
@@ -71,10 +73,24 @@ def frigate_service_is_granular_root() -> bool:
 def is_runtime_user_writable(path: str) -> bool:
     """Report whether a path resolves inside a runtime-user-writable tree."""
     resolved = os.path.realpath(path)
-    return any(
+    if any(
         resolved == root or resolved.startswith(f"{root}{os.sep}")
         for root in RUNTIME_USER_WRITABLE_DIRS
-    )
+    ):
+        return True
+
+    # Also reject publicly writable ancestors, including custom temporary
+    # mounts, rather than assuming that only the standard temp paths are unsafe.
+    candidate = Path(resolved)
+    for parent in (candidate, *candidate.parents):
+        try:
+            if parent.stat().st_mode & stat.S_IWOTH:
+                return True
+        except FileNotFoundError:
+            continue
+        except PermissionError:
+            return True
+    return False
 
 
 def resolve_ffmpeg_path(path: str, binary: str = "ffmpeg") -> str:
