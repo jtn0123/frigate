@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { TFunction } from "i18next";
-import type {
-  FrigateConfig,
-  DetectionModelConfig,
-} from "@/types/frigateConfig";
+import type { DetectionModelConfig } from "@/types/frigateConfig";
 import type {
   DetectionHardware,
   HwaccelRecommendation,
 } from "@/types/hardware";
 import type { EmbeddingsStats, FrigateStats } from "@/types/stats";
-import snapshot from "../../e2e/fixtures/mock-data/config-snapshot.json";
+import { createConfigFixture as config } from "./fork/config.test-fixture";
 import { BASE_STATS } from "../../e2e/fixtures/mock-data/stats";
 import {
   acceleratorKeysFor,
@@ -25,7 +22,6 @@ import {
 } from "./health";
 
 const t = ((key: string) => key) as TFunction;
-const config = () => structuredClone(snapshot) as FrigateConfig;
 const stats = () => structuredClone(BASE_STATS);
 const hardware = (device: string): DetectionHardware => ({
   key: device,

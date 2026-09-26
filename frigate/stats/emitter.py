@@ -277,7 +277,7 @@ class StatsEmitter(threading.Thread):
         # shm too small for the cameras
         # Identify the shared-memory entry by its requirement metadata. Missing
         # storage telemetry during startup must not terminate the emitter.
-        shm = next(
+        shm: dict[str, Any] = next(
             (
                 value
                 for value in stats["service"]["storage"].values()

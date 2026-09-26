@@ -285,7 +285,8 @@ test.describe("System health notices @medium @mobile", () => {
       )
       .getByRole("button", { name: "Unmute" })
       .click({ timeout: 15_000 });
-    await request;
+    const response = await (await request).response();
+    expect(response?.ok()).toBe(true);
   });
 
   test("show all again unhides every row after confirming", async ({

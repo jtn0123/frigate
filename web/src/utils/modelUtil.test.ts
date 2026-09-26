@@ -1,6 +1,5 @@
 import { expect, it } from "vitest";
-import type { FrigateConfig } from "@/types/frigateConfig";
-import snapshot from "../../e2e/fixtures/mock-data/config-snapshot.json";
+import { createConfigFixture } from "./fork/config.test-fixture";
 import {
   getModelForCamera,
   getPrimaryModel,
@@ -9,7 +8,7 @@ import {
   isAttributeOfLabel,
 } from "./modelUtil";
 it("selects scene-specific, all-scene and first models in fallback order", () => {
-  const config = structuredClone(snapshot) as FrigateConfig;
+  const config = createConfigFixture();
   const base = config.models[0];
   config.models = [
     { ...base, scene: "vehicles" },
@@ -28,7 +27,7 @@ it("selects scene-specific, all-scene and first models in fallback order", () =>
   expect(getModelForCamera()).toBeUndefined();
 });
 it("deduplicates attributes and matches parent labels across models", () => {
-  const config = structuredClone(snapshot) as FrigateConfig;
+  const config = createConfigFixture();
   const base = config.models[0];
   config.models = [
     { ...base, all_attributes: ["face"], attributes_map: { person: ["face"] } },
