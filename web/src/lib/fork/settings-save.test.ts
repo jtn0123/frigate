@@ -139,6 +139,106 @@ describe("savePendingSettings", () => {
     });
   });
 
+  it("writes a saved Frigate+ model back as plus://<id> without the fields Frigate+ supplies", async () => {
+    const client = api();
+    // /api/config serves a Frigate+ model with its path resolved to the cache
+    // file and its input shape filled from the Frigate+ model info
+    const resolved = {
+      path: "/config/model_cache/abc123",
+      width: 640,
+      height: 640,
+      input_tensor: "nchw",
+      input_pixel_format: "bgr",
+      input_dtype: "float",
+      model_type: "yolo-generic",
+    };
+    const plusConfig = cfg({
+      ...config,
+      models: [
+        {
+          scene: "all",
+          devices: ["onnx"],
+          ...resolved,
+          plus: { id: "abc123", name: "plus" },
+        },
+        {
+          scene: "night",
+          devices: ["cpu"],
+          path: "/models/night.onnx",
+          width: 320,
+          height: 320,
+          model_type: "ssd",
+          plus: null,
+        },
+      ],
+    });
+
+    await savePendingSettings({
+      config: plusConfig,
+      fullSchema: schema,
+      pendingDataBySection: {
+        models: section([
+          // only the hardware was edited; the form seeds from the resolved values
+          { scene: "all", devices: ["onnx", "onnx"], ...resolved },
+          {
+            scene: "night",
+            devices: ["cpu"],
+            path: "/models/night.onnx",
+            width: 320,
+            height: 320,
+            model_type: "ssd",
+          },
+        ]),
+      },
+      api: client,
+    });
+
+    expect(client.put).toHaveBeenCalledExactlyOnceWith("config/set", {
+      requires_restart: 0,
+      config_data: {
+        models: [
+          { scene: "all", devices: ["onnx", "onnx"], path: "plus://abc123" },
+          {
+            scene: "night",
+            devices: ["cpu"],
+            path: "/models/night.onnx",
+            width: 320,
+            height: 320,
+            model_type: "ssd",
+          },
+        ],
+      },
+    });
+  });
+
+  it("drops a previous custom model's input fields when a Frigate+ model is picked", async () => {
+    const client = api();
+    await savePendingSettings({
+      config,
+      fullSchema: schema,
+      pendingDataBySection: {
+        models: section([
+          {
+            scene: "all",
+            devices: ["cpu"],
+            path: "plus://picked",
+            width: 320,
+            height: 320,
+            input_tensor: "nhwc",
+          },
+        ]),
+      },
+      api: client,
+    });
+
+    expect(client.put).toHaveBeenCalledExactlyOnceWith("config/set", {
+      requires_restart: 0,
+      config_data: {
+        models: [{ scene: "all", devices: ["cpu"], path: "plus://picked" }],
+      },
+    });
+  });
+
   it("retains all model edits when the atomic list write fails", async () => {
     const client = api();
     client.put.mockRejectedValue(new Error("offline"));

@@ -11,6 +11,8 @@ import { applySchemaDefaults } from "@/lib/config-schema";
 import { isJsonObject } from "@/lib/utils";
 import { HiddenFieldContext, JsonObject, JsonValue } from "@/types/configForm";
 import { getEffectiveAttributeLabels } from "@/utils/configUtil";
+import type { FrigateConfig } from "@/types/frigateConfig";
+import { restorePlusModelPaths } from "@/lib/fork/settings-save-plus-models";
 
 /**
  * Sections that require special handling at the global level.
@@ -359,7 +361,14 @@ export function sanitizeOverridesForSection(
   sectionPath: string,
   level: string,
   overrides: unknown,
+  fullConfig?: Pick<FrigateConfig, "models">,
 ): unknown {
+  // the models list is saved whole, and a Frigate+ model must go back as its
+  // plus://<id> reference rather than the cache path the backend resolved
+  if (sectionPath === "models") {
+    return restorePlusModelPaths(overrides, fullConfig?.models);
+  }
+
   if (!overrides || !isJsonObject(overrides)) {
     return overrides;
   }

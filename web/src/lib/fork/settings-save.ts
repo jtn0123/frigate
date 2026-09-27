@@ -12,6 +12,7 @@ import {
   sanitizeSectionData,
 } from "@/utils/configUtil";
 import { compareGo2RtcStreams } from "./go2rtc-streams";
+import { restorePlusModelPaths } from "./settings-save-plus-models";
 
 type SaveApi = {
   put: (url: string, data?: unknown) => Promise<unknown>;
@@ -54,9 +55,9 @@ export async function savePendingSettings({
         getSectionConfig("models", "global").hiddenFields,
         buildHiddenFieldContext(config, "global"),
       );
-      const models = sanitizeSectionData(
-        pendingDataBySection["models"]!,
-        hiddenFields,
+      const models = restorePlusModelPaths(
+        sanitizeSectionData(pendingDataBySection["models"]!, hiddenFields),
+        config.models,
       );
       await api.put("config/set", {
         requires_restart: 0,
