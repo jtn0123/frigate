@@ -518,7 +518,9 @@ export interface FrigateConfig {
   genai: Record<string, GenAIAgentConfig>;
 
   go2rtc: {
-    streams: Record<string, string | string[]>;
+    // absent when no go2rtc streams are configured, since /api/config dumps
+    // go2rtc with exclude_none
+    streams?: Record<string, string | string[]>;
     webrtc?: {
       candidates?: string[];
       ice_servers?: {

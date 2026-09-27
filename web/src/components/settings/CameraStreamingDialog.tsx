@@ -41,7 +41,9 @@ import StreamTechnologySelect from "@/components/player/StreamTechnologySelect";
 
 type CameraStreamingDialogProps = {
   camera: string;
-  groupStreamingSettings: GroupStreamingSettings;
+  // undefined for a group that has no saved streaming settings yet, such as a
+  // group being created
+  groupStreamingSettings: GroupStreamingSettings | undefined;
   streamMetadata?: { [key: string]: LiveStreamMetadata };
   setGroupStreamingSettings: React.Dispatch<
     React.SetStateAction<GroupStreamingSettings>
@@ -82,7 +84,8 @@ export function CameraStreamingDialog({
   // metadata
 
   const isRestreamed = useMemo(
-    () => config && Object.keys(config.go2rtc.streams).includes(streamName),
+    () =>
+      config && Object.keys(config.go2rtc.streams ?? {}).includes(streamName),
     [config, streamName],
   );
 
@@ -130,8 +133,8 @@ export function CameraStreamingDialog({
     const availableStreams = config.cameras[camera]?.live.streams || {};
     const firstStreamEntry = Object.entries(availableStreams)[0]?.[1] || "";
 
-    if (groupStreamingSettings[camera]) {
-      const cameraSettings = groupStreamingSettings[camera];
+    const cameraSettings = groupStreamingSettings?.[camera];
+    if (cameraSettings) {
       const streamNameFromSettings = cameraSettings.streamName || "";
 
       const streamExists =
@@ -193,8 +196,8 @@ export function CameraStreamingDialog({
     const availableStreams = config.cameras[camera]?.live.streams || {};
     const firstStreamEntry = Object.entries(availableStreams)[0]?.[1] || "";
 
-    if (groupStreamingSettings[camera]) {
-      const cameraSettings = groupStreamingSettings[camera];
+    const cameraSettings = groupStreamingSettings?.[camera];
+    if (cameraSettings) {
       const streamNameFromSettings = cameraSettings.streamName || "";
 
       const streamExists =
