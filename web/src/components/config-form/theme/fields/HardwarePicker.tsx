@@ -17,11 +17,24 @@ import {
   recommendedDetectorCount,
 } from "@/utils/detectionHardware";
 
+/**
+ * The claims that bind this hardware. Like the backend's device claiming, only
+ * a unit that cannot be shared is exclusive to one model; shareable
+ * (unlimited) hardware can be listed by several models at once.
+ */
+function claimsFor(
+  entry: DetectionHardware,
+  claimedElsewhere: Record<string, string>,
+): Record<string, string> {
+  return entry.unlimited ? {} : claimedElsewhere;
+}
+
 type HardwarePickerProps = {
   // scopes the unit checkbox ids, since several models can list the same unit
   idPrefix: string;
   devices: string[];
-  // device strings already taken by another model, mapped to that model's scene
+  // device strings already taken by another model, mapped to that model's scene.
+  // Only binding for hardware that cannot be shared (see claimsFor).
   claimedElsewhere: Record<string, string>;
   cameraCount: number;
   disabled?: boolean;
@@ -85,7 +98,8 @@ export function HardwarePicker({
       }
 
       // start with the first unit no other model has taken
-      const free = entry.units.find((unit) => !claimedElsewhere[unit.device]);
+      const claims = claimsFor(entry, claimedElsewhere);
+      const free = entry.units.find((unit) => !claims[unit.device]);
 
       if (!free) {
         onChange([]);
@@ -184,7 +198,9 @@ export function HardwarePicker({
             {t("detectionModels.hardware.unitsDescription")}
           </p>
           {selected.units.map((unit) => {
-            const claimedBy = claimedElsewhere[unit.device];
+            const claimedBy = claimsFor(selected, claimedElsewhere)[
+              unit.device
+            ];
 
             return (
               <div
