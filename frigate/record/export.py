@@ -40,6 +40,7 @@ from frigate.util.identifiers import random_id as generate_id
 from frigate.util.recording_coverage import (
     build_spans,
     known_video_codecs,
+    manifest_intervals,
     resolve_coverage,
     stream_media_summary,
 )
@@ -375,14 +376,16 @@ class RecordingExporter(threading.Thread):
         """Resolve the export range into the spans the VOD manifest will serve.
 
         Delegates to the same coverage resolution the manifest builder
-        uses, so what we plan around and what nginx-vod emits agree by
-        construction. Returns the spans (each [row, start, end, is_main]),
+        uses, glitch-nulling included, so what we plan around and what
+        nginx-vod emits agree by construction. Returns the spans (each [row, start, end, is_main]),
         the known video codecs, and whether audio survives the range.
         Memoized: several stages of the export ask the same question, and
         the recordings backing a finished range do not change under us.
         """
         if self._coverage is None:
-            intervals = resolve_coverage(self.camera, self.start_time, self.end_time)
+            intervals = manifest_intervals(
+                resolve_coverage(self.camera, self.start_time, self.end_time)
+            )
             self._coverage = (
                 build_spans(intervals, self.pinned_stream),
                 known_video_codecs(intervals),
@@ -1144,12 +1147,7 @@ class RecordingExporter(threading.Thread):
             # its own rows are the ones the chapters describe
             recordings = self._get_recordings_for_range(pin)
         else:
-            # never mix streams in one playlist; use main when available
-            # and fall back to sub for expired-main history
-            recordings = self._get_recordings_for_range(STREAM_TYPE_MAIN)
-
-            if not recordings:
-                recordings = self._get_recordings_for_range(STREAM_TYPE_SUB)
+            recordings = self._single_run_recordings()
 
         playlist_lines = []
         if (self.end_time - self.start_time) <= MAX_PLAYLIST_SECONDS:
@@ -1173,6 +1171,24 @@ class RecordingExporter(threading.Thread):
         return self._finish_record_export_command(
             video_path, ffmpeg_input, playlist_lines, recordings, use_hwaccel
         )
+
+    def _single_run_recordings(self) -> list[Any]:
+        """Rows of the one stream an unstaged auto export actually reads.
+
+        An unstaged auto range resolves to at most one stream run, so the
+        chapters and playlist pages must come from that run's stream. Main
+        rows the manifest drops (glitches, sub-interval edge slivers) would
+        otherwise stand in for a range sub really serves.
+        """
+        runs = self._stream_runs(self._merged_spans())
+
+        if runs:
+            return self._get_recordings_for_range(runs[0].stream_type)
+
+        # nothing resolved to serve; never mix streams in one playlist, so
+        # use main when available and fall back to sub
+        recordings = self._get_recordings_for_range(STREAM_TYPE_MAIN)
+        return recordings or self._get_recordings_for_range(STREAM_TYPE_SUB)
 
     def _finish_record_export_command(
         self,

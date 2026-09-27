@@ -254,6 +254,19 @@ def null_audio_glitches(
     return result
 
 
+def manifest_intervals(intervals: list[CoverageInterval]) -> list[CoverageInterval]:
+    """The coverage every vod manifest actually serves for a window.
+
+    Judges each stream's audio composition over the whole window and
+    nulls the glitch rows that contradict it. The manifest builder, the
+    realized timelines and the exporter all resolve through here, so the
+    rows an export plans around are the rows nginx-vod emits.
+    """
+    main_audio = stream_has_audio(intervals, main=True)
+    sub_audio = stream_has_audio(intervals, main=False)
+    return null_audio_glitches(intervals, main_audio, sub_audio)
+
+
 def _span_row(interval: CoverageInterval, stream: str | None) -> tuple[Any, bool]:
     """Pick the row serving an interval and whether it is the main stream's."""
     if stream == STREAM_TYPE_MAIN:
@@ -464,9 +477,7 @@ def realized_timelines(
     assembles each variant's realized spans. Keyframe snapping reads the
     per-row index stored at record time, so no file is touched.
     """
-    main_audio = stream_has_audio(intervals, main=True)
-    sub_audio = stream_has_audio(intervals, main=False)
-    nulled = null_audio_glitches(intervals, main_audio, sub_audio)
+    nulled = manifest_intervals(intervals)
 
     return {
         "auto": realized_timeline(nulled, None),

@@ -61,10 +61,9 @@ from frigate.util.object import create_empty_regions_grid
 from frigate.util.path import safe_join
 from frigate.util.recording_coverage import (
     build_spans,
-    null_audio_glitches,
+    manifest_intervals,
     plan_clip,
     resolve_coverage,
-    stream_has_audio,
 )
 from frigate.util.time import get_timezone
 
@@ -717,15 +716,10 @@ def _vod_response(
         end_ts,
         force_discontinuity,
     )
-    intervals = resolve_coverage(camera_name, start_ts, end_ts)
-
     # rows contradicting their stream's audio composition are
     # truncated-shutdown glitches
-    main_audio = stream_has_audio(intervals, main=True)
-    sub_audio = stream_has_audio(intervals, main=False)
-
     spans = build_spans(
-        null_audio_glitches(intervals, main_audio, sub_audio),
+        manifest_intervals(resolve_coverage(camera_name, start_ts, end_ts)),
         stream_preference,
     )
 
