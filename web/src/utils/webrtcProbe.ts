@@ -2,18 +2,30 @@ import { parseWebRTCMessage } from "./webrtcUtil";
 import { baseUrl } from "@/api/baseUrl";
 
 /**
- * Performs a single real WebRTC handshake against go2rtc to verify that a
- * media connection can actually be established (validates candidates, port
- * 8555 reachability, and STUN/TURN end-to-end). Result is cached per page
- * session via a module-level promise.
+ * Performs a real WebRTC handshake against go2rtc to verify that a media
+ * connection can actually be established (validates candidates, port 8555
+ * reachability, and STUN/TURN end-to-end). A success is cached for the page
+ * session; a failure only for PROBE_FAILURE_TTL_MS, so a slow or offline
+ * moment does not disable WebRTC until reload.
  */
 
 export type WebRTCProbeResult = {
   ok: boolean;
   detail?: string;
+  /** go2rtc refused this stream (offline source), not the connection. */
+  streamError?: boolean;
 };
 
-let probePromise: Promise<WebRTCProbeResult> | null = null;
+/** How long a failed probe is reused before the next caller re-probes. */
+export const PROBE_FAILURE_TTL_MS = 30_000;
+
+/** Streams tried per probe when go2rtc reports the earlier ones unavailable. */
+const MAX_PROBE_STREAMS = 3;
+
+let cachedProbe: {
+  promise: Promise<WebRTCProbeResult>;
+  failedAt: number | null;
+} | null = null;
 
 function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -67,7 +79,9 @@ function runProbe(
       }
     };
 
+    // Offer both kinds so an audio-only stream can still answer.
     pc.addTransceiver("video", { direction: "recvonly" });
+    pc.addTransceiver("audio", { direction: "recvonly" });
 
     try {
       ws = new WebSocket(wsURL);
@@ -115,21 +129,73 @@ function runProbe(
         pc.setRemoteDescription({ type: "answer", sdp: msg.value }).catch(
           (err) => fail(`remote answer rejected: ${describeError(err)}`),
         );
+      } else if (msg.type === "error") {
+        // go2rtc could not open the stream's source, which says nothing
+        // about whether WebRTC itself can connect.
+        cleanup({
+          ok: false,
+          streamError: true,
+          detail: `go2rtc stream ${testStream} unavailable: ${msg.value}`,
+        });
       }
     });
   });
 }
 
+/** Moves to the next stream only when go2rtc refused the current one. */
+async function runProbes(
+  testStreams: string[],
+  iceServers: RTCIceServer[],
+  timeoutMs: number,
+): Promise<WebRTCProbeResult> {
+  let result: WebRTCProbeResult = {
+    ok: false,
+    detail: "no go2rtc stream to probe",
+  };
+  for (const stream of testStreams.slice(0, MAX_PROBE_STREAMS)) {
+    result = await runProbe(stream, iceServers, timeoutMs);
+    if (!result.streamError) {
+      return result;
+    }
+  }
+  return result;
+}
+
+/**
+ * Probes the given streams in order (put the one being viewed first). Every
+ * caller shares one probe while it runs.
+ */
 export function probeWebRTCAvailability(
-  testStream: string,
+  testStreams: string[],
   iceServers: RTCIceServer[],
   timeoutMs: number = 5000,
 ): Promise<WebRTCProbeResult> {
-  probePromise ??= runProbe(testStream, iceServers, timeoutMs);
-  return probePromise;
+  if (
+    cachedProbe &&
+    (cachedProbe.failedAt === null ||
+      Date.now() - cachedProbe.failedAt < PROBE_FAILURE_TTL_MS)
+  ) {
+    return cachedProbe.promise;
+  }
+  const entry: NonNullable<typeof cachedProbe> = {
+    promise: runProbes(testStreams, iceServers, timeoutMs).then(
+      (result) => {
+        if (!result.ok) entry.failedAt = Date.now();
+        return result;
+      },
+      (err: unknown) => {
+        // e.g. RTCPeerConnection throwing: expire it like any other failure.
+        entry.failedAt = Date.now();
+        return { ok: false, detail: describeError(err) };
+      },
+    ),
+    failedAt: null,
+  };
+  cachedProbe = entry;
+  return entry.promise;
 }
 
 /** Clears the cached probe result (e.g. when go2rtc config changes). */
 export function resetWebRTCProbe(): void {
-  probePromise = null;
+  cachedProbe = null;
 }

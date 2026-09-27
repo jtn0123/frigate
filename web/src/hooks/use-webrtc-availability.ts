@@ -74,13 +74,56 @@ export function evaluateStreamWebRTCAvailability(args: {
   return { available: true };
 }
 
+export type WebRTCTalkState = "available" | "pending" | "unavailable";
+
+/**
+ * Two-way talk needs a WebRTC connection for the stream, but not one that can
+ * carry its playback audio: the backchannel is sent, not received.
+ */
+export function webRTCTalkState(stream: StreamAvailability): WebRTCTalkState {
+  if (stream.available || stream.reason === "audio-codec") {
+    return "available";
+  }
+  return stream.reason === "checking" ? "pending" : "unavailable";
+}
+
+/**
+ * Mirrors docker/main/rootfs/usr/local/go2rtc/create_config.py, which adds
+ * default candidates unless the user set `candidates` explicitly (even to an
+ * empty list).
+ */
+export function isWebRTCConfigured(
+  webrtc: FrigateConfig["go2rtc"]["webrtc"],
+): boolean {
+  if (webrtc?.candidates == null) {
+    return true;
+  }
+  return webrtc.candidates.length > 0 || (webrtc.ice_servers?.length ?? 0) > 0;
+}
+
+/** Streams to probe, the one being viewed first. */
+export function webRTCProbeStreams(
+  streams: Record<string, unknown> | undefined,
+  preferredStream?: string,
+): string[] {
+  const names = Object.keys(streams ?? {});
+  if (!preferredStream || !names.includes(preferredStream)) {
+    return names;
+  }
+  return [preferredStream, ...names.filter((name) => name !== preferredStream)];
+}
+
 /** go2rtc config the cached probe result belongs to. */
 let lastProbeSignature: string | null = null;
 
 /**
- * Once-per-session: browser support, go2rtc config, and a live handshake probe.
+ * Browser support, go2rtc config, and a live handshake probe shared by the
+ * page. A failed probe is retried on a later mount or when the page becomes
+ * visible again once its cached result has expired.
  */
-export function useWebRTCGloballyAvailable(): GlobalAvailability {
+export function useWebRTCGloballyAvailable(
+  preferredStream?: string,
+): GlobalAvailability {
   const { data: config } = useSWR<FrigateConfig>("config");
   const [probe, setProbe] = useState<{
     state: "pending" | "pass" | "fail";
@@ -89,20 +132,18 @@ export function useWebRTCGloballyAvailable(): GlobalAvailability {
 
   const browserOk = browserSupportsWebRTC();
 
-  const configured = useMemo(() => {
-    const webrtc = config?.go2rtc.webrtc;
-    if (!webrtc) return false;
-    return (
-      (webrtc.candidates?.length ?? 0) > 0 ||
-      (webrtc.ice_servers?.length ?? 0) > 0
-    );
-  }, [config]);
+  const configured = useMemo(
+    () => config !== undefined && isWebRTCConfigured(config.go2rtc.webrtc),
+    [config],
+  );
 
-  // Representative restreamed stream to probe against.
-  const testStream = useMemo(() => {
-    const streams = config?.go2rtc.streams ?? {};
-    return Object.keys(streams)[0];
-  }, [config]);
+  const testStreams = useMemo(
+    () => webRTCProbeStreams(config?.go2rtc.streams, preferredStream),
+    [config, preferredStream],
+  );
+  const testStreamsKey = testStreams.join("\n");
+
+  const [retryToken, setRetryToken] = useState(0);
 
   const iceServers = useMemo(
     () => webRTCIceServers(config?.go2rtc.webrtc?.ice_servers),
@@ -116,9 +157,9 @@ export function useWebRTCGloballyAvailable(): GlobalAvailability {
       JSON.stringify({
         candidates: config?.go2rtc.webrtc?.candidates ?? [],
         iceServers,
-        testStream,
+        streams: Object.keys(config?.go2rtc.streams ?? {}),
       }),
-    [config, iceServers, testStream],
+    [config, iceServers],
   );
 
   useEffect(() => {
@@ -132,11 +173,26 @@ export function useWebRTCGloballyAvailable(): GlobalAvailability {
   }, [probeSignature]);
 
   useEffect(() => {
-    if (!browserOk || !configured || !testStream) {
+    if (probe.state !== "fail") {
+      return;
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setRetryToken((token) => token + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [probe.state]);
+
+  useEffect(() => {
+    const streams = testStreamsKey ? testStreamsKey.split("\n") : [];
+    if (!browserOk || !configured || streams.length === 0) {
       return;
     }
     let cancelled = false;
-    void probeWebRTCAvailability(testStream, iceServers).then(
+    void probeWebRTCAvailability(streams, iceServers).then(
       (result) => {
         if (!cancelled) {
           setProbe({
@@ -152,7 +208,7 @@ export function useWebRTCGloballyAvailable(): GlobalAvailability {
     return () => {
       cancelled = true;
     };
-  }, [browserOk, configured, testStream, iceServers]);
+  }, [browserOk, configured, testStreamsKey, iceServers, retryToken]);
 
   const availability = useMemo<GlobalAvailability>(() => {
     if (!browserOk) {
@@ -176,9 +232,10 @@ export function useWebRTCGloballyAvailable(): GlobalAvailability {
 /** Per-stream WebRTC availability for selectors and auto-selection. */
 export function useWebRTCAvailableForStream(
   metadata: LiveStreamMetadata | null | undefined,
-  _streamName?: string,
+  streamName?: string,
 ): StreamAvailability {
-  const { globallyAvailable, globalReason } = useWebRTCGloballyAvailable();
+  const { globallyAvailable, globalReason } =
+    useWebRTCGloballyAvailable(streamName);
 
   const availability = useMemo(
     () =>

@@ -1,10 +1,11 @@
 /**
  * WebRTC streaming-technology availability gating.
  *
- * The connectivity probe needs a live go2rtc, so this covers the
- * statically-determinable gate: with no webrtc candidates/ice_servers
- * configured, the WebRTC option must be disabled in the stream-technology
- * selector (label "Streaming Technology").
+ * The connectivity probe needs a live go2rtc, so most of this covers the
+ * statically-determinable gate: with webrtc candidates explicitly emptied and
+ * no ice_servers, the WebRTC option must be disabled in the stream-technology
+ * selector (label "Streaming Technology"). The two-way talk tests fake a
+ * connected peer so the probe and the player can get past signaling.
  */
 import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/frigate-test";
@@ -47,6 +48,133 @@ async function readIdb(page: Page, key: string) {
     });
   }, key);
 }
+
+// Metadata of a talk-back camera whose playback audio is AAC only, which
+// WebRTC cannot carry, while its backchannel takes G.711.
+const AAC_TALKBACK_METADATA = {
+  producers: [
+    {
+      medias: [
+        "video, recvonly, H264",
+        "audio, recvonly, MPEG4-GENERIC",
+        "audio, sendonly, PCMA",
+      ],
+    },
+  ],
+  consumers: [],
+};
+
+/**
+ * Makes every RTCPeerConnection report ICE connected once it has an answer, and
+ * hands out a silent microphone, so signaling is all the test has to serve.
+ */
+async function fakeWebRTCMedia(page: Page) {
+  await page.addInitScript(() => {
+    const Real = window.RTCPeerConnection;
+    class ConnectedPeer extends Real {
+      private fakeState: RTCIceConnectionState = "new";
+      get iceConnectionState() {
+        return this.fakeState;
+      }
+      async setRemoteDescription() {
+        this.fakeState = "connected";
+        queueMicrotask(() =>
+          this.dispatchEvent(new Event("iceconnectionstatechange")),
+        );
+      }
+      async addIceCandidate() {}
+    }
+    window.RTCPeerConnection = ConnectedPeer;
+    navigator.mediaDevices.getUserMedia = async () =>
+      new AudioContext().createMediaStreamDestination().stream;
+  });
+}
+
+test.describe("Two-way talk over WebRTC @critical", () => {
+  test("the mic connects over WebRTC when the playback audio is AAC only", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    await fakeWebRTCMedia(page);
+    let webrtcSockets = 0;
+    await page.routeWebSocket("**/live/webrtc/api/ws**", (socket) => {
+      webrtcSockets++;
+      socket.onMessage((raw) => {
+        if (JSON.parse(raw.toString()).type !== "webrtc/offer") return;
+        socket.send(JSON.stringify({ type: "webrtc/answer", value: "v=0" }));
+      });
+    });
+    // Keep the default MSE player quiet so its failure does not change modes.
+    await page.routeWebSocket("**/live/mse/api/ws**", () => {});
+
+    await frigateApp.installDefaults({
+      config: {
+        go2rtc: {
+          streams: { front_door: ["rtsp://127.0.0.1:8554/front_door"] },
+        },
+      },
+    });
+    await page.route("**/api/go2rtc/streams/front_door**", (route) =>
+      route.fulfill({ json: AAC_TALKBACK_METADATA }),
+    );
+
+    await frigateApp.goto("/#front_door");
+
+    const mic = page.getByRole("button", { name: "Enable Two Way Talk" });
+    await expect(mic).toBeVisible({ timeout: 10_000 });
+    await expect(mic).not.toHaveAttribute("aria-disabled", "true");
+    // Only the connectivity probe so far.
+    expect(webrtcSockets).toBe(1);
+
+    await mic.scrollIntoViewIfNeeded();
+    await mic.click();
+
+    // The player switched to WebRTC and opened both its video connection and
+    // the microphone backchannel, rather than showing an active mic that
+    // sends nothing.
+    await expect.poll(() => webrtcSockets).toBeGreaterThanOrEqual(3);
+    await expect(
+      page.getByRole("button", { name: "Disable Two Way Talk" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("a stock config probes WebRTC and holds the mic until the verdict", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    // Never answer, so the verdict stays pending.
+    let probed = false;
+    await page.routeWebSocket("**/live/webrtc/api/ws**", () => {
+      probed = true;
+    });
+
+    // No go2rtc.webrtc section at all: go2rtc adds default candidates, so
+    // this must not read as "not configured".
+    await frigateApp.installDefaults({
+      config: {
+        go2rtc: {
+          streams: { front_door: ["rtsp://127.0.0.1:8554/front_door"] },
+        },
+      },
+    });
+    await page.route("**/api/go2rtc/streams/front_door**", (route) =>
+      route.fulfill({ json: AAC_TALKBACK_METADATA }),
+    );
+
+    await frigateApp.goto("/#front_door");
+
+    const mic = page.getByRole("button", {
+      name: /Checking WebRTC availability/,
+    });
+    await expect(mic).toBeVisible({ timeout: 10_000 });
+    await expect(mic).toHaveAttribute("aria-disabled", "true");
+    await expect(mic).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => probed).toBe(true);
+    await expect(
+      page.getByRole("button", { name: /requires WebRTC/ }),
+    ).toHaveCount(0);
+  });
+});
 
 test.describe("WebRTC availability gating @critical @desktop-only", () => {
   test("desktop: WebRTC option is disabled when no candidates or ice_servers", async ({

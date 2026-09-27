@@ -30,7 +30,7 @@ import { useResizeObserver } from "@/hooks/resize-observer";
 import useKeyboardListener from "@/hooks/use-keyboard-listener";
 import {
   useWebRTCAvailableForStream,
-  useWebRTCGloballyAvailable,
+  webRTCTalkState,
 } from "@/hooks/use-webrtc-availability";
 import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
 import {
@@ -226,9 +226,9 @@ export default function LiveCameraView({
   );
   const isWebRTCAvailable = webRTCAvailability.available;
 
-  // Two-way talk is the sendonly backchannel: global, not per-stream.
-  const { globallyAvailable: webRTCGloballyAvailable } =
-    useWebRTCGloballyAvailable();
+  // Two-way talk is the sendonly backchannel, so unsupported playback audio
+  // does not rule it out, but the stream's video must still connect.
+  const talkState = webRTCTalkState(webRTCAvailability);
 
   // "checking" means the probe has not answered yet, and it re-enters that on
   // every mount, so treating it as unavailable downgrades the saved choice.
@@ -431,7 +431,7 @@ export default function LiveCameraView({
   });
 
   const preferredLiveMode = useMemo(() => {
-    if (mic && isWebRTCAvailable) {
+    if (mic && talkState === "available") {
       return "webrtc";
     }
 
@@ -439,7 +439,9 @@ export default function LiveCameraView({
       return "jsmpeg";
     }
 
-    if (webRTC && isRestreamed && isWebRTCAvailable) {
+    // Usable rather than available: an error fallback taken while the
+    // verdict is pending must still leave the failing player.
+    if (webRTC && isRestreamed && webRTCUsable) {
       return "webrtc";
     }
 
@@ -463,11 +465,21 @@ export default function LiveCameraView({
     lowBandwidth,
     forceLowBandwidth,
     mic,
+    talkState,
     webRTC,
     isRestreamed,
     resolvedUserMode,
     isWebRTCAvailable,
+    webRTCUsable,
   ]);
+
+  // The mic only connects through WebRtcPlayer, so an active mic without it
+  // would look on while sending nothing.
+  useEffect(() => {
+    if (talkState !== "available") {
+      setMic(false);
+    }
+  }, [talkState]);
 
   // A latched error fallback would keep overriding the user's new choice.
   useEffect(() => {
@@ -613,7 +625,11 @@ export default function LiveCameraView({
   );
 
   let micTitle: string;
-  if (!webRTCGloballyAvailable) {
+  if (talkState === "pending") {
+    micTitle = t("stream.technology.unavailable.checking", {
+      ns: "views/live",
+    });
+  } else if (talkState === "unavailable") {
     micTitle = t("twoWayTalk.requiresWebRTC", { ns: "views/live" });
   } else if (mic) {
     micTitle = t("twoWayTalk.disable", { ns: "views/live" });
@@ -763,7 +779,7 @@ export default function LiveCameraView({
                     setAudio(true);
                   }
                 }}
-                disabled={!cameraEnabled || debug || !webRTCGloballyAvailable}
+                disabled={!cameraEnabled || debug || talkState !== "available"}
               />
             )}
             {supportsAudioOutput && preferredLiveMode != "jsmpeg" && (
