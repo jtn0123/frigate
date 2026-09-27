@@ -75,7 +75,7 @@ export const CAMERA_BRAND_VALUES = CAMERA_BRANDS.map(
 
 export type CameraBrand = (typeof CAMERA_BRANDS)[number]["value"];
 
-export type StreamRole = "detect" | "record" | "audio";
+export type StreamRole = "detect" | "record" | "record_sub" | "audio";
 
 export type StreamConfig = {
   id: string;
@@ -220,3 +220,25 @@ export type OnvifProbeResponse = {
   message?: string;
   detail?: string;
 };
+
+/**
+ * Best-effort brand from a camera URL, so the wizard's brand-specific stream
+ * warnings can run for cameras that were not created by the wizard.
+ */
+export function inferCameraBrand(url: string): CameraBrand | undefined {
+  const lower = url.toLowerCase();
+
+  if (lower.includes("app=bcs") || lower.includes("/preview_")) {
+    return "reolink";
+  }
+
+  if (lower.includes("/cam/realmonitor")) {
+    return "dahua";
+  }
+
+  if (lower.includes("/streaming/channels/")) {
+    return "hikvision";
+  }
+
+  return undefined;
+}

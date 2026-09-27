@@ -1,0 +1,53 @@
+/*
+ * Touch-friendly resize handles for the live grid (fork, flag
+ * `liveLayoutMemory`). Applied only while the `.fork-live-grid` class is on
+ * the grid container, which DraggableGridLayout adds when the flag is on.
+ *
+ * react-resizable ships 20 px corner handles that are invisible until
+ * hover, which a finger can neither see nor hit. Pointer-agnostic: grow the
+ * hit area. Coarse pointers (touch): keep the handles visible in edit mode
+ * and draw a ring so the target is obvious.
+ */
+
+.fork-live-grid .react-grid-item > .react-resizable-handle {
+  width: 32px;
+  height: 32px;
+  padding: 0 6px 6px 0;
+}
+
+@media (pointer: coarse) {
+  .fork-live-grid .react-grid-item > .react-resizable-handle {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+    padding: 0;
+    background-image: none;
+    border-radius: 9999px;
+    box-shadow: inset 0 0 0 2px hsl(var(--primary-variant) / 0.8);
+    background-color: hsl(var(--background) / 0.35);
+  }
+
+  .fork-live-grid .react-grid-item > .react-resizable-handle::after {
+    content: none;
+  }
+
+  .fork-live-grid .react-grid-item > .react-resizable-handle-sw {
+    bottom: -12px;
+    left: -12px;
+  }
+
+  .fork-live-grid .react-grid-item > .react-resizable-handle-se {
+    bottom: -12px;
+    right: -12px;
+  }
+
+  .fork-live-grid .react-grid-item > .react-resizable-handle-nw {
+    top: -12px;
+    left: -12px;
+  }
+
+  .fork-live-grid .react-grid-item > .react-resizable-handle-ne {
+    top: -12px;
+    right: -12px;
+  }
+}

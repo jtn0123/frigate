@@ -10,7 +10,7 @@ import {
 import Wrapper from "@/components/Wrapper";
 import Sidebar from "@/components/navigation/Sidebar";
 
-import { isDesktop, isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import Statusbar from "./components/Statusbar";
 import Bottombar from "./components/navigation/Bottombar";
 import { lazy } from "react";
@@ -72,6 +72,8 @@ function AppLayout() {
 function DefaultAppView({
   config,
 }: Readonly<{ config: FrigateConfig | undefined }>) {
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
   const location = useLocation();
   const publicShare = isPublicSharePath(location.pathname);
 

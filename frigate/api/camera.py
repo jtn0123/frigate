@@ -307,7 +307,9 @@ def ffprobe(request: Request, paths: str = "", detailed: bool = False):
                     stderr_decoded = str(ffprobe.stderr)
 
             stderr_lines = [
-                line.strip() for line in stderr_decoded.split("\n") if line.strip()
+                clean_camera_user_pass(line.strip())
+                for line in stderr_decoded.split("\n")
+                if line.strip()
             ]
 
             result = {
@@ -1300,7 +1302,7 @@ def camera_set(
     | `improve_contrast` | `ON`, `OFF` |
     | `ptz_autotracker` | `ON`, `OFF` |
     | `birdseye` | `ON`, `OFF` |
-    | `birdseye_mode` | `CONTINUOUS`, `MOTION`, `OBJECTS` |
+    | `birdseye_modes` | `CONTINUOUS`, `MOTION`, `ALL_OBJECTS`, `ALERTS`, `DETECTIONS`, `NONE`, or a comma-separated combination |
     | `motion_contour_area` | integer |
     | `motion_threshold` | integer |
     | `motion_mask` | `ON`, `OFF` |

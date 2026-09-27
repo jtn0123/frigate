@@ -20,7 +20,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from ruamel.yaml import YAML
 
-from frigate.const import REGEX_HTTP_CAMERA_USER_PASS, REGEX_RTSP_CAMERA_USER_PASS
+from frigate.const import (
+    REGEX_HTTP_CAMERA_USER_PASS,
+    REGEX_RTSP_CAMERA_USER_PASS,
+    STREAM_TYPE_MAIN,
+    STREAM_TYPE_SUB,
+)
 
 if TYPE_CHECKING:
     from frigate.config import CameraConfig
@@ -51,10 +56,13 @@ class EventsPerSecond:
             self._start = now
         # compute the (approximate) events in the last n seconds
         self.expire_timestamps(now)
-        seconds = min(now - self._start, self._last_n_seconds)
-        # avoid divide by zero
-        if seconds == 0:
-            seconds = 1
+        # rate over at least one second (or the whole window, if shorter),
+        # so a burst of events right after start() is not divided by a
+        # tiny window
+        seconds = max(
+            min(now - self._start, self._last_n_seconds),
+            min(1.0, self._last_n_seconds),
+        )
         return len(self._timestamps) / seconds
 
     # remove aged out timestamps
@@ -137,9 +145,16 @@ def get_ffmpeg_arg_list(arg: Any) -> list:
 DEFAULT_RECORD_SEGMENT_TIME = 10
 
 
-def get_record_segment_time(config: "CameraConfig") -> int:
-    """Extract -segment_time from the camera's record output args."""
-    record_args = get_ffmpeg_arg_list(config.ffmpeg.output_args.record)
+def get_record_segment_time(
+    config: "CameraConfig", stream_type: str = STREAM_TYPE_MAIN
+) -> int:
+    """Extract -segment_time from the camera's record output args for a stream."""
+    output_args = (
+        config.ffmpeg.output_args.effective_record_sub
+        if stream_type == STREAM_TYPE_SUB
+        else config.ffmpeg.output_args.record
+    )
+    record_args = get_ffmpeg_arg_list(output_args)
 
     if record_args and record_args[0].startswith("preset"):
         return DEFAULT_RECORD_SEGMENT_TIME

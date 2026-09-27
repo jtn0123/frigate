@@ -83,7 +83,7 @@ export default defineConfig({
     },
     {
       name: "tablet",
-      grep: TABLET_TAG,
+      grep: /@tablet(?:-only)?\b/,
       grepInvert: skipCsp,
       use: {
         ...devices["Desktop Chrome"],

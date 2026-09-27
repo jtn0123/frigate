@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import Hls, { HlsConfig } from "hls.js";
+import Hls, { ErrorData, HlsConfig } from "hls.js";
 import { isDesktop, isMobile } from "react-device-detect";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import VideoControls from "./VideoControls";
@@ -29,10 +29,41 @@ import { useIsAdmin } from "@/hooks/use-is-admin";
 // Android native hls does not seek correctly
 const USE_NATIVE_HLS = false;
 const HLS_MIME_TYPE = "application/vnd.apple.mpegurl" as const;
-const unsupportedErrorCodes = [
+const unsupportedErrorCodes: number[] = [
   MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED,
   MediaError.MEDIA_ERR_DECODE,
 ];
+const DEFAULT_MAX_BUFFER_LENGTH_S = 10;
+
+function isCodecErrorDetails(details: ErrorData["details"]) {
+  return (
+    details === Hls.ErrorDetails.BUFFER_INCOMPATIBLE_CODECS_ERROR ||
+    details === Hls.ErrorDetails.BUFFER_ADD_CODEC_ERROR
+  );
+}
+
+/** Recovers from a fatal hls.js media error, spending the recovery budget. */
+function handleFatalMediaError(
+  hls: Hls,
+  data: ErrorData,
+  onFatalCodecError: (() => boolean) | undefined,
+  recoveryBudgetRef: { current: number },
+  onUnrecoverable: (data: ErrorData) => void,
+) {
+  // retrying the same codec cannot succeed, so a codec error
+  // prefers a quality downswitch over recovery
+  if (isCodecErrorDetails(data.details) && onFatalCodecError?.()) {
+    return;
+  }
+  // with no stream to fall back to, recover like any media error so a
+  // failure still reaches the user once the budget is spent
+  if (recoveryBudgetRef.current > 0) {
+    recoveryBudgetRef.current -= 1;
+    hls.recoverMediaError();
+    return;
+  }
+  onUnrecoverable(data);
+}
 
 export interface HlsSource {
   playlist: string;
@@ -61,6 +92,14 @@ type HlsVideoPlayerProps = {
   onSnapshot?: (playTime: number) => Promise<void> | void;
   toggleFullscreen?: () => void;
   onError?: (error: RecordingPlayerError) => void;
+  onStallStart?: () => void;
+  onStallEnd?: () => void;
+  onSeekStart?: () => void;
+  onBandwidthSample?: (estimateBps: number, levelBitrateBps?: number) => void;
+  onFatalNetworkError?: () => boolean;
+  onFatalCodecError?: () => boolean;
+  initialBandwidthEstimate?: number;
+  bufferLength?: number;
   isDetailMode?: boolean;
   camera?: string;
   currentTimeOverride?: number;
@@ -89,6 +128,14 @@ export default function HlsVideoPlayer({
   onSnapshot,
   toggleFullscreen,
   onError,
+  onStallStart,
+  onStallEnd,
+  onSeekStart,
+  onBandwidthSample,
+  onFatalNetworkError,
+  onFatalCodecError,
+  initialBandwidthEstimate,
+  bufferLength,
   isDetailMode = false,
   camera,
   currentTimeOverride,
@@ -104,9 +151,63 @@ export default function HlsVideoPlayer({
   // playback
 
   const hlsRef = useRef<Hls>(undefined);
-  const [useHlsCompat, setUseHlsCompat] = useState(false);
+  // kept in a ref so changing callback identities do not recreate the
+  // Hls instance; the setup effect must only re-run on source changes
+  const qualitySignalsRef = useRef({
+    onStallStart,
+    onStallEnd,
+    onSeekStart,
+    onBandwidthSample,
+    onFatalNetworkError,
+    onFatalCodecError,
+    initialBandwidthEstimate,
+  });
+  // must resolve before the first render: a mount-effect flip would run
+  // the first source effect in native mode, briefly handing iOS a native
+  // HLS src that hls.js then tears away mid-load
+  const [useHlsCompat, setUseHlsCompat] = useState(() => {
+    if (
+      USE_NATIVE_HLS &&
+      document.createElement("video").canPlayType(HLS_MIME_TYPE)
+    ) {
+      return false;
+    }
+    return Hls.isSupported();
+  });
+  // a ref so a buffer change never recreates the Hls instance: the parent
+  // flips it one commit before the matching source, and a rebuild on the
+  // outgoing playlist would reset the element's playhead and frame
+  const bufferLengthRef = useRef(bufferLength);
   const [loadedMetadata, setLoadedMetadata] = useState(false);
   const [bufferTimeout, setBufferTimeout] = useState<NodeJS.Timeout>();
+  // native HLS playback has no MSE, so it recovers from pipeline errors
+  // by reloading the source; one attempt per source
+  const nativeRetryRef = useRef(0);
+  // a ref rather than an effect-scoped counter so the element error
+  // handler can hold its toast while a recovery is still possible
+  const mediaRecoveryBudgetRef = useRef(0);
+  // one failure toast per source; hls.js and the element can both
+  // report the same failure, and a codec error repeats on every retry
+  const failureReportedRef = useRef(false);
+
+  const reportPlaybackFailure = useCallback(
+    (code: number, message: string) => {
+      if (failureReportedRef.current) {
+        return;
+      }
+
+      failureReportedRef.current = true;
+      toast.error(t("toast.error.playRecordingsFailed", { code, message }), {
+        position: "top-center",
+      });
+    },
+    [t],
+  );
+  // read through a ref so the Hls setup effect need not depend on it
+  const reportPlaybackFailureRef = useRef(reportPlaybackFailure);
+  useEffect(() => {
+    reportPlaybackFailureRef.current = reportPlaybackFailure;
+  }, [reportPlaybackFailure]);
 
   const applyVideoDimensions = useCallback(
     (width: number, height: number) => {
@@ -156,27 +257,49 @@ export default function HlsVideoPlayer({
   }, [videoRef, applyVideoDimensions]);
 
   useEffect(() => {
-    if (!videoRef.current) {
-      return;
-    }
+    qualitySignalsRef.current = {
+      onStallStart,
+      onStallEnd,
+      onSeekStart,
+      onBandwidthSample,
+      onFatalNetworkError,
+      onFatalCodecError,
+      initialBandwidthEstimate,
+    };
+  }, [
+    onStallStart,
+    onStallEnd,
+    onSeekStart,
+    onBandwidthSample,
+    onFatalNetworkError,
+    onFatalCodecError,
+    initialBandwidthEstimate,
+  ]);
 
-    if (USE_NATIVE_HLS && videoRef.current.canPlayType(HLS_MIME_TYPE)) {
-      return;
-    } else if (Hls.isSupported()) {
-      setUseHlsCompat(true);
+  useEffect(() => {
+    bufferLengthRef.current = bufferLength;
+    // hls.js reads maxBufferLength on every buffer check, so the live
+    // instance picks the new depth up without a reload
+    if (hlsRef.current) {
+      hlsRef.current.config.maxBufferLength =
+        bufferLength ?? DEFAULT_MAX_BUFFER_LENGTH_S;
     }
-  }, [videoRef]);
+  }, [bufferLength]);
 
   useEffect(() => {
     if (!videoRef.current) {
       return;
     }
 
-    setLoadedMetadata(false);
-
+    // loadedMetadata is intentionally NOT reset here: on a source swap
+    // the element already holds a decoded frame, and keeping it visible
+    // bridges the gap while the new source loads
     const currentPlaybackRate = videoRef.current.playbackRate;
+    failureReportedRef.current = false;
 
     if (!useHlsCompat) {
+      nativeRetryRef.current = 0;
+      mediaRecoveryBudgetRef.current = 0;
       videoRef.current.src = currentSource.playlist;
       videoRef.current.load();
       return;
@@ -184,14 +307,68 @@ export default function HlsVideoPlayer({
 
     // Base HLS configuration
     const hlsConfig: Partial<HlsConfig> = {
-      maxBufferLength: 10,
+      maxBufferLength: bufferLengthRef.current ?? DEFAULT_MAX_BUFFER_LENGTH_S,
       maxBufferSize: 20 * 1000 * 1000,
       startPosition: currentSource.startPosition,
     };
 
-    hlsRef.current = new Hls(hlsConfig);
-    hlsRef.current.attachMedia(videoRef.current);
-    hlsRef.current.loadSource(currentSource.playlist);
+    // every quality switch and chunk change recreates the instance, so
+    // seed it to keep measured throughput across source swaps
+    const seedEstimate = qualitySignalsRef.current.initialBandwidthEstimate;
+    if (seedEstimate !== undefined && seedEstimate > 0) {
+      hlsConfig.abrEwmaDefaultEstimate = seedEstimate;
+    }
+
+    const hls = new Hls(hlsConfig);
+    hlsRef.current = hls;
+    let networkRecoveryAttempts = 0;
+    mediaRecoveryBudgetRef.current = 1;
+    hls.on(Hls.Events.ERROR, (_event, data) => {
+      if (data.fatal) {
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          // prefer a quality downswitch; fall back to restarting loading
+          const handled =
+            qualitySignalsRef.current.onFatalNetworkError?.() ?? false;
+          if (!handled && networkRecoveryAttempts < 2) {
+            networkRecoveryAttempts += 1;
+            hls.startLoad();
+          }
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          handleFatalMediaError(
+            hls,
+            data,
+            qualitySignalsRef.current.onFatalCodecError,
+            mediaRecoveryBudgetRef,
+            (errorData) =>
+              reportPlaybackFailureRef.current(
+                isCodecErrorDetails(errorData.details)
+                  ? MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+                  : MediaError.MEDIA_ERR_DECODE,
+                errorData.error?.message || errorData.details,
+              ),
+          );
+        }
+        return;
+      }
+
+      // hls.js reports each stall episode only once, so STALL_RESOLVED
+      // below is what closes it
+      if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+        qualitySignalsRef.current.onStallStart?.();
+      }
+    });
+    hls.on(Hls.Events.STALL_RESOLVED, () => {
+      qualitySignalsRef.current.onStallEnd?.();
+    });
+    hls.on(Hls.Events.FRAG_LOADED, () => {
+      // manifests are single-variant, so the bitrate is always level 0
+      qualitySignalsRef.current.onBandwidthSample?.(
+        hls.bandwidthEstimate,
+        hls.levels.at(0)?.bitrate || undefined,
+      );
+    });
+    hls.attachMedia(videoRef.current);
+    hls.loadSource(currentSource.playlist);
     videoRef.current.playbackRate = currentPlaybackRate;
 
     return () => {
@@ -470,7 +647,7 @@ export default function HlsVideoPlayer({
                 return;
               }
 
-              setVolume(videoRef.current.volume ?? 1.0, true);
+              setVolume(videoRef.current.volume, true);
 
               if (frigateControls) {
                 if (videoRef.current.muted && !persistedMuted) {
@@ -492,10 +669,16 @@ export default function HlsVideoPlayer({
                 );
               }
             }}
-            onPlaying={onPlaying}
+            onPlaying={() => {
+              qualitySignalsRef.current.onStallEnd?.();
+              onPlaying?.();
+            }}
             onPause={() => {
               setIsPlaying(false);
               clearTimeout(bufferTimeout);
+
+              // paused time must never count as stall time
+              qualitySignalsRef.current.onStallEnd?.();
 
               if (isMobile && mobileCtrlTimeout) {
                 clearTimeout(mobileCtrlTimeout);
@@ -506,13 +689,18 @@ export default function HlsVideoPlayer({
               // while paused and never resumes it on seek, so a seek
               // into unbuffered media would never complete
               hlsRef.current?.resumeBuffering();
+              qualitySignalsRef.current.onSeekStart?.();
             }}
             onWaiting={() => {
-              if (onError != undefined) {
-                if (videoRef.current?.paused) {
-                  return;
-                }
+              if (videoRef.current?.paused) {
+                return;
+              }
 
+              // the only stall signal under native HLS playback, which
+              // emits no hls.js events
+              qualitySignalsRef.current.onStallStart?.();
+
+              if (onError != undefined) {
                 setBufferTimeout(
                   setTimeout(() => {
                     if (
@@ -568,23 +756,44 @@ export default function HlsVideoPlayer({
               }
             }}
             onError={(e) => {
-              if (
-                !hlsRef.current &&
-                // @ts-expect-error code does exist
-                unsupportedErrorCodes.includes(e.target.error.code) &&
-                videoRef.current
-              ) {
-                setLoadedMetadata(false);
-                setUseHlsCompat(true);
-              } else {
-                toast.error(
-                  // @ts-expect-error code does exist
-                  `Failed to play recordings (error ${e.target.error.code}): ${e.target.error.message}`,
-                  {
-                    position: "top-center",
-                  },
-                );
+              const mediaError = (e.target as HTMLVideoElement).error;
+
+              if (!mediaError) {
+                return;
               }
+
+              // an intentional source swap aborts the in-flight load;
+              // that abort is not an error the user can act on
+              if (mediaError.code === MediaError.MEDIA_ERR_ABORTED) {
+                return;
+              }
+
+              // hold the toast while the fatal handler still has a retry
+              // left; a failed recovery raises a second element error
+              if (hlsRef.current && mediaRecoveryBudgetRef.current > 0) {
+                return;
+              }
+
+              if (!hlsRef.current && videoRef.current) {
+                if (
+                  unsupportedErrorCodes.includes(mediaError.code) &&
+                  Hls.isSupported()
+                ) {
+                  setLoadedMetadata(false);
+                  setUseHlsCompat(true);
+                  return;
+                }
+
+                // native pipeline errors around source swaps are usually
+                // transient, and hls.js is no fallback without MSE
+                if (nativeRetryRef.current < 1) {
+                  nativeRetryRef.current += 1;
+                  videoRef.current.load();
+                  return;
+                }
+              }
+
+              reportPlaybackFailure(mediaError.code, mediaError.message);
             }}
           />
         </div>

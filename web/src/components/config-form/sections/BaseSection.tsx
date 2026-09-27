@@ -698,6 +698,7 @@ export function ConfigSection({
         sectionPath,
         effectiveLevel,
         overrides,
+        config,
       );
 
       if (
@@ -812,6 +813,7 @@ export function ConfigSection({
     effectiveSectionPath,
     profileName,
     pendingData,
+    config,
     effectiveLevel,
     cameraName,
     t,

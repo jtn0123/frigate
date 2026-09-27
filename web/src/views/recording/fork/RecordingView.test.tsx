@@ -36,6 +36,7 @@ const CONFIG = vi.hoisted(() => ({
   cameras: {
     front: {
       ui: { review: true },
+      record: { enabled: true, sub: { enabled: false } },
       detect: { width: 1280, height: 720 },
       review: { genai: { enabled_in_config: false } },
     },
@@ -47,6 +48,13 @@ vi.mock("swr", () => ({
     data: key === "config" ? CONFIG : undefined,
     isLoading: false,
   }),
+}));
+
+vi.mock("@/hooks/use-persistence", () => ({
+  usePersistence: <S,>(_key: string, defaultValue?: S) => {
+    const [value, setValue] = useState<S | undefined>(defaultValue);
+    return [value, setValue, true, () => setValue(defaultValue)];
+  },
 }));
 
 vi.mock("@/hooks/use-overlay-state", () => ({

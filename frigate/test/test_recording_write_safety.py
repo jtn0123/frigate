@@ -37,7 +37,7 @@ class TestRecordingWriteSafety(unittest.IsolatedAsyncioTestCase):
 
     async def move(self):
         return await self.maintainer.move_segment(
-            "front", self.start, self.end, 10, str(self.cache), self.info
+            "front", "main", self.start, self.end, 10, str(self.cache), self.info
         )
 
     async def test_process_start_failure_preserves_original_for_retry(self):

@@ -59,8 +59,10 @@ from frigate.api import (
     fork_camera_history,
     fork_share,
     fork_updates,
+    hardware,
     media,
     motion_search,
+    notices,
     notification,
     preview,
     record,
@@ -160,6 +162,8 @@ def build_app() -> FastAPI:
         preview.router,
         notification.router,
         export.router,
+        hardware.router,
+        notices.router,
         event.router,
         media.router,
         motion_search.router,
@@ -339,7 +343,8 @@ def build_access_map(
         for method in route.methods:
             if method in ("HEAD", "OPTIONS"):
                 continue
-            access_map[(route.path, method.lower())] = {
+            # the OpenAPI paths drop convertors such as :path, like path_format
+            access_map[(route.path_format, method.lower())] = {
                 "level": level,
                 "roles": roles,
                 "flag": flag,

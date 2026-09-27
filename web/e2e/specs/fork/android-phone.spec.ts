@@ -238,9 +238,15 @@ test.describe("Android phone @high @mobile", () => {
   );
 
   test(
-    "landscape keeps the 48px bottom bar",
+    "legacy phone layout keeps the 48px bottom bar in landscape",
     { tag: "@mobile-only" },
     async ({ frigateApp }) => {
+      await frigateApp.page.addInitScript(() => {
+        localStorage.setItem(
+          "frigateFork",
+          JSON.stringify({ viewportLayout: false }),
+        );
+      });
       await frigateApp.page.setViewportSize({ width: 915, height: 412 });
       await frigateApp.goto("/");
       const box = await frigateApp.page.locator("#pageRoot").boundingBox();

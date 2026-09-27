@@ -6,12 +6,19 @@ import logging
 from collections.abc import Callable, Iterable
 from typing import Any, cast
 
+from peewee import IntegrityError
+
 from frigate.camera import PTZMetrics
 from frigate.camera.activity_manager import AudioActivityManager, CameraActivityManager
 from frigate.comms.base_communicator import Communicator
+from frigate.comms.mqtt import MqttClient
 from frigate.comms.runtime_state import RuntimeStatePersistence
 from frigate.comms.webpush import WebPushClient
-from frigate.config import BirdseyeModeEnum, FrigateConfig
+from frigate.config import (
+    FrigateConfig,
+    birdseye_modes_from_mqtt_payload,
+    birdseye_modes_to_mqtt_payload,
+)
 from frigate.config.camera.updater import (
     CameraConfigUpdateEnum,
     CameraConfigUpdatePublisher,
@@ -34,10 +41,12 @@ from frigate.const import (
     UPDATE_EVENT_DESCRIPTION,
     UPDATE_JOB_STATE,
     UPDATE_MODEL_STATE,
+    UPDATE_NOTICE,
     UPDATE_REVIEW_DESCRIPTION,
     UPSERT_REVIEW_SEGMENT,
 )
 from frigate.models import Event, Previews, Recordings, ReviewSegment
+from frigate.notices.registry import NoticeRegistry
 from frigate.ptz.onvif import OnvifCommandEnum, OnvifController
 from frigate.types import ModelStatusTypesEnum, TrackedObjectUpdateTypesEnum
 from frigate.util.object import get_camera_regions_grid
@@ -56,12 +65,18 @@ class Dispatcher:
         onvif: OnvifController,
         ptz_metrics: dict[str, PTZMetrics],
         communicators: list[Communicator],
+        notice_registry: NoticeRegistry | None = None,
     ) -> None:
         self.config = config
         self.config_updater = config_updater
         self.onvif = onvif
         self.ptz_metrics = ptz_metrics
         self.comms = communicators
+        self.notice_registry = notice_registry
+
+        if notice_registry is not None:
+            notice_registry.subscribe(self._publish_notices)
+
         self.camera_activity = CameraActivityManager(config, self.publish)
         self.audio_activity = AudioActivityManager(config, self.publish)
         self.model_state: dict[str, ModelStatusTypesEnum] = {}
@@ -84,7 +99,7 @@ class Dispatcher:
             "recordings": self._on_recordings_command,
             "snapshots": self._on_snapshots_command,
             "birdseye": self._on_birdseye_command,
-            "birdseye_mode": self._on_birdseye_mode_command,
+            "birdseye_modes": self._on_birdseye_modes_command,
             "review_alerts": self._on_alerts_command,
             "review_detections": self._on_detections_command,
             "object_descriptions": self._on_object_description_command,
@@ -149,17 +164,32 @@ class Dispatcher:
             restart_frigate()
 
         def handle_insert_many_recordings() -> None:
-            Recordings.insert_many(payload).execute()
+            try:
+                Recordings.insert_many(payload).execute()
+            except IntegrityError:
+                logger.warning(
+                    "Batch recording insert failed, inserting rows individually"
+                )
+
+                for recording in payload:
+                    try:
+                        Recordings.insert(recording).execute()
+                    except IntegrityError:
+                        logger.warning(
+                            "Skipping recording that is already stored: %s",
+                            recording.get(Recordings.path.name),
+                        )
 
         def handle_request_region_grid() -> Any:
             camera = payload
             if camera not in self.config.cameras:
                 return None
 
+            model = self.config.model_for_camera(camera)
             grid = get_camera_regions_grid(
                 camera,
                 self.config.cameras[camera].detect,
-                max(self.config.model.width, self.config.model.height),
+                max(model.width, model.height),
             )
             return grid
 
@@ -216,6 +246,16 @@ class Dispatcher:
                 state = payload["state"]
                 self.model_state[model] = ModelStatusTypesEnum[state]
                 self.publish("model_state", json.dumps(self.model_state))
+
+        def handle_update_notice() -> None:
+            if self.notice_registry is None or not isinstance(payload, dict):
+                return
+
+            try:
+                self.notice_registry.apply(payload)
+            except Exception:
+                # a raise here would kill the REP thread for every process
+                logger.exception("Failed to apply notice update")
 
         def handle_model_state() -> None:
             self.publish("model_state", json.dumps(self.model_state.copy()))
@@ -316,6 +356,7 @@ class Dispatcher:
                 json.dumps(self.embeddings_reindex.copy()),
             )
             self.publish("birdseye_layout", json.dumps(self.birdseye_layout.copy()))
+            self._publish_notices()
             self.publish("audio_detections", json.dumps(audio_detections))
             self.publish(
                 "profile/state",
@@ -340,6 +381,7 @@ class Dispatcher:
             UPDATE_REVIEW_DESCRIPTION: handle_update_review_description,
             UPDATE_MODEL_STATE: handle_update_model_state,
             UPDATE_JOB_STATE: handle_update_job_state,
+            UPDATE_NOTICE: handle_update_notice,
             UPDATE_EMBEDDINGS_REINDEX_PROGRESS: handle_update_embeddings_reindex_progress,
             UPDATE_BIRDSEYE_LAYOUT: handle_update_birdseye_layout,
             UPDATE_AUDIO_TRANSCRIPTION_STATE: handle_update_audio_transcription_state,
@@ -399,6 +441,23 @@ class Dispatcher:
         """Handle publishing to communicators."""
         for comm in self.comms:
             comm.publish(topic, payload, retain)
+
+    def publish_local(self, topic: str, payload: Any) -> None:
+        """Publish to every communicator except MQTT.
+
+        Used for topics whose external schema is not settled yet.
+        """
+        for comm in self.comms:
+            if isinstance(comm, MqttClient):
+                continue
+
+            comm.publish(topic, payload, False)
+
+    def _publish_notices(self) -> None:
+        if self.notice_registry is None:
+            return
+
+        self.publish_local("notices", json.dumps(self.notice_registry.active()))
 
     def stop(self) -> None:
         self.camera_activity.stop()
@@ -873,11 +932,12 @@ class Dispatcher:
         )
         self.publish(f"{camera_name}/birdseye/state", payload, retain=True)
 
-    def _on_birdseye_mode_command(self, camera_name: str, payload: str) -> None:
+    def _on_birdseye_modes_command(self, camera_name: str, payload: str) -> None:
         """Callback for birdseye mode topic."""
 
-        if payload not in ["CONTINUOUS", "MOTION", "OBJECTS"]:
-            logger.info(f"Invalid birdseye_mode command: {payload}")
+        modes = birdseye_modes_from_mqtt_payload(payload)
+        if modes is None:
+            logger.info("Invalid birdseye_modes command: %s", payload)
             return
 
         birdseye_settings = self.config.cameras[camera_name].birdseye
@@ -886,16 +946,20 @@ class Dispatcher:
             logger.info(f"Birdseye mode not enabled for {camera_name}")
             return
 
-        birdseye_settings.mode = BirdseyeModeEnum(payload.lower())
+        birdseye_settings.modes = modes
         logger.info(
-            f"Setting birdseye mode for {camera_name} to {birdseye_settings.mode}"
+            f"Setting birdseye mode for {camera_name} to {birdseye_settings.modes}"
         )
 
         self.config_updater.publish_update(
             CameraConfigUpdateTopic(CameraConfigUpdateEnum.birdseye, camera_name),
             birdseye_settings,
         )
-        self.publish(f"{camera_name}/birdseye_mode/state", payload, retain=True)
+        self.publish(
+            f"{camera_name}/birdseye_modes/state",
+            birdseye_modes_to_mqtt_payload(modes),
+            retain=True,
+        )
 
     def _on_camera_notification_command(self, camera_name: str, payload: str) -> None:
         """Callback for camera level notifications topic."""

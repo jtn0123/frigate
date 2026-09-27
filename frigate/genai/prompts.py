@@ -519,7 +519,7 @@ def get_tool_definitions(
                                 "motion",
                                 "enabled",
                                 "birdseye",
-                                "birdseye_mode",
+                                "birdseye_modes",
                                 "improve_contrast",
                                 "ptz_autotracker",
                                 "motion_contour_area",
@@ -534,7 +534,7 @@ def get_tool_definitions(
                             ],
                             "description": (
                                 "The feature to change. Most features accept ON or OFF. "
-                                "birdseye_mode accepts CONTINUOUS, MOTION, or OBJECTS. "
+                                "birdseye_modes accepts CONTINUOUS, MOTION, ALL_OBJECTS, ALERTS, DETECTIONS, NONE, or a comma-separated combination. "
                                 "motion_contour_area and motion_threshold accept a number. "
                                 "profile accepts a profile name or 'none' to deactivate (requires camera='*')."
                             ),

@@ -69,7 +69,7 @@ class TestMaintainerDropsFailingSegments(unittest.IsolatedAsyncioTestCase):
 
     async def move(self):
         return await self.maintainer.move_segment(
-            "front", self.start, self.end, 10, str(self.cache), self.info
+            "front", "main", self.start, self.end, 10, str(self.cache), self.info
         )
 
     async def attempts_until_dropped(self, spawn_script: str, **patches):

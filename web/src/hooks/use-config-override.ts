@@ -479,7 +479,7 @@ export const OVERRIDABLE_SECTIONS: ReadonlyArray<{
     key: "audio_transcription",
     compareFields: ["enabled", "live_enabled"],
   },
-  { key: "birdseye", compareFields: ["enabled", "mode"] },
+  { key: "birdseye", compareFields: ["enabled", "modes"] },
   { key: "face_recognition", compareFields: ["enabled", "min_area"] },
   {
     key: "ffmpeg",

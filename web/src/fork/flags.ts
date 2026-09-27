@@ -20,6 +20,8 @@ export type ForkFlags = {
   themeControls: boolean;
   /** Per-camera health cards on the System page. */
   cameraHealth: boolean;
+  /** System health notices alongside the fork camera history. */
+  systemNotices: boolean;
   /** In-app notification inbox with quiet hours. */
   notificationInbox: boolean;
   /** Multi-select and bulk actions in Review and Explore. */
@@ -50,6 +52,7 @@ const defaults: ForkFlags = {
   commandPalette: true,
   themeControls: true,
   cameraHealth: true,
+  systemNotices: true,
   notificationInbox: true,
   bulkActions: true,
   clipSharing: true,

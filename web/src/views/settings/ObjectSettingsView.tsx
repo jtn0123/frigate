@@ -39,6 +39,7 @@ import { phoneDebugSheetClass } from "@/lib/fork/phone-debug-sheet";
 import { useOverlayHistoryBack } from "@/hooks/fork/use-overlay-history-back";
 import PhoneDebugSheetControls from "@/components/fork/PhoneDebugSheetControls";
 import PhoneDebugChips from "@/components/fork/PhoneDebugChips";
+import { getPrimaryModel } from "@/utils/modelUtil";
 
 type ObjectSettingsViewProps = {
   selectedCamera?: string;
@@ -206,11 +207,10 @@ export default function ObjectSettingsView({
         <div className="mb-5 space-y-3 text-sm text-muted-foreground">
           <p>
             {t("debug.detectorDesc", {
-              detectors: config
-                ? Object.keys(config?.detectors)
-                    .map((detector) => capitalizeFirstLetter(detector))
-                    .join(",")
-                : "",
+              detectors: (config?.models ?? [])
+                .flatMap((model) => model.devices ?? [])
+                .map((device) => capitalizeFirstLetter(device))
+                .join(","),
             })}
           </p>
           <p>{t("debug.desc")}</p>
@@ -438,7 +438,7 @@ function ObjectList({ cameraConfig, objects }: Readonly<ObjectListProps>) {
       return;
     }
 
-    return config.model?.colormap;
+    return getPrimaryModel(config)?.colormap;
   }, [config]);
 
   const getColorForObjectName = useCallback(

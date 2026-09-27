@@ -6,6 +6,7 @@ import UiSettingsView from "./UiSettingsView";
 
 const fixture = vi.hoisted(() => ({
   deleteKey: vi.fn(),
+  setPreference: vi.fn(),
   buildExport: vi.fn(),
   download: vi.fn(),
   success: vi.fn(),
@@ -21,6 +22,10 @@ vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
   useTranslation: () => ({ t: (key: string) => key }),
 }));
+vi.mock("react-device-detect", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-device-detect")>()),
+  isSafari: true,
+}));
 vi.mock("swr", () => ({ default: () => ({ data: fixture.config }) }));
 vi.mock("sonner", () => ({
   toast: { success: fixture.success, error: fixture.error },
@@ -28,7 +33,7 @@ vi.mock("sonner", () => ({
 vi.mock("@/hooks/use-user-persistence", () => ({
   useUserPersistence: (_key: string, initial: unknown) => [
     initial,
-    vi.fn(),
+    fixture.setPreference,
     true,
   ],
   deleteUserNamespacedKey: fixture.deleteKey,
@@ -94,12 +99,27 @@ function mount(isLoading = false) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  HTMLElement.prototype.scrollIntoView = vi.fn();
   sessionStorage.clear();
   fixture.deleteKey.mockResolvedValue(undefined);
   fixture.buildExport.mockResolvedValue({ type: "frigate-ui-settings" });
 });
 
 describe("UiSettingsView", () => {
+  it("offers and saves fast default playback rates on Safari", async () => {
+    mount();
+    const trigger = document.getElementById("default-playback-rate");
+    if (!trigger) throw new Error("Missing playback rate selector");
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    for (const rate of [0.5, 1, 2, 4, 8, 16]) {
+      expect(
+        await screen.findByRole("option", { name: `${rate}x` }),
+      ).toBeVisible();
+    }
+    fireEvent.click(screen.getByRole("option", { name: "16x" }));
+    expect(fixture.setPreference).toHaveBeenCalledWith(16);
+  });
+
   it("requires confirmation before clearing layouts and removes each group for the user", async () => {
     mount();
     fireEvent.click(
@@ -110,7 +130,7 @@ describe("UiSettingsView", () => {
       "confirmClear.layouts.title",
     );
     fireEvent.click(screen.getByRole("button", { name: "Confirm clear" }));
-    await waitFor(() => expect(fixture.deleteKey).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fixture.deleteKey).toHaveBeenCalledTimes(8));
     expect(fixture.deleteKey).toHaveBeenCalledWith(
       "porch-draggable-layout",
       "operator",

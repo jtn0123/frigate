@@ -13,6 +13,8 @@ import { baseUrl } from "@/api/baseUrl";
 import { cn } from "@/lib/utils";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { isForkEnabled } from "@/fork/flags";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 import { useInbox, useInboxUnreadCount } from "@/hooks/fork/use-inbox";
 import {
@@ -34,6 +36,7 @@ export default function InboxPanelBody({
 }: Readonly<InboxPanelBodyProps>) {
   const { t } = useTranslation(["fork"]);
   const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
   const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
@@ -88,6 +91,18 @@ export default function InboxPanelBody({
           </Button>
         </div>
       </div>
+      {isAdmin && isForkEnabled("systemNotices") && (
+        <Button
+          variant="ghost"
+          className="min-h-11 justify-start rounded-none border-b px-4"
+          onClick={() => {
+            onNavigate();
+            void navigate("/system#notices");
+          }}
+        >
+          {t("inbox.systemNotices")}
+        </Button>
+      )}
       {showSettings && <InboxSettingsSection />}
       <div className="scrollbar-container flex-1 overflow-y-auto">
         {items.length === 0 ? (

@@ -512,7 +512,7 @@ export interface paths {
          *     | `improve_contrast` | `ON`, `OFF` |
          *     | `ptz_autotracker` | `ON`, `OFF` |
          *     | `birdseye` | `ON`, `OFF` |
-         *     | `birdseye_mode` | `CONTINUOUS`, `MOTION`, `OBJECTS` |
+         *     | `birdseye_modes` | `CONTINUOUS`, `MOTION`, `ALL_OBJECTS`, `ALERTS`, `DETECTIONS`, `NONE`, or a comma-separated combination |
          *     | `motion_contour_area` | integer |
          *     | `motion_threshold` | integer |
          *     | `motion_mask` | `ON`, `OFF` |
@@ -571,7 +571,7 @@ export interface paths {
          *     | `improve_contrast` | `ON`, `OFF` |
          *     | `ptz_autotracker` | `ON`, `OFF` |
          *     | `birdseye` | `ON`, `OFF` |
-         *     | `birdseye_mode` | `CONTINUOUS`, `MOTION`, `OBJECTS` |
+         *     | `birdseye_modes` | `CONTINUOUS`, `MOTION`, `ALL_OBJECTS`, `ALERTS`, `DETECTIONS`, `NONE`, or a comma-separated combination |
          *     | `motion_contour_area` | integer |
          *     | `motion_threshold` | integer |
          *     | `motion_mask` | `ON`, `OFF` |
@@ -2636,6 +2636,229 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hardware/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Probe Hardware
+         * @description **Access:** Admin role required.
+         *
+         *     Get the object detection hardware attached to this system.
+         *
+         *     Args:
+         *         refresh: Probe again instead of returning the cached result
+         *
+         *     Returns:
+         *         Every kind of detection hardware that was found
+         */
+        get: operations["probe_hardware_hardware_probe_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hardware/hwaccel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hwaccel Recommendation
+         * @description **Access:** Admin role required.
+         *
+         *     Get the hardware decoding this system can do.
+         *
+         *     Args:
+         *         detector: Hardware key of the detection hardware in use, which biases
+         *             the recommendation toward that hardware's GPU
+         *         codecs: Comma separated codecs of the streams that will be decoded,
+         *             used to drop families that cannot decode one of them
+         *
+         *     Returns:
+         *         The recommended family (empty when none fits) and every usable family
+         */
+        get: operations["hwaccel_recommendation_hardware_hwaccel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Notices
+         * @description **Access:** Admin role required.
+         *
+         *     Get notices, most severe first.
+         *
+         *     Args:
+         *         include_hidden: Also return acknowledged and muted notices, for the
+         *             hidden list
+         *
+         *     Returns:
+         *         The notices
+         */
+        get: operations["get_notices_notices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Notice Stats
+         * @description **Access:** Admin role required.
+         *
+         *     Get lifetime occurrence counts per notice kind.
+         */
+        get: operations["get_notice_stats_notices_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/muted_checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Muted Checks
+         * @description **Access:** Admin role required.
+         *
+         *     Get the muted config and stream check rows, newest first.
+         */
+        get: operations["get_muted_checks_notices_muted_checks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unhide All Notices
+         * @description **Access:** Admin role required.
+         *
+         *     Show every acknowledged and muted notice and check row again.
+         */
+        delete: operations["unhide_all_notices_notices_hidden_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/{notice_id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Notice
+         * @description **Access:** Admin role required.
+         *
+         *     Hide a notice until it happens again.
+         *
+         *     Config and stream check rows and the update notice never repeat, so they
+         *     can only be muted.
+         */
+        post: operations["acknowledge_notice_notices__notice_id__acknowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/{notice_id}/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mute Notice
+         * @description **Access:** Admin role required.
+         *
+         *     Hide a notice or a config or stream check row for good.
+         */
+        post: operations["mute_notice_notices__notice_id__mute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notices/{notice_id}/hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unhide Notice
+         * @description **Access:** Admin role required.
+         *
+         *     Show an acknowledged or muted notice or check row again.
+         */
+        delete: operations["unhide_notice_notices__notice_id__hidden_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -3376,6 +3599,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vod/{camera_name}/{stream}/start/{start_ts}/end/{end_ts}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vod Ts Stream
+         * @description **Access:** Authenticated user with access to the referenced camera.
+         *
+         *     Returns an HLS playlist pinned to one stream type (main or sub) for the specified timestamp-range on the specified camera. Append /master.m3u8 or /index.m3u8 for HLS playback.
+         */
+        get: operations["vod_ts_stream_vod__camera_name___stream__start__start_ts__end__end_ts__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events/{event_id}/snapshot.jpg": {
         parameters: {
             query?: never;
@@ -3850,6 +4095,32 @@ export interface paths {
          *     Returns hourly summary for recordings of given camera
          */
         get: operations["recordings_summary__camera_name__recordings_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/{camera_name}/recordings/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recordings Coverage
+         * @description **Access:** Authenticated user with access to the referenced camera.
+         *
+         *     Returns merged recording coverage spans plus codec compatibility.
+         *
+         *     codecs_compatible is false only when more than one known video codec
+         *     appears across the range's rows, the case where the merged vod route
+         *     degrades to a single-stream manifest.
+         */
+        get: operations["recordings_coverage__camera_name__recordings_coverage_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4387,6 +4658,12 @@ export interface components {
              * @description Optional description for a newly created export case
              */
             new_case_description?: string | null;
+            /**
+             * Recorded stream to export
+             * @description Which recorded stream every item in the batch is exported from. 'auto' uses the merged timeline, preferring the main stream and falling back to the sub stream where main has aged out. 'main' or 'sub' pins the exports to that stream.
+             * @default auto
+             */
+            stream: components["schemas"]["ExportStreamEnum"];
         };
         /** BatchExportItem */
         BatchExportItem: {
@@ -4764,6 +5041,42 @@ export interface components {
              */
             ids: string[];
         };
+        /**
+         * DetectionHardware
+         * @description A kind of detection hardware, and every unit of it that was found.
+         */
+        DetectionHardware: {
+            /**
+             * Hardware key
+             * @description Stable identifier for this kind of hardware.
+             */
+            key: string;
+            /**
+             * Detector type
+             * @description The detector that drives this hardware.
+             */
+            detector: string;
+            /**
+             * Hardware name
+             * @description Human readable name for this kind of hardware.
+             */
+            name: string;
+            /**
+             * Units
+             * @description Each physical piece of this hardware that was found.
+             */
+            units: components["schemas"]["HardwareUnit"][];
+            /**
+             * Unit count
+             * @description How many units were found.
+             */
+            count: number;
+            /**
+             * Unlimited detectors
+             * @description Whether this hardware can run more inference processes than there are units.
+             */
+            unlimited: boolean;
+        };
         /** EventCreateResponse */
         EventCreateResponse: {
             /** Success */
@@ -5118,6 +5431,12 @@ export interface components {
              * @description Optional chapter metadata to embed in the export. When omitted, the camera's configured export chapter mode is used.
              */
             chapters?: components["schemas"]["ChaptersEnum"] | null;
+            /**
+             * Recorded stream to export
+             * @description Which recorded stream to export. 'auto' uses the merged timeline, preferring the main stream and falling back to the sub stream where main has aged out. 'main' or 'sub' pins the export to that stream alone.
+             * @default auto
+             */
+            stream: components["schemas"]["ExportStreamEnum"];
         };
         /** ExportRecordingsCustomBody */
         ExportRecordingsCustomBody: {
@@ -5157,6 +5476,17 @@ export interface components {
             /** Friendly name */
             name: string;
         };
+        /**
+         * ExportStreamEnum
+         * @description Which recorded stream an export should be built from.
+         *
+         *     ``auto`` keeps the merged timeline: main where it exists, sub filling
+         *     the gaps main has already aged out of. Pinning to one stream trades
+         *     that coverage for a uniform source, which is always a plain stream
+         *     copy since nothing hands off mid-export.
+         * @enum {string}
+         */
+        ExportStreamEnum: "auto" | "main" | "sub";
         /**
          * Extension
          * @enum {string}
@@ -5369,6 +5699,56 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HardwareUnit
+         * @description One physical piece of hardware.
+         */
+        HardwareUnit: {
+            /**
+             * Device string
+             * @description The value to put in a model's devices list, for example 'edgetpu:pci:1'.
+             */
+            device: string;
+            /**
+             * Unit label
+             * @description How to identify this unit among others of the same kind, for example 'PCIe 1'.
+             */
+            label: string;
+        };
+        /**
+         * HwaccelFamily
+         * @description A kind of hardware decoding, and the presets that drive it.
+         */
+        HwaccelFamily: {
+            /**
+             * Family key
+             * @description Stable identifier for this kind of hardware decoding.
+             */
+            key: string;
+            /**
+             * Presets
+             * @description The ffmpeg preset for each codec this family decodes, or a single 'any' preset when it decodes every codec.
+             */
+            presets: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * HwaccelRecommendation
+         * @description The hardware decoding this system can do.
+         */
+        HwaccelRecommendation: {
+            /**
+             * Recommended family
+             * @description Key of the family that fits this system best, or an empty string when none does.
+             */
+            recommended: string;
+            /**
+             * Available families
+             * @description Every family this system's hardware can use, best first.
+             */
+            available?: components["schemas"]["HwaccelFamily"][];
         };
         /** Last24HoursReview */
         Last24HoursReview: {
@@ -5937,6 +6317,15 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /**
+         * VodStreamPreference
+         * @description Stream pin for the path-segment VOD route.
+         *
+         *     nginx-vod derives its mapping fetch URI from the playlist URL path
+         *     (query params are dropped), so the preference must be a path segment.
+         * @enum {string}
+         */
+        VodStreamPreference: "main" | "sub";
     };
     responses: never;
     parameters: never;
@@ -9545,6 +9934,253 @@ export interface operations {
             };
         };
     };
+    probe_hardware_hardware_probe_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectionHardware"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hwaccel_recommendation_hardware_hwaccel_get: {
+        parameters: {
+            query?: {
+                detector?: string | null;
+                codecs?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HwaccelRecommendation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notices_notices_get: {
+        parameters: {
+            query?: {
+                include_hidden?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notice_stats_notices_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_muted_checks_notices_muted_checks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    unhide_all_notices_notices_hidden_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    acknowledge_notice_notices__notice_id__acknowledge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mute_notice_notices__notice_id__mute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unhide_notice_notices__notice_id__hidden_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     events_events_get: {
         parameters: {
             query?: {
@@ -10773,6 +11409,42 @@ export interface operations {
             };
         };
     };
+    vod_ts_stream_vod__camera_name___stream__start__start_ts__end__end_ts__get: {
+        parameters: {
+            query?: {
+                force_discontinuity?: boolean;
+            };
+            header?: never;
+            path: {
+                camera_name: string | null;
+                stream: components["schemas"]["VodStreamPreference"];
+                start_ts: number;
+                end_ts: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     event_snapshot_events__event_id__snapshot_jpg_get: {
         parameters: {
             query?: {
@@ -11494,6 +12166,41 @@ export interface operations {
         parameters: {
             query?: {
                 timezone?: string;
+            };
+            header?: never;
+            path: {
+                camera_name: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recordings_coverage__camera_name__recordings_coverage_get: {
+        parameters: {
+            query: {
+                after: number;
+                before: number;
+                timelines?: boolean;
             };
             header?: never;
             path: {

@@ -1,5 +1,12 @@
 import type { FieldPathList, FieldProps, RJSFSchema } from "@rjsf/utils";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import useSWR from "swr";
 import {
@@ -69,24 +76,28 @@ function PlateCombobox({
   const [searchValue, setSearchValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const changeOpen = useCallback(
+    (next: boolean) => {
+      // Seed before mounting the input so autofocus can select synchronously.
+      setSearchValue(next ? value : "");
+      setOpen(next);
+    },
+    [value],
+  );
+
   useEffect(() => {
     if (!autoOpen) return;
-    setOpen(true);
+    changeOpen(true);
     onAutoOpened();
-  }, [autoOpen, onAutoOpened]);
+  }, [autoOpen, onAutoOpened, changeOpen]);
 
-  // Seed the search box with the current plate and select it, so the first
-  // keystroke replaces the plate instead of appending to it.
-  useEffect(() => {
-    if (!open) {
-      setSearchValue("");
-      return;
+  // Reopening during the close animation reuses the mounted focus scope.
+  useLayoutEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
     }
-
-    setSearchValue(value);
-    const frame = requestAnimationFrame(() => inputRef.current?.select());
-    return () => cancelAnimationFrame(frame);
-  }, [open, value]);
+  }, [open]);
 
   const trimmedSearch = searchValue.trim();
 
@@ -109,7 +120,7 @@ function PlateCombobox({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={changeOpen}>
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -133,6 +144,11 @@ function PlateCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          inputRef.current?.focus();
+          inputRef.current?.select();
+        }}
         align="start"
         className="w-[--radix-popover-trigger-width] p-0"
       >

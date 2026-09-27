@@ -2,12 +2,13 @@
 
 import logging
 import unittest
-from collections import deque
+from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from frigate.config.camera.record import RecordConfig
 from frigate.video.ffmpeg import CameraWatchdog
 from frigate.video.restart_log import RestartLog
 
@@ -51,7 +52,7 @@ def watchdog(steps, stale_age=1000):
             name="back",
             enabled=True,
             detect=SimpleNamespace(fps=5),
-            record=SimpleNamespace(enabled=True, enabled_in_config=True),
+            record=RecordConfig(enabled=True, enabled_in_config=True),
         ),
         sleeptime=10,
         stop_event=FakeStopEvent(steps),
@@ -67,6 +68,8 @@ def watchdog(steps, stale_age=1000):
         reset_capture_thread=MagicMock(),
         was_enabled=True,
         was_record_enabled_in_config=True,
+        was_record_sub_enabled=False,
+        detect_process_records_sub=False,
         hwaccel_fallback=MagicMock(),
         _publish_hwaccel_fallback=MagicMock(),
         logpipe=MagicMock(),
@@ -91,12 +94,12 @@ def watchdog(steps, stale_age=1000):
             }
         ],
         restart_log=RestartLog("back", logger, []),
-        record_stale_threshold=150,
+        record_stale_threshold={"main": 150, "sub": 150},
         record_enable_time=None,
-        record_restart_time=None,
-        latest_valid_segment_time=stale_time,
-        latest_invalid_segment_time=0,
-        latest_cache_segment_time=stale_time,
+        stream_grace_until={},
+        latest_valid_segment_time=defaultdict(float, main=stale_time),
+        latest_invalid_segment_time=defaultdict(float),
+        latest_cache_segment_time=defaultdict(float, main=stale_time),
         reconnect_timestamps=deque(),
         reconnects=None,
         detection_frame=None,
@@ -109,7 +112,10 @@ def watchdog(steps, stale_age=1000):
         "_drain_segment_updates",
         "_check_detect_process",
         "_check_record_processes",
-        "_record_in_grace",
+        "_stream_staleness",
+        "_grant_restart_grace",
+        "_reset_segment_times",
+        "_recorded_streams",
         "_record_stall_reason",
         "_restart_stalled_record",
     ):

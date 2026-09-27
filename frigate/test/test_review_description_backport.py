@@ -30,7 +30,7 @@ class TestReviewDescriptionBackport(unittest.TestCase):
         self.processor = object.__new__(module.ReviewDescriptionProcessor)
         self.processor.config = SimpleNamespace(
             cameras={"front": self.camera},
-            model=SimpleNamespace(
+            model_for_camera=lambda camera: SimpleNamespace(
                 merged_labelmap={0: "person", 1: "car"}, all_attributes=["face"]
             ),
             ffmpeg=object(),
@@ -140,7 +140,7 @@ class TestReviewDescriptionBackport(unittest.TestCase):
         thread.return_value.start.assert_called_once()
         self.assertIsNone(self.processor.handle_request("unknown", {}))
 
-    def test_analysis_preserves_frame_order_captions_and_global_labelmap(self):
+    def test_analysis_preserves_frame_order_captions_and_camera_labelmap(self):
         for mode, captions in (
             (ReviewFrameModeEnum.frames, []),
             (ReviewFrameModeEnum.annotated_frames, ["person enters", "person leaves"]),

@@ -16,16 +16,16 @@ from peewee import DoesNotExist
 
 from frigate.api import app as main_api
 from frigate.api import review_audio
-from frigate.stats.ai_models import collect_local_models, stats_fresh
+from frigate.detectors.device import parse_device
+from frigate.stats.ai_models import collect_local_models, detector_models, stats_fresh
 from frigate.stats.model_history import read_history, save_sample
 
 
 class MonitoringTruthTests(unittest.TestCase):
     def test_source_age_and_dead_process_hide_live_metrics(self):
         config = SimpleNamespace(
-            detectors={
-                "test": SimpleNamespace(model=SimpleNamespace(path=None), type="onnx")
-            },
+            models=[SimpleNamespace(path=None)],
+            devices_for_model=lambda model: [parse_device("onnx")],
             semantic_search=SimpleNamespace(enabled=False, model="unused"),
             face_recognition=SimpleNamespace(enabled=False),
             lpr=SimpleNamespace(enabled=False),
@@ -38,7 +38,7 @@ class MonitoringTruthTests(unittest.TestCase):
         ]:
             stats = {
                 "service": {"last_updated": time.time() - age},
-                "detectors": {"test": {"pid": 999, "cpu": 35, "inference_speed": 14}},
+                "detectors": {"onnx": {"pid": 999, "cpu": 35, "inference_speed": 14}},
             }
             with (
                 patch("frigate.stats.ai_models.process_memory", return_value=memory),
@@ -51,6 +51,29 @@ class MonitoringTruthTests(unittest.TestCase):
                 self.assertIsNone(model["latency_ms"])
         self.assertFalse(stats_fresh({}))
         self.assertFalse(stats_fresh({"service": {"last_updated": float("nan")}}))
+
+    def test_repeated_device_runners_keep_separate_model_measurements(self):
+        config = SimpleNamespace(
+            models=[
+                SimpleNamespace(path="/models/day.onnx"),
+                SimpleNamespace(path="/models/night.onnx"),
+            ],
+            devices_for_model=lambda model: [parse_device("onnx")],
+        )
+        stats = {
+            "detectors": {
+                "onnx": {"pid": 10, "inference_speed": 5},
+                "onnx#2": {"pid": 20, "inference_speed": 9},
+            }
+        }
+        with patch("frigate.stats.ai_models.process_memory", side_effect=[100, 200]):
+            rows = detector_models(config, stats, True)
+        self.assertEqual(
+            [row["id"] for row in rows], ["detector:onnx", "detector:onnx#2"]
+        )
+        self.assertEqual([row["name"] for row in rows], ["day.onnx", "night.onnx"])
+        self.assertEqual([row["ram_bytes"] for row in rows], [100, 200])
+        self.assertEqual([row["latency_ms"] for row in rows], [5, 9])
 
     def test_history_survives_reader_restart_and_prunes_old_samples(self):
         with tempfile.TemporaryDirectory() as directory:

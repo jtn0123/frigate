@@ -19,7 +19,7 @@ from frigate.app import FrigateApp
 from frigate.comms.detections_updater import DetectionTypeEnum
 from frigate.comms.webpush import WebPushClient
 from frigate.config import BirdseyeModeEnum, FrigateConfig
-from frigate.output.birdseye import BirdsEyeFrameManager
+from frigate.output.birdseye import BirdseyeActivity, BirdsEyeFrameManager
 from frigate.output.output import OutputProcess, check_disabled_camera_update
 from frigate.record.maintainer import RecordingMaintainer
 from frigate.util.ffmpeg import start_or_restart_ffmpeg
@@ -35,7 +35,7 @@ def _config(**camera_overrides) -> FrigateConfig:
     camera.update(camera_overrides)
     return FrigateConfig(
         mqtt={"enabled": False},
-        birdseye={"enabled": True, "mode": "continuous"},
+        birdseye={"enabled": True, "modes": ["continuous"]},
         cameras={"front": camera},
     )
 
@@ -134,23 +134,41 @@ class TestBirdseyeUpdate(unittest.TestCase):
         self.manager.cameras.pop("front")
 
         self.assertEqual(
-            self.manager.update("front", 0, 0, 1.0, self.frame), (False, False)
+            self.manager.update(
+                "front",
+                BirdseyeActivity(has_object=False, has_motion=False, severity=None),
+                1.0,
+                self.frame,
+            ),
+            (False, False),
         )
 
     def test_unknown_camera_is_ignored(self):
         self.assertEqual(
-            self.manager.update("gone", 0, 0, 1.0, self.frame), (False, False)
+            self.manager.update(
+                "gone",
+                BirdseyeActivity(has_object=False, has_motion=False, severity=None),
+                1.0,
+                self.frame,
+            ),
+            (False, False),
         )
 
     def test_active_camera_stores_the_frame(self):
         self.manager.update_frame = MagicMock(return_value=(True, False))
 
         self.assertEqual(
-            self.manager.update("front", 1, 0, 5.0, self.frame), (True, False)
+            self.manager.update(
+                "front",
+                BirdseyeActivity(has_object=True, has_motion=False, severity=None),
+                5.0,
+                self.frame,
+            ),
+            (True, False),
         )
         state = self.manager.cameras["front"]
         self.assertEqual(state["current_frame_time"], 5.0)
-        self.assertEqual(state["last_active_frame"], 5.0)
+        self.assertTrue(state["live_active"])
         self.assertIsNot(state["current_frame"], self.frame)
 
     def test_disabling_birdseye_forces_one_blank_update(self):
@@ -158,15 +176,26 @@ class TestBirdseyeUpdate(unittest.TestCase):
         self.manager.cameras["front"]["last_active_frame"] = 3.0
         self.config.cameras["front"].birdseye.enabled = False
         # with no objects the camera does not count as active again
-        self.config.cameras["front"].birdseye.mode = BirdseyeModeEnum.objects
+        self.config.cameras["front"].birdseye.modes = [BirdseyeModeEnum.all_objects]
 
-        frame_changed, _ = self.manager.update("front", 0, 0, 5.0, self.frame)
+        frame_changed, _ = self.manager.update(
+            "front",
+            BirdseyeActivity(has_object=False, has_motion=False, severity=None),
+            5.0,
+            self.frame,
+        )
 
         self.assertTrue(frame_changed)
         self.assertEqual(self.manager.cameras["front"]["last_active_frame"], 0)
         # nothing was rendered since, so later frames are dropped
         self.assertEqual(
-            self.manager.update("front", 0, 0, 6.0, self.frame), (False, False)
+            self.manager.update(
+                "front",
+                BirdseyeActivity(has_object=False, has_motion=False, severity=None),
+                6.0,
+                self.frame,
+            ),
+            (False, False),
         )
 
 
