@@ -910,14 +910,14 @@ def get_jetson_stats() -> dict[str, str] | None:
 _hailo_import_failed = False
 
 
-def get_hailo_temps() -> dict[str, float]:
-    """Get temperatures for Hailo devices."""
+def _import_hailo_device() -> Any | None:
+    """Return HailoRT's Device class, or None when the runtime is unavailable."""
     global _hailo_import_failed
 
     try:
         from hailo_platform import Device
     except ModuleNotFoundError:
-        return {}
+        return None
     except (ImportError, OSError) as e:
         # an installed runtime whose libhailort does not load; raising here
         # would stop the stats thread
@@ -925,15 +925,25 @@ def get_hailo_temps() -> dict[str, float]:
             _hailo_import_failed = True
             logger.warning("Unable to load HailoRT for temperatures: %s", e)
 
+        return None
+
+    return Device
+
+
+def get_hailo_temps() -> dict[str, float]:
+    """Get temperatures for Hailo devices."""
+    device_class = _import_hailo_device()
+
+    if device_class is None:
         return {}
 
     temps = {}
 
     try:
-        device_ids = Device.scan()
+        device_ids = device_class.scan()
         for i, device_id in enumerate(device_ids):
             try:
-                with Device(device_id) as device:
+                with device_class(device_id) as device:
                     temp_info = device.control.get_chip_temperature()
 
                     # Get board name and normalise it

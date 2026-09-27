@@ -49,9 +49,8 @@ class TestHailoTemps(unittest.TestCase):
             OSError("libhailort.so: wrong ELF class"),
         ):
             with self.subTest(error=type(error).__name__):
-                services._hailo_import_failed = False
-
                 with (
+                    patch.object(services, "_hailo_import_failed", False),
                     patch("builtins.__import__", failing_import(error)),
                     self.assertLogs(services.logger, level="WARNING") as logs,
                 ):
