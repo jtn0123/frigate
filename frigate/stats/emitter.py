@@ -11,10 +11,16 @@ from typing import Any
 from frigate.comms.inter_process import InterProcessRequestor
 from frigate.config import FrigateConfig
 from frigate.const import FREQUENCY_STATS_POINTS
+from frigate.fork.updates import get_checker
 from frigate.notices import flush_notices, raise_notice, resolve_kind, resolve_notice
 from frigate.stats.camera_history import CameraHistory
 from frigate.stats.hardware import HardwareStats
-from frigate.stats.util import get_latest_version, is_newer_version, stats_snapshot
+from frigate.stats.util import (
+    get_latest_version,
+    is_fork_release,
+    is_newer_version,
+    stats_snapshot,
+)
 from frigate.types import StatsTrackingTypes
 from frigate.version import VERSION
 
@@ -198,7 +204,20 @@ class StatsEmitter(threading.Thread):
         if latest == "unknown":
             return
 
-        if is_newer_version(VERSION, latest):
+        if is_fork_release(latest):
+            # fork tags carry a build date, not a newer patch number,
+            # so ask the fork's checker, which finds this build's commit among
+            # the releases
+            status = get_checker().state()["status"]
+
+            if status == "unknown":
+                return
+
+            newer = status == "available"
+        else:
+            newer = is_newer_version(VERSION, latest)
+
+        if newer:
             raise_notice("update_available", scope=latest, params={"version": latest})
         else:
             resolve_kind("update_available")
@@ -294,7 +313,10 @@ class StatsEmitter(threading.Thread):
 
     def run(self) -> None:
         time.sleep(10)
-        self._check_update_notice()
+        # on a thread, as the fork checker may ask GitHub
+        threading.Thread(
+            target=self._check_update_notice, name="frigate_version_check", daemon=True
+        ).start()
         last_version_check = time.time()
         for counter in itertools.cycle(
             range(int(self.config.mqtt.stats_interval / FREQUENCY_STATS_POINTS))

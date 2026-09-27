@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from frigate.stats import emitter
-from frigate.stats.util import is_newer_version
+from frigate.stats.util import is_fork_release, is_newer_version
 
 
 class TestIsNewerVersion(unittest.TestCase):
@@ -31,6 +31,17 @@ class TestIsNewerVersion(unittest.TestCase):
         self.assertFalse(is_newer_version("0.19.0-abcdef", "disabled"))
         self.assertFalse(is_newer_version("0.19.0-abcdef", "unknown"))
         self.assertFalse(is_newer_version("dev", "0.19.0"))
+
+
+class TestIsForkRelease(unittest.TestCase):
+    def test_fork_tags(self):
+        self.assertTrue(is_fork_release("0.18.0-20260924.48"))
+        self.assertTrue(is_fork_release("0.18.0-rc2-20260912.39"))
+
+    def test_other_versions(self):
+        for value in ("0.19.0", "0.19.0-beta2", "0.18.0-abcdef1", "unknown", ""):
+            with self.subTest(value=value):
+                self.assertFalse(is_fork_release(value))
 
 
 class TestUpdateNotice(unittest.TestCase):
@@ -127,3 +138,84 @@ class TestUpdateNotice(unittest.TestCase):
             stats_emitter.stats_tracking["latest_frigate_version"], "disabled"
         )
         self.resolve_kind.assert_called_once_with("update_available")
+
+
+class TestForkUpdateNotice(unittest.TestCase):
+    """Fork builds share one version number, so the fork checker decides."""
+
+    LATEST = "0.18.0-20260924.48"
+
+    def setUp(self):
+        patches = [
+            patch.object(emitter, "raise_notice"),
+            patch.object(emitter, "resolve_kind"),
+            patch.object(emitter, "get_checker"),
+            patch.object(emitter, "VERSION", "0.18.0-abcdef1"),
+        ]
+        self.raise_notice, self.resolve_kind, self.get_checker, _ = (
+            p.start() for p in patches
+        )
+
+        for p in patches:
+            self.addCleanup(p.stop)
+
+    def _check(self, status: str, latest: str = LATEST) -> None:
+        self.get_checker.return_value.state.return_value = {"status": status}
+        stats_emitter = emitter.StatsEmitter.__new__(emitter.StatsEmitter)
+        stats_emitter.config = MagicMock()
+        stats_emitter.stats_tracking = {"latest_frigate_version": latest}
+        stats_emitter._check_update_notice()
+
+    def test_a_newer_fork_build_raises(self):
+        # the same 0.18.0 as the running build, which is_newer_version misses
+        self._check("available")
+
+        self.raise_notice.assert_called_once_with(
+            "update_available", scope=self.LATEST, params={"version": self.LATEST}
+        )
+        self.resolve_kind.assert_not_called()
+
+    def test_the_latest_or_a_local_build_resolves(self):
+        for status in ("up-to-date", "development"):
+            with self.subTest(status=status):
+                self.resolve_kind.reset_mock()
+                self._check(status)
+
+                self.raise_notice.assert_not_called()
+                self.resolve_kind.assert_called_once_with("update_available")
+
+    def test_an_unreachable_checker_leaves_the_notice_alone(self):
+        self._check("unknown")
+
+        self.raise_notice.assert_not_called()
+        self.resolve_kind.assert_not_called()
+
+    def test_upstream_style_versions_skip_the_fork_checker(self):
+        self._check("available", latest="0.19.0")
+
+        self.get_checker.assert_not_called()
+        self.raise_notice.assert_called_once_with(
+            "update_available", scope="0.19.0", params={"version": "0.19.0"}
+        )
+
+    def test_run_checks_on_a_thread(self):
+        stats_emitter = emitter.StatsEmitter.__new__(emitter.StatsEmitter)
+        stats_emitter.stop_event = MagicMock()
+        stats_emitter.stop_event.wait.return_value = True
+        stats_emitter.config = MagicMock()
+        stats_emitter.config.mqtt.stats_interval = 60
+        stats_emitter.camera_history = MagicMock()
+        stats_emitter.hardware_stats = MagicMock()
+        stats_emitter.requestor = MagicMock()
+
+        with (
+            patch.object(emitter.time, "sleep"),
+            patch.object(emitter, "flush_notices"),
+            patch.object(emitter.threading, "Thread") as thread,
+        ):
+            stats_emitter.run()
+
+        self.assertEqual(
+            thread.call_args.kwargs["target"], stats_emitter._check_update_notice
+        )
+        thread.return_value.start.assert_called_once()

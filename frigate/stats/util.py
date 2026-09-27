@@ -65,6 +65,20 @@ def _is_prerelease(value: str) -> bool:
     return PRERELEASE_PATTERN.match(value or "") is not None
 
 
+# fork release tags end in the build date and run number, like
+# fork/0.18.0-20260924.48 (fork/0.18.0-rc2-20260912.39 before 0.18.0)
+FORK_RELEASE_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:-[a-z0-9]+)?-\d{8}\.\d+$", re.I)
+
+
+def is_fork_release(value: str) -> bool:
+    """Whether value is a fork release as get_latest_version returns it.
+
+    Those share one version number across builds, so they are compared by
+    frigate.fork.updates, not by is_newer_version.
+    """
+    return FORK_RELEASE_PATTERN.match(value or "") is not None
+
+
 def is_newer_version(current: str, latest: str) -> bool:
     """Whether latest is a release newer than the running version.
 
