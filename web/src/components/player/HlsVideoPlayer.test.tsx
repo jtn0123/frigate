@@ -186,6 +186,89 @@ it("recovers media errors once and sends codec errors to quality selection", () 
   fireEvent.error(video);
   expect(state.toast).toHaveBeenCalledOnce();
 });
+it("hands codec errors to an available fallback without recovering or toasting", () => {
+  const onFatalCodecError = vi.fn(() => true);
+  const { hls, video } = mount({ onFatalCodecError });
+  act(() => {
+    for (const details of ["codec", "incompatible", "codec"])
+      hls.emit("error", { fatal: true, type: "media", details });
+  });
+  expect(onFatalCodecError).toHaveBeenCalledTimes(3);
+  expect(hls.recoverMediaError).not.toHaveBeenCalled();
+  Object.defineProperty(video, "error", {
+    value: { code: 4, message: "unsupported" },
+    configurable: true,
+  });
+  fireEvent.error(video);
+  expect(state.toast).not.toHaveBeenCalled();
+});
+it("recovers a codec error with no fallback once, then reports the failure once per source", () => {
+  const onFatalCodecError = vi.fn(() => false);
+  const { hls, video, props, rerender } = mount({ onFatalCodecError });
+  const codecError = {
+    fatal: true,
+    type: "media",
+    details: "codec",
+    error: { message: "hvc1 unsupported" },
+  };
+  act(() => hls.emit("error", codecError));
+  expect(hls.recoverMediaError).toHaveBeenCalledOnce();
+  expect(state.toast).not.toHaveBeenCalled();
+  act(() => hls.emit("error", codecError));
+  expect(hls.recoverMediaError).toHaveBeenCalledOnce();
+  expect(state.toast).toHaveBeenCalledOnce();
+  expect(state.toast).toHaveBeenCalledWith(
+    "toast.error.playRecordingsFailed",
+    expect.anything(),
+  );
+  // later hls.js retries and the element's own error do not spam
+  Object.defineProperty(video, "error", {
+    value: { code: 4, message: "unsupported" },
+    configurable: true,
+  });
+  act(() => {
+    hls.emit("error", codecError);
+    hls.emit("error", { fatal: true, type: "media", details: "decode" });
+  });
+  fireEvent.error(video);
+  expect(state.toast).toHaveBeenCalledOnce();
+  // a new source gets its own budget and its own report
+  rerender(
+    <HlsVideoPlayer
+      {...props}
+      onFatalCodecError={onFatalCodecError}
+      currentSource={{ playlist: "next.m3u8" }}
+    />,
+  );
+  const next = state.instances.at(-1)!;
+  expect(next).not.toBe(hls);
+  act(() => {
+    next.emit("error", { fatal: true, type: "media", details: "decode" });
+    next.emit("error", { fatal: true, type: "media", details: "decode" });
+  });
+  expect(next.recoverMediaError).toHaveBeenCalledOnce();
+  expect(state.toast).toHaveBeenCalledTimes(2);
+});
+it("applies buffer length changes to the live instance without recreating it", () => {
+  const { hls, props, rerender } = mount({ bufferLength: 30 });
+  expect(hls.config.maxBufferLength).toBe(30);
+  rerender(<HlsVideoPlayer {...props} bufferLength={undefined} />);
+  expect(state.instances).toHaveLength(1);
+  expect(hls.destroy).not.toHaveBeenCalled();
+  expect(hls.config.maxBufferLength).toBe(10);
+  rerender(<HlsVideoPlayer {...props} bufferLength={30} />);
+  expect(hls.config.maxBufferLength).toBe(30);
+  // the next source is built with the current depth
+  rerender(
+    <HlsVideoPlayer
+      {...props}
+      bufferLength={30}
+      currentSource={{ playlist: "sub.m3u8" }}
+    />,
+  );
+  expect(state.instances).toHaveLength(2);
+  expect(state.instances[1].config.maxBufferLength).toBe(30);
+});
 it("uses native playback without MSE and retries only once", () => {
   state.supported = false;
   const { video } = mount();

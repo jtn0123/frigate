@@ -33,6 +33,14 @@ const unsupportedErrorCodes: number[] = [
   MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED,
   MediaError.MEDIA_ERR_DECODE,
 ];
+const DEFAULT_MAX_BUFFER_LENGTH_S = 10;
+
+function isCodecErrorDetails(details: ErrorData["details"]) {
+  return (
+    details === Hls.ErrorDetails.BUFFER_INCOMPATIBLE_CODECS_ERROR ||
+    details === Hls.ErrorDetails.BUFFER_ADD_CODEC_ERROR
+  );
+}
 
 /** Recovers from a fatal hls.js media error, spending the recovery budget. */
 function handleFatalMediaError(
@@ -40,19 +48,21 @@ function handleFatalMediaError(
   data: ErrorData,
   onFatalCodecError: (() => boolean) | undefined,
   recoveryBudgetRef: { current: number },
+  onUnrecoverable: (data: ErrorData) => void,
 ) {
   // retrying the same codec cannot succeed, so a codec error
   // prefers a quality downswitch over recovery
-  const isCodecError =
-    data.details === Hls.ErrorDetails.BUFFER_INCOMPATIBLE_CODECS_ERROR ||
-    data.details === Hls.ErrorDetails.BUFFER_ADD_CODEC_ERROR;
-  if (isCodecError && onFatalCodecError?.()) {
+  if (isCodecErrorDetails(data.details) && onFatalCodecError?.()) {
     return;
   }
-  if (!isCodecError && recoveryBudgetRef.current > 0) {
+  // with no stream to fall back to, recover like any media error so a
+  // failure still reaches the user once the budget is spent
+  if (recoveryBudgetRef.current > 0) {
     recoveryBudgetRef.current -= 1;
     hls.recoverMediaError();
+    return;
   }
+  onUnrecoverable(data);
 }
 
 export interface HlsSource {
@@ -164,6 +174,10 @@ export default function HlsVideoPlayer({
     }
     return Hls.isSupported();
   });
+  // a ref so a buffer change never recreates the Hls instance: the parent
+  // flips it one commit before the matching source, and a rebuild on the
+  // outgoing playlist would reset the element's playhead and frame
+  const bufferLengthRef = useRef(bufferLength);
   const [loadedMetadata, setLoadedMetadata] = useState(false);
   const [bufferTimeout, setBufferTimeout] = useState<NodeJS.Timeout>();
   // native HLS playback has no MSE, so it recovers from pipeline errors
@@ -172,6 +186,28 @@ export default function HlsVideoPlayer({
   // a ref rather than an effect-scoped counter so the element error
   // handler can hold its toast while a recovery is still possible
   const mediaRecoveryBudgetRef = useRef(0);
+  // one failure toast per source; hls.js and the element can both
+  // report the same failure, and a codec error repeats on every retry
+  const failureReportedRef = useRef(false);
+
+  const reportPlaybackFailure = useCallback(
+    (code: number, message: string) => {
+      if (failureReportedRef.current) {
+        return;
+      }
+
+      failureReportedRef.current = true;
+      toast.error(t("toast.error.playRecordingsFailed", { code, message }), {
+        position: "top-center",
+      });
+    },
+    [t],
+  );
+  // read through a ref so the Hls setup effect need not depend on it
+  const reportPlaybackFailureRef = useRef(reportPlaybackFailure);
+  useEffect(() => {
+    reportPlaybackFailureRef.current = reportPlaybackFailure;
+  }, [reportPlaybackFailure]);
 
   const applyVideoDimensions = useCallback(
     (width: number, height: number) => {
@@ -241,6 +277,16 @@ export default function HlsVideoPlayer({
   ]);
 
   useEffect(() => {
+    bufferLengthRef.current = bufferLength;
+    // hls.js reads maxBufferLength on every buffer check, so the live
+    // instance picks the new depth up without a reload
+    if (hlsRef.current) {
+      hlsRef.current.config.maxBufferLength =
+        bufferLength ?? DEFAULT_MAX_BUFFER_LENGTH_S;
+    }
+  }, [bufferLength]);
+
+  useEffect(() => {
     if (!videoRef.current) {
       return;
     }
@@ -249,6 +295,7 @@ export default function HlsVideoPlayer({
     // the element already holds a decoded frame, and keeping it visible
     // bridges the gap while the new source loads
     const currentPlaybackRate = videoRef.current.playbackRate;
+    failureReportedRef.current = false;
 
     if (!useHlsCompat) {
       nativeRetryRef.current = 0;
@@ -260,7 +307,7 @@ export default function HlsVideoPlayer({
 
     // Base HLS configuration
     const hlsConfig: Partial<HlsConfig> = {
-      maxBufferLength: bufferLength ?? 10,
+      maxBufferLength: bufferLengthRef.current ?? DEFAULT_MAX_BUFFER_LENGTH_S,
       maxBufferSize: 20 * 1000 * 1000,
       startPosition: currentSource.startPosition,
     };
@@ -292,6 +339,13 @@ export default function HlsVideoPlayer({
             data,
             qualitySignalsRef.current.onFatalCodecError,
             mediaRecoveryBudgetRef,
+            (errorData) =>
+              reportPlaybackFailureRef.current(
+                isCodecErrorDetails(errorData.details)
+                  ? MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+                  : MediaError.MEDIA_ERR_DECODE,
+                errorData.error?.message || errorData.details,
+              ),
           );
         }
         return;
@@ -325,7 +379,7 @@ export default function HlsVideoPlayer({
         hlsRef.current.destroy();
       }
     };
-  }, [videoRef, hlsRef, useHlsCompat, currentSource, bufferLength]);
+  }, [videoRef, hlsRef, useHlsCompat, currentSource]);
 
   // state handling
 
@@ -739,15 +793,7 @@ export default function HlsVideoPlayer({
                 }
               }
 
-              toast.error(
-                t("toast.error.playRecordingsFailed", {
-                  code: mediaError.code,
-                  message: mediaError.message,
-                }),
-                {
-                  position: "top-center",
-                },
-              );
+              reportPlaybackFailure(mediaError.code, mediaError.message);
             }}
           />
         </div>
