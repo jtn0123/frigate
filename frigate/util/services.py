@@ -906,11 +906,25 @@ def get_jetson_stats() -> dict[str, str] | None:
     return results
 
 
+# set once a broken HailoRT import has been logged, so stats do not repeat it
+_hailo_import_failed = False
+
+
 def get_hailo_temps() -> dict[str, float]:
     """Get temperatures for Hailo devices."""
+    global _hailo_import_failed
+
     try:
         from hailo_platform import Device
     except ModuleNotFoundError:
+        return {}
+    except (ImportError, OSError) as e:
+        # an installed runtime whose libhailort does not load; raising here
+        # would stop the stats thread
+        if not _hailo_import_failed:
+            _hailo_import_failed = True
+            logger.warning("Unable to load HailoRT for temperatures: %s", e)
+
         return {}
 
     temps = {}
