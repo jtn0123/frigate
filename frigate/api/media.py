@@ -81,6 +81,7 @@ _EVENT_NOT_FOUND = "Event not found"
 _VIDEO_MP4 = "video/mp4"
 _UNABLE_TO_CREATE_PREVIEW_GIF = "Unable to create preview gif"
 _PIPE_FILE = "pipe,file"
+_STDIN = "/dev/stdin"
 
 logger = logging.getLogger(__name__)
 
@@ -666,7 +667,7 @@ def _clip_stages(
             "-safe",
             "0",
             "-i",
-            "/dev/stdin",
+            _STDIN,
             *audio_args,
             "-c:v",
             "copy",
@@ -739,10 +740,10 @@ def _clip_plan(
         return _span_concat_lines(runs[0]), []
 
     if len(codecs) > 1:
+        # the camera name comes from the request path, so it stays out of the log
         logger.warning(
-            "Clip for %s between %s and %s spans video codecs %s; serving the "
+            "Clip between %s and %s spans video codecs %s; serving the "
             "longest single-stream run",
-            camera_name,
             start_ts,
             end_ts,
             sorted(codecs),
@@ -1812,7 +1813,7 @@ async def preview_gif(
             "-safe",
             "0",
             "-i",
-            "/dev/stdin",
+            _STDIN,
             "-loop",
             "0",
             "-c:v",
@@ -1984,7 +1985,7 @@ async def preview_mp4(
             "-safe",
             "0",
             "-i",
-            "/dev/stdin",
+            _STDIN,
             "-c:v",
             "libx264",
             "-movflags",
