@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import sqlite3
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
@@ -70,7 +71,7 @@ async def system_metrics_history(
     )
 
 
-async def system_metrics_sampler(app) -> None:
+async def system_metrics_sampler(app: Any) -> None:
     """Store a minute sample whether or not a browser is on the System page."""
     while True:
         await asyncio.sleep(SAMPLE_INTERVAL)

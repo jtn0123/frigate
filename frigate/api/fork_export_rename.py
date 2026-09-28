@@ -25,8 +25,8 @@ def rename_export_file(export: Export, name: str) -> JSONResponse:
             status_code=400,
         )
 
-    new_path = export_video_path(name, export.id)
-    old_path = export.video_path
+    new_path = export_video_path(name, str(export.id))
+    old_path = str(export.video_path)
     moved = new_path != old_path
 
     # move the file first so a rename that can't happen leaves the row alone
@@ -40,8 +40,8 @@ def rename_export_file(export: Export, name: str) -> JSONResponse:
                 status_code=500,
             )
 
-    export.name = name
-    export.video_path = new_path
+    export.name = name  # type: ignore[assignment]
+    export.video_path = new_path  # type: ignore[assignment]
 
     try:
         export.save()
