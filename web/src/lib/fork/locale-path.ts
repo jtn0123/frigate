@@ -15,8 +15,10 @@ export function localeLoadPath(
   baseUrl: string,
   version: string,
 ): (lngs: string[], namespaces: string[]) => string {
-  return (_lngs, namespaces) => {
-    const lng = ENGLISH_ONLY_NAMESPACES.has(namespaces[0]) ? "en" : "{{lng}}";
+  return (_lngs, [namespace]) => {
+    const englishOnly =
+      namespace !== undefined && ENGLISH_ONLY_NAMESPACES.has(namespace);
+    const lng = englishOnly ? "en" : "{{lng}}";
     return `${baseUrl}locales/${lng}/{{ns}}.json?v=${version}`;
   };
 }
