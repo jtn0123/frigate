@@ -44,6 +44,8 @@ export type ForkFlags = {
   phoneFixes: boolean;
   /** Tracking overlay: tap pauses on the moment, box between moments, edge dots faded. */
   trackOverlay: boolean;
+  /** Suggested class from the event description on the classification train grid. */
+  classificationSuggestions: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -64,6 +66,7 @@ const defaults: ForkFlags = {
   updateNotices: true,
   phoneFixes: true,
   trackOverlay: true,
+  classificationSuggestions: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {
