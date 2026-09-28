@@ -93,7 +93,8 @@ export default function BulkActionBar({
       }
     } catch (error) {
       const data = (error as ApiError).response?.data;
-      const errorMessage = data?.message || data?.detail || "Unknown error";
+      const errorMessage =
+        data?.message || data?.detail || t("bulk.unknownError");
       toast.error(
         t("trackedObjectDelete.toast.error", {
           ns: "components/filter",

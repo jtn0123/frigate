@@ -2,6 +2,7 @@ import i18n, { t } from "i18next";
 import { initReactI18next } from "react-i18next";
 import HttpBackend from "i18next-http-backend";
 import { EventType } from "@/types/search";
+import { localeLoadPath } from "@/lib/fork/locale-path";
 
 export const getTranslatedLabel = (
   label: string,
@@ -35,8 +36,12 @@ void i18n
     backend: {
       // fork: rooted at the base path. A relative path resolves against the
       // page, so /share/<token> (the one nested route) asked for
-      // /share/locales/... and rendered untranslated keys
-      loadPath: `${window.baseUrl || "/"}locales/{{lng}}/{{ns}}.json?v=${import.meta.env.VITE_GIT_COMMIT_HASH || "unknown"}`,
+      // /share/locales/... and rendered untranslated keys. The English-only
+      // fork namespace always loads from en
+      loadPath: localeLoadPath(
+        window.baseUrl || "/",
+        import.meta.env.VITE_GIT_COMMIT_HASH || "unknown",
+      ),
     },
 
     ns: [
