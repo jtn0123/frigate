@@ -295,6 +295,7 @@
     "select": "Select",
     "selectAll": "Select all",
     "toolbarLabel": "Bulk actions",
+    "unknownError": "Unknown error",
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
     "selected": "{{count}} selected",
