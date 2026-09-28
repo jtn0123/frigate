@@ -15,6 +15,7 @@ from frigate.config import FrigateConfig
 from frigate.models import Recordings
 from frigate.record.maintainer import (
     RecordingMaintainer,
+    SegmentChainTurn,
     SegmentInfo,
     parse_cache_segment_name,
     segment_path_time,
@@ -638,3 +639,140 @@ class TestSegmentChainSeeding(unittest.IsolatedAsyncioTestCase):
         self.assertAlmostEqual(calls[0].args[3].timestamp(), self.T0 + 10.75, places=3)
         # second segment chains off the first's in-memory end
         self.assertAlmostEqual(calls[1].args[2].timestamp(), self.T0 + 10.75, places=3)
+
+
+class TestSegmentChainOrder(unittest.IsolatedAsyncioTestCase):
+    """Chaining must follow segment order even when probes finish out of order.
+
+    move_files probes a stream's segments concurrently. During a backlog a
+    later segment can finish probing first; it must still chain after the
+    earlier segment rather than set the chain end ahead of it.
+    """
+
+    T0 = datetime.datetime(2026, 6, 10, 14, 30, 22, tzinfo=datetime.UTC).timestamp()
+
+    def _name(self, offset: float, sub: bool = False) -> str:
+        stamp = datetime.datetime.fromtimestamp(self.T0 + offset, tz=datetime.UTC)
+        tag = "@sub" if sub else ""
+        return f"test_cam{tag}@{stamp.strftime('%Y%m%d%H%M%S%z')}.mp4"
+
+    async def test_later_probe_finishing_first_still_chains_in_order(self):
+        maintainer = _build_chaining_maintainer(self.T0)
+        maintainer.last_segment_end[("test_cam", "sub")] = 0.0
+        maintainer.config.cameras["test_cam"].record.sub.enabled = True
+        maintainer.config.cameras["test_cam"].record.sub.continuous.days = 1
+        maintainer.unexpected_cache_files_logged = False
+        maintainer.cache_tracker = MagicMock()
+        maintainer.cache_tracker.files_in_use.return_value = set()
+        maintainer.requestor = MagicMock()
+
+        first, second = self._name(0), self._name(10)
+        sub_first, sub_second = self._name(0, sub=True), self._name(10, sub=True)
+        second_probed = asyncio.Event()
+        sub_probed = asyncio.Event()
+
+        async def probe(_ffmpeg, cache_path, get_duration=False):
+            name = os.path.basename(cache_path)
+            if name == first:
+                # the earlier main segment finishes probing last, and only
+                # once the other camera stream's probe has run as well,
+                # proving streams are not serialized behind one another
+                await second_probed.wait()
+                await sub_probed.wait()
+            elif name == second:
+                second_probed.set()
+            elif name == sub_first:
+                sub_probed.set()
+            return {"has_valid_video": True, "duration": 10.4}
+
+        with (
+            patch(
+                "frigate.record.maintainer.os.listdir",
+                return_value=[second, first, sub_second, sub_first],
+            ),
+            patch("frigate.record.maintainer.os.path.isfile", return_value=True),
+            patch("frigate.record.maintainer.get_video_properties", probe),
+            patch(
+                "frigate.record.maintainer.get_keyframe_offsets",
+                AsyncMock(return_value=[0]),
+            ),
+            patch(
+                "frigate.record.maintainer.os.path.getmtime",
+                MagicMock(side_effect=OSError("missing")),
+            ),
+        ):
+            await asyncio.wait_for(maintainer.move_files(), timeout=5)
+
+        starts = {
+            (call.args[1], call.args[2].timestamp()): call.args[3].timestamp()
+            for call in maintainer.move_segment.await_args_list
+        }
+        for stream in ("main", "sub"):
+            # the second segment chains to the first one's fractional end
+            self.assertAlmostEqual(starts[(stream, self.T0)], self.T0 + 10.4, places=3)
+            self.assertAlmostEqual(
+                starts[(stream, self.T0 + 10.4)], self.T0 + 20.8, places=3
+            )
+            self.assertAlmostEqual(
+                maintainer.last_segment_end[("test_cam", stream)],
+                self.T0 + 20.8,
+                places=3,
+            )
+
+    async def test_failed_segment_releases_the_next_turn(self):
+        maintainer = _build_chaining_maintainer(self.T0)
+        maintainer.validate_and_move_segment = AsyncMock(
+            side_effect=RuntimeError("boom")
+        )
+        turn = SegmentChainTurn(None)
+
+        with self.assertRaises(RuntimeError):
+            await maintainer._validate_in_chain_order(
+                "test_cam", [], {"chain_turn": turn}
+            )
+
+        self.assertTrue(turn.resolved.is_set())
+
+    async def test_unreleased_previous_turn_cannot_block_forever(self):
+        """A predecessor that never settles only delays the chain, bounded."""
+        maintainer = _build_chaining_maintainer(self.T0)
+        stuck = SegmentChainTurn(asyncio.Event())
+        start = datetime.datetime.fromtimestamp(self.T0, tz=datetime.UTC)
+
+        with (
+            patch("frigate.record.maintainer.SEGMENT_CHAIN_TURN_TIMEOUT_S", 0.05),
+            patch(
+                "frigate.record.maintainer.get_video_properties",
+                AsyncMock(return_value={"has_valid_video": True, "duration": 10.4}),
+            ),
+            patch(
+                "frigate.record.maintainer.get_keyframe_offsets",
+                AsyncMock(return_value=[0]),
+            ),
+            patch(
+                "frigate.record.maintainer.os.path.getmtime",
+                MagicMock(side_effect=OSError("missing")),
+            ),
+            patch("frigate.record.maintainer.logger") as logger,
+        ):
+            # the outer guard fails the test instead of hanging the suite
+            await asyncio.wait_for(
+                maintainer._validate_in_chain_order(
+                    "test_cam",
+                    [],
+                    {
+                        "start_time": start,
+                        "cache_path": "/tmp/cache/test_cam@stuck.mp4",
+                        "stream_type": "main",
+                        "chain_turn": stuck,
+                    },
+                ),
+                timeout=5,
+            )
+
+        logger.warning.assert_called_once()
+        self.assertTrue(stuck.resolved.is_set())
+        # resolved without the chain, from the filename start
+        calls = maintainer.move_segment.await_args_list
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].args[2].timestamp(), self.T0)

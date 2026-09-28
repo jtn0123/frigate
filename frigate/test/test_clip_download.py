@@ -8,7 +8,11 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from frigate.api.media import _run_clip_download
+from frigate.api.media import (
+    _ClipStage,
+    _run_clip_download,
+    _run_staged_clip_download,
+)
 
 # more than the 64 KB a pipe holds, so an undrained stderr blocks ffmpeg
 STDERR_FLOOD_BYTES = 256 * 1024
@@ -169,3 +173,58 @@ class TestRunClipDownload(unittest.TestCase):
 
         self.assertIsNotNone(processes[0].poll(), "ffmpeg outlived the request")
         self.assertFalse(os.path.exists(self.playlist_path))
+
+
+class TestRunStagedClipDownload(unittest.TestCase):
+    """A mixed clip renders each stream run to its own file before streaming."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.playlist_path = os.path.join(self.tmp, "playlist.txt")
+        with open(self.playlist_path, "w") as f:
+            f.write("playlist")
+        self.dests = [os.path.join(self.tmp, f"stage_{i}.mp4") for i in range(2)]
+
+    def tearDown(self):
+        for name in os.listdir(self.tmp):
+            os.unlink(os.path.join(self.tmp, name))
+        os.rmdir(self.tmp)
+
+    def stage(self, index: int, *statements: str) -> _ClipStage:
+        """A stage whose fake ffmpeg copies its concat list into the dest."""
+        dest = self.dests[index]
+        copy = f"open({dest!r}, 'wb').write(sys.stdin.buffer.read())"
+        return _ClipStage(f"run {index}", dest, fake_ffmpeg(*statements, copy))
+
+    def test_stages_every_run_then_streams_and_cleans_up(self):
+        # the final pass sees both staged files, in order
+        final = fake_ffmpeg(
+            *(
+                f"sys.stdout.buffer.write(open({dest!r}, 'rb').read())"
+                for dest in self.dests
+            )
+        )
+
+        data = b"".join(
+            _run_staged_clip_download(
+                [self.stage(0), self.stage(1)], final, self.playlist_path
+            )
+        )
+
+        self.assertEqual(data, b"run 0run 1")
+        self.assertEqual(os.listdir(self.tmp), [])
+
+    def test_failed_stage_stops_and_cleans_up(self):
+        failing = self.stage(0, "sys.stderr.write('bad input')", "sys.exit(1)")
+        never = self.stage(1)
+        final = fake_ffmpeg("sys.stdout.buffer.write(b'unreachable')")
+
+        with patch("frigate.api.media.logger") as logger:
+            data = b"".join(
+                _run_staged_clip_download([failing, never], final, self.playlist_path)
+            )
+
+        self.assertEqual(data, b"")
+        logger.error.assert_called_once()
+        self.assertIn("bad input", logger.error.call_args.args[1])
+        self.assertEqual(os.listdir(self.tmp), [])

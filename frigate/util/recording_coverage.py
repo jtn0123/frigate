@@ -181,6 +181,31 @@ def stream_media_summary(
     return summary
 
 
+def audio_is_uniform(summary: dict[str, dict[str, Any]]) -> bool:
+    """Whether every stream in a summary carries audio with one signature.
+
+    Stream-copying audio across a stream hand-off only works when both
+    streams agree, the same rule the merged manifest applies when it
+    decides to serve a mixed range without audio.
+    """
+    # legacy rows report None rather than False, and an unknown
+    # signature is not one we can promise lines up
+    if not summary or any(
+        stream["has_audio"] is not True for stream in summary.values()
+    ):
+        return False
+
+    return (
+        len(
+            {
+                (stream["audio_codec"], stream["audio_rate"])
+                for stream in summary.values()
+            }
+        )
+        == 1
+    )
+
+
 def coverage_spans(intervals: list[CoverageInterval]) -> list[dict[str, Any]]:
     """Collapse intervals into contiguous spans of identical stream availability."""
     spans: list[dict[str, Any]] = []
