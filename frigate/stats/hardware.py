@@ -292,6 +292,18 @@ class HardwareStats:
         )
         self.update_config()
 
+    def set_config(self, config: FrigateConfig) -> None:
+        """Rebind to a newly parsed config and recalculate monitored hardware.
+
+        A runtime config swap replaces the whole object, so the camera update
+        subscriber must follow too, or later camera updates would be applied
+        to the discarded config.
+        """
+        self.config = config
+        self._config_subscriber.config = config
+        self._config_subscriber.camera_configs = config.cameras
+        self.update_config()
+
     def update_config(self) -> None:
         """Recalculate all hardware that needs to be monitored from the config."""
         names = self._scan_ffmpeg() | self._scan_detectors() | self._scan_enrichments()

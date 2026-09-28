@@ -9,6 +9,7 @@ import subprocess as sp
 import tempfile
 import time
 from collections.abc import Iterator
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path as FilePath
@@ -48,6 +49,7 @@ from frigate.const import (
 )
 from frigate.models import Event, Previews, Recordings, Regions, ReviewSegment
 from frigate.output.preview import get_most_recent_preview_frame
+from frigate.record.export import EXPORT_TRACK_TIMESCALE
 from frigate.track.object_processing import TrackedObjectProcessor
 from frigate.util.ffmpeg import terminate_ffmpeg_stream
 from frigate.util.file import (
@@ -60,10 +62,13 @@ from frigate.util.image import get_image_from_recording, get_image_quality_param
 from frigate.util.object import create_empty_regions_grid
 from frigate.util.path import safe_join
 from frigate.util.recording_coverage import (
+    audio_is_uniform,
     build_spans,
+    known_video_codecs,
     manifest_intervals,
     plan_clip,
     resolve_coverage,
+    stream_media_summary,
 )
 from frigate.util.time import get_timezone
 
@@ -76,6 +81,7 @@ _EVENT_NOT_FOUND = "Event not found"
 _VIDEO_MP4 = "video/mp4"
 _UNABLE_TO_CREATE_PREVIEW_GIF = "Unable to create preview gif"
 _PIPE_FILE = "pipe,file"
+_STDIN = "/dev/stdin"
 
 logger = logging.getLogger(__name__)
 
@@ -537,17 +543,63 @@ def _run_clip_download(ffmpeg_cmd: list[str], file_path: str) -> Iterator[bytes]
         FilePath(file_path).unlink(missing_ok=True)
 
 
-@router.get(
-    "/{camera_name}/start/{start_ts}/end/{end_ts}/clip.mp4",
-    dependencies=[Depends(require_camera_access)],
-    description="For iOS devices, use the master.m3u8 HLS link instead of clip.mp4. Safari does not reliably process progressive mp4 files.",
-)
-def recording_clip(
-    request: Request,
-    camera_name: str,
-    start_ts: float,
-    end_ts: float,
-):
+@dataclass
+class _ClipStage:
+    """One single-stream run of a mixed clip, rendered to its own file first."""
+
+    concat: str
+    dest: str
+    cmd: list[str]
+
+
+def _clip_runs(
+    camera_name: str, start_ts: float, end_ts: float
+) -> tuple[list[list[list[Any]]], set[str], bool]:
+    """Resolve a clip range the way the vod route does, grouped by stream.
+
+    Returns the merged spans split into runs of one stream type each, the
+    known video codecs, and whether audio survives a hand-off.
+    """
+    intervals = manifest_intervals(resolve_coverage(camera_name, start_ts, end_ts))
+    runs: list[list[list[Any]]] = []
+
+    for span in build_spans(intervals, None):
+        if runs and runs[-1][-1][3] == span[3]:
+            runs[-1].append(span)
+        else:
+            runs.append([span])
+
+    return (
+        runs,
+        known_video_codecs(intervals),
+        audio_is_uniform(stream_media_summary(intervals)),
+    )
+
+
+def _span_concat_lines(spans: list[list[Any]]) -> list[str]:
+    """Concat demuxer lines that play exactly the given spans."""
+    lines: list[str] = []
+
+    for row, span_start, span_end, _is_main in spans:
+        lines.append(f"file '{row.path}'")
+
+        if span_start > row.start_time:
+            lines.append(f"inpoint {span_start - row.start_time:.3f}")
+
+        if span_end < row.end_time:
+            lines.append(f"outpoint {span_end - row.start_time:.3f}")
+
+    return lines
+
+
+def _touching_clip_lines(camera_name: str, start_ts: float, end_ts: float) -> list[str]:
+    """Concat lines for every row touching the range, main first then sub.
+
+    Only reached when the resolver finds nothing playable, which leaves
+    rows that merely meet the range's edges: served as before rather than
+    turned into a 400.
+    """
+
     def get_clip_query(stream_type: str):
         return (
             Recordings.select(
@@ -569,7 +621,155 @@ def recording_clip(
     if not recordings.exists():
         recordings = get_clip_query(STREAM_TYPE_SUB)
 
-    if recordings.count() == 0:
+    lines: list[str] = []
+    clip: Recordings
+    for clip in recordings:
+        lines.append(f"file '{clip.path}'")
+
+        # if this is the starting clip, add an inpoint
+        if clip.start_time < start_ts:
+            lines.append(f"inpoint {int(start_ts - clip.start_time)}")
+
+        # if this is the ending clip, add an outpoint
+        if clip.end_time > end_ts:
+            lines.append(f"outpoint {int(end_ts - clip.start_time)}")
+
+    return lines
+
+
+def _clip_stages(
+    ffmpeg_path: str, runs: list[list[list[Any]]], keep_audio: bool
+) -> list[_ClipStage]:
+    """Plan one staging pass per stream run of a mixed clip.
+
+    Concatenating main and sub segments directly rescales every packet to
+    the first file's timebase, so a 5fps sub run replays at main's rate
+    with broken timestamps. Rendering each run to its own file with one
+    common track timescale first (the export's staging) leaves the final
+    concat nothing to reconcile, and each file keeps its own parameter
+    sets across the resolution change.
+    """
+    token = os.urandom(4).hex()
+    # audio is copied only when both streams agree on it, as in exports
+    audio_args = ["-c:a", "copy"] if keep_audio else ["-an"]
+    stages: list[_ClipStage] = []
+
+    for index, spans in enumerate(runs):
+        dest = os.path.join(CACHE_DIR, f"clip_stage_{token}_{index}.mp4")
+        cmd = [
+            ffmpeg_path,
+            "-hide_banner",
+            "-y",
+            "-protocol_whitelist",
+            _PIPE_FILE,
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            _STDIN,
+            *audio_args,
+            "-c:v",
+            "copy",
+            "-video_track_timescale",
+            str(EXPORT_TRACK_TIMESCALE),
+            "-f",
+            "mp4",
+            dest,
+        ]
+        stages.append(_ClipStage("\n".join(_span_concat_lines(spans)), dest, cmd))
+
+    return stages
+
+
+def _stage_clip_runs(stages: list[_ClipStage]) -> bool:
+    """Render every stage in order, stopping at the first failure."""
+    for stage in stages:
+        result = sp.run(
+            stage.cmd,
+            input=stage.concat.encode(),
+            stdout=sp.DEVNULL,
+            stderr=sp.PIPE,
+        )
+
+        if result.returncode != 0:
+            logger.error(
+                "Failed to stage clip run, ffmpeg logs: %s",
+                result.stderr[-CLIP_STDERR_LOG_BYTES:].decode("utf-8", "replace"),
+            )
+            return False
+
+    return True
+
+
+def _run_staged_clip_download(
+    stages: list[_ClipStage], ffmpeg_cmd: list[str], file_path: str
+) -> Iterator[bytes]:
+    """Stage a mixed clip's runs, then stream their concatenation.
+
+    Staging runs lazily, once the body is read, so a client that never
+    reads it leaves no staged files behind.
+    """
+    try:
+        if _stage_clip_runs(stages):
+            yield from _run_clip_download(ffmpeg_cmd, file_path)
+    finally:
+        FilePath(file_path).unlink(missing_ok=True)
+
+        for stage in stages:
+            FilePath(stage.dest).unlink(missing_ok=True)
+
+
+def _clip_plan(
+    camera_name: str, start_ts: float, end_ts: float, ffmpeg_path: str
+) -> tuple[list[str], list[_ClipStage]]:
+    """The concat lines for a clip and any runs to stage before them.
+
+    Main is preferred and sub fills the gaps it leaves, as the vod and
+    export paths do. A range whose streams disagree on video codec cannot
+    share one mp4 track without re-encoding, which a download endpoint
+    should not do, so it serves the longest single-stream run instead
+    (the earliest on a tie).
+    """
+    runs, codecs, keep_audio = _clip_runs(camera_name, start_ts, end_ts)
+
+    if not runs:
+        return _touching_clip_lines(camera_name, start_ts, end_ts), []
+
+    if len(runs) == 1:
+        return _span_concat_lines(runs[0]), []
+
+    if len(codecs) > 1:
+        # the camera name comes from the request path, so it stays out of the log
+        logger.warning(
+            "Clip between %s and %s spans video codecs %s; serving the "
+            "longest single-stream run",
+            start_ts,
+            end_ts,
+            sorted(codecs),
+        )
+        longest = max(runs, key=lambda run: sum(span[2] - span[1] for span in run))
+        return _span_concat_lines(longest), []
+
+    stages = _clip_stages(ffmpeg_path, runs, keep_audio)
+    return [f"file '{stage.dest}'" for stage in stages], stages
+
+
+@router.get(
+    "/{camera_name}/start/{start_ts}/end/{end_ts}/clip.mp4",
+    dependencies=[Depends(require_camera_access)],
+    description="For iOS devices, use the master.m3u8 HLS link instead of clip.mp4. Safari does not reliably process progressive mp4 files.",
+)
+def recording_clip(
+    request: Request,
+    camera_name: str,
+    start_ts: float,
+    end_ts: float,
+):
+    config: FrigateConfig = request.app.frigate_config
+    lines, stages = _clip_plan(camera_name, start_ts, end_ts, config.ffmpeg.ffmpeg_path)
+
+    if not lines:
         return JSONResponse(
             content={
                 "success": False,
@@ -583,17 +783,7 @@ def recording_clip(
     )
     file_path = os.path.join(CACHE_DIR, file_name)
     with open(file_path, "w") as file:
-        clip: Recordings
-        for clip in recordings:
-            file.write(f"file '{clip.path}'\n")
-
-            # if this is the starting clip, add an inpoint
-            if clip.start_time < start_ts:
-                file.write(f"inpoint {int(start_ts - clip.start_time)}\n")
-
-            # if this is the ending clip, add an outpoint
-            if clip.end_time > end_ts:
-                file.write(f"outpoint {int(end_ts - clip.start_time)}\n")
+        file.write("".join(f"{line}\n" for line in lines))
 
     if len(file_name) > 1000:
         return JSONResponse(
@@ -603,8 +793,6 @@ def recording_clip(
             },
             status_code=403,
         )
-
-    config: FrigateConfig = request.app.frigate_config
 
     ffmpeg_cmd = [
         config.ffmpeg.ffmpeg_path,
@@ -627,10 +815,12 @@ def recording_clip(
         "pipe:",
     ]
 
-    response = StreamingResponse(
-        _run_clip_download(ffmpeg_cmd, file_path),
-        media_type=_VIDEO_MP4,
+    body = (
+        _run_staged_clip_download(stages, ffmpeg_cmd, file_path)
+        if stages
+        else _run_clip_download(ffmpeg_cmd, file_path)
     )
+    response = StreamingResponse(body, media_type=_VIDEO_MP4)
     # Fork (E22): the generator only unlinks the list once the body is read, so
     # the public share route removes it when a client leaves before that.
     response.playlist_path = file_path
@@ -1623,7 +1813,7 @@ async def preview_gif(
             "-safe",
             "0",
             "-i",
-            "/dev/stdin",
+            _STDIN,
             "-loop",
             "0",
             "-c:v",
@@ -1795,7 +1985,7 @@ async def preview_mp4(
             "-safe",
             "0",
             "-i",
-            "/dev/stdin",
+            _STDIN,
             "-c:v",
             "libx264",
             "-movflags",

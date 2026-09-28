@@ -119,20 +119,32 @@ def stats_init(
     return stats_tracking
 
 
+def _runner_device(name: str) -> str:
+    """The device a detection runner runs on.
+
+    runner_names suffixes a repeated shareable device with '#2', '#3', etc.,
+    so stripping that suffix gives every runner on one device the same key.
+    """
+    device, separator, suffix = name.rpartition("#")
+    return device if separator and suffix.isdigit() else name
+
+
 def get_detector_stats(
     stats_tracking: StatsTrackingTypes,
 ) -> dict[str, dict[str, Any]]:
     """Get stats for all detectors, including temperatures based on detector type."""
     detector_stats: dict[str, dict[str, Any]] = {}
-    detector_type_indices: dict[str, int] = {}
+    # detector type -> device -> index into that type's temperature list
+    device_indices: dict[str, dict[str, int]] = {}
 
     for name, detector in stats_tracking["detectors"].items():
         pid = detector.detect_process.pid if detector.detect_process else None
         detector_type = detector.detector_config.type
 
-        # Keep track of the index for each detector type to match temperatures correctly
-        current_index = detector_type_indices.get(detector_type, 0)
-        detector_type_indices[detector_type] = current_index + 1
+        # temperatures are per physical unit, so number distinct devices of a
+        # type in order and let repeats of one device share its temperature
+        type_devices = device_indices.setdefault(detector_type, {})
+        current_index = type_devices.setdefault(_runner_device(name), len(type_devices))
 
         detector_stat = {
             "inference_speed": round(detector.avg_inference_speed.value * 1000, 2),  # type: ignore[attr-defined]

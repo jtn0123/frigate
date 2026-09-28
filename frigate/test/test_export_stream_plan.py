@@ -1,6 +1,9 @@
 """The export's stream plan must match what the vod manifest serves."""
 
+import datetime
 import json
+import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -9,7 +12,7 @@ from playhouse.sqlite_ext import SqliteExtDatabase
 from frigate.api.media import _vod_response
 from frigate.config.camera.record import ChaptersEnum
 from frigate.const import MAX_PLAYLIST_SECONDS
-from frigate.models import Recordings
+from frigate.models import Recordings, ReviewSegment
 from frigate.record.export import (
     ExportStreamEnum,
     PlaybackSourceEnum,
@@ -50,7 +53,13 @@ class ExportPlanDbTestCase(unittest.TestCase):
         self.db.close()
 
     def _insert(
-        self, id: str, start: float, end: float, stream_type: str, has_audio: bool
+        self,
+        id: str,
+        start: float,
+        end: float,
+        stream_type: str,
+        has_audio: bool,
+        keyframes: list[int] | None = None,
     ) -> None:
         Recordings.create(
             id=id,
@@ -65,6 +74,7 @@ class ExportPlanDbTestCase(unittest.TestCase):
             audio_rate=16000 if has_audio else None,
             has_audio=has_audio,
             segment_size=0,
+            keyframes=keyframes,
         )
 
     def _manifest(
@@ -137,6 +147,85 @@ class TestExportPlansTheServedTimeline(ExportPlanDbTestCase):
         _spans, _codecs, keep_audio = exporter._resolve_coverage()
 
         self.assertTrue(keep_audio)
+
+
+class TestStagedChapterLeadIn(ExportPlanDbTestCase):
+    """Staged chapter offsets must follow the staged files' real lengths.
+
+    The sub run below starts 6s into its row, and its pinned playlist
+    snaps that back to the keyframe at 4s, so the staged sub file carries
+    a 2s lead-in the merged span bounds know nothing about.
+    """
+
+    def _staged_exporter(self, chapters: ChaptersEnum) -> RecordingExporter:
+        self._insert("m1", 1000.0, 1010.0, "main", False, keyframes=[0])
+        self._insert(
+            "s1", 1004.0, 1030.0, "sub", False, keyframes=list(range(0, 26000, 4000))
+        )
+        self._insert("m2", 1030.0, 1040.0, "main", False, keyframes=[0])
+        exporter = _exporter(1000.0, 1040.0)
+        exporter.chapters = chapters
+        exporter.config.ui.timezone = None
+        exporter.staged_runs = ["/cache/s0.mp4", "/cache/s1.mp4", "/cache/s2.mp4"]
+        return exporter
+
+    def _chapters(self, exporter: RecordingExporter) -> list[tuple[int, int, str]]:
+        with tempfile.TemporaryDirectory() as tmp:
+            meta = os.path.join(tmp, "chapters.txt")
+            with patch.object(
+                RecordingExporter, "_chapter_metadata_path", return_value=meta
+            ):
+                exporter.get_record_export_command("/exports/o.mp4")
+
+            with open(meta, encoding="utf-8") as f:
+                blocks = f.read().split("[CHAPTER]")[1:]
+
+        chapters = []
+        for block in blocks:
+            fields = dict(line.split("=", 1) for line in block.strip().splitlines()[1:])
+            chapters.append((int(fields["START"]), int(fields["END"]), fields["title"]))
+        return chapters
+
+    def test_segment_chapters_include_the_staged_lead_in(self) -> None:
+        exporter = self._staged_exporter(ChaptersEnum.recording_segments)
+
+        self.assertEqual(
+            [run.stream_type for run in exporter._planned_stream_runs()],
+            ["main", "sub", "main"],
+        )
+        chapters = self._chapters(exporter)
+
+        def iso(ts: float) -> str:
+            return datetime.datetime.fromtimestamp(ts, tz=datetime.UTC).isoformat(
+                timespec="seconds"
+            )
+
+        # the sub file plays 22s (2s lead-in + 20s), so the last main run
+        # starts at 32s rather than the 30s the span bounds would say
+        self.assertEqual(
+            chapters,
+            [
+                (0, 10000, iso(1000)),
+                (10000, 32000, iso(1008)),
+                (32000, 42000, iso(1030)),
+            ],
+        )
+
+    def test_review_chapters_follow_the_staged_lead_in(self) -> None:
+        self.db.bind([ReviewSegment])
+        self.db.create_tables([ReviewSegment])
+        ReviewSegment.create(
+            id="r1",
+            camera=CAMERA,
+            start_time=1032.0,
+            end_time=1036.0,
+            severity="alert",
+            thumb_path="/tmp/r1.webp",
+            data={"objects": ["person"]},
+        )
+        exporter = self._staged_exporter(ChaptersEnum.review_items)
+
+        self.assertEqual(self._chapters(exporter), [(34000, 38000, "Alert: person")])
 
 
 class TestUnstagedAutoRows(ExportPlanDbTestCase):

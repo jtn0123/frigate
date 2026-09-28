@@ -1950,6 +1950,113 @@ class TestHttpMedia(BaseTestHttp):
                     assert response.status_code == 200
                     assert response.text.startswith(f"file '{case.name}'")
 
+    def _clip_plan_request(self, start: float, end: float):
+        """Request a clip, capturing its concat list and staged runs."""
+        captured: dict = {}
+
+        def plain_body(_cmd: list[str], file_path: str):
+            with open(file_path) as f:
+                captured["lines"] = f.read().splitlines()
+            os.unlink(file_path)
+            yield b"plain"
+
+        def staged_body(stages, _cmd: list[str], file_path: str):
+            with open(file_path) as f:
+                captured["lines"] = f.read().splitlines()
+            captured["stages"] = stages
+            os.unlink(file_path)
+            yield b"staged"
+
+        cache_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, cache_dir, True)
+
+        with (
+            AuthTestClient(self.app) as client,
+            patch("frigate.api.media.CACHE_DIR", cache_dir),
+            patch("frigate.api.media._run_clip_download", side_effect=plain_body),
+            patch(
+                "frigate.api.media._run_staged_clip_download",
+                side_effect=staged_body,
+            ),
+        ):
+            response = client.get(f"/front_door/start/{start}/end/{end}/clip.mp4")
+
+        return response, captured
+
+    def test_clip_fills_main_gap_from_sub(self):
+        """Main aging out mid-clip hands the rest of the clip to sub."""
+        self._insert_recording("m1", 1000, 1010, video_codec="h264")
+        self._insert_recording(
+            "s1", 995, 1025, stream_type="sub", video_codec="h264", has_audio=False
+        )
+
+        response, captured = self._clip_plan_request(1000, 1020)
+
+        assert response.status_code == 200
+        assert response.text == "staged"
+        stages = captured["stages"]
+        assert [stage.concat.splitlines() for stage in stages] == [
+            ["file '/media/recordings/m1.mp4'"],
+            [
+                "file '/media/recordings/s1.mp4'",
+                "inpoint 15.000",
+                "outpoint 25.000",
+            ],
+        ]
+        # the final pass concatenates the staged files, in order
+        assert captured["lines"] == [f"file '{stage.dest}'" for stage in stages]
+        # every run shares one timescale, and audio is dropped because the
+        # streams do not agree on it
+        for stage in stages:
+            assert stage.cmd[-1] == stage.dest
+            assert "-video_track_timescale" in stage.cmd
+            assert "-an" in stage.cmd
+
+    def test_clip_copies_audio_when_streams_agree(self):
+        for stream_type, start, end in (("main", 1000, 1010), ("sub", 1010, 1020)):
+            self._insert_recording(
+                f"{stream_type}1",
+                start,
+                end,
+                stream_type=stream_type,
+                video_codec="h264",
+                has_audio=True,
+                audio_codec="aac",
+                audio_rate=16000,
+            )
+
+        _response, captured = self._clip_plan_request(1000, 1020)
+
+        for stage in captured["stages"]:
+            assert "-an" not in stage.cmd
+            assert stage.cmd[stage.cmd.index("-c:a") + 1] == "copy"
+
+    def test_clip_with_mixed_codecs_serves_longest_run(self):
+        """One mp4 track cannot hold two codecs without a re-encode."""
+        self._insert_recording("m1", 1000, 1004, video_codec="h264")
+        self._insert_recording("s1", 1004, 1020, stream_type="sub", video_codec="hevc")
+        self._insert_recording("m2", 1020, 1030, video_codec="h264")
+
+        response, captured = self._clip_plan_request(1000, 1030)
+
+        assert response.text == "plain"
+        assert captured["lines"] == ["file '/media/recordings/s1.mp4'"]
+
+    def test_clip_within_one_stream_cuts_to_the_range(self):
+        self._insert_recording("m1", 990, 1010)
+        self._insert_recording("m2", 1010, 1030)
+        self._insert_recording("s1", 990, 1030, stream_type="sub")
+
+        response, captured = self._clip_plan_request(1000, 1020.5)
+
+        assert response.text == "plain"
+        assert captured["lines"] == [
+            "file '/media/recordings/m1.mp4'",
+            "inpoint 10.000",
+            "file '/media/recordings/m2.mp4'",
+            "outpoint 10.500",
+        ]
+
     def test_delete_recordings_handles_all_range_relations(self):
         """G18: deleting a range removes every segment that touches it."""
         with AuthTestClient(self.app) as client:

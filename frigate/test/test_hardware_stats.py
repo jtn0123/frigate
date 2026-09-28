@@ -288,6 +288,37 @@ class TestUpdateConfig(HardwareStatsTestCase):
 
         self.assertEqual(set(stats._monitored), {"rockchip"})
 
+    def test_set_config_rebinds_catalog_and_subscriber(self):
+        stats = self.make_stats(self.make_config("preset-nvidia"))
+        self.assertEqual(set(stats._monitored), {"nvidia"})
+
+        swapped = self.make_config(
+            "preset-intel-qsv-h264",
+            telemetry={"stats": {"intel_gpu_stats": True}},
+        )
+        stats.set_config(swapped)
+
+        self.assertIs(stats.config, swapped)
+        self.assertEqual(set(stats._monitored), {"intel_gpu"})
+        # later camera updates must land on the swapped config, not the old one
+        subscriber = self.subscriber.return_value
+        self.assertIs(subscriber.config, swapped)
+        self.assertIs(subscriber.camera_configs, swapped.cameras)
+
+    def test_set_config_applies_new_telemetry_gates(self):
+        config = self.make_config("preset-intel-qsv-h264")
+        stats = self.make_stats(config)
+        self.assertEqual(set(stats._monitored), {"intel_gpu"})
+
+        stats.set_config(
+            self.make_config(
+                "preset-intel-qsv-h264",
+                telemetry={"stats": {"intel_gpu_stats": False}},
+            )
+        )
+
+        self.assertEqual(set(stats._monitored), set())
+
 
 class TestUpdateStats(HardwareStatsTestCase):
     def run_stats(self, stats: HardwareStats) -> dict:

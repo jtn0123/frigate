@@ -65,6 +65,12 @@ SEGMENT_CHAIN_DRIFT_LIMIT_S = 0.5
 # segments get discarded as corrupt and the record watchdog restarts ffmpeg
 MAX_CONCURRENT_SEGMENT_PROBES = 4
 
+# a segment waits at most this long for the one before it to settle its
+# start. Every probe is bounded well inside this, so reaching it means the
+# earlier segment is stuck, and chaining off the current state beats never
+# moving the later segment at all
+SEGMENT_CHAIN_TURN_TIMEOUT_S = 120.0
+
 
 def parse_cache_segment_name(basename: str) -> tuple[str, str, str] | None:
     """Parse a cache segment basename into (camera, stream_type, date).
@@ -128,6 +134,38 @@ def segment_path_time(cache_path: str) -> datetime.datetime | None:
         )
     except ValueError:
         return None
+
+
+class SegmentChainTurn:
+    """One segment's turn in its camera stream's start-time chain.
+
+    A camera stream's segments are probed concurrently, so they finish in
+    completion order. Each segment waits for the one before it to resolve
+    its start before resolving its own, keeping the chain in segment order.
+    """
+
+    def __init__(self, previous: asyncio.Event | None) -> None:
+        self.previous = previous
+        self.resolved = asyncio.Event()
+
+    async def wait(self) -> bool:
+        """Wait until the previous segment of the stream has resolved.
+
+        Returns False when the previous segment did not resolve in time.
+        """
+        if self.previous is None:
+            return True
+
+        try:
+            await asyncio.wait_for(self.previous.wait(), SEGMENT_CHAIN_TURN_TIMEOUT_S)
+        except TimeoutError:
+            return False
+
+        return True
+
+    def done(self) -> None:
+        """Release the next segment of the stream."""
+        self.resolved.set()
 
 
 class SegmentInfo:
@@ -485,9 +523,14 @@ class RecordingMaintainer(threading.Thread):
                 )
             reviews = reviews_by_camera[camera]
 
-            tasks.extend(
-                [self.validate_and_move_segment(camera, reviews, r) for r in recordings]
-            )
+            # recordings are sorted by start, so each turn waits on the
+            # segment before it while other camera streams run alongside
+            previous: asyncio.Event | None = None
+            for recording in recordings:
+                turn = SegmentChainTurn(previous)
+                recording["chain_turn"] = turn
+                previous = turn.resolved
+                tasks.append(self._validate_in_chain_order(camera, reviews, recording))
 
             # publish most recently available recording time and None if disabled
             if stream_type == STREAM_TYPE_MAIN:
@@ -544,6 +587,17 @@ class RecordingMaintainer(threading.Thread):
                 while info and info[0][0] < expire_before:
                     info.pop(0)
 
+    async def _validate_in_chain_order(
+        self, camera: str, reviews: Any, recording: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Validate a segment, always releasing the next segment's chain turn."""
+        try:
+            return await self.validate_and_move_segment(camera, reviews, recording)
+        finally:
+            # an early exit or a failure must not strand the segments
+            # queued behind this one
+            recording["chain_turn"].done()
+
     def drop_segment(self, cache_path: str) -> None:
         Path(cache_path).unlink(missing_ok=True)
         self.end_time_cache.pop(cache_path, None)
@@ -554,6 +608,7 @@ class RecordingMaintainer(threading.Thread):
         cache_path: str = recording["cache_path"]
         start_time: datetime.datetime = recording["start_time"]
         stream_type: str = recording["stream_type"]
+        chain_turn: SegmentChainTurn | None = recording.get("chain_turn")
 
         # Just delete files if camera removed or recordings are turned off
         if (
@@ -611,6 +666,17 @@ class RecordingMaintainer(threading.Thread):
                 async with self.probe_semaphore:
                     keyframes = await get_keyframe_offsets(cache_path)
 
+                # chain against the previous segment's end, not whichever
+                # segment of this stream happened to finish probing last
+                if chain_turn is not None and not await chain_turn.wait():
+                    logger.warning(
+                        "Timed out waiting for the previous %s segment of %s; "
+                        "resolving %s without it",
+                        stream_type,
+                        camera,
+                        cache_path,
+                    )
+
                 start_time = self._resolve_segment_start(
                     camera, stream_type, start_time, duration, cache_path
                 )
@@ -647,6 +713,11 @@ class RecordingMaintainer(threading.Thread):
                 (camera, stream_type, start_time.timestamp(), cache_path),
                 RecordingsDataTypeEnum.valid.value,
             )
+
+        # the start is settled, so the next segment may chain off it while
+        # this one waits on retention and the move
+        if chain_turn is not None:
+            chain_turn.done()
 
         record_config = self.config.cameras[camera].record
 
