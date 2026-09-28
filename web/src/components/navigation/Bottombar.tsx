@@ -1,28 +1,13 @@
 import NavItem from "./NavItem";
 import { IoIosWarning } from "react-icons/io";
 import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
-import useSWR from "swr";
-import { FrigateStats } from "@/types/stats";
-import { useEmbeddingsReindexProgress, useFrigateStats } from "@/api/ws";
-import {
-  Suspense,
-  lazy,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import useStats from "@/hooks/use-stats";
+import { Suspense, lazy, useLayoutEffect, useRef, useState } from "react";
+import useStatusMessages from "@/hooks/use-status-messages";
+import StatusMessageList from "../StatusMessageList";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import useNavigation from "@/hooks/use-navigation";
-import {
-  StatusBarMessagesContext,
-  StatusMessage,
-} from "@/context/statusbar-context";
-import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import { isPWA } from "@/utils/isPWA";
 import { useTranslation } from "react-i18next";
 import ForkNavItems from "@/components/fork/ForkNavItems";
@@ -32,6 +17,7 @@ import { phoneShell } from "@/lib/fork/phone-shell";
 const GeneralSettings = lazy(() => import("../menu/GeneralSettings"));
 
 function Bottombar() {
+  const isMobile = useIsMobile();
   const navItems = useNavigation("secondary");
 
   // Render 48px touch targets when they fit with even spacing, otherwise fall
@@ -110,66 +96,14 @@ type StatusAlertNavProps = {
   large?: boolean;
 };
 function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
-  const { t } = useTranslation(["views/system"]);
-  const { data: initialStats } = useSWR<FrigateStats>("stats", {
-    revalidateOnFocus: false,
-  });
-  const latestStats = useFrigateStats();
+  const messages = useStatusMessages();
+  const { t } = useTranslation(["views/system", "fork"]);
+  const issueCount = messages.length;
 
-  const { messages, addMessage, clearMessages } = useContext(
-    StatusBarMessagesContext,
-  )!;
+  const isAdmin = useIsAdmin();
 
-  const stats = useMemo(() => {
-    if (latestStats) {
-      return latestStats;
-    }
-
-    return initialStats;
-  }, [initialStats, latestStats]);
-  const { potentialProblems } = useStats(stats);
-
-  useEffect(() => {
-    clearMessages("stats");
-    potentialProblems.forEach((problem) => {
-      addMessage(
-        "stats",
-        problem.text,
-        problem.color,
-        undefined,
-        problem.relevantLink,
-      );
-    });
-  }, [potentialProblems, addMessage, clearMessages]);
-
-  const { payload: reindexState } = useEmbeddingsReindexProgress();
-
-  useEffect(() => {
-    if (reindexState) {
-      if (reindexState.status == "indexing") {
-        clearMessages("embeddings-reindex");
-        addMessage(
-          "embeddings-reindex",
-          t("stats.reindexingEmbeddings", {
-            processed: Math.floor(
-              (reindexState.processed_objects / reindexState.total_objects) *
-                100,
-            ),
-          }),
-        );
-      }
-      if (reindexState.status === "completed") {
-        clearMessages("embeddings-reindex");
-      }
-    }
-  }, [reindexState, addMessage, clearMessages, t]);
-
-  const issueCount = Object.values(messages).reduce(
-    (total, list) => total + list.length,
-    0,
-  );
-
-  if (issueCount === 0) {
+  // problems link to admin-only pages
+  if (!isAdmin || messages.length === 0) {
     return;
   }
 
@@ -179,6 +113,7 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
         {/* fork: a named button, not a div carrying button-only ARIA */}
         <button
           type="button"
+          data-testid="status-alert-trigger"
           aria-label={t("statusAlerts.label", { ns: "fork" })}
           aria-haspopup="dialog"
           className={cn(
@@ -209,32 +144,10 @@ function StatusAlertNav({ className, large }: Readonly<StatusAlertNavProps>) {
           className,
         )}
       >
-        <div className="scrollbar-container flex h-auto w-full flex-col items-center gap-2 overflow-y-auto overflow-x-hidden px-2 py-4">
-          {Object.entries(messages).map(([key, messageArray]) => (
-            <div key={key} className="flex w-full items-center gap-2">
-              {messageArray.map(({ id, text, color, link }: StatusMessage) => {
-                const message = (
-                  <div key={id} className="flex items-center gap-2 text-xs">
-                    <IoIosWarning
-                      className={`size-5 ${color || "text-danger"}`}
-                    />
-                    {text}
-                  </div>
-                );
-
-                if (link) {
-                  return (
-                    <Link key={id} to={link}>
-                      {message}
-                    </Link>
-                  );
-                } else {
-                  return message;
-                }
-              })}
-            </div>
-          ))}
-        </div>
+        <StatusMessageList
+          messages={messages}
+          className="scrollbar-container w-full overflow-y-auto overflow-x-hidden px-4 py-4"
+        />
       </DrawerContent>
     </Drawer>
   );

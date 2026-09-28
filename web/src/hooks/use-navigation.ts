@@ -2,7 +2,7 @@ import { ENV } from "@/env";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { NavData } from "@/types/navigation";
 import { useMemo } from "react";
-import { isDesktop } from "react-device-detect";
+import { useIsDesktop } from "@/hooks/fork/use-viewport";
 // fork (UI132): the rail draws from one icon family. Five families met in a
 // 52px column, so stroke weight and optical size changed from row to row.
 import {
@@ -34,6 +34,7 @@ export default function useNavigation(
     revalidateOnFocus: false,
   });
   const isAdmin = useIsAdmin();
+  const isDesktop = useIsDesktop();
 
   const hasChatAgent = useMemo(
     () =>
@@ -107,6 +108,12 @@ export default function useNavigation(
           enabled: isDesktop && isAdmin && hasChatAgent,
         },
       ] as NavData[],
-    [config?.face_recognition?.enabled, hasChatAgent, variant, isAdmin],
+    [
+      config?.face_recognition?.enabled,
+      hasChatAgent,
+      variant,
+      isAdmin,
+      isDesktop,
+    ],
   );
 }

@@ -2,7 +2,7 @@ import datetime
 import sqlite3
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Mock complex imports before importing maintainer, saving originals so we can
 # restore them after import and avoid polluting sys.modules for other tests.
@@ -30,6 +30,20 @@ for name, orig in _originals.items():
 
 
 class TestMaintainer(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        # The import-time mocks above only apply when this module is the first
+        # to import the maintainer. In a full run another test usually has, so
+        # the real clients would open SUB sockets that are never closed, and
+        # garbage collecting their context blocks forever on the queued
+        # subscription with nothing listening. Patch them where they are used.
+        for name in (
+            "InterProcessRequestor",
+            "CameraConfigUpdateSubscriber",
+            "DetectionSubscriber",
+            "RecordingsDataPublisher",
+        ):
+            self.enterContext(patch(f"frigate.record.maintainer.{name}"))
+
     async def test_move_files_survives_bad_filename(self):
         config = MagicMock(spec=FrigateConfig)
         config.cameras = {}
@@ -51,7 +65,9 @@ class TestMaintainer(unittest.IsolatedAsyncioTestCase):
                 ):
                     with patch("frigate.record.maintainer.logger.warning") as warn:
                         # Mock validate_and_move_segment to avoid further logic
-                        maintainer.validate_and_move_segment = MagicMock()
+                        maintainer.validate_and_move_segment = AsyncMock(
+                            return_value=None
+                        )
 
                         try:
                             await maintainer.move_files()
@@ -132,7 +148,9 @@ class TestMaintainer(unittest.IsolatedAsyncioTestCase):
         end_time = now - datetime.timedelta(seconds=10)
         cache_path = "/tmp/cache/test_cam@20260417150000+0000.mp4"
 
-        maintainer.end_time_cache = {cache_path: (end_time, 10.0)}
+        maintainer.end_time_cache = {
+            cache_path: (end_time, 10.0, None, None, None, None, None)
+        }
         # Single processed frame well past end_time with no motion/objects.
         maintainer.object_recordings_info["test_cam"] = [(now.timestamp(), [], [], [])]
         maintainer.audio_recordings_info["test_cam"] = []
@@ -143,7 +161,11 @@ class TestMaintainer(unittest.IsolatedAsyncioTestCase):
         result = await maintainer.validate_and_move_segment(
             "test_cam",
             reviews=[],
-            recording={"start_time": start_time, "cache_path": cache_path},
+            recording={
+                "start_time": start_time,
+                "cache_path": cache_path,
+                "stream_type": "main",
+            },
         )
 
         self.assertIsNone(result)
@@ -171,7 +193,8 @@ class TestMaintainer(unittest.IsolatedAsyncioTestCase):
             (recent, 0, []),
         ]
 
-        grouped_recordings = {"present_cam": [{"start_time": ancient}]}
+        # keyed by (camera, stream_type), matching what move_files passes
+        grouped_recordings = {("present_cam", "main"): [{"start_time": ancient}]}
 
         maintainer._expire_stale_recordings_info(grouped_recordings)
 

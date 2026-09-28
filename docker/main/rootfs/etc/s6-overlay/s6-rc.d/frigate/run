@@ -4,6 +4,11 @@
 
 set -o errexit -o nounset -o pipefail
 
+# Match Python's runtime dependency location, including PYTHONUSERBASE overrides.
+frigate_runtime_base=$(python3 -m site --user-base)
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${frigate_runtime_base}/lib"
+export PATH="${PATH}:${frigate_runtime_base}/bin"
+
 # opt out of openvino telemetry
 if [ -e /usr/local/bin/opt_in_out ]; then
   /usr/local/bin/opt_in_out --opt_out > /dev/null 2>&1

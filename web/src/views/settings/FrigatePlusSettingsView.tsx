@@ -18,6 +18,7 @@ import { isReplayCamera } from "@/utils/cameraUtil";
 import type { SettingsPageProps } from "@/views/settings/SingleSectionPage";
 import PlusKeyStatus from "@/components/fork/settings/PlusKeyStatus";
 import StatusPill from "@/components/fork/settings/StatusPill";
+import { getPrimaryModel } from "@/utils/modelUtil";
 
 export default function FrigatePlusSettingsView(
   _props: Readonly<SettingsPageProps>,
@@ -54,7 +55,7 @@ export default function FrigatePlusSettingsView(
               description={
                 <>
                   <p>{t("frigatePlus.apiKey.desc")}</p>
-                  {!config?.model.plus && (
+                  {!getPrimaryModel(config)?.plus && (
                     <div className="mt-2 flex items-center text-primary-variant">
                       <Link
                         to="https://frigate.video/plus"
@@ -78,7 +79,7 @@ export default function FrigatePlusSettingsView(
 
           {config?.plus?.enabled && (
             <FrigatePlusCurrentModelSummary
-              plusModel={config.model.plus}
+              plusModel={getPrimaryModel(config)?.plus}
               action={
                 <Button
                   size="sm"

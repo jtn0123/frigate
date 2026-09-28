@@ -112,7 +112,8 @@
       "description": "Muted cameras do not add items to the inbox.",
       "camera": "Mute {{camera}}"
     },
-    "openItem": "Open {{camera}} in review"
+    "openItem": "Open {{camera}} in review",
+    "systemNotices": "System notices"
   },
   "cameraHealth": {
     "description": "Per-camera health from the live stats stream, over a window Frigate keeps on disk.",

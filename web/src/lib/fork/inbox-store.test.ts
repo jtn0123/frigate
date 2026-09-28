@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FrigateReview } from "@/types/ws";
 import type { ReviewSegment } from "@/types/review";
 import {
   INBOX_DISMISSED_KEY,
   INBOX_ITEMS_KEY,
+  INBOX_MAX_ITEMS,
   INBOX_MAX_DISMISSED,
   INBOX_SETTINGS_KEY,
   clearInbox,
@@ -256,5 +257,96 @@ describe("inbox store", () => {
     ).toBe(false);
     setQuietHours({ enabled: false, start: "22:00", end: "07:00" });
     expect(getInboxState().settings.quietHours.enabled).toBe(false);
+  });
+
+  it("sanitizes stored items, settings and dismissals on reload", () => {
+    const valid = {
+      id: "valid",
+      camera: "front_door",
+      severity: "detection",
+      labels: [],
+      zones: [],
+      startTime: 1,
+      thumbPath: "thumb",
+      read: false,
+      receivedAt: 1,
+    };
+    localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify([null, {}, valid]));
+    localStorage.setItem(
+      INBOX_SETTINGS_KEY,
+      JSON.stringify({
+        mutedCameras: ["front_door", 2],
+        quietHours: { enabled: true },
+      }),
+    );
+    localStorage.setItem(INBOX_DISMISSED_KEY, JSON.stringify([1, "old"]));
+    reloadInboxFromStorage();
+    expect(ids()).toEqual(["valid"]);
+    expect(getInboxState().settings).toEqual({
+      mutedCameras: ["front_door"],
+      quietHours: { enabled: true, start: "22:00", end: "07:00" },
+    });
+    expect(ingestReview(message("old", "new"))).toBe(false);
+  });
+
+  it("caps the inbox at the newest 200 items", () => {
+    for (let i = 0; i <= INBOX_MAX_ITEMS; i++) {
+      ingestReview(message(`review-${i}`, "new"));
+    }
+    expect(ids()).toHaveLength(INBOX_MAX_ITEMS);
+    expect(ids()[0]).toBe(`review-${INBOX_MAX_ITEMS}`);
+    expect(ids()).not.toContain("review-0");
+  });
+
+  it("deduplicates labels and reopens a read detection when it becomes an alert", () => {
+    const detection = message("r1", "new");
+    detection.after.severity = "detection";
+    detection.after.data = {
+      ...detection.after.data,
+      objects: ["person"],
+      audio: ["bark", "person"],
+      sub_labels: ["bark"],
+    };
+    expect(ingestReview(detection)).toBe(true);
+    expect(getInboxState().items[0]?.labels).toEqual(["person", "bark"]);
+    markInboxRead("r1");
+    const alert = message("r1", "update");
+    alert.after.thumb_path = "";
+    expect(ingestReview(alert)).toBe(true);
+    expect(getInboxState().items[0]).toMatchObject({
+      severity: "alert",
+      read: false,
+      thumbPath: detection.after.thumb_path,
+    });
+  });
+
+  it("marks arrivals during quiet hours read and leaves an escalation read", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 0, 1, 23));
+      setQuietHours({ enabled: true, start: "22:00", end: "07:00" });
+      const detection = message("r1", "new");
+      detection.after.severity = "detection";
+      expect(ingestReview(detection)).toBe(true);
+      expect(getInboxState().items[0]?.read).toBe(true);
+      expect(ingestReview(message("r1", "update"))).toBe(true);
+      expect(getInboxState().items[0]).toMatchObject({
+        severity: "alert",
+        read: true,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("treats invalid and boundary quiet times as outside the window", () => {
+    const at = (hour: number, minute = 0) => new Date(2026, 0, 1, hour, minute);
+    const quiet = { enabled: true, start: "9:30", end: "17:00" };
+    expect(isInQuietHours(quiet, at(9, 29))).toBe(false);
+    expect(isInQuietHours(quiet, at(9, 30))).toBe(true);
+    expect(isInQuietHours(quiet, at(17))).toBe(false);
+    expect(isInQuietHours({ ...quiet, start: "bad" }, at(10))).toBe(false);
+    expect(isInQuietHours({ ...quiet, end: "12:60" }, at(10))).toBe(false);
+    expect(isInQuietHours({ ...quiet, enabled: false }, at(10))).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import {
   getSettingsDiff,
 } from "./settings-diff";
 
+const section = (value: unknown) => value as ConfigSectionData;
 const cfg = (value: unknown) => value as FrigateConfig;
 
 const fullSchema: RJSFSchema = {
@@ -42,7 +43,7 @@ const fullSchema: RJSFSchema = {
 const config = cfg({
   detect: { enabled: true, fps: 5, width: 1280, height: 720 },
   go2rtc: { streams: { front: "rtsp://user:pw@cam/stream" } },
-  detectors: { coral: { type: "edgetpu", device: "usb" } },
+  models: [{ scene: "all", devices: ["edgetpu:usb"] }],
   cameras: {
     front: {
       detect: { enabled: true, fps: 5, width: 1280, height: 720 },
@@ -62,6 +63,19 @@ describe("diffValues", () => {
       { path: "added", oldValue: undefined, newValue: [1] },
       { path: "gone", oldValue: 1, newValue: undefined },
       { path: "nested.c", oldValue: true, newValue: false },
+    ]);
+  });
+
+  it("treats an empty object and an array as leaf values", () => {
+    expect(
+      diffValues(
+        { empty: {}, values: [1, 2] },
+        { empty: { flag: true }, values: [1, 3] },
+      ),
+    ).toEqual([
+      { path: "empty", oldValue: {}, newValue: undefined },
+      { path: "empty.flag", oldValue: undefined, newValue: true },
+      { path: "values", oldValue: [1, 2], newValue: [1, 3] },
     ]);
   });
 });
@@ -99,13 +113,13 @@ describe("computeSettingsDiff", () => {
     });
   });
 
-  it("masks go2rtc credentials and marks detectors as restart-required", () => {
+  it("masks go2rtc credentials and marks models as restart-required", () => {
     const pending: Record<string, ConfigSectionData> = {
       go2rtc_streams: {
         front: ["rtsp://user:pw@cam/stream2"],
         back: ["rtsp://b"],
       },
-      detectors: { coral: { type: "edgetpu", device: "pci" } },
+      models: section([{ scene: "all", devices: ["edgetpu:pci"] }]),
     };
     const diffs = computeSettingsDiff(pending, config, fullSchema);
     const streams = diffs.find((d) => d.section === "go2rtc.streams");
@@ -113,58 +127,42 @@ describe("computeSettingsDiff", () => {
     expect(streams?.changes.map((c) => c.path)).toEqual(["back", "front"]);
     const front = streams?.changes.find((change) => change.path === "front");
     expect(JSON.stringify(front?.oldValue)).not.toContain("pw");
-    const detectors = diffs.find((d) => d.section === "detectors");
+    const detectors = diffs.find((d) => d.section === "models");
     expect(detectors?.needsRestart).toBe(true);
     expect(detectors?.changes).toEqual([
-      { path: "coral.device", oldValue: "usb", newValue: "pci" },
+      {
+        path: "0.devices",
+        oldValue: ["edgetpu:usb"],
+        newValue: ["edgetpu:pci"],
+      },
     ]);
   });
 
-  it("lists only the model path when a Frigate+ model is picked", () => {
-    // /api/config adds colormap, attribute lists, Frigate+ data and a merged
-    // labelmap on every detector; Save All writes none of them.
-    const plusConfig = cfg({
-      model: {
-        path: "plus://old",
-        width: 320,
-        height: 320,
-        labelmap: { 0: "person" },
-        colormap: { person: [255, 0, 0] },
-        all_attributes: ["face"],
-        non_logo_attributes: ["face"],
-        plus: { name: "old", trainDate: "2026-01-01" },
-      },
-      detectors: {
-        coral: { type: "edgetpu", model: { labelmap: { 0: "person" } } },
-      },
-    });
+  it("shows changed and removed model fields while hiding runtime metadata", () => {
     const diffs = computeSettingsDiff(
       {
-        model: { path: "plus://new" },
-        detectors: { coral: { type: "edgetpu" } },
+        models: section([
+          { scene: "all", devices: ["cpu"], path: "plus://new" },
+        ]),
       },
-      plusConfig,
-      fullSchema,
+      cfg({
+        models: [
+          {
+            scene: "all",
+            devices: ["cpu"],
+            path: "/models/old.onnx",
+            width: 320,
+            colormap: {},
+            all_attributes: ["face"],
+            plus: { name: "old" },
+          },
+        ],
+      }),
+      undefined,
     );
-    expect(diffs.find((d) => d.section === "model")?.changes).toEqual([
-      { path: "path", oldValue: "plus://old", newValue: "plus://new" },
-    ]);
-    expect(diffs.find((d) => d.section === "detectors")?.changes).toEqual([]);
-  });
-
-  it("lists the custom model fields a switch to Frigate+ removes", () => {
-    const customConfig = cfg({
-      model: { path: "/config/model.onnx", width: 320, colormap: {} },
-      detectors: config.detectors,
-    });
-    const diffs = computeSettingsDiff(
-      { model: { path: "plus://new" } },
-      customConfig,
-      fullSchema,
-    );
-    expect(diffs.find((d) => d.section === "model")?.changes).toEqual([
-      { path: "path", oldValue: "/config/model.onnx", newValue: "plus://new" },
-      { path: "width", oldValue: 320, newValue: undefined },
+    expect(diffs[0]?.changes).toEqual([
+      { path: "0.path", oldValue: "/models/old.onnx", newValue: "plus://new" },
+      { path: "0.width", oldValue: 320, newValue: undefined },
     ]);
   });
 
@@ -185,5 +183,43 @@ describe("computeSettingsDiff", () => {
     const first = getSettingsDiff(pending, config, fullSchema);
     expect(getSettingsDiff(pending, config, fullSchema)).toBe(first);
     expect(getSettingsDiff({ ...pending }, config, fullSchema)).not.toBe(first);
+  });
+
+  it("shows a removed model even without a schema", () => {
+    const diffs = computeSettingsDiff(
+      { models: section([]), detect: { fps: 20 } },
+      config,
+      undefined,
+    );
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]?.changes).toEqual([
+      { path: "", oldValue: undefined, newValue: {} },
+      { path: "0.devices", oldValue: ["edgetpu:usb"], newValue: undefined },
+      { path: "0.scene", oldValue: "all", newValue: undefined },
+    ]);
+  });
+
+  it("sorts global changes before camera changes and camera names alphabetically", () => {
+    const cfgWithCameras = cfg({
+      ...config,
+      cameras: {
+        zebra: config.cameras["front"],
+        alpha: config.cameras["front"],
+      },
+    });
+    const diffs = computeSettingsDiff(
+      {
+        "zebra::detect": { enabled: false, fps: 5, width: 1280, height: 720 },
+        "alpha::detect": { enabled: false, fps: 5, width: 1280, height: 720 },
+        detect: { enabled: true, fps: 10, width: 1280, height: 720 },
+      },
+      cfgWithCameras,
+      fullSchema,
+    );
+    expect(diffs.map((diff) => diff.pendingKey)).toEqual([
+      "detect",
+      "alpha::detect",
+      "zebra::detect",
+    ]);
   });
 });

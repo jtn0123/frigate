@@ -23,6 +23,17 @@ import type {
 } from "@/context/statusbar-context";
 import { cn } from "@/lib/utils";
 
+// anything that is not an error or a warning reads as informational
+function severityIconClass(severity: StatusMessage["severity"]): string {
+  if (severity === "error") {
+    return "text-danger";
+  }
+  if (severity === "warning") {
+    return "text-warning";
+  }
+  return "text-selected";
+}
+
 type StatusIssuesChipProps = {
   messages: StatusMessagesState;
 };
@@ -37,10 +48,8 @@ export default function StatusIssuesChip({
     () => Object.values(messages).flat(),
     [messages],
   );
-  // a message without a color has always been drawn as an error
-  const severe = issues.some(
-    (issue) => !issue.color || issue.color === "text-danger",
-  );
+  // Preserve severity styling in the compact fork issue chip.
+  const severe = issues.some((issue) => issue.severity === "error");
 
   if (issues.length === 0) {
     return null;
@@ -77,10 +86,13 @@ export default function StatusIssuesChip({
           {t("statusAlerts.label")}
         </div>
         <ul className="max-h-[60dvh] divide-y divide-border overflow-y-auto">
-          {issues.map(({ id, text, color, link }) => (
+          {issues.map(({ id, text, severity, link }) => (
             <li key={id} className="flex items-start gap-2 px-3 py-2.5">
               <IoIosWarning
-                className={cn("mt-0.5 size-4 shrink-0", color || "text-danger")}
+                className={cn(
+                  "mt-0.5 size-4 shrink-0",
+                  severityIconClass(severity),
+                )}
                 aria-hidden
               />
               <div className="flex min-w-0 flex-1 flex-col gap-1">

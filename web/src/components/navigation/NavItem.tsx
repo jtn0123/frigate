@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { isDesktop } from "react-device-detect";
+import { useIsDesktop } from "@/hooks/fork/use-viewport";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { NavData } from "@/types/navigation";
 import { IconType } from "react-icons";
@@ -41,6 +41,7 @@ export default function NavItem({
   large,
 }: Readonly<NavItemProps>) {
   const { t } = useTranslation(["common"]);
+  const isDesktop = useIsDesktop();
   const preloadData = useRouteDataPreload();
   const preload = () => {
     preloadRoute(item.url);

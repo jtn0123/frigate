@@ -1,6 +1,7 @@
 """Utilities for services."""
 
 import asyncio
+import contextlib
 import json
 import logging
 import math
@@ -317,7 +318,7 @@ def _resolve_intel_gpu_pdev(device: str | None) -> str | None:
     return pdev if _PCI_ADDRESS_RE.match(pdev) else None
 
 
-def _enumerate_drm_devices() -> dict[str, str]:
+def enumerate_drm_devices() -> dict[str, str]:
     """Map each PCI-attached DRM device to its bound kernel driver.
 
     Reads /sys/class/drm, which reflects every GPU on the host even when only
@@ -519,7 +520,7 @@ def get_intel_gpu_stats(
         )
         return None
 
-    drm_devices = _enumerate_drm_devices()
+    drm_devices = enumerate_drm_devices()
     intel_pdevs = {
         pdev: driver
         for pdev, driver in drm_devices.items()
@@ -883,8 +884,8 @@ def get_nvidia_gpu_stats() -> dict[int, dict]:
     return results
 
 
-def get_jetson_stats() -> dict[int, dict] | None:
-    results = {}
+def get_jetson_stats() -> dict[str, str] | None:
+    results: dict[str, str] = {}
 
     try:
         results["mem"] = "-"  # no discrete gpu memory
@@ -905,20 +906,44 @@ def get_jetson_stats() -> dict[int, dict] | None:
     return results
 
 
-def get_hailo_temps() -> dict[str, float]:
-    """Get temperatures for Hailo devices."""
+# set once a broken HailoRT import has been logged, so stats do not repeat it
+_hailo_import_failed = False
+
+
+def _import_hailo_device() -> Any | None:
+    """Return HailoRT's Device class, or None when the runtime is unavailable."""
+    global _hailo_import_failed
+
     try:
         from hailo_platform import Device
     except ModuleNotFoundError:
+        return None
+    except (ImportError, OSError) as e:
+        # an installed runtime whose libhailort does not load; raising here
+        # would stop the stats thread
+        if not _hailo_import_failed:
+            _hailo_import_failed = True
+            logger.warning("Unable to load HailoRT for temperatures: %s", e)
+
+        return None
+
+    return Device
+
+
+def get_hailo_temps() -> dict[str, float]:
+    """Get temperatures for Hailo devices."""
+    device_class = _import_hailo_device()
+
+    if device_class is None:
         return {}
 
     temps = {}
 
     try:
-        device_ids = Device.scan()
+        device_ids = device_class.scan()
         for i, device_id in enumerate(device_ids):
             try:
-                with Device(device_id) as device:
+                with device_class(device_id) as device:
                     temp_info = device.control.get_chip_temperature()
 
                     # Get board name and normalise it
@@ -1274,8 +1299,22 @@ async def get_video_properties(
     async def probe_with_ffprobe(
         url: str,
         rtsp_transport: str | None = None,
-    ) -> tuple[bool, int, int, str | None, float]:
-        """Fallback using ffprobe: returns (valid, width, height, codec, duration)."""
+    ) -> tuple[
+        bool,
+        int,
+        int,
+        str | None,
+        str | None,
+        float,
+        bool | None,
+        int | None,
+        str | None,
+    ]:
+        """Probe using ffprobe: returns (valid, width, height, fourcc, video_codec, duration, has_audio, audio_rate, audio_codec).
+
+        ffprobe reports the codec name directly, so fourcc and
+        video_codec are the same value on this path.
+        """
         cmd = [ffmpeg.ffprobe_path]
         if rtsp_transport:
             cmd += ["-rtsp_transport", rtsp_transport]
@@ -1303,19 +1342,17 @@ async def get_video_properties(
                     clean_camera_user_pass(url),
                     rtsp_transport or "default",
                 )
-                proc.kill()
-                await proc.wait()
-                return False, 0, 0, None, -1
+                return False, 0, 0, None, None, -1, None, None, None
 
             if proc.returncode != 0:
-                return False, 0, 0, None, -1
+                return False, 0, 0, None, None, -1, None, None, None
 
             data = json.loads(stdout.decode())
             video_streams = [
                 s for s in data.get("streams", []) if s.get("codec_type") == "video"
             ]
             if not video_streams:
-                return False, 0, 0, None, -1
+                return False, 0, 0, None, None, -1, None, None, None
 
             v = video_streams[0]
             width = int(v.get("width", 0))
@@ -1325,16 +1362,70 @@ async def get_video_properties(
             duration_str = data.get("format", {}).get("duration")
             duration = float(duration_str) if duration_str else -1.0
 
-            return True, width, height, codec, duration
-        except (ValueError, KeyError, sp.SubprocessError):
-            return False, 0, 0, None, -1
+            audio_streams = [
+                s for s in data.get("streams", []) if s.get("codec_type") == "audio"
+            ]
+            has_audio = bool(audio_streams)
 
-    def probe_with_cv2(url: str) -> tuple[bool, int, int, str | None, float]:
-        """Primary attempt using cv2: returns (valid, width, height, fourcc, duration)."""
+            # codec and sample rate distinguish audio tracks whose decoder
+            # configs cannot share an HLS sequence
+            audio_rate: int | None = None
+            audio_codec: str | None = None
+            if audio_streams:
+                try:
+                    audio_rate = int(audio_streams[0]["sample_rate"])
+                except (KeyError, TypeError, ValueError):
+                    audio_rate = None
+                audio_codec = audio_streams[0].get("codec_name")
+
+            return (
+                True,
+                width,
+                height,
+                codec,
+                codec,
+                duration,
+                has_audio,
+                audio_rate,
+                audio_codec,
+            )
+        except (ValueError, KeyError, sp.SubprocessError):
+            return False, 0, 0, None, None, -1, None, None, None
+        finally:
+            # callers run in a per-cycle event loop, and an ffprobe still
+            # running when that loop closes is finalized against a dead loop
+            # ("Event loop is closed"). Draining after the kill is what
+            # closes the pipes and their transports
+            if proc is not None and proc.returncode is None:
+                with contextlib.suppress(ProcessLookupError):
+                    proc.kill()
+
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(proc.communicate(), timeout=2)
+
+    def probe_with_cv2(
+        url: str,
+    ) -> tuple[
+        bool,
+        int,
+        int,
+        str | None,
+        str | None,
+        float,
+        bool | None,
+        int | None,
+        str | None,
+    ]:
+        """Probe using cv2: returns (valid, width, height, fourcc, video_codec, duration, has_audio, audio_rate, audio_codec).
+
+        cv2 cannot report audio streams or a normalized codec name, so
+        has_audio, audio_rate, audio_codec, and video_codec are always
+        None (unknown) on this path.
+        """
         cap = cv2.VideoCapture(url)
         if not cap.isOpened():
             cap.release()
-            return False, 0, 0, None, -1
+            return False, 0, 0, None, None, -1, None, None, None
 
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -1353,7 +1444,7 @@ async def get_video_properties(
                     duration = total_frames / fps
 
         cap.release()
-        return valid, width, height, fourcc, duration
+        return valid, width, height, fourcc, None, duration, None, None, None
 
     is_rtsp = url.startswith("rtsp://")
 
@@ -1361,24 +1452,99 @@ async def get_video_properties(
         # skip cv2 for RTSP: its FFmpeg backend has a hardcoded ~30s internal
         # timeout that cannot be shortened per-call, and ffprobe bounded by
         # -rw_timeout handles RTSP probing reliably
-        has_video, width, height, fourcc, duration = await probe_with_ffprobe(url)
+        (
+            has_video,
+            width,
+            height,
+            fourcc,
+            video_codec,
+            duration,
+            has_audio,
+            audio_rate,
+            audio_codec,
+        ) = await probe_with_ffprobe(url)
+    elif get_duration:
+        # ffprobe first: segment validation also needs audio presence,
+        # which cv2 cannot report
+        (
+            has_video,
+            width,
+            height,
+            fourcc,
+            video_codec,
+            duration,
+            has_audio,
+            audio_rate,
+            audio_codec,
+        ) = await probe_with_ffprobe(url)
+
+        # fallback to cv2 if needed; audio stays unknown there
+        if not has_video or duration < 0:
+            (
+                has_video,
+                width,
+                height,
+                fourcc,
+                video_codec,
+                duration,
+                has_audio,
+                audio_rate,
+                audio_codec,
+            ) = probe_with_cv2(url)
     else:
         # try cv2 first for local files, HTTP, RTMP
-        has_video, width, height, fourcc, duration = probe_with_cv2(url)
+        (
+            has_video,
+            width,
+            height,
+            fourcc,
+            video_codec,
+            duration,
+            has_audio,
+            audio_rate,
+            audio_codec,
+        ) = probe_with_cv2(url)
 
         # fallback to ffprobe if needed
-        if not has_video or (get_duration and duration < 0):
-            has_video, width, height, fourcc, duration = await probe_with_ffprobe(url)
+        if not has_video:
+            (
+                has_video,
+                width,
+                height,
+                fourcc,
+                video_codec,
+                duration,
+                has_audio,
+                audio_rate,
+                audio_codec,
+            ) = await probe_with_ffprobe(url)
 
     # last resort for RTSP: try TCP transport, since default UDP may be blocked
     if (not has_video or (get_duration and duration < 0)) and is_rtsp:
-        has_video, width, height, fourcc, duration = await probe_with_ffprobe(
-            url, rtsp_transport="tcp"
-        )
+        (
+            has_video,
+            width,
+            height,
+            fourcc,
+            video_codec,
+            duration,
+            has_audio,
+            audio_rate,
+            audio_codec,
+        ) = await probe_with_ffprobe(url, rtsp_transport="tcp")
 
     result: dict[str, Any] = {"has_valid_video": has_video}
     if has_video:
-        result.update({"width": width, "height": height})
+        result.update(
+            {
+                "width": width,
+                "height": height,
+                "has_audio": has_audio,
+                "audio_rate": audio_rate,
+                "audio_codec": audio_codec,
+                "video_codec": video_codec,
+            }
+        )
         if fourcc:
             result["fourcc"] = fourcc
     if get_duration:

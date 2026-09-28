@@ -6,14 +6,16 @@ import {
   resetOverlayHistory,
 } from "./overlay-history";
 
-// jsdom delivers popstate for history.back() asynchronously
-async function flushHistory() {
-  await new Promise((resolve) => setTimeout(resolve, 20));
+// jsdom delivers popstate asynchronously, so wait for the navigation itself.
+function waitForPopstate(action: () => void): Promise<void> {
+  return new Promise((resolve) => {
+    window.addEventListener("popstate", () => resolve(), { once: true });
+    action();
+  });
 }
 
-async function pressBack() {
-  window.history.back();
-  await flushHistory();
+function pressBack(): Promise<void> {
+  return waitForPopstate(() => window.history.back());
 }
 
 describe("overlay history stack", () => {
@@ -43,8 +45,7 @@ describe("overlay history stack", () => {
     pushOverlay(dialog);
 
     // The dialog closes through its own button
-    releaseOverlay(dialog, true);
-    await flushHistory();
+    await waitForPopstate(() => releaseOverlay(dialog, true));
     expect(drawer.close).not.toHaveBeenCalled();
     expect(openOverlayCount()).toBe(1);
 
@@ -52,12 +53,11 @@ describe("overlay history stack", () => {
     expect(drawer.close).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the history entry when the URL moved on", async () => {
+  it("keeps the history entry when the URL moved on", () => {
     const back = vi.spyOn(window.history, "back");
     const drawer = { close: vi.fn() };
     pushOverlay(drawer);
     releaseOverlay(drawer, false);
-    await flushHistory();
     expect(back).not.toHaveBeenCalled();
     expect(openOverlayCount()).toBe(0);
     back.mockRestore();
@@ -72,23 +72,21 @@ describe("overlay history stack", () => {
     });
   });
 
-  it("does not go back when a view navigated while it was open", async () => {
+  it("does not go back when a view navigated while it was open", () => {
     const back = vi.spyOn(window.history, "back");
     const drawer = { close: vi.fn() };
     pushOverlay(drawer);
     // A state-only navigation (same URL), like choosing a timeline mode
     window.history.pushState({ usr: { timelineType: "detail" } }, "");
     releaseOverlay(drawer, true);
-    await flushHistory();
     expect(back).not.toHaveBeenCalled();
     expect(openOverlayCount()).toBe(0);
     back.mockRestore();
   });
 
-  it("ignores a release for an overlay it does not hold", async () => {
+  it("ignores a release for an overlay it does not hold", () => {
     const stray = { close: vi.fn() };
     releaseOverlay(stray, true);
-    await flushHistory();
     expect(openOverlayCount()).toBe(0);
     expect(stray.close).not.toHaveBeenCalled();
   });

@@ -361,7 +361,7 @@ test.describe("Camera health table @high", () => {
           },
           cameras: {
             ...BASE_STATS.cameras,
-            front_door: { ...BASE_STATS.cameras.front_door, camera_fps: 0 },
+            front_door: { ...BASE_STATS.cameras["front_door"], camera_fps: 0 },
           },
         }),
       );

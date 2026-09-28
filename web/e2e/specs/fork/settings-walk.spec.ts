@@ -73,7 +73,7 @@ test.describe("Birdseye objects mode notice (UI117) @high", () => {
               json: configFactory({
                 cameras: {
                   front_door: {
-                    birdseye: { enabled: true, mode: "objects" },
+                    birdseye: { enabled: true, modes: ["all_objects"] },
                     detect: { enabled: false },
                   },
                 },

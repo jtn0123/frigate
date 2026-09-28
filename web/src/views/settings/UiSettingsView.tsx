@@ -1,3 +1,4 @@
+import { allLayoutKeysForGroup } from "@/lib/fork/live-layout";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -18,7 +19,6 @@ import {
   useUserPersistence,
   deleteUserNamespacedKey,
 } from "@/hooks/use-user-persistence";
-import { isSafari } from "react-device-detect";
 import {
   Select,
   SelectContent,
@@ -154,7 +154,7 @@ export default function UiSettingsView() {
   const { auth } = useContext(AuthContext);
   const username = auth?.user?.username;
 
-  const PLAYBACK_RATE_DEFAULT = isSafari ? [0.5, 1, 2] : [0.5, 1, 2, 4, 8, 16];
+  const PLAYBACK_RATE_DEFAULT = [0.5, 1, 2, 4, 8, 16];
 
   // fork (UI123): both Clear All buttons discard browser-local state that
   // nothing on the server can restore, so they ask before acting
@@ -169,9 +169,10 @@ export default function UiSettingsView() {
 
     Object.entries(config.camera_groups).forEach(
       wrapAsync(async ([cameraName]) => {
-        await deleteUserNamespacedKey(
-          `${cameraName}-draggable-layout`,
-          username,
+        await Promise.all(
+          allLayoutKeysForGroup(cameraName).map((key) =>
+            deleteUserNamespacedKey(key, username),
+          ),
         )
           .then(() => {
             toast.success(

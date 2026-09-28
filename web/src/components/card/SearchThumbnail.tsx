@@ -16,6 +16,7 @@ import useContextMenu from "@/hooks/use-contextmenu";
 import { getTranslatedLabel } from "@/utils/i18n";
 import { useTranslation } from "react-i18next";
 import { onActivate } from "@/utils/fork/a11y";
+import { isAttributeOfLabel } from "@/utils/modelUtil";
 
 type SearchThumbnailProps = {
   searchResult: SearchResult;
@@ -63,9 +64,7 @@ function SearchThumbnail({
     }
 
     if (
-      config.model.attributes_map[searchResult.label]?.includes(
-        searchResult.sub_label,
-      )
+      isAttributeOfLabel(config, searchResult.label, searchResult.sub_label)
     ) {
       return searchResult.sub_label;
     }
@@ -87,9 +86,7 @@ function SearchThumbnail({
     }
 
     if (
-      config.model.attributes_map[searchResult.label]?.includes(
-        searchResult.sub_label,
-      )
+      isAttributeOfLabel(config, searchResult.label, searchResult.sub_label)
     ) {
       return "";
     }

@@ -107,12 +107,14 @@ class TestDeleteCameraRuntimeConfig(BaseTestHttp):
 
         try:
             app, _ = self._create_app_with_dispatcher(dispatcher)
+            app.notice_registry = MagicMock()
 
             with AuthTestClient(app) as client:
                 resp = client.delete("/cameras/front_door")
 
                 self.assertEqual(resp.status_code, 200)
                 self.assertTrue(resp.json()["success"])
+                app.notice_registry.resolve_camera.assert_called_once_with("front_door")
 
                 # the dispatcher must be moved onto the same new object the API
                 # now serves, and that object must no longer contain the camera

@@ -6,7 +6,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from frigate.config import FrigateConfig
+from frigate.config import BirdseyeModeEnum, FrigateConfig
 from frigate.config.camera.profile import CameraProfileConfig
 from frigate.config.profile import ProfileDefinitionConfig
 from frigate.config.profile_manager import PERSISTENCE_FILE, ProfileManager
@@ -559,6 +559,24 @@ class TestProfileManager(unittest.TestCase):
         err = self.manager.activate_profile("away")
         assert err is None
         assert self.config.cameras["front"].enabled is False
+
+    @patch.object(ProfileManager, "_persist_active_profile")
+    def test_profile_replaces_birdseye_activity_modes(self, mock_persist):
+        """A profile mode list replaces the base list rather than merging into it."""
+        self.config.profiles["away"] = ProfileDefinitionConfig(friendly_name="Away")
+        self.config.cameras["front"].birdseye.modes = [
+            BirdseyeModeEnum.motion,
+            BirdseyeModeEnum.all_objects,
+        ]
+        self.config.cameras["front"].profiles["away"] = CameraProfileConfig(
+            birdseye={"modes": ["alerts"]}
+        )
+        self.manager = ProfileManager(self.config, self.mock_updater)
+
+        err = self.manager.activate_profile("away")
+
+        assert err is None
+        assert self.config.cameras["front"].birdseye.modes == [BirdseyeModeEnum.alerts]
 
     @patch.object(ProfileManager, "_persist_active_profile")
     def test_deactivate_restores_enabled(self, mock_persist):

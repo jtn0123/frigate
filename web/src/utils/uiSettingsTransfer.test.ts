@@ -200,3 +200,48 @@ describe("applyImportPayload", () => {
     expect(store.get(ns("front-draggable-layout"))).toHaveLength(1);
   });
 });
+
+describe("viewport layouts", () => {
+  const desktop = [{ i: "front", x: 0, y: 0, w: 6, h: 4 }];
+  const tablet = [{ i: "front", x: 0, y: 0, w: 12, h: 8 }];
+
+  it("exports each screen size and remaps it onto the importing browser", async () => {
+    const { deviceLayoutKeyForGroup } = await import("@/lib/fork/live-layout");
+    localStorage.setItem("frigateDeviceId", "source");
+    store.set(ns(deviceLayoutKeyForGroup("front", "desktop")), desktop);
+    store.set(ns(deviceLayoutKeyForGroup("front", "tablet")), tablet);
+    const file = await buildExportPayload(["front"], "test", USER);
+    expect(file.sections.viewport_layouts?.front).toEqual({ desktop, tablet });
+    localStorage.setItem("frigateDeviceId", "destination");
+    await applyImportPayload(
+      file,
+      { layouts: true, streaming: false, preferences: false },
+      USER,
+    );
+    expect(store.get(ns(deviceLayoutKeyForGroup("front", "desktop")))).toEqual(
+      desktop,
+    );
+    expect(store.get(ns(deviceLayoutKeyForGroup("front", "tablet")))).toEqual(
+      tablet,
+    );
+  });
+
+  it("imports an old backup over the current viewport without erasing other sizes", async () => {
+    const { deviceLayoutKeyForGroup } = await import("@/lib/fork/live-layout");
+    const { getViewportClass } = await import("@/hooks/fork/use-viewport");
+    const current = getViewportClass();
+    const other = current === "tablet" ? "desktop" : "tablet";
+    store.set(ns(deviceLayoutKeyForGroup("front", other)), tablet);
+    await applyImportPayload(
+      makeFile({ layouts: { front: desktop } }),
+      { layouts: true, streaming: false, preferences: false },
+      USER,
+    );
+    expect(store.get(ns(deviceLayoutKeyForGroup("front", current)))).toEqual(
+      desktop,
+    );
+    expect(store.get(ns(deviceLayoutKeyForGroup("front", other)))).toEqual(
+      tablet,
+    );
+  });
+});

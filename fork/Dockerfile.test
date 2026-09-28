@@ -3,6 +3,7 @@
 # runtime (labelmaps, ffmpeg, wheels) without a full image build.
 ARG BASE
 FROM ${BASE}
+ARG TARGETARCH
 WORKDIR /opt/frigate
 # Release tooling tests exercise real throwaway Git repositories.
 RUN apt-get update && apt-get install -y --no-install-recommends git \
@@ -15,6 +16,14 @@ COPY docker/main/requirements-dev.txt fork/requirements-dev.lock fork/scripts/de
 RUN pip3 install --break-system-packages -q --require-hashes --only-binary :all: -r /tmp/dev/requirements-dev.lock \
   && pip3 install --break-system-packages -q --require-hashes --only-binary :all: -r /tmp/requirements-sonar.txt \
   && python3 /tmp/dev/dev-lock-check.py
+# B20: exercise the new plugin-provider API against the same pinned ONNX
+# Runtime wheel as production; the released base still contains 1.22.
+COPY fork/requirements-runtime-${TARGETARCH}.lock /tmp/runtime.lock
+RUN awk \
+    '/^onnxruntime==/ {found=1} found && /^[^[:space:]#]/ && !/^onnxruntime==/ {exit} found {print}' \
+    /tmp/runtime.lock > /tmp/onnxruntime.lock \
+  && test -s /tmp/onnxruntime.lock \
+  && pip3 install --break-system-packages -q --require-hashes --only-binary :all: --no-deps -r /tmp/onnxruntime.lock
 COPY fork/scripts /opt/frigate/fork/scripts
 # Data files the scripts read next to themselves: the reviewed advisory list
 # (lock-audit.py) and the coverage floors (sonar-coverage-check.py).

@@ -22,6 +22,7 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import {
   AudioState,
+  LivePlayerError,
   LivePlayerMode,
   LiveStreamMetadata,
   StatsState,
@@ -32,7 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useResizeObserver } from "@/hooks/resize-observer";
 import { isEqual } from "lodash";
 import useSWR from "swr";
-import { isDesktop, isMobile } from "react-device-detect";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import BirdseyeLivePlayer from "@/components/player/BirdseyeLivePlayer";
 import LivePlayer from "@/components/player/LivePlayer";
 import { IoClose } from "react-icons/io5";
@@ -51,6 +52,10 @@ import { Toaster } from "@/components/ui/sonner";
 import LiveContextMenu from "@/components/menu/LiveContextMenu";
 import { useStreamingSettings } from "@/context/streaming-settings-provider";
 import { useTranslation } from "react-i18next";
+import {
+  liveGridClassName,
+  useLiveGridLayout,
+} from "@/hooks/fork/use-live-grid-layout";
 
 type DraggableGridLayoutProps = {
   cameras: CameraConfig[];
@@ -66,9 +71,7 @@ type DraggableGridLayoutProps = {
   fullscreen: boolean;
   toggleFullscreen: () => void;
   preferredLiveModes: { [key: string]: LivePlayerMode };
-  setPreferredLiveModes: React.Dispatch<
-    React.SetStateAction<{ [key: string]: LivePlayerMode }>
-  >;
+  handleError: (cameraName: string, error: LivePlayerError) => void;
   resetPreferredLiveMode: (cameraName: string) => void;
   isRestreamedStates: { [key: string]: boolean };
   supportsAudioOutputStates: {
@@ -90,13 +93,15 @@ export default function DraggableGridLayout({
   fullscreen,
   toggleFullscreen,
   preferredLiveModes,
-  setPreferredLiveModes,
+  handleError,
   resetPreferredLiveMode,
   isRestreamedStates,
   supportsAudioOutputStates,
   streamMetadata,
 }: Readonly<DraggableGridLayoutProps>) {
   const { t } = useTranslation(["views/live"]);
+  const isMobile = useIsMobile();
+  const isDesktop = !isMobile;
   const { data: config } = useSWR<FrigateConfig>("config");
   const birdseyeConfig = useMemo(() => config?.birdseye, [config]);
 
@@ -117,7 +122,7 @@ export default function DraggableGridLayout({
   // grid layout
 
   const [gridLayout, setGridLayout, isGridLayoutLoaded] =
-    useUserPersistence<Layout>(`${cameraGroup}-draggable-layout`);
+    useLiveGridLayout(cameraGroup);
 
   const [group] = useUserPersistedOverlayState(
     "cameraGroup",
@@ -527,7 +532,10 @@ export default function DraggableGridLayout({
         </div>
       ) : (
         <div
-          className="no-scrollbar my-2 select-none overflow-x-hidden px-2 pb-8"
+          className={cn(
+            "no-scrollbar my-2 select-none overflow-x-hidden px-2 pb-8",
+            liveGridClassName,
+          )}
           ref={gridContainerRef}
         >
           <EditGroupDialog
@@ -671,17 +679,7 @@ export default function DraggableGridLayout({
                     onClick={() => {
                       !isEditMode && onSelectCamera(camera.name);
                     }}
-                    onError={(e) => {
-                      setPreferredLiveModes((prevModes) => {
-                        const newModes = { ...prevModes };
-                        if (e === "mse-decode") {
-                          newModes[camera.name] = "webrtc";
-                        } else {
-                          newModes[camera.name] = "jsmpeg";
-                        }
-                        return newModes;
-                      });
-                    }}
+                    onError={(e) => handleError(camera.name, e)}
                     onResetLiveMode={() => resetPreferredLiveMode(camera.name)}
                     playAudio={audioStates[camera.name]}
                     volume={volumeStates[camera.name]}

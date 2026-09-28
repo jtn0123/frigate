@@ -315,10 +315,13 @@ test.describe("Review — recording view loading state @high @mobile", () => {
   }) => {
     // Hold the camera's recordings so the view stays in its loading state
     // past the player's 1 s loading timer.
-    await frigateApp.page.route("**/api/*/recordings?**", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 8_000));
-      await route.fulfill({ json: [] }).catch(() => undefined);
-    });
+    await frigateApp.page.route(
+      "**/api/*/recordings/coverage?**",
+      async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 8_000));
+        await route.fallback().catch(() => undefined);
+      },
+    );
     await frigateApp.goto("/review");
     const page = frigateApp.page;
     const cards = page.locator('.review-item [role="button"]');

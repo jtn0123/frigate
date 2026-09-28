@@ -43,6 +43,7 @@ export type MotionReviewTimelineProps = {
   events: ReviewSegment[];
   motion_events: MotionData[];
   noRecordingRanges?: RecordingSegment[];
+  subOnlyRanges?: Pick<RecordingSegment, "start_time" | "end_time">[];
   contentRef: RefObject<HTMLDivElement | null>;
   timelineRef?: RefObject<HTMLDivElement | null>;
   onHandlebarDraggingChange?: (isDragging: boolean) => void;
@@ -77,6 +78,7 @@ export function MotionReviewTimeline({
   events,
   motion_events,
   noRecordingRanges,
+  subOnlyRanges,
   contentRef,
   timelineRef,
   onHandlebarDraggingChange,
@@ -123,6 +125,17 @@ export function MotionReviewTimeline({
       );
     },
     [noRecordingRanges],
+  );
+
+  const getIsSubOnly = useCallback(
+    (time: number): boolean => {
+      if (subOnlyRanges == undefined) return false;
+
+      return subOnlyRanges.some(
+        (range) => time >= range.start_time && time < range.end_time,
+      );
+    },
+    [subOnlyRanges],
   );
 
   const segmentTimes = useMemo(() => {
@@ -249,6 +262,7 @@ export function MotionReviewTimeline({
         motionOnly={motionOnly}
         getMotionSegmentValue={getMotionSegmentValue}
         getRecordingAvailability={getRecordingAvailability}
+        getIsSubOnly={getIsSubOnly}
         alwaysShowMotionLine={alwaysShowMotionLine}
       />
     </ReviewTimeline>

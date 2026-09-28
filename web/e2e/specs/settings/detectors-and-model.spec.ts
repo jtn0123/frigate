@@ -1,15 +1,23 @@
 /**
- * Detectors and model settings page tests -- HIGH tier.
+ * Detection models settings page tests -- HIGH tier.
  *
  * Tests rendering of the merged page and navigation from the Frigate+ page.
  */
 
+import { readFileSync } from "node:fs";
 import { test, expect } from "../../fixtures/frigate-test";
 import {
   expectNoHorizontalOverflow,
   expectWithinPhoneWidth,
   openPhoneSettingsSection,
 } from "../../helpers/settings-phone";
+
+const CONFIG_SCHEMA = JSON.parse(
+  readFileSync(
+    new URL("../../fixtures/mock-data/config-schema.json", import.meta.url),
+    "utf-8",
+  ),
+);
 
 const PLUS_MODEL = {
   id: "plus-model-1",
@@ -23,28 +31,29 @@ const PLUS_MODEL = {
   height: 320,
 };
 
-test.describe("Detectors and model Settings @high", () => {
-  test("page renders with detector and model cards", async ({ frigateApp }) => {
+test.describe("Detection models Settings @high", () => {
+  test.beforeEach(async ({ frigateApp }) => {
+    await frigateApp.installDefaults({ configSchema: CONFIG_SCHEMA });
+  });
+  test("page renders the model editor", async ({ frigateApp }) => {
     await frigateApp.goto("/settings?page=systemDetectorsAndModel");
     const pageRoot = frigateApp.page.locator("#pageRoot");
 
-    // The view's own heading; phones also show the section name as the
-    // panel title (h2).
+    await expect(pageRoot).toContainText("All cameras");
     await expect(
-      frigateApp.page.getByRole("heading", {
-        name: "Detectors and model",
-        level: 4,
-      }),
+      pageRoot.getByRole("button", { name: "Add model" }),
     ).toBeVisible();
-    await expect(pageRoot).toContainText("Detector Hardware");
-    await expect(pageRoot).toContainText("Detection Model");
   });
 
   test("Frigate+ page links to the merged page", async ({ frigateApp }) => {
     // The link lives on the current-model card, which only renders when
     // Frigate+ is enabled, so enable it with a loaded model.
     await frigateApp.installDefaults({
-      config: { plus: { enabled: true }, model: { plus: PLUS_MODEL } },
+      configSchema: CONFIG_SCHEMA,
+      config: {
+        plus: { enabled: true },
+        models: [{ scene: "all", devices: ["cpu"], plus: PLUS_MODEL }],
+      },
     });
     await frigateApp.page.route("**/api/plus/models", (route) =>
       route.fulfill({ json: [PLUS_MODEL] }),
@@ -56,21 +65,12 @@ test.describe("Detectors and model Settings @high", () => {
     );
     await frigateApp.page.getByRole("button", { name: "Change model" }).click();
 
-    // Settings consumes the page param and strips it from the URL, so assert
-    // on the rendered view rather than the address bar.
-    await expect(
-      frigateApp.page.getByRole("heading", {
-        name: "Detectors and model",
-        level: 4,
-      }),
-    ).toBeVisible();
+    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
+      "All cameras",
+    );
     await expect(
       frigateApp.page.getByRole("heading", { name: "Frigate+ Settings" }),
     ).toBeHidden();
-    // With Frigate+ enabled the model card offers the Frigate+ tab.
-    await expect(
-      frigateApp.page.getByRole("tab", { name: "Frigate+" }),
-    ).toBeVisible();
   });
 
   test("old systemDetectionModel deep-link no longer routes here", async ({
@@ -86,29 +86,27 @@ test.describe("Detectors and model Settings @high", () => {
   });
 
   test(
-    "phone opens Detectors and model from the System group @mobile",
+    "phone opens Detection models from the System group @mobile",
     { tag: "@mobile-only" },
     async ({ frigateApp }) => {
       const { page } = frigateApp;
       const { title, back } = await openPhoneSettingsSection(page, {
         group: "System",
-        section: "Detectors and model",
+        section: "Detection models",
       });
 
-      await expect(
-        page.getByRole("heading", { name: "Detectors and model", level: 4 }),
-      ).toBeVisible();
-      const detector = page.getByText("Detector Hardware", { exact: true });
-      const model = page.getByText("Detection Model", { exact: true });
-      await expectWithinPhoneWidth(detector);
+      const model = page.getByText("All cameras", { exact: true }).first();
       await expectWithinPhoneWidth(model);
+      await expectWithinPhoneWidth(
+        page.getByRole("button", { name: "Add model" }),
+      );
       await expectNoHorizontalOverflow(title);
 
       // Back slides the panel away and returns to the section list.
       await back.click();
       await expect(title).toBeHidden();
       await expect(
-        page.getByRole("button", { name: "Detectors and model", exact: true }),
+        page.getByRole("button", { name: "Detection models", exact: true }),
       ).toBeVisible();
     },
   );
