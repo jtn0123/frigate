@@ -6,7 +6,7 @@ import type {
 } from "@rjsf/utils";
 import { toFieldPathId } from "@rjsf/utils";
 import { cloneDeep } from "lodash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   LuChevronDown,
@@ -63,6 +63,27 @@ const CUSTOM_MODEL_FIELDS = [
 /** The detector a model runs on, which is the prefix of its device strings. */
 const detectorForModel = (model: DetectionModel): string | undefined =>
   model.devices?.[0]?.split(":")[0];
+
+// both a model and a camera default to the "all" scene when they name none
+const ALL_SCENE = "all";
+
+/**
+ * The scene of the model a camera runs on, mirroring the backend's
+ * `_resolve_camera_model`: the model for the camera's own scene, otherwise the
+ * "all" model, otherwise none (a config the backend rejects).
+ */
+const servingScene = (
+  cameraScene: string | undefined,
+  modelScenes: ReadonlySet<string>,
+): string | undefined => {
+  const scene = cameraScene ?? ALL_SCENE;
+
+  if (modelScenes.has(scene)) {
+    return scene;
+  }
+
+  return modelScenes.has(ALL_SCENE) ? ALL_SCENE : undefined;
+};
 
 const asModelList = (formData: unknown): DetectionModel[] => {
   if (!Array.isArray(formData)) {
@@ -143,6 +164,19 @@ export function ModelsField(props: Readonly<FieldProps>) {
 
   const [openByIndex, setOpenByIndex] = useState<Record<number, boolean>>({});
 
+  // Cards need an identity that survives a delete, or the card after the
+  // deleted one inherits its state (such as the chosen model source tab). The
+  // keys live beside the form data rather than in it, so nothing new is saved.
+  const nextCardKey = useRef(0);
+  const cardKeys = useRef<string[]>([]);
+  if (cardKeys.current.length > models.length) {
+    cardKeys.current = cardKeys.current.slice(0, models.length);
+  }
+  while (cardKeys.current.length < models.length) {
+    cardKeys.current.push(`model-${nextCardKey.current}`);
+    nextCardKey.current += 1;
+  }
+
   // shared with HardwarePicker through the SWR cache, so this is not a second
   // request
   const { data: hardware } = useSWR<DetectionHardware[]>("hardware/probe");
@@ -169,20 +203,24 @@ export function ModelsField(props: Readonly<FieldProps>) {
     [savedModels],
   );
 
-  // a model serves the cameras naming its scene, plus every camera that names
-  // no scene at all when it is the "all" model
+  // a model serves the cameras naming its scene, and the "all" model also
+  // serves every camera whose scene has no model of its own
   const cameraCountForScene = useCallback(
     (scene: string | undefined): number => {
       if (!cameras) {
         return 0;
       }
 
-      return Object.values(cameras).filter((camera) => {
-        const cameraScene = camera?.detect?.scene;
-        return cameraScene ? cameraScene === scene : scene === "all";
-      }).length;
+      const modelScenes = new Set(
+        models.map((model) => model.scene ?? ALL_SCENE),
+      );
+      const target = scene ?? ALL_SCENE;
+
+      return Object.values(cameras).filter(
+        (camera) => servingScene(camera?.detect?.scene, modelScenes) === target,
+      ).length;
     },
-    [cameras],
+    [cameras, models],
   );
 
   const claimedByOtherModels = useCallback(
@@ -226,6 +264,9 @@ export function ModelsField(props: Readonly<FieldProps>) {
 
   const handleRemoveModel = useCallback(
     (index: number) => {
+      cardKeys.current = cardKeys.current.filter(
+        (_, currentIndex) => currentIndex !== index,
+      );
       onChange(
         models.filter((_, currentIndex) => currentIndex !== index),
         fieldPathId.path,
@@ -314,7 +355,7 @@ export function ModelsField(props: Readonly<FieldProps>) {
         );
 
         return (
-          <Card key={`${baseId}-${index}`} className="w-full">
+          <Card key={cardKeys.current[index]} className="w-full">
             <Collapsible
               open={open}
               onOpenChange={(nextOpen) =>
