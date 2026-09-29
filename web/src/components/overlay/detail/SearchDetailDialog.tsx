@@ -98,6 +98,7 @@ import { getTranslatedLabel } from "@/utils/i18n";
 import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
 import EventSummaryHeader from "@/components/fork/EventSummaryHeader";
 import ShareClipButton from "@/components/fork/ShareClipButton";
+import ExploreSuggestion from "@/components/fork/classification/ExploreSuggestion";
 import { summaryFromSearchResult } from "@/lib/fork/event-summary";
 import { DialogPortal } from "@radix-ui/react-dialog";
 
@@ -1678,6 +1679,11 @@ function ObjectDetailsTab({
             </div>
           </div>
         )}
+      {/* fork (I46): the class the description supports, filed from here */}
+      <ExploreSuggestion
+        eventId={search.id}
+        hasModels={hasCustomClassificationModels}
+      />
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-start gap-3">
           <div className="text-sm text-primary/40">

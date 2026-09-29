@@ -178,7 +178,8 @@ class ShareLink(Model):
     camera = CharField(index=True, max_length=20)
     created_by = CharField(max_length=30)
     created_at = FloatField()
-    expires_at = FloatField()
+    # expiry pruning filters on this; the name matches migration 036's index
+    expires_at = FloatField(index=True)
 
 
 class Trigger(Model):

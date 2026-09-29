@@ -7,6 +7,8 @@ import unittest
 from peewee import SqliteDatabase
 from peewee_migrate import Router
 
+from frigate.models import ShareLink
+
 MIGRATIONS_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "migrations"
 )
@@ -33,6 +35,28 @@ class TestShareLinkMigration(unittest.TestCase):
         self.router.run_one(NAME, self.router.migrator, fake=False, downgrade=True)
         self.assertNotIn("sharelink", self.db.get_tables())
         self.assertNotIn(NAME, self.router.done)
+
+    def test_fresh_schema_matches_the_migration(self):
+        # A database created from the model (fresh schema, tests) must carry
+        # the same indexes as one built by the migration, or expiry pruning
+        # scans the table on one path only.
+        self.router.run_one(NAME, self.router.migrator, fake=False)
+        migrated = {index.name for index in self.db.get_indexes("sharelink")}
+
+        fresh_db = SqliteDatabase(":memory:")
+        self.addCleanup(fresh_db.close)
+        with fresh_db.bind_ctx([ShareLink]):
+            fresh_db.create_tables([ShareLink])
+        fresh = {index.name for index in fresh_db.get_indexes("sharelink")}
+
+        # the model's safe create over a migrated table adds nothing
+        with self.db.bind_ctx([ShareLink]):
+            self.db.create_tables([ShareLink])
+        after = {index.name for index in self.db.get_indexes("sharelink")}
+
+        self.assertLessEqual(INDEXES, fresh)
+        self.assertEqual(migrated, fresh)
+        self.assertEqual(migrated, after)
 
     def test_fake_run_leaves_the_database_alone(self):
         self.router.run_one(NAME, self.router.migrator, fake=True)
