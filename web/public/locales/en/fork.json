@@ -288,6 +288,33 @@
       "clear": "Show all logs"
     }
   },
+  "logSummary": {
+    "title": "Repeated messages",
+    "loading": "Checking the logs",
+    "error": "Could not load the repeated messages",
+    "none": "None in the last {{hours}} hours",
+    "summary_one": "{{total}} repeated message in the last {{hours}} hours",
+    "summary_other": "{{total}} repeated messages in the last {{hours}} hours",
+    "summaryTop_one": "{{total}} repeated message in the last {{hours}} hours, top: {{camera}} {{top}}",
+    "summaryTop_other": "{{total}} repeated messages in the last {{hours}} hours, top: {{camera}} {{top}}",
+    "caption": "Warnings and errors that repeated in the last {{hours}} hours, most frequent first",
+    "column": {
+      "camera": "Camera",
+      "message": "Message",
+      "count": "Count",
+      "first": "First seen",
+      "last": "Last seen"
+    },
+    "level": {
+      "error": "Error:",
+      "warning": "Warning:",
+      "info": "Info:"
+    },
+    "noCamera": "No camera",
+    "filterTo": "Show logs for {{camera}}",
+    "coverage": "This log only reaches back to {{time}}.",
+    "truncated": "Only the most repeated messages are shown."
+  },
   "settingsNav": {
     "searchPlaceholder": "Search settings",
     "searchLabel": "Search settings",

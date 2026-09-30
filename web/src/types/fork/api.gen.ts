@@ -4314,6 +4314,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fork/log_summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Log Summary
+         * @description **Access:** Admin role required.
+         *
+         *     Return repeated warning and error log lines grouped per camera and hour.
+         *
+         *     Reads the end of the frigate and go2rtc logs. Admin only, like the logs
+         *     themselves. Messages are stripped of credentials and query strings.
+         *
+         *     Args:
+         *         request: The incoming request, carrying the config.
+         *         hours: How far back to look.
+         *         camera: Only count lines attributed to this camera.
+         *         min_count: Leave out groups seen fewer times than this.
+         *
+         *     Returns:
+         *         The groups with the highest counts, totals per camera and how far
+         *         back the logs actually reach.
+         */
+        get: operations["log_summary_fork_log_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/classification/{name}/suggestions": {
         parameters: {
             query?: never;
@@ -4455,6 +4490,38 @@ export interface paths {
          *         from the dataset and counts as a rejected one (fork I52).
          */
         post: operations["spot_check_suggestion_classification__name__suggestions_spot_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fork/go2rtc_state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Go2Rtc State
+         * @description **Access:** Any authenticated user.
+         *
+         *     Return whether go2rtc is connected to each camera's source.
+         *
+         *     Sources are reduced to scheme and host; credentials never leave the
+         *     backend. An unreachable go2rtc gives `available: false`, not an error.
+         *
+         *     Args:
+         *         request: The incoming request, carrying the config and the reader.
+         *         allowed_cameras: Cameras this caller may see.
+         *
+         *     Returns:
+         *         The stream states of every camera the caller has access to.
+         */
+        get: operations["go2rtc_state_fork_go2rtc_state_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6183,6 +6250,91 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * Go2rtcCameraState
+         * @description The go2rtc streams of one camera.
+         */
+        Go2rtcCameraState: {
+            /**
+             * Streams
+             * @description Streams named by live.streams, the ffmpeg inputs or the camera
+             */
+            streams: components["schemas"]["Go2rtcStreamState"][];
+        };
+        /**
+         * Go2rtcStateResponse
+         * @description Per-camera go2rtc source state behind the Health drawer.
+         */
+        Go2rtcStateResponse: {
+            /**
+             * Available
+             * @description Whether go2rtc answered
+             */
+            available: boolean;
+            /**
+             * Updated
+             * @description Unix timestamp the state was read
+             */
+            updated: number;
+            /**
+             * Cameras
+             * @description State per camera the caller may see, empty when unavailable
+             */
+            cameras: {
+                [key: string]: components["schemas"]["Go2rtcCameraState"];
+            };
+        };
+        /**
+         * Go2rtcStreamState
+         * @description One go2rtc stream a camera depends on, without its source URL.
+         */
+        Go2rtcStreamState: {
+            /**
+             * Name
+             * @description go2rtc stream name
+             */
+            name: string;
+            /**
+             * Configured
+             * @description Whether go2rtc has a stream by this name
+             */
+            configured: boolean;
+            /**
+             * Connected
+             * @description Whether any producer has tracks or has received bytes
+             */
+            connected: boolean;
+            /**
+             * Bytes Received
+             * @description Bytes received across all producers
+             */
+            bytes_received: number;
+            /**
+             * Bytes Per Second
+             * @description Receive rate since the previous sample, null when there is none
+             */
+            bytes_per_second?: number | null;
+            /**
+             * Producers
+             * @description Number of sources go2rtc lists
+             */
+            producers: number;
+            /**
+             * Consumers
+             * @description Number of readers currently attached
+             */
+            consumers: number;
+            /**
+             * Codecs
+             * @description Codecs the connected producers offer
+             */
+            codecs: string[];
+            /**
+             * Source
+             * @description Scheme and host of the source, never credentials, path or query
+             */
+            source?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -6274,6 +6426,148 @@ export interface components {
             total_alert: number | null;
             /** Total Detection */
             total_detection: number | null;
+        };
+        /**
+         * LogSummaryGroup
+         * @description One message a camera repeated within one hour.
+         */
+        LogSummaryGroup: {
+            /**
+             * Camera
+             * @description Camera the lines are about, null when none could be told
+             */
+            camera?: string | null;
+            /**
+             * Service
+             * @description Log the lines came from: 'frigate' or 'go2rtc'
+             */
+            service: string;
+            /**
+             * Hour
+             * @description Unix timestamp of the start of the hour
+             */
+            hour: number;
+            /**
+             * Level
+             * @description Highest level among the lines: 'info', 'warning' or 'error'
+             */
+            level: string;
+            /**
+             * Count
+             * @description Lines in this group
+             */
+            count: number;
+            /**
+             * First
+             * @description Unix timestamp of the first line
+             */
+            first: number;
+            /**
+             * Last
+             * @description Unix timestamp of the last line
+             */
+            last: number;
+            /**
+             * Message
+             * @description One example message, with URLs stripped of credentials and query strings, cut to about 200 characters
+             */
+            message: string;
+            /**
+             * Signature
+             * @description The message with its numbers replaced, the same for every hour a message repeats in
+             */
+            signature: string;
+        };
+        /**
+         * LogSummaryResponse
+         * @description Repeated warning and error log lines, collapsed per camera and hour.
+         */
+        LogSummaryResponse: {
+            /**
+             * Hours
+             * @description Hours that were asked for
+             */
+            hours: number;
+            /**
+             * Start
+             * @description Unix timestamp the requested window starts at
+             */
+            start: number;
+            /**
+             * End
+             * @description Unix timestamp the requested window ends at
+             */
+            end: number;
+            /**
+             * Covered From
+             * @description Unix timestamp the logs actually reach back to inside the window (they rotate by size), null when no log could be read
+             */
+            covered_from?: number | null;
+            /**
+             * Sources
+             * @description What was read, per service
+             */
+            sources: {
+                [key: string]: components["schemas"]["LogSummarySource"];
+            };
+            /**
+             * Total
+             * @description Lines counted, including ones left out of groups
+             */
+            total: number;
+            /**
+             * Unattributed
+             * @description Counted lines that name no camera
+             */
+            unattributed: number;
+            /**
+             * Cameras
+             * @description Counted lines per camera, highest first
+             */
+            cameras: {
+                [key: string]: number;
+            };
+            /**
+             * Truncated
+             * @description True when there were more groups than are returned
+             */
+            truncated: boolean;
+            /**
+             * Groups
+             * @description Groups seen at least min_count times, highest count first
+             */
+            groups: components["schemas"]["LogSummaryGroup"][];
+        };
+        /**
+         * LogSummarySource
+         * @description How much of one service's log was read.
+         */
+        LogSummarySource: {
+            /**
+             * Available
+             * @description Whether the log file could be read
+             */
+            available: boolean;
+            /**
+             * Partial
+             * @description True when only the end of the file was read because of its size
+             */
+            partial: boolean;
+            /**
+             * Lines
+             * @description Lines read from the file
+             */
+            lines: number;
+            /**
+             * Covered From
+             * @description Unix timestamp of the oldest line read, null without any
+             */
+            covered_from?: number | null;
+            /**
+             * Covered To
+             * @description Unix timestamp of the newest line read, null without any
+             */
+            covered_to?: number | null;
         };
         /** MediaSyncBody */
         MediaSyncBody: {
@@ -13279,6 +13573,39 @@ export interface operations {
             };
         };
     };
+    log_summary_fork_log_summary_get: {
+        parameters: {
+            query?: {
+                hours?: number;
+                camera?: string | null;
+                min_count?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     classification_suggestions_classification__name__suggestions_get: {
         parameters: {
             query?: {
@@ -13475,6 +13802,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    go2rtc_state_fork_go2rtc_state_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Go2rtcStateResponse"];
                 };
             };
         };

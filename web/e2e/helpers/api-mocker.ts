@@ -19,6 +19,10 @@ import {
   type CameraHistorySeriesMock,
 } from "../fixtures/mock-data/fork-camera-history";
 import {
+  logSummaryFactory,
+  type LogSummaryOverrides,
+} from "../fixtures/mock-data/fork-log-summary";
+import {
   go2rtcStateFactory,
   type Go2rtcStateOverrides,
 } from "../fixtures/mock-data/fork-go2rtc-state";
@@ -60,6 +64,8 @@ export interface ApiMockOverrides {
   forkUpdates?: ForkUpdatesMock;
   // fork (UI131): per-camera history behind the Health tab
   cameraHistory?: Record<string, Partial<CameraHistorySeriesMock>>;
+  // fork (I58): repeated log lines on the Logs page
+  logSummary?: LogSummaryOverrides;
   // fork (I57): go2rtc source state in the Health drawer
   go2rtcState?: Go2rtcStateOverrides;
   hardware?: unknown[];
@@ -224,6 +230,15 @@ export class ApiMocker {
       const range = new URL(route.request().url()).searchParams.get("range");
       return route.fulfill({
         json: cameraHistoryFactory(range, overrides?.cameraHistory),
+      });
+    });
+
+    // fork (I58): repeated log lines, collapsed per camera. The path is under
+    // /api/fork/, so the "**/api/logs/**" route below does not take it.
+    await this.page.route("**/api/fork/log_summary**", (route) => {
+      const camera = new URL(route.request().url()).searchParams.get("camera");
+      return route.fulfill({
+        json: logSummaryFactory(camera, overrides?.logSummary),
       });
     });
 

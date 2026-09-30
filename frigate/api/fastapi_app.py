@@ -26,6 +26,7 @@ from frigate.api import (
     fork_camera_history,
     fork_classification_suggestions,
     fork_go2rtc_state,
+    fork_log_summary,
     fork_share,
     fork_updates,
     hardware,
@@ -217,6 +218,7 @@ def create_fastapi_app(
     app.include_router(record.router)
     app.include_router(debug_replay.router)
     app.include_router(fork_camera_history.router)
+    app.include_router(fork_log_summary.router)
     app.include_router(fork_classification_suggestions.router)
     app.include_router(fork_go2rtc_state.router)
     app.include_router(fork_share.router)
