@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import cv2
 import numpy as np
@@ -248,6 +249,62 @@ class TestJevContract(unittest.TestCase):
         self.assertEqual(suggest.choose(None, jev), (jev, False))
         self.assertEqual(suggest.choose(text, None), (text, False))
         self.assertEqual(suggest.choose(None, None), (None, False))
+
+
+class TestJevEndpoint(unittest.TestCase):
+    """I55: a TypeSafe key and an OpenRouter key both reach Jev."""
+
+    def resolve(self, env: dict[str, str], **kwargs: str | None):
+        blank = {
+            "FRIGATE_JEV_API_KEY": "",
+            "TYPESAFE_API_KEY": "",
+            "OPENROUTER_API_KEY": "",
+        }
+        with patch.dict(os.environ, {**blank, **env}):
+            return suggest.jev_endpoint(**kwargs)
+
+    def test_no_key_means_no_endpoint(self):
+        self.assertIsNone(self.resolve({}))
+        self.assertIsNone(self.resolve({"TYPESAFE_API_KEY": "  "}))
+
+    def test_auto_reads_the_shared_key_by_its_prefix(self):
+        typesafe = self.resolve({"FRIGATE_JEV_API_KEY": "apikey-abc"})
+        self.assertEqual(typesafe.provider, "typesafe")
+        self.assertEqual(typesafe.url, "https://api.typesafe.ai/v1/systemone")
+        self.assertEqual(typesafe.model, "jev-1.13.0")
+        self.assertEqual(typesafe.key, "apikey-abc")
+        openrouter = self.resolve({"FRIGATE_JEV_API_KEY": "sk-or-v1-abc"})
+        self.assertEqual(openrouter.provider, "openrouter")
+        self.assertEqual(openrouter.url, "https://openrouter.ai/api/alpha/decisions")
+        self.assertEqual(openrouter.model, "typesafe/jev-1.13")
+
+    def test_auto_falls_back_to_each_providers_own_variable(self):
+        self.assertEqual(
+            self.resolve({"TYPESAFE_API_KEY": "t", "OPENROUTER_API_KEY": "o"}).provider,
+            "typesafe",
+        )
+        only_openrouter = self.resolve({"OPENROUTER_API_KEY": "o"})
+        self.assertEqual(only_openrouter.provider, "openrouter")
+        self.assertEqual(only_openrouter.key, "o")
+
+    def test_a_named_provider_prefers_its_own_key_then_the_shared_one(self):
+        env = {"FRIGATE_JEV_API_KEY": "shared", "OPENROUTER_API_KEY": "o"}
+        self.assertEqual(self.resolve(env, provider="openrouter").key, "o")
+        self.assertEqual(self.resolve(env, provider="typesafe").key, "shared")
+        self.assertIsNone(
+            self.resolve({"TYPESAFE_API_KEY": "t"}, provider="openrouter")
+        )
+
+    def test_configured_url_and_model_override_the_provider_defaults(self):
+        endpoint = self.resolve(
+            {"TYPESAFE_API_KEY": "t"}, url="https://gateway/jev", model="jev-preview"
+        )
+        self.assertEqual(endpoint.url, "https://gateway/jev")
+        self.assertEqual(endpoint.model, "jev-preview")
+
+    def test_the_request_model_falls_back_without_an_endpoint(self):
+        self.assertEqual(suggest.endpoint_model(None, None), "jev-1.13.0")
+        self.assertEqual(suggest.endpoint_model(None, "custom"), "custom")
 
 
 class TestCacheAndBudget(unittest.TestCase):
