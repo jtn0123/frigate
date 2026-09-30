@@ -4,9 +4,14 @@ Sonar's quality gate judges new code only, so a change that deletes tests, or a
 new module with none, passes every other gate. fork/coverage-floor.json records
 what the suites measured when the floor was last set; this fails the job when
 either side falls below it by more than the recorded tolerance (D26).
+
+A pull request that changes no web files skips the e2e shards, so its web
+report holds only unit coverage. That report is held to its own `web_unit`
+floor instead of the merged one it could never reach (D64).
 """
 
 import json
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
@@ -107,6 +112,12 @@ def check_floor(root: Path, measured: dict[str, float]) -> list[str]:
     return below
 
 
+def web_side() -> str:
+    """The floor the web report is held to: merged, or unit tests alone."""
+    merged = os.environ.get("BROWSER_COVERAGE", "true").strip().lower() == "true"
+    return "web" if merged else "web_unit"
+
+
 def main(root: Path | None = None) -> int:
     """Normalize both reports, then hold each side to its floor."""
     root = Path.cwd() if root is None else root
@@ -116,7 +127,7 @@ def main(root: Path | None = None) -> int:
         root,
         {
             "python": python_line_rate(root / "coverage-py/coverage.xml"),
-            "web": web_line_rate(root / "web/coverage/lcov.info"),
+            web_side(): web_line_rate(root / "web/coverage/lcov.info"),
         },
     )
     if not below:

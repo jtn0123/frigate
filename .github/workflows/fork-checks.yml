@@ -366,6 +366,9 @@ jobs:
         run: node scripts/fork/merge-browser-coverage.mjs
         working-directory: ./web
       - name: Verify coverage reports
+        env:
+          # Without the e2e shards the web report is unit tests alone (D64).
+          BROWSER_COVERAGE: ${{ needs.web_e2e.result == 'success' }}
         run: python3 fork/scripts/sonar-coverage-check.py
       # Warns from 14 days before the date in fork/sonar-token.env. Once it
       # has passed, fails unless the token still authenticates (then only the
