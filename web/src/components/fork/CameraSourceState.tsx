@@ -5,19 +5,34 @@
  * that reads a different stream, so this lists each go2rtc stream the camera
  * depends on and whether go2rtc is connected to it. The backend sends only the
  * scheme and host of a source, never its URL.
+ *
+ * I60 adds one line above the streams: whether the camera's host answered
+ * Frigate's ping. It tells a camera that is off the network apart from one
+ * that is on it with a broken stream.
  */
 
 import type { IconType } from "react-icons";
 import { useTranslation } from "react-i18next";
-import { LuCircleCheck, LuCircleSlash, LuUnplug } from "react-icons/lu";
+import {
+  LuCircleCheck,
+  LuCircleSlash,
+  LuCircleX,
+  LuTriangleAlert,
+  LuUnplug,
+} from "react-icons/lu";
 
 import { cn } from "@/lib/utils";
 import { useGo2rtcState } from "@/hooks/fork/use-go2rtc-state";
 import {
+  pingLossPercent,
+  pingRoundTrip,
+  pingStatus,
   receiveRate,
   sourceStatus,
+  type PingStatus,
   type SourceStatus,
 } from "@/lib/fork/go2rtc-state";
+import type { CameraPingState } from "@/types/fork/go2rtcState";
 
 /** Icon and color per state; the text beside it carries the meaning. */
 const STATUS: Record<SourceStatus, { icon: IconType; className: string }> = {
@@ -25,6 +40,71 @@ const STATUS: Record<SourceStatus, { icon: IconType; className: string }> = {
   notConnected: { icon: LuUnplug, className: "text-orange-400" },
   notConfigured: { icon: LuCircleSlash, className: "text-muted-foreground" },
 };
+
+const PING: Record<PingStatus, { icon: IconType; className: string }> = {
+  reachable: { icon: LuCircleCheck, className: "text-success" },
+  lossy: { icon: LuTriangleAlert, className: "text-orange-400" },
+  unreachable: { icon: LuCircleX, className: "text-danger" },
+};
+
+/** One line, lighter than a stream card: the host's answer to a ping. */
+function CameraPing({ ping }: Readonly<{ ping: CameraPingState }>) {
+  const { t } = useTranslation(["fork"]);
+  const status = pingStatus(ping);
+  const { icon: Icon, className } = PING[status];
+  const details: string[] = [];
+  if (status !== "unreachable") {
+    const roundTrip = pingRoundTrip(ping.ms);
+    if (roundTrip !== undefined) {
+      details.push(
+        t("cameraHealth.source.ping.roundTrip", { value: roundTrip }),
+      );
+    }
+  }
+  if (status === "lossy") {
+    details.push(
+      t("cameraHealth.source.ping.lost", {
+        value: pingLossPercent(ping.loss),
+      }),
+    );
+  }
+  if (ping.method === "tcp") {
+    details.push(t("cameraHealth.source.ping.tcp"));
+  }
+  return (
+    // px-3 lines the icon up with the icons inside the stream cards below.
+    <div
+      className="mt-2 flex gap-3 px-3"
+      data-testid="camera-ping"
+      data-state={status}
+    >
+      <Icon className={cn("mt-0.5 size-4 shrink-0", className)} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 text-sm">
+          <span className="font-semibold">
+            {t("cameraHealth.source.ping.label")}
+          </span>
+          <span className={className}>
+            {t(`cameraHealth.source.ping.state.${status}`)}
+          </span>
+        </div>
+        {details.length > 0 && (
+          <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+            {details.join(" · ")}
+          </p>
+        )}
+        {status === "unreachable" && (
+          <p
+            className="mt-0.5 text-xs text-muted-foreground"
+            data-testid="camera-ping-hint"
+          >
+            {t("cameraHealth.source.ping.unreachableHint")}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type CameraSourceStateProps = {
   camera: string;
@@ -38,6 +118,7 @@ export default function CameraSourceState({
   const { data, error } = useGo2rtcState(true);
 
   const streams = data?.cameras[camera]?.streams ?? [];
+  const ping = data?.cameras[camera]?.ping;
   let message: string | undefined;
   if (data === undefined && !error) {
     message = t("cameraHealth.source.loading");
@@ -56,6 +137,7 @@ export default function CameraSourceState({
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {t("cameraHealth.source.title")}
       </h3>
+      {ping && <CameraPing ping={ping} />}
       {message === undefined ? (
         <>
           <ul className="mt-2 flex flex-col gap-2">

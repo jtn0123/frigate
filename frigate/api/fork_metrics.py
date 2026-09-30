@@ -44,4 +44,5 @@ def fork_camera_metrics(request: Request, stats: dict[str, Any]) -> bytes:
         history=app.stats_emitter.camera_history.read(UPTIME_WINDOW),
         go2rtc=go2rtc,
         pressure=read_server_pressure(),
+        ping=getattr(app.state, "fork_camera_ping", None),
     )

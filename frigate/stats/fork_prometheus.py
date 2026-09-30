@@ -294,12 +294,36 @@ def _memory(
             )
 
 
+def _ping(families: _Families, ping: Mapping[str, Any] | None) -> None:
+    for name, state in (ping or {}).items():
+        label = {"camera_name": str(name)}
+        families.set(
+            "frigate_camera_ping_up",
+            "1 while the camera's host answers Frigate's ping",
+            int(bool(state.get("reachable"))),
+            label,
+        )
+        families.set(
+            "frigate_camera_ping_seconds",
+            "Best round trip of the last ping round",
+            (number(state.get("ms")) or 0.0) / 1000 if state.get("reachable") else None,
+            label,
+        )
+        families.set(
+            "frigate_camera_ping_loss_ratio",
+            "Share of the last round's pings that went unanswered",
+            state.get("loss"),
+            label,
+        )
+
+
 def fork_metrics(
     stats: Mapping[str, Any],
     history: Mapping[str, Any] | None = None,
     go2rtc: Mapping[str, Any] | None = None,
     pressure: Mapping[str, Any] | None = None,
     cgroup: Mapping[str, float] | None = None,
+    ping: Mapping[str, Any] | None = None,
 ) -> bytes:
     """Render the fork's metrics in the Prometheus text format.
 
@@ -310,6 +334,7 @@ def fork_metrics(
         pressure: `read_server_pressure`, when the host collector is set up.
         cgroup: The container's memory figures; read from the cgroup files
             when not given.
+        ping: The last ping round per camera (I60).
 
     Returns:
         The exposition text, to append to upstream's.
@@ -321,6 +346,7 @@ def fork_metrics(
     _cameras(families, cameras if isinstance(cameras, Mapping) else {}, now)
     _history(families, history)
     _go2rtc(families, go2rtc)
+    _ping(families, ping)
     embeddings = stats.get("embeddings")
     _enrichments(families, embeddings if isinstance(embeddings, Mapping) else {})
     _memory(families, read_cgroup() if cgroup is None else cgroup, pressure)

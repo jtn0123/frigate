@@ -1,5 +1,5 @@
 /**
- * Fork (I57): the /fork/go2rtc_state response behind the Health drawer.
+ * Fork (I57, I60): the /fork/go2rtc_state response behind the Health drawer.
  *
  * Hand-written until the endpoint is in api.gen.ts.
  */
@@ -20,8 +20,24 @@ export type Go2rtcStreamState = {
   source: string | null;
 };
 
+/** Fork (I60): the last round of pings Frigate sent to the camera's host. */
+export type CameraPingState = {
+  /** True when any ping of the round was answered. */
+  reachable: boolean;
+  /** Best round trip in milliseconds, null when none was answered. */
+  ms: number | null;
+  /** Share of the round's pings left unanswered, 0 to 1. */
+  loss: number;
+  /** "tcp" when the stream port decided because ICMP could not. */
+  method: "icmp" | "tcp";
+  /** Unix seconds of the round. */
+  checked: number;
+};
+
 export type Go2rtcCameraState = {
   streams: Go2rtcStreamState[];
+  /** Null or missing before the first round, and for a camera with no host. */
+  ping?: CameraPingState | null;
 };
 
 export type Go2rtcStateResponse = {

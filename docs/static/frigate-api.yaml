@@ -9135,6 +9135,38 @@ components:
         - incidents
       title: CameraHistorySeries
       description: One camera's frame rate and health across the window's cells.
+    CameraPingState:
+      properties:
+        reachable:
+          type: boolean
+          title: Reachable
+          description: Whether any ping was answered
+        ms:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Ms
+          description: Best round trip in milliseconds, null when none
+        loss:
+          type: number
+          title: Loss
+          description: Share of the pings that went unanswered, 0 to 1
+        method:
+          type: string
+          title: Method
+          description: icmp, or tcp when the stream port decided
+        checked:
+          type: number
+          title: Checked
+          description: Unix timestamp of the round
+      type: object
+      required:
+        - reachable
+        - loss
+        - method
+        - checked
+      title: CameraPingState
+      description: Whether the camera's host answered Frigate's last ping round.
     CameraSetBody:
       properties:
         value:
@@ -10643,6 +10675,12 @@ components:
           title: Streams
           description: Streams named by live.streams, the ffmpeg inputs or the 
             camera
+        ping:
+          anyOf:
+            - $ref: '#/components/schemas/CameraPingState'
+            - type: 'null'
+          description: Last ping of the camera's host, null before the first 
+            round
       type: object
       required:
         - streams

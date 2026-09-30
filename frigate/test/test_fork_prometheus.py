@@ -230,6 +230,46 @@ class TestOtherMetrics(unittest.TestCase):
         # the source never becomes a label
         self.assertNotIn(b"10.0.0.5", text)
 
+    def test_camera_ping(self) -> None:
+        found = samples(
+            fork_metrics(
+                {},
+                cgroup={},
+                ping={
+                    "front_door": {
+                        "reachable": True,
+                        "ms": 12.5,
+                        "loss": 0.33,
+                        "method": "icmp",
+                    },
+                    "garage": {
+                        "reachable": False,
+                        "ms": None,
+                        "loss": 1.0,
+                        "method": "tcp",
+                    },
+                },
+            )
+        )
+
+        self.assertEqual(
+            get(found, "frigate_camera_ping_up", camera_name="front_door"), 1
+        )
+        self.assertEqual(
+            get(found, "frigate_camera_ping_seconds", camera_name="front_door"), 0.0125
+        )
+        self.assertEqual(
+            get(found, "frigate_camera_ping_loss_ratio", camera_name="front_door"), 0.33
+        )
+        self.assertEqual(get(found, "frigate_camera_ping_up", camera_name="garage"), 0)
+        self.assertEqual(
+            get(found, "frigate_camera_ping_loss_ratio", camera_name="garage"), 1
+        )
+        # no round trip to report for a camera that did not answer
+        self.assertNotIn(
+            ("frigate_camera_ping_seconds", (("camera_name", "garage"),)), found
+        )
+
     def test_go2rtc_down(self) -> None:
         found = samples(
             fork_metrics({}, go2rtc={"available": False, "cameras": {}}, cgroup={})

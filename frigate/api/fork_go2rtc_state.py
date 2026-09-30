@@ -66,6 +66,10 @@ async def go2rtc_state(
             name: streams for name, streams in stream_names.items() if name in allowed
         }
 
-    return JSONResponse(
-        content=camera_states(snapshot, stream_names, configured_sources(config))
-    )
+    content = camera_states(snapshot, stream_names, configured_sources(config))
+    # fork (I60): the last ping of each camera's host, next to its streams
+    pings = getattr(request.app.state, "fork_camera_ping", {})
+    for name, camera in content["cameras"].items():
+        camera["ping"] = pings.get(name)
+
+    return JSONResponse(content=content)

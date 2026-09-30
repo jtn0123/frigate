@@ -57,6 +57,7 @@ from frigate.config.holder import ConfigHolder
 from frigate.config.profile_manager import ProfileManager
 from frigate.debug_replay import DebugReplayManager, debug_replay_auto_stop_watchdog
 from frigate.embeddings import EmbeddingsContext
+from frigate.fork.camera_ping import camera_ping_sampler
 from frigate.genai import GenAIClientManager
 from frigate.notices.registry import NoticeRegistry
 from frigate.ptz.onvif import OnvifController
@@ -160,6 +161,8 @@ def create_fastapi_app(
         app.state.system_history_task = asyncio.create_task(
             system_history.system_metrics_sampler(app)
         )
+        # fork (I60): pings the cameras and passes the result to uptime monitors
+        app.state.camera_ping_task = asyncio.create_task(camera_ping_sampler(app))
         app.state.replay_watchdog_task = asyncio.create_task(
             debug_replay_auto_stop_watchdog(
                 replay_manager, frigate_config, config_publisher
@@ -179,6 +182,12 @@ def create_fastapi_app(
             with suppress(asyncio.CancelledError):
                 await history
             app.state.system_history_task = None
+        pings = getattr(app.state, "camera_ping_task", None)  # fork (I60)
+        if pings is not None:
+            pings.cancel()
+            with suppress(asyncio.CancelledError):
+                await pings
+            app.state.camera_ping_task = None
         task = getattr(app.state, "replay_watchdog_task", None)
         if task is not None:
             task.cancel()

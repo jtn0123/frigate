@@ -280,7 +280,19 @@
       "measuring": "measuring rate",
       "consumers_one": "{{count}} reader",
       "consumers_other": "{{count}} readers",
-      "idleHint": "go2rtc connects to a source only while something reads the stream, so a stream with no readers also shows as not connected."
+      "idleHint": "go2rtc connects to a source only while something reads the stream, so a stream with no readers also shows as not connected.",
+      "ping": {
+        "label": "Network",
+        "state": {
+          "reachable": "Answers ping",
+          "lossy": "Answers ping, some lost",
+          "unreachable": "No ping reply"
+        },
+        "roundTrip": "{{value}} ms",
+        "lost": "{{value}}% lost",
+        "tcp": "checked on the stream port",
+        "unreachableHint": "The camera is off the network or powered down, so its stream cannot work either."
+      }
     },
     "viewLogs": "View logs",
     "logs": {

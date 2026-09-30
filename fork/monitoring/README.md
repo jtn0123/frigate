@@ -82,6 +82,7 @@ already tracks. A value that is unknown is left out, never exported as zero.
 | `frigate_camera_expected_fps`, `frigate_camera_skipped_percent` | `camera_name` | Configured detect rate, and frames dropped before detection |
 | `frigate_camera_hwaccel_fallback` | `camera_name` | 1 while detect decodes in software after hardware decoding failed |
 | `frigate_camera_watchdog_age_seconds` | `camera_name` | Seconds since the capture watchdog last ran (SV12). It reports every 5 seconds, so minutes mean it hung |
+| `frigate_camera_ping_up`, `frigate_camera_ping_seconds`, `frigate_camera_ping_loss_ratio` | `camera_name` | Whether the camera's host answered Frigate's last ping round, the best round trip, and the share of the three pings that went unanswered (I60) |
 | `frigate_go2rtc_available` | | 1 while go2rtc answers |
 | `frigate_go2rtc_stream_connected`, `frigate_go2rtc_stream_received_bytes`, `frigate_go2rtc_stream_consumers` | `camera_name`, `stream` | go2rtc's state of each stream a camera uses (I57). The source address is never a label |
 | `frigate_enrichment_speed_seconds`, `frigate_enrichment_per_second` | `name` | Time per inference and rate of each enabled enrichment (embeddings, face, plate, classification, descriptions) |
@@ -121,6 +122,42 @@ Only admins can read `/api/metrics`. A scraper on another host has two ways in:
   only to the scraper, for example bound to one address and limited by the
   firewall to the Prometheus host. Anyone who can reach that port has full
   admin access to Frigate.
+
+## Camera pings for an uptime monitor
+
+Cameras normally sit on a network that only Frigate can reach, so an uptime
+monitor on another host cannot ping them, and giving it a route would undo the
+isolation. Frigate pings them instead (I60) and passes on the answer alone.
+
+Every 30 seconds Frigate sends three ICMP echoes to the host each enabled
+camera's stream comes from (the source of its go2rtc stream, or its ffmpeg
+input when it does not use go2rtc). When the container may not open an ICMP
+socket, or the camera does not answer echoes, a TCP connect to the stream's
+port decides instead. The result shows in the Health drawer, in the metrics
+above, and is pushed to every camera that has a push URL.
+
+For Uptime Kuma, add one monitor of type "Push" per camera (heartbeat interval
+60 seconds, one retry) and give Frigate the URLs as `camera=url` pairs,
+separated by spaces, commas or line breaks:
+
+```yaml
+environment_vars:
+  FRIGATE_FORK_UPTIME_PUSH: >-
+    doorbell=http://kuma.example:3001/api/push/<token>
+    backyard=http://kuma.example:3001/api/push/<token>
+```
+
+The query string Uptime Kuma shows after the URL (`?status=up&msg=OK&ping=`)
+may stay or go; Frigate sends its own. Each push carries `status` (`up` or
+`down`), a short `msg` and the round trip in `ping`. The camera's address,
+credentials and stream never leave Frigate, and the push URLs are never
+logged. The variable is read at startup, so a change needs a restart.
+
+The monitor turns red when the camera stops answering, and also when Frigate
+itself stops pushing, which is the right reading for "Frigate cannot see this
+camera". A camera that answers pings while `frigate_camera_up` is 0 is on the
+network with a broken stream; one that answers neither is off the network or
+without power.
 
 ## Stability incidents
 

@@ -133,6 +133,29 @@ class TestHttpForkGo2rtcState(BaseTestHttp):
         )
         self.assert_no_secret(response)
 
+    def test_last_ping_is_returned_next_to_the_streams(self):
+        ping = {
+            "reachable": True,
+            "ms": 4.2,
+            "loss": 0.0,
+            "method": "icmp",
+            "checked": 100.0,
+        }
+        self.app.state.fork_camera_ping = {"front_door": ping, "private": ping}
+
+        with AuthTestClient(self.app) as client:
+            admin = client.get("/fork/go2rtc_state").json()
+            viewer = client.get("/fork/go2rtc_state", headers=VIEWER).json()
+
+        self.assertEqual(admin["cameras"]["front_door"]["ping"], ping)
+        self.assertEqual(admin["cameras"]["private"]["ping"], ping)
+        self.assertEqual(set(viewer["cameras"]), {"front_door"})
+
+    def test_ping_is_null_before_the_first_round(self):
+        with AuthTestClient(self.app) as client:
+            body = client.get("/fork/go2rtc_state").json()
+        self.assertIsNone(body["cameras"]["front_door"]["ping"])
+
     def test_viewer_only_sees_allowed_cameras(self):
         with AuthTestClient(self.app) as client:
             response = client.get("/fork/go2rtc_state", headers=VIEWER)

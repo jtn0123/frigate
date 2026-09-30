@@ -72,6 +72,19 @@ class TestHttpForkMetrics(BaseTestHttp):
         # upstream's metrics are still there
         self.assertIn("frigate_camera_fps", text)
 
+    def test_scrape_includes_the_last_camera_ping(self):
+        self.app.state.fork_camera_ping = {
+            "front_door": {"reachable": True, "ms": 8.0, "loss": 0.0, "method": "icmp"}
+        }
+
+        with AuthTestClient(self.app) as client:
+            text = client.get("/metrics").text
+
+        self.assertIn('frigate_camera_ping_up{camera_name="front_door"} 1.0', text)
+        self.assertIn(
+            'frigate_camera_ping_seconds{camera_name="front_door"} 0.008', text
+        )
+
     def test_no_camera_credentials_in_a_scrape(self):
         with AuthTestClient(self.app) as client:
             text = client.get("/metrics").text

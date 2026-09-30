@@ -11,6 +11,7 @@ import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
 import { BASE_STATS } from "../../fixtures/mock-data/stats";
 import type { CameraHistorySeriesMock } from "../../fixtures/mock-data/fork-camera-history";
+import { UNREACHABLE_PING } from "../../fixtures/mock-data/fork-go2rtc-state";
 import { openStatusIssues } from "../../helpers/status-issues";
 
 type CameraOverride = Partial<{
@@ -640,5 +641,77 @@ test.describe("Camera health source state (I57) @high", () => {
     await expect(
       frigateApp.page.getByTestId("camera-health-metrics"),
     ).toBeVisible();
+  });
+});
+
+test.describe("Camera health ping (I60) @high", () => {
+  test("the drawer tells a camera that is off the network from one that answers", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({
+      go2rtcState: {
+        cameras: {
+          garage: [{ name: "garage", connected: false, bytes_per_second: 0 }],
+        },
+        pings: {
+          garage: UNREACHABLE_PING,
+          front_door: { loss: 1 / 3, method: "tcp" },
+        },
+      },
+    });
+    await gotoHealth(frigateApp);
+    await frigateApp.page.getByRole("button", { name: "Open Garage" }).click();
+    const drawer = frigateApp.page.getByTestId("camera-health-drawer");
+    const section = drawer.getByTestId("source-state");
+    const ping = section.getByTestId("camera-ping");
+    // Reopening from the table keeps this independent of the table's order.
+    const reopen = async (name: string) => {
+      await drawer.getByRole("button", { name: "Close" }).click();
+      await expect(drawer).toHaveCount(0);
+      await frigateApp.page.getByRole("button", { name }).click();
+    };
+
+    await expect(ping).toHaveAttribute("data-state", "unreachable");
+    await expect(ping).toContainText("Network");
+    await expect(ping).toContainText("No ping reply");
+    await expect(ping).not.toContainText(" ms");
+    await expect(section.getByTestId("camera-ping-hint")).toHaveText(
+      "The camera is off the network or powered down, so its stream cannot work either.",
+    );
+    // The stream below it is still listed.
+    await expect(section.getByTestId("source-state-stream")).toHaveAttribute(
+      "data-state",
+      "notConnected",
+    );
+
+    // The default camera answers every ping.
+    await reopen("Open Backyard");
+    await expect(ping).toHaveAttribute("data-state", "reachable");
+    await expect(ping).toContainText("Answers ping");
+    await expect(ping).toContainText("12.3 ms");
+    await expect(ping).not.toContainText("lost");
+    await expect(section.getByTestId("camera-ping-hint")).toHaveCount(0);
+
+    await reopen("Open Front Door");
+    await expect(ping).toHaveAttribute("data-state", "lossy");
+    await expect(ping).toContainText("Answers ping, some lost");
+    await expect(ping).toContainText(
+      "12.3 ms · 33% lost · checked on the stream port",
+    );
+  });
+
+  test("a camera that has not been pinged yet shows no network line @mobile", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({
+      go2rtcState: { pings: { front_door: null } },
+    });
+    await gotoHealth(frigateApp);
+    await frigateApp.page
+      .getByRole("button", { name: "Open Front Door" })
+      .click();
+    const section = frigateApp.page.getByTestId("source-state");
+    await expect(section.getByTestId("source-state-stream")).toHaveCount(1);
+    await expect(section.getByTestId("camera-ping")).toHaveCount(0);
   });
 });

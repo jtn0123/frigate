@@ -5139,6 +5139,37 @@ export interface components {
              */
             incidents: components["schemas"]["CameraHistoryIncident"][];
         };
+        /**
+         * CameraPingState
+         * @description Whether the camera's host answered Frigate's last ping round.
+         */
+        CameraPingState: {
+            /**
+             * Reachable
+             * @description Whether any ping was answered
+             */
+            reachable: boolean;
+            /**
+             * Ms
+             * @description Best round trip in milliseconds, null when none
+             */
+            ms?: number | null;
+            /**
+             * Loss
+             * @description Share of the pings that went unanswered, 0 to 1
+             */
+            loss: number;
+            /**
+             * Method
+             * @description icmp, or tcp when the stream port decided
+             */
+            method: string;
+            /**
+             * Checked
+             * @description Unix timestamp of the round
+             */
+            checked: number;
+        };
         /** CameraSetBody */
         CameraSetBody: {
             /**
@@ -6260,6 +6291,8 @@ export interface components {
              * @description Streams named by live.streams, the ffmpeg inputs or the camera
              */
             streams: components["schemas"]["Go2rtcStreamState"][];
+            /** @description Last ping of the camera's host, null before the first round */
+            ping?: components["schemas"]["CameraPingState"] | null;
         };
         /**
          * Go2rtcStateResponse

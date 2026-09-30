@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CameraSourceState from "./CameraSourceState";
 import type {
+  CameraPingState,
   Go2rtcStateResponse,
   Go2rtcStreamState,
 } from "@/types/fork/go2rtcState";
@@ -45,10 +46,24 @@ function show(
   return render(<CameraSourceState camera="front_door" />);
 }
 
-const state = (streams: Go2rtcStreamState[]): Go2rtcStateResponse => ({
+const state = (
+  streams: Go2rtcStreamState[],
+  ping?: CameraPingState | null,
+): Go2rtcStateResponse => ({
   available: true,
   updated: 1,
-  cameras: { front_door: { streams } },
+  cameras: {
+    front_door: ping === undefined ? { streams } : { streams, ping },
+  },
+});
+
+const ping = (overrides: Partial<CameraPingState> = {}): CameraPingState => ({
+  reachable: true,
+  ms: 12.34,
+  loss: 0,
+  method: "icmp",
+  checked: 1,
+  ...overrides,
 });
 
 describe("CameraSourceState", () => {
@@ -176,5 +191,89 @@ describe("CameraSourceState", () => {
     });
     render(<CameraSourceState camera="front_door" />);
     expect(screen.getAllByTestId("source-state-message")).toHaveLength(2);
+  });
+
+  describe("ping (I60)", () => {
+    it("shows no network line without a ping", () => {
+      show(state([stream()]));
+      expect(screen.queryByTestId("camera-ping")).not.toBeInTheDocument();
+      show(state([stream()], null));
+      expect(screen.queryByTestId("camera-ping")).not.toBeInTheDocument();
+      expect(screen.getAllByTestId("source-state-stream")).toHaveLength(2);
+    });
+
+    it("shows a host that answers every ping with its round trip", () => {
+      show(state([stream()], ping()));
+      const row = screen.getByTestId("camera-ping");
+      expect(row).toHaveAttribute("data-state", "reachable");
+      expect(row).toHaveTextContent("cameraHealth.source.ping.label");
+      expect(row).toHaveTextContent("cameraHealth.source.ping.state.reachable");
+      expect(row).toHaveTextContent(
+        'cameraHealth.source.ping.roundTrip {"value":"12.3"}',
+      );
+      expect(row).not.toHaveTextContent("cameraHealth.source.ping.lost");
+      expect(row).not.toHaveTextContent("cameraHealth.source.ping.tcp");
+      expect(row.querySelector("svg")).toBeInTheDocument();
+      expect(screen.queryByTestId("camera-ping-hint")).not.toBeInTheDocument();
+      // It sits above the streams, inside the same section.
+      const section = screen.getByTestId("source-state");
+      const stream_ = within(section).getByTestId("source-state-stream");
+      expect(
+        row.compareDocumentPosition(stream_) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("shows how much was lost when only some pings were answered", () => {
+      show(state([stream()], ping({ loss: 1 / 3 })));
+      const row = screen.getByTestId("camera-ping");
+      expect(row).toHaveAttribute("data-state", "lossy");
+      expect(row).toHaveTextContent("cameraHealth.source.ping.state.lossy");
+      expect(row).toHaveTextContent(
+        'cameraHealth.source.ping.roundTrip {"value":"12.3"} · cameraHealth.source.ping.lost {"value":"33"}',
+      );
+    });
+
+    it("says the camera is off the network when no ping was answered", () => {
+      show(
+        state(
+          [stream({ connected: false, bytes_per_second: 0 })],
+          ping({ reachable: false, ms: null, loss: 1 }),
+        ),
+      );
+      const row = screen.getByTestId("camera-ping");
+      expect(row).toHaveAttribute("data-state", "unreachable");
+      expect(row).toHaveTextContent(
+        "cameraHealth.source.ping.state.unreachable",
+      );
+      expect(row).not.toHaveTextContent("cameraHealth.source.ping.roundTrip");
+      expect(row).not.toHaveTextContent("cameraHealth.source.ping.lost");
+      expect(screen.getByTestId("camera-ping-hint")).toHaveTextContent(
+        "cameraHealth.source.ping.unreachableHint",
+      );
+    });
+
+    it("says so when the stream port was checked instead of ICMP", () => {
+      show(state([stream()], ping({ method: "tcp", ms: 3 })));
+      expect(screen.getByTestId("camera-ping")).toHaveTextContent(
+        'cameraHealth.source.ping.roundTrip {"value":"3.0"} · cameraHealth.source.ping.tcp',
+      );
+      show(
+        state(
+          [stream()],
+          ping({ method: "tcp", reachable: false, ms: null, loss: 1 }),
+        ),
+      );
+      const rows = screen.getAllByTestId("camera-ping");
+      expect(rows[1]).toHaveAttribute("data-state", "unreachable");
+      expect(rows[1]).toHaveTextContent("cameraHealth.source.ping.tcp");
+    });
+
+    it("still shows the ping of a camera with no go2rtc stream", () => {
+      show(state([], ping()));
+      expect(screen.getByTestId("camera-ping")).toBeInTheDocument();
+      expect(screen.getByTestId("source-state-message")).toHaveTextContent(
+        "cameraHealth.source.none",
+      );
+    });
   });
 });

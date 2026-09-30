@@ -23,11 +23,27 @@ class Go2rtcStreamState(BaseModel):
     )
 
 
+class CameraPingState(BaseModel):
+    """Whether the camera's host answered Frigate's last ping round."""
+
+    reachable: bool = Field(description="Whether any ping was answered")
+    ms: float | None = Field(
+        default=None, description="Best round trip in milliseconds, null when none"
+    )
+    loss: float = Field(description="Share of the pings that went unanswered, 0 to 1")
+    method: str = Field(description="icmp, or tcp when the stream port decided")
+    checked: float = Field(description="Unix timestamp of the round")
+
+
 class Go2rtcCameraState(BaseModel):
     """The go2rtc streams of one camera."""
 
     streams: list[Go2rtcStreamState] = Field(
         description="Streams named by live.streams, the ffmpeg inputs or the camera"
+    )
+    ping: CameraPingState | None = Field(
+        default=None,
+        description="Last ping of the camera's host, null before the first round",
     )
 
 
