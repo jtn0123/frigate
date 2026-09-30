@@ -39,9 +39,11 @@ def fork_camera_metrics(request: Request, stats: dict[str, Any]) -> bytes:
         camera_stream_names(config),
         configured_sources(config),
     )
+    # A stats emitter without the fork's history still gets a full scrape.
+    camera_history = getattr(app.stats_emitter, "camera_history", None)
     return fork_metrics(
         stats,
-        history=app.stats_emitter.camera_history.read(UPTIME_WINDOW),
+        history=camera_history.read(UPTIME_WINDOW) if camera_history else None,
         go2rtc=go2rtc,
         pressure=read_server_pressure(),
         ping=getattr(app.state, "fork_camera_ping", None),

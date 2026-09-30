@@ -85,6 +85,16 @@ class TestHttpForkMetrics(BaseTestHttp):
             'frigate_camera_ping_seconds{camera_name="front_door"} 0.008', text
         )
 
+    def test_emitter_without_camera_history_still_scrapes(self):
+        self.app.stats_emitter = SimpleNamespace(get_latest_stats=lambda: STATS)
+
+        with AuthTestClient(self.app) as client:
+            response = client.get("/metrics")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("frigate_camera_up", response.text)
+        self.assertNotIn("frigate_camera_uptime_ratio", response.text)
+
     def test_no_camera_credentials_in_a_scrape(self):
         with AuthTestClient(self.app) as client:
             text = client.get("/metrics").text
