@@ -17,6 +17,7 @@ import { FaVideo } from "react-icons/fa";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import CameraSourceState from "@/components/fork/CameraSourceState";
 import {
   Sheet,
   SheetContent,
@@ -402,6 +403,7 @@ export default function CameraHealthDrawer({
               </ul>
             )}
           </section>
+          <CameraSourceState camera={row.camera} />
           <dl
             className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4"
             data-testid="camera-health-metrics"

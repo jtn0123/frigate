@@ -19,6 +19,10 @@ import {
   type CameraHistorySeriesMock,
 } from "../fixtures/mock-data/fork-camera-history";
 import {
+  go2rtcStateFactory,
+  type Go2rtcStateOverrides,
+} from "../fixtures/mock-data/fork-go2rtc-state";
+import {
   forkUpdatesFactory,
   type ForkUpdatesMock,
 } from "../fixtures/mock-data/fork-updates";
@@ -56,6 +60,8 @@ export interface ApiMockOverrides {
   forkUpdates?: ForkUpdatesMock;
   // fork (UI131): per-camera history behind the Health tab
   cameraHistory?: Record<string, Partial<CameraHistorySeriesMock>>;
+  // fork (I57): go2rtc source state in the Health drawer
+  go2rtcState?: Go2rtcStateOverrides;
   hardware?: unknown[];
   hwaccel?: {
     recommended: string;
@@ -220,6 +226,11 @@ export class ApiMocker {
         json: cameraHistoryFactory(range, overrides?.cameraHistory),
       });
     });
+
+    // fork (I57): go2rtc's state of each camera's source
+    await this.page.route("**/api/fork/go2rtc_state**", (route) =>
+      route.fulfill({ json: go2rtcStateFactory(overrides?.go2rtcState) }),
+    );
 
     // Reviews. The real backend exposes /review (singular) for the main
     // list and /review/summary for the summary — the previous plural glob

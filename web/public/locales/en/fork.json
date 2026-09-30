@@ -262,6 +262,26 @@
       "cellHours_one": "1 cell = {{count}} hour",
       "cellHours_other": "1 cell = {{count}} hours"
     },
+    "source": {
+      "title": "Source in go2rtc",
+      "loading": "Checking go2rtc",
+      "unavailable": "go2rtc is not reachable, so the state of the source is unknown.",
+      "none": "This camera does not use a go2rtc stream.",
+      "state": {
+        "connected": "Connected",
+        "notConnected": "Not connected",
+        "notConfigured": "Not set up in go2rtc"
+      },
+      "rate": {
+        "bit": "{{value}} bit/s",
+        "kbit": "{{value}} kbit/s",
+        "mbit": "{{value}} Mbit/s"
+      },
+      "measuring": "measuring rate",
+      "consumers_one": "{{count}} reader",
+      "consumers_other": "{{count}} readers",
+      "idleHint": "go2rtc connects to a source only while something reads the stream, so a stream with no readers also shows as not connected."
+    },
     "viewLogs": "View logs",
     "logs": {
       "filtered": "Logs containing camera: {{camera}}",

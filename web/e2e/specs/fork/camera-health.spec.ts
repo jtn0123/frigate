@@ -555,3 +555,90 @@ test("camera health selection survives reload and browser history @high @mobile"
   await page.goForward();
   await expect(page.getByTestId("camera-health-drawer")).toBeVisible();
 });
+
+test.describe("Camera health source state (I57) @high", () => {
+  test("the drawer says whether go2rtc is connected to each of the camera's streams", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({
+      go2rtcState: {
+        cameras: {
+          garage: [
+            { name: "garage", source: "rtsp://10.0.0.7:554" },
+            {
+              name: "garage_sub",
+              connected: false,
+              bytes_received: 0,
+              bytes_per_second: 0,
+              consumers: 0,
+              codecs: [],
+              source: "ffmpeg:http://10.0.0.7",
+            },
+            {
+              name: "garage_old",
+              configured: false,
+              connected: false,
+              bytes_per_second: null,
+              consumers: 0,
+              codecs: [],
+              source: null,
+            },
+          ],
+        },
+      },
+    });
+    await gotoHealth(frigateApp);
+    await frigateApp.page.getByRole("button", { name: "Open Garage" }).click();
+    const section = frigateApp.page
+      .getByTestId("camera-health-drawer")
+      .getByTestId("source-state");
+    await expect(section).toContainText("Source in go2rtc");
+
+    const streams = section.getByTestId("source-state-stream");
+    await expect(streams).toHaveCount(3);
+    await expect(streams.nth(0)).toHaveAttribute("data-state", "connected");
+    await expect(streams.nth(0)).toContainText("Connected");
+    await expect(streams.nth(0)).toContainText(
+      "rtsp://10.0.0.7:554 · 512 kbit/s · 1 reader · H264, AAC",
+    );
+
+    await expect(streams.nth(1)).toHaveAttribute("data-state", "notConnected");
+    await expect(streams.nth(1)).toContainText("garage_sub");
+    await expect(streams.nth(1)).toContainText("Not connected");
+    await expect(streams.nth(1)).toContainText(
+      "ffmpeg:http://10.0.0.7 · 0 readers",
+    );
+    await expect(streams.nth(1)).not.toContainText("bit/s");
+
+    await expect(streams.nth(2)).toHaveAttribute("data-state", "notConfigured");
+    await expect(streams.nth(2)).toContainText("Not set up in go2rtc");
+    await expect(section.getByTestId("source-state-hint")).toContainText(
+      "only while something reads the stream",
+    );
+
+    // Stepping to the next camera shows that camera's own stream.
+    await frigateApp.page.getByRole("button", { name: "Next camera" }).click();
+    await expect(streams).toHaveCount(1);
+    await expect(streams).toHaveAttribute("data-state", "connected");
+    await expect(section.getByTestId("source-state-hint")).toHaveCount(0);
+  });
+
+  test("an unreachable go2rtc is one muted line, not an error @mobile", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({ go2rtcState: { available: false } });
+    await gotoHealth(frigateApp);
+    await frigateApp.page
+      .getByRole("button", { name: "Open Front Door" })
+      .click();
+    const section = frigateApp.page.getByTestId("source-state");
+    await expect(section.getByTestId("source-state-message")).toHaveText(
+      "go2rtc is not reachable, so the state of the source is unknown.",
+    );
+    await expect(section.getByTestId("source-state-stream")).toHaveCount(0);
+    // The rest of the drawer is unaffected.
+    await expect(
+      frigateApp.page.getByTestId("camera-health-metrics"),
+    ).toBeVisible();
+  });
+});
