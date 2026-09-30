@@ -129,7 +129,12 @@ class TestSuggestionPrefetch(unittest.TestCase):
             data={"description": "A sedan."},
         )
         no_key = patch.dict(
-            os.environ, {"FRIGATE_JEV_API_KEY": "", "OPENROUTER_API_KEY": ""}
+            os.environ,
+            {
+                "FRIGATE_JEV_API_KEY": "",
+                "TYPESAFE_API_KEY": "",
+                "OPENROUTER_API_KEY": "",
+            },
         )
         with no_key:
             self.assertFalse(

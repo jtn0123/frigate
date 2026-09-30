@@ -98,8 +98,9 @@ class SuggestionPrefetch(threading.Thread):
             return {}
         settings = self.config.classification.suggestions
         jev_config = settings.jev
+        endpoint = suggest.config_endpoint(jev_config)
         jev: suggest.JevSettings = {
-            "model": jev_config.model,
+            "model": suggest.endpoint_model(endpoint, jev_config.model),
             "cameras": list(jev_config.cameras),
             "daily_request_limit": jev_config.daily_request_limit,
         }
@@ -112,10 +113,12 @@ class SuggestionPrefetch(threading.Thread):
         async with aiohttp.ClientSession() as session:
             if self.ask_factory is not None:
                 ask = self.ask_factory(session)
-            else:
+            elif endpoint is not None:
                 ask = suggest.make_ask(
-                    session, jev_config.url, suggest.api_key(), jev_config.timeout
+                    session, endpoint.url, endpoint.key, jev_config.timeout
                 )
+            else:
+                return {}
             for name, classes in models.items():
                 drafts = await suggest.suggest_for_events(
                     [event],
@@ -284,7 +287,7 @@ def prefetch_enabled(config: FrigateConfig) -> bool:
         and settings.jev.enabled
         and settings.jev.background
         and bool(config.classification.custom)
-        and bool(suggest.api_key())
+        and suggest.config_endpoint(settings.jev) is not None
     )
 
 
