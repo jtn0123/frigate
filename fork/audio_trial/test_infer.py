@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 import hallucination
+import numpy as np
 
 
 class InferenceRoutingTests(unittest.TestCase):
@@ -318,3 +319,88 @@ class SecondOpinionRejectionTests(unittest.TestCase):
                 {"transcript": "Hello, I have a package for you.", "language": "en"},
             )
         )
+
+
+class _Features(np.ndarray):
+    """A numpy array with torch's .numpy(), enough for classify's scoring."""
+
+    def numpy(self):
+        return np.asarray(self)
+
+
+def _features(rows):
+    return np.array(rows, dtype=float).view(_Features)
+
+
+class SoundClassificationTests(unittest.TestCase):
+    """classify() against the transformers 5 CLAP API, without loading weights."""
+
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location(
+            "audio_classify_test", Path(__file__).with_name("infer.py")
+        )
+        self.module = importlib.util.module_from_spec(spec)
+        dependencies = {
+            name: MagicMock()
+            for name in (
+                "telemetry",
+                "ctranslate2",
+                "faster_whisper",
+                "faster_whisper.audio",
+                "faster_whisper.vad",
+            )
+        }
+        with patch.dict(sys.modules, dependencies):
+            spec.loader.exec_module(self.module)
+        self.module.resolve_model = Mock(return_value="clap")
+        self.module.Stage = MagicMock()
+        # Two five-second windows, so scores are pooled across windows.
+        self.module.decode_audio = Mock(return_value=np.zeros(480000))
+        self.labels = json.loads(Path(__file__).with_name("labels.json").read_text())
+        self.module.Path = Mock(
+            return_value=Mock(read_text=Mock(return_value=json.dumps(self.labels)))
+        )
+        # Text features are one-hot per label; each audio window matches one label.
+        text = _features(np.eye(len(self.labels)))
+        windows = iter(
+            [
+                _features([np.eye(len(self.labels))[2] * 0.4]),
+                _features([np.eye(len(self.labels))[5] * 0.9]),
+            ]
+        )
+        self.model = MagicMock()
+        # transformers 5 returns outputs whose pooler_output holds the features.
+        self.model.get_text_features.return_value = SimpleNamespace(pooler_output=text)
+        self.model.get_audio_features.side_effect = lambda **_: SimpleNamespace(
+            pooler_output=next(windows)
+        )
+        self.processor = MagicMock(return_value={})
+        transformers = MagicMock()
+        transformers.ClapModel.from_pretrained.return_value.eval.return_value = (
+            self.model
+        )
+        transformers.ClapProcessor.from_pretrained.return_value = self.processor
+        self.fakes = {"torch": MagicMock(), "transformers": transformers}
+
+    def test_scores_come_from_pooler_output_and_pool_across_windows(self):
+        with patch.dict(sys.modules, self.fakes):
+            top = self.module.classify("clip.wav")
+        self.assertEqual(
+            [entry["label"] for entry in top[:2]],
+            [self.labels[5], self.labels[2]],
+        )
+        self.assertAlmostEqual(top[0]["similarity"], 0.9)
+        self.assertAlmostEqual(top[1]["similarity"], 0.4)
+        self.assertEqual(self.model.get_audio_features.call_count, 2)
+
+    def test_audio_is_passed_with_the_transformers_5_keyword(self):
+        with patch.dict(sys.modules, self.fakes):
+            self.module.classify("clip.wav")
+        audio_calls = [
+            call for call in self.processor.call_args_list if "text" not in call.kwargs
+        ]
+        self.assertEqual(len(audio_calls), 2)
+        for call in audio_calls:
+            self.assertIn("audio", call.kwargs)
+            self.assertNotIn("audios", call.kwargs)
+            self.assertEqual(call.kwargs["sampling_rate"], 48000)

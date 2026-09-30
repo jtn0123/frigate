@@ -104,7 +104,8 @@ class LockAuditTests(unittest.TestCase):
 
     def test_the_repository_exceptions_file_is_well_formed(self):
         payload = json.loads(_MODULE.EXCEPTIONS.read_text())
-        self.assertTrue(payload["exceptions"])
+        # An empty list is the goal: every advisory fixed rather than excused.
+        self.assertIsInstance(payload["exceptions"], list)
         for entry in payload["exceptions"]:
             self.assertTrue(entry["id"] and entry["package"])
             self.assertTrue(entry["reviewed"] and entry["reason"])
