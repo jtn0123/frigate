@@ -513,7 +513,7 @@ test.describe("System - Health hardware pane @medium", () => {
     frigateApp,
   }) => {
     await installDefaults(frigateApp, {
-      config: { models: [{ scene: "all", devices: ["openvino:GPU"] }] },
+      config: { models: [{ scene: "default", devices: ["openvino:GPU"] }] },
       stats: {
         ...QUIET_STATS,
         detectors: { "openvino:GPU": { inference_speed: 12.3 } },
@@ -530,7 +530,7 @@ test.describe("System - Health hardware pane @medium", () => {
     frigateApp,
   }) => {
     await installDefaults(frigateApp, {
-      config: { models: [{ scene: "all", devices: ["hailo"] }] },
+      config: { models: [{ scene: "default", devices: ["hailo"] }] },
       stats: QUIET_STATS,
     });
     await frigateApp.goto("/system#notices");
@@ -546,7 +546,7 @@ test.describe("System - Health hardware pane @medium", () => {
     frigateApp,
   }) => {
     await installDefaults(frigateApp, {
-      config: { models: [{ scene: "all", devices: ["openvino:AUTO"] }] },
+      config: { models: [{ scene: "default", devices: ["openvino:AUTO"] }] },
       stats: {
         ...QUIET_STATS,
         detectors: { "openvino:AUTO": { inference_speed: 12 } },
@@ -566,7 +566,7 @@ test.describe("System - Health hardware pane @medium", () => {
   }) => {
     // the default image runs onnx on the CPU and the probe reports nothing
     await installDefaults(frigateApp, {
-      config: { models: [{ scene: "all", devices: ["onnx"] }] },
+      config: { models: [{ scene: "default", devices: ["onnx"] }] },
       stats: { ...QUIET_STATS, detectors: { onnx: { inference_speed: 40 } } },
     });
     await frigateApp.goto("/system#notices");
@@ -579,7 +579,7 @@ test.describe("System - Health hardware pane @medium", () => {
 
   test("detection row warns on slow inference", async ({ frigateApp }) => {
     await installDefaults(frigateApp, {
-      config: { models: [{ scene: "all", devices: ["openvino:GPU"] }] },
+      config: { models: [{ scene: "default", devices: ["openvino:GPU"] }] },
       stats: {
         ...QUIET_STATS,
         detectors: { "openvino:GPU": { inference_speed: 60 } },

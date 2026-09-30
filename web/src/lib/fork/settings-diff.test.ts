@@ -43,7 +43,7 @@ const fullSchema: RJSFSchema = {
 const config = cfg({
   detect: { enabled: true, fps: 5, width: 1280, height: 720 },
   go2rtc: { streams: { front: "rtsp://user:pw@cam/stream" } },
-  models: [{ scene: "all", devices: ["edgetpu:usb"] }],
+  models: [{ scene: "default", devices: ["edgetpu:usb"] }],
   cameras: {
     front: {
       detect: { enabled: true, fps: 5, width: 1280, height: 720 },
@@ -119,7 +119,7 @@ describe("computeSettingsDiff", () => {
         front: ["rtsp://user:pw@cam/stream2"],
         back: ["rtsp://b"],
       },
-      models: section([{ scene: "all", devices: ["edgetpu:pci"] }]),
+      models: section([{ scene: "default", devices: ["edgetpu:pci"] }]),
     };
     const diffs = computeSettingsDiff(pending, config, fullSchema);
     const streams = diffs.find((d) => d.section === "go2rtc.streams");
@@ -142,13 +142,13 @@ describe("computeSettingsDiff", () => {
     const diffs = computeSettingsDiff(
       {
         models: section([
-          { scene: "all", devices: ["cpu"], path: "plus://new" },
+          { scene: "default", devices: ["cpu"], path: "plus://new" },
         ]),
       },
       cfg({
         models: [
           {
-            scene: "all",
+            scene: "default",
             devices: ["cpu"],
             path: "/models/old.onnx",
             width: 320,
@@ -195,7 +195,7 @@ describe("computeSettingsDiff", () => {
     expect(diffs[0]?.changes).toEqual([
       { path: "", oldValue: undefined, newValue: {} },
       { path: "0.devices", oldValue: ["edgetpu:usb"], newValue: undefined },
-      { path: "0.scene", oldValue: "all", newValue: undefined },
+      { path: "0.scene", oldValue: "default", newValue: undefined },
     ]);
   });
 

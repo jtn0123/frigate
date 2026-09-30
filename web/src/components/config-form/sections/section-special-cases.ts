@@ -13,6 +13,7 @@ import { HiddenFieldContext, JsonObject, JsonValue } from "@/types/configForm";
 import { getEffectiveAttributeLabels } from "@/utils/configUtil";
 import type { FrigateConfig } from "@/types/frigateConfig";
 import { restorePlusModelPaths } from "@/lib/fork/settings-save-plus-models";
+import { getSceneChoices } from "@/utils/modelUtil";
 
 /**
  * Sections that require special handling at the global level.
@@ -39,6 +40,8 @@ export function isSpecialCaseSection(
  * Modify schema for sections that need defaults stripped or other modifications.
  *
  * - genai: Inject a default provider value on the additionalProperties shape.
+ * - detect: Scenes are free-form names, so offer the configured model scenes
+ *   (and a saved scene no model uses) as the choices for `scene`.
  * - objects: Promote tracked attribute labels (face, license_plate, courier
  *   logos) from `filters.additionalProperties` to explicit
  *   `filters.properties.<attr>` entries with a restricted FilterConfig
@@ -57,6 +60,10 @@ export function modifySchemaForSection(
 
   if (sectionPath === "objects") {
     return modifyObjectsSchema(schema, ctx);
+  }
+
+  if (sectionPath === "detect") {
+    return modifyDetectSchema(schema, ctx);
   }
 
   if (!isSpecialCaseSection(sectionPath, level)) {
@@ -87,6 +94,24 @@ export function modifySchemaForSection(
   }
 
   return schema;
+}
+
+function modifyDetectSchema(
+  schema: RJSFSchema,
+  ctx: HiddenFieldContext | undefined,
+): RJSFSchema {
+  const properties = (schema as { properties?: Record<string, RJSFSchema> })
+    .properties;
+
+  if (!ctx || !properties?.scene) return schema;
+
+  return {
+    ...schema,
+    properties: {
+      ...properties,
+      scene: { ...properties.scene, enum: getSceneChoices(ctx) },
+    },
+  };
 }
 
 /**

@@ -9,12 +9,12 @@ const savedPlus = [
 describe("restorePlusModelPaths", () => {
   it("returns non-list values unchanged", () => {
     expect(restorePlusModelPaths(undefined, savedPlus)).toBeUndefined();
-    const value = { scene: "all" };
+    const value = { scene: "default" };
     expect(restorePlusModelPaths(value, savedPlus)).toBe(value);
   });
 
   it("leaves non-object entries and models without a path alone", () => {
-    const pathless = { scene: "all", width: 320 };
+    const pathless = { scene: "default", width: 320 };
     expect(restorePlusModelPaths([null, "x", pathless], savedPlus)).toEqual([
       null,
       "x",

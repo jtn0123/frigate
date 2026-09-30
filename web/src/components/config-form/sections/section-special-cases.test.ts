@@ -6,7 +6,7 @@ import { sanitizeOverridesForSection } from "./section-special-cases";
 // /api/config serves a Frigate+ model with its path resolved to the cache file
 // and its input shape filled from the Frigate+ model info
 const resolvedPlusModel = {
-  scene: "all",
+  scene: "default",
   devices: ["onnx"],
   path: "/config/model_cache/abc123",
   width: 640,
@@ -53,7 +53,7 @@ describe("sanitizeOverridesForSection", () => {
 
     expect(payload).toEqual({
       models: [
-        { scene: "all", devices: ["onnx", "onnx"], path: "plus://abc123" },
+        { scene: "default", devices: ["onnx", "onnx"], path: "plus://abc123" },
         customModel,
       ],
     });
@@ -68,8 +68,8 @@ describe("sanitizeOverridesForSection", () => {
   it("still rewrites a newly picked Frigate+ model without a config", () => {
     expect(
       sanitizeOverridesForSection("models", "global", [
-        { scene: "all", path: "plus://picked", width: 320 },
+        { scene: "default", path: "plus://picked", width: 320 },
       ]),
-    ).toEqual([{ scene: "all", path: "plus://picked" }]);
+    ).toEqual([{ scene: "default", path: "plus://picked" }]);
   });
 });

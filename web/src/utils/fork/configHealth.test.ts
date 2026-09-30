@@ -192,7 +192,7 @@ describe("evaluateConfigHealth models section", () => {
     }
     cfg.models = [
       { ...base, scene: "night", width: 640 },
-      { ...base, scene: "all", width: 320 },
+      { ...base, scene: "default", width: 320 },
       { ...base, scene: "", width: 512 },
     ];
 
@@ -201,12 +201,12 @@ describe("evaluateConfigHealth models section", () => {
     ).toEqual([
       [
         "config:models:dims:model0",
-        "detectionModels.scenes.night",
+        "night",
         "/settings?page=systemDetectorsAndModel",
       ],
       [
         "config:models:dims:model2",
-        "detectionModels.scenes.all",
+        "detectionModels.scenes.default",
         "/settings?page=systemDetectorsAndModel",
       ],
     ]);

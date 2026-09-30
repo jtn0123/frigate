@@ -8,7 +8,7 @@ const section = (value: unknown) => value as ConfigSectionData;
 const cfg = (value: unknown) => value as FrigateConfig;
 
 const config = cfg({
-  models: [{ scene: "all", devices: ["edgetpu:usb"] }],
+  models: [{ scene: "default", devices: ["edgetpu:usb"] }],
   go2rtc: { streams: { old: "rtsp://old", front: "rtsp://front" } },
   detect: { enabled: true, fps: 5, width: 1280, height: 720 },
   cameras: {},
@@ -40,7 +40,7 @@ describe("savePendingSettings", () => {
   it("saves models before streams and sections, then reports restart and cleared keys", async () => {
     const client = api();
     const pending: Record<string, ConfigSectionData> = {
-      models: section([{ scene: "all", devices: ["edgetpu:pci"] }]),
+      models: section([{ scene: "default", devices: ["edgetpu:pci"] }]),
       go2rtc_streams: { front: ["rtsp://new"] },
       detect: { enabled: true, fps: 10, width: 1280, height: 720 },
     };
@@ -106,7 +106,7 @@ describe("savePendingSettings", () => {
       pendingDataBySection: {
         models: section([
           {
-            scene: "all",
+            scene: "default",
             devices: ["cpu"],
             path: "plus://new-model",
             colormap: { car: [1, 2, 3] },
@@ -125,7 +125,7 @@ describe("savePendingSettings", () => {
       requires_restart: 0,
       config_data: {
         models: [
-          { scene: "all", devices: ["cpu"], path: "plus://new-model" },
+          { scene: "default", devices: ["cpu"], path: "plus://new-model" },
           { scene: "night", devices: ["onnx"], path: "/models/night.onnx" },
         ],
       },
@@ -156,7 +156,7 @@ describe("savePendingSettings", () => {
       ...config,
       models: [
         {
-          scene: "all",
+          scene: "default",
           devices: ["onnx"],
           ...resolved,
           plus: { id: "abc123", name: "plus" },
@@ -179,7 +179,7 @@ describe("savePendingSettings", () => {
       pendingDataBySection: {
         models: section([
           // only the hardware was edited; the form seeds from the resolved values
-          { scene: "all", devices: ["onnx", "onnx"], ...resolved },
+          { scene: "default", devices: ["onnx", "onnx"], ...resolved },
           {
             scene: "night",
             devices: ["cpu"],
@@ -197,7 +197,11 @@ describe("savePendingSettings", () => {
       requires_restart: 0,
       config_data: {
         models: [
-          { scene: "all", devices: ["onnx", "onnx"], path: "plus://abc123" },
+          {
+            scene: "default",
+            devices: ["onnx", "onnx"],
+            path: "plus://abc123",
+          },
           {
             scene: "night",
             devices: ["cpu"],
@@ -219,7 +223,7 @@ describe("savePendingSettings", () => {
       pendingDataBySection: {
         models: section([
           {
-            scene: "all",
+            scene: "default",
             devices: ["cpu"],
             path: "plus://picked",
             width: 320,
@@ -234,7 +238,7 @@ describe("savePendingSettings", () => {
     expect(client.put).toHaveBeenCalledExactlyOnceWith("config/set", {
       requires_restart: 0,
       config_data: {
-        models: [{ scene: "all", devices: ["cpu"], path: "plus://picked" }],
+        models: [{ scene: "default", devices: ["cpu"], path: "plus://picked" }],
       },
     });
   });
@@ -246,7 +250,7 @@ describe("savePendingSettings", () => {
       config,
       fullSchema: schema,
       pendingDataBySection: {
-        models: section([{ scene: "all", devices: ["cpu"] }]),
+        models: section([{ scene: "default", devices: ["cpu"] }]),
       },
       api: client,
     });

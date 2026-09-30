@@ -16,6 +16,7 @@ import type {
 } from "@/types/stats";
 import { EmbeddingThreshold, InferenceThreshold } from "@/types/graph";
 import { summarizeDevices } from "@/utils/detectionHardware";
+import { getSceneLabel } from "@/utils/modelUtil";
 import { isReplayCamera } from "@/utils/cameraUtil";
 import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 
@@ -147,9 +148,7 @@ export function detectionRows({
     const modelRunners = names.slice(cursor, cursor + model.devices.length);
     cursor += model.devices.length;
 
-    const label = t(`detectionModels.scenes.${model.scene || "all"}`, {
-      ns: "views/settings",
-    });
+    const label = getSceneLabel(t, model.scene);
     const id = `detection:${index}`;
     const detail = probeFailed
       ? t("health.hardware.probeUnavailable", {

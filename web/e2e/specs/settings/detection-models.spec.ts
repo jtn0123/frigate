@@ -150,19 +150,19 @@ const openPage = async (frigateApp: {
 test.describe("Detection models settings @high @mobile", () => {
   test("renders a card per configured model", async ({ frigateApp }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["cpu"] },
+      { scene: "default", devices: ["cpu"] },
       { scene: "outdoor", devices: ["edgetpu:pci:0"] },
     ]);
     await openPage(frigateApp);
 
     const root = frigateApp.page.locator("#pageRoot");
-    await expect(root).toContainText("All cameras");
-    await expect(root).toContainText("Outdoor");
+    await expect(root).toContainText("Default");
+    await expect(root).toContainText("outdoor");
   });
 
   test("unlimited hardware offers a detector count", async ({ frigateApp }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["openvino:GPU.0"] },
+      { scene: "default", devices: ["openvino:GPU.0"] },
     ]);
     await openPage(frigateApp);
 
@@ -190,7 +190,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["openvino:GPU.0", "openvino:GPU.0"] },
+      { scene: "default", devices: ["openvino:GPU.0", "openvino:GPU.0"] },
     ]);
     await openPage(frigateApp);
 
@@ -211,7 +211,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["edgetpu:pci:0"] },
+      { scene: "default", devices: ["edgetpu:pci:0"] },
     ]);
     await openPage(frigateApp);
 
@@ -260,7 +260,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["edgetpu:pci:0"] },
+      { scene: "default", devices: ["edgetpu:pci:0"] },
       { scene: "outdoor", devices: ["edgetpu:pci:1"] },
     ]);
     await openPage(frigateApp);
@@ -275,7 +275,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["openvino:GPU.0"] },
+      { scene: "default", devices: ["openvino:GPU.0"] },
       { scene: "outdoor", devices: ["openvino:GPU.1"] },
     ]);
     await openPage(frigateApp);
@@ -288,23 +288,141 @@ test.describe("Detection models settings @high @mobile", () => {
     );
   });
 
-  test("adding a model appends a card with an unused scene", async ({
+  test("adding a model appends a card with a scene to name", async ({
     frigateApp,
   }) => {
-    await installRoutes(frigateApp.page, [{ scene: "all", devices: ["cpu"] }]);
+    await installRoutes(frigateApp.page, [
+      { scene: "default", devices: ["cpu"] },
+    ]);
     await openPage(frigateApp);
 
     await frigateApp.page.getByRole("button", { name: "Add model" }).click();
 
-    // "all" is taken, so the new card takes the next available scene
-    await expect(frigateApp.page.locator("#pageRoot")).toContainText("Indoor");
+    // the new card's scene starts empty, and a scene is required to save
+    const scene = frigateApp.page.locator("#models-1-scene");
+    await expect(scene).toHaveValue("");
+    await expect(
+      frigateApp.page.getByRole("button", { name: /^Save$/ }),
+    ).toBeDisabled();
+
+    // the card keeps focus while its scene is typed
+    await scene.fill("thermal");
+    await expect(scene).toHaveValue("thermal");
+    await expect(scene).toBeFocused();
+  });
+
+  test("one model file cannot be split across scenes", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(frigateApp.page, [
+      {
+        scene: "default",
+        devices: ["openvino:GPU.0"],
+        path: "/config/model_cache/yolo.onnx",
+      },
+      {
+        scene: "driveway",
+        devices: ["openvino:GPU.1"],
+        path: "/config/model_cache/other.onnx",
+      },
+    ]);
+    await openPage(frigateApp);
+
+    await frigateApp.page
+      .locator("#root_1_path")
+      .fill("/config/model_cache/yolo.onnx");
+
+    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
+      "The Default and driveway models use the same model file",
+    );
+    await expect(
+      frigateApp.page.getByRole("button", { name: /^Save$/ }),
+    ).toBeDisabled();
+  });
+
+  test("two models without a path share the detector's default model", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(frigateApp.page, [
+      { scene: "default", devices: ["cpu"] },
+      { scene: "driveway", devices: ["cpu"] },
+    ]);
+    await openPage(frigateApp);
+
+    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
+      "The Default and driveway models use the same model file",
+    );
+  });
+
+  test("another spelling of the same path is the same model", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(frigateApp.page, [
+      {
+        scene: "default",
+        devices: ["openvino:GPU.0"],
+        path: "/config/model_cache/yolo.onnx",
+      },
+      {
+        scene: "driveway",
+        devices: ["openvino:GPU.1"],
+        path: "/config//model_cache/./tmp/../yolo.onnx",
+      },
+    ]);
+    await openPage(frigateApp);
+
+    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
+      "The Default and driveway models use the same model file",
+    );
+  });
+
+  test("one model file may run on different detectors", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(frigateApp.page, [
+      {
+        scene: "default",
+        devices: ["openvino:GPU.0"],
+        path: "/config/model_cache/yolo.onnx",
+      },
+      {
+        scene: "driveway",
+        devices: ["onnx"],
+        path: "/config/model_cache/yolo.onnx",
+      },
+    ]);
+    await openPage(frigateApp);
+
+    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
+      "driveway",
+    );
+    await expect(frigateApp.page.locator("#pageRoot")).not.toContainText(
+      "models use the same model file",
+    );
+  });
+
+  test("two models cannot share a scene", async ({ frigateApp }) => {
+    await installRoutes(frigateApp.page, [
+      { scene: "default", devices: ["cpu"] },
+      { scene: "thermal", devices: ["edgetpu:pci:0"] },
+    ]);
+    await openPage(frigateApp);
+
+    await frigateApp.page.locator("#models-1-scene").fill("default");
+
+    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
+      "Each model must use a different scene",
+    );
+    await expect(
+      frigateApp.page.getByRole("button", { name: /^Save$/ }),
+    ).toBeDisabled();
   });
 
   test("hardware is summarized rather than listed device by device", async ({
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["openvino:GPU.0", "openvino:GPU.0"] },
+      { scene: "default", devices: ["openvino:GPU.0", "openvino:GPU.0"] },
     ]);
     await openPage(frigateApp);
 
@@ -325,7 +443,7 @@ test.describe("Detection models settings @high @mobile", () => {
       frigateApp.page,
       [
         {
-          scene: "all",
+          scene: "default",
           devices: ["openvino:GPU.0"],
           path: "/config/model_cache/abc123",
           plus: PLUS_MODEL,
@@ -350,7 +468,7 @@ test.describe("Detection models settings @high @mobile", () => {
       frigateApp.page,
       [
         {
-          scene: "all",
+          scene: "default",
           devices: ["openvino:GPU.0"],
           path: "/config/custom.onnx",
         },
@@ -381,7 +499,7 @@ test.describe("Detection models settings @high @mobile", () => {
       frigateApp.page,
       [
         {
-          scene: "all",
+          scene: "default",
           devices: ["openvino:GPU.0"],
           path: "plus://abc123",
           plus: PLUS_MODEL,
@@ -415,7 +533,7 @@ test.describe("Detection models settings @high @mobile", () => {
   }) => {
     await installRoutes(frigateApp.page, [
       {
-        scene: "all",
+        scene: "default",
         devices: ["openvino:GPU.0"],
         path: "plus://abc123",
         width: 320,
@@ -460,7 +578,13 @@ test.describe("Detection models settings @high @mobile", () => {
     // says nothing; which device it was built for is what the user picks on
     await installRoutes(
       frigateApp.page,
-      [{ scene: "all", devices: ["hailo:PCIe"], path: "/config/custom.hef" }],
+      [
+        {
+          scene: "default",
+          devices: ["hailo:PCIe"],
+          path: "/config/custom.hef",
+        },
+      ],
       true,
       HAILO_PLUS_MODELS,
       HAILO_HARDWARE,
@@ -527,7 +651,7 @@ test.describe("Detection models settings @high @mobile", () => {
     // that must not read as an edit.
     await installRoutes(frigateApp.page, [
       {
-        scene: "all",
+        scene: "default",
         devices: ["openvino:GPU.0", "openvino:GPU.0"],
         path: "/config/model_cache/abc123",
         width: 320,
@@ -552,12 +676,14 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["openvino:GPU.0"] },
+      { scene: "default", devices: ["openvino:GPU.0"] },
     ]);
     await openPage(frigateApp);
 
     const root = frigateApp.page.locator("#pageRoot");
-    await expect(root).toContainText("The environment this model is for");
+    await expect(root).toContainText(
+      "A name for the cameras this model is for",
+    );
     await expect(root).toContainText(
       "The hardware this model runs its detection on",
     );
@@ -568,7 +694,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["edgetpu:pci:0"] },
+      { scene: "default", devices: ["edgetpu:pci:0"] },
     ]);
     await openPage(frigateApp);
 
@@ -579,10 +705,10 @@ test.describe("Detection models settings @high @mobile", () => {
   });
 
   test("removing the default model blocks saving", async ({ frigateApp }) => {
-    // a camera that names no scene runs the "all" model, so deleting it would
+    // a camera that names no scene runs the default model, so deleting it would
     // leave those cameras with nothing to fall back to
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["cpu"] },
+      { scene: "default", devices: ["cpu"] },
       { scene: "outdoor", devices: ["edgetpu:pci:0"] },
     ]);
     await openPage(frigateApp);
@@ -593,7 +719,7 @@ test.describe("Detection models settings @high @mobile", () => {
       .click();
 
     await expect(frigateApp.page.locator("#pageRoot")).toContainText(
-      "One model must use a scene of 'All cameras'",
+      "One model must use the default scene",
     );
     await expect(
       frigateApp.page.getByRole("button", { name: /^Save$/ }),
@@ -604,7 +730,7 @@ test.describe("Detection models settings @high @mobile", () => {
     // shareable hardware can report several addressable units; every one of
     // them must be reachable, not just the first
     const saves = await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["openvino:GPU.0"] },
+      { scene: "default", devices: ["openvino:GPU.0"] },
     ]);
     await openPage(frigateApp);
 
@@ -622,7 +748,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     const saves = await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["openvino:GPU.0", "openvino:GPU.1"] },
+      { scene: "default", devices: ["openvino:GPU.0", "openvino:GPU.1"] },
     ]);
     await openPage(frigateApp);
 
@@ -645,7 +771,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     const saves = await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["edgetpu:pci:0"] },
+      { scene: "default", devices: ["edgetpu:pci:0"] },
     ]);
     await openPage(frigateApp);
 

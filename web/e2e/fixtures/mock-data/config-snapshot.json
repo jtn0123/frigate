@@ -10,7 +10,7 @@
     "cookie_secure": false,
     "session_length": 86400,
     "refresh_time": 1800,
-    "failed_login_rate_limit": null,
+    "failed_login_rate_limit": "10/minute;100/hour",
     "trusted_proxies": [],
     "hash_iterations": 600000,
     "roles": { "admin": [], "viewer": [] },
@@ -68,7 +68,7 @@
   "ui": { "timezone": null, "time_format": "browser", "unit_system": "metric" },
   "models": [
     {
-      "scene": "all",
+      "scene": "default",
       "devices": ["cpu"],
       "path": "/cpu_model.tflite",
       "labelmap_path": null,
@@ -156,7 +156,7 @@
         "enabled": false,
         "height": 720,
         "width": 1280,
-        "scene": "all",
+        "scene": "default",
         "fps": 5,
         "min_initialized": 2,
         "max_disappeared": 25,
@@ -311,6 +311,7 @@
           "alerts": true,
           "detections": false,
           "image_source": "preview",
+          "max_frames": null,
           "additional_concerns": [],
           "debug_save_thumbnails": false,
           "enabled_in_config": false,
@@ -413,7 +414,7 @@
         "enabled": false,
         "height": 720,
         "width": 1280,
-        "scene": "all",
+        "scene": "default",
         "fps": 5,
         "min_initialized": 2,
         "max_disappeared": 25,
@@ -568,6 +569,7 @@
           "alerts": true,
           "detections": false,
           "image_source": "preview",
+          "max_frames": null,
           "additional_concerns": [],
           "debug_save_thumbnails": false,
           "enabled_in_config": false,
@@ -670,7 +672,7 @@
         "enabled": false,
         "height": 720,
         "width": 1280,
-        "scene": "all",
+        "scene": "default",
         "fps": 5,
         "min_initialized": 2,
         "max_disappeared": 25,
@@ -825,6 +827,7 @@
           "alerts": true,
           "detections": false,
           "image_source": "preview",
+          "max_frames": null,
           "additional_concerns": [],
           "debug_save_thumbnails": false,
           "enabled_in_config": false,
@@ -929,7 +932,7 @@
     "enabled": false,
     "height": null,
     "width": null,
-    "scene": "all",
+    "scene": "default",
     "fps": 5,
     "min_initialized": null,
     "max_disappeared": null,
@@ -955,7 +958,20 @@
     "apple_compatibility": false,
     "gpu": 0
   },
-  "live": { "streams": [], "height": 720, "quality": 8 },
+  "live": {
+    "streams": [],
+    "transcode": {
+      "enabled": false,
+      "source": null,
+      "qualities": [
+        { "height": 720, "bitrate": 1200 },
+        { "height": 480, "bitrate": 500 },
+        { "height": 360, "bitrate": 250 }
+      ]
+    },
+    "height": 720,
+    "quality": 8
+  },
   "motion": null,
   "objects": {
     "track": ["person"],
@@ -1171,6 +1187,7 @@
       "alerts": true,
       "detections": false,
       "image_source": "preview",
+      "max_frames": null,
       "additional_concerns": [],
       "debug_save_thumbnails": false,
       "enabled_in_config": null,
@@ -1207,7 +1224,28 @@
   },
   "classification": {
     "bird": { "enabled": false, "threshold": 0.9 },
-    "custom": {}
+    "custom": {},
+    "suggestions": {
+      "enabled": true,
+      "jev": {
+        "enabled": false,
+        "provider": "auto",
+        "model": null,
+        "url": null,
+        "daily_request_limit": 200,
+        "background": true,
+        "cameras": [],
+        "timeout": 20
+      },
+      "auto_file": {
+        "enabled": false,
+        "min_kept_rate": 0.9,
+        "min_drafts": 20,
+        "camera_cooldown": 7200,
+        "per_camera_daily_limit": 10,
+        "max_model_score": 0.9
+      }
+    }
   },
   "semantic_search": {
     "enabled": false,

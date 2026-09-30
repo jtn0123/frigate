@@ -48,7 +48,6 @@ from frigate.debug_replay import (
     DebugReplayManager,
     cleanup_replay_cameras,
 )
-from frigate.detectors.detector_config import SceneEnum
 from frigate.detectors.detector_types import api_types
 from frigate.detectors.device import build_detector_config, runner_names
 from frigate.embeddings import EmbeddingProcess, EmbeddingsContext
@@ -112,7 +111,7 @@ class FrigateApp:
         self.metrics_manager = manager
         self.audio_process: mp.Process | None = None
         self.stop_event = stop_event
-        self.detection_queues: dict[SceneEnum, Queue] = {
+        self.detection_queues: dict[str, Queue] = {
             model.scene: mp.Queue() for model in config.models
         }
         self.detectors: dict[str, ObjectDetectProcess] = {}
@@ -383,7 +382,7 @@ class FrigateApp:
                 )
 
     def start_detectors(self) -> None:
-        model_cameras: dict[SceneEnum, list[str]] = {
+        model_cameras: dict[str, list[str]] = {
             model.scene: [] for model in self.config.models
         }
 

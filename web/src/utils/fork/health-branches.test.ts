@@ -124,16 +124,16 @@ describe("detectionRows branches", () => {
     t,
   };
 
-  it("labels models by scene and falls back to all when the scene is empty", () => {
+  it("labels models by scene and falls back to the default when the scene is empty", () => {
     const rows = detectionRows({
       ...base,
       models: [model(["cpu"], "night"), model(["cpu"], ""), model(["cpu"])],
       stats: statsWith(),
     });
     expect(rows.map((row) => [row.id, row.label])).toEqual([
-      ["detection:0", "detectionModels.scenes.night"],
-      ["detection:1", "detectionModels.scenes.all"],
-      ["detection:2", "detectionModels.scenes.all"],
+      ["detection:0", "night"],
+      ["detection:1", "detectionModels.scenes.default"],
+      ["detection:2", "detectionModels.scenes.default"],
     ]);
   });
 
@@ -148,7 +148,7 @@ describe("detectionRows branches", () => {
       {
         id: "detection:0",
         state: "ok",
-        label: "detectionModels.scenes.all",
+        label: "detectionModels.scenes.default",
         detail: "hailo · health.hardware.inferenceMs(10)",
       },
     ]);
