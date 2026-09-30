@@ -4,6 +4,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from defusedxml.common import EntitiesForbidden
@@ -175,6 +176,40 @@ class TestCoverageMain(unittest.TestCase):
             )
             self.floor(root, python=90.0, web=90.0)
             self.assertEqual(_MODULE.main(root), 1)
+
+    def test_skipped_e2e_holds_web_to_the_unit_floor(self):
+        # 50% web coverage misses a 90% merged floor but clears a 40% unit one.
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.tree(
+                directory,
+                '<line number="1" hits="1"/>',
+                "DA:1,1\nDA:2,0\n",
+            )
+            self.floor(root, python=90.0, web=90.0, web_unit=40.0)
+            with unittest.mock.patch.dict("os.environ", {"BROWSER_COVERAGE": "false"}):
+                self.assertEqual(_MODULE.main(root), 0)
+            with unittest.mock.patch.dict("os.environ", {"BROWSER_COVERAGE": "true"}):
+                self.assertEqual(_MODULE.main(root), 1)
+
+    def test_the_unit_floor_still_fails_a_drop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.tree(
+                directory,
+                '<line number="1" hits="1"/>',
+                "DA:1,1\nDA:2,0\n",
+            )
+            self.floor(root, python=90.0, web=10.0, web_unit=60.0)
+            with unittest.mock.patch.dict("os.environ", {"BROWSER_COVERAGE": "false"}):
+                self.assertEqual(_MODULE.main(root), 1)
+
+    def test_the_merged_floor_is_the_default(self):
+        with unittest.mock.patch.dict("os.environ", clear=True):
+            self.assertEqual(_MODULE.web_side(), "web")
+
+    def test_the_repository_floor_records_a_unit_side(self):
+        floor = json.loads(Path("fork/coverage-floor.json").read_text())
+        self.assertLess(floor["web_unit"], floor["web"])
+        self.assertIn("web_unit", floor["tolerance_points"])
 
 
 class TestPerSideTolerance(unittest.TestCase):
