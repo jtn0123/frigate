@@ -63,6 +63,65 @@ Model history includes expandable, paginated value tables. Missing/stale samples
 remain gaps. Metric explanations expand using touch or keyboard, and graph series
 use shared theme colors plus different line patterns.
 
+## Camera health metrics
+
+`/api/metrics` also carries the fork's camera health figures (I59), after
+upstream's metrics and the model samples. All of them come from values Frigate
+already tracks. A value that is unknown is left out, never exported as zero.
+
+| Metric | Labels | Meaning |
+| --- | --- | --- |
+| `frigate_camera_up` | `camera_name` | 1 while the camera delivers frames and is not in an outage |
+| `frigate_camera_outage_seconds` | `camera_name` | How long the camera has been unreachable, 0 when it is not |
+| `frigate_camera_outages_24h` | `camera_name` | Outages that started in the last 24 hours |
+| `frigate_camera_uptime_ratio` | `camera_name`, `window` | Share of the last 24 hours with frames (0.0 to 1.0), as on the Health tab |
+| `frigate_camera_restarts_24h` | `camera_name` | ffmpeg and capture restarts in the last 24 hours |
+| `frigate_camera_restarts_by_kind_24h` | `camera_name`, `kind` | The same, by cause (`connection`, `stalled`, `hwaccel`, `other`) |
+| `frigate_camera_reconnects_last_hour`, `frigate_camera_stalls_last_hour` | `camera_name` | Detect stream reconnects and stalls |
+| `frigate_camera_connection_quality` | `camera_name`, `quality` | 1 on the series of the current quality, 0 on the others |
+| `frigate_camera_expected_fps`, `frigate_camera_skipped_percent` | `camera_name` | Configured detect rate, and frames dropped before detection |
+| `frigate_camera_hwaccel_fallback` | `camera_name` | 1 while detect decodes in software after hardware decoding failed |
+| `frigate_camera_watchdog_age_seconds` | `camera_name` | Seconds since the capture watchdog last ran (SV12). It reports every 5 seconds, so minutes mean it hung |
+| `frigate_go2rtc_available` | | 1 while go2rtc answers |
+| `frigate_go2rtc_stream_connected`, `frigate_go2rtc_stream_received_bytes`, `frigate_go2rtc_stream_consumers` | `camera_name`, `stream` | go2rtc's state of each stream a camera uses (I57). The source address is never a label |
+| `frigate_enrichment_speed_seconds`, `frigate_enrichment_per_second` | `name` | Time per inference and rate of each enabled enrichment (embeddings, face, plate, classification, descriptions) |
+| `frigate_container_memory_bytes`, `frigate_container_memory_limit_bytes`, `frigate_container_oom_kills` | | The Frigate container's cgroup memory, its limit when it has one, and how many of its processes the kernel killed for memory |
+| `frigate_server_*` | `scope`, `id` | The host collector's figures above, when it is installed |
+
+go2rtc dials a source only while something reads the stream, so an idle
+live-only stream and an unreachable camera both show as not connected. Read
+`frigate_go2rtc_stream_connected` together with `frigate_go2rtc_stream_consumers`.
+
+Rules worth having, written as PromQL:
+
+```
+# a camera delivers nothing
+frigate_camera_up == 0
+
+# a capture watchdog hung (SV12 restarts it after 5 minutes)
+frigate_camera_watchdog_age_seconds > 120
+
+# the kernel killed a Frigate process for memory
+increase(frigate_container_oom_kills[15m]) > 0
+
+# the container is within 10% of its memory limit
+frigate_container_memory_bytes / frigate_container_memory_limit_bytes > 0.9
+
+# a camera keeps reconnecting
+frigate_camera_restarts_24h > 50
+```
+
+Only admins can read `/api/metrics`. A scraper on another host has two ways in:
+
+- Through the authenticated port (8971) with an admin identity: a bearer token
+  in the `Authorization` header, or the proxy headers when Frigate sits behind
+  an authenticating proxy. Tokens from a login expire with the session, so this
+  needs a refresh step.
+- Through the internal port (5000), which has no authentication. Publish it
+  only to the scraper, for example bound to one address and limited by the
+  firewall to the Prometheus host. Anyone who can reach that port has full
+  admin access to Frigate.
+
 ## Stability incidents
 
 Install `incident_monitor.py`, `incidents.py`, and `collect_proxmox.py` together

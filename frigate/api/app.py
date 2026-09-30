@@ -45,6 +45,7 @@ from frigate.api.defs.response.fork_app import (
     ProfilesResponse,
 )
 from frigate.api.defs.tags import Tags
+from frigate.api.fork_metrics import fork_camera_metrics
 from frigate.config import FrigateConfig, GenAIConfig, GenAIProviderEnum
 from frigate.config.camera.updater import (
     CameraConfigUpdateEnum,
@@ -186,6 +187,7 @@ def metrics(request: Request):
     content, content_type = get_metrics()
     cached = getattr(request.app.state, "ai_models_cache", None)
     content += model_metrics(cached[1].model_dump() if cached else None)
+    content += fork_camera_metrics(request, stats)  # fork (I59)
     return Response(content=content, media_type=content_type)
 
 
