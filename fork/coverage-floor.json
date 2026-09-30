@@ -1,6 +1,11 @@
 {
-  "_comment": "Coverage may not fall below these percentages (D26). The web floor was remeasured at 50.27% for the Vitest 4 and ast-v8-to-istanbul 1 migration (F4); replaying identical browser captures with the old unit report gives 66.42%. See fork/DEPENDENCY-REFRESH-2026-09.md for source-line accounting evidence. The existing 3-point web and 1-point Python tolerances are unchanged. Lowering either floor needs a reason in the commit that does it.",
-  "tolerance_points": { "python": 1.0, "web": 3.0 },
+  "_comment": "Coverage may not fall below these percentages (D26). The web floor was remeasured at 50.27% for the Vitest 4 and ast-v8-to-istanbul 1 migration (F4); replaying identical browser captures with the old unit report gives 66.42%. See fork/DEPENDENCY-REFRESH-2026-09.md for source-line accounting evidence. The existing 3-point web and 1-point Python tolerances are unchanged. Lowering either floor needs a reason in the commit that does it. web_unit is the Vitest report alone, used when a pull request changes no web files and the e2e shards are skipped (D64); measured 25.39% on next at 67f2fb8f3.",
+  "tolerance_points": {
+    "python": 1.0,
+    "web": 3.0,
+    "web_unit": 1.0
+  },
   "python": 41.39,
-  "web": 50.27
+  "web": 50.27,
+  "web_unit": 25.39
 }
