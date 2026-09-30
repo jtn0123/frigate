@@ -51,6 +51,9 @@ from frigate.video.watchdog_state import WatchdogState
 
 logger = logging.getLogger(__name__)
 
+# Fork (SV12): how often a watchdog reports to the capture supervisor.
+HEARTBEAT_SECONDS = 5
+
 RECORD_GRACE_SECONDS = 90
 
 
@@ -213,6 +216,9 @@ class CameraWatchdog(threading.Thread):
         # Fork (D11): restart history for Camera Health, throttled ffmpeg dumps.
         self.restart_log = RestartLog(config.name, self.logger, shared.restart_events)
         self._crash_logged: threading.Thread | None = None
+        # Fork (SV12): proof of life for the capture supervisor.
+        self.heartbeat = shared.heartbeat
+        self._last_beat = 0.0
         # Fork (SV6): one notification when the camera has delivered nothing
         # for a while, and one when it comes back.
         self.outage_tracker = CameraOutageTracker(
@@ -434,6 +440,13 @@ class CameraWatchdog(threading.Thread):
         self._check_config_updates()
         return self.config.enabled
 
+    def _beat(self) -> None:
+        """Fork (SV12): tell the capture supervisor this loop is still turning."""
+        now = time.time()
+        if self.heartbeat is not None and now - self._last_beat >= HEARTBEAT_SECONDS:
+            self._last_beat = now
+            self.heartbeat.value = now
+
     def reset_capture_thread(
         self,
         terminate: bool = True,
@@ -636,11 +649,13 @@ class CameraWatchdog(threading.Thread):
             if self.config.record.enabled:
                 self.record_enable_time = datetime.now().astimezone(UTC)
 
+        self._beat()  # fork (SV12)
         time.sleep(self.sleeptime)
         last_restart_time = datetime.now().timestamp()
 
         # 1 second watchdog loop
         while not self.stop_event.wait(1):
+            self._beat()  # fork (SV12)
             updates = self._check_config_updates()
 
             # Fork (D30): changed ffmpeg settings retry hardware decoding even
@@ -952,6 +967,7 @@ class CameraCapture(FrigateProcess):
                 hwaccel_fallback_since=self.camera_metrics.hwaccel_fallback_since,
                 outage_events=self.camera_metrics.outage_events,
                 outage_since=self.camera_metrics.outage_since,
+                heartbeat=self.camera_metrics.watchdog_heartbeat,
             ),
         )
         camera_watchdog.start()
