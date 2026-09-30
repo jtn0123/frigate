@@ -4,6 +4,7 @@ import asyncio
 import logging
 import sqlite3
 import time
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -67,7 +68,7 @@ async def ai_models(request: Request) -> AIModelsResponse:
     return await sample_models(request.app)
 
 
-async def sample_models(app) -> AIModelsResponse:
+async def sample_models(app: Any) -> AIModelsResponse:
     """Collect sanitized model metrics using one lock per application."""
     # Cache belongs to this app instance, never another server or test instance.
     lock = getattr(app.state, "ai_models_lock", None)
@@ -76,7 +77,8 @@ async def sample_models(app) -> AIModelsResponse:
     async with lock:
         cached = getattr(app.state, "ai_models_cache", None)
         if cached and time.monotonic() - cached[0] < 10:
-            return cached[1]
+            cached_response: AIModelsResponse = cached[1]
+            return cached_response
         config = app.frigate_config
         stats = await asyncio.to_thread(app.stats_emitter.get_latest_stats)
         local, remote = await asyncio.gather(
@@ -123,7 +125,7 @@ async def ai_models_history() -> dict:
     return {"status": "connected", "samples": samples}
 
 
-async def model_sampler(app) -> None:
+async def model_sampler(app: Any) -> None:
     """Continue collection with no browser connected; cancellation stops cleanly."""
     while True:
         try:
