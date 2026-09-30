@@ -24,6 +24,25 @@
 
 **Top 5 highest-leverage fixes:** D48, C3, I3, G17, G16.
 
+## Status update, 2026-09-28
+
+The ten items of the 2026-09-23 pass below have since merged to `next`.
+Four more items are done, each with its row under `fork/ledger/`:
+
+| Item | Disposition |
+|------|-------------|
+| B4 | Merged in #109. `ShareLink.expires_at` declares its index on the model, under the migration's name; a test checks both schema paths agree. |
+| C22 | Merged in #109. The English-only `fork` namespace loads from `en` in every language, so other locales no longer request a missing file; the last literal goes through `t()`. Translated fork namespaces remain optional future work. |
+| E19 | Merged in #109. `SECURITY.md` and `fork/SECURITY-TRIAGE.md` record the reporting route and every open finding with status, reason and review date. Private vulnerability reporting is enabled on the repository. |
+| H3 | Merged in #109. A fork workflow section in `web/README.md` and a new `web/e2e/README.md`. |
+
+**A3 is deliberately not being pursued as written.** Every handler it names
+(and every route handler over 120 lines) is upstream code. Extracting them
+into services moves hundreds of upstream lines, which the fork's mergeability
+rule forbids and which would conflict with each upstream sync touching those
+functions. It is better proposed upstream, or taken on for a handler the fork
+already owns.
+
 ## Implementation update, 2026-09-23
 
 This worktree now contains implementation passes for the ten requested items.
@@ -93,7 +112,7 @@ Fork bulk queries are bounded (`frigate/api/fork_bulk.py:20,51`), blocking revie
 - **Effort:** L
 - **Grade lift:** B+ → B+ initially, with a possible A− after broad contract coverage.
 
-#### B4 — Declare the share expiry index in the model
+#### ~~B4~~ ✓ done 2026-09-28 (#109) — Declare the share expiry index in the model
 - **Where:** `frigate/models.py:167-175`, `frigate/events/share_links.py:18-24`.
 - **What's wrong:** Expiry pruning filters on `ShareLink.expires_at`, but the index is not declared on the model. A migration-only index can drift from fresh-schema creation.
 - **Impact:** Moderate — large share tables may prune more slowly and schema paths can differ.
@@ -121,7 +140,7 @@ The React client has strict TypeScript, typed fork API output, meaningful loadin
 - **Effort:** M
 - **Grade lift:** B− → B− while removing a user-visible state hazard.
 
-#### C22 — Complete fork string localization
+#### ~~C22~~ ✓ done 2026-09-28 (#109) — Complete fork string localization
 - **Where:** `web/public/locales/en/fork.json`, `web/src/components/fork/BulkActionBar.tsx:96`.
 - **What's wrong:** Only the English fork namespace exists and one visible string bypasses `t()`. Other locales request a missing fork namespace.
 - **Impact:** Moderate — non-English users see incomplete translations and failed namespace requests.
@@ -153,7 +172,7 @@ CI runs lint, type checks, Vitest, backend tests, browser shards, security check
 
 The WebSocket topic classifier is fail-closed (`frigate/comms/ws.py:295-310`), share token validation is explicit (`frigate/api/fork_share.py:197-206`), and the ffprobe path hardening is now present in `frigate/util/services.py:1023`. The current Sonar quality gate reports its other conditions OK, but a full security audit and deployed configuration review were outside this pass. A durable record of accepted findings and security reporting is still missing.
 
-#### E19 — Keep security triage and reporting instructions in the repo
+#### ~~E19~~ ✓ done 2026-09-28 (#109) — Keep security triage and reporting instructions in the repo
 - **Where:** Repository root (no `SECURITY.md`); `fork/` has no durable finding-triage record.
 - **What's wrong:** Decisions about reported vulnerabilities and reporting channels are not documented alongside the code. Historical Sonar alert counts are not used as current findings here.
 - **Impact:** Moderate — future maintainers cannot easily distinguish accepted risks from unattended findings.
@@ -205,7 +224,7 @@ Backend bulk reads are chunked and the fork has a review-summary benchmark under
 - **Effort:** S
 - **Grade lift:** B− → B as the project guide becomes trustworthy.
 
-#### H3 — Explain the frontend and browser-test workflow
+#### ~~H3~~ ✓ done 2026-09-28 (#109) — Explain the frontend and browser-test workflow
 - **Where:** `web/README.md:1-25`; missing `web/e2e/README.md` and `web/patches/README.md`.
 - **What's wrong:** The web README is a short upstream stub and does not explain this fork's generated types, mock data, e2e ports, or dependency patches.
 - **Impact:** Moderate — new contributors must reverse-engineer routine commands and generated artifacts.
