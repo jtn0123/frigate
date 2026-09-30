@@ -22,9 +22,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# The same s6 log files upstream's /logs endpoint reads. They are only read,
+# never created, so the shared-directory warning (python:S5443) does not apply.
 LOG_PATHS: dict[str, str] = {
-    "frigate": "/dev/shm/logs/frigate/current",
-    "go2rtc": "/dev/shm/logs/go2rtc/current",
+    "frigate": "/dev/shm/logs/frigate/current",  # NOSONAR
+    "go2rtc": "/dev/shm/logs/go2rtc/current",  # NOSONAR
 }
 
 DEFAULT_HOURS = 24

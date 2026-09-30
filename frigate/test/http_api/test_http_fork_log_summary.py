@@ -14,7 +14,7 @@ from frigate.models import Event, Recordings, ReviewSegment
 from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
 
 VIEWER = {"remote-user": "viewer", "remote-role": "viewer"}
-PASSWORD = "hunter2Secret"
+LEAK_MARKER = "hunter2Secret"
 
 
 def _stamp(when: datetime) -> str:
@@ -54,7 +54,7 @@ class TestHttpForkLogSummary(BaseTestHttp):
                 handle.write(
                     f"{stamp}.301771246  {when.strftime('%H:%M:%S')}.301 WRN "
                     f'[rtsp] error="read tcp 127.0.0.1:8554->127.0.0.1:{port}: i/o '
-                    f'timeout" url=ffmpeg:http://10.0.0.1/flv?user=admin&password={PASSWORD}\n'
+                    f'timeout" url=ffmpeg:http://10.0.0.1/flv?user=admin&password={LEAK_MARKER}\n'
                 )
         self.app = self.create_app()
         # The app's background samplers read stats; give them something quiet.
@@ -73,7 +73,7 @@ class TestHttpForkLogSummary(BaseTestHttp):
             [(g["camera"], g["service"], g["count"]) for g in body["groups"]],
             [("front_door", "frigate", 3), ("front_door", "go2rtc", 2)],
         )
-        self.assertNotIn(PASSWORD, response.text)
+        self.assertNotIn(LEAK_MARKER, response.text)
         self.assertNotIn("password", response.text)
         self.assertTrue(body["sources"]["go2rtc"]["available"])
 

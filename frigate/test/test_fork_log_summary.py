@@ -18,9 +18,9 @@ from frigate.fork.log_summary import (
 )
 
 NOW = datetime(2026, 9, 29, 21, 30, 0)
-PASSWORD = "hunter2Secret"
+LEAK_MARKER = "hunter2Secret"
 USER = "camadmin"
-SECRETS = (PASSWORD, USER, "password", "channel0_ext", "app=bcs", "1935")
+SECRETS = (LEAK_MARKER, USER, "password", "channel0_ext", "app=bcs", "1935")
 
 
 def _stamp(when: datetime) -> str:
@@ -75,7 +75,7 @@ def go2rtc_producer(when: datetime, port: int = 35836) -> str:
         "github.com/AlexxIT/go2rtc/internal/streams/producer.go:170 > "
         f'error="read tcp 127.0.0.1:8554->127.0.0.1:{port}: i/o timeout" '
         "url=ffmpeg:http://10.27.99.43/flv?port=1935&app=bcs&stream=channel0_ext.bcs"
-        f"&user={USER}&password={PASSWORD}",
+        f"&user={USER}&password={LEAK_MARKER}",
     )
 
 
@@ -116,13 +116,15 @@ class LogFiles(unittest.TestCase):
 
 class TestRedact(unittest.TestCase):
     def test_userinfo_is_dropped_not_masked(self):
-        text = redact(f"Error opening rtsp://{USER}:{PASSWORD}@10.0.0.9:554/h264/ch1")
+        text = redact(
+            f"Error opening rtsp://{USER}:{LEAK_MARKER}@10.0.0.9:554/h264/ch1"
+        )
         self.assertEqual(text, "Error opening rtsp://10.0.0.9:554/h264/ch1")
 
     def test_query_string_and_fragment_are_dropped(self):
         text = redact(
             "url=ffmpeg:http://10.27.99.43/flv?port=1935&app=bcs&stream=channel0_ext"
-            f"&user={USER}&password={PASSWORD}#video=copy next"
+            f"&user={USER}&password={LEAK_MARKER}#video=copy next"
         )
         self.assertEqual(text, "url=ffmpeg:http://10.27.99.43/flv next")
 
@@ -146,21 +148,21 @@ class TestRedact(unittest.TestCase):
 
     def test_credentials_in_the_path_are_cut(self):
         text = redact(
-            f"rtsp://10.0.0.9:554/user={USER}_password={PASSWORD}_channel=1.sdp"
+            f"rtsp://10.0.0.9:554/user={USER}_password={LEAK_MARKER}_channel=1.sdp"
         )
         self.assertEqual(text, "rtsp://10.0.0.9:554/user")
 
     def test_query_without_a_scheme_and_bare_pairs(self):
         text = redact(
-            f"nest:?client_id=abc&client_secret={PASSWORD} token={PASSWORD} ok=1"
+            f"nest:?client_id=abc&client_secret={LEAK_MARKER} token={LEAK_MARKER} ok=1"
         )
-        self.assertNotIn(PASSWORD, text)
+        self.assertNotIn(LEAK_MARKER, text)
         self.assertNotIn("abc", text)
         self.assertIn("token=*", text)
         self.assertIn("ok=1", text)
 
     def test_closing_quote_and_ipv6_host_survive(self):
-        text = redact(f'error="dial rtsp://{USER}:{PASSWORD}@[fe80::1]:554/a?b=c"')
+        text = redact(f'error="dial rtsp://{USER}:{LEAK_MARKER}@[fe80::1]:554/a?b=c"')
         self.assertEqual(text, 'error="dial rtsp://[fe80::1]:554/a"')
 
     def test_url_without_a_host_is_replaced(self):
@@ -205,7 +207,7 @@ class TestCameraMatcher(unittest.TestCase):
             cameras={
                 "doorbell": camera(["rtsp://127.0.0.1:8554/doorbell_main?video"]),
                 "garage": camera(
-                    [f"rtsp://{USER}:{PASSWORD}@10.0.0.7:554/ch1"],
+                    [f"rtsp://{USER}:{LEAK_MARKER}@10.0.0.7:554/ch1"],
                     live={"Main": "garage_hd"},
                 ),
                 "nvr_a": camera(["rtsp://10.0.0.99/a"]),
@@ -215,10 +217,10 @@ class TestCameraMatcher(unittest.TestCase):
                 model_dump=lambda: {
                     "streams": {
                         "doorbell_main": [
-                            f"ffmpeg:http://10.27.99.42/flv?user={USER}&password={PASSWORD}",
+                            f"ffmpeg:http://10.27.99.42/flv?user={USER}&password={LEAK_MARKER}",
                             "ffmpeg:doorbell_main#audio=opus",
                         ],
-                        "garage_hd": f"rtsp://{USER}:{PASSWORD}@garage-cam.lan/hd",
+                        "garage_hd": f"rtsp://{USER}:{LEAK_MARKER}@garage-cam.lan/hd",
                         "orphan": ["rtsp://10.0.0.200/x"],
                         "loop": ["rtsp://127.0.0.1:8554/other"],
                         "broken": 7,
