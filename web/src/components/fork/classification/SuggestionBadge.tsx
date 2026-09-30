@@ -454,7 +454,8 @@ type MaybeOrBlankProps = {
 };
 
 /**
- * A card without a sure guess: "Sedan, maybe" when Jev leaned one way, or
+ * A card without a sure guess: "Sedan, maybe" when Jev leaned one way or the
+ * local match named a class Jev read as unknown (I56), or
  * "Pick a class" when nothing in the description said. Both open the same
  * popover with the reason and the class buttons; neither files on its own.
  */
@@ -516,7 +517,13 @@ function MaybeOrBlank({
             </div>
           )}
           <p className="text-secondary-foreground">
-            {maybe ? t("classificationSuggestions.maybeWhy") : reason}
+            {maybe
+              ? t(
+                  maybe.source === "text"
+                    ? "classificationSuggestions.maybeTextWhy"
+                    : "classificationSuggestions.maybeWhy",
+                )
+              : reason}
           </p>
           {tinyNote}
           {picker}

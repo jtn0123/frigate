@@ -122,19 +122,37 @@ KNOWN: dict[str, tuple[str, tuple[str, ...], str]] = {
         ("car", "sedan", "hatchback", "coupe", "passenger car"),
         "a passenger car, sedan, hatchback or coupe, not an SUV, van, pickup or box truck",
     ),
-    "sedan": ("type", ("sedan",), "a sedan"),
-    "hatchback": ("type", ("hatchback",), "a hatchback"),
+    "sedan": (
+        "type",
+        ("sedan",),
+        "a sedan (a model such as a Honda Civic or Accord, Toyota Camry or Corolla, "
+        "or Tesla Model 3 counts)",
+    ),
+    "hatchback": (
+        "type",
+        ("hatchback",),
+        "a hatchback (a model such as a Volkswagen Golf, Honda Fit, Toyota Prius "
+        "or Mini Cooper counts)",
+    ),
     "van": (
         "type",
         ("van", "minivan", "cargo van", "delivery van"),
-        "a van or minivan, not a truck with a separate box cargo body",
+        "a van or minivan, not a truck with a separate box cargo body (a model "
+        "such as a Honda Odyssey, Toyota Sienna, Ford Transit or Mercedes Sprinter "
+        "counts)",
     ),
     "minivan": ("type", ("minivan",), "a minivan"),
-    "suv": ("type", ("suv", "crossover"), "an SUV or crossover"),
+    "suv": (
+        "type",
+        ("suv", "crossover"),
+        "an SUV or crossover (a model such as a Toyota RAV4, Honda CR-V, Tesla "
+        "Model Y, Jeep Wrangler or Chevrolet Tahoe counts)",
+    ),
     "pickup": (
         "type",
         ("pickup", "pickup truck"),
-        "a pickup truck with an open cargo bed",
+        "a pickup truck with an open cargo bed (a model such as a Ford F-150, "
+        "Toyota Tacoma, Chevrolet Silverado or Ram 1500 counts)",
     ),
     "box_truck": (
         "type",
@@ -641,6 +659,12 @@ def endpoint_model(endpoint: JevEndpoint | None, configured: str | None) -> str:
 AskJev = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
 
+def jev_says_unknown(answer: dict[str, Any]) -> bool:
+    """Whether Jev's most likely answer is that the text names no class."""
+    distribution: dict[str, float] = answer["probabilities"]
+    return max(distribution, key=distribution.__getitem__) == UNKNOWN
+
+
 def choose(
     text: Suggestion | None, jev: Suggestion | None
 ) -> tuple[Suggestion | None, bool]:
@@ -688,6 +712,11 @@ async def suggest_for_events(
         maybe = None
         if answer is not None and suggestion is None and not conflict:
             maybe = jev_suggestion(answer, MAYBE_SCORE, MAYBE_MARGIN)
+        elif suggestion is text and text and answer and jev_says_unknown(answer):
+            # I56: the local match reads words, not which object they are about
+            # ("answer suv", "a sedan-shaped hoodie"). When Jev read the same
+            # text and chose unknown, the match is only a hint to pick by hand.
+            suggestion, maybe = None, text
         result[event["id"]] = {
             "text": text,
             "jev": jev_draft,

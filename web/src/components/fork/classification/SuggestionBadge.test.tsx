@@ -157,6 +157,40 @@ describe("SuggestionBadge", () => {
     });
   });
 
+  it("explains a text maybe Jev read as unknown and files it by hand", async () => {
+    axiosPost.mockResolvedValue({ data: { moved: [] } });
+    const text = {
+      category: "sedan",
+      source: "text" as const,
+      score: null,
+      evidence: "a man in a sedan-shaped hoodie",
+    };
+    renderBadge(
+      {
+        text,
+        jev: null,
+        jev_status: "unknown",
+        suggestion: null,
+        conflict: false,
+        maybe: text,
+      },
+      vi.fn(),
+      { classes: ["sedan", "pickup"] },
+    );
+    const maybe = screen.getByTestId("suggestion-maybe");
+    expect(screen.queryByTestId("suggestion-accept")).toBeNull();
+    fireEvent.click(maybe.querySelector("button")!);
+    const why = await screen.findByTestId("suggestion-why");
+    expect(why).toHaveTextContent("classificationSuggestions.maybeTextWhy");
+    expect(why).not.toHaveTextContent("classificationSuggestions.maybeWhy");
+    fireEvent.click(pickAt(0));
+    await waitFor(() => expect(axiosPost).toHaveBeenCalledTimes(1));
+    expect(axiosPost.mock.calls[0]?.[1]).toMatchObject({
+      category: "sedan",
+      suggested_category: null,
+    });
+  });
+
   it("lets a person override a sure guess from its popover", async () => {
     axiosPost.mockResolvedValue({ data: { moved: [] } });
     renderBadge(JEV_ENTRY, vi.fn(), { classes: ["van", "suv"] });

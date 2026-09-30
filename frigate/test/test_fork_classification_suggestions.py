@@ -148,6 +148,20 @@ class TestJevContract(unittest.TestCase):
         self.assertIn("box cargo body", criteria["box_truck"])
         self.assertIn("untrusted", request["questions"]["category"]["instructions"])
 
+    def test_vehicle_types_name_common_models(self):
+        # I56: "a Honda Civic" alone scored 0.52 before the criteria named models.
+        criteria = suggest.build_jev_request(
+            "A car.", ["sedan", "suv", "pickup", "van", "hatchback"], "jev-1.13.0"
+        )["questions"]["category"]["criteria"]
+        for name, model in (
+            ("sedan", "Civic"),
+            ("suv", "RAV4"),
+            ("pickup", "F-150"),
+            ("van", "Sienna"),
+            ("hatchback", "Golf"),
+        ):
+            self.assertIn(model, criteria[name])
+
     def test_contract_hash_changes_with_classes_or_model_not_text(self):
         a = suggest.contract_hash(suggest.build_jev_request("x", TYPES, "m"))
         b = suggest.contract_hash(suggest.build_jev_request("y", TYPES, "m"))
@@ -420,6 +434,29 @@ class TestSuggestForEvents(unittest.TestCase):
 
         result = self.run_suggest([event("A white van.")], TYPES, ask)
         self.assertEqual(result["one"]["suggestion"]["source"], "text")
+        self.assertIsNone(result["one"]["maybe"])
+
+    def test_jev_choosing_unknown_turns_a_text_draft_into_a_maybe(self):
+        # I56: the local match reads the words, Jev reads what they are about.
+        async def ask(request):
+            return choice("unknown", TYPES, 0.9)
+
+        result = self.run_suggest([event("A white van.")], TYPES, ask)
+        entry = result["one"]
+        self.assertIsNone(entry["suggestion"])
+        self.assertFalse(entry["conflict"])
+        self.assertEqual(entry["jev_status"], "unknown")
+        self.assertEqual(entry["maybe"]["category"], "van")
+        self.assertEqual(entry["maybe"]["source"], "text")
+        self.assertEqual(entry["text"]["category"], "van")
+
+    def test_a_text_draft_stands_when_jev_could_not_answer(self):
+        async def ask(request):
+            raise suggest.JevError("status 500")
+
+        result = self.run_suggest([event("A white van.")], TYPES, ask)
+        self.assertEqual(result["one"]["jev_status"], "error")
+        self.assertEqual(result["one"]["suggestion"]["category"], "van")
         self.assertIsNone(result["one"]["maybe"])
 
     def test_jev_and_text_disagreeing_shows_nothing(self):
