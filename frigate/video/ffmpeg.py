@@ -44,6 +44,7 @@ from frigate.video.camera_outage import (
     outage_message,
     push_enabled,
 )
+from frigate.video.discard import wait_discarding
 from frigate.video.hwaccel_fallback import HwaccelFallback, fallback_state_path
 from frigate.video.restart_log import RestartLog
 from frigate.video.watchdog_state import WatchdogState
@@ -446,7 +447,8 @@ class CameraWatchdog(threading.Thread):
                 self.logger.info("Waiting for ffmpeg to exit gracefully...")
 
                 if drain_output:
-                    self.ffmpeg_detect_process.communicate(timeout=30)
+                    # fork (SV11): communicate() would keep every frame in memory
+                    wait_discarding(self.ffmpeg_detect_process, timeout=30)
                 else:
                     self.ffmpeg_detect_process.wait(timeout=30)
             except sp.TimeoutExpired:
@@ -454,7 +456,7 @@ class CameraWatchdog(threading.Thread):
                 self.ffmpeg_detect_process.kill()
 
                 if drain_output:
-                    self.ffmpeg_detect_process.communicate()
+                    wait_discarding(self.ffmpeg_detect_process)  # fork (SV11)
                 else:
                     self.ffmpeg_detect_process.wait()
 
