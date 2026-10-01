@@ -22,7 +22,7 @@ import logging
 import re
 import threading
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from typing import Any
 from urllib.parse import unquote
 
@@ -223,15 +223,22 @@ def media_codecs(producers: Iterable[Mapping[str, Any]]) -> list[str]:
     """
     codecs: list[str] = []
     for producer in producers:
-        medias = producer.get("medias")
-        for media in medias if isinstance(medias, list) else []:
-            if not isinstance(media, str):
-                continue
-            for entry in media.split(",")[2:]:
-                match = _CODEC.match(entry.strip().split("/")[0])
-                if match and match.group(0) not in codecs:
-                    codecs.append(match.group(0))
+        for codec in _producer_codecs(producer):
+            if codec not in codecs:
+                codecs.append(codec)
     return codecs[:MAX_CODECS]
+
+
+def _producer_codecs(producer: Mapping[str, Any]) -> Iterator[str]:
+    """Yield the codec names of one producer's medias, repeats included."""
+    medias = producer.get("medias")
+    for media in medias if isinstance(medias, list) else []:
+        if not isinstance(media, str):
+            continue
+        for entry in media.split(",")[2:]:
+            match = _CODEC.match(entry.strip().split("/")[0])
+            if match:
+                yield match.group(0)
 
 
 def missing_stream(name: str, sources: Iterable[str] = ()) -> StreamState:

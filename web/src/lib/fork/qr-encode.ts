@@ -1,26 +1,36 @@
 // @ts-nocheck
 /* Vendored from uqr 0.1.2 (MIT): https://github.com/unjs/uqr */
 
-const QrCodeDataType = /* @__PURE__ */ ((QrCodeDataType2) => {
-  QrCodeDataType2[(QrCodeDataType2["Border"] = -1)] = "Border";
-  QrCodeDataType2[(QrCodeDataType2["Data"] = 0)] = "Data";
-  QrCodeDataType2[(QrCodeDataType2["Function"] = 1)] = "Function";
-  QrCodeDataType2[(QrCodeDataType2["Position"] = 2)] = "Position";
-  QrCodeDataType2[(QrCodeDataType2["Timing"] = 3)] = "Timing";
-  QrCodeDataType2[(QrCodeDataType2["Alignment"] = 4)] = "Alignment";
-  return QrCodeDataType2;
-})({});
+// A TypeScript enum's runtime object: names to values and values to names,
+// with the keys added in the order the compiled enum adds them.
+const QrCodeDataType = {
+  Border: -1,
+  "-1": "Border",
+  Data: 0,
+  0: "Data",
+  Function: 1,
+  1: "Function",
+  Position: 2,
+  2: "Position",
+  Timing: 3,
+  3: "Timing",
+  Alignment: 4,
+  4: "Alignment",
+};
 
 const __defProp = Object.defineProperty;
-const __defNormalProp = (obj, key, value) =>
-  key in obj
-    ? __defProp(obj, key, {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value,
-      })
-    : (obj[key] = value);
+const __defNormalProp = (obj, key, value) => {
+  if (key in obj) {
+    __defProp(obj, key, {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value,
+    });
+  } else {
+    obj[key] = value;
+  }
+};
 const __publicField = (obj, key, value) => {
   __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
   return value;
@@ -35,8 +45,8 @@ const EccMap = {
   Q: QUARTILE,
   H: HIGH,
 };
-const NUMERIC_REGEX = /^[0-9]*$/;
-const ALPHANUMERIC_REGEX = /^[A-Z0-9 $%*+.\/:-]*$/;
+const NUMERIC_REGEX = /^\d*$/;
+const ALPHANUMERIC_REGEX = /^[A-Z0-9 $%*+./:-]*$/;
 const ALPHANUMERIC_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
 const MIN_VERSION = 1;
 const MAX_VERSION = 40;
@@ -293,8 +303,11 @@ class QrCode {
     if (data.length !== Math.floor(getNumRawDataModules(this.version) / 8))
       throw new RangeError("Invalid argument");
     let i = 0;
-    for (let right = this.size - 1; right >= 1; right -= 2) {
-      if (right === 6) right = 5;
+    // Columns pair up from the right edge. The size is odd, so the pairs
+    // start on even columns; once they reach the vertical timing pattern in
+    // column 6, every remaining pair shifts one column left to skip it.
+    for (let col = this.size - 1; col >= 1; col -= 2) {
+      const right = col <= 6 ? col - 1 : col;
       i = this.drawCodewordColumn(data, right, i);
     }
   }
@@ -553,7 +566,7 @@ function toUtf8ByteArray(str) {
   const result = [];
   for (let i = 0; i < str.length; i++) {
     if (str.charAt(i) !== "%") {
-      result.push(str.charCodeAt(i));
+      result.push(str.codePointAt(i));
     } else {
       result.push(Number.parseInt(str.substring(i + 1, i + 3), 16));
       i += 2;
@@ -678,12 +691,9 @@ function encode(data, options) {
     maskPattern = -1,
     border = 1,
   } = options || {};
-  const segment =
-    typeof data === "string"
-      ? makeSegments(data)
-      : Array.isArray(data)
-        ? [makeBytes(data)]
-        : void 0;
+  let segment;
+  if (typeof data === "string") segment = makeSegments(data);
+  else if (Array.isArray(data)) segment = [makeBytes(data)];
   if (!segment)
     throw new Error(
       `uqr only supports encoding string and binary data, but got: ${typeof data}`,

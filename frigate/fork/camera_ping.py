@@ -352,9 +352,11 @@ async def send_push(url: str, params: Mapping[str, str]) -> bool:
     """Report one result to a push URL. The URL is never logged."""
     timeout = aiohttp.ClientTimeout(total=PUSH_TIMEOUT_SECONDS)
     try:
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, params=params) as response:
-                return response.status < 400
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get(url, params=params) as response,
+        ):
+            return response.status < 400
     except (TimeoutError, aiohttp.ClientError) as error:
         logger.debug("Uptime push failed: %s", type(error).__name__)
         return False

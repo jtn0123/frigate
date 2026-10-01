@@ -474,6 +474,13 @@ function MaybeOrBlank({
   const label = maybe
     ? t("classificationSuggestions.maybeLabel", { category })
     : t("classificationSuggestions.pickClass");
+  let why = reason;
+  if (maybe) {
+    why =
+      maybe.source === "text"
+        ? t("classificationSuggestions.maybeTextWhy")
+        : t("classificationSuggestions.maybeWhy");
+  }
   return (
     <div
       data-testid={maybe ? "suggestion-maybe" : "suggestion-blank"}
@@ -516,15 +523,7 @@ function MaybeOrBlank({
                 : t("classificationSuggestions.scoreLine", { category, score })}
             </div>
           )}
-          <p className="text-secondary-foreground">
-            {maybe
-              ? t(
-                  maybe.source === "text"
-                    ? "classificationSuggestions.maybeTextWhy"
-                    : "classificationSuggestions.maybeWhy",
-                )
-              : reason}
-          </p>
+          <p className="text-secondary-foreground">{why}</p>
           {tinyNote}
           {picker}
         </PopoverContent>

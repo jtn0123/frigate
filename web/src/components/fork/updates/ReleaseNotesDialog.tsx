@@ -65,7 +65,7 @@ type ReleaseNotesDialogProps = {
   state: ForkUpdateState | undefined;
   releases: ForkRelease[];
   onClose: () => void;
-  onCheckNow?: (() => Promise<void>) | undefined;
+  onCheckNow: (() => Promise<void>) | undefined;
 };
 
 /** Release notes for the update button and What's new (UI42). */

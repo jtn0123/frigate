@@ -168,6 +168,21 @@ class TestRedact(unittest.TestCase):
     def test_url_without_a_host_is_replaced(self):
         self.assertEqual(redact("bad rtsp://?x=1 url"), "bad rtsp://<redacted> url")
 
+    def test_secret_pair_keeps_leading_dots_and_the_whole_key(self):
+        self.assertEqual(redact(" .api.Token=abc x"), " .api.Token=* x")
+        self.assertEqual(redact("a=pass=b c=d"), "a=pass=* c=d")
+        self.assertEqual(redact("pa.ss=b"), "pa.ss=b")
+
+    def test_dangling_userinfo_is_cut_up_to_the_last_at(self):
+        self.assertEqual(redact("x pa@ss@host y"), "x host y")
+        self.assertEqual(redact("x @host y"), "x @host y")
+
+    def test_long_runs_without_a_match_are_redacted_quickly(self):
+        # The previous patterns backtracked over these in quadratic time.
+        started = time.perf_counter()
+        redact("a." * 20000 + "=1 " + "@" * 20000)
+        self.assertLess(time.perf_counter() - started, 1.0)
+
     def test_escaped_newlines_become_spaces(self):
         self.assertEqual(redact("a\\n[tcp @ 0x1f] b​c"), "a [tcp @ 0x1f] b c")
 
@@ -219,6 +234,8 @@ class TestCameraMatcher(unittest.TestCase):
                         "doorbell_main": [
                             f"ffmpeg:http://10.27.99.42/flv?user={USER}&password={LEAK_MARKER}",
                             "ffmpeg:doorbell_main#audio=opus",
+                            # an owned stream's loopback source names no camera
+                            "rtsp://127.0.0.1:8554/doorbell_sub",
                         ],
                         "garage_hd": f"rtsp://{USER}:{LEAK_MARKER}@garage-cam.lan/hd",
                         "orphan": ["rtsp://10.0.0.200/x"],

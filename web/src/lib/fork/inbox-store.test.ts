@@ -107,6 +107,45 @@ describe("inbox store", () => {
     }
   });
 
+  it("keeps a local unread alert when another tab still has a read detection", () => {
+    const unsubscribe = subscribeInbox(() => {});
+    try {
+      ingestReview(message("r1", "new"));
+      const detection = {
+        ...getInboxState().items[0],
+        severity: "detection" as const,
+        read: true,
+      };
+      localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify([detection]));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: INBOX_ITEMS_KEY }),
+      );
+      expect(getInboxState().items).toHaveLength(1);
+      expect(getInboxState().items[0]).toMatchObject({
+        severity: "alert",
+        read: false,
+      });
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("takes a read from another tab for the same item at the same severity", () => {
+    const unsubscribe = subscribeInbox(() => {});
+    try {
+      ingestReview(message("r1", "new"));
+      const read = { ...getInboxState().items[0], read: true };
+      localStorage.setItem(INBOX_ITEMS_KEY, JSON.stringify([read]));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: INBOX_ITEMS_KEY }),
+      );
+      expect(getInboxState().items).toHaveLength(1);
+      expect(getInboxState().items[0]?.read).toBe(true);
+    } finally {
+      unsubscribe();
+    }
+  });
+
   it("does not add an item from an update whose start it never saw", () => {
     expect(ingestReview(message("r1", "update"))).toBe(false);
     expect(ids()).toEqual([]);

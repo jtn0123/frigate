@@ -122,7 +122,7 @@ export default function CameraSourceState({
   let message: string | undefined;
   if (data === undefined && !error) {
     message = t("cameraHealth.source.loading");
-  } else if (data === undefined || !data.available) {
+  } else if (!data?.available) {
     message = t("cameraHealth.source.unavailable");
   } else if (streams.length === 0) {
     message = t("cameraHealth.source.none");

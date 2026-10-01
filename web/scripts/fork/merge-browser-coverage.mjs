@@ -11,6 +11,35 @@ import libReport from "istanbul-lib-report";
 import reports from "istanbul-reports";
 import { creditFoldedStatements } from "./browser-coverage-statements.mjs";
 
+/**
+ * Istanbul coverage for one built asset (`converted`) and the statements its
+ * minified code folded together (`folded`); both empty when it maps no app
+ * source.
+ */
+async function convertAsset(entry, asset, baseline) {
+  const sourceMap = JSON.parse(await readFile(asset + ".map", "utf8"));
+  if (!sourceMap.sources.some((source) => source.includes("/src/")))
+    return { converted: {}, folded: [] };
+  const code = await readFile(asset, "utf8");
+  const assetUrl = pathToFileURL(asset).href;
+  const converted = await convert({
+    ast: parseAstAsync(code),
+    code,
+    wrapperLength: 0,
+    sourceMap,
+    coverage: { ...entry, url: assetUrl },
+  });
+  const folded = creditFoldedStatements({
+    code,
+    sourceMap,
+    assetUrl,
+    functions: entry.functions,
+    baseline,
+    converted,
+  });
+  return { converted, folded };
+}
+
 export async function mergeBrowserCoverage(webRoot) {
   const root = resolve(webRoot);
   const dist = resolve(root, "dist");
@@ -32,36 +61,26 @@ export async function mergeBrowserCoverage(webRoot) {
   const merged = libCoverage.createCoverageMap(JSON.parse(unitReport));
   // A separate copy: merging rewrites the statement maps of `merged` in place.
   const baseline = JSON.parse(unitReport);
-  let measured = 0;
-  for (const entry of mergeProcessCovs(inputs).result) {
+  const entries = mergeProcessCovs(inputs).result.map((entry) => {
     const asset = resolve(dist, "." + entry.url);
     if (!asset.startsWith(dist + sep) || !asset.endsWith(".js"))
       throw new Error("Invalid browser coverage asset path");
-    const sourceMap = JSON.parse(await readFile(asset + ".map", "utf8"));
-    if (!sourceMap.sources.some((source) => source.includes("/src/"))) continue;
-    const code = await readFile(asset, "utf8");
-    const converted = await convert({
-      ast: parseAstAsync(code),
-      code,
-      wrapperLength: 0,
-      sourceMap,
-      coverage: { ...entry, url: pathToFileURL(asset).href },
-    });
-    for (const [file, data] of Object.entries(converted)) {
+    return { entry, asset };
+  });
+  // Each asset converts on its own; the results merge below in input order,
+  // so the report is the same as converting one asset at a time.
+  const results = await Promise.all(
+    entries.map(({ entry, asset }) => convertAsset(entry, asset, baseline)),
+  );
+  let measured = 0;
+  for (const { converted: files, folded } of results) {
+    for (const [file, data] of Object.entries(files)) {
       if (file.startsWith(resolve(root, "src") + sep)) {
         merged.addFileCoverage(data);
         measured += 1;
       }
     }
-    for (const data of creditFoldedStatements({
-      code,
-      sourceMap,
-      assetUrl: pathToFileURL(asset).href,
-      functions: entry.functions,
-      baseline,
-      converted,
-    }))
-      merged.addFileCoverage(data);
+    for (const data of folded) merged.addFileCoverage(data);
   }
   if (!measured)
     throw new Error("Browser coverage did not map to application sources");

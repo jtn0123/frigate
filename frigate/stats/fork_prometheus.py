@@ -103,6 +103,53 @@ class _Families:
             gauge.set(result)
 
 
+def _outage_seconds(
+    families: _Families,
+    camera: Mapping[str, Any],
+    label: Mapping[str, str],
+    now: float | None,
+) -> None:
+    """Export how long the camera has been unreachable, when the time is known."""
+    since = number(camera.get("outage_since"))
+    if now is not None:
+        families.set(
+            "frigate_camera_outage_seconds",
+            "Seconds the camera has been unreachable, 0 when it is not",
+            max(0.0, now - since) if since else 0,
+            label,
+        )
+
+
+def _restart_kinds(
+    families: _Families, camera: Mapping[str, Any], label: Mapping[str, str]
+) -> None:
+    """Export the last day's restarts, one series per cause."""
+    kinds = camera.get("restart_kinds_24h")
+    for kind, count in kinds.items() if isinstance(kinds, Mapping) else ():
+        families.set(
+            "frigate_camera_restarts_by_kind_24h",
+            "Restarts in the last 24 hours by cause",
+            count,
+            {**label, "kind": str(kind)},
+        )
+
+
+def _connection_quality(
+    families: _Families, camera: Mapping[str, Any], label: Mapping[str, str]
+) -> None:
+    """Export one series per quality, 1 for the camera's current one."""
+    quality = camera.get("connection_quality")
+    if quality not in QUALITIES:
+        return
+    for candidate in QUALITIES:
+        families.set(
+            "frigate_camera_connection_quality",
+            "1 for the camera's current connection quality",
+            int(candidate == quality),
+            {**label, "quality": candidate},
+        )
+
+
 def _cameras(
     families: _Families, cameras: Mapping[str, Any], now: float | None = None
 ) -> None:
@@ -128,14 +175,7 @@ def _cameras(
             camera.get("skipped_pct"),
             label,
         )
-        since = number(camera.get("outage_since"))
-        if now is not None:
-            families.set(
-                "frigate_camera_outage_seconds",
-                "Seconds the camera has been unreachable, 0 when it is not",
-                max(0.0, now - since) if since else 0,
-                label,
-            )
+        _outage_seconds(families, camera, label, now)
         families.set(
             "frigate_camera_outages_24h",
             "Outages that started in the last 24 hours",
@@ -148,14 +188,7 @@ def _cameras(
             camera.get("restarts_24h"),
             label,
         )
-        kinds = camera.get("restart_kinds_24h")
-        for kind, count in kinds.items() if isinstance(kinds, Mapping) else ():
-            families.set(
-                "frigate_camera_restarts_by_kind_24h",
-                "Restarts in the last 24 hours by cause",
-                count,
-                {**label, "kind": str(kind)},
-            )
+        _restart_kinds(families, camera, label)
         families.set(
             "frigate_camera_reconnects_last_hour",
             "Detect stream reconnects in the last hour",
@@ -168,15 +201,7 @@ def _cameras(
             camera.get("stalls_last_hour"),
             label,
         )
-        quality = camera.get("connection_quality")
-        if quality in QUALITIES:
-            for candidate in QUALITIES:
-                families.set(
-                    "frigate_camera_connection_quality",
-                    "1 for the camera's current connection quality",
-                    int(candidate == quality),
-                    {**label, "quality": candidate},
-                )
+        _connection_quality(families, camera, label)
         if isinstance(camera.get("hwaccel_fallback"), bool):
             families.set(
                 "frigate_camera_hwaccel_fallback",

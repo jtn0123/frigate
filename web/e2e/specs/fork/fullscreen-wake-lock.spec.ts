@@ -16,7 +16,9 @@ test("fullscreen remains usable when screen wake permission is denied @high @mob
     });
   });
   await frigateApp.goto("/#front_door");
-  await page.locator('[aria-label="Fullscreen"]').first().click();
+  const fullscreenButton = page.locator('[aria-label="Fullscreen"]').first();
+  await expect(fullscreenButton).toBeVisible();
+  await fullscreenButton.click();
   await expect
     .poll(() => page.evaluate(() => document.fullscreenElement !== null))
     .toBe(true);
@@ -24,4 +26,6 @@ test("fullscreen remains usable when screen wake permission is denied @high @mob
   await expect
     .poll(() => page.evaluate(() => document.fullscreenElement))
     .toBeNull();
+  // Leaving fullscreen brings the control back, ready to enter again.
+  await expect(fullscreenButton).toBeVisible();
 });

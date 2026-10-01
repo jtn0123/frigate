@@ -7,6 +7,7 @@
  * so a dead camera stands out instead of scrolling everything else away.
  */
 
+import type { TFunction } from "i18next";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
@@ -37,6 +38,51 @@ const LEVEL_CLASS: Record<LogSummaryLevel, string> = {
   warning: "bg-orange-400",
   info: "bg-secondary-foreground",
 };
+
+type SummaryFacts = Readonly<{
+  loaded: boolean;
+  failed: boolean;
+  /** Repeated groups listed. */
+  rows: number;
+  /** Repeated lines in all, raw for plurals and formatted for display. */
+  count: number;
+  total: string;
+  hours: number;
+  /** The camera with the most repeats, when one stands out. */
+  top: { camera: string; count: string } | undefined;
+}>;
+
+/**
+ * The one-line summary shown on the panel's toggle. Each call names its
+ * namespace so the key extractor files the keys under fork, not common.
+ */
+function summaryLine(t: TFunction<"fork">, facts: SummaryFacts): string {
+  const { total, hours, top } = facts;
+  if (!facts.loaded) {
+    return facts.failed
+      ? t("logSummary.error", { ns: "fork" })
+      : t("logSummary.loading", { ns: "fork" });
+  }
+  if (facts.rows === 0) {
+    return t("logSummary.none", { ns: "fork", hours });
+  }
+  if (top) {
+    return t("logSummary.summaryTop", {
+      ns: "fork",
+      count: facts.count,
+      total,
+      hours,
+      camera: top.camera,
+      top: top.count,
+    });
+  }
+  return t("logSummary.summary", {
+    ns: "fork",
+    count: facts.count,
+    total,
+    hours,
+  });
+}
 
 type LogSummaryPanelProps = Readonly<{
   /** The log tab being shown. */
@@ -105,26 +151,18 @@ export default function LogSummaryPanel({
     setParams(next);
   };
 
-  let summary: string;
-  if (!data) {
-    summary = error ? t("logSummary.error") : t("logSummary.loading");
-  } else if (rows.length === 0) {
-    summary = t("logSummary.none", { hours });
-  } else if (top) {
-    summary = t("logSummary.summaryTop", {
-      count: total,
-      total: number.format(total),
-      hours,
+  const summary = summaryLine(t, {
+    loaded: Boolean(data),
+    failed: Boolean(error),
+    rows: rows.length,
+    total: number.format(total),
+    count: total,
+    hours,
+    top: top && {
       camera: resolveCameraName(config, top.camera),
-      top: number.format(top.count),
-    });
-  } else {
-    summary = t("logSummary.summary", {
-      count: total,
-      total: number.format(total),
-      hours,
-    });
-  }
+      count: number.format(top.count),
+    },
+  });
 
   // More was repeated than the endpoint returned or than is listed here.
   const cut = data?.truncated === true || rows.length > MAX_ROWS;
