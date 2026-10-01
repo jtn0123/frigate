@@ -452,7 +452,16 @@ class TestCameraCommandRouting(DispatcherTestCase):
         )
         self.assertEqual(self.published("notifications/state"), [("ON", True)])
 
-        self.dispatcher._receive("notifications/set", "MAYBE")
+        # B23: the rejection used to be a bare f-string, so nothing was logged
+        with self.assertLogs("frigate.comms.dispatcher", level="WARNING") as logs:
+            self.dispatcher._receive("notifications/set", "MAYBE")
+        self.assertEqual(
+            logs.output,
+            [
+                "WARNING:frigate.comms.dispatcher:Received unsupported value for "
+                "all notification: MAYBE"
+            ],
+        )
         self.assertEqual(len(self.published("notifications/state")), 1)
 
     def test_profile_command_without_manager(self) -> None:
@@ -582,8 +591,19 @@ class TestToggleHandlers(DispatcherTestCase):
     def test_motion_numeric_commands_reject_non_integers(self) -> None:
         motion = self.config.cameras["front_door"].motion
         before = (motion.contour_area, motion.threshold)
-        self.dispatcher._receive("front_door/motion_contour_area/set", "big")
-        self.dispatcher._receive("front_door/motion_threshold/set", "high")
+        # B23: the rejections used to be bare f-strings, so nothing was logged
+        with self.assertLogs("frigate.comms.dispatcher", level="WARNING") as logs:
+            self.dispatcher._receive("front_door/motion_contour_area/set", "big")
+            self.dispatcher._receive("front_door/motion_threshold/set", "high")
+        self.assertEqual(
+            logs.output,
+            [
+                "WARNING:frigate.comms.dispatcher:Received unsupported value for "
+                "motion contour area: big",
+                "WARNING:frigate.comms.dispatcher:Received unsupported value for "
+                "motion threshold: high",
+            ],
+        )
         self.assertEqual((motion.contour_area, motion.threshold), before)
         self.config_updater.publish_update.assert_not_called()
 
