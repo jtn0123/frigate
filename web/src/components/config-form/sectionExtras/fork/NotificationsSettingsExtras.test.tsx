@@ -753,10 +753,13 @@ describe("NotificationsSettingsExtras", () => {
     expect(h.toastSuccess).toHaveBeenCalledWith(
       "notification.toast.success.registered",
     );
-    // the visible label flips, but the aria-label stays "registerDevice"
+    // the accessible name follows the visible label
     expect(
-      screen.getByRole("button", { name: "notification.registerDevice" }),
+      screen.getByRole("button", { name: "notification.unregisterDevice" }),
     ).toHaveTextContent("notification.unregisterDevice");
+    expect(
+      screen.queryByRole("button", { name: "notification.registerDevice" }),
+    ).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "notification.sendTestNotification" }),
     );
