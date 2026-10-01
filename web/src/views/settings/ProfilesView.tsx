@@ -666,7 +666,11 @@ export default function ProfilesView({
               <DialogFooter>
                 <Button
                   type="button"
-                  onClick={() => setAddDialogOpen(false)}
+                  onClick={() => {
+                    // fork: Cancel skips onOpenChange, so reset here too (C38)
+                    setAddDialogOpen(false);
+                    addForm.reset();
+                  }}
                   disabled={addingProfile}
                 >
                   {t("button.cancel", { ns: "common" })}

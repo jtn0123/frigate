@@ -262,8 +262,7 @@ function review(start_time: number, end_time?: number): ReviewSegment {
 }
 
 describe("useCameraMotionNextTimestamp", () => {
-  // 15s motion buckets over 30s segments; a range starting at timestamp 0
-  // would never advance the search, so start at a real aligned time
+  // 15s motion buckets over 30s segments
   const B = 1500;
   const data = [0, 0, 5, 0, 0, 0, 4, 0, 0, 0].map((value, i) =>
     motion(B + i * 15, value),
@@ -302,6 +301,32 @@ describe("useCameraMotionNextTimestamp", () => {
     expect(next(59.8)).toBe(B + 60);
     expect(next(70)).toBe(B + 90);
     expect(next(125)).toBe(B + 150);
+  });
+
+  it("skips a no-motion range that starts at timestamp 0", () => {
+    // the range search destructures each range on every pass; cap that so a
+    // search that stops advancing fails here instead of hanging the run
+    const iterate = Array.prototype[Symbol.iterator];
+    let passes = 0;
+    Array.prototype[Symbol.iterator] = function (this: unknown[]) {
+      passes += 1;
+      if (passes > 100_000) {
+        throw new Error("range search did not advance");
+      }
+      return iterate.call(this);
+    };
+    try {
+      const zeroData = data.map((m) => ({
+        ...m,
+        start_time: m.start_time - B,
+      }));
+      const result = renderHook(() =>
+        useCameraMotionNextTimestamp(0, 30, true, [], zeroData, 5),
+      ).result.current;
+      expect(result).toBe(30);
+    } finally {
+      Array.prototype[Symbol.iterator] = iterate;
+    }
   });
 
   it("treats segments covered by review items as skippable", () => {

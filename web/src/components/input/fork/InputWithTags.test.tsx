@@ -224,6 +224,15 @@ describe("InputWithTags basics", () => {
     expect(screen.queryByText("labels")).not.toBeInTheDocument();
   });
 
+  it("narrows suggestions whatever the case of the typed word", () => {
+    const { input } = renderInput();
+    type(input, "dog Cam");
+    expect(screen.getByText("cameras")).toBeInTheDocument();
+    expect(screen.queryByText("labels")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("cameras"));
+    expect(input).toHaveValue("dog cameras:");
+  });
+
   it("shows every suggestion again after a trailing space", () => {
     const { input } = renderInput();
     type(input, "cam ");
@@ -287,8 +296,9 @@ describe("InputWithTags suggestion clicks", () => {
     const { input } = renderInput();
     type(input, "dog ");
     fireEvent.click(screen.getByText("zones"));
-    // A trailing space leaves an empty word, so the join doubles the space.
-    expect(input).toHaveValue("dog  zones:");
+    // the empty word after the trailing space takes the filter type, so the
+    // join does not double the space
+    expect(input).toHaveValue("dog zones:");
     expect(screen.getByText("zone-name:yard")).toBeInTheDocument();
   });
 

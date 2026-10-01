@@ -7,7 +7,6 @@ import {
   within,
 } from "@testing-library/react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import isEqual from "lodash/isEqual";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StatusBarMessagesContext } from "@/context/statusbar-context";
@@ -15,6 +14,8 @@ import type { ConfigFormContext, ConfigSectionData } from "@/types/configForm";
 import NotificationsSettingsExtras, {
   CameraNotificationSwitch,
 } from "../NotificationsSettingsExtras";
+import { ConfigSection } from "@/components/config-form/sections/BaseSection";
+import notificationsSection from "@/components/config-form/section-configs/notifications";
 
 type CameraFixture = {
   name: string;
@@ -54,7 +55,10 @@ vi.mock("react-i18next", async (importOriginal) => {
     options ? `${key} ${JSON.stringify(options)}` : key;
   return {
     ...(await importOriginal<typeof import("react-i18next")>()),
-    useTranslation: () => ({ t, i18n: { language: "en" } }),
+    useTranslation: () => ({
+      t,
+      i18n: { language: "en", exists: () => false },
+    }),
     Trans: ({ i18nKey }: { i18nKey: string }) => <span>{i18nKey}</span>,
   };
 });
@@ -91,6 +95,26 @@ vi.mock("@/api/ws", () => ({
   useNotificationTest: () => ({
     payload: "",
     send: (payload: string) => h.sendTest(payload),
+  }),
+  useRestart: () => ({ payload: "", send: vi.fn() }),
+}));
+
+// The section form renders the extras the way FieldTemplate's `ui:before`
+// does: with the section's form context as a prop.
+vi.mock("@/components/config-form/ConfigForm", () => ({
+  ConfigForm: ({ formContext }: { formContext?: ConfigFormContext }) => {
+    const Extras = formContext?.renderers?.["NotificationsSettingsExtras"];
+    return Extras ? <Extras formContext={formContext} /> : null;
+  },
+}));
+
+vi.mock("@/hooks/use-config-schema", () => ({
+  useSectionSchema: () => ({
+    type: "object",
+    properties: {
+      enabled: { type: "boolean", default: false },
+      email: { anyOf: [{ type: "string" }, { type: "null" }], default: null },
+    },
   }),
 }));
 
@@ -259,11 +283,9 @@ type PendingChange = (
   data: ConfigSectionData | null,
 ) => void;
 
-// Plays the settings page: keeps pending data keyed like Settings.tsx does and
-// feeds it back through the form context. Unlike Settings.tsx it skips updates
-// that are deep-equal: the component re-sends fresh copies of the same data
-// whenever its form context changes identity, so storing every copy re-renders
-// forever.
+// Plays the settings page: keeps pending data keyed like Settings.tsx does,
+// storing every update without comparing, and feeds it back through the form
+// context.
 function PendingHarness({
   onChange,
   extra,
@@ -274,16 +296,11 @@ function PendingHarness({
       onChange(key, camera, data);
       const pendingKey = camera ? `${camera}::${key}` : key;
       setPending((prev) => {
-        if (isEqual(prev[pendingKey] ?? null, data)) {
-          return prev;
-        }
-        const next = { ...prev };
         if (data === null) {
-          delete next[pendingKey];
-        } else {
-          next[pendingKey] = data;
+          const { [pendingKey]: _, ...rest } = prev;
+          return rest;
         }
-        return next;
+        return { ...prev, [pendingKey]: data };
       });
     },
     [onChange],
@@ -309,6 +326,53 @@ function PendingHarness({
       <span data-testid="pending">{JSON.stringify(pending)}</span>
       <NotificationsSettingsExtras formContext={ctx} />
     </StatusBarMessagesContext.Provider>
+  );
+}
+
+// Plays Settings.tsx around the real section: `handlePendingDataChange`
+// stores whatever it is given, without comparing. `allow` bounds the number
+// of stores so an update loop ends the test instead of hanging it.
+function SettingsHarness({ allow }: Readonly<{ allow: () => boolean }>) {
+  const [pending, setPending] = useState<Record<string, ConfigSectionData>>({});
+  const onPendingDataChange = useCallback<PendingChange>(
+    (key, camera, data) => {
+      if (!allow()) {
+        return;
+      }
+      const pendingKey = camera ? `${camera}::${key}` : key;
+      setPending((prev) => {
+        if (data === null) {
+          const { [pendingKey]: _, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, [pendingKey]: data };
+      });
+    },
+    [allow],
+  );
+  return (
+    <MemoryRouter>
+      <StatusBarMessagesContext.Provider
+        value={{
+          messages: {},
+          addMessage,
+          removeMessage,
+          clearMessages: vi.fn(),
+        }}
+      >
+        <span data-testid="pending">{JSON.stringify(pending)}</span>
+        <ConfigSection
+          sectionPath="notifications"
+          level="global"
+          defaultConfig={{
+            ...notificationsSection.base,
+            ...notificationsSection.global,
+          }}
+          pendingDataBySection={pending}
+          onPendingDataChange={onPendingDataChange}
+        />
+      </StatusBarMessagesContext.Provider>
+    </MemoryRouter>
   );
 }
 
@@ -478,6 +542,36 @@ describe("NotificationsSettingsExtras", () => {
       email: null,
       extra: 1,
     });
+  });
+
+  it("settles inside the real section when Settings stores every update", async () => {
+    let stores = 0;
+    const allow = () => ++stores <= 100;
+    render(<SettingsHarness allow={allow} />);
+    await flush();
+    await flush();
+    // a new form context each section render used to re-send the same data,
+    // and each store re-rendered the section, forever
+    expect(stores).toBeLessThan(10);
+
+    fireEvent.change(screen.getByLabelText("notification.email.title"), {
+      target: { value: "new@example.com" },
+    });
+    await flush();
+    await flush();
+    expect(stores).toBeLessThan(20);
+    expect(screen.getByTestId("pending")).toHaveTextContent(
+      '"notifications":{"enabled":false,"email":"new@example.com"}',
+    );
+
+    // picking a camera re-sent its override on every section render too
+    fireEvent.click(switchFor("back"));
+    await flush();
+    await flush();
+    expect(stores).toBeLessThan(30);
+    expect(screen.getByTestId("pending")).toHaveTextContent(
+      '"back::notifications":{"enabled":true}',
+    );
   });
 
   it("falls back to the saved config when the form has no data", async () => {
@@ -659,10 +753,13 @@ describe("NotificationsSettingsExtras", () => {
     expect(h.toastSuccess).toHaveBeenCalledWith(
       "notification.toast.success.registered",
     );
-    // the visible label flips, but the aria-label stays "registerDevice"
+    // the accessible name follows the visible label
     expect(
-      screen.getByRole("button", { name: "notification.registerDevice" }),
+      screen.getByRole("button", { name: "notification.unregisterDevice" }),
     ).toHaveTextContent("notification.unregisterDevice");
+    expect(
+      screen.queryByRole("button", { name: "notification.registerDevice" }),
+    ).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "notification.sendTestNotification" }),
     );

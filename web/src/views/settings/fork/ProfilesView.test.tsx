@@ -720,4 +720,21 @@ describe("ProfilesView add", () => {
     fireEvent.click(within(dialog).getByText("button.cancel"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
+
+  it("resets the form when Cancel closes the dialog", async () => {
+    renderView();
+
+    let dialog = openAddDialog();
+    fireEvent.change(
+      within(dialog).getByPlaceholderText("profiles.profileNamePlaceholder"),
+      { target: { value: "Day Shift" } },
+    );
+    fireEvent.click(within(dialog).getByText("button.cancel"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    dialog = openAddDialog();
+    expect(
+      within(dialog).getByPlaceholderText("profiles.profileNamePlaceholder"),
+    ).toHaveValue("");
+  });
 });
