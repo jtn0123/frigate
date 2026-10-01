@@ -477,7 +477,7 @@ export function ZoneFilterContent({
 }
 
 type SubFilterContentProps = {
-  allSubLabels: string[];
+  allSubLabels: string[] | undefined;
   subLabels: string[] | undefined;
   setSubLabels: (labels: string[] | undefined) => void;
 };
@@ -489,7 +489,7 @@ export function SubFilterContent({
   const { t } = useTranslation(["components/filter"]);
   const sortedSubLabels = useMemo(
     () =>
-      [...allSubLabels].sort((a, b) =>
+      [...(allSubLabels ?? [])].sort((a, b) =>
         a.toLowerCase().localeCompare(b.toLowerCase()),
       ),
     [allSubLabels],
@@ -629,7 +629,7 @@ export function SpeedFilterContent({
             const value = e.target.value;
 
             if (value) {
-              setSpeedRange(Number.parseInt(value), maxSpeed ?? 1.0);
+              setSpeedRange(Number.parseInt(value), maxSpeed ?? 150);
             }
           }}
         />
