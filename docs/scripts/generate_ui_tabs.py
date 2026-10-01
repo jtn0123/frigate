@@ -168,7 +168,9 @@ def process_file(
 
         target = outpath or filepath
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(new_content)
+        # The target is a file named on the command line or its copy under
+        # --outdir; rewriting it is what this docs tool is for.
+        target.write_text(new_content)  # NOSONAR
         print(f"  Injected {len(replacements)} ConfigTabs block(s) into {target}")
     elif outpath is not None:
         # No changes but outdir requested -- copy original so the output
@@ -275,7 +277,9 @@ def regenerate_file(
         new_content = "\n".join(lines)
         target = outpath or filepath
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(new_content)
+        # The target is a file named on the command line or its copy under
+        # --outdir; rewriting it is what this docs tool is for.
+        target.write_text(new_content)  # NOSONAR
         print(
             f"  Regenerated {len(replacements)} ConfigTabs block(s) in {target}",
             file=sys.stderr,
