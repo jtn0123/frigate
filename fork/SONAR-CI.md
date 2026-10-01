@@ -134,3 +134,23 @@ is recorded in `fork/sonar-token.env`; the `sonar` job warns from 14 days
 before it and fails once it has passed (`fork/scripts/sonar-token-expiry.py`,
 I30). Rotation steps: `fork/README.md`, "Owner setup".
 Automatic Analysis is off; ongoing next scans start once this workflow merges.
+
+## Upstream findings are not swept (I61, 2026-10-01)
+
+On 2026-10-01, 95% of the 1,660 open issues on `next` and 98% of its
+uncovered lines were in files that also exist upstream. Fork-owned code
+was about 94% covered. Sweeping upstream files for Sonar findings creates
+conflicts with every sync, and it can also turn the gate red: the 2026-09-12
+sweep reformatted `docs/scripts/generate_ui_tabs.py`, which put the whole file
+in the new-code window. SonarCloud's 2026-09-30 rule update then flagged two
+of its lines as path traversal, and `next` failed its gate with no push to
+blame (D65).
+
+- Fix findings in fork-owned files. In upstream files, change only the lines
+  a finding points at, and never reformat.
+- A rule that cannot be fixed without diverging from upstream gets an ignore
+  in `sonar-project.properties` that is scoped to one rule and one path,
+  with the reason in a comment. Do not add blanket exclusions.
+- Single findings that are false positives or accepted risk go in
+  `fork/SECURITY-TRIAGE.md` and are resolved in the Sonar UI by the owner.
+- Raise overall coverage by adding test files, not by changing upstream code.
