@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import unittest
 import uuid
 from types import SimpleNamespace
@@ -420,6 +421,41 @@ class TestSelectBalancedTimestamps(unittest.TestCase):
         # the zero duration pick is skipped and the next group fills the gap
         self.assertEqual(choice.call_count, 2)
         self.assertEqual([r["review_item"].id for r in result], ["r0", "r2", "r2"])
+
+    def test_top_up_loop_ends_when_no_item_can_add_a_timestamp(self) -> None:
+        # B27: zero duration items never give a timestamp, so the loop spun
+        # forever; run it in a thread so a regression fails instead of hanging
+        items = [
+            SimpleNamespace(camera="a", start_time=0.0, end_time=0.0),
+            SimpleNamespace(camera="a", start_time=10.0, end_time=10.0),
+        ]
+        result: list[list[dict]] = []
+        worker = threading.Thread(
+            target=lambda: result.append(_select_balanced_timestamps(items, 100)),
+            daemon=True,
+        )
+
+        worker.start()
+        worker.join(timeout=10)
+
+        self.assertFalse(worker.is_alive(), "top-up loop did not terminate")
+        self.assertEqual(result, [[]])
+
+    def test_top_up_loop_ends_when_short_items_overlap(self) -> None:
+        # the only items left are within a second of the samples already taken
+        items = [_review("a", 0.0, 0.5, 0), _review("a", 0.1, 0.6, 1)]
+        items.append(_review("b", 0.0, 0.0, 2))
+        result: list[list[dict]] = []
+        worker = threading.Thread(
+            target=lambda: result.append(_select_balanced_timestamps(items, 4)),
+            daemon=True,
+        )
+
+        worker.start()
+        worker.join(timeout=10)
+
+        self.assertFalse(worker.is_alive(), "top-up loop did not terminate")
+        self.assertEqual(len(result[0]), 2)
 
 
 class _DbMixin:
