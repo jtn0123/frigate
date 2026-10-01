@@ -434,6 +434,37 @@ class TestClassify(_ProcessorTestCase):
         self.assertEqual(labels[0][0], "180")
         np.testing.assert_array_equal(out_images[0], original_a)
 
+    def test_classify_runs_every_batch_in_sorted_order(self) -> None:
+        # B29: only the last batch reached the model and its results were
+        # written to the wrong images
+        widths = [80, 20, 140, 40, 100, 60, 160, 120]
+        images = []
+        for width in widths:
+            image = np.zeros((20, width, 3), dtype=np.uint8)
+            image[:10] = 255
+            images.append(image)
+        originals = [image.copy() for image in images]
+        order = np.argsort([w / 20 for w in widths])
+        # sorted position k is "180" when k is odd
+        outputs = iter(
+            np.array([0.1, 0.9]) if k % 2 else np.array([0.9, 0.1])
+            for k in range(len(images))
+        )
+        model = self.proc.model_runner.classification_model
+        model.side_effect = lambda batch: [next(outputs) for _ in batch]
+
+        result = self.proc._classify(images)
+
+        self.assertIsNotNone(result)
+        out_images, labels = result
+        self.assertEqual([len(c.args[0]) for c in model.call_args_list], [6, 2])
+        for k, index in enumerate(order):
+            self.assertEqual(labels[index][0], "180" if k % 2 else "0")
+            expected = originals[index]
+            if k % 2:
+                expected = cv2.rotate(expected, cv2.ROTATE_180)
+            np.testing.assert_array_equal(out_images[index], expected)
+
     def test_classify_model_error_returns_none(self) -> None:
         self.proc.model_runner.classification_model.side_effect = RuntimeError("x")
         with self.assertLogs(MIXIN, level="WARNING"):
@@ -461,6 +492,22 @@ class TestRecognize(_ProcessorTestCase):
         self.assertEqual(len(batch), 2)
         # the 10:1 plate sets the batch width to 48 * 10
         self.assertEqual(batch[0].shape, (1, 3, 48, 480))
+
+    def test_recognize_runs_every_batch(self) -> None:
+        # B29: only the last batch of more than six plates reached the model
+        self.proc.model_runner.recognition_model.runner.get_input_width.return_value = 0
+        decoder = self.proc.ctc_decoder
+        texts = ["A1", "B2", "C3", "D4", "E5", "F6", "G7", "H8"]
+        outputs = iter(_ctc_output(decoder, text) for text in texts)
+        model = self.proc.model_runner.recognition_model
+        model.side_effect = lambda batch: [next(outputs) for _ in batch]
+        images = [np.zeros((20, 80, 3), dtype=np.uint8) for _ in texts]
+
+        result, confidences = self.proc._recognize(CAMERA, images)
+
+        self.assertEqual(result, texts)
+        self.assertEqual(len(confidences), 8)
+        self.assertEqual([len(c.args[0]) for c in model.call_args_list], [6, 2])
 
     def test_recognize_model_error_returns_empty(self) -> None:
         self.proc.model_runner.recognition_model.side_effect = RuntimeError("x")
@@ -969,6 +1016,16 @@ class TestLprProcessAttributes(_LprProcessTestCase):
     def test_small_plate_box_returns(self) -> None:
         attributes = [{"label": "license_plate", "score": 0.8, "box": (1, 1, 2, 2)}]
         self.proc.lpr_process(self.car(current_attributes=attributes), self.frame)
+        self.proc._process_license_plate.assert_not_called()
+
+    def test_plate_without_a_box_returns(self) -> None:
+        # B29: the min_area log line called area(None) and raised TypeError
+        attributes = [{"label": "license_plate", "score": 0.8, "box": None}]
+        self.proc.lpr_process(self.car(current_attributes=attributes), self.frame)
+
+        plate = {"id": "lp1", "camera": CAMERA, "label": "license_plate"}
+        self.proc.lpr_process({**plate, "position_changes": 2}, self.frame)
+
         self.proc._process_license_plate.assert_not_called()
 
     def test_dedicated_camera_with_plus_model_keeps_fixed_id(self) -> None:
