@@ -6,13 +6,23 @@ import {
   grabVideoSnapshot,
 } from "@/utils/snapshotUtil";
 
-// jsdom's Blob is not a body Node's Response understands, so pass text
 const asContext = (value: unknown) => value as CanvasRenderingContext2D;
+const asResponse = (value: unknown) => value as Response;
 
+// A real Response's blob() is Node's Blob, which jsdom's FileReader rejects on
+// Node 22 (CI), so the stub hands back a jsdom Blob instead.
 function jpegResponse(body: string[], init: ResponseInit = {}) {
-  return new Response(body.join(""), {
-    ...init,
-    headers: { "content-type": "image/jpeg", ...init.headers },
+  const headers = new Headers({
+    "content-type": "image/jpeg",
+    ...(init.headers as Record<string, string> | undefined),
+  });
+  const status = init.status ?? 200;
+  return asResponse({
+    ok: status >= 200 && status < 300,
+    status,
+    headers,
+    blob: async () =>
+      new Blob(body, { type: headers.get("content-type") ?? "" }),
   });
 }
 
