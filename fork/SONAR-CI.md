@@ -14,6 +14,16 @@ browser (`web/scripts/fork/merge-browser-coverage.mjs`, run by the `sonar` job
 when all three E2E shards uploaded coverage, whether or not they passed; I63). The browser share is the larger one: without it the
 new-code coverage on `next` reads 58.5%, with it 83.5% (2026-09-17).
 
+The e2e build is minified, and the minifier folds source statements together
+(`a(); b();` becomes `a(),b();`, an `if` block a conditional), so the built
+code has fewer statements than the source. The merge therefore also credits
+each Vitest statement with the browser count at its first token, found through
+the source map (`web/scripts/fork/browser-coverage-statements.mjs`, I64). It
+stays conservative: a statement without a mapping of its own, inside a built
+statement that never started, or whose `return` was dropped (the minifier
+merges equal returns) is not credited. On the CI coverage of 2026-10-01 this
+raised covered web lines from 20,043 to 21,650 of 33,446.
+
 The Free plan scans `next` and same-repository PRs targeting `next`. Release
 branch `main` and `sync/**` pushes retain their other checks without attempting
 unsupported Sonar branch analysis.
