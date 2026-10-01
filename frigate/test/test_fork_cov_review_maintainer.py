@@ -687,8 +687,8 @@ class TestUpdateExistingSegment(MaintainerTestCase):
         self.assertIsNone(self.maintainer.active_review_segments[CAMERA])
 
     def test_alert_end_with_recent_detection_and_no_activity(self) -> None:
-        # the detection outlived the alert, but with no active objects
-        # there is nothing to carry into a follow-up detection segment
+        # the detection outlived the alert, but no detection object was left
+        # out of the alert, so no follow-up detection segment starts
         segment = self.segment(SeverityEnum.alert)
         segment.has_frame = True
         segment.last_detection_time = 45.0
@@ -696,21 +696,30 @@ class TestUpdateExistingSegment(MaintainerTestCase):
         self.maintainer.update_existing_segment(segment, "frame", 51.0, [])
 
         self.assertIsNone(self.maintainer.active_review_segments[CAMERA])
+        types = [json.loads(r)["type"] for r in self.sent("reviews")]
+        self.assertEqual(types, ["end"])
 
     def test_alert_end_starts_follow_up_detection_segment(self) -> None:
-        # ActiveObjects is stubbed so the follow-up branch sees a
-        # detection while the segment itself reports no activity
+        # B25: a car that arrives after the person is left out of the alert
+        # and must get its own detection segment once the alert ends; it was
+        # read from the active objects, which are always empty at that point
         segment = self.segment(SeverityEnum.alert)
-        segment.has_frame = True
-        segment.last_detection_time = 45.0
-        car = tracked(id="car1", label="car", zones=("yard",))
+        segment.frame_active_count = 5
 
-        stub = MagicMock()
-        stub.has_active_objects.return_value = False
-        stub.categorized_objects = {"alerts": [], "detections": [car]}
+        for frame_time in (20.0, 45.0):
+            car = tracked(
+                id="car1",
+                label="car",
+                zones=("yard",),
+                frame_time=frame_time,
+                start_time=18.0,
+            )
+            self.maintainer.update_existing_segment(segment, "frame", frame_time, [car])
 
-        with patch.object(maintainer_module, "ActiveObjects", return_value=stub):
-            self.maintainer.update_existing_segment(segment, "frame", 51.0, [car])
+        self.assertIs(self.maintainer.active_review_segments[CAMERA], segment)
+        self.assertNotIn("car1", segment.detections)
+
+        self.maintainer.update_existing_segment(segment, "frame", 51.0, [])
 
         follow_up = self.maintainer.active_review_segments[CAMERA]
         self.assertIsNotNone(follow_up)
@@ -721,7 +730,42 @@ class TestUpdateExistingSegment(MaintainerTestCase):
         self.assertEqual(follow_up.zones, ["yard"])
         self.assertEqual(follow_up.last_detection_time, 45.0)
         types = [json.loads(r)["type"] for r in self.sent("reviews")]
-        self.assertEqual(types, ["end", "new"])
+        self.assertEqual(types[-2:], ["end", "new"])
+        ended = [
+            u for u in self.sent(UPSERT_REVIEW_SEGMENT) if u["end_time"] is not None
+        ]
+        self.assertEqual(
+            [(u["id"], u["end_time"]) for u in ended], [(segment.id, 10.0)]
+        )
+
+    def test_detection_that_joined_the_alert_does_not_follow_it(self) -> None:
+        # the car started after the alert's last activity, but the alert
+        # came back and now covers its start, so it stays in the alert
+        segment = self.segment(SeverityEnum.alert)
+        segment.frame_active_count = 5
+        car = {"id": "car1", "label": "car", "zones": (), "start_time": 18.0}
+
+        self.maintainer.update_existing_segment(
+            segment, "frame", 20.0, [tracked(frame_time=20.0, **car)]
+        )
+        self.maintainer.update_existing_segment(
+            segment,
+            "frame",
+            30.0,
+            [tracked(frame_time=30.0), tracked(frame_time=30.0, **car)],
+        )
+        self.assertEqual(segment.detections["car1"], "car")
+        # the car outlives the alert, so the follow-up check runs and skips it
+        self.maintainer.update_existing_segment(
+            segment, "frame", 45.0, [tracked(frame_time=45.0, **car)]
+        )
+
+        self.maintainer.update_existing_segment(segment, "frame", 71.0, [])
+
+        self.assertIsNone(self.maintainer.active_review_segments[CAMERA])
+        types = [json.loads(r)["type"] for r in self.sent("reviews")]
+        self.assertEqual(types[-1], "end")
+        self.assertNotIn("new", types)
 
 
 class TestCheckIfNewSegment(MaintainerTestCase):

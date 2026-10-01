@@ -63,6 +63,9 @@ class PendingReviewSegment:
         self.thumb_time: float | None = None
         self.last_alert_time: float | None = None
         self.last_detection_time: float = frame_time
+        # detection objects that started after the alert's last activity,
+        # kept for the detection segment that follows the alert
+        self.post_alert_objects: dict[str, dict[str, Any]] = {}
 
         if severity == SeverityEnum.alert:
             self.last_alert_time = frame_time
@@ -475,6 +478,7 @@ class ReviewSegmentMaintainer(threading.Thread):
                     # This is a detection-level object
                     # Only add if it started during the alert's active period
                     if object["start_time"] > segment.last_alert_time:
+                        segment.post_alert_objects[object["id"]] = object
                         continue
 
                 if not object["sub_label"]:
@@ -563,7 +567,13 @@ class ReviewSegmentMaintainer(threading.Thread):
                     new_detections: dict[str, str] = {}
                     new_zones = set()
 
-                    for o in activity.categorized_objects["detections"]:
+                    # nothing is active in this branch, so use the detection
+                    # objects that were left out of the alert
+                    for o in segment.post_alert_objects.values():
+                        if o["id"] in segment.detections:
+                            # joined the alert when later alert activity covered it
+                            continue
+
                         new_detections[o["id"]] = o["label"]
                         new_zones.update(o["current_zones"])
 
