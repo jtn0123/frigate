@@ -11,7 +11,7 @@ separately. Generated declarations and version metadata are excluded from
 coverage. Untested production code remains visible. Frontend coverage is
 Vitest's report merged with the coverage the Playwright suite measures in the
 browser (`web/scripts/fork/merge-browser-coverage.mjs`, run by the `sonar` job
-when the E2E job ran). The browser share is the larger one: without it the
+when all three E2E shards uploaded coverage, whether or not they passed; I63). The browser share is the larger one: without it the
 new-code coverage on `next` reads 58.5%, with it 83.5% (2026-09-17).
 
 The Free plan scans `next` and same-repository PRs targeting `next`. Release
@@ -105,7 +105,7 @@ forgive whatever debt was open at that moment.
 
 When `next` is red: read the annotations of the failed `sonar` job. For
 `new_coverage`, check that the three E2E shards ran and uploaded
-`browser-coverage-*`. For a rating or hotspot condition, open
+`browser-coverage-*` (the job notes how many it found). For a rating or hotspot condition, open
 `https://sonarcloud.io/project/issues?id=jtn0123_frigate&branch=next&inNewCodePeriod=true&resolved=false`,
 fix the finding in a pull request, and the push that merges it turns the
 branch green again.
