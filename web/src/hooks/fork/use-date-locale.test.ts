@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { de, enUS, faIR, nb, pt, zhCN, zhHK, zhTW } from "date-fns/locale";
 import { useDateLocale } from "@/hooks/use-date-locale";
 
@@ -8,6 +8,56 @@ const i18n = vi.hoisted(() => ({ language: "en" }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ i18n }),
 }));
+
+// Every date-fns locale module the hook can import on demand.
+const LOCALE_LOADERS = [
+  () => import("date-fns/locale/ar"),
+  () => import("date-fns/locale/be"),
+  () => import("date-fns/locale/bs"),
+  () => import("date-fns/locale/ca"),
+  () => import("date-fns/locale/cs"),
+  () => import("date-fns/locale/da"),
+  () => import("date-fns/locale/de"),
+  () => import("date-fns/locale/el"),
+  () => import("date-fns/locale/es"),
+  () => import("date-fns/locale/fa-IR"),
+  () => import("date-fns/locale/fi"),
+  () => import("date-fns/locale/fr"),
+  () => import("date-fns/locale/he"),
+  () => import("date-fns/locale/hi"),
+  () => import("date-fns/locale/hr"),
+  () => import("date-fns/locale/hu"),
+  () => import("date-fns/locale/it"),
+  () => import("date-fns/locale/ja"),
+  () => import("date-fns/locale/ko"),
+  () => import("date-fns/locale/lt"),
+  () => import("date-fns/locale/nb"),
+  () => import("date-fns/locale/nl"),
+  () => import("date-fns/locale/pl"),
+  () => import("date-fns/locale/pt"),
+  () => import("date-fns/locale/ro"),
+  () => import("date-fns/locale/ru"),
+  () => import("date-fns/locale/sk"),
+  () => import("date-fns/locale/sl"),
+  () => import("date-fns/locale/sv"),
+  () => import("date-fns/locale/th"),
+  () => import("date-fns/locale/tr"),
+  () => import("date-fns/locale/uk"),
+  () => import("date-fns/locale/vi"),
+  () => import("date-fns/locale/zh-CN"),
+  () => import("date-fns/locale/zh-HK"),
+  () => import("date-fns/locale/zh-TW"),
+];
+
+// The hook loads each locale with a dynamic import, and the first import of a
+// module goes through the vitest runner's fetch round trip to the main
+// process. Under a loaded full run that round trip can outlast waitFor's 1 s
+// default, which made this file flaky. Importing every locale once here, under
+// the hook timeout, leaves the hook's imports as runner cache hits, so each
+// assertion only waits on promises that are already settled.
+beforeAll(async () => {
+  await Promise.all(LOCALE_LOADERS.map((load) => load()));
+});
 
 beforeEach(() => {
   i18n.language = "en";
