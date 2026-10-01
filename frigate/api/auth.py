@@ -396,11 +396,19 @@ def get_remote_addr(request: Request):
             network = ipaddress.ip_network(proxy)
         except ValueError:
             logger.warning(f"Unable to parse trusted network: {proxy}")
+            continue
         trusted_proxies.append(network)
 
     # return the first remote address that is not trusted
     for addr in route:
-        ip = ipaddress.ip_address(addr.strip())
+        try:
+            ip = ipaddress.ip_address(addr.strip())
+        except ValueError:
+            # a hop that is not an address cannot be trusted or used as the
+            # client, so use the direct peer
+            logger.debug("Invalid address in X-Forwarded-For")
+            return direct_addr or "127.0.0.1"
+
         logger.debug(f"Checking {ip} (v{ip.version})")
         trusted = False
         for trusted_proxy in trusted_proxies:

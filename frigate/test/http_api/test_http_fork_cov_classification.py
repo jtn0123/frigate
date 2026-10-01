@@ -3,6 +3,7 @@
 import os
 import shutil
 import tempfile
+from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
 import cv2
@@ -203,8 +204,10 @@ class TestFaceLibrary(_ClassificationHttpTestCase):
         response = self.client.post("/faces/jane doe/create")
 
         self.assertEqual(response.status_code, 200)
+        # B28: the success flag was False
         self.assertEqual(
-            response.json()["message"], "Successfully created face folder."
+            response.json(),
+            {"success": True, "message": "Successfully created face folder."},
         )
         self.assertTrue(os.path.isdir(os.path.join(self.faces, "jane_doe")))
 
@@ -344,29 +347,53 @@ class TestFaceTrain(_ClassificationHttpTestCase):
         self.assertEqual(face.shape[:2], (104, 188))
         self.embeddings.clear_face_classifier.assert_called_once_with()
 
-    def test_face_write_failure_is_still_reported_as_saved(self):
-        self.insert_mock_event(
-            "e1", data={"attributes": [{"box": [0.1, 0.1, 0.1, 0.1]}]}
-        )
+    def _train_from_event(self, box, **imwrite):
+        self.insert_mock_event("e1", data={"attributes": [{"box": box}]})
         snapshot = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch(
+                    "frigate.api.classification.get_event_snapshot",
+                    return_value=snapshot,
+                )
+            )
+            if imwrite:
+                stack.enter_context(
+                    patch("frigate.api.classification.cv2.imwrite", **imwrite)
+                )
 
-        with (
-            patch(
-                "frigate.api.classification.get_event_snapshot",
-                return_value=snapshot,
-            ),
-            patch(
-                "frigate.api.classification.cv2.imwrite",
-                side_effect=OSError("disk full"),
-            ),
-        ):
-            response = self.client.post(
+            return self.client.post(
                 "/faces/train/bob/classify", json={"event_id": "e1"}
             )
 
-        # The write error is only logged at debug level
-        self.assertEqual(response.status_code, 200)
+    def assert_face_not_saved(self, response):
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.json(),
+            {"success": False, "message": "Invalid face box or no face exists"},
+        )
         self.assertEqual(os.listdir(os.path.join(self.faces, "bob")), [])
+        self.embeddings.clear_face_classifier.assert_not_called()
+
+    def test_face_write_failure_is_404(self):
+        # B28: success was set before the write, so a failed write was
+        # reported as saved and still cleared the classifier
+        response = self._train_from_event(
+            [0.1, 0.1, 0.1, 0.1], side_effect=OSError("disk full")
+        )
+
+        self.assert_face_not_saved(response)
+
+    def test_face_write_returning_false_is_404(self):
+        response = self._train_from_event([0.1, 0.1, 0.1, 0.1], return_value=False)
+
+        self.assert_face_not_saved(response)
+
+    def test_empty_face_box_is_404(self):
+        # B28: an empty crop wrote nothing but returned 200 "Successfully saved"
+        response = self._train_from_event([0.1, 0.1, 0.0, 0.0])
+
+        self.assert_face_not_saved(response)
 
 
 class TestFaceRegisterAndRecognize(_ClassificationHttpTestCase):
@@ -938,6 +965,19 @@ class TestClassificationCategorizeAndCreate(_ClassificationHttpTestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["message"], "Invalid name: ..")
+
+    def test_categorize_without_a_training_file_is_400(self):
+        # B28: a missing training_file ran cv2.imread(None) and os.unlink(None)
+        response = self.client.post(
+            "/classification/dogs/dataset/categorize", json={"category": "lab"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json(),
+            {"success": False, "message": "A training file must be passed."},
+        )
+        self.assertFalse(os.path.exists(os.path.join(self.clips, "dogs", "dataset")))
 
     def test_categorize_missing_training_file_is_404(self):
         response = self.client.post(

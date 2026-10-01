@@ -26,6 +26,7 @@ from frigate.record.export import (
     migrate_exports,
     validate_ffmpeg_args,
 )
+from frigate.util.time import is_current_hour
 
 CAMERA = "front"
 START = 1_700_000_000
@@ -659,6 +660,17 @@ class TestRecordExportCommand(ExportTestCase):
         )
 
 
+class TestIsCurrentHour(unittest.TestCase):
+    def test_only_the_current_utc_hour_matches(self) -> None:
+        # B24: any past timestamp used to count as the current hour
+        now = datetime.datetime.now(datetime.UTC).timestamp()
+
+        self.assertTrue(is_current_hour(int(now)))
+        self.assertFalse(is_current_hour(START))
+        self.assertFalse(is_current_hour(int(now) - 2 * 3600))
+        self.assertFalse(is_current_hour(int(now) + 2 * 3600))
+
+
 class TestPreviewExportCommand(ExportTestCase):
     def test_previews_are_trimmed_with_in_and_out_points(self) -> None:
         self.add_preview("a", START - 10, START + 30)
@@ -667,19 +679,45 @@ class TestPreviewExportCommand(ExportTestCase):
 
         cmd, playlist = exporter.get_preview_export_command("/out.mp4")
 
-        self.assertTrue(playlist[-1].startswith("outpoint "))
+        # in and out points are offsets from the start of each file (B24)
         self.assertEqual(
-            playlist[:-1],
+            playlist,
             [
                 "file '/media/preview/a.mp4'",
                 "inpoint 10",
                 "file '/media/preview/b.mp4'",
+                "outpoint 30",
             ],
         )
         joined = " ".join(cmd)
         self.assertIn("-f concat -safe 0 -i /dev/stdin -c copy", joined)
         self.assertIn("title=Frigate Preview for front", joined)
         self.assertEqual(cmd[-1], "/out.mp4")
+
+    def test_one_preview_spanning_the_export_keeps_its_length(self) -> None:
+        # B24: [S - 10, S + 100] exported as [S, S + 60] plays 10 to 70, which is
+        # 60 seconds; the old out point of 40 cut it to 30
+        self.add_preview("a", START - 10, START + 100)
+        exporter = self.exporter(playback_source=PlaybackSourceEnum.preview)
+
+        _, playlist = exporter.get_preview_export_command("/out.mp4")
+
+        self.assertEqual(
+            playlist,
+            ["file '/media/preview/a.mp4'", "inpoint 10", "outpoint 70"],
+        )
+
+    def test_past_hour_does_not_read_cached_frames(self) -> None:
+        # B24: is_current_hour was true for every past time, so a past export
+        # listed the frame cache and failed when it was missing
+        os.rmdir(self.preview_frames)
+        self.add_preview("a", START, START + 60)
+        exporter = self.exporter(playback_source=PlaybackSourceEnum.preview)
+
+        cmd, playlist = exporter.get_preview_export_command("/out.mp4")
+
+        self.assertEqual(playlist, ["file '/media/preview/a.mp4'"])
+        self.assertIn("-c copy", " ".join(cmd))
 
     def test_current_hour_frames_are_encoded(self) -> None:
         now = int(datetime.datetime.now(datetime.UTC).timestamp())

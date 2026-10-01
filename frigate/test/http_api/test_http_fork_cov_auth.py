@@ -277,6 +277,42 @@ class TestRemoteAddr(unittest.TestCase):
 
         self.assertEqual(get_remote_addr(request), "2001:db8::99")
 
+    def test_invalid_trusted_proxy_is_skipped(self):
+        # B26: an invalid first entry raised UnboundLocalError, a later one
+        # appended the previous network again
+        for proxies in (["not-an-ip"], ["not-an-ip", "10.0.0.0/8"]):
+            request = _request(
+                headers={"x-forwarded-for": "1.2.3.4, 10.0.0.5"},
+                app_config=self._config(proxies),
+            )
+
+            with self.assertLogs("frigate.api.auth", level="WARNING"):
+                addr = get_remote_addr(request)
+
+            self.assertEqual(addr, "1.2.3.4" if len(proxies) == 2 else "10.0.0.5")
+
+        request = _request(
+            headers={"x-forwarded-for": "1.2.3.4, 10.0.0.5"},
+            app_config=self._config(["10.0.0.0/8", "not-an-ip"]),
+        )
+        with self.assertLogs("frigate.api.auth", level="WARNING"):
+            self.assertEqual(get_remote_addr(request), "1.2.3.4")
+
+    def test_non_address_hop_falls_back_to_the_peer(self):
+        # B26: a hop that is not an address raised ValueError; it is never
+        # trusted or returned, the direct peer is used instead
+        for forwarded in ("1.2.3.4, unknown", "unknown, 10.0.0.5", "1.2.3.4,"):
+            request = _request(
+                headers={"x-forwarded-for": forwarded},
+                app_config=self._config(["10.0.0.0/8"]),
+                host="192.168.1.2",
+            )
+
+            self.assertEqual(get_remote_addr(request), "192.168.1.2")
+
+        request.client = None
+        self.assertEqual(get_remote_addr(request), "127.0.0.1")
+
 
 class TestRoleGates(unittest.TestCase):
     @classmethod
@@ -751,6 +787,30 @@ class TestSessionEndpoints(_AuthHttpTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(auth_api._first_load_seen), 1)
+
+
+class TestLoginRateLimitKey(_AuthHttpTestCase):
+    auth_options = {
+        "failed_login_rate_limit": "100/minute",
+        "trusted_proxies": ["not-an-ip"],
+    }
+
+    def test_login_with_bad_proxy_config_and_forwarding(self):
+        # B26: the rate limit key function crashed the login request
+        self._add_user("bob", role="garage")
+        # an earlier app in this process may have turned the shared limiter off
+        enabled = patch.object(auth_api.limiter, "enabled", True)
+        enabled.start()
+        self.addCleanup(enabled.stop)
+
+        with self.assertLogs("frigate.api.auth", level="WARNING"):
+            response = self.client.post(
+                "/login",
+                json={"user": "bob", "password": _PASSWORD},
+                headers={"x-forwarded-for": "1.2.3.4"},
+            )
+
+        self.assertEqual(response.status_code, 200)
 
 
 class TestLogin(_AuthHttpTestCase):
