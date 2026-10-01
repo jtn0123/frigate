@@ -5,7 +5,7 @@ const pythonSeverity = /(DEBUG)|(INFO)|(WARNING)|(ERROR)/;
 const frigateDateStamp = /\[[\d\s-:]*]/;
 const frigateSection = /[\w.]*/;
 
-const goSeverity = /(DEB )|(INF )|(WRN )|(ERR )/;
+const goSeverity = /(DEB )|(DBG )|(TRC )|(INF )|(WRN )|(ERR )/;
 const goSection = /\[[\w]*]/;
 
 const httpMethods = /(GET)|(POST)|(PUT)|(PATCH)|(DELETE)/;
@@ -126,6 +126,7 @@ export function parseLogLines(logService: LogType, logs: string[]) {
           case "ERR":
             severityCat = "error";
             break;
+          case "DEB":
           case "DBG":
           case "TRC":
             severityCat = "debug";

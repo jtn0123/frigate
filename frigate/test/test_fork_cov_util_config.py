@@ -1215,6 +1215,37 @@ class TestMigrateFrigateConfigFile(unittest.TestCase):
         self.assertEqual(migrated["birdseye"], {"modes": ["motion"]})
         self.assertEqual(migrated["models"][0]["devices"], ["hailo:PCIe"])
 
+    def test_chain_keeps_top_level_keys_added_by_earlier_steps(self) -> None:
+        # B21: the 0.15 to 0.18 steps were given the original config, so top
+        # level keys that earlier steps added or replaced were lost
+        self._write(
+            "mqtt:\n"
+            "  host: mqtt\n"
+            "record:\n"
+            "  events:\n"
+            "    required_zones:\n"
+            "      - driveway\n"
+            "genai:\n"
+            "  provider: ollama\n"
+            "  model: llava\n"
+            "  prompt: Describe the {label}\n"
+            "cameras: {}\n"
+            "version: 0.13\n"
+        )
+
+        migrate_frigate_config(self.config_file)
+        migrated = self._load()
+
+        self.assertEqual(migrated["version"], CURRENT_CONFIG_VERSION)
+        self.assertEqual(migrated["review"]["alerts"]["required_zones"], ["driveway"])
+        self.assertEqual(migrated["detect"], {"enabled": True})
+        # 0.17 moves prompt out of genai, 0.19 then names the provider
+        self.assertNotIn("prompt", migrated["genai"]["default"])
+        self.assertEqual(migrated["genai"]["default"]["provider"], "ollama")
+        self.assertEqual(
+            migrated["objects"]["genai"], {"prompt": "Describe the {label}"}
+        )
+
     def test_old_version_without_export_dir(self) -> None:
         self._write("mqtt:\n  host: mqtt\ncameras: {}\nversion: 0.13\n")
 
