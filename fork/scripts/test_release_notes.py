@@ -191,6 +191,23 @@ class ReleaseNotesTest(unittest.TestCase):
             markdown.index("### Fixes and improvements"), markdown.index("<details>")
         )
 
+    def test_ledger_prefix_splits_and_trims_the_subject(self) -> None:
+        cases = {
+            "UI6 + C2:  Live view": ("UI", "Live view"),
+            "C1 :\n faster wall\n": ("C", "faster wall"),
+            # A whitespace-only text kept its last character before the
+            # regex was made linear, and still does.
+            "C1:  \t": ("C", "\t"),
+            "C1: \n": ("C", " "),
+            "C1:": ("", "C1:"),
+            "C1:\n\n": ("", "C1:\n\n"),
+            "C1: two\nlines": ("", "C1: two\nlines"),
+            "fork: no ID": ("", "fork: no ID"),
+        }
+        for subject, expected in cases.items():
+            with self.subTest(subject=subject):
+                self.assertEqual(expected, release_notes.ledger_prefix(subject))
+
 
 if __name__ == "__main__":
     unittest.main()

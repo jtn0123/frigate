@@ -75,7 +75,10 @@ export function flakyTests(report, repoRoot = REPO_ROOT) {
 
 /** Escape a workflow-command message (GitHub reads %, CR and LF). */
 function escapeMessage(text) {
-  return text.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  return text
+    .replaceAll("%", "%25")
+    .replaceAll("\r", "%0D")
+    .replaceAll("\n", "%0A");
 }
 
 /**

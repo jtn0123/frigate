@@ -101,14 +101,14 @@ export default function ShareClipPage() {
         <Heading as="h2">{t("clipShare.pageTitle")}</Heading>
         {status === "loading" && <ActivityIndicator />}
         {status === "missing" && (
-          <p className="text-sm text-secondary-foreground" role="status">
+          <output className="block text-sm text-secondary-foreground">
             {t("clipShare.missing")}
-          </p>
+          </output>
         )}
         {status === "expired" && (
-          <p className="text-sm text-secondary-foreground" role="status">
+          <output className="block text-sm text-secondary-foreground">
             {t("clipShare.expired")}
-          </p>
+          </output>
         )}
         {status === "error" && (
           <div className="flex flex-col items-start gap-2">
@@ -153,16 +153,15 @@ export default function ShareClipPage() {
               />
             )}
             {!share.has_clip && (
-              <p className="text-sm text-secondary-foreground" role="status">
+              <output className="block text-sm text-secondary-foreground">
                 {t("clipShare.noClip")}
-              </p>
+              </output>
             )}
-            <div
+            <img
               className="mx-auto size-44 rounded-md bg-white p-2"
-              role="img"
-              aria-label={t("clipShare.qr")}
+              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg(absoluteUrl))}`}
+              alt={t("clipShare.qr")}
               data-testid="share-clip-qr"
-              dangerouslySetInnerHTML={{ __html: qrSvg(absoluteUrl) }}
             />
           </>
         )}

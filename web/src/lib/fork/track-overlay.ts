@@ -44,6 +44,44 @@ function nearest<T extends { timestamp: number }>(
 }
 
 /**
+ * The object's ground point at `time` from its path: interpolated between
+ * the points on either side when they are at most MAX_PATH_GAP apart, else
+ * the nearer of them when it is within NEAR_POINT, else undefined.
+ */
+function groundAt(
+  path: TimedPoint[],
+  time: number,
+): { x: number; y: number } | undefined {
+  let before: TimedPoint | undefined;
+  let after: TimedPoint | undefined;
+  for (const point of path) {
+    if (point.timestamp <= time) {
+      if (!before || point.timestamp > before.timestamp) {
+        before = point;
+      }
+    } else if (!after || point.timestamp < after.timestamp) {
+      after = point;
+    }
+  }
+
+  if (before && after && after.timestamp - before.timestamp <= MAX_PATH_GAP) {
+    const t = (time - before.timestamp) / (after.timestamp - before.timestamp);
+    return {
+      x: before.x + (after.x - before.x) * t,
+      y: before.y + (after.y - before.y) * t,
+    };
+  }
+  const lone = nearest(
+    [before, after].filter((point): point is TimedPoint => !!point),
+    time,
+  );
+  if (lone && Math.abs(lone.timestamp - time) <= NEAR_POINT) {
+    return lone;
+  }
+  return undefined;
+}
+
+/**
  * The object's box at `time` (detect-stream seconds).
  *
  * A recorded box within 10 ms wins, as upstream. Otherwise the ground point
@@ -65,34 +103,7 @@ export function boxAtTime(
     return closest.box;
   }
 
-  let before: TimedPoint | undefined;
-  let after: TimedPoint | undefined;
-  for (const point of path) {
-    if (point.timestamp <= time) {
-      if (!before || point.timestamp > before.timestamp) {
-        before = point;
-      }
-    } else if (!after || point.timestamp < after.timestamp) {
-      after = point;
-    }
-  }
-
-  let ground: { x: number; y: number } | undefined;
-  if (before && after && after.timestamp - before.timestamp <= MAX_PATH_GAP) {
-    const t = (time - before.timestamp) / (after.timestamp - before.timestamp);
-    ground = {
-      x: before.x + (after.x - before.x) * t,
-      y: before.y + (after.y - before.y) * t,
-    };
-  } else {
-    const lone = nearest(
-      [before, after].filter((point): point is TimedPoint => !!point),
-      time,
-    );
-    if (lone && Math.abs(lone.timestamp - time) <= NEAR_POINT) {
-      ground = lone;
-    }
-  }
+  const ground = groundAt(path, time);
   if (!ground) {
     return undefined;
   }

@@ -15,7 +15,7 @@ ever returning the URL that matched.
 import logging
 import os
 import re
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -77,11 +77,18 @@ _PATH = re.compile(r"/[A-Za-z0-9._~/\-]*")
 _UNTRUSTED_AFTER_HOST = re.compile(r"[:@A-Za-z0-9]")
 # "nest:?client_id=..." style sources have a query string without "://".
 _BARE_QUERY = re.compile(r"\?[\w.%\-]+=\S*")
+# A `key=value` pair whose key names a credential. Only the start of a
+# `[\w.-]` run is tried, and the key is taken whole by a possessive match, so
+# the search is linear. Leading dots and dashes (group 1) are put back
+# unchanged, as they were when the key started at the first word boundary.
 _SECRET_PAIR = re.compile(
-    r"(?i)\b([\w.\-]*(?:user|pass|pwd|token|secret|auth|key|credential)[\w.\-]*)=\S+"
+    r"(?i)(?<![\w.\-])([.\-]*+)"
+    r"(?=[\w.\-]*?(?:user|pass|pwd|token|secret|auth|key|credential))"
+    r"([\w.\-]*+)=\S++"
 )
-# What is left of "user:pa ss@host" once the URL itself is gone.
-_DANGLING_USERINFO = re.compile(r"\S+@(?=[\w\[])")
+# What is left of "user:pa ss@host" once the URL itself is gone. A match can
+# only start a whitespace-separated token, which keeps the search linear.
+_DANGLING_USERINFO = re.compile(r"(?<!\S)\S+@(?=[\w\[])")
 _REDACTED_URL = "<redacted>"
 
 
@@ -107,7 +114,7 @@ def redact(message: str) -> str:
     if "?" in text:
         text = _BARE_QUERY.sub("", text)
     if "=" in text:
-        text = _SECRET_PAIR.sub(r"\1=*", text)
+        text = _SECRET_PAIR.sub(r"\1\2=*", text)
     if "@" in text:
         text = _DANGLING_USERINFO.sub("", text)
     return text
@@ -194,38 +201,17 @@ class CameraMatcher:
         tokens: dict[str, str | None] = {}
         stream_owner: dict[str, str | None] = {}
 
-        def claim(target: dict[str, str | None], token: str, camera: str) -> None:
-            key = token.lower()
-            if key and target.setdefault(key, camera) != camera:
-                target[key] = None
-
         for name, camera in cameras.items():
-            claim(stream_owner, name, name)
-            live = getattr(getattr(camera, "live", None), "streams", None)
-            if isinstance(live, Mapping):
-                for stream in live.values():
-                    claim(stream_owner, str(stream), name)
-            inputs = getattr(getattr(camera, "ffmpeg", None), "inputs", None) or []
-            for camera_input in inputs:
-                for host, segment in _url_hosts(str(getattr(camera_input, "path", ""))):
-                    if host in _LOOPBACK_HOSTS:
-                        # A restream input: the path names the go2rtc stream.
-                        claim(stream_owner, segment, name)
-                    else:
-                        claim(tokens, host, name)
+            _claim_camera(tokens, stream_owner, name, camera)
 
         for stream, sources in _go2rtc_streams(config).items():
             owner = stream_owner.get(stream.lower())
-            if owner is None:
-                continue
-            for source in sources:
-                for host, _segment in _url_hosts(source):
-                    if host not in _LOOPBACK_HOSTS:
-                        claim(tokens, host, owner)
+            if owner is not None:
+                _claim_hosts(tokens, sources, owner)
 
         for stream, owner in stream_owner.items():
             if owner is not None:
-                claim(tokens, stream, owner)
+                _claim(tokens, stream, owner)
         # A camera's own name always means that camera.
         for name in cameras:
             tokens[name.lower()] = name
@@ -247,6 +233,45 @@ class CameraMatcher:
             if camera is not None:
                 return camera
         return None
+
+
+def _claim(target: dict[str, str | None], token: str, camera: str) -> None:
+    """Map a token to a camera, or to None once two cameras claim it."""
+    key = token.lower()
+    if key and target.setdefault(key, camera) != camera:
+        target[key] = None
+
+
+def _claim_camera(
+    tokens: dict[str, str | None],
+    stream_owner: dict[str, str | None],
+    name: str,
+    camera: Any,
+) -> None:
+    """Claim a camera's name, live streams and input hosts or restreams."""
+    _claim(stream_owner, name, name)
+    live = getattr(getattr(camera, "live", None), "streams", None)
+    if isinstance(live, Mapping):
+        for stream in live.values():
+            _claim(stream_owner, str(stream), name)
+    inputs = getattr(getattr(camera, "ffmpeg", None), "inputs", None) or []
+    for camera_input in inputs:
+        for host, segment in _url_hosts(str(getattr(camera_input, "path", ""))):
+            if host in _LOOPBACK_HOSTS:
+                # A restream input: the path names the go2rtc stream.
+                _claim(stream_owner, segment, name)
+            else:
+                _claim(tokens, host, name)
+
+
+def _claim_hosts(
+    tokens: dict[str, str | None], sources: Iterable[str], owner: str
+) -> None:
+    """Claim the non-loopback hosts of a go2rtc stream's sources for its camera."""
+    for source in sources:
+        for host, _segment in _url_hosts(source):
+            if host not in _LOOPBACK_HOSTS:
+                _claim(tokens, host, owner)
 
 
 def _go2rtc_streams(config: Any) -> dict[str, list[str]]:
@@ -428,35 +453,13 @@ def _consume(service: str, path: str, max_bytes: int, state: _State) -> _Source:
     parsed_cache: dict[str, _Parsed | None] = {}
     for line in _read_lines(path, max_bytes, source):
         source.lines += 1
-        # The s6 timestamp sorts as text, so lines before the window are
-        # skipped without parsing anything.
-        if source.covered_from is not None and line[:19] < state.since_stamp:
-            continue
-        when = _line_time(line, state.hours)
+        when = _line_when(line, source, state)
         if when is None:
             continue
-        if source.covered_from is None:
-            source.covered_from = when
-        source.covered_to = when
-        if when < state.since:
-            continue
-        if not any(needle in line for needle in needles):
-            continue
-        split = line.find("  ", 19)
-        if split == -1:
-            continue
-        body = body_of(line[split:].strip())
+        body = _line_body(line, needles, body_of)
         if body is None:
             continue
-        if body in parsed_cache:
-            parsed = parsed_cache[body]
-        else:
-            parsed = parser(body, state)
-            # A flood repeats the same body, so this spares the redaction and
-            # the camera matching for nearly every line.
-            if len(parsed_cache) >= _PARSE_CACHE_MAX:
-                parsed_cache.clear()
-            parsed_cache[body] = parsed
+        parsed = _cached_parse(body, state, parser, parsed_cache)
         if parsed is None:
             continue
         camera, level, message, signature = parsed
@@ -464,6 +467,57 @@ def _consume(service: str, path: str, max_bytes: int, state: _State) -> _Source:
             continue
         _count(state, service, camera, level, message, signature, when, line[:13])
     return source
+
+
+def _line_when(line: str, source: _Source, state: _State) -> float | None:
+    """Epoch seconds of a line inside the window, or None for any other line.
+
+    Every timestamped line extends what the source covers, even one from
+    before the window.
+    """
+    # The s6 timestamp sorts as text, so lines before the window are
+    # skipped without parsing anything.
+    if source.covered_from is not None and line[:19] < state.since_stamp:
+        return None
+    when = _line_time(line, state.hours)
+    if when is None:
+        return None
+    if source.covered_from is None:
+        source.covered_from = when
+    source.covered_to = when
+    return None if when < state.since else when
+
+
+def _line_body(
+    line: str,
+    needles: tuple[str, ...],
+    body_of: Callable[[str], str | None],
+) -> str | None:
+    """The part of a line after its s6 timestamp, when the line may be kept."""
+    if not any(needle in line for needle in needles):
+        return None
+    split = line.find("  ", 19)
+    if split == -1:
+        return None
+    return body_of(line[split:].strip())
+
+
+def _cached_parse(
+    body: str,
+    state: _State,
+    parser: Callable[[str, _State], _Parsed | None],
+    parsed_cache: dict[str, _Parsed | None],
+) -> _Parsed | None:
+    """Parse a body once and reuse the result while the cache holds it."""
+    if body in parsed_cache:
+        return parsed_cache[body]
+    parsed = parser(body, state)
+    # A flood repeats the same body, so this spares the redaction and
+    # the camera matching for nearly every line.
+    if len(parsed_cache) >= _PARSE_CACHE_MAX:
+        parsed_cache.clear()
+    parsed_cache[body] = parsed
+    return parsed
 
 
 def _count(

@@ -53,7 +53,7 @@ class TestNginxShareConf(unittest.TestCase):
         # behind a proxy every viewer has one address, so one bucket (E20)
         for zone in ("fork_share", "fork_share_conn"):
             key = re.search(rf"limit_\w+_zone (\S+) zone={zone}:", self.conf).group(1)
-            self.assertEqual(key, "$fork_share_token", zone)
+            self.assertEqual("$fork_share_token", key, zone)
 
     def test_address_zones_are_a_second_looser_limit(self):
         http = self.conf[self.conf.index("http {") : self.conf.index("server {")]
@@ -86,7 +86,7 @@ class TestNginxShareConf(unittest.TestCase):
         ):
             match = token.search(uri)
             self.assertIsNotNone(match, uri)
-            self.assertEqual(match["fork_share_segment"], SHARE_ID)
+            self.assertEqual(SHARE_ID, match["fork_share_segment"])
         for uri in (
             "/api/fork/share",
             "/api/fork/share/",
@@ -122,13 +122,13 @@ class TestNginxShareConf(unittest.TestCase):
         # the request line, token included (E21)
         for name, location in (("public", self.public), ("authed", self.authed)):
             levels = re.findall(r"^\s*error_log (\S+) (\w+);", location, re.MULTILINE)
-            self.assertEqual(levels, [("/dev/stdout", "crit")], name)
+            self.assertEqual([("/dev/stdout", "crit")], levels, name)
 
     def test_error_log_is_unchanged_outside_the_share_locations(self):
         rest = self.conf.replace(self.public, "").replace(self.authed, "")
         self.assertEqual(
-            re.findall(r"^\s*error_log (\S+) (\w+);", rest, re.MULTILINE),
             [("/dev/stdout", "warn")],
+            re.findall(r"^\s*error_log (\S+) (\w+);", rest, re.MULTILINE),
         )
 
     def test_only_get_and_head_skip_auth(self):
@@ -189,15 +189,15 @@ class TestNginxShareConf(unittest.TestCase):
         ):
             match = loggable.search(uri)
             masked = f"{match['share_prefix']}<redacted>{match['share_rest']}"
-            self.assertEqual(masked, expected)
+            self.assertEqual(expected, masked)
             self.assertNotIn(SHARE_ID, masked)
 
     def test_token_is_masked_in_the_referer(self):
         loggable = map_regex(self.conf, "$loggable_referer")
         match = loggable.search(f"https://nvr.example/share/{SHARE_ID}")
         self.assertEqual(
-            f"{match['referer_prefix']}<redacted>{match['referer_rest']}",
             "https://nvr.example/share/<redacted>",
+            f"{match['referer_prefix']}<redacted>{match['referer_rest']}",
         )
         self.assertIsNone(loggable.search("https://nvr.example/review"))
 

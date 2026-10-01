@@ -269,11 +269,13 @@ class TestIcmpEcho(unittest.TestCase):
                 icmp_echo("10.0.0.1", 0.5, 1)
 
     def test_send_that_is_not_permitted_raises(self):
-        with self.assertRaises(PermissionError):
-            sock = FakeSocket([])
-            sock.sendto = Mock(side_effect=PermissionError)  # type: ignore[method-assign]
-            with patch.object(camera_ping, "_icmp_socket", return_value=sock):
-                icmp_echo("10.0.0.1", 0.5, 1)
+        sock = FakeSocket([])
+        sock.sendto = Mock(side_effect=PermissionError)  # type: ignore[method-assign]
+        with (
+            patch.object(camera_ping, "_icmp_socket", return_value=sock),
+            self.assertRaises(PermissionError),
+        ):
+            icmp_echo("10.0.0.1", 0.5, 1)
 
     def test_raw_socket_is_the_fallback_for_a_datagram_socket(self):
         raw = MagicMock()

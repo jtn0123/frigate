@@ -9,6 +9,7 @@ killed it, and the camera stayed down for six days. `wait_discarding` reads the
 same output and throws it away, so the wait costs one read buffer.
 """
 
+import contextlib
 import logging
 import os
 import subprocess as sp
@@ -30,11 +31,11 @@ _lock = threading.Lock()
 def _discard(fd: int) -> None:
     """Read `fd` to its end, keeping nothing, then close it."""
     try:
-        while os.read(fd, READ_BYTES):
-            pass
-    except OSError:
-        # the pipe went away under us, which also ends the output
-        pass
+        # the pipe going away under us also ends the output
+        with contextlib.suppress(OSError):
+            while os.read(fd, READ_BYTES):
+                # each chunk is dropped as soon as it is read
+                continue
     finally:
         os.close(fd)
 

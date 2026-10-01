@@ -225,7 +225,7 @@ class TestFaceRequests(_ProcessorTestCase):
             {"image": _encoded(self.image)},
         )
 
-        self.assertEqual(result["success"], False)
+        self.assertFalse(result["success"])
         self.recognizer.classify.assert_not_called()
 
     def test_register_saves_the_detected_face_to_the_library(self):
@@ -255,7 +255,7 @@ class TestFaceRequests(_ProcessorTestCase):
             {"face_name": "alice", "image": _encoded(self.image)},
         )
 
-        self.assertEqual(result["success"], False)
+        self.assertFalse(result["success"])
         self.assertFalse(os.path.exists(os.path.join(self.face_dir, "alice")))
 
 

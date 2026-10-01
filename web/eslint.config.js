@@ -51,7 +51,7 @@ export default tseslint.config(
       "test-results/**",
       "**/*.d.ts",
       "src/components/ui/**",
-      // fork: vendored QR encoder (uqr), kept byte-for-byte
+      // fork: vendored QR encoder (uqr), only edited to clear SonarCloud findings
       "src/lib/fork/qr-encode.ts",
       "src/types/fork/api.gen.ts",
     ],
