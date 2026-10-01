@@ -336,6 +336,21 @@ describe("InputWithTags suggestion clicks", () => {
     expect(screen.getByText("filter.header.noFilters")).toBeInTheDocument();
     expect(screen.queryByText("camera-name:front_door")).toBeNull();
   });
+
+  it.each([
+    ["12", { min_speed: 12 }],
+    ["-5", {}],
+    ["fast", {}],
+  ])("only applies a usable picked speed (%j)", (speed, expected) => {
+    const { props, input } = renderInput({
+      allSuggestions: { ...allSuggestions, min_speed: [speed] },
+    });
+    type(input, "min_speed:");
+    const [option] = screen.getAllByRole("option");
+    if (!option) throw new Error("no speed option");
+    fireEvent.click(option);
+    expect(props.setFilters).toHaveBeenCalledWith(expected);
+  });
 });
 
 describe("InputWithTags typed filters", () => {

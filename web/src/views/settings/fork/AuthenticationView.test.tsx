@@ -26,6 +26,19 @@ const state = vi.hoisted(() => ({
   toastSuccess: vi.fn<(message: string, options?: unknown) => void>(),
   toastError: vi.fn<(message: string, options?: unknown) => void>(),
   wrapped: [] as Promise<unknown>[],
+  dialogOutcomes: [] as string[],
+  /**
+   * Mirrors the role dialogs' submit: await the callback and only treat a
+   * resolved promise as success, so a failure must arrive as a rejection.
+   */
+  settle: async (result: void | Promise<void>) => {
+    try {
+      await result;
+      state.dialogOutcomes.push("resolved");
+    } catch {
+      state.dialogOutcomes.push("rejected");
+    }
+  },
 }));
 
 // The view hands wrapAsync handlers that rethrow after toasting; keep each
@@ -157,12 +170,16 @@ vi.mock("@/components/overlay/RoleChangeDialog", () => ({
 vi.mock("@/components/overlay/CreateRoleDialog", () => ({
   default: (props: {
     show: boolean;
-    onCreate: (role: string, cameras: string[]) => void;
+    onCreate: (role: string, cameras: string[]) => void | Promise<void>;
     onCancel: () => void;
   }) =>
     props.show ? (
       <div data-testid="create-role">
-        <button onClick={() => props.onCreate("guard", ["front_door"])}>
+        <button
+          onClick={() =>
+            void state.settle(props.onCreate("guard", ["front_door"]))
+          }
+        >
           stub-create-role
         </button>
         <button onClick={props.onCancel}>stub-cancel-create-role</button>
@@ -174,13 +191,13 @@ vi.mock("@/components/overlay/EditRoleCamerasDialog", () => ({
     show: boolean;
     role: string;
     currentCameras: string[];
-    onSave: (cameras: string[]) => void;
+    onSave: (cameras: string[]) => void | Promise<void>;
     onCancel: () => void;
   }) =>
     props.show ? (
       <div data-testid="edit-role">
         <span>{`${props.role}:${props.currentCameras.join(",")}`}</span>
-        <button onClick={() => props.onSave(["back_yard"])}>
+        <button onClick={() => void state.settle(props.onSave(["back_yard"]))}>
           stub-save-cameras
         </button>
         <button onClick={props.onCancel}>stub-cancel-edit-role</button>
@@ -250,6 +267,7 @@ function rowFor(text: string): HTMLElement {
 
 beforeEach(() => {
   state.wrapped = [];
+  state.dialogOutcomes = [];
   state.config = makeConfig({
     admin: [],
     viewer: [],
@@ -581,7 +599,9 @@ describe("AuthenticationView roles", () => {
     expect(
       within(rowFor("operator")).getByText("Front Door"),
     ).toBeInTheDocument();
-    expect(within(rowFor("many")).getByText("6 cameras")).toBeInTheDocument();
+    expect(
+      within(rowFor("many")).getByText('roles.table.cameraCount {"count":6}'),
+    ).toBeInTheDocument();
     // a non-array role value counts as all cameras
     expect(
       within(rowFor("broken")).getByText("menu.live.allCameras"),
@@ -622,6 +642,7 @@ describe("AuthenticationView roles", () => {
     });
     expect(state.updateConfig).toHaveBeenCalled();
     expect(screen.queryByTestId("create-role")).toBeNull();
+    await waitFor(() => expect(state.dialogOutcomes).toEqual(["resolved"]));
   });
 
   it("toasts a failed role creation", async () => {
@@ -637,10 +658,8 @@ describe("AuthenticationView roles", () => {
         { position: "top-center" },
       ),
     );
-    // wrapAsync drops this rethrow, so the dialog never sees the failure
-    await expect(state.wrapped.at(-1)).rejects.toEqual(
-      httpError({ message: "exists" }),
-    );
+    // the rethrow reaches the dialog, which keeps its form for a retry
+    await waitFor(() => expect(state.dialogOutcomes).toEqual(["rejected"]));
     expect(screen.getByTestId("create-role")).toBeInTheDocument();
     fireEvent.click(screen.getByText("stub-cancel-create-role"));
     expect(screen.queryByTestId("create-role")).toBeNull();
@@ -667,6 +686,7 @@ describe("AuthenticationView roles", () => {
     });
     expect(state.updateConfig).toHaveBeenCalled();
     expect(screen.queryByTestId("edit-role")).toBeNull();
+    await waitFor(() => expect(state.dialogOutcomes).toEqual(["resolved"]));
   });
 
   it("toasts a failed camera edit and closes on cancel", async () => {
@@ -683,7 +703,7 @@ describe("AuthenticationView roles", () => {
         { position: "top-center" },
       ),
     );
-    await expect(state.wrapped.at(-1)).rejects.toThrow("offline");
+    await waitFor(() => expect(state.dialogOutcomes).toEqual(["rejected"]));
     fireEvent.click(screen.getByText("stub-cancel-edit-role"));
     expect(screen.queryByTestId("edit-role")).toBeNull();
   });

@@ -434,6 +434,29 @@ describe("SearchFilterDialog content", () => {
     });
   });
 
+  it("keeps the 150 upper bound when only the min speed is typed", () => {
+    const { props } = renderDialog();
+    open();
+    fireEvent.change(screen.getByDisplayValue("1"), {
+      target: { value: "10" },
+    });
+    apply();
+    expect(props.onUpdateFilter).toHaveBeenLastCalledWith({
+      min_speed: 10,
+      max_speed: 150,
+    });
+  });
+
+  it("opens while the sub label list is loading or failed", () => {
+    fixture.subLabels = undefined;
+    renderDialog();
+    open();
+    expect(screen.getByRole("dialog")).toHaveTextContent("subLabels.label");
+    expect(
+      screen.getByRole("switch", { name: "subLabels.all" }),
+    ).toBeInTheDocument();
+  });
+
   it("resets the extra filters but keeps the others", () => {
     const filter: SearchFilter = {
       cameras: ["front_door"],

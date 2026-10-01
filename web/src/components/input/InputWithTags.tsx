@@ -337,7 +337,7 @@ export default function InputWithTags({
           case "min_speed":
           case "max_speed":
             speed = Number.parseFloat(value);
-            if (score >= 0) {
+            if (speed >= 0) {
               // Check for conflicts between min_speed and max_speed
               if (
                 type === "min_speed" &&
