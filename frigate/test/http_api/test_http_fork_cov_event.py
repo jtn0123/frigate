@@ -403,6 +403,26 @@ class TestEventMetadataEndpoints(_EventHttpTestCase):
         assert response.status_code == 200
         assert response.json()["message"] == "Embedding for description is [0.1]"
 
+    def test_generate_description_embedding_rejects_bad_requests(self):
+        # B22: these used to raise UnboundLocalError on result (500)
+        embeddings = MagicMock()
+        self.app.embeddings = embeddings
+        with AuthTestClient(self.app) as client:
+            self.app.frigate_config.semantic_search.enabled = False
+            disabled = client.post(
+                "/description/generate", json={"description": "a red car"}
+            )
+            self.app.frigate_config.semantic_search.enabled = True
+            empty = client.post("/description/generate", json={"description": ""})
+            missing = client.post("/description/generate", json={"description": None})
+
+        assert disabled.status_code == 400
+        assert disabled.json()["message"] == "Semantic search is not enabled"
+        assert empty.status_code == 400
+        assert empty.json()["message"] == "Description cannot be empty"
+        assert missing.status_code == 400
+        embeddings.generate_description_embedding.assert_not_called()
+
 
 class TestEventCreateEndDelete(_EventHttpTestCase):
     def test_create_event(self):
@@ -618,6 +638,20 @@ class TestTriggers(_EventHttpTestCase):
         assert "Failed to generate embedding" in empty_embedding.json()["message"]
         assert Trigger.select().count() == 0
 
+    def test_create_thumbnail_trigger_rejects_non_objects(self):
+        # B22: this used to return an empty 200 and create nothing
+        self._object_event("audio-1", data={"type": "audio"})
+        with AuthTestClient(self.app) as client:
+            response = client.post(
+                "/trigger/embedding",
+                params={"camera_name": "front_door", "name": "cat"},
+                json={"type": "thumbnail", "data": "audio-1"},
+            )
+
+        assert response.status_code == 400
+        assert "not a tracked object" in response.json()["message"]
+        assert Trigger.select().count() == 0
+
     def test_create_trigger_unexpected_error(self):
         self.embeddings.generate_description_embedding.side_effect = RuntimeError()
         with AuthTestClient(self.app) as client:
@@ -647,9 +681,23 @@ class TestTriggers(_EventHttpTestCase):
         assert trigger.threshold == 0.9
         assert Trigger.select().count() == 1
 
+    def test_update_thumbnail_trigger_creates_camera_folder(self):
+        # B22: the first update for a camera wrote the thumbnail before the
+        # camera's trigger folder existed and failed with a 500
+        self._object_event("e1")
+        with AuthTestClient(self.app) as client:
+            response = client.put(
+                "/trigger/embedding/front_door/cat",
+                json={"type": "thumbnail", "data": "e1"},
+            )
+
+        assert response.status_code == 200
+        with open(self._trigger_path("e1"), "rb") as f:
+            assert f.read() == self.thumb
+        assert Trigger.get(Trigger.name == "cat").data == "e1"
+
     def test_update_thumbnail_trigger_from_event_and_from_disk(self):
         self._object_event("e1")
-        os.makedirs(os.path.join(self.tmp_dir, "front_door"))
         with AuthTestClient(self.app) as client:
             from_event = client.put(
                 "/trigger/embedding/front_door/cat",
@@ -682,8 +730,6 @@ class TestTriggers(_EventHttpTestCase):
     def test_update_trigger_replaces_old_thumbnail(self):
         self._object_event("e1")
         self._object_event("e2")
-        # update writes the event thumbnail before it creates the camera folder
-        os.makedirs(os.path.join(self.tmp_dir, "front_door"))
         with AuthTestClient(self.app) as client:
             client.put(
                 "/trigger/embedding/front_door/cat",
@@ -728,5 +774,29 @@ class TestTriggers(_EventHttpTestCase):
         assert deleted.status_code == 200
         assert not os.path.exists(self._trigger_path("e1"))
         assert Trigger.select().count() == 0
-        assert missing.status_code == 500
+        assert missing.status_code == 404
         assert "not found" in missing.json()["message"]
+
+    def test_delete_trigger_reports_nothing_deleted_as_not_found(self):
+        # B22: a trigger removed between the lookup and the delete returned 401
+        Trigger.create(
+            camera="front_door",
+            name="dog",
+            type="description",
+            data="a dog",
+            threshold=0.5,
+            model="jinav1",
+            embedding=b"",
+            triggering_event_id="",
+            last_triggered=None,
+        )
+        delete_query = MagicMock()
+        delete_query.where.return_value.execute.return_value = 0
+        with (
+            patch.object(Trigger, "delete", return_value=delete_query),
+            AuthTestClient(self.app) as client,
+        ):
+            response = client.delete("/trigger/embedding/front_door/dog")
+
+        assert response.status_code == 404
+        assert response.json()["success"] is False
