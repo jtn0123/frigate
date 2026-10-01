@@ -259,6 +259,19 @@ def skipped_percent(skipped_fps: float, camera_fps: float, enabled: bool) -> flo
     return round(skipped_fps / camera_fps * 100, 1)
 
 
+def watchdog_age(heartbeat: float, now: float | None = None) -> float | None:
+    """Fork (SV12): seconds since a camera's capture watchdog last ran.
+
+    Returns None before the first report, which includes cameras that are
+    disabled in the config and so have no capture process.
+    """
+    if not heartbeat:
+        return None
+
+    now = time.time() if now is None else now
+    return round(max(0.0, now - heartbeat), 1)
+
+
 def stats_snapshot(
     config: FrigateConfig,
     stats_tracking: StatsTrackingTypes,
@@ -351,6 +364,8 @@ def stats_snapshot(
             "restarts_24h": len(restarts),  # fork (D11)
             "restart_kinds_24h": restart_kinds,  # fork (D11)
             "recent_restarts": restarts[-10:],  # fork (D11)
+            # fork (SV12): seconds since the capture watchdog last ran, or None
+            "watchdog_age": watchdog_age(camera_stats.watchdog_heartbeat.value),
             **connection_quality,
         }
 

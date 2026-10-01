@@ -1,4 +1,5 @@
 import CameraLogFilter from "@/components/fork/CameraLogFilter";
+import LogSummaryPanel from "@/components/fork/LogSummaryPanel";
 import { matchesCameraLog } from "@/lib/fork/camera-log-filter";
 import { useCameraLogFilter } from "@/hooks/fork/use-camera-log-filter";
 import { Button } from "@/components/ui/button";
@@ -640,6 +641,8 @@ function Logs() {
       {cameraFilter && (
         <CameraLogFilter camera={cameraFilter} onClear={clearCameraFilter} />
       )}
+      {/* fork (I58): repeated warnings and errors, collapsed per camera */}
+      <LogSummaryPanel service={logService} camera={cameraFilter} />
 
       {isWebsocket ? (
         <div className="my-2 flex size-full flex-col overflow-hidden rounded-md border border-secondary bg-background_alt">

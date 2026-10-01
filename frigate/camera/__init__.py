@@ -27,6 +27,7 @@ class CameraMetrics:
     restart_events: ListProxy  # fork (D11): ffmpeg restarts in the last 24 h
     outage_events: ListProxy  # fork (SV6): unreachable/recovered in the last 24 h
     outage_since: ValueProxy[float]  # fork (SV6): when it went unreachable, or 0
+    watchdog_heartbeat: ValueProxy[float]  # fork (SV12): last watchdog loop, or 0
 
     def __init__(self, manager: SyncManager):
         self.camera_fps = manager.Value("d", 0)
@@ -50,6 +51,7 @@ class CameraMetrics:
         self.restart_events = manager.list()
         self.outage_events = manager.list()
         self.outage_since = manager.Value("d", 0)
+        self.watchdog_heartbeat = manager.Value("d", 0)
 
 
 class PTZMetrics:

@@ -13,3 +13,4 @@ class WatchdogState(NamedTuple):
     hwaccel_fallback_since: Any | None = None  # D14: when it switched, or 0
     outage_events: Any | None = None  # SV6: unreachable/recovered in the last 24 h
     outage_since: Any | None = None  # SV6: when it went unreachable, or 0
+    heartbeat: Any | None = None  # SV12: when the watchdog loop last turned

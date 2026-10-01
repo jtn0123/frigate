@@ -262,11 +262,70 @@
       "cellHours_one": "1 cell = {{count}} hour",
       "cellHours_other": "1 cell = {{count}} hours"
     },
+    "source": {
+      "title": "Source in go2rtc",
+      "loading": "Checking go2rtc",
+      "unavailable": "go2rtc is not reachable, so the state of the source is unknown.",
+      "none": "This camera does not use a go2rtc stream.",
+      "state": {
+        "connected": "Connected",
+        "notConnected": "Not connected",
+        "notConfigured": "Not set up in go2rtc"
+      },
+      "rate": {
+        "bit": "{{value}} bit/s",
+        "kbit": "{{value}} kbit/s",
+        "mbit": "{{value}} Mbit/s"
+      },
+      "measuring": "measuring rate",
+      "consumers_one": "{{count}} reader",
+      "consumers_other": "{{count}} readers",
+      "idleHint": "go2rtc connects to a source only while something reads the stream, so a stream with no readers also shows as not connected.",
+      "ping": {
+        "label": "Network",
+        "state": {
+          "reachable": "Answers ping",
+          "lossy": "Answers ping, some lost",
+          "unreachable": "No ping reply"
+        },
+        "roundTrip": "{{value}} ms",
+        "lost": "{{value}}% lost",
+        "tcp": "checked on the stream port",
+        "unreachableHint": "The camera is off the network or powered down, so its stream cannot work either."
+      }
+    },
     "viewLogs": "View logs",
     "logs": {
       "filtered": "Logs containing camera: {{camera}}",
       "clear": "Show all logs"
     }
+  },
+  "logSummary": {
+    "title": "Repeated messages",
+    "loading": "Checking the logs",
+    "error": "Could not load the repeated messages",
+    "none": "None in the last {{hours}} hours",
+    "summary_one": "{{total}} repeated message in the last {{hours}} hours",
+    "summary_other": "{{total}} repeated messages in the last {{hours}} hours",
+    "summaryTop_one": "{{total}} repeated message in the last {{hours}} hours, top: {{camera}} {{top}}",
+    "summaryTop_other": "{{total}} repeated messages in the last {{hours}} hours, top: {{camera}} {{top}}",
+    "caption": "Warnings and errors that repeated in the last {{hours}} hours, most frequent first",
+    "column": {
+      "camera": "Camera",
+      "message": "Message",
+      "count": "Count",
+      "first": "First seen",
+      "last": "Last seen"
+    },
+    "level": {
+      "error": "Error:",
+      "warning": "Warning:",
+      "info": "Info:"
+    },
+    "noCamera": "No camera",
+    "filterTo": "Show logs for {{camera}}",
+    "coverage": "This log only reaches back to {{time}}.",
+    "truncated": "Only the most repeated messages are shown."
   },
   "settingsNav": {
     "searchPlaceholder": "Search settings",
