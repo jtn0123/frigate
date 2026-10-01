@@ -106,7 +106,7 @@ describe("parseLogLines for go2rtc", () => {
     expect(
       parseLogLines("go2rtc", [
         `${PREFIX}[LOGGING] go2rtc level debug`,
-        `${PREFIX}12:00:00.000 DEB [exec] probing`,
+        `${PREFIX}12:00:00.000 FTL [exec] probing`,
       ]),
     ).toEqual([
       {
@@ -118,6 +118,22 @@ describe("parseLogLines for go2rtc", () => {
       {
         dateStamp: "2024-05-01 12:00:00",
         severity: "info",
+        section: "exec",
+        content: "probing",
+      },
+    ]);
+  });
+
+  // C33: the debug levels used to fall through to info
+  it.each(["DEB", "DBG", "TRC"])("maps the %s level to debug", (level) => {
+    expect(
+      parseLogLines("go2rtc", [
+        `${PREFIX}12:00:00.000 ${level} [exec] probing`,
+      ]),
+    ).toEqual([
+      {
+        dateStamp: "2024-05-01 12:00:00",
+        severity: "debug",
         section: "exec",
         content: "probing",
       },
