@@ -9,6 +9,7 @@ import { parseAstAsync } from "rollup/parseAst";
 import libCoverage from "istanbul-lib-coverage";
 import libReport from "istanbul-lib-report";
 import reports from "istanbul-reports";
+import { creditFoldedStatements } from "./browser-coverage-statements.mjs";
 
 export async function mergeBrowserCoverage(webRoot) {
   const root = resolve(webRoot);
@@ -24,11 +25,13 @@ export async function mergeBrowserCoverage(webRoot) {
       JSON.parse(await readFile(resolve(raw, name), "utf8")),
     ),
   );
-  const merged = libCoverage.createCoverageMap(
-    JSON.parse(
-      await readFile(resolve(coverage, "coverage-final.json"), "utf8"),
-    ),
+  const unitReport = await readFile(
+    resolve(coverage, "coverage-final.json"),
+    "utf8",
   );
+  const merged = libCoverage.createCoverageMap(JSON.parse(unitReport));
+  // A separate copy: merging rewrites the statement maps of `merged` in place.
+  const baseline = JSON.parse(unitReport);
   let measured = 0;
   for (const entry of mergeProcessCovs(inputs).result) {
     const asset = resolve(dist, "." + entry.url);
@@ -50,6 +53,15 @@ export async function mergeBrowserCoverage(webRoot) {
         measured += 1;
       }
     }
+    for (const data of creditFoldedStatements({
+      code,
+      sourceMap,
+      assetUrl: pathToFileURL(asset).href,
+      functions: entry.functions,
+      baseline,
+      converted,
+    }))
+      merged.addFileCoverage(data);
   }
   if (!measured)
     throw new Error("Browser coverage did not map to application sources");
