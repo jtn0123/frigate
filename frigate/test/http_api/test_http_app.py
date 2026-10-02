@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import frigate.genai
 from frigate.config import GenAIProviderEnum
+from frigate.config.env import FRIGATE_ENV_VARS
 from frigate.const import REDACTED_CREDENTIAL_SENTINEL
 from frigate.genai import GenAIClient
 from frigate.models import Event, Recordings, ReviewSegment
@@ -108,6 +109,30 @@ class TestHttpApp(BaseTestHttp):
             assert response.status_code == 200
             mqtt = response.json()["mqtt"]
             assert mqtt["password"] == REDACTED_CREDENTIAL_SENTINEL
+
+    def test_config_response_hides_notification_email_from_viewers(self):
+        self.minimal_config["notifications"] = {"email": "{FRIGATE_TEST_EMAIL}"}
+
+        with patch.dict(FRIGATE_ENV_VARS, {"FRIGATE_TEST_EMAIL": "me@example.com"}):
+            app = super().create_app()
+
+        assert app.frigate_config.notifications.email == "me@example.com"
+
+        with AuthTestClient(app) as client:
+            response = client.get(
+                "/config",
+                headers={"remote-user": "viewer", "remote-role": "viewer"},
+            )
+            assert response.status_code == 200
+            config = response.json()
+            assert config["notifications"]["email"] == REDACTED_CREDENTIAL_SENTINEL
+            assert (
+                config["cameras"]["front_door"]["notifications"]["email"]
+                == REDACTED_CREDENTIAL_SENTINEL
+            )
+
+            response = client.get("/config")
+            assert response.json()["notifications"]["email"] == "me@example.com"
 
     ####################################################################################################################
     ###################################  POST /genai/probe Endpoint   ##################################################
