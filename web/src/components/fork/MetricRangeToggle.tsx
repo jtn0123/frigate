@@ -22,7 +22,7 @@ type MetricRangeToggleProps = {
   range: MetricRange;
   onRangeChange: (range: MetricRange) => void;
   /** Seconds each point averages, absent on the live range. */
-  resolution?: number | undefined;
+  resolution?: number;
   status: string;
 };
 

@@ -80,19 +80,19 @@ async def draft_events(
     config: FrigateConfig = request.app.frigate_config
     settings = config.classification.suggestions
     jev_config = settings.jev
-    key = suggest.api_key()
-    if not (settings.enabled and jev_config.enabled and key):
+    endpoint = suggest.config_endpoint(jev_config)
+    if not (settings.enabled and jev_config.enabled and endpoint):
         return await suggest.suggest_for_events(
             events, classes, settings.enabled, None, None, None, None
         )
     cache, budget = state(request.app, config)
     jev_settings: suggest.JevSettings = {
-        "model": jev_config.model,
+        "model": endpoint.model,
         "cameras": list(jev_config.cameras),
         "daily_request_limit": jev_config.daily_request_limit,
     }
     async with aiohttp.ClientSession() as session:
-        ask = make_ask(session, jev_config.url, key, jev_config.timeout)
+        ask = make_ask(session, endpoint.url, endpoint.key, jev_config.timeout)
         return await suggest.suggest_for_events(
             events, classes, settings.enabled, jev_settings, cache, budget, ask
         )
@@ -155,7 +155,7 @@ async def classification_suggestions(
     classes = await asyncio.to_thread(dataset_classes, name)
     events = await asyncio.to_thread(load_events, wanted) if wanted else []
 
-    key = suggest.api_key()
+    endpoint = suggest.config_endpoint(settings.jev)
     jev_config = settings.jev
     suggestions = await draft_events(request, events, classes)
     drafted = [
@@ -170,7 +170,7 @@ async def classification_suggestions(
             "classes": classes,
             "jev": {
                 "enabled": settings.enabled and jev_config.enabled,
-                "configured": bool(key),
+                "configured": endpoint is not None,
                 "used_today": used,
                 "daily_request_limit": jev_config.daily_request_limit,
             },

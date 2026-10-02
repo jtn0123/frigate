@@ -8,6 +8,7 @@ from multiprocessing.managers import DictProxy, SyncManager
 from multiprocessing.synchronize import Event as MpEvent
 
 from frigate.camera import CameraMetrics, PTZMetrics
+from frigate.camera.capture_supervisor import CaptureSupervisor
 from frigate.config import FrigateConfig
 from frigate.config.camera import CameraConfig
 from frigate.config.camera.updater import (
@@ -58,6 +59,7 @@ class CameraMaintainer(threading.Thread):
         )
         self.shm_count = self.__calculate_shm_frame_count()
         self.camera_processes: dict[str, mp.Process] = {}
+        self.capture_supervisor = CaptureSupervisor()  # fork (SV12)
         self.capture_processes: dict[str, mp.Process] = {}
         self.camera_stop_events: dict[str, MpEvent] = {}
         self.metrics_manager = metrics_manager
@@ -185,6 +187,18 @@ class CameraMaintainer(threading.Thread):
         self.camera_metrics[name].capture_process_pid.value = capture_process.pid
         logger.info(f"Capture process started for {name}: {capture_process.pid}")
 
+    def __supervise_captures(self) -> None:
+        """Fork (SV12): start a capture process again when it died or hung."""
+        if not self.capture_supervisor.due():
+            return
+        for camera, process in list(self.capture_processes.items()):
+            config = self.config.cameras.get(camera)
+            metrics = self.camera_metrics.get(camera)
+            if config is None or metrics is None or self.stop_event.is_set():
+                continue
+            if self.capture_supervisor.restart_needed(camera, process, metrics):
+                self.__start_camera_capture(camera, config)
+
     def __stop_camera_capture_process(self, camera: str) -> None:
         capture_process = self.capture_processes.get(camera)
         if capture_process is not None:
@@ -247,6 +261,7 @@ class CameraMaintainer(threading.Thread):
             self.__start_camera_capture(camera, config)
 
         while not self.stop_event.wait(1):
+            self.__supervise_captures()  # fork (SV12)
             updates = self.update_subscriber.check_for_updates()
 
             for update_type, updated_cameras in updates.items():

@@ -39,7 +39,14 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
         clips_patch = patch.object(api, "CLIPS_DIR", self.clips)
         clips_patch.start()
         self.addCleanup(clips_patch.stop)
-        key_patch = patch.dict(os.environ, {"FRIGATE_JEV_API_KEY": ""})
+        key_patch = patch.dict(
+            os.environ,
+            {
+                "FRIGATE_JEV_API_KEY": "",
+                "TYPESAFE_API_KEY": "",
+                "OPENROUTER_API_KEY": "",
+            },
+        )
         key_patch.start()
         self.addCleanup(key_patch.stop)
 
@@ -168,7 +175,9 @@ class TestHttpForkClassificationSuggestions(BaseTestHttp):
 
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0]["key"], "secret")
-        self.assertEqual(calls[0]["url"], "https://openrouter.ai/api/alpha/decisions")
+        # A key without OpenRouter's prefix goes straight to TypeSafe (I55).
+        self.assertEqual(calls[0]["url"], "https://api.typesafe.ai/v1/systemone")
+        self.assertEqual(calls[0]["request"]["model"], "jev-1.13.0")
         self.assertEqual(
             calls[0]["request"]["state"], {"description": "A gray crossover pulls in."}
         )

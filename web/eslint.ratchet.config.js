@@ -4,6 +4,7 @@
  */
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 
 const tsconfigRootDir = dirname(fileURLToPath(import.meta.url));
@@ -20,8 +21,9 @@ const typeAwareRules = {
   "@typescript-eslint/switch-exhaustiveness-check": "warn",
 };
 
-export default tseslint.config(
-  // Vendored QR encoder (uqr), kept byte-for-byte; ignored in eslint.config.js too.
+export default defineConfig(
+  // Vendored QR encoder (uqr), only edited to clear SonarCloud findings;
+  // ignored in eslint.config.js too.
   // The API types are generated from the spec (scripts/fork/api-types.mjs), so
   // their shape is the server's, not something a commit can be asked to fix.
   { ignores: ["src/lib/fork/qr-encode.ts", "src/types/fork/api.gen.ts"] },

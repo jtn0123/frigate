@@ -39,6 +39,8 @@ export type CameraStats = {
   recent_restarts?: CameraRestart[];
   /** Fork (SV6): when this camera went unreachable (epoch seconds), or null. */
   outage_since?: number | null;
+  /** Fork (SV12): seconds since the capture watchdog last ran, or null. */
+  watchdog_age?: number | null;
   /** Fork (SV6): outages that started in the last 24 h, and the last 10 events. */
   outages_24h?: number;
   recent_outages?: CameraOutage[];

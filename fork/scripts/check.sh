@@ -120,7 +120,10 @@ gate_mypy_fork() {
 }
 
 # Unit tests for the fork's own scripts (release notes); plain python3, no image.
-gate_scripts() { python3 -m unittest discover -s fork/scripts -p 'test_*.py'; }
+gate_scripts() {
+  python3 -m unittest discover -s fork/scripts -p 'test_*.py'
+  return $?
+}
 
 # The e2e bundle, checked against CI's eager-bundle budget (fork/bundle-budget.json).
 gate_build() { (cd web && node_modules/.bin/vite build --base=/ && npm run -s bundle:budget); return $?; }
@@ -152,8 +155,10 @@ notes=()
 # The hold sits outside the timing, so a gate's reported seconds stay its own.
 lane() {
   local hold=()
-  if [[ "${1:-}" == "--after" ]]; then
-    IFS=, read -r -a hold <<<"$2"
+  local flag="${1:-}"
+  if [[ "$flag" == "--after" ]]; then
+    local after="$2"
+    IFS=, read -r -a hold <<<"$after"
     shift 2
   fi
   names+=("$@")

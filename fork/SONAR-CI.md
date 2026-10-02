@@ -11,8 +11,18 @@ separately. Generated declarations and version metadata are excluded from
 coverage. Untested production code remains visible. Frontend coverage is
 Vitest's report merged with the coverage the Playwright suite measures in the
 browser (`web/scripts/fork/merge-browser-coverage.mjs`, run by the `sonar` job
-when the E2E job ran). The browser share is the larger one: without it the
+when all three E2E shards uploaded coverage, whether or not they passed; I63). The browser share is the larger one: without it the
 new-code coverage on `next` reads 58.5%, with it 83.5% (2026-09-17).
+
+The e2e build is minified, and the minifier folds source statements together
+(`a(); b();` becomes `a(),b();`, an `if` block a conditional), so the built
+code has fewer statements than the source. The merge therefore also credits
+each Vitest statement with the browser count at its first token, found through
+the source map (`web/scripts/fork/browser-coverage-statements.mjs`, I64). It
+stays conservative: a statement without a mapping of its own, inside a built
+statement that never started, or whose `return` was dropped (the minifier
+merges equal returns) is not credited. On the CI coverage of 2026-10-01 this
+raised covered web lines from 20,043 to 21,650 of 33,446.
 
 The Free plan scans `next` and same-repository PRs targeting `next`. Release
 branch `main` and `sync/**` pushes retain their other checks without attempting
@@ -105,7 +115,7 @@ forgive whatever debt was open at that moment.
 
 When `next` is red: read the annotations of the failed `sonar` job. For
 `new_coverage`, check that the three E2E shards ran and uploaded
-`browser-coverage-*`. For a rating or hotspot condition, open
+`browser-coverage-*` (the job notes how many it found). For a rating or hotspot condition, open
 `https://sonarcloud.io/project/issues?id=jtn0123_frigate&branch=next&inNewCodePeriod=true&resolved=false`,
 fix the finding in a pull request, and the push that merges it turns the
 branch green again.
@@ -134,3 +144,23 @@ is recorded in `fork/sonar-token.env`; the `sonar` job warns from 14 days
 before it and fails once it has passed (`fork/scripts/sonar-token-expiry.py`,
 I30). Rotation steps: `fork/README.md`, "Owner setup".
 Automatic Analysis is off; ongoing next scans start once this workflow merges.
+
+## Upstream findings are not swept (I61, 2026-10-01)
+
+On 2026-10-01, 95% of the 1,660 open issues on `next` and 98% of its
+uncovered lines were in files that also exist upstream. Fork-owned code
+was about 94% covered. Sweeping upstream files for Sonar findings creates
+conflicts with every sync, and it can also turn the gate red: the 2026-09-12
+sweep reformatted `docs/scripts/generate_ui_tabs.py`, which put the whole file
+in the new-code window. SonarCloud's 2026-09-30 rule update then flagged two
+of its lines as path traversal, and `next` failed its gate with no push to
+blame (D65).
+
+- Fix findings in fork-owned files. In upstream files, change only the lines
+  a finding points at, and never reformat.
+- A rule that cannot be fixed without diverging from upstream gets an ignore
+  in `sonar-project.properties` that is scoped to one rule and one path,
+  with the reason in a comment. Do not add blanket exclusions.
+- Single findings that are false positives or accepted risk go in
+  `fork/SECURITY-TRIAGE.md` and are resolved in the Sonar UI by the owner.
+- Raise overall coverage by adding test files, not by changing upstream code.

@@ -299,4 +299,25 @@ describe("savePendingSettings", () => {
       keysToClear: ["go2rtc_streams"],
     });
   });
+
+  it("clears a section with nothing to write and skips a stream without a source", async () => {
+    const client = api();
+    const result = await savePendingSettings({
+      config,
+      fullSchema: schema,
+      pendingDataBySection: {
+        go2rtc_streams: { front: [] },
+        unknown_section: section({ value: 1 }),
+      },
+      api: client,
+    });
+    expect(client.put.mock.calls.map(([url]) => url)).toEqual(["config/set"]);
+    expect(result).toMatchObject({
+      successCount: 2,
+      failCount: 0,
+      anyNeedsRestart: false,
+      savedKeys: ["go2rtc_streams"],
+      keysToClear: ["go2rtc_streams", "unknown_section"],
+    });
+  });
 });

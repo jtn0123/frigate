@@ -151,6 +151,7 @@ class MonitoringTruthTests(unittest.TestCase):
                 patch.object(
                     main_api, "get_metrics", return_value=(b"# test\n", "text/plain")
                 ),
+                patch.object(main_api, "fork_camera_metrics", return_value=b""),
             ):
                 select.return_value.group_by.return_value.dicts.return_value = []
                 self.assertEqual(

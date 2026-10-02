@@ -171,18 +171,17 @@ export default function ShareClipButton({
             </Button>
           )}
           {share && revoked && (
-            <p className="text-sm text-muted-foreground" role="status">
+            <output className="block text-sm text-muted-foreground">
               {t("clipShare.revokedNotice")}
-            </p>
+            </output>
           )}
           {share && !revoked && (
             <div className="flex flex-col gap-3">
-              <div
+              <img
                 className="mx-auto size-44 rounded-md bg-white p-2"
-                role="img"
-                aria-label={t("clipShare.qr")}
+                src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg(absoluteUrl))}`}
+                alt={t("clipShare.qr")}
                 data-testid="share-clip-qr"
-                dangerouslySetInnerHTML={{ __html: qrSvg(absoluteUrl) }}
               />
               <div className="flex gap-2">
                 <Input

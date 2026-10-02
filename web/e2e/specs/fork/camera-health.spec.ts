@@ -11,6 +11,7 @@ import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
 import { BASE_STATS } from "../../fixtures/mock-data/stats";
 import type { CameraHistorySeriesMock } from "../../fixtures/mock-data/fork-camera-history";
+import { UNREACHABLE_PING } from "../../fixtures/mock-data/fork-go2rtc-state";
 import { openStatusIssues } from "../../helpers/status-issues";
 
 type CameraOverride = Partial<{
@@ -554,4 +555,163 @@ test("camera health selection survives reload and browser history @high @mobile"
   await expect(page.getByTestId("camera-health-drawer")).toHaveCount(0);
   await page.goForward();
   await expect(page.getByTestId("camera-health-drawer")).toBeVisible();
+});
+
+test.describe("Camera health source state (I57) @high", () => {
+  test("the drawer says whether go2rtc is connected to each of the camera's streams", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({
+      go2rtcState: {
+        cameras: {
+          garage: [
+            { name: "garage", source: "rtsp://10.0.0.7:554" },
+            {
+              name: "garage_sub",
+              connected: false,
+              bytes_received: 0,
+              bytes_per_second: 0,
+              consumers: 0,
+              codecs: [],
+              source: "ffmpeg:http://10.0.0.7",
+            },
+            {
+              name: "garage_old",
+              configured: false,
+              connected: false,
+              bytes_per_second: null,
+              consumers: 0,
+              codecs: [],
+              source: null,
+            },
+          ],
+        },
+      },
+    });
+    await gotoHealth(frigateApp);
+    await frigateApp.page.getByRole("button", { name: "Open Garage" }).click();
+    const section = frigateApp.page
+      .getByTestId("camera-health-drawer")
+      .getByTestId("source-state");
+    await expect(section).toContainText("Source in go2rtc");
+
+    const streams = section.getByTestId("source-state-stream");
+    await expect(streams).toHaveCount(3);
+    await expect(streams.nth(0)).toHaveAttribute("data-state", "connected");
+    await expect(streams.nth(0)).toContainText("Connected");
+    await expect(streams.nth(0)).toContainText(
+      "rtsp://10.0.0.7:554 · 512 kbit/s · 1 reader · H264, AAC",
+    );
+
+    await expect(streams.nth(1)).toHaveAttribute("data-state", "notConnected");
+    await expect(streams.nth(1)).toContainText("garage_sub");
+    await expect(streams.nth(1)).toContainText("Not connected");
+    await expect(streams.nth(1)).toContainText(
+      "ffmpeg:http://10.0.0.7 · 0 readers",
+    );
+    await expect(streams.nth(1)).not.toContainText("bit/s");
+
+    await expect(streams.nth(2)).toHaveAttribute("data-state", "notConfigured");
+    await expect(streams.nth(2)).toContainText("Not set up in go2rtc");
+    await expect(section.getByTestId("source-state-hint")).toContainText(
+      "only while something reads the stream",
+    );
+
+    // Stepping to the next camera shows that camera's own stream.
+    await frigateApp.page.getByRole("button", { name: "Next camera" }).click();
+    await expect(streams).toHaveCount(1);
+    await expect(streams).toHaveAttribute("data-state", "connected");
+    await expect(section.getByTestId("source-state-hint")).toHaveCount(0);
+  });
+
+  test("an unreachable go2rtc is one muted line, not an error @mobile", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({ go2rtcState: { available: false } });
+    await gotoHealth(frigateApp);
+    await frigateApp.page
+      .getByRole("button", { name: "Open Front Door" })
+      .click();
+    const section = frigateApp.page.getByTestId("source-state");
+    await expect(section.getByTestId("source-state-message")).toHaveText(
+      "go2rtc is not reachable, so the state of the source is unknown.",
+    );
+    await expect(section.getByTestId("source-state-stream")).toHaveCount(0);
+    // The rest of the drawer is unaffected.
+    await expect(
+      frigateApp.page.getByTestId("camera-health-metrics"),
+    ).toBeVisible();
+  });
+});
+
+test.describe("Camera health ping (I60) @high", () => {
+  test("the drawer tells a camera that is off the network from one that answers", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({
+      go2rtcState: {
+        cameras: {
+          garage: [{ name: "garage", connected: false, bytes_per_second: 0 }],
+        },
+        pings: {
+          garage: UNREACHABLE_PING,
+          front_door: { loss: 1 / 3, method: "tcp" },
+        },
+      },
+    });
+    await gotoHealth(frigateApp);
+    await frigateApp.page.getByRole("button", { name: "Open Garage" }).click();
+    const drawer = frigateApp.page.getByTestId("camera-health-drawer");
+    const section = drawer.getByTestId("source-state");
+    const ping = section.getByTestId("camera-ping");
+    // Reopening from the table keeps this independent of the table's order.
+    const reopen = async (name: string) => {
+      await drawer.getByRole("button", { name: "Close" }).click();
+      await expect(drawer).toHaveCount(0);
+      await frigateApp.page.getByRole("button", { name }).click();
+    };
+
+    await expect(ping).toHaveAttribute("data-state", "unreachable");
+    await expect(ping).toContainText("Network");
+    await expect(ping).toContainText("No ping reply");
+    await expect(ping).not.toContainText(" ms");
+    await expect(section.getByTestId("camera-ping-hint")).toHaveText(
+      "The camera is off the network or powered down, so its stream cannot work either.",
+    );
+    // The stream below it is still listed.
+    await expect(section.getByTestId("source-state-stream")).toHaveAttribute(
+      "data-state",
+      "notConnected",
+    );
+
+    // The default camera answers every ping.
+    await reopen("Open Backyard");
+    await expect(ping).toHaveAttribute("data-state", "reachable");
+    await expect(ping).toContainText("Answers ping");
+    await expect(ping).toContainText("12.3 ms");
+    await expect(ping).not.toContainText("lost");
+    await expect(section.getByTestId("camera-ping-hint")).toHaveCount(0);
+
+    await reopen("Open Front Door");
+    await expect(ping).toHaveAttribute("data-state", "lossy");
+    await expect(ping).toContainText("Answers ping, some lost");
+    await expect(ping).toContainText(
+      "12.3 ms · 33% lost · checked on the stream port",
+    );
+  });
+
+  test("a camera that has not been pinged yet shows no network line @mobile", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({
+      go2rtcState: { pings: { front_door: null } },
+    });
+    await gotoHealth(frigateApp);
+    await frigateApp.page
+      .getByRole("button", { name: "Open Front Door" })
+      .click();
+    const section = frigateApp.page.getByTestId("source-state");
+    await expect(section.getByTestId("source-state-stream")).toHaveCount(1);
+    await expect(section.getByTestId("camera-ping")).toHaveCount(0);
+  });
 });

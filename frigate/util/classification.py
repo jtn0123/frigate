@@ -479,8 +479,15 @@ def _select_balanced_timestamps(
                 }
             )
 
-    # If we don't have enough, sample more from larger groups
-    while len(timestamps) < target_count and len(timestamps) < len(review_items):
+    # If we don't have enough, sample more from larger groups. Zero or very
+    # short items may never give a new timestamp, so the attempts are bounded
+    attempts = 0
+    while (
+        len(timestamps) < target_count
+        and len(timestamps) < len(review_items)
+        and attempts < target_count * 10
+    ):
+        attempts += 1
         for group_items in grouped.values():
             if len(timestamps) >= target_count:
                 break

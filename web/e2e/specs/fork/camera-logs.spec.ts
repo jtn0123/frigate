@@ -3,6 +3,7 @@ import {
   grantClipboardPermissions,
   readClipboard,
 } from "../../helpers/clipboard";
+import { noisyLogSummaryGroups } from "../../fixtures/mock-data/fork-log-summary";
 
 const lines = [
   "[2026-04-06 10:00:00] ffmpeg.garage.detect ERROR: Garage stream failed",
@@ -102,4 +103,75 @@ test("camera filter also restricts streamed lines @high", async ({
   await expect(
     page.getByText("Backyard recovered", { exact: true }),
   ).toHaveCount(0);
+});
+
+test("repeated messages stay one quiet line when nothing repeated @medium", async ({
+  frigateApp,
+}) => {
+  const { page } = frigateApp;
+  await frigateApp.goto("/logs");
+  const summary = page.getByTestId("log-summary");
+  await expect(summary).toContainText("Repeated messages");
+  await expect(summary).toContainText("None in the last 24 hours");
+  await expect(page.getByTestId("log-summary-toggle")).toBeDisabled();
+  await expect(summary.getByRole("table")).toHaveCount(0);
+});
+
+test("repeated messages expand to a table and filter the log by camera @high", async ({
+  frigateApp,
+}) => {
+  const { page } = frigateApp;
+  await frigateApp.installDefaults({
+    logSummary: { groups: noisyLogSummaryGroups() },
+  });
+  await page.route(/\/api\/logs\/frigate(\?|$)/, (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.has("stream")) return route.fulfill({ body: "" });
+    return route.fulfill({ json: { lines, totalLines: lines.length } });
+  });
+  await frigateApp.goto("/logs");
+
+  const summary = page.getByTestId("log-summary");
+  const toggle = page.getByTestId("log-summary-toggle");
+  await expect(page.getByTestId("log-summary-line")).toHaveText(
+    "31,749 repeated messages in the last 24 hours, top: Garage 31,734",
+  );
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(summary.getByRole("table")).toHaveCount(0);
+
+  // The toggle is a real button: reach it and open it from the keyboard.
+  await toggle.focus();
+  await page.keyboard.press("Enter");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const rows = page.getByTestId("log-summary-row");
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(0)).toContainText("Garage");
+  await expect(rows.nth(0)).toContainText("No frames received from garage");
+  await expect(rows.nth(0)).toContainText("31,000");
+  await expect(rows.nth(3)).toContainText("No camera");
+  await expect(summary).not.toContainText("Connection to tcp://");
+  await expect(
+    summary.getByRole("columnheader").filter({ hasText: "Count" }),
+  ).toBeVisible();
+
+  // Anywhere on a row with a camera restricts the log to that camera.
+  await rows.nth(2).click();
+  await expect(page).toHaveURL(/logs\?camera=backyard/);
+  await expect(page.getByTestId("camera-log-filter")).toContainText("backyard");
+  await expect(
+    page.getByText("Backyard started", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Garage stream failed", { exact: true }),
+  ).toHaveCount(0);
+  // The summary follows the filter, and the row no longer offers it.
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().getByRole("button")).toHaveCount(0);
+
+  // go2rtc has its own groups and no camera filter to apply.
+  await page.getByRole("button", { name: "Show all logs" }).click();
+  await page.getByLabel("Select go2rtc").click();
+  await expect(page.getByTestId("log-summary-line")).toContainText(
+    "5,000 repeated messages",
+  );
 });

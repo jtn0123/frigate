@@ -73,6 +73,14 @@ export default function MetricEmptyState({
   // that is quiet, not the connection
   const stale = waited !== undefined && waited * 1000 >= STALE_AFTER_MS;
   const subject = subjects?.length ? subjects.join(", ") : undefined;
+  let message: string;
+  if (subject) {
+    message = stale
+      ? t("systemMetrics.staleNamed", { subject })
+      : t("systemMetrics.waitingNamed", { subject });
+  } else {
+    message = stale ? t("systemMetrics.stale") : t("systemMetrics.waiting");
+  }
 
   return (
     <output
@@ -88,14 +96,7 @@ export default function MetricEmptyState({
     >
       <span className="flex items-center gap-1.5">
         {stale && <IoIosWarning className="size-4 shrink-0" aria-hidden />}
-        {subject
-          ? t(
-              stale ? "systemMetrics.staleNamed" : "systemMetrics.waitingNamed",
-              {
-                subject,
-              },
-            )
-          : t(stale ? "systemMetrics.stale" : "systemMetrics.waiting")}
+        {message}
       </span>
       {waited !== undefined && (
         <span className="text-xs opacity-80">

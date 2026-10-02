@@ -261,6 +261,7 @@ export default function NotificationsSettingsExtras({
     }
   }, [hasPendingNotifications, defaultValues, resetFormState]);
 
+  const lastSentFormDataRef = useRef<JsonObject | null>(null);
   useEffect(() => {
     if (!formContext?.onFormDataChange) {
       return;
@@ -275,6 +276,12 @@ export default function NotificationsSettingsExtras({
     const normalizedEmail = watchEmail?.trim() ? watchEmail : null;
     set(nextData, "enabled", Boolean(watchAllEnabled));
     set(nextData, "email", normalizedEmail);
+    // fork: the section builds a new formContext on every render, so resending
+    // an unchanged copy re-rendered it forever (C36)
+    if (isEqual(nextData, lastSentFormDataRef.current)) {
+      return;
+    }
+    lastSentFormDataRef.current = nextData;
     formContext.onFormDataChange(nextData as ConfigSectionData);
   }, [config, formContext, watchAllEnabled, watchEmail]);
 
@@ -300,8 +307,9 @@ export default function NotificationsSettingsExtras({
     formContext?.setExtraHasChanges?.(cameraSelectionDirty);
   }, [cameraSelectionDirty, formContext]);
 
+  // fork: depend on the callback, not the formContext rebuilt each render (C36)
+  const onPendingDataChange = formContext?.onPendingDataChange;
   useEffect(() => {
-    const onPendingDataChange = formContext?.onPendingDataChange;
     if (!onPendingDataChange || !config) {
       return;
     }
@@ -356,7 +364,7 @@ export default function NotificationsSettingsExtras({
     cameraSelectionDirty,
     cameraSelectionTouched,
     config,
-    formContext,
+    onPendingDataChange,
     watchAllEnabled,
     watchCameras,
   ]);
@@ -660,7 +668,6 @@ export default function NotificationsSettingsExtras({
             <SettingsGroupCard title={t("notification.deviceSpecific")}>
               <div className={cn("space-y-2", isAdmin && "md:max-w-[50%]")}>
                 <Button
-                  aria-label={t("notification.registerDevice")}
                   className="w-full md:w-auto"
                   disabled={!shouldFetchPubKey || publicKey == undefined}
                   onClick={() => {

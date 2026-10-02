@@ -348,27 +348,46 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - run: |
           python3 -m pip install --require-hashes --only-binary :all: -r fork/requirements-sonar.txt
-      - uses: ./.github/actions/fork-web-setup
-        if: needs.web_e2e.result == 'success'
+      # A shard that failed still measured what it ran, and the failure itself
+      # already fails "Checks passed". Merging only on success let one flaky
+      # retry on next drop all browser coverage, so the gate also failed on
+      # coverage (I63). Browser coverage is used whenever every shard sent it.
       - uses: actions/download-artifact@v4
-        if: needs.web_e2e.result == 'success'
+        if: needs.web_e2e.result == 'success' || needs.web_e2e.result == 'failure'
+        with:
+          pattern: browser-coverage-*
+          path: ${{ runner.temp }}/coverage-shards
+      - name: Browser coverage from every e2e shard
+        id: browser
+        env:
+          SHARDS: 3 # web_e2e's matrix
+          STAGED: ${{ runner.temp }}/coverage-shards
+        run: |
+          mkdir -p "$STAGED" # absent when no shard sent coverage
+          found=$(find "$STAGED" -mindepth 1 -maxdepth 1 -type d -name 'browser-coverage-*' | wc -l)
+          if [[ "$found" -eq "$SHARDS" ]]; then
+            mkdir -p web/coverage-browser
+            for dir in "$STAGED"/browser-coverage-*; do cp -R "$dir/." web/coverage-browser/; done
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::browser coverage from $found of $SHARDS e2e shards; scanning with unit coverage only"
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: ./.github/actions/fork-web-setup
+        if: steps.browser.outputs.complete == 'true'
+      - uses: actions/download-artifact@v4
+        if: steps.browser.outputs.complete == 'true'
         with:
           name: e2e-dist
           path: web/dist
-      - uses: actions/download-artifact@v4
-        if: needs.web_e2e.result == 'success'
-        with:
-          pattern: browser-coverage-*
-          path: web/coverage-browser
-          merge-multiple: true
       - name: Merge measured browser and unit coverage
-        if: needs.web_e2e.result == 'success'
+        if: steps.browser.outputs.complete == 'true'
         run: node scripts/fork/merge-browser-coverage.mjs
         working-directory: ./web
       - name: Verify coverage reports
         env:
           # Without the e2e shards the web report is unit tests alone (D64).
-          BROWSER_COVERAGE: ${{ needs.web_e2e.result == 'success' }}
+          BROWSER_COVERAGE: ${{ steps.browser.outputs.complete == 'true' }}
         run: python3 fork/scripts/sonar-coverage-check.py
       # Warns from 14 days before the date in fork/sonar-token.env. Once it
       # has passed, fails unless the token still authenticates (then only the

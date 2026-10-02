@@ -546,7 +546,9 @@ function NewGroupDialog({
         .then((res) => {
           if (res.status === 200) {
             // fork (UI86): only once the group is gone, and only its own
-            void Promise.all(allLayoutKeysForGroup(name).map(deleteUserKey));
+            void Promise.all(
+              allLayoutKeysForGroup(name).map((key) => deleteUserKey(key)),
+            );
             if (activeGroup == name) {
               // deleting current group
               deleteGroup();

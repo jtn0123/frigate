@@ -7888,6 +7888,74 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /fork/log_summary:
+    get:
+      tags:
+        - Logs
+      summary: Log Summary
+      description: |-
+        **Access:** Admin role required.
+
+        Return repeated warning and error log lines grouped per camera and hour.
+
+        Reads the end of the frigate and go2rtc logs. Admin only, like the logs
+        themselves. Messages are stripped of credentials and query strings.
+
+        Args:
+            request: The incoming request, carrying the config.
+            hours: How far back to look.
+            camera: Only count lines attributed to this camera.
+            min_count: Leave out groups seen fewer times than this.
+
+        Returns:
+            The groups with the highest counts, totals per camera and how far
+            back the logs actually reach.
+      operationId: log_summary_fork_log_summary_get
+      parameters:
+        - name: hours
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 168
+            minimum: 1
+            default: 24
+            title: Hours
+        - name: camera
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+                maxLength: 64
+                pattern: ^[a-zA-Z0-9_-]+$
+              - type: 'null'
+            title: Camera
+        - name: min_count
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 1000000
+            minimum: 1
+            default: 2
+            title: Min Count
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogSummaryResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /classification/{name}/suggestions:
     get:
       tags:
@@ -8131,6 +8199,36 @@ paths:
       security:
         - frigateAdminAuth: []
       x-required-role: admin
+  /fork/go2rtc_state:
+    get:
+      tags:
+        - App
+      summary: Go2Rtc State
+      description: |-
+        **Access:** Any authenticated user.
+
+        Return whether go2rtc is connected to each camera's source.
+
+        Sources are reduced to scheme and host; credentials never leave the
+        backend. An unreachable go2rtc gives `available: false`, not an error.
+
+        Args:
+            request: The incoming request, carrying the config and the reader.
+            allowed_cameras: Cameras this caller may see.
+
+        Returns:
+            The stream states of every camera the caller has access to.
+      operationId: go2rtc_state_fork_go2rtc_state_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Go2rtcStateResponse'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
   /fork/share:
     get:
       tags:
@@ -9037,6 +9135,38 @@ components:
         - incidents
       title: CameraHistorySeries
       description: One camera's frame rate and health across the window's cells.
+    CameraPingState:
+      properties:
+        reachable:
+          type: boolean
+          title: Reachable
+          description: Whether any ping was answered
+        ms:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Ms
+          description: Best round trip in milliseconds, null when none
+        loss:
+          type: number
+          title: Loss
+          description: Share of the pings that went unanswered, 0 to 1
+        method:
+          type: string
+          title: Method
+          description: icmp, or tcp when the stream port decided
+        checked:
+          type: number
+          title: Checked
+          description: Unix timestamp of the round
+      type: object
+      required:
+        - reachable
+        - loss
+        - method
+        - checked
+      title: CameraPingState
+      description: Whether the camera's host answered Frigate's last ping round.
     CameraSetBody:
       properties:
         value:
@@ -10536,6 +10666,108 @@ components:
         - success
         - message
       title: GenericResponse
+    Go2rtcCameraState:
+      properties:
+        streams:
+          items:
+            $ref: '#/components/schemas/Go2rtcStreamState'
+          type: array
+          title: Streams
+          description: Streams named by live.streams, the ffmpeg inputs or the 
+            camera
+        ping:
+          anyOf:
+            - $ref: '#/components/schemas/CameraPingState'
+            - type: 'null'
+          description: Last ping of the camera's host, null before the first 
+            round
+      type: object
+      required:
+        - streams
+      title: Go2rtcCameraState
+      description: The go2rtc streams of one camera.
+    Go2rtcStateResponse:
+      properties:
+        available:
+          type: boolean
+          title: Available
+          description: Whether go2rtc answered
+        updated:
+          type: number
+          title: Updated
+          description: Unix timestamp the state was read
+        cameras:
+          additionalProperties:
+            $ref: '#/components/schemas/Go2rtcCameraState'
+          type: object
+          title: Cameras
+          description: State per camera the caller may see, empty when 
+            unavailable
+      type: object
+      required:
+        - available
+        - updated
+        - cameras
+      title: Go2rtcStateResponse
+      description: Per-camera go2rtc source state behind the Health drawer.
+    Go2rtcStreamState:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: go2rtc stream name
+        configured:
+          type: boolean
+          title: Configured
+          description: Whether go2rtc has a stream by this name
+        connected:
+          type: boolean
+          title: Connected
+          description: Whether any producer has tracks or has received bytes
+        bytes_received:
+          type: integer
+          title: Bytes Received
+          description: Bytes received across all producers
+        bytes_per_second:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Bytes Per Second
+          description: Receive rate since the previous sample, null when there 
+            is none
+        producers:
+          type: integer
+          title: Producers
+          description: Number of sources go2rtc lists
+        consumers:
+          type: integer
+          title: Consumers
+          description: Number of readers currently attached
+        codecs:
+          items:
+            type: string
+          type: array
+          title: Codecs
+          description: Codecs the connected producers offer
+        source:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Source
+          description: Scheme and host of the source, never credentials, path or
+            query
+      type: object
+      required:
+        - name
+        - configured
+        - connected
+        - bytes_received
+        - producers
+        - consumers
+        - codecs
+      title: Go2rtcStreamState
+      description: One go2rtc stream a camera depends on, without its source 
+        URL.
     HTTPValidationError:
       properties:
         detail:
@@ -10657,6 +10889,159 @@ components:
         - total_alert
         - total_detection
       title: Last24HoursReview
+    LogSummaryGroup:
+      properties:
+        camera:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Camera
+          description: Camera the lines are about, null when none could be told
+        service:
+          type: string
+          title: Service
+          description: "Log the lines came from: 'frigate' or 'go2rtc'"
+        hour:
+          type: number
+          title: Hour
+          description: Unix timestamp of the start of the hour
+        level:
+          type: string
+          title: Level
+          description: "Highest level among the lines: 'info', 'warning' or 'error'"
+        count:
+          type: integer
+          title: Count
+          description: Lines in this group
+        first:
+          type: number
+          title: First
+          description: Unix timestamp of the first line
+        last:
+          type: number
+          title: Last
+          description: Unix timestamp of the last line
+        message:
+          type: string
+          title: Message
+          description: One example message, with URLs stripped of credentials 
+            and query strings, cut to about 200 characters
+        signature:
+          type: string
+          title: Signature
+          description: The message with its numbers replaced, the same for every
+            hour a message repeats in
+      type: object
+      required:
+        - service
+        - hour
+        - level
+        - count
+        - first
+        - last
+        - message
+        - signature
+      title: LogSummaryGroup
+      description: One message a camera repeated within one hour.
+    LogSummaryResponse:
+      properties:
+        hours:
+          type: integer
+          title: Hours
+          description: Hours that were asked for
+        start:
+          type: number
+          title: Start
+          description: Unix timestamp the requested window starts at
+        end:
+          type: number
+          title: End
+          description: Unix timestamp the requested window ends at
+        covered_from:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Covered From
+          description: Unix timestamp the logs actually reach back to inside the
+            window (they rotate by size), null when no log could be read
+        sources:
+          additionalProperties:
+            $ref: '#/components/schemas/LogSummarySource'
+          type: object
+          title: Sources
+          description: What was read, per service
+        total:
+          type: integer
+          title: Total
+          description: Lines counted, including ones left out of groups
+        unattributed:
+          type: integer
+          title: Unattributed
+          description: Counted lines that name no camera
+        cameras:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Cameras
+          description: Counted lines per camera, highest first
+        truncated:
+          type: boolean
+          title: Truncated
+          description: True when there were more groups than are returned
+        groups:
+          items:
+            $ref: '#/components/schemas/LogSummaryGroup'
+          type: array
+          title: Groups
+          description: Groups seen at least min_count times, highest count first
+      type: object
+      required:
+        - hours
+        - start
+        - end
+        - sources
+        - total
+        - unattributed
+        - cameras
+        - truncated
+        - groups
+      title: LogSummaryResponse
+      description: Repeated warning and error log lines, collapsed per camera 
+        and hour.
+    LogSummarySource:
+      properties:
+        available:
+          type: boolean
+          title: Available
+          description: Whether the log file could be read
+        partial:
+          type: boolean
+          title: Partial
+          description: True when only the end of the file was read because of 
+            its size
+        lines:
+          type: integer
+          title: Lines
+          description: Lines read from the file
+        covered_from:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Covered From
+          description: Unix timestamp of the oldest line read, null without any
+        covered_to:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Covered To
+          description: Unix timestamp of the newest line read, null without any
+      type: object
+      required:
+        - available
+        - partial
+        - lines
+      title: LogSummarySource
+      description: How much of one service's log was read.
     MediaSyncBody:
       properties:
         dry_run:

@@ -72,6 +72,9 @@ test.describe("LPR known plates picker @medium @mobile", () => {
 
     const picked = page.getByRole("combobox").filter({ hasText: "XYZ789" });
     await expect(picked).toBeVisible();
+    // Reopening during the close animation reuses the closing content, whose
+    // open autofocus already ran, so the search box would not take focus.
+    await expect(picker).toHaveCount(0);
 
     await picked.click();
     await expect(picker.getByRole("combobox")).toBeFocused();

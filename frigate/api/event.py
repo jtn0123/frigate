@@ -1705,13 +1705,22 @@ def generate_description_embedding(
 ):
     new_description = body.description
 
-    # If semantic search is enabled, update the index
-    if request.app.frigate_config.semantic_search.enabled:
-        context: EmbeddingsContext = request.app.embeddings
-        if len(new_description) > 0:
-            result = context.generate_description_embedding(
-                new_description,
-            )
+    if not request.app.frigate_config.semantic_search.enabled:
+        return JSONResponse(
+            content={"success": False, "message": _SEMANTIC_SEARCH_IS_NOT_ENABLED},
+            status_code=400,
+        )
+
+    if not new_description:
+        return JSONResponse(
+            content={"success": False, "message": "Description cannot be empty"},
+            status_code=400,
+        )
+
+    context: EmbeddingsContext = request.app.embeddings
+    result = context.generate_description_embedding(
+        new_description,
+    )
 
     return JSONResponse(
         content=(
@@ -1970,7 +1979,13 @@ def create_trigger_embedding(
 
             # Skip the event if not an object
             if event.data.get("type") != "object":
-                return
+                return JSONResponse(
+                    content={
+                        "success": False,
+                        "message": f"Event {body.data} is not a tracked object for {body.type} trigger",
+                    },
+                    status_code=400,
+                )
 
             # Get the thumbnail
             thumbnail = get_event_thumbnail_bytes(event)
@@ -2120,6 +2135,7 @@ def update_trigger_embedding(
                 # Extract valid thumbnail
                 thumbnail = get_event_thumbnail_bytes(event)
 
+                os.makedirs(os.path.dirname(webp_path), exist_ok=True)
                 with open(webp_path, "wb") as f:
                     f.write(thumbnail)
             except DoesNotExist:
@@ -2261,7 +2277,7 @@ def delete_trigger_embedding(
                     "success": False,
                     "message": f"Trigger {camera_name}:{name} not found",
                 },
-                status_code=500,
+                status_code=404,
             )
 
         deleted = (
@@ -2275,7 +2291,7 @@ def delete_trigger_embedding(
                     "success": False,
                     "message": f"Error deleting trigger {camera_name}:{name}",
                 },
-                status_code=401,
+                status_code=404,
             )
 
         try:

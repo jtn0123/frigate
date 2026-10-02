@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import sqlite3
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
@@ -34,9 +35,9 @@ RANGES = {
 )
 async def system_metrics_history(
     request: Request,
-    window: str = Query(
-        default="1h", alias="range", description="One of " + ", ".join(RANGES)
-    ),
+    window: Annotated[
+        str, Query(alias="range", description="One of " + ", ".join(RANGES))
+    ] = "1h",
 ) -> JSONResponse:
     """Return averaged samples of the graphed metrics for one range."""
     seconds = RANGES.get(window)
@@ -70,7 +71,7 @@ async def system_metrics_history(
     )
 
 
-async def system_metrics_sampler(app) -> None:
+async def system_metrics_sampler(app: Any) -> None:
     """Store a minute sample whether or not a browser is on the System page."""
     while True:
         await asyncio.sleep(SAMPLE_INTERVAL)
