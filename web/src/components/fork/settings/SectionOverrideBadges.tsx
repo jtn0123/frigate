@@ -46,6 +46,11 @@ export default function SectionOverrideBadges({
     showOverrideIndicator &&
     isOverridden &&
     selectedCamera;
+  // exactOptionalPropertyTypes: an absent prop, not an undefined one
+  const profileLabels = {
+    ...(profileFriendlyName === undefined ? {} : { profileFriendlyName }),
+    ...(profileBorderColor === undefined ? {} : { profileBorderColor }),
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -58,13 +63,7 @@ export default function SectionOverrideBadges({
             sectionPath={sectionKey}
             cameraName={selectedCamera}
             profileName={currentEditingProfile}
-            // exactOptionalPropertyTypes: an absent prop, not an undefined one
-            {...(profileFriendlyName === undefined
-              ? {}
-              : { profileFriendlyName })}
-            {...(profileBorderColor === undefined
-              ? {}
-              : { profileBorderColor })}
+            {...profileLabels}
           />
         ) : (
           <GlobalOverridesBadge

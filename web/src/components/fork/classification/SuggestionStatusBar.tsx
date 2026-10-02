@@ -134,6 +134,14 @@ export default function SuggestionStatusBar({
 
   const fileAll = useCallback(
     async (batch: DraftToFile[]) => {
+      const fileDraft = (draft: DraftToFile) =>
+        confirmSuggestion(
+          draft.eventId,
+          draft.files,
+          draft.suggestion,
+          undefined,
+          true,
+        );
       onFiling?.(true);
       setProgress({ done: 0, total: batch.length });
       let filed = 0;
@@ -141,14 +149,9 @@ export default function SuggestionStatusBar({
         if (gone()) {
           break;
         }
-        // One at a time: each call moves files on disk.
-        const ok = await confirmSuggestion(
-          draft.eventId,
-          draft.files,
-          draft.suggestion,
-          undefined,
-          true,
-        );
+        // One at a time (so NOSONAR on S9382): each call moves files on
+        // disk, the progress counts them in order, and leaving stops the rest.
+        const ok = await fileDraft(draft); // NOSONAR
         filed += ok ? 1 : 0;
         if (!gone()) {
           setProgress({ done: index + 1, total: batch.length });

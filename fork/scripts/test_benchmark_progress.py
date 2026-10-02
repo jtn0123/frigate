@@ -2,11 +2,13 @@
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SPEC = importlib.util.spec_from_file_location(
     "benchmark", Path(__file__).with_name("benchmark_image_build.py")
@@ -157,3 +159,136 @@ class TestBenchmarkProgress(unittest.TestCase):
     def test_disk_guard_stops_before_docker_partition_fills(self):
         with self.assertRaisesRegex(RuntimeError, "Docker partition"):
             benchmark.check_disk_reserve(8 * 1024**3, 4 * 1024**3)
+
+    def test_milestones_are_compared_with_a_successful_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            reference = root / "reference.json"
+            reference.write_text(
+                json.dumps(
+                    {
+                        "status": "success",
+                        "seconds": 1000,
+                        "milestones": {"amd64-image": 1000},
+                    }
+                )
+            )
+            log = root / "build.log"
+            script = "print('#1 [amd64] exporting to image'); print('#1 DONE 5.0s')"
+            with patch.dict(os.environ, {"BENCHMARK_REFERENCE": str(reference)}):
+                benchmark.measure([sys.executable, "-c", script], directory, log)
+            saved = json.loads(log.with_suffix(".timing.json").read_text())
+            self.assertEqual(["amd64-image"], list(saved["milestones"]))
+            self.assertGreater(
+                saved["milestone_time_reduction_percent"]["amd64-image"], 90
+            )
+            self.assertGreater(saved["time_reduction_percent"], 90)
+
+    def test_a_milestone_keeps_the_time_it_was_first_seen(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "build.log"
+            log.write_text("#1 [rocm] exporting to image\n#1 DONE 5.0s\n")
+            report = {"milestones": {}, "milestone_time_reduction_percent": {}}
+            benchmark._record_milestones(report, {}, log, 10.0)
+            benchmark._record_milestones(report, {}, log, 20.0)
+            self.assertEqual({"rocm-image": 10.0}, report["milestones"])
+            self.assertIsNone(report["milestone_time_reduction_percent"]["rocm-image"])
+
+    def test_baseline_that_did_not_succeed_gives_no_milestone_time(self):
+        reference = {"status": "failed", "milestones": {"amd64-image": 10}}
+        self.assertIsNone(benchmark._baseline_seconds(reference, "amd64-image"))
+
+    def test_running_build_is_polled_again(self):
+        process = Mock()
+        process.wait.side_effect = subprocess.TimeoutExpired("build", 30)
+        self.assertIsNone(benchmark._wait_briefly(process))
+
+    def test_finished_build_is_not_stopped(self):
+        process = Mock()
+        process.poll.return_value = 0
+        benchmark._stop_process(process)
+        process.terminate.assert_not_called()
+
+    def test_build_that_ignores_terminate_is_killed(self):
+        process = Mock()
+        process.poll.return_value = None
+        process.wait.side_effect = [subprocess.TimeoutExpired("build", 10), 0]
+        benchmark._stop_process(process)
+        process.terminate.assert_called_once_with()
+        process.kill.assert_called_once_with()
+
+    def test_disk_guard_stops_a_running_build_and_records_why(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "build.log"
+            with (
+                patch.object(benchmark, "_wait_briefly"),
+                patch.object(
+                    benchmark, "check_disk_reserve", side_effect=RuntimeError("disk")
+                ),
+                self.assertRaisesRegex(RuntimeError, "disk"),
+            ):
+                benchmark.measure(
+                    [sys.executable, "-c", "import time; time.sleep(60)"],
+                    directory,
+                    log,
+                )
+            saved = json.loads(log.with_suffix(".timing.json").read_text())
+            self.assertEqual("disk", saved["error"])
+            self.assertEqual("failed", saved["status"])
+
+    def test_build_past_the_time_limit_is_stopped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "build.log"
+            with (
+                patch.object(benchmark, "_wait_briefly"),
+                patch.object(
+                    benchmark.time, "monotonic", side_effect=[0.0, 7200.0, 7201.0]
+                ),
+                self.assertRaises(TimeoutError),
+            ):
+                benchmark.measure(
+                    [sys.executable, "-c", "import time; time.sleep(60)"],
+                    directory,
+                    log,
+                )
+            saved = json.loads(log.with_suffix(".timing.json").read_text())
+            self.assertIn("7200 seconds", saved["error"])
+
+    def test_dependency_images_case_adds_its_build_and_resumes_results(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            output = root / "output"
+            (source / "frigate").mkdir(parents=True)
+            (output / "cold").mkdir(parents=True)
+            (output / "results.json").write_text(
+                json.dumps({"phases": {"earlier": {"seconds": 1}}})
+            )
+            (output / "cold" / "results.json").write_text(json.dumps({"deps": 3}))
+            (output / "cold" / "application.log").write_text("")
+            argv = [
+                "benchmark_image_build.py",
+                "--source",
+                str(source),
+                "--output",
+                str(output),
+                "--case",
+                "dependency-images",
+                "--phase",
+                "cold",
+            ]
+            with (
+                patch.object(sys, "argv", argv),
+                patch.object(
+                    benchmark, "build_targets", return_value={"benchmark": 4.0}
+                ),
+                patch.object(
+                    benchmark, "summarize_log", return_value={"operations": []}
+                ),
+            ):
+                benchmark.main()
+            result = json.loads((output / "results.json").read_text())
+            self.assertEqual({"earlier", "cold"}, set(result["phases"]))
+            cold = result["phases"]["cold"]
+            self.assertEqual({"deps": 3}, cold["dependency_build"])
+            self.assertEqual(["application"], list(cold["logs"]))

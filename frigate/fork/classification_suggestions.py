@@ -695,9 +695,7 @@ async def suggest_for_events(
     """
     result: dict[str, EventSuggestion] = {}
     for event in events:
-        data = event.get("data") or {}
-        description = data.get("description")
-        description = description.strip() if isinstance(description, str) else ""
+        description = _event_description(event)
         text = text_suggestion(description, classes) if text_enabled else None
         jev_draft: Suggestion | None = None
         answer: dict[str, Any] | None = None
@@ -709,14 +707,7 @@ async def suggest_for_events(
         if answer is not None:
             jev_draft = jev_suggestion(answer)
         suggestion, conflict = choose(text, jev_draft)
-        maybe = None
-        if answer is not None and suggestion is None and not conflict:
-            maybe = jev_suggestion(answer, MAYBE_SCORE, MAYBE_MARGIN)
-        elif suggestion is text and text and answer and jev_says_unknown(answer):
-            # I56: the local match reads words, not which object they are about
-            # ("answer suv", "a sedan-shaped hoodie"). When Jev read the same
-            # text and chose unknown, the match is only a hint to pick by hand.
-            suggestion, maybe = None, text
+        suggestion, maybe = _with_maybe(suggestion, conflict, text, answer)
         result[event["id"]] = {
             "text": text,
             "jev": jev_draft,
@@ -726,6 +717,30 @@ async def suggest_for_events(
             "maybe": maybe,
         }
     return result
+
+
+def _event_description(event: dict[str, Any]) -> str:
+    """The event's trimmed description, or an empty string without one."""
+    data = event.get("data") or {}
+    description = data.get("description")
+    return description.strip() if isinstance(description, str) else ""
+
+
+def _with_maybe(
+    suggestion: Suggestion | None,
+    conflict: bool,
+    text: Suggestion | None,
+    answer: dict[str, Any] | None,
+) -> tuple[Suggestion | None, Suggestion | None]:
+    """Settle the suggestion and the weaker "maybe" hint shown beside it."""
+    if answer is not None and suggestion is None and not conflict:
+        return None, jev_suggestion(answer, MAYBE_SCORE, MAYBE_MARGIN)
+    if suggestion is text and text and answer and jev_says_unknown(answer):
+        # I56: the local match reads words, not which object they are about
+        # ("answer suv", "a sedan-shaped hoodie"). When Jev read the same
+        # text and chose unknown, the match is only a hint to pick by hand.
+        return None, text
+    return suggestion, None
 
 
 async def _ask_jev(

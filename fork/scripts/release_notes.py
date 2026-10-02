@@ -65,9 +65,9 @@ TOOLING_RE = re.compile(
     re.IGNORECASE,
 )
 
-ID_RE = re.compile(
-    r"^(?P<ids>[A-Z]{1,2}\d+(?:\s*\+\s*[A-Z]{1,2}\d+)*)\s*:\s*(?P<text>.+)$"
-)
+# Possessive quantifiers keep the match linear: no two of them can trade
+# characters. The text after the colon is trimmed by `ledger_text`.
+ID_RE = re.compile(r"(?P<ids>[A-Z]{1,2}\d++(?:\s*+\+\s*+[A-Z]{1,2}\d++)*+)\s*+:")
 RECORD_SEP = "\x1e"
 
 
@@ -175,10 +175,25 @@ def upstream_label(ref: str, upstream: str, cwd: str | None = None) -> str:
 def ledger_prefix(subject: str) -> tuple[str, str]:
     """Split `UI6 + C2: text` into ("UI", "text"); no ID gives ("", subject)."""
     match = ID_RE.match(subject)
-    if match is None:
+    text = ledger_text(subject[match.end() :]) if match else None
+    if match is None or text is None:
         return "", subject
     letters = re.match(r"[A-Z]+", match.group("ids"))
-    return (letters.group(0) if letters else ""), match.group("text")
+    return (letters.group(0) if letters else ""), text
+
+
+def ledger_text(rest: str) -> str | None:
+    """Trim the text after a ledger ID's colon, or None when it is unusable.
+
+    This is what `\\s*(.+)$` captured, without the regex backtracking: leading
+    whitespace goes, a single trailing newline is dropped, and other newlines
+    reject the subject. A whitespace-only text keeps its last character.
+    """
+    body = rest.removesuffix("\n")
+    text = body.lstrip()
+    if not text:
+        return body[-1] if body and body[-1] != "\n" else None
+    return None if "\n" in text else text
 
 
 def is_internal(commit: Commit, prefix: str) -> bool:

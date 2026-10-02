@@ -51,7 +51,7 @@ function link(overrides: Partial<ShareLink> = {}): ShareLink {
 }
 
 function renderList(
-  props: Parameters<typeof ActiveShareLinks>[0] = {},
+  props: Partial<Parameters<typeof ActiveShareLinks>[0]> = {},
   username = "bob",
 ) {
   return render(
@@ -67,7 +67,7 @@ function renderList(
         logout: vi.fn(),
       }}
     >
-      <ActiveShareLinks {...props} />
+      <ActiveShareLinks currentToken={undefined} {...props} />
     </AuthContext.Provider>,
   );
 }

@@ -125,52 +125,76 @@ function setSettings(settings: InboxSettings) {
   emit();
 }
 
+/**
+ * Whether the merged copy of an item is read. A severity change between the
+ * two copies (an escalation) takes the read state of the alert copy, since
+ * the alert is news even if the detection was read.
+ */
+function mergedRead(item: InboxItem, existing: InboxItem | undefined): boolean {
+  if (existing === undefined) return item.read || false;
+  if (item.severity !== existing.severity) {
+    return item.severity === "alert" ? item.read : existing.read;
+  }
+  return item.read || existing.read || false;
+}
+
+/** Fold another tab's copy of an item into the one already merged. */
+function mergeItem(
+  item: InboxItem,
+  existing: InboxItem | undefined,
+): InboxItem {
+  const alert = item.severity === "alert" || existing?.severity === "alert";
+  return {
+    ...item,
+    ...existing,
+    severity: alert ? "alert" : "detection",
+    read: mergedRead(item, existing),
+  };
+}
+
+function syncItemsFromStorage() {
+  const incoming = sanitizeItems(readJson(INBOX_ITEMS_KEY, []));
+  const merged = new Map<string, InboxItem>();
+  for (const item of [...incoming, ...state.items]) {
+    if (dismissed.includes(item.id)) continue;
+    merged.set(item.id, mergeItem(item, merged.get(item.id)));
+  }
+  const items = [...merged.values()].slice(0, INBOX_MAX_ITEMS);
+  if (JSON.stringify(items) !== JSON.stringify(state.items)) {
+    setItems(items);
+  }
+}
+
+function syncSettingsFromStorage() {
+  const settings = sanitizeSettings(
+    readJson(INBOX_SETTINGS_KEY, DEFAULT_SETTINGS),
+  );
+  if (JSON.stringify(settings) !== JSON.stringify(state.settings)) {
+    state = { ...state, settings };
+    emit();
+  }
+}
+
+function syncDismissedFromStorage() {
+  const incoming = sanitizeDismissed(readJson(INBOX_DISMISSED_KEY, []));
+  const merged = [...new Set([...incoming, ...dismissed])].slice(
+    -INBOX_MAX_DISMISSED,
+  );
+  if (JSON.stringify(merged) !== JSON.stringify(dismissed)) {
+    dismissed = merged;
+    writeJson(INBOX_DISMISSED_KEY, dismissed);
+  }
+  const items = state.items.filter((item) => !dismissed.includes(item.id));
+  if (items.length !== state.items.length) setItems(items);
+}
+
 function handleStorage(event: StorageEvent) {
   if (event.key === INBOX_ITEMS_KEY) {
-    const incoming = sanitizeItems(readJson(INBOX_ITEMS_KEY, []));
-    const merged = new Map<string, InboxItem>();
-    for (const item of [...incoming, ...state.items]) {
-      if (dismissed.includes(item.id)) continue;
-      const existing = merged.get(item.id);
-      const escalation =
-        existing !== undefined && item.severity !== existing.severity;
-      merged.set(item.id, {
-        ...item,
-        ...existing,
-        severity:
-          item.severity === "alert" || existing?.severity === "alert"
-            ? "alert"
-            : "detection",
-        read: escalation
-          ? item.severity === "alert"
-            ? item.read
-            : existing.read
-          : item.read || existing?.read || false,
-      });
-    }
-    const items = [...merged.values()].slice(0, INBOX_MAX_ITEMS);
-    if (JSON.stringify(items) !== JSON.stringify(state.items)) {
-      setItems(items);
-    }
+    syncItemsFromStorage();
   } else if (event.key === INBOX_SETTINGS_KEY) {
-    const settings = sanitizeSettings(
-      readJson(INBOX_SETTINGS_KEY, DEFAULT_SETTINGS),
-    );
-    if (JSON.stringify(settings) !== JSON.stringify(state.settings)) {
-      state = { ...state, settings };
-      emit();
-    }
+    syncSettingsFromStorage();
   } else if (event.key === INBOX_DISMISSED_KEY) {
-    const incoming = sanitizeDismissed(readJson(INBOX_DISMISSED_KEY, []));
-    const merged = [...new Set([...incoming, ...dismissed])].slice(
-      -INBOX_MAX_DISMISSED,
-    );
-    if (JSON.stringify(merged) !== JSON.stringify(dismissed)) {
-      dismissed = merged;
-      writeJson(INBOX_DISMISSED_KEY, dismissed);
-    }
-    const items = state.items.filter((item) => !dismissed.includes(item.id));
-    if (items.length !== state.items.length) setItems(items);
+    syncDismissedFromStorage();
   }
 }
 

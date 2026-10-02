@@ -323,7 +323,8 @@ class TestHttpForkShare(BaseTestHttp):
             )
             assert isinstance(response, StreamingResponse)
             playlists = os.listdir(cache_dir)
-            assert len(playlists) == 1 and playlists[0].startswith("playlist_")
+            assert len(playlists) == 1
+            assert playlists[0].startswith("playlist_")
 
             # what dropping the response does; the generator never runs
             response.body_iterator.release()
@@ -356,9 +357,10 @@ class TestHttpForkShare(BaseTestHttp):
 
         assert fork_share._clip_slots.acquire(blocking=False)
         stream = fork_share._SlotStream(body())
+        reading = read(stream)
 
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.run(read(stream))
+            asyncio.run(reading)
 
         # a second release would raise ValueError on the bounded semaphore
         stream.release()

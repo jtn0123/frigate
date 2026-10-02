@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import {
+  QrCodeDataType,
   encode,
   renderANSI,
   renderSVG,
@@ -195,5 +196,24 @@ describe("QR public options and renderers", () => {
     expect(svg).toContain('viewBox="0 0 42 42"');
     expect(svg).toContain('<rect fill="#fff" width="42" height="42"/>');
     expect(svg).toContain('<path fill="#000" d="M');
+  });
+});
+
+describe("QrCodeDataType", () => {
+  it("maps names to values and values back to names like a compiled enum", () => {
+    expect(Object.entries(QrCodeDataType)).toEqual([
+      ["0", "Data"],
+      ["1", "Function"],
+      ["2", "Position"],
+      ["3", "Timing"],
+      ["4", "Alignment"],
+      ["Border", -1],
+      ["-1", "Border"],
+      ["Data", 0],
+      ["Function", 1],
+      ["Position", 2],
+      ["Timing", 3],
+      ["Alignment", 4],
+    ]);
   });
 });

@@ -64,7 +64,7 @@ def summarize_log(path: Path) -> dict[str, Any]:
         if not match:
             continue
         step, message = match.groups()
-        if message.startswith("[") or message.startswith("exporting"):
+        if message.startswith(("[", "exporting")):
             headers[step] = message
         if message == "CACHED":
             cached.add(step)
@@ -128,6 +128,93 @@ def check_disk_reserve(log_free: int, docker_free: int) -> None:
         raise RuntimeError("Benchmark stopped: Docker partition below 5 GiB reserve")
 
 
+def _wait_briefly(process: subprocess.Popen[bytes]) -> None:
+    """Wait up to 30 seconds so progress is checkpointed while the build runs."""
+    try:
+        process.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        # Still running: the caller records progress and polls again.
+        return
+
+
+def _baseline_seconds(reference: dict[str, Any], milestone: str) -> float | None:
+    """Return the reference time for a milestone from a successful baseline."""
+    if reference.get("status") != "success":
+        return None
+    milestones: dict[str, float] = reference.get("milestones", {})
+    return milestones.get(milestone)
+
+
+def _record_milestones(
+    report: dict[str, Any],
+    reference: dict[str, Any],
+    log_path: Path,
+    elapsed: float,
+) -> None:
+    """Record the first time each final export completes, with its comparison."""
+    # The dependency orchestrator writes the final graph to a nested log.
+    phase = log_path.name.split("-benchmark")[0]
+    final_log = log_path.parent / phase / "application.log"
+    observed = final_log if final_log.exists() else log_path
+    for milestone in completed_milestones(observed):
+        if milestone in report["milestones"]:
+            continue
+        report["milestones"][milestone] = elapsed
+        before = _baseline_seconds(reference, milestone)
+        delta = time_reduction(before, elapsed) if before else None
+        report["milestone_time_reduction_percent"][milestone] = delta
+        print(
+            f"Milestone {milestone}: {elapsed:.1f}s; time reduction vs baseline: {delta}",
+            flush=True,
+        )
+
+
+def _poll_until_done(
+    process: subprocess.Popen[bytes],
+    report: dict[str, Any],
+    reference: dict[str, Any],
+    paths: tuple[Path, Path, Path],
+    start: float,
+) -> None:
+    """Checkpoint progress until the build exits, times out or runs out of disk."""
+    cwd, log_path, timing = paths
+    while True:
+        _wait_briefly(process)
+        elapsed = time.monotonic() - start
+        _record_milestones(report, reference, log_path, elapsed)
+        report.update(
+            seconds=elapsed,
+            log_disk_free_bytes=shutil.disk_usage(cwd).free,
+            docker_disk_free_bytes=shutil.disk_usage(
+                os.environ.get("BENCHMARK_DOCKER_DISK", cwd)
+            ).free,
+        )
+        save_json(timing, report)
+        print(
+            f"Benchmark {log_path.stem}: {elapsed:.1f}s elapsed; completed milestones: {sorted(report['milestones'])}",
+            flush=True,
+        )
+        if process.returncode is not None:
+            return
+        if elapsed >= 7200:
+            raise TimeoutError("Benchmark exceeded 7200 seconds")
+        check_disk_reserve(
+            report["log_disk_free_bytes"], report["docker_disk_free_bytes"]
+        )
+
+
+def _stop_process(process: subprocess.Popen[bytes]) -> None:
+    """Terminate a build that is still running, killing it if it lingers."""
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
 def measure(command: list[str], cwd: Path, log_path: Path) -> float:
     """Persist live checkpoints and final timing independently of cleanup."""
     start = time.monotonic()
@@ -146,60 +233,12 @@ def measure(command: list[str], cwd: Path, log_path: Path) -> float:
             command, cwd=cwd, stdout=log, stderr=subprocess.STDOUT
         )
         try:
-            while True:
-                try:
-                    process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    pass
-                elapsed = time.monotonic() - start
-                # The dependency orchestrator writes the final graph to a nested log.
-                phase = log_path.name.split("-benchmark")[0]
-                final_log = log_path.parent / phase / "application.log"
-                observed = final_log if final_log.exists() else log_path
-                for milestone in completed_milestones(observed):
-                    if milestone not in report["milestones"]:
-                        report["milestones"][milestone] = elapsed
-                        before = (
-                            reference.get("milestones", {}).get(milestone)
-                            if reference.get("status") == "success"
-                            else None
-                        )
-                        delta = time_reduction(before, elapsed) if before else None
-                        report["milestone_time_reduction_percent"][milestone] = delta
-                        print(
-                            f"Milestone {milestone}: {elapsed:.1f}s; time reduction vs baseline: {delta}",
-                            flush=True,
-                        )
-                report.update(
-                    seconds=elapsed,
-                    log_disk_free_bytes=shutil.disk_usage(cwd).free,
-                    docker_disk_free_bytes=shutil.disk_usage(
-                        os.environ.get("BENCHMARK_DOCKER_DISK", cwd)
-                    ).free,
-                )
-                save_json(timing, report)
-                print(
-                    f"Benchmark {log_path.stem}: {elapsed:.1f}s elapsed; completed milestones: {sorted(report['milestones'])}",
-                    flush=True,
-                )
-                if process.returncode is not None:
-                    break
-                if elapsed >= 7200:
-                    raise TimeoutError("Benchmark exceeded 7200 seconds")
-                check_disk_reserve(
-                    report["log_disk_free_bytes"], report["docker_disk_free_bytes"]
-                )
+            _poll_until_done(process, report, reference, (cwd, log_path, timing), start)
         except (RuntimeError, TimeoutError) as error:
             report["error"] = str(error)
             raise
         finally:
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
+            _stop_process(process)
             report.update(
                 seconds=time.monotonic() - start,
                 returncode=process.returncode,
@@ -229,6 +268,7 @@ PINNED_BUILDKIT_IMAGE = (
 KNOWN_CONTEXTS = ("colima-frigate-build-bench", "frigate-github-bench")
 KNOWN_CASES = ("baseline", "shared-gzip", "shared-zstd", "dependency-images")
 BENCHMARK_REGISTRY = "localhost:5007"
+RESULTS_FILE = "results.json"
 
 
 def known(value: str | None, allowed: tuple[str, ...]) -> str | None:
@@ -343,6 +383,41 @@ def build_targets(
     return times
 
 
+def _valid_seed_caches(seed_caches: Any) -> bool:
+    """Accept only a list of immutable GHCR digest references."""
+    return isinstance(seed_caches, list) and all(
+        isinstance(ref, str)
+        and re.fullmatch(r"ghcr\.io/[a-z0-9_./-]+@sha256:[a-f0-9]{64}", ref)
+        for ref in seed_caches
+    )
+
+
+def _phase_result(
+    args: argparse.Namespace,
+    phase: str,
+    phases: list[str],
+    times: dict[str, float],
+) -> dict[str, Any]:
+    """Summarize one phase's timings and logs for the results file."""
+    result: dict[str, Any] = {
+        "seconds": sum(times.values()),
+        "targets": times,
+        "logs": {
+            target: summarize_log(args.output / f"{phase}-{target}.log")
+            for target in phases
+        },
+    }
+    if args.case == "dependency-images":
+        result["dependency_build"] = json.loads(
+            (args.output / phase / RESULTS_FILE).read_text()
+        )
+        result["logs"] = {
+            path.stem: summarize_log(path)
+            for path in sorted((args.output / phase).glob("*.log"))
+        }
+    return result
+
+
 def main() -> None:
     """Build cold and application-change cases without moving release tags."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -367,11 +442,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     seed_caches = json.loads(args.seed_caches.read_text()) if args.seed_caches else []
-    if not isinstance(seed_caches, list) or any(
-        not isinstance(ref, str)
-        or not re.fullmatch(r"ghcr\.io/[a-z0-9_./-]+@sha256:[a-f0-9]{64}", ref)
-        for ref in seed_caches
-    ):
+    if not _valid_seed_caches(seed_caches):
         parser.error("Seed caches must be immutable GHCR digest references")
     pin_arguments(parser, args)
     if args.context == "frigate-github-bench" and not (
@@ -396,8 +467,8 @@ def main() -> None:
         "source": str(args.source),
         "seed_caches": seed_caches,
     }
-    if (args.output / "results.json").exists():
-        results = json.loads((args.output / "results.json").read_text())
+    if (args.output / RESULTS_FILE).exists():
+        results = json.loads((args.output / RESULTS_FILE).read_text())
     # The same harmless source change exercises cache invalidation in both cases.
     marker = args.source / "frigate" / "build_benchmark_marker.txt"
     if marker.exists():
@@ -417,23 +488,8 @@ def main() -> None:
             )
             phases = ["benchmark"] if shared else ["amd64", "rocm"]
             times = build_targets(args, config, override, phase, phases)
-            results["phases"][phase] = {
-                "seconds": sum(times.values()),
-                "targets": times,
-                "logs": {
-                    target: summarize_log(args.output / f"{phase}-{target}.log")
-                    for target in phases
-                },
-            }
-            if args.case == "dependency-images":
-                results["phases"][phase]["dependency_build"] = json.loads(
-                    (args.output / phase / "results.json").read_text()
-                )
-                results["phases"][phase]["logs"] = {
-                    path.stem: summarize_log(path)
-                    for path in sorted((args.output / phase).glob("*.log"))
-                }
-            (args.output / "results.json").write_text(json.dumps(results, indent=2))
+            results["phases"][phase] = _phase_result(args, phase, phases, times)
+            (args.output / RESULTS_FILE).write_text(json.dumps(results, indent=2))
             print(json.dumps(results["phases"][phase]), flush=True)
     finally:
         marker.unlink(missing_ok=True)

@@ -67,9 +67,11 @@ test.describe("Clip sharing @high", () => {
     await expect(page.getByTestId("share-clip-url")).toHaveValue(
       /\/share\/e2eShareToken/,
     );
-    await expect(
-      page.getByTestId("share-clip-qr").locator("svg"),
-    ).toBeVisible();
+    await expect(page.getByTestId("share-clip-qr")).toBeVisible();
+    await expect(page.getByTestId("share-clip-qr")).toHaveAttribute(
+      "src",
+      /^data:image\/svg\+xml/,
+    );
     expect(created).toBe(1);
   });
 
@@ -260,8 +262,10 @@ test.describe("Clip sharing @high", () => {
     await expect(root).toBeVisible({ timeout: 10_000 });
     await expect(root).toContainText(/person/i);
     await expect(root).toContainText(/front door/i);
-    await expect(
-      page.getByTestId("share-clip-qr").locator("svg"),
-    ).toBeVisible();
+    await expect(page.getByTestId("share-clip-qr")).toBeVisible();
+    await expect(page.getByTestId("share-clip-qr")).toHaveAttribute(
+      "src",
+      /^data:image\/svg\+xml/,
+    );
   });
 });

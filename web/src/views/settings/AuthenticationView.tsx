@@ -678,7 +678,9 @@ export default function AuthenticationView({
                           </Badge>
                         ) : roleData.cameras.length > 5 ? (
                           <Badge variant="outline" className="text-xs">
-                            {roleData.cameras.length} cameras
+                            {t("roles.table.cameraCount", {
+                              count: roleData.cameras.length,
+                            })}
                           </Badge>
                         ) : (
                           <div className="flex flex-wrap gap-1">
@@ -771,7 +773,7 @@ export default function AuthenticationView({
       <CreateRoleDialog
         show={showCreateRole}
         config={config}
-        onCreate={wrapAsync(onCreateRole)}
+        onCreate={onCreateRole}
         onCancel={() => setShowCreateRole(false)}
       />
       {selectedRole && (
@@ -780,7 +782,7 @@ export default function AuthenticationView({
           config={config}
           role={selectedRole}
           currentCameras={currentRoleCameras}
-          onSave={wrapAsync(onEditRoleCameras)}
+          onSave={onEditRoleCameras}
           onCancel={() => {
             setShowEditRole(false);
             setSelectedRole(undefined);

@@ -43,6 +43,41 @@ def web_key(source: Path, refresh: str) -> str:
     )
 
 
+def _input_files(source: Path, path: Path) -> list[Path]:
+    """List a file, or every file and symlink under a directory, in sorted order."""
+    if not path.is_dir():
+        return [path]
+    files: list[Path] = []
+    for directory, directories, filenames in os.walk(path):
+        # These three directories are excluded by .dockerignore.
+        if Path(directory) == source / "web":
+            directories[:] = [
+                d for d in directories if d not in ("node_modules", "dist", ".npm")
+            ]
+        files.extend(Path(directory) / name for name in filenames)
+        files.extend(
+            Path(directory) / name
+            for name in directories
+            if (Path(directory) / name).is_symlink()
+        )
+    files.sort()
+    return files
+
+
+def _file_record(source: Path, file: Path) -> bytes:
+    """Serialize one file's relative path, permissions and content hash."""
+    relative = file.relative_to(source).as_posix()
+    mode = stat.S_IMODE(file.lstat().st_mode)
+    content = os.readlink(file).encode() if file.is_symlink() else file.read_bytes()
+    return (
+        relative.encode()
+        + b"\0"
+        + str(mode).encode()
+        + b"\0"
+        + hashlib.sha256(content).digest()
+    )
+
+
 def input_key(source: Path, names: tuple[str, ...], refresh: str) -> str:
     """Hash sorted source files without traversing excluded build directories."""
     digest = hashlib.sha256()
@@ -52,35 +87,10 @@ def input_key(source: Path, names: tuple[str, ...], refresh: str) -> str:
         path = source / name
         if not path.exists():
             raise FileNotFoundError(path)
-        files = [path]
-        if path.is_dir():
-            files = []
-            for directory, directories, filenames in os.walk(path):
-                # These three directories are excluded by .dockerignore.
-                if Path(directory) == source / "web":
-                    directories[:] = [
-                        d
-                        for d in directories
-                        if d not in ("node_modules", "dist", ".npm")
-                    ]
-                files.extend(Path(directory) / name for name in filenames)
-                files.extend(
-                    Path(directory) / name
-                    for name in directories
-                    if (Path(directory) / name).is_symlink()
-                )
-            files.sort()
-        for file in files:
+        for file in _input_files(source, path):
             if file.is_dir() and not file.is_symlink():
                 continue
-            relative = file.relative_to(source).as_posix()
-            mode = stat.S_IMODE(file.lstat().st_mode)
-            content = (
-                os.readlink(file).encode() if file.is_symlink() else file.read_bytes()
-            )
-            digest.update(relative.encode() + b"\0")
-            digest.update(str(mode).encode() + b"\0")
-            digest.update(hashlib.sha256(content).digest())
+            digest.update(_file_record(source, file))
     return digest.hexdigest()
 
 

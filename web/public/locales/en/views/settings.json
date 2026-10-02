@@ -1146,7 +1146,9 @@
       "actions": "Actions",
       "noRoles": "No custom roles found.",
       "editCameras": "Edit Cameras",
-      "deleteRole": "Delete Role"
+      "deleteRole": "Delete Role",
+      "cameraCount_one": "{{count}} camera",
+      "cameraCount_other": "{{count}} cameras"
     },
     "toast": {
       "success": {

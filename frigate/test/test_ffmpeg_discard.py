@@ -100,7 +100,7 @@ class TestWaitDiscarding(unittest.TestCase):
         release = threading.Event()
 
         with (
-            patch.object(discard, "_discard", lambda fd: release.wait()),
+            patch.object(discard, "_discard", side_effect=lambda _fd: release.wait()),
             patch.object(discard, "JOIN_SECONDS", 0.1),
             self.assertLogs(discard.logger, "WARNING") as logs,
         ):
