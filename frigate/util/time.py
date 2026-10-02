@@ -53,11 +53,11 @@ def get_tomorrow_at_time(hour: int) -> datetime.datetime:
 
 def is_current_hour(timestamp: int) -> bool:
     """Returns if timestamp is in the current UTC hour."""
-    start_of_next_hour = (
-        datetime.datetime.now(datetime.UTC).replace(minute=0, second=0, microsecond=0)
-        + datetime.timedelta(hours=1)
-    ).timestamp()
-    return timestamp < start_of_next_hour
+    start_of_hour = datetime.datetime.now(datetime.UTC).replace(
+        minute=0, second=0, microsecond=0
+    )
+    start_of_next_hour = (start_of_hour + datetime.timedelta(hours=1)).timestamp()
+    return start_of_hour.timestamp() <= timestamp < start_of_next_hour
 
 
 def get_dst_transitions(

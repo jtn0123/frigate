@@ -7,12 +7,13 @@ import re
 import secrets
 import threading
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterable, AsyncIterator
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from peewee import DoesNotExist
 from pydantic import BaseModel, Field
 
@@ -73,7 +74,7 @@ class ShareCreateBody(BaseModel):
     )
 
 
-def _as_unix(value) -> float:
+def _as_unix(value: Any) -> float:
     if isinstance(value, datetime):
         return value.timestamp()
     return float(value)
@@ -136,7 +137,7 @@ def _create_link_within_cap(
         if active >= MAX_ACTIVE_LINKS_PER_USER:
             return None
 
-        return ShareLink.create(
+        link: ShareLink = ShareLink.create(
             token=token,
             event_id=event_id,
             camera=camera,
@@ -144,6 +145,7 @@ def _create_link_within_cap(
             created_at=created_at,
             expires_at=expires_at,
         )
+        return link
 
 
 class _SlotStream:
@@ -159,8 +161,12 @@ class _SlotStream:
     ffmpeg has either read the list or will never start.
     """
 
-    def __init__(self, body: AsyncIterator[bytes], playlist: str | None = None) -> None:
+    def __init__(
+        self, body: AsyncIterable[str | bytes | memoryview], playlist: str | None = None
+    ) -> None:
         self._body = body
+        # taken on the first read: a body that is never read is only released
+        self._iterator: AsyncIterator[str | bytes | memoryview] | None = None
         self._playlist = playlist
         self._released = False
 
@@ -181,9 +187,11 @@ class _SlotStream:
     def __aiter__(self) -> "_SlotStream":
         return self
 
-    async def __anext__(self) -> bytes:
+    async def __anext__(self) -> str | bytes | memoryview:
         try:
-            return await self._body.__anext__()
+            if self._iterator is None:
+                self._iterator = self._body.__aiter__()
+            return await self._iterator.__anext__()
         except BaseException:
             # StopAsyncIteration, a client disconnect (CancelledError) or a
             # failed read all end the stream
@@ -227,7 +235,7 @@ def _creator_may_share(link: ShareLink, config: FrigateConfig) -> bool:
     except DoesNotExist:
         return False
 
-    return check_camera_access(creator.role, link.camera, config)
+    return check_camera_access(str(creator.role), str(link.camera), config)
 
 
 def _load_shared(
@@ -263,7 +271,7 @@ def _load_shared(
 def _link_payload(link: ShareLink) -> dict:
     return {
         "token": link.token,
-        "url": _share_url(link.token),
+        "url": _share_url(str(link.token)),
         "event_id": link.event_id,
         "camera": link.camera,
         "created_by": link.created_by,
@@ -277,7 +285,7 @@ def _link_payload(link: ShareLink) -> dict:
     response_model=ShareLinkListResponse,
     dependencies=[Depends(allow_any_authenticated())],
 )
-async def list_shares(request: Request):
+async def list_shares(request: Request) -> JSONResponse | list[dict]:
     """List the caller's unexpired share links; an admin sees everyone's."""
     current_user = await get_current_user(request)
     if isinstance(current_user, JSONResponse):
@@ -299,7 +307,7 @@ async def list_shares(request: Request):
     response_model=GenericResponse,
     dependencies=[Depends(allow_any_authenticated())],
 )
-async def delete_share(request: Request, token: str):
+async def delete_share(request: Request, token: str) -> JSONResponse | dict:
     """Revoke a share link. Only its creator or an admin may, others get 404."""
     current_user = await get_current_user(request)
     if isinstance(current_user, JSONResponse):
@@ -327,7 +335,7 @@ async def delete_share(request: Request, token: str):
     response_model=ShareLinkResponse,
     dependencies=[Depends(allow_any_authenticated())],
 )
-async def create_share(request: Request, body: ShareCreateBody):
+async def create_share(request: Request, body: ShareCreateBody) -> JSONResponse | dict:
     """Create an expiring public link for an event clip."""
     current_user = await get_current_user(request)
     if isinstance(current_user, JSONResponse):
@@ -344,7 +352,7 @@ async def create_share(request: Request, body: ShareCreateBody):
             status_code=404,
         )
 
-    await require_camera_access(event.camera, request=request)
+    await require_camera_access(str(event.camera), request=request)
 
     if not event.has_clip:
         return JSONResponse(
@@ -360,8 +368,8 @@ async def create_share(request: Request, body: ShareCreateBody):
     link = await asyncio.to_thread(
         _create_link_within_cap,
         token=token,
-        event_id=event.id,
-        camera=event.camera,
+        event_id=str(event.id),
+        camera=str(event.camera),
         created_by=username,
         created_at=now,
         expires_at=expires_at,
@@ -377,7 +385,7 @@ async def create_share(request: Request, body: ShareCreateBody):
     )
     return {
         "token": link.token,
-        "url": _share_url(link.token),
+        "url": _share_url(str(link.token)),
         "expires_at": link.expires_at,
         **_event_payload(event),
     }
@@ -388,7 +396,7 @@ async def create_share(request: Request, body: ShareCreateBody):
     response_model=ShareLinkResponse,
     dependencies=[Depends(allow_public())],
 )
-async def get_share(request: Request, token: str):
+async def get_share(request: Request, token: str) -> JSONResponse | dict:
     """Return metadata for a public share link."""
     shared = await asyncio.to_thread(_load_shared, token, request.app.frigate_config)
     if isinstance(shared, JSONResponse):
@@ -397,7 +405,7 @@ async def get_share(request: Request, token: str):
 
     return {
         "token": link.token,
-        "url": _share_url(link.token),
+        "url": _share_url(str(link.token)),
         "expires_at": link.expires_at,
         **_event_payload(event),
     }
@@ -415,7 +423,7 @@ async def get_share(request: Request, token: str):
     },
     dependencies=[Depends(allow_public())],
 )
-async def get_share_clip(request: Request, token: str):
+async def get_share_clip(request: Request, token: str) -> Response:
     """Stream the shared event clip without a login."""
     shared = await asyncio.to_thread(_load_shared, token, request.app.frigate_config)
     if isinstance(shared, JSONResponse):
@@ -438,10 +446,10 @@ async def get_share_clip(request: Request, token: str):
         )
 
     try:
-        response = await asyncio.to_thread(
+        response: Response = await asyncio.to_thread(
             recording_clip,
             request,
-            event.camera,
+            str(event.camera),
             start_ts,
             end_ts,
         )

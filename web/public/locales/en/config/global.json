@@ -1258,18 +1258,22 @@
       },
       "jev": {
         "label": "Jev",
-        "description": "Optional Jev text extraction through OpenRouter.",
+        "description": "Optional Jev text extraction through TypeSafe or OpenRouter.",
         "enabled": {
           "label": "Ask Jev",
-          "description": "Send the description text of train images to Jev through OpenRouter for a class suggestion. Needs FRIGATE_JEV_API_KEY or OPENROUTER_API_KEY in the environment. Only the text is sent: no images, camera names, ids or timestamps."
+          "description": "Send the description text of train images to Jev for a class suggestion, directly through TypeSafe or through OpenRouter. Needs TYPESAFE_API_KEY, OPENROUTER_API_KEY or FRIGATE_JEV_API_KEY in the environment. Only the text is sent: no images, camera names, ids or timestamps."
+        },
+        "provider": {
+          "label": "Provider",
+          "description": "Where Jev is asked. auto picks OpenRouter for a FRIGATE_JEV_API_KEY starting with sk-or- and TypeSafe for any other, then TypeSafe for TYPESAFE_API_KEY and OpenRouter for OPENROUTER_API_KEY."
         },
         "model": {
           "label": "Jev model",
-          "description": "The OpenRouter Decisions model to ask."
+          "description": "The Jev model to ask. Empty means jev-1.13.0 on TypeSafe and typesafe/jev-1.13 on OpenRouter, the version the draft thresholds were measured on."
         },
         "url": {
           "label": "Decisions URL",
-          "description": "Where Decisions requests are posted. Change it to route through a gateway."
+          "description": "Where requests are posted. Empty means the provider's own endpoint. Set it to route through a gateway."
         },
         "daily_request_limit": {
           "label": "Daily request limit",

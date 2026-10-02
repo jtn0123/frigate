@@ -217,8 +217,9 @@ export default function InputWithTags({
         return current_suggestions;
       }
 
+      // fork: compare both sides lowercased so "Cam" finds "cameras" (C40)
       return current_suggestions.filter((suggestion) =>
-        suggestion.toLowerCase().startsWith(currentWord),
+        suggestion.toLowerCase().startsWith(currentWord.toLowerCase()),
       );
     },
     [inputValue, suggestions, currentFilterType],
@@ -337,7 +338,7 @@ export default function InputWithTags({
           case "min_speed":
           case "max_speed":
             speed = Number.parseFloat(value);
-            if (score >= 0) {
+            if (speed >= 0) {
               // Check for conflicts between min_speed and max_speed
               if (
                 type === "min_speed" &&
@@ -612,7 +613,8 @@ export default function InputWithTags({
           // Remove any partial match of the filter type, including incomplete matches
           const words = prev.split(/\s+/);
           const lastWord = words[words.length - 1];
-          if (lastWord && suggestion.startsWith(lastWord.toLowerCase())) {
+          // fork: an empty last word (trailing space) takes the type too (C40)
+          if (!lastWord || suggestion.startsWith(lastWord.toLowerCase())) {
             words[words.length - 1] = suggestion + ":";
           } else {
             words.push(suggestion + ":");

@@ -1,5 +1,7 @@
 """Fork (I41): settings for drafting dataset classes from descriptions."""
 
+from typing import Literal
+
 from pydantic import Field
 
 from frigate.config.base import FrigateBaseModel
@@ -9,17 +11,22 @@ class JevSuggestionsConfig(FrigateBaseModel):
     enabled: bool = Field(
         default=False,
         title="Ask Jev",
-        description="Send the description text of train images to Jev through OpenRouter for a class suggestion. Needs FRIGATE_JEV_API_KEY or OPENROUTER_API_KEY in the environment. Only the text is sent: no images, camera names, ids or timestamps.",
+        description="Send the description text of train images to Jev for a class suggestion, directly through TypeSafe or through OpenRouter. Needs TYPESAFE_API_KEY, OPENROUTER_API_KEY or FRIGATE_JEV_API_KEY in the environment. Only the text is sent: no images, camera names, ids or timestamps.",
     )
-    model: str = Field(
-        default="typesafe/jev-1.13",
+    provider: Literal["auto", "typesafe", "openrouter"] = Field(
+        default="auto",
+        title="Provider",
+        description="Where Jev is asked. auto picks OpenRouter for a FRIGATE_JEV_API_KEY starting with sk-or- and TypeSafe for any other, then TypeSafe for TYPESAFE_API_KEY and OpenRouter for OPENROUTER_API_KEY.",
+    )
+    model: str | None = Field(
+        default=None,
         title="Jev model",
-        description="The OpenRouter Decisions model to ask.",
+        description="The Jev model to ask. Empty means jev-1.13.0 on TypeSafe and typesafe/jev-1.13 on OpenRouter, the version the draft thresholds were measured on.",
     )
-    url: str = Field(
-        default="https://openrouter.ai/api/alpha/decisions",
+    url: str | None = Field(
+        default=None,
         title="Decisions URL",
-        description="Where Decisions requests are posted. Change it to route through a gateway.",
+        description="Where requests are posted. Empty means the provider's own endpoint. Set it to route through a gateway.",
     )
     daily_request_limit: int = Field(
         default=200,
@@ -99,7 +106,7 @@ class ClassificationSuggestionsConfig(FrigateBaseModel):
     jev: JevSuggestionsConfig = Field(
         default_factory=JevSuggestionsConfig,
         title="Jev",
-        description="Optional Jev text extraction through OpenRouter.",
+        description="Optional Jev text extraction through TypeSafe or OpenRouter.",
     )
     auto_file: AutoFileSuggestionsConfig = Field(
         default_factory=AutoFileSuggestionsConfig,

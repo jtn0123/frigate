@@ -139,6 +139,8 @@ class LicensePlateProcessingMixin:
         num_images = len(images)
         indices = np.argsort([x.shape[1] / x.shape[0] for x in images])
 
+        outputs: list[np.ndarray] = []
+
         for i in range(0, num_images, self.batch_size):
             norm_images = []
             for j in range(i, min(num_images, i + self.batch_size)):
@@ -146,11 +148,12 @@ class LicensePlateProcessingMixin:
                 norm_img = norm_img[np.newaxis, :]
                 norm_images.append(norm_img)
 
-        try:
-            outputs = self.model_runner.classification_model(norm_images)  # type: ignore[arg-type]
-        except Exception as e:
-            logger.warning(f"Error running LPR classification model: {e}")
-            return None
+            # run every batch; outputs stay in sorted order
+            try:
+                outputs.extend(self.model_runner.classification_model(norm_images))  # type: ignore[arg-type]
+            except Exception as e:
+                logger.warning(f"Error running LPR classification model: {e}")
+                return None
 
         return self._process_classification_output(images, outputs)
 
@@ -168,6 +171,7 @@ class LicensePlateProcessingMixin:
         """
         input_shape = [3, 48, 320]
         num_images = len(images)
+        outputs: list[np.ndarray] = []
 
         for index in range(0, num_images, self.batch_size):
             input_h, input_w = input_shape[1], input_shape[2]
@@ -187,11 +191,12 @@ class LicensePlateProcessingMixin:
                 norm_image = norm_image[np.newaxis, :]
                 norm_images.append(norm_image)
 
-        try:
-            outputs = self.model_runner.recognition_model(norm_images)  # type: ignore[arg-type]
-        except Exception as e:
-            logger.warning(f"Error running LPR recognition model: {e}")
-            return [], []
+            # run every batch, each has its own width
+            try:
+                outputs.extend(self.model_runner.recognition_model(norm_images))  # type: ignore[arg-type]
+            except Exception as e:
+                logger.warning(f"Error running LPR recognition model: {e}")
+                return [], []
 
         return self.ctc_decoder(outputs)
 
@@ -859,15 +864,13 @@ class LicensePlateProcessingMixin:
             for i, idx in enumerate(stacked_outputs.argmax(axis=1))
         ]
 
-        for i in range(0, len(images), self.batch_size):
-            for j in range(len(stacked_outputs)):
-                label, score = stacked_outputs[j]
-                results[indices[i + j]] = [label, score]
-                # make sure we have high confidence if we need to flip a box
-                if "180" in label and score >= 0.7:
-                    images[indices[i + j]] = cv2.rotate(
-                        images[indices[i + j]], cv2.ROTATE_180
-                    )
+        # outputs hold every batch in sorted order, so output j is image indices[j]
+        for j in range(len(stacked_outputs)):
+            label, score = stacked_outputs[j]
+            results[indices[j]] = [label, score]
+            # make sure we have high confidence if we need to flip a box
+            if "180" in label and score >= 0.7:
+                images[indices[j]] = cv2.rotate(images[indices[j]], cv2.ROTATE_180)
 
         return images, results  # type: ignore[return-value]
 
@@ -1418,12 +1421,12 @@ class LicensePlateProcessingMixin:
 
                 license_plate_box = license_plate.get("box")  # type: ignore[attr-defined]
 
+                if not license_plate_box:
+                    logger.debug("%s: License plate has no box", camera)
+                    return
+
                 # check that license plate is valid
-                if (
-                    not license_plate_box
-                    or area(license_plate_box)
-                    < self.config.cameras[camera].lpr.min_area
-                ):
+                if area(license_plate_box) < self.config.cameras[camera].lpr.min_area:
                     logger.debug(
                         f"{camera}: Area for license plate box {area(license_plate_box)} is less than min_area {self.config.cameras[camera].lpr.min_area}"
                     )

@@ -32,19 +32,19 @@ def classify(path: str) -> list[dict[str, Any]]:
     labels = json.loads(Path("labels.json").read_text())
     prompts = ["The sound of " + name.replace("_", " ") + "." for name in labels]
     audio = decode_audio(path, sampling_rate=48000)
+    # transformers 5 returns model outputs whose pooler_output holds the
+    # projected features, already L2-normalized.
     with torch.inference_mode(), Stage("clap"):
         text = model.get_text_features(
             **processor(text=prompts, return_tensors="pt", padding=True)
-        )
-        text /= text.norm(dim=-1, keepdim=True)
+        ).pooler_output
         scores = []
         for start in range(0, len(audio), 240000):
             window = audio[start : start + 240000]
             window = np.pad(window, (0, max(0, 240000 - len(window))))
             features = model.get_audio_features(
-                **processor(audios=window, sampling_rate=48000, return_tensors="pt")
-            )
-            features /= features.norm(dim=-1, keepdim=True)
+                **processor(audio=window, sampling_rate=48000, return_tensors="pt")
+            ).pooler_output
             scores.append((features @ text.T)[0].numpy())
     values = np.max(scores, axis=0)
     return [

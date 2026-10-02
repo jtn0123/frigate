@@ -90,7 +90,9 @@ def parse_mount_total(content: str, path: str) -> int | None:
     return total
 
 
-def read_mount_total(path: str = SHM_PATH, mount_files: tuple[str, ...] = MOUNT_FILES):
+def read_mount_total(
+    path: str = SHM_PATH, mount_files: tuple[str, ...] = MOUNT_FILES
+) -> int | None:
     """The mounted size of `path` from /proc, or None when it is not there."""
     for mount_file in mount_files:
         try:

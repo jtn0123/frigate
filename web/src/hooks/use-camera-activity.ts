@@ -299,25 +299,25 @@ export function useCameraMotionNextTimestamp(
     let nextTimestamp = currentTime + 0.5;
 
     while (currentRange < noMotionRanges.length) {
+      // fork: a truthiness check here never advanced past a range starting
+      // at timestamp 0, so the search looped forever (C39)
       const [start, end] = noMotionRanges[currentRange];
 
-      if (start && end) {
-        // If the current time is before the start of the current range
-        if (currentTime < start) {
-          // The next timestamp is either the start of the current range or currentTime + 0.5, whichever is smaller
-          nextTimestamp = Math.min(start, nextTimestamp);
-          break;
-        }
-        // If the current time is within the current range
-        else if (currentTime >= start && currentTime < end) {
-          // The next timestamp is the end of the current range
-          nextTimestamp = end;
-          currentRange++;
-        }
-        // If the current time is past the end of the current range
-        else {
-          currentRange++;
-        }
+      // If the current time is before the start of the current range
+      if (currentTime < start) {
+        // The next timestamp is either the start of the current range or currentTime + 0.5, whichever is smaller
+        nextTimestamp = Math.min(start, nextTimestamp);
+        break;
+      }
+      // If the current time is within the current range
+      else if (currentTime >= start && currentTime < end) {
+        // The next timestamp is the end of the current range
+        nextTimestamp = end;
+        currentRange++;
+      }
+      // If the current time is past the end of the current range
+      else {
+        currentRange++;
       }
     }
 

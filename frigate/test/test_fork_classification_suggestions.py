@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import cv2
 import numpy as np
@@ -147,6 +148,20 @@ class TestJevContract(unittest.TestCase):
         self.assertIn("box cargo body", criteria["box_truck"])
         self.assertIn("untrusted", request["questions"]["category"]["instructions"])
 
+    def test_vehicle_types_name_common_models(self):
+        # I56: "a Honda Civic" alone scored 0.52 before the criteria named models.
+        criteria = suggest.build_jev_request(
+            "A car.", ["sedan", "suv", "pickup", "van", "hatchback"], "jev-1.13.0"
+        )["questions"]["category"]["criteria"]
+        for name, model in (
+            ("sedan", "Civic"),
+            ("suv", "RAV4"),
+            ("pickup", "F-150"),
+            ("van", "Sienna"),
+            ("hatchback", "Golf"),
+        ):
+            self.assertIn(model, criteria[name])
+
     def test_contract_hash_changes_with_classes_or_model_not_text(self):
         a = suggest.contract_hash(suggest.build_jev_request("x", TYPES, "m"))
         b = suggest.contract_hash(suggest.build_jev_request("y", TYPES, "m"))
@@ -248,6 +263,62 @@ class TestJevContract(unittest.TestCase):
         self.assertEqual(suggest.choose(None, jev), (jev, False))
         self.assertEqual(suggest.choose(text, None), (text, False))
         self.assertEqual(suggest.choose(None, None), (None, False))
+
+
+class TestJevEndpoint(unittest.TestCase):
+    """I55: a TypeSafe key and an OpenRouter key both reach Jev."""
+
+    def resolve(self, env: dict[str, str], **kwargs: str | None):
+        blank = {
+            "FRIGATE_JEV_API_KEY": "",
+            "TYPESAFE_API_KEY": "",
+            "OPENROUTER_API_KEY": "",
+        }
+        with patch.dict(os.environ, {**blank, **env}):
+            return suggest.jev_endpoint(**kwargs)
+
+    def test_no_key_means_no_endpoint(self):
+        self.assertIsNone(self.resolve({}))
+        self.assertIsNone(self.resolve({"TYPESAFE_API_KEY": "  "}))
+
+    def test_auto_reads_the_shared_key_by_its_prefix(self):
+        typesafe = self.resolve({"FRIGATE_JEV_API_KEY": "apikey-abc"})
+        self.assertEqual(typesafe.provider, "typesafe")
+        self.assertEqual(typesafe.url, "https://api.typesafe.ai/v1/systemone")
+        self.assertEqual(typesafe.model, "jev-1.13.0")
+        self.assertEqual(typesafe.key, "apikey-abc")
+        openrouter = self.resolve({"FRIGATE_JEV_API_KEY": "sk-or-v1-abc"})
+        self.assertEqual(openrouter.provider, "openrouter")
+        self.assertEqual(openrouter.url, "https://openrouter.ai/api/alpha/decisions")
+        self.assertEqual(openrouter.model, "typesafe/jev-1.13")
+
+    def test_auto_falls_back_to_each_providers_own_variable(self):
+        self.assertEqual(
+            self.resolve({"TYPESAFE_API_KEY": "t", "OPENROUTER_API_KEY": "o"}).provider,
+            "typesafe",
+        )
+        only_openrouter = self.resolve({"OPENROUTER_API_KEY": "o"})
+        self.assertEqual(only_openrouter.provider, "openrouter")
+        self.assertEqual(only_openrouter.key, "o")
+
+    def test_a_named_provider_prefers_its_own_key_then_the_shared_one(self):
+        env = {"FRIGATE_JEV_API_KEY": "shared", "OPENROUTER_API_KEY": "o"}
+        self.assertEqual(self.resolve(env, provider="openrouter").key, "o")
+        self.assertEqual(self.resolve(env, provider="typesafe").key, "shared")
+        self.assertIsNone(
+            self.resolve({"TYPESAFE_API_KEY": "t"}, provider="openrouter")
+        )
+
+    def test_configured_url_and_model_override_the_provider_defaults(self):
+        endpoint = self.resolve(
+            {"TYPESAFE_API_KEY": "t"}, url="https://gateway/jev", model="jev-preview"
+        )
+        self.assertEqual(endpoint.url, "https://gateway/jev")
+        self.assertEqual(endpoint.model, "jev-preview")
+
+    def test_the_request_model_falls_back_without_an_endpoint(self):
+        self.assertEqual(suggest.endpoint_model(None, None), "jev-1.13.0")
+        self.assertEqual(suggest.endpoint_model(None, "custom"), "custom")
 
 
 class TestCacheAndBudget(unittest.TestCase):
@@ -363,6 +434,29 @@ class TestSuggestForEvents(unittest.TestCase):
 
         result = self.run_suggest([event("A white van.")], TYPES, ask)
         self.assertEqual(result["one"]["suggestion"]["source"], "text")
+        self.assertIsNone(result["one"]["maybe"])
+
+    def test_jev_choosing_unknown_turns_a_text_draft_into_a_maybe(self):
+        # I56: the local match reads the words, Jev reads what they are about.
+        async def ask(request):
+            return choice("unknown", TYPES, 0.9)
+
+        result = self.run_suggest([event("A white van.")], TYPES, ask)
+        entry = result["one"]
+        self.assertIsNone(entry["suggestion"])
+        self.assertFalse(entry["conflict"])
+        self.assertEqual(entry["jev_status"], "unknown")
+        self.assertEqual(entry["maybe"]["category"], "van")
+        self.assertEqual(entry["maybe"]["source"], "text")
+        self.assertEqual(entry["text"]["category"], "van")
+
+    def test_a_text_draft_stands_when_jev_could_not_answer(self):
+        async def ask(request):
+            raise suggest.JevError("status 500")
+
+        result = self.run_suggest([event("A white van.")], TYPES, ask)
+        self.assertEqual(result["one"]["jev_status"], "error")
+        self.assertEqual(result["one"]["suggestion"]["category"], "van")
         self.assertIsNone(result["one"]["maybe"])
 
     def test_jev_and_text_disagreeing_shows_nothing(self):

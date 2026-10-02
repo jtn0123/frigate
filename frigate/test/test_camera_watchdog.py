@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from frigate.config import FrigateConfig
 from frigate.const import STREAM_TYPE_MAIN, STREAM_TYPE_SUB
-from frigate.video.ffmpeg import CameraWatchdog
+from frigate.video.ffmpeg import HEARTBEAT_SECONDS, CameraWatchdog
 
 
 def build_watchdog(
@@ -230,3 +230,29 @@ class TestCameraWatchdogStreamHealth(unittest.TestCase):
 
         assert watchdog.record_stale_threshold[STREAM_TYPE_MAIN] == 120
         assert watchdog.record_stale_threshold[STREAM_TYPE_SUB] == 150
+
+
+class TestWatchdogHeartbeat(unittest.TestCase):
+    """Fork (SV12): the watchdog reports that its loop is still turning."""
+
+    def test_reports_at_most_every_heartbeat_interval(self):
+        watchdog = build_watchdog()
+        watchdog.heartbeat = MagicMock(value=0.0)
+
+        with patch("frigate.video.ffmpeg.time.time", return_value=1000.0):
+            watchdog._beat()
+        with patch("frigate.video.ffmpeg.time.time", return_value=1001.0):
+            watchdog._beat()
+        self.assertEqual(watchdog.heartbeat.value, 1000.0)
+
+        with patch(
+            "frigate.video.ffmpeg.time.time", return_value=1000.0 + HEARTBEAT_SECONDS
+        ):
+            watchdog._beat()
+        self.assertEqual(watchdog.heartbeat.value, 1000.0 + HEARTBEAT_SECONDS)
+
+    def test_without_shared_state_there_is_nothing_to_report(self):
+        watchdog = build_watchdog()
+
+        self.assertIsNone(watchdog.heartbeat)
+        watchdog._beat()

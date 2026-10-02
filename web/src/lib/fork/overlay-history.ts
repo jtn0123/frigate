@@ -53,7 +53,7 @@ export function pushOverlay(entry: OverlayEntry): void {
   }
   const id = nextId++;
   window.history.pushState(
-    { ...(currentState() ?? {}), overlayOpen: true, overlayId: id },
+    { ...currentState(), overlayOpen: true, overlayId: id },
     "",
   );
   stack.push({ entry, id });

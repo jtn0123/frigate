@@ -24,7 +24,7 @@ export default function GeneratedOutput({
     navigator.clipboard.writeText(yaml).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }, () => setCopied(false));
   }, [yaml]);
 
   return (

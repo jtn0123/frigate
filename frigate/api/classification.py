@@ -231,12 +231,11 @@ def train_face(request: Request, name: str, body: dict = None):
         x2 = x1 + int(face_box[2] * detect_config.width) - 4
         y2 = y1 + int(face_box[3] * detect_config.height) - 4
         face = snapshot[y1:y2, x1:x2]
-        success = True
+        success = False
 
         if face.size > 0:
             try:
-                cv2.imwrite(os.path.join(new_file_folder, new_name), face)
-                success = True
+                success = cv2.imwrite(os.path.join(new_file_folder, new_name), face)
             except Exception:
                 logger.debug("Unable to write face image %s", new_name, exc_info=True)
 
@@ -290,7 +289,7 @@ async def create_face(request: Request, name: str):
     os.makedirs(face_folder, exist_ok=True)
     return JSONResponse(
         status_code=200,
-        content={"success": False, "message": "Successfully created face folder."},
+        content={"success": True, "message": "Successfully created face folder."},
     )
 
 
@@ -1150,6 +1149,12 @@ def categorize_classification_image(request: Request, name: str, body: dict = No
 
     if category is None:
         return invalid_name_response(json.get("category", ""))
+
+    if not training_file_name:
+        return JSONResponse(
+            content=({"success": False, "message": "A training file must be passed."}),
+            status_code=400,
+        )
 
     if training_file_name and (
         training_file is None or not os.path.isfile(training_file)

@@ -23,7 +23,7 @@ type ShareLink = components["schemas"]["ShareLinkListItem"];
 
 type ActiveShareLinksProps = {
   /** Token of the link the dialog just made, marked in the list. */
-  currentToken?: string | undefined;
+  currentToken: string | undefined;
   /** Called after a link is revoked, with its token. */
   onRevoked?: (token: string) => void;
 };
@@ -95,9 +95,9 @@ export default function ActiveShareLinks({
         {t("clipShare.activeTitle")}
       </h3>
       {isLoading && (
-        <p className="text-sm text-muted-foreground" role="status">
+        <output className="block text-sm text-muted-foreground">
           {t("clipShare.activeLoading")}
-        </p>
+        </output>
       )}
       {failed && !isLoading && (
         <div className="flex items-center justify-between gap-2" role="alert">

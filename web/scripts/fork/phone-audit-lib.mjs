@@ -288,6 +288,41 @@ export function backFailure(name, stillOpen, movedTo) {
 }
 
 /**
+ * Open one trigger, press back, and describe the failure when its overlay
+ * stayed open or the page changed (reloading `path` so the next trigger
+ * starts clean). Returns null when the trigger passes or opens nothing.
+ */
+async function checkBackButton(page, path, trigger, index, waits) {
+  if (!(await trigger.isVisible().catch(() => false))) return null;
+  const name = (
+    (await trigger.getAttribute("aria-label")) ||
+    (await trigger.innerText().catch(() => "")) ||
+    `trigger ${index}`
+  )
+    .trim()
+    .slice(0, 40);
+  const before = page.url();
+  await trigger.click({ timeout: 3_000 }).catch(() => {});
+  await page.waitForTimeout(waits.openWait);
+  const overlay = page.locator(OPEN_OVERLAY);
+  if (!(await overlay.count())) return null;
+  await page.goBack();
+  await page.waitForTimeout(waits.backWait);
+  const stillOpen = (await overlay.count()) > 0;
+  const moved = page.url() !== before;
+  if (!stillOpen && !moved) return null;
+  const failure = backFailure(
+    name,
+    stillOpen,
+    moved ? new URL(page.url()).pathname : null,
+  );
+  await page.goto(path);
+  await page.waitForSelector("#pageRoot", { timeout: 15_000 });
+  await page.waitForTimeout(waits.reloadWait);
+  return failure;
+}
+
+/**
  * Open each menu/drawer trigger on `path`, press back, and list the ones
  * whose overlay stayed open or that left the page.
  */
@@ -299,37 +334,12 @@ export async function checkBackButtons(
   const failures = [];
   const triggers = page.locator(OVERLAY_TRIGGERS);
   const total = Math.min(await triggers.count(), maxTriggers);
+  const waits = { openWait, backWait, reloadWait };
+  const check = (i) => checkBackButton(page, path, triggers.nth(i), i, waits);
   for (let i = 0; i < total; i++) {
-    const trigger = triggers.nth(i);
-    if (!(await trigger.isVisible().catch(() => false))) continue;
-    const name = (
-      (await trigger.getAttribute("aria-label")) ||
-      (await trigger.innerText().catch(() => "")) ||
-      `trigger ${i}`
-    )
-      .trim()
-      .slice(0, 40);
-    const before = page.url();
-    await trigger.click({ timeout: 3_000 }).catch(() => {});
-    await page.waitForTimeout(openWait);
-    const overlay = page.locator(OPEN_OVERLAY);
-    if (!(await overlay.count())) continue;
-    await page.goBack();
-    await page.waitForTimeout(backWait);
-    const stillOpen = (await overlay.count()) > 0;
-    const moved = page.url() !== before;
-    if (stillOpen || moved) {
-      failures.push(
-        backFailure(
-          name,
-          stillOpen,
-          moved ? new URL(page.url()).pathname : null,
-        ),
-      );
-      await page.goto(path);
-      await page.waitForSelector("#pageRoot", { timeout: 15_000 });
-      await page.waitForTimeout(reloadWait);
-    }
+    // One page drives every trigger, so each check must finish first.
+    const failure = await check(i); // NOSONAR
+    if (failure) failures.push(failure);
   }
   return failures;
 }
@@ -361,6 +371,54 @@ export async function auditPage(
   return result;
 }
 
+/** The axe violations a page should be flagged for. */
+function axeFindings(r) {
+  return r.axe
+    .filter((v) => v.impact === "serious" || v.impact === "critical")
+    .map((v) => [
+      `axe.${v.impact}`,
+      v.id,
+      `${v.count}x ${v.help} | ${v.sample} | ${v.html}`,
+    ]);
+}
+
+/** The overflow, tap-target and broken-image findings for one page. */
+function layoutFindings(r) {
+  const found = [];
+  if (r.pageOverflow)
+    found.push([
+      "overflow",
+      `page scrolls sideways ${r.pageOverflow}px`,
+      r.overflowing.join("; "),
+    ]);
+  for (const t of r.tinyTargets ?? []) found.push(["tap-target<24", t]);
+  for (const b of r.broken ?? []) found.push(["broken-image", b]);
+  return found;
+}
+
+/** The layout-shift and long-task findings for one page. */
+function perfFindings(r) {
+  const found = [];
+  if ((r.perf?.cls ?? 0) > 0.1)
+    found.push(["layout-shift", `CLS ${r.perf.cls.toFixed(2)}`]);
+  for (const d of r.perf?.longTasks ?? [])
+    if (d > 500) found.push(["long-task", `>500ms`, `${d}ms`]);
+  return found;
+}
+
+/** Every [kind, key, detail?] finding for one page, in report order. */
+function pageFindings(r) {
+  return [
+    ...(r.error ? [["page-error", r.error]] : []),
+    ...r.events.map((e) => [e.kind, e.text]),
+    ...axeFindings(r),
+    ...layoutFindings(r),
+    ...r.storms.map((s) => ["request-storm", s.replace(/ [\d.]+\/s$/, ""), s]),
+    ...r.backFailures.map((f) => ["back-button", f]),
+    ...perfFindings(r),
+  ];
+}
+
 /** Findings from every page, fingerprinted and de-duplicated. */
 export function collectFindings(results) {
   const findings = [];
@@ -376,33 +434,8 @@ export function collectFindings(results) {
     });
   };
   for (const r of results) {
-    if (r.error) push(r.path, "page-error", r.error);
-    for (const e of r.events) push(r.path, e.kind, e.text);
-    for (const v of r.axe) {
-      if (v.impact === "serious" || v.impact === "critical")
-        push(
-          r.path,
-          `axe.${v.impact}`,
-          v.id,
-          `${v.count}x ${v.help} | ${v.sample} | ${v.html}`,
-        );
-    }
-    if (r.pageOverflow)
-      push(
-        r.path,
-        "overflow",
-        `page scrolls sideways ${r.pageOverflow}px`,
-        r.overflowing.join("; "),
-      );
-    for (const t of r.tinyTargets ?? []) push(r.path, "tap-target<24", t);
-    for (const b of r.broken ?? []) push(r.path, "broken-image", b);
-    for (const s of r.storms)
-      push(r.path, "request-storm", s.replace(/ [\d.]+\/s$/, ""), s);
-    for (const f of r.backFailures) push(r.path, "back-button", f);
-    if ((r.perf?.cls ?? 0) > 0.1)
-      push(r.path, "layout-shift", `CLS ${r.perf.cls.toFixed(2)}`);
-    for (const d of r.perf?.longTasks ?? [])
-      if (d > 500) push(r.path, "long-task", `>500ms`, `${d}ms`);
+    for (const [kind, key, detail] of pageFindings(r))
+      push(r.path, kind, key, detail);
   }
   return [...new Map(findings.map((f) => [f.id, f])).values()];
 }
@@ -434,7 +467,8 @@ export function renderReport({
     const axeSerious = r.axe.filter(
       (v) => v.impact === "serious" || v.impact === "critical",
     ).length;
-    return `| \`${r.path}\` | ${r.error ? "FAIL" : "ok"} | ${count(/exception/)} | ${count(/error|http|requestfailed/)} | ${count(/warning/)} | ${axeSerious} | ${r.pageOverflow ? `${r.pageOverflow}px` : ""} | ${r.tinyCount ?? ""}/${r.smallCount ?? ""} | ${(r.broken ?? []).length || ""} | ${r.storms.length || ""} | ${r.backFailures.length || ""} | ${(r.perf?.cls ?? 0).toFixed(2)} |`;
+    const overflow = r.pageOverflow ? r.pageOverflow + "px" : "";
+    return `| \`${r.path}\` | ${r.error ? "FAIL" : "ok"} | ${count(/exception/)} | ${count(/error|http|requestfailed/)} | ${count(/warning/)} | ${axeSerious} | ${overflow} | ${r.tinyCount ?? ""}/${r.smallCount ?? ""} | ${(r.broken ?? []).length || ""} | ${r.storms.length || ""} | ${r.backFailures.length || ""} | ${(r.perf?.cls ?? 0).toFixed(2)} |`;
   };
   const real = unique.filter((f) => !f.known);
   const byKind = real.reduce(
@@ -461,7 +495,8 @@ export function renderReport({
     `## ${baseline ? "New findings" : "Findings"}`,
     ...(baseline ? fresh : real).map(
       (f) =>
-        `- **${f.kind}** \`${f.page}\`: ${f.key}${f.detail ? ` (${f.detail})` : ""}`,
+        `- **${f.kind}** \`${f.page}\`: ${f.key}` +
+        (f.detail ? " (" + f.detail + ")" : ""),
     ),
     "",
     ...(fixed.length
@@ -532,7 +567,7 @@ export async function runAudit({
   const results = [];
   for (const path of pages) {
     state.current = path;
-    const result = await auditPage(page, path, {
+    const options = {
       state,
       dwellMs,
       phone: profile === "phone",
@@ -541,7 +576,10 @@ export async function runAudit({
         outDir,
         `${results.length.toString().padStart(2, "0")}${path.replace(/[^a-z0-9]+/gi, "_")}.png`,
       ),
-    });
+    };
+    // Every visit shares one browser page and the request log, so pages are
+    // audited one at a time.
+    const result = await auditPage(page, path, options); // NOSONAR
     results.push(result);
     progress(result.error ? "!" : ".");
   }
