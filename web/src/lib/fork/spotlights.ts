@@ -176,61 +176,91 @@ function baseLabel(label: string): string {
   return label.replace("-verified", "");
 }
 
-/** Every reason this item deserves a look, strongest first. */
-export function spotlightReasons(
-  review: ReviewSegment,
-  context: SpotlightContext,
-): SpotlightReason[] {
+/** Sounds worth a chip, each label once. */
+function audioReasons(labels: readonly string[]): SpotlightReason[] {
   const reasons: SpotlightReason[] = [];
-  const data = review.data;
-
-  const level = data.metadata?.potential_threat_level ?? 0;
-  if (level >= 1) {
-    reasons.push({ kind: "threat", level });
-  }
-
-  for (const label of new Set(data.audio)) {
+  for (const label of new Set(labels)) {
     if (CRITICAL_AUDIO.has(label)) {
       reasons.push({ kind: "audio", label, critical: true });
     } else if (NOTABLE_AUDIO.has(label)) {
       reasons.push({ kind: "audio", label, critical: false });
     }
   }
+  return reasons;
+}
 
-  // Review items keep sub labels by name only, without the object they
-  // belong to. A known plate's name is in the LPR config; otherwise, with
-  // face recognition on and a person in the item, the name is a face.
-  const objects = new Set(data.objects.map(baseLabel));
-  for (const name of new Set(data.sub_labels ?? [])) {
-    if (context.knownPlateNames.has(name)) {
-      reasons.push({ kind: "knownPlate", name });
-    } else if (context.faceRecognition && objects.has("person")) {
-      reasons.push({ kind: "face", name });
-    } else {
-      reasons.push({ kind: "identified", name });
-    }
-  }
+/**
+ * What each sub label names. Review items keep sub labels by name only,
+ * without the object they belong to. A known plate's name is in the LPR
+ * config; otherwise, with face recognition on and a person in the item, the
+ * name is a face.
+ */
+function nameReasons(
+  review: ReviewSegment,
+  context: SpotlightContext,
+): SpotlightReason[] {
+  const objects = new Set(review.data.objects.map(baseLabel));
+  const face = context.faceRecognition && objects.has("person");
+  return [...new Set(review.data.sub_labels ?? [])].map(
+    (name): SpotlightReason => {
+      if (context.knownPlateNames.has(name)) {
+        return { kind: "knownPlate", name };
+      }
+      return face ? { kind: "face", name } : { kind: "identified", name };
+    },
+  );
+}
 
+/** The plates read on the item's tracked objects, each plate once. */
+function plateReasons(
+  review: ReviewSegment,
+  context: SpotlightContext,
+): SpotlightReason[] {
   const plates = new Set<string>();
-  for (const id of data.detections) {
+  for (const id of review.data.detections) {
     const plate = context.plates.get(id);
     if (plate) {
       plates.add(plate);
     }
   }
-  for (const plate of plates) {
-    reasons.push({ kind: "plate", plate });
-  }
+  return [...plates].map((plate) => ({ kind: "plate", plate }));
+}
 
-  // A zone with a loitering time only counts an object as in it once the
-  // object has stayed that long, so the zone being listed means it loitered.
+/**
+ * The item's zones that have a loitering time. Such a zone only counts an
+ * object as in it once the object has stayed that long, so the zone being
+ * listed means it loitered.
+ */
+function loiteringReasons(
+  review: ReviewSegment,
+  context: SpotlightContext,
+): SpotlightReason[] {
   const loitering = context.loiteringZones[review.camera];
-  for (const zone of new Set(data.zones)) {
-    if (loitering?.has(zone)) {
-      reasons.push({ kind: "loitering", zone });
-    }
+  if (!loitering) {
+    return [];
   }
+  return [...new Set(review.data.zones)]
+    .filter((zone) => loitering.has(zone))
+    .map((zone) => ({ kind: "loitering", zone }));
+}
 
+/** Every reason this item deserves a look, strongest first. */
+export function spotlightReasons(
+  review: ReviewSegment,
+  context: SpotlightContext,
+): SpotlightReason[] {
+  const reasons: SpotlightReason[] = [];
+
+  const level = review.data.metadata?.potential_threat_level ?? 0;
+  if (level >= 1) {
+    reasons.push({ kind: "threat", level });
+  }
+  reasons.push(
+    ...audioReasons(review.data.audio),
+    ...nameReasons(review, context),
+    ...plateReasons(review, context),
+    ...loiteringReasons(review, context),
+  );
   if (review.severity === "alert") {
     reasons.push({ kind: "alert" });
   }
@@ -302,7 +332,7 @@ export type SpotlightWindow = {
   /** Unix seconds; items that ended before it are out of range. */
   after: number;
   /** Only these cameras, or every camera when undefined. */
-  cameras?: readonly string[] | undefined;
+  cameras: readonly string[] | undefined;
 };
 
 /**

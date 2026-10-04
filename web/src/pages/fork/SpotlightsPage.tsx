@@ -375,12 +375,11 @@ export default function SpotlightsPage() {
         </div>
       </div>
 
-      <div
-        role="group"
+      <fieldset
         aria-label={t("spotlights.categories.label")}
         // on a phone the row scrolls sideways; the fade at the right edge
         // says there is more, and the end padding lets the last chip clear it
-        className="scrollbar-hidden -mx-2 flex shrink-0 gap-2 overflow-x-auto px-2 pb-1 pr-10 [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] md:mx-0 md:flex-wrap md:px-0 md:[mask-image:none]"
+        className="scrollbar-hidden -mx-2 flex min-w-0 shrink-0 gap-2 overflow-x-auto px-2 pb-1 pr-10 [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] md:mx-0 md:flex-wrap md:px-0 md:[mask-image:none]"
       >
         <CategoryChip
           testId="spotlights-category-all"
@@ -401,7 +400,7 @@ export default function SpotlightsPage() {
             }
           />
         ))}
-      </div>
+      </fieldset>
 
       {error !== undefined && !items && (
         <ErrorState error={error} onRetry={retry} />

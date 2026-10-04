@@ -689,11 +689,13 @@ describe("context builders", () => {
     expect(
       inSpotlightWindow(review("a", { end_time: NOW - 10 }), {
         after: NOW - 60,
+        cameras: undefined,
       }),
     ).toBe(true);
     expect(
       inSpotlightWindow(review("b", { end_time: NOW - 120 }), {
         after: NOW - 60,
+        cameras: undefined,
       }),
     ).toBe(false);
   });
