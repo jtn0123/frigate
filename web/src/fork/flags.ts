@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Multi-camera grid in the recording view, every tile on one clock. */
+  syncedPlayback: boolean;
   /** Chrome-free wall display at /kiosk that cycles camera groups. */
   kioskMode: boolean;
 };
@@ -69,6 +71,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  syncedPlayback: true,
   kioskMode: true,
 };
 

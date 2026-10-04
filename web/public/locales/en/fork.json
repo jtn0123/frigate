@@ -800,6 +800,40 @@
       "error": "The AI helper didn't answer. Reload the page to try again."
     }
   },
+  "syncedPlayback": {
+    "toggle": {
+      "label": "Multi-camera",
+      "enable": "Show cameras side by side in sync",
+      "disable": "Show one camera"
+    },
+    "grid": "Synced cameras",
+    "picker": {
+      "button": "Choose cameras",
+      "count": "{{selected}}/{{max}} cameras",
+      "title": "Cameras in the grid",
+      "limit": "Up to {{max}} cameras play at once.",
+      "add": "Add camera"
+    },
+    "tile": {
+      "main": "Main",
+      "isMain": "{{camera}} is the main camera",
+      "promote": "Make {{camera}} the main camera",
+      "fullscreen": "Show {{camera}} fullscreen",
+      "exitFullscreen": "Exit fullscreen",
+      "remove": "Remove {{camera}} from the grid"
+    },
+    "gap": {
+      "title": "No recording",
+      "next": "Next recording at {{time}}",
+      "noneLater": "No more recordings this hour",
+      "liveEdge": "Caught up to live",
+      "goLive": "Go to Live"
+    },
+    "status": {
+      "syncing": "Syncing",
+      "inSync": "In sync"
+    }
+  },
   "kiosk": {
     "launch": "Open as wall display",
     "documentTitle": "Wall display - Frigate",
