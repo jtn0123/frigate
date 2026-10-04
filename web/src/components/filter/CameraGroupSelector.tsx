@@ -105,6 +105,7 @@ import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 import { useHasFullCameraAccess } from "@/hooks/use-has-full-camera-access";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useUserPersistedOverlayState } from "@/hooks/use-overlay-state";
+import KioskLaunchButton from "@/components/fork/kiosk/KioskLaunchButton";
 
 // the picker needs every lucide icon, so it stays out of the eager bundle
 const IconPicker = lazy(() => import("../icons/IconPicker"));
@@ -414,6 +415,8 @@ export function CameraGroupSelector({
               </TooltipPortal>
             </Tooltip>
           )}
+          {/* fork (UI19): open these groups as a wall display */}
+          <KioskLaunchButton variant="rail" currentGroup={group} />
         </div>
       ) : (
         <div
