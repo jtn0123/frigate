@@ -15,6 +15,7 @@ import {
   LuCheckCheck,
   LuFileCode,
   LuFilm,
+  LuFlashlight,
   LuGalleryThumbnails,
   LuHistory,
   LuLayers,
@@ -204,6 +205,14 @@ function CommandPaletteInner() {
         label: t("menu.review", { ns: "common" }),
         to: "/review",
         icon: LuGalleryThumbnails,
+      },
+      {
+        // UI144: with the Settings menu entry, how a phone reaches it
+        id: "page:spotlights",
+        label: t("spotlights.title"),
+        to: "/spotlights",
+        icon: LuFlashlight,
+        enabled: isForkEnabled("spotlights"),
       },
       {
         id: "page:explore",

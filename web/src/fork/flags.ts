@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Spotlights page: a ranked feed of the activity worth a look. */
+  spotlights: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -67,6 +69,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  spotlights: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {

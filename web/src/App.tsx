@@ -29,6 +29,7 @@ import CommandPaletteGate from "@/components/fork/CommandPaletteGate";
 import { isPublicSharePath } from "@/lib/fork/share-path";
 import { phoneShell } from "@/lib/fork/phone-shell";
 import { allowAndroidPageZoom } from "@/lib/fork/viewport-zoom";
+import { isForkEnabled } from "@/fork/flags";
 
 allowAndroidPageZoom();
 
@@ -52,6 +53,7 @@ const ShareClipPage = lazy(() => import("@/pages/fork/ShareClipPage"));
 const SuggestionReportPage = lazy(
   () => import("@/pages/fork/SuggestionReportPage"),
 );
+const SpotlightsPage = lazy(() => import("@/pages/fork/SpotlightsPage"));
 
 function App() {
   return (
@@ -134,6 +136,10 @@ function DefaultAppView({
             <Route element={<ProtectedRoute requiredRoles={mainRouteRoles} />}>
               <Route index element={<Live />} />
               <Route path="/review" element={<Events />} />
+              {/* fork (UI144): the ranked feed of the activity worth a look */}
+              {isForkEnabled("spotlights") && (
+                <Route path="/spotlights" element={<SpotlightsPage />} />
+              )}
               <Route path="/explore" element={<Explore />} />
               <Route path="/export" element={<Exports />} />
               <Route path="/settings" element={<Settings />} />
