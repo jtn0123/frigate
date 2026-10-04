@@ -48,6 +48,18 @@ export type ForkFlags = {
   classificationSuggestions: boolean;
   /** Line zones with a crossing direction, and exclusion zones, in the zone editor. */
   lineZones: boolean;
+  /** Quiet hours schedule editor for push notifications in Settings. */
+  notificationSchedules: boolean;
+  /** "Seen on other cameras" (same face, plate or look) in the tracked object detail. */
+  seenElsewhere: boolean;
+  /** Spotlights page: a ranked feed of the activity worth a look. */
+  spotlights: boolean;
+  /** Live bitrate, viewer and detector latency cards on the System page. */
+  liveTelemetry: boolean;
+  /** Multi-camera grid in the recording view, every tile on one clock. */
+  syncedPlayback: boolean;
+  /** Chrome-free wall display at /kiosk that cycles camera groups. */
+  kioskMode: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -70,6 +82,12 @@ const defaults: ForkFlags = {
   trackOverlay: true,
   classificationSuggestions: true,
   lineZones: true,
+  notificationSchedules: true,
+  seenElsewhere: true,
+  spotlights: true,
+  liveTelemetry: true,
+  syncedPlayback: true,
+  kioskMode: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {

@@ -30,6 +30,10 @@ import {
   forkUpdatesFactory,
   type ForkUpdatesMock,
 } from "../fixtures/mock-data/fork-updates";
+import {
+  notificationScheduleFactory,
+  type NotificationScheduleMock,
+} from "../fixtures/mock-data/fork-notification-schedule";
 import { DETECTION_HARDWARE } from "../fixtures/mock-data/hardware";
 import { adminProfile, type UserProfile } from "../fixtures/mock-data/profile";
 import { BASE_STATS, statsFactory } from "../fixtures/mock-data/stats";
@@ -68,6 +72,8 @@ export interface ApiMockOverrides {
   logSummary?: LogSummaryOverrides;
   // fork (I57): go2rtc source state in the Health drawer
   go2rtcState?: Go2rtcStateOverrides;
+  // fork (D78): the clock notification quiet hours run on
+  notificationSchedule?: Partial<NotificationScheduleMock>;
   hardware?: unknown[];
   hwaccel?: {
     recommended: string;
@@ -245,6 +251,13 @@ export class ApiMocker {
     // fork (I57): go2rtc's state of each camera's source
     await this.page.route("**/api/fork/go2rtc_state**", (route) =>
       route.fulfill({ json: go2rtcStateFactory(overrides?.go2rtcState) }),
+    );
+
+    // fork (D78): notification quiet hours timezone and state
+    await this.page.route("**/api/fork/notifications/schedule**", (route) =>
+      route.fulfill({
+        json: notificationScheduleFactory(overrides?.notificationSchedule),
+      }),
     );
 
     // Reviews. The real backend exposes /review (singular) for the main

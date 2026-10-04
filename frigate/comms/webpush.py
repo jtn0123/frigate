@@ -23,7 +23,9 @@ from frigate.config.camera.updater import (
     CameraConfigUpdateEnum,
     CameraConfigUpdateSubscriber,
 )
+from frigate.config.ui import UIConfig
 from frigate.const import BASE_DIR, CONFIG_DIR
+from frigate.fork.notification_schedule import in_quiet_hours
 from frigate.models import User
 
 _NO_CAMERA_ACCESS_LOG = "Skipping notification for user %s - no access to camera %s"
@@ -209,6 +211,9 @@ class WebPushClient(Communicator):
                 if isinstance(config_payload, AuthConfig):
                     self.config.auth = config_payload
                 self._refresh_user_cameras()
+            # fork (D78): quiet hours read ui.timezone
+            elif config_topic == "config/ui" and isinstance(config_payload, UIConfig):
+                self.config.ui = config_payload
 
         updates = self.config_subscriber.check_for_updates()
 
@@ -228,6 +233,8 @@ class WebPushClient(Communicator):
                 return
             if self.is_camera_suspended(camera):
                 logger.debug(f"Notifications for {camera} are currently suspended.")
+                return
+            if in_quiet_hours(self.config, camera):  # fork (D78)
                 return
             self.send_alert(decoded)
         if topic == "triggers":
@@ -251,6 +258,8 @@ class WebPushClient(Communicator):
 
             if self.is_camera_suspended(camera):
                 logger.debug(f"Notifications for {camera} are currently suspended.")
+                return
+            if in_quiet_hours(self.config, camera):  # fork (D78)
                 return
             self.send_trigger(decoded)
         elif topic == "camera_monitoring":

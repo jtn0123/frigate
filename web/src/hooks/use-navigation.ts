@@ -17,6 +17,7 @@ import {
 } from "react-icons/lu";
 import useSWR from "swr";
 import { useIsAdmin } from "./use-is-admin";
+import { spotlightsNavItem } from "@/lib/fork/spotlights-nav";
 
 export const ID_LIVE = 1;
 export const ID_REVIEW = 2;
@@ -61,6 +62,8 @@ export default function useNavigation(
           title: "menu.review",
           url: "/review",
         },
+        // fork (UI144): the ranked feed of the activity worth a look
+        spotlightsNavItem(variant, isDesktop),
         {
           id: ID_EXPLORE,
           variant,

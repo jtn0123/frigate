@@ -24,6 +24,19 @@ describe("go2rtc state requests", () => {
     });
   });
 
+  it("polls at the interval the caller asks for", () => {
+    swr.useSWR.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: true,
+    });
+    renderHook(() => useGo2rtcState(true, 5_000));
+    expect(swr.useSWR).toHaveBeenLastCalledWith(
+      "fork/go2rtc_state",
+      expect.objectContaining({ refreshInterval: 5_000 }),
+    );
+  });
+
   it("does not request anything while disabled", () => {
     swr.useSWR.mockReturnValue({
       data: undefined,

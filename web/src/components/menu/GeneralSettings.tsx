@@ -79,6 +79,7 @@ import { useTranslation } from "react-i18next";
 import { supportedLanguageKeys } from "@/lib/const";
 import AppearanceMenu from "@/components/fork/AppearanceMenu";
 import CommandPaletteMenuItem from "@/components/fork/CommandPaletteMenuItem";
+import SpotlightsMenuItem from "@/components/fork/spotlights/SpotlightsMenuItem";
 import { useCommandPaletteOpen } from "@/hooks/fork/use-command-palette";
 
 import { useDocDomain } from "@/hooks/use-doc-domain";
@@ -286,6 +287,7 @@ export default function GeneralSettings({
               !isDesktop && "p-2",
             )}
           >
+            <SpotlightsMenuItem />
             {isMobile && (
               <div className="mb-2">
                 <DropdownMenuLabel>

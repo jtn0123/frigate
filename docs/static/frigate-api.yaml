@@ -8491,6 +8491,36 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /fork/notifications/schedule:
+    get:
+      tags:
+        - Notifications
+      summary: Notification Schedule
+      description: |-
+        **Access:** Admin role required.
+
+        Return the timezone quiet hours use and whether each camera is quiet.
+
+        The browser cannot know the server's local time, which is what quiet
+        hours use when `ui.timezone` is not set, so the schedule editor in the
+        notification settings reads it here. Admin only, like that editor.
+
+        Args:
+            request: The incoming request, carrying the config.
+
+        Returns:
+            The timezone, where it came from, and the state of every camera.
+      operationId: notification_schedule_fork_notifications_schedule_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationScheduleResponse'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /system/metrics/history:
     get:
       tags:
@@ -11411,6 +11441,39 @@ components:
         - status
       title: MotionSearchStatusResponse
       description: Response containing job status and results.
+    NotificationScheduleResponse:
+      properties:
+        timezone:
+          type: string
+          title: Timezone
+          description: IANA name of the timezone the windows use
+        source:
+          type: string
+          enum:
+            - ui
+            - server
+          title: Source
+          description: ui when ui.timezone is set, server for the server's local
+            time
+        now:
+          type: number
+          title: Now
+          description: Unix timestamp the state was computed at
+        cameras:
+          additionalProperties:
+            $ref: '#/components/schemas/QuietHoursCameraState'
+          type: object
+          title: Cameras
+          description: State per camera
+      type: object
+      required:
+        - timezone
+        - source
+        - now
+        - cameras
+      title: NotificationScheduleResponse
+      description: The clock quiet hours are read on, and each camera's state on
+        it.
     PlaybackFailure:
       properties:
         reason:
@@ -11509,6 +11572,22 @@ components:
         - last_activated
       title: ProfilesResponse
       description: Available profiles and their latest activation times.
+    QuietHoursCameraState:
+      properties:
+        quiet:
+          type: boolean
+          title: Quiet
+          description: Whether review alert and trigger pushes are held back now
+        windows:
+          type: integer
+          title: Windows
+          description: Number of quiet hours windows the camera uses
+      type: object
+      required:
+        - quiet
+        - windows
+      title: QuietHoursCameraState
+      description: Whether one camera's alert pushes are held back right now.
     RegenerateDescriptionEnum:
       type: string
       enum:

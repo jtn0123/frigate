@@ -2383,6 +2383,12 @@
           "title": "Cooldown period",
           "type": "integer"
         },
+        "quiet_hours": {
+          "description": "Times when review alert and trigger push notifications are not sent. Times use the UI timezone when one is set, otherwise the server's local time. A camera's own list replaces the global one.",
+          "items": { "$ref": "#/$defs/QuietHoursWindow" },
+          "title": "Quiet hours",
+          "type": "array"
+        },
         "enabled_in_config": {
           "anyOf": [{ "type": "boolean" }, { "type": "null" }],
           "default": null,
@@ -2666,6 +2672,35 @@
         }
       },
       "title": "PtzAutotrackConfig",
+      "type": "object"
+    },
+    "QuietHoursWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "days": {
+          "description": "Days the window starts on. Leave empty for every day. A window that runs past midnight belongs to the day it starts on.",
+          "items": {
+            "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+            "type": "string"
+          },
+          "title": "Days",
+          "type": "array"
+        },
+        "start": {
+          "description": "Time the window starts, as HH:MM in 24 hour time.",
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "title": "Start time",
+          "type": "string"
+        },
+        "end": {
+          "description": "Time the window ends, as HH:MM in 24 hour time. An end at or before the start runs past midnight into the next day.",
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "title": "End time",
+          "type": "string"
+        }
+      },
+      "required": ["start", "end"],
+      "title": "QuietHoursWindow",
       "type": "object"
     },
     "RecordConfig": {
