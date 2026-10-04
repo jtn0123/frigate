@@ -799,5 +799,72 @@
       "budget": "The AI helper's daily limit is used up. Guesses resume tomorrow.",
       "error": "The AI helper didn't answer. Reload the page to try again."
     }
+  },
+  "seenElsewhere": {
+    "title": "Seen on other cameras",
+    "windowLabel": "Time window",
+    "window": {
+      "15m": "15 min",
+      "30m": "30 min",
+      "1h": "1 h",
+      "6h": "6 h",
+      "day": "Day"
+    },
+    "windowAria": {
+      "15m": "Within 15 minutes",
+      "30m": "Within 30 minutes",
+      "1h": "Within 1 hour",
+      "6h": "Within 6 hours",
+      "day": "The same day"
+    },
+    "windowPhrase": {
+      "15m": "within 15 minutes",
+      "30m": "within 30 minutes",
+      "1h": "within an hour",
+      "6h": "within 6 hours",
+      "day": "on the same day"
+    },
+    "matchingOn": "Matching on",
+    "identity": {
+      "face": "Face",
+      "name": "Name",
+      "plate": "License plate"
+    },
+    "loading": "Looking on other cameras",
+    "failed": "Could not look on the other cameras. Try again later.",
+    "empty": "Not seen on other cameras {{window}}.",
+    "emptySimilar": "Nothing that looks like this on other cameras {{window}}.",
+    "emptyHint": "Pick a wider window to look further.",
+    "summary_one": "{{count}} sighting by face or plate",
+    "summary_other": "{{count}} sightings by face or plate",
+    "capped_one": "Showing the {{count}} closest sighting by face or plate",
+    "capped_other": "Showing the {{count}} closest sightings by face or plate",
+    "timeline": "Sightings by camera",
+    "legend": {
+      "this": "This object",
+      "matched": "Same face or plate",
+      "similar": "Looks alike"
+    },
+    "gap": {
+      "same": "Same time",
+      "minutes": "{{minutes}} min",
+      "hours": "{{hours}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}} min",
+      "earlier": "{{gap}} earlier",
+      "later": "{{gap}} later"
+    },
+    "sightingAria": "{{when}} on {{camera}} at {{time}}. Open this object",
+    "similar": {
+      "title": "Similar appearance",
+      "approximate": "Approximate",
+      "note": "Matched by look alone, not by face or plate, so some may be someone else.",
+      "empty": "Nothing that looks like this {{window}}.",
+      "match": "{{percent}}% alike"
+    },
+    "setup": {
+      "face": "Turn on <face>face recognition</face> or <similar>semantic search</similar> to find this person on other cameras.",
+      "plate": "Turn on <plate>license plate recognition</plate> or <similar>semantic search</similar> to find this vehicle on other cameras.",
+      "similar": "Turn on <similar>semantic search</similar> to find look-alikes of this object on other cameras."
+    }
   }
 }

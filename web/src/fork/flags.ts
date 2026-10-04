@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** "Seen on other cameras" (same face, plate or look) in the tracked object detail. */
+  seenElsewhere: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -67,6 +69,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  seenElsewhere: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {
