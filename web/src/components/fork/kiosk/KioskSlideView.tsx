@@ -177,16 +177,15 @@ export default function KioskSlideView({
     return fitSavedLayout(items, width, height);
   }, [useSaved, layout, slide.cameras, width, height]);
 
+  // Wait for the saved layout instead of flashing the plain grid first.
+  const waitingForLayout = useSaved && !layoutLoaded;
   let content: React.ReactNode = null;
   if (single) {
     const only = tiles.at(0);
     content = only ? (
       <div className="absolute inset-0">{tile(only)}</div>
     ) : null;
-  } else if (useSaved && !layoutLoaded) {
-    // Wait for the saved layout instead of flashing the plain grid first.
-    content = null;
-  } else if (fitted) {
+  } else if (fitted && !waitingForLayout) {
     content = (
       <div
         className="relative"
@@ -215,7 +214,7 @@ export default function KioskSlideView({
         })}
       </div>
     );
-  } else {
+  } else if (!waitingForLayout) {
     const shape = bestGridShape(tiles.length, width, height, GAP);
     content = (
       <div

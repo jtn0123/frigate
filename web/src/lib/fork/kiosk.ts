@@ -637,7 +637,11 @@ export function keepAliveMs(auth: unknown): number {
   if (!isRecord(auth)) return KEEP_ALIVE_MS;
   if (auth["enabled"] === false) return 0;
   const refreshTime = auth["refresh_time"];
-  if (typeof refreshTime !== "number" || !(refreshTime > 0)) {
+  if (
+    typeof refreshTime !== "number" ||
+    Number.isNaN(refreshTime) ||
+    refreshTime <= 0
+  ) {
     return KEEP_ALIVE_MS;
   }
   return Math.min(KEEP_ALIVE_MS, (refreshTime * 1000) / 2);

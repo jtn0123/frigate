@@ -50,7 +50,7 @@ type KioskSetupDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Live's current group, checked when the dialog opens. */
-  currentGroup?: string | undefined;
+  currentGroup: string | undefined;
 };
 
 type GroupChoice = { key: string; label: string; count: number };
@@ -61,6 +61,11 @@ export default function KioskSetupDialog({
   currentGroup,
 }: Readonly<KioskSetupDialogProps>) {
   const { t } = useTranslation(["fork"]);
+  const cycleLabel = (seconds: number): string => {
+    if (seconds === 0) return t("kiosk.setup.cycleOff");
+    if (seconds < 60) return t("kiosk.setup.seconds", { count: seconds });
+    return t("kiosk.setup.minutes", { count: seconds / 60 });
+  };
   const navigate = useNavigate();
   const { data: config } = useSWR<FrigateConfig>("config");
   const allowedCameras = useAllowedCameras();
@@ -236,11 +241,7 @@ export default function KioskSetupDialog({
               <SelectContent>
                 {CYCLE_CHOICES.map((seconds) => (
                   <SelectItem key={seconds} value={String(seconds)}>
-                    {seconds === 0
-                      ? t("kiosk.setup.cycleOff")
-                      : seconds < 60
-                        ? t("kiosk.setup.seconds", { count: seconds })
-                        : t("kiosk.setup.minutes", { count: seconds / 60 })}
+                    {cycleLabel(seconds)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -24,7 +24,7 @@ const KioskSetupDialog = lazy(
 
 type KioskLaunchButtonProps = {
   variant: "rail" | "header";
-  currentGroup?: string | undefined;
+  currentGroup: string | undefined;
   className?: string;
 };
 
