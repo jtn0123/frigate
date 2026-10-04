@@ -101,11 +101,12 @@
       "title": "Inbox settings"
     },
     "quietHours": {
-      "title": "Quiet hours",
-      "description": "Items arriving during quiet hours are stored without an unread badge.",
+      "title": "Inbox quiet hours",
+      "description": "Only affects this inbox in this browser. Items that arrive are stored without an unread badge, and push notifications still arrive.",
       "start": "From",
       "end": "To",
-      "active": "Quiet hours {{start}} to {{end}}"
+      "active": "Inbox quiet hours {{start}} to {{end}}",
+      "pushSchedule": "Pause push notifications on a schedule"
     },
     "mute": {
       "title": "Muted cameras",
@@ -798,6 +799,80 @@
       "noDescription": "This event has no AI description yet, so there is nothing to read.",
       "budget": "The AI helper's daily limit is used up. Guesses resume tomorrow.",
       "error": "The AI helper didn't answer. Reload the page to try again."
+    }
+  },
+  "notificationSchedule": {
+    "intro": "No review alert or trigger pushes are sent during these windows, and none are sent later. Alerts still appear in Review, and in the inbox of any browser with Frigate open.",
+    "exempt": "Camera offline alerts, AI watch alerts, and test notifications are always sent.",
+    "status": {
+      "quiet": "Quiet now",
+      "notifying": "Notifying",
+      "off": "Notifications off",
+      "quietUntil": "Pushes resume {{when}}",
+      "notifyingUntil": "Quiet hours start {{when}}",
+      "alwaysQuiet": "Quiet all week",
+      "noWindows": "No quiet hours"
+    },
+    "afterSaving": {
+      "off": "After saving: notifications off",
+      "none": "After saving: no quiet hours",
+      "quiet": "After saving: quiet now. {{status}}",
+      "notifying": "After saving: not quiet now. {{status}}"
+    },
+    "when": {
+      "today": "at {{time}}",
+      "tomorrow": "tomorrow at {{time}}",
+      "later": "{{day}} at {{time}}"
+    },
+    "timezone": {
+      "ui": "Times use the UI timezone, {{zone}}.",
+      "server": "Times use the server's local time, {{zone}}.",
+      "serverUnknown": "Times use the server's local time.",
+      "change": "Change timezone",
+      "browserDiffers": "This browser is on {{zone}}.",
+      "serverAhead_one": "Quiet hours follow the server clock ({{zone}}), {{count}} hour ahead of this browser",
+      "serverAhead_other": "Quiet hours follow the server clock ({{zone}}), {{count}} hours ahead of this browser",
+      "serverBehind_one": "Quiet hours follow the server clock ({{zone}}), {{count}} hour behind this browser",
+      "serverBehind_other": "Quiet hours follow the server clock ({{zone}}), {{count}} hours behind this browser",
+      "serverSeasonal": "Quiet hours follow the server clock ({{zone}}), which matches this browser now but not after a daylight saving change",
+      "serverHelp": "Set the UI timezone to run them on local time. UI settings open with {{zone}} filled in, and nothing changes until you save.",
+      "useBrowser": "Use {{zone}}"
+    },
+    "windows": {
+      "empty": "No quiet hours. Alerts are pushed at any time.",
+      "add": "Add window",
+      "remove": "Remove window {{index}}",
+      "label": "Window {{index}}",
+      "summary": "{{days}}, {{start}} to {{end}}",
+      "everyDay": "Every day",
+      "weekdays": "Weekdays",
+      "weekends": "Weekends",
+      "everyNight": "Every night",
+      "nights": "{{days}} nights",
+      "startsDays": "Starts {{days}}",
+      "dayRange": "{{first}} to {{last}}",
+      "startsOn": "Starts on",
+      "overnight": "Ends next day",
+      "endsNextMorning": "Ends next morning",
+      "endsMornings": "Ends {{days}} mornings",
+      "endsOn": "Ends {{days}}",
+      "endsMidnight": "Ends at midnight",
+      "fullDay": "24 hours",
+      "invalidTime": "Enter a time"
+    },
+    "scope": {
+      "global": "Cameras use this schedule unless they have their own.",
+      "inherits": "Uses the global schedule. Editing it here gives this camera its own.",
+      "own": "This camera has its own schedule, which replaces the global one.",
+      "profile": "While this profile is active, this schedule replaces the camera's."
+    },
+    "cameras": {
+      "title": "Camera status",
+      "usesGlobal": "Global schedule",
+      "own_one": "Own schedule, {{count}} window",
+      "own_other": "Own schedule, {{count}} windows",
+      "ownNone": "Own schedule, never quiet",
+      "edit": "Edit the {{camera}} schedule"
     }
   }
 }

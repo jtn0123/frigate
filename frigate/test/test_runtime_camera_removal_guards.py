@@ -205,7 +205,8 @@ class TestWebPushRemovedCamera(unittest.TestCase):
         self.client.config = SimpleNamespace(
             cameras={
                 "front": SimpleNamespace(
-                    notifications=SimpleNamespace(enabled=True),
+                    # quiet_hours defaults to [] on the real config (D78)
+                    notifications=SimpleNamespace(enabled=True, quiet_hours=[]),
                     semantic_search=SimpleNamespace(
                         triggers={"red_car": SimpleNamespace(actions=["notification"])}
                     ),

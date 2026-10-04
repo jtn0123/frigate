@@ -4631,6 +4631,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fork/notifications/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification Schedule
+         * @description **Access:** Admin role required.
+         *
+         *     Return the timezone quiet hours use and whether each camera is quiet.
+         *
+         *     The browser cannot know the server's local time, which is what quiet
+         *     hours use when `ui.timezone` is not set, so the schedule editor in the
+         *     notification settings reads it here. Admin only, like that editor.
+         *
+         *     Args:
+         *         request: The incoming request, carrying the config.
+         *
+         *     Returns:
+         *         The timezone, where it came from, and the state of every camera.
+         */
+        get: operations["notification_schedule_fork_notifications_schedule_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/metrics/history": {
         parameters: {
             query?: never;
@@ -6811,6 +6843,35 @@ export interface components {
             progress?: number | null;
         };
         /**
+         * NotificationScheduleResponse
+         * @description The clock quiet hours are read on, and each camera's state on it.
+         */
+        NotificationScheduleResponse: {
+            /**
+             * Timezone
+             * @description IANA name of the timezone the windows use
+             */
+            timezone: string;
+            /**
+             * Source
+             * @description ui when ui.timezone is set, server for the server's local time
+             * @enum {string}
+             */
+            source: "ui" | "server";
+            /**
+             * Now
+             * @description Unix timestamp the state was computed at
+             */
+            now: number;
+            /**
+             * Cameras
+             * @description State per camera
+             */
+            cameras: {
+                [key: string]: components["schemas"]["QuietHoursCameraState"];
+            };
+        };
+        /**
          * PlaybackFailure
          * @description Structured client playback failure.
          */
@@ -6883,6 +6944,22 @@ export interface components {
             last_activated: {
                 [key: string]: number;
             };
+        };
+        /**
+         * QuietHoursCameraState
+         * @description Whether one camera's alert pushes are held back right now.
+         */
+        QuietHoursCameraState: {
+            /**
+             * Quiet
+             * @description Whether review alert and trigger pushes are held back now
+             */
+            quiet: boolean;
+            /**
+             * Windows
+             * @description Number of quiet hours windows the camera uses
+             */
+            windows: number;
         };
         /**
          * RegenerateDescriptionEnum
@@ -14041,6 +14118,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notification_schedule_fork_notifications_schedule_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationScheduleResponse"];
                 };
             };
         };

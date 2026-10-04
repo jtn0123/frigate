@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Quiet hours schedule editor for push notifications in Settings. */
+  notificationSchedules: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -67,6 +69,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  notificationSchedules: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {

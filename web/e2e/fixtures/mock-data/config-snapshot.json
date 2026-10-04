@@ -37,6 +37,7 @@
     "enabled": false,
     "email": null,
     "cooldown": 0,
+    "quiet_hours": [],
     "enabled_in_config": false
   },
   "networking": {
@@ -341,6 +342,7 @@
         "enabled": false,
         "email": null,
         "cooldown": 0,
+        "quiet_hours": [],
         "enabled_in_config": false
       },
       "onvif": {
@@ -587,6 +589,7 @@
         "enabled": false,
         "email": null,
         "cooldown": 0,
+        "quiet_hours": [],
         "enabled_in_config": false
       },
       "onvif": {
@@ -833,6 +836,7 @@
         "enabled": false,
         "email": null,
         "cooldown": 0,
+        "quiet_hours": [],
         "enabled_in_config": false
       },
       "onvif": {
