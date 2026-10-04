@@ -1,0 +1,21 @@
+/* Wall display (UI19): cycle progress and alert countdown bars. */
+
+@keyframes fork-kiosk-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.fork-kiosk-bar {
+  transform-origin: left center;
+  animation-name: fork-kiosk-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.fork-kiosk-bar[data-direction="down"] {
+  animation-direction: reverse;
+}

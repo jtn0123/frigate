@@ -833,5 +833,68 @@
       "syncing": "Syncing",
       "inSync": "In sync"
     }
+  },
+  "kiosk": {
+    "launch": "Open as wall display",
+    "documentTitle": "Wall display - Frigate",
+    "allCameras": "All cameras",
+    "selectedCameras": "Selected cameras",
+    "clockDateFormat": "EEEE, MMMM d",
+    "empty": {
+      "title": "Nothing to show",
+      "description": "This wall display link names no cameras you can view. Check the group names in the link, or set up a new one from Live.",
+      "back": "Back to Live"
+    },
+    "takeover": {
+      "badge": "Alert",
+      "more_one": "+{{count}} more alert",
+      "more_other": "+{{count}} more alerts"
+    },
+    "controls": {
+      "label": "Wall display controls",
+      "paused": "Paused",
+      "exitHint": "Press Esc again to return to Live",
+      "previous": "Previous",
+      "next": "Next",
+      "pause": "Pause cycling",
+      "resume": "Resume cycling",
+      "position": "{{current}} / {{total}}",
+      "exit": "Return to Live"
+    },
+    "setup": {
+      "title": "Wall display",
+      "description": "Show live cameras full screen on a TV, monitor or tablet, with no menus. Open it here, or copy the link into the display's own browser.",
+      "groups": "Camera groups",
+      "cameraCount_one": "{{count}} camera",
+      "cameraCount_other": "{{count}} cameras",
+      "pickGroup": "Pick at least one group.",
+      "groupsCycle": "The display steps through the groups in this order.",
+      "layout": "Layout",
+      "modeGrid": "Grid",
+      "modeSingle": "One camera",
+      "modeGridHint": "The cameras of a group share the screen.",
+      "modeSingleHint": "One camera at a time fills the screen and streams continuously.",
+      "cycle": "Cycle every",
+      "cycleOff": "Do not cycle",
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "tiles": "Cameras per screen",
+      "tilesAll": "The whole group",
+      "tilesUpTo_one": "Up to {{count}}",
+      "tilesUpTo_other": "Up to {{count}}",
+      "savedLayout": "Use the group's saved layout",
+      "savedLayoutHint": "Arrange a group the way it is arranged on Live in this browser, scaled to fit the screen.",
+      "clock": "Show a clock",
+      "alerts": "Alert takeover",
+      "alertsHint": "When an alert starts on a camera on the display, that camera fills the screen for 20 seconds. Alerts that start together take turns.",
+      "link": "Link",
+      "tip": "Tip: start the display's browser in its kiosk mode with this link (for example chrome --kiosk), and sign in with a viewer account limited to these cameras. The display stays signed in while it is open.",
+      "copy": "Copy link",
+      "copied": "Link copied",
+      "copyFailed": "Could not copy the link",
+      "open": "Open"
+    }
   }
 }

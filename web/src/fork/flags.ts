@@ -48,6 +48,8 @@ export type ForkFlags = {
   classificationSuggestions: boolean;
   /** Multi-camera grid in the recording view, every tile on one clock. */
   syncedPlayback: boolean;
+  /** Chrome-free wall display at /kiosk that cycles camera groups. */
+  kioskMode: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -70,6 +72,7 @@ const defaults: ForkFlags = {
   trackOverlay: true,
   classificationSuggestions: true,
   syncedPlayback: true,
+  kioskMode: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {
