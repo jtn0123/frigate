@@ -223,7 +223,12 @@ export function useSearchEffect(
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [pendingRemoval, setPendingRemoval] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    pathname: string;
+    search: string;
+    historyKey?: string;
+    historyPath: string;
+  } | null>(null);
   const processedRef = useRef<string | null>(null);
 
   // the strip navigate below has to read the location as it is when that
@@ -241,6 +246,12 @@ export function useSearchEffect(
     }
 
     const decoded = decodeURIComponent(currentParam);
+    const source = {
+      pathname: locationRef.current.pathname,
+      search: locationRef.current.search,
+      historyKey: (window.history.state as { key?: string } | null)?.key,
+      historyPath: window.location.pathname + window.location.search,
+    };
     const shouldRemove = callback(decoded);
 
     if (shouldRemove) {
@@ -248,7 +259,7 @@ export function useSearchEffect(
       // react-router v7 wraps navigation in startTransition, so this flag has
       // to land in the same transition or it flushes before the callback's
       // navigation is reflected in location.state
-      startTransition(() => setPendingRemoval(true));
+      startTransition(() => setPendingRemoval(source));
     }
   }, [currentParam, callback, key]);
 
@@ -260,16 +271,30 @@ export function useSearchEffect(
       return;
     }
 
-    setPendingRemoval(false);
+    setPendingRemoval((queued) => (queued === pendingRemoval ? null : queued));
     const loc = locationRef.current;
+    const history = window.history.state as {
+      key?: string;
+      usr?: unknown;
+    } | null;
+    // A newer link may have updated history before its router transition
+    // commits. Only consume the query that this callback actually handled.
+    if (
+      loc.pathname !== pendingRemoval.pathname ||
+      loc.search !== pendingRemoval.search ||
+      (history?.key !== pendingRemoval.historyKey &&
+        window.location.pathname + window.location.search !==
+          pendingRemoval.historyPath)
+    ) {
+      return;
+    }
     // react-router updates window.history synchronously but only re-renders
     // on a transition, so a callback that navigated (including asynchronously,
     // after this effect's render) may not be reflected in loc yet. The history
     // entry is the live value; stripping the param must not roll it back.
     // location.state is loosely typed upstream, so name the type here rather
     // than let it widen into the assignment
-    const liveState: unknown =
-      (window.history.state as { usr?: unknown } | null)?.usr ?? loc.state;
+    const liveState: unknown = history?.usr ?? loc.state;
     void navigate(loc.pathname + loc.hash, {
       state: liveState,
       replace: true,
