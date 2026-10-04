@@ -218,8 +218,8 @@ function isLoopback(host: string): boolean {
   return (
     value === "localhost" ||
     value === "::1" ||
-    /^127\./.test(value) ||
-    /^::ffff:127\./.test(value)
+    value.startsWith("127.") ||
+    value.startsWith("::ffff:127.")
   );
 }
 
@@ -286,7 +286,7 @@ export function isInternalConsumer(consumer: Go2rtcConsumer): boolean {
 export function isUnconnectedConsumer(consumer: Go2rtcConsumer): boolean {
   if (consumerKind(consumer) !== "webrtc") return false;
   const sent = consumer.bytes_send ?? 0;
-  return !(consumer.remote_addr ?? "").trim() && !(sent > 0);
+  return !(consumer.remote_addr ?? "").trim() && sent <= 0;
 }
 
 function emptyKinds(): Record<ConsumerKind, number> {
@@ -479,7 +479,7 @@ export function appendSample(
   windowSeconds: number = TELEMETRY_WINDOW_SECONDS,
 ): readonly TelemetrySample[] {
   const last = buffer.at(-1);
-  if (last && sample.t === last.t) return buffer;
+  if (sample.t === last?.t) return buffer;
   if (last && sample.t < last.t) return [sample];
   const start = sample.t - windowSeconds;
   return [...buffer.filter((entry) => entry.t >= start), sample];

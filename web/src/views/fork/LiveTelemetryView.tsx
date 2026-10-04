@@ -198,7 +198,7 @@ function BigValue({
 }: Readonly<{
   status: ReadStatus;
   children: ReactNode;
-  className?: string | undefined;
+  className?: string;
   compact?: boolean;
 }>) {
   if (status === "loading") {
@@ -465,7 +465,7 @@ function CompactFigure({
   title: string;
   testId: string;
   action?: ReactNode;
-  level?: LatencyLevel | undefined;
+  level?: LatencyLevel;
   children: ReactNode;
 }>) {
   return (
@@ -520,7 +520,7 @@ function CompactFigures({ telemetry }: Readonly<{ telemetry: LiveTelemetry }>) {
         <CompactFigure
           title={t("liveTelemetry.latency.title")}
           testId="live-latency"
-          level={slowest?.level}
+          {...(slowest ? { level: slowest.level } : {})}
         >
           <BigValue
             status={
@@ -528,7 +528,7 @@ function CompactFigures({ telemetry }: Readonly<{ telemetry: LiveTelemetry }>) {
                 ? "unavailable"
                 : latencyStatus
             }
-            className={slowest && LEVEL_TEXT[slowest.level]}
+            {...(slowest ? { className: LEVEL_TEXT[slowest.level] } : {})}
             compact
           >
             {slowest &&
