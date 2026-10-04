@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Quiet hours schedule editor for push notifications in Settings. */
+  notificationSchedules: boolean;
   /** "Seen on other cameras" (same face, plate or look) in the tracked object detail. */
   seenElsewhere: boolean;
   /** Spotlights page: a ranked feed of the activity worth a look. */
@@ -77,6 +79,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  notificationSchedules: true,
   seenElsewhere: true,
   spotlights: true,
   liveTelemetry: true,

@@ -57,6 +57,7 @@ import { CameraInputsField } from "./fields/CameraInputsField";
 import { DictAsYamlField } from "./fields/DictAsYamlField";
 import { KnownPlatesField } from "./fields/KnownPlatesField";
 import { LiveStreamsField } from "./fields/LiveStreamsField";
+import { QuietHoursField } from "./fields/fork/QuietHoursField";
 
 export interface FrigateTheme {
   widgets: RegistryWidgetsType;
@@ -121,5 +122,6 @@ export const frigateTheme: FrigateTheme = {
     DictAsYamlField: DictAsYamlField,
     KnownPlatesField: KnownPlatesField,
     LiveStreamsField: LiveStreamsField,
+    QuietHoursField: QuietHoursField, // fork (D78)
   },
 };
