@@ -31,6 +31,8 @@ import { useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import SetPasswordDialog from "../overlay/SetPasswordDialog";
+import SessionsMenuItem from "@/components/fork/sessions/SessionsMenuItem";
+import MySessionsDialog from "@/components/fork/sessions/MySessionsDialog";
 import { useTranslation } from "react-i18next";
 
 type AccountSettingsProps = {
@@ -48,6 +50,7 @@ export default function AccountSettings({
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false); // fork (E26)
 
   const Container = isDesktop ? DropdownMenu : Drawer;
   const Trigger = isDesktop ? DropdownMenuTrigger : DrawerTrigger;
@@ -147,6 +150,15 @@ export default function AccountSettings({
                 <span>{t("menu.user.setPassword", { ns: "common" })}</span>
               </MenuItem>
             )}
+          {/* fork (E26): sessions of the signed-in user */}
+          <SessionsMenuItem
+            as={MenuItem}
+            className={cn(
+              "flex w-full items-center gap-2",
+              isDesktop ? "cursor-pointer" : "p-2 text-sm",
+            )}
+            onOpen={() => setSessionsOpen(true)}
+          />
 
           <MenuItem
             className={cn(
@@ -173,6 +185,11 @@ export default function AccountSettings({
         initialError={passwordError}
         username={profile?.username}
         isLoading={isPasswordLoading}
+      />
+      <MySessionsDialog
+        open={sessionsOpen}
+        onOpenChange={setSessionsOpen}
+        username={profile?.username}
       />
     </Container>
   );

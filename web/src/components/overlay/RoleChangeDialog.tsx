@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { LuShield, LuUser } from "react-icons/lu";
+import SessionsEndNotice from "@/components/fork/sessions/SessionsEndNotice";
 
 type RoleChangeDialogProps = {
   show: boolean;
@@ -55,6 +56,8 @@ export default function RoleChangeDialog({
               }}
             />
           </DialogDescription>
+          {/* fork (E26): the user signs in again to get the new role */}
+          <SessionsEndNotice change="role" username={username} />
         </DialogHeader>
 
         <div className="py-3">

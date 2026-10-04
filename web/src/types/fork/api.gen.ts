@@ -4640,6 +4640,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fork/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List signed-in sessions
+         * @description **Access:** Any authenticated user.
+         *
+         *     List usable sessions, most recently active first.
+         *
+         *     An admin gets every user's sessions, anyone else only their own. The
+         *     caller's own session is marked `current`.
+         */
+        get: operations["list_sessions_fork_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fork/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a session
+         * @description **Access:** Any authenticated user.
+         *
+         *     Sign one session out. Its tokens stop working on their next request.
+         *
+         *     Only the session's user or an admin may; anyone else gets the same 404
+         *     as for an unknown session.
+         */
+        delete: operations["revoke_session_fork_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fork/sessions/revoke_all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign a user out everywhere
+         * @description **Access:** Any authenticated user.
+         *
+         *     Revoke every session of a user, or every one but the caller's own.
+         *
+         *     A user may sign themselves out; an admin may sign out anyone. Signing
+         *     out everywhere also refuses older tokens that have no session, until
+         *     the next restart.
+         */
+        post: operations["revoke_all_sessions_fork_sessions_revoke_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fork/sessions/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tie this device's notifications to its session
+         * @description **Access:** Any authenticated user.
+         *
+         *     Tie this device's push subscription to the session it is signed in with.
+         *
+         *     The web app sends it each time it connects, so signing this device out
+         *     stops its notifications. A subscription the user lost when one of their
+         *     sessions ended is restored; anyone else's, or one never registered, is
+         *     left alone (`linked` is false).
+         */
+        put: operations["link_session_push_fork_sessions_push_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/updates": {
         parameters: {
             query?: never;
@@ -7111,6 +7214,100 @@ export interface components {
          */
         ReviewSummaryResponse: {
             [key: string]: components["schemas"]["Last24HoursReview"] | components["schemas"]["DayReview"];
+        };
+        /**
+         * SessionListItem
+         * @description A signed-in session that can still be used (fork E26).
+         */
+        SessionListItem: {
+            /**
+             * Id
+             * @description Session id, the jti claim of its tokens
+             */
+            id: string;
+            /**
+             * Username
+             * @description User the session belongs to
+             */
+            username: string;
+            /**
+             * Created At
+             * @description Unix timestamp of the sign-in
+             */
+            created_at: number;
+            /**
+             * Last Seen
+             * @description Unix timestamp of the last request the session made
+             */
+            last_seen: number;
+            /**
+             * Expires At
+             * @description Unix timestamp when the session ends unless it is refreshed
+             */
+            expires_at: number;
+            /**
+             * User Agent
+             * @description User agent of the sign-in request, empty when unknown
+             */
+            user_agent: string;
+            /**
+             * Ip
+             * @description Client address of the sign-in, empty when unknown
+             */
+            ip: string;
+            /**
+             * Current
+             * @description Whether this is the caller's own session
+             */
+            current: boolean;
+        };
+        /** SessionPushBody */
+        SessionPushBody: {
+            /**
+             * Sub
+             * @description The browser's push subscription, as PushSubscription.toJSON() gives it
+             */
+            sub: Record<string, never>;
+        };
+        /**
+         * SessionPushResponse
+         * @description Result of tying a device's push subscription to its session (fork E27).
+         */
+        SessionPushResponse: {
+            /** Success */
+            success: boolean;
+            /**
+             * Linked
+             * @description Whether the subscription is this user's and now follows this session
+             */
+            linked: boolean;
+        };
+        /** SessionRevokeAllBody */
+        SessionRevokeAllBody: {
+            /**
+             * Username
+             * @description User to sign out; the caller when omitted. Only an admin may name another user
+             */
+            username?: string | null;
+            /**
+             * Keep Current
+             * @description Keep the caller's own session, to sign out only the others
+             * @default false
+             */
+            keep_current: boolean;
+        };
+        /**
+         * SessionRevokeAllResponse
+         * @description Result of signing a user out of several sessions at once.
+         */
+        SessionRevokeAllResponse: {
+            /** Success */
+            success: boolean;
+            /**
+             * Revoked
+             * @description Number of sessions revoked
+             */
+            revoked: number;
         };
         /**
          * SeverityEnum
@@ -14209,6 +14406,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenericResponse"];
+                };
+            };
+        };
+    };
+    list_sessions_fork_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionListItem"][];
+                };
+            };
+        };
+    };
+    revoke_session_fork_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenericResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_all_sessions_fork_sessions_revoke_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionRevokeAllBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRevokeAllResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_session_push_fork_sessions_push_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionPushBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPushResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

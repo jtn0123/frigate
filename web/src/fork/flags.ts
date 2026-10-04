@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Signed-in sessions with revoke, in Settings > Users and the account menu. */
+  userSessions: boolean;
   /** Line zones with a crossing direction, and exclusion zones, in the zone editor. */
   lineZones: boolean;
   /** Quiet hours schedule editor for push notifications in Settings. */
@@ -81,6 +83,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  userSessions: true,
   lineZones: true,
   notificationSchedules: true,
   seenElsewhere: true,

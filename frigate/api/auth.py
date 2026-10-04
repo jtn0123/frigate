@@ -38,6 +38,15 @@ from frigate.api.media_auth import (
 from frigate.config import AuthConfig, ProxyConfig
 from frigate.const import CONFIG_DIR, JWT_SECRET_ENV_VAR, PASSWORD_HASH_ALGORITHM
 from frigate.events.share_links import delete_user_share_links
+from frigate.fork.sessions import (
+    end_current_session,
+    end_user_sessions,
+    refresh_session,
+    role_changed,
+    session_allows,
+    session_header,
+    start_session,
+)
 from frigate.models import User
 from frigate.notices import raise_notice
 from frigate.util.admin_password import remove_admin_password
@@ -112,6 +121,7 @@ def require_admin_by_default():
         "/exports",
         "/jobs/export",
         "/fork/share",
+        "/fork/sessions",
         "/fork/updates",
         "/fork/camera_history",
         "/fork/go2rtc_state",
@@ -134,6 +144,7 @@ def require_admin_by_default():
         "/vod/",  # /vod/{camera_name}/...
         "/notifications/",  # /notifications/pubkey, /notifications/register
         "/fork/share/",  # public GET by token; route gate is allow_public
+        "/fork/sessions/",  # own sessions for any user, everyone's for admin
     )
 
     async def admin_checker(request: Request):
@@ -544,12 +555,12 @@ def validate_password_strength(password: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def create_encoded_jwt(user, role, expiration, secret):
-    return jwt.encode(
-        {"alg": "HS256"},
-        {"sub": user, "role": role, "exp": expiration, "iat": int(time.time())},
-        secret,
-    )
+def create_encoded_jwt(user, role, expiration, secret, jti=None):
+    claims = {"sub": user, "role": role, "exp": expiration, "iat": int(time.time())}
+    # fork E26: the session the token belongs to, so it can be revoked
+    if jti is not None:
+        claims["jti"] = jti
+    return jwt.encode({"alg": "HS256"}, claims, secret)
 
 
 def set_jwt_cookie(response: Response, cookie_name, encoded_jwt, max_age, secure):
@@ -876,6 +887,11 @@ def auth(request: Request):
             logger.debug("jwt token expired")
             return fail_response
 
+        # fork E26: a revoked session, or a token from before a password change
+        if not session_allows(request, token.claims, current_time):
+            logger.debug("jwt session revoked")
+            return fail_response
+
         # if the jwt cookie is expiring soon
         if jwt_source == "cookie" and expiration - JWT_REFRESH <= current_time:
             logger.debug("jwt token expiring soon, refreshing cookie")
@@ -898,9 +914,19 @@ def auth(request: Request):
                 logger.debug("user not found")
                 return fail_response
 
+            # fork E26: a token from before a role change signs in again
+            if role_changed(user_obj, role, auth_config.roles):
+                logger.debug("jwt role changed, rejecting refresh")
+                return fail_response
+
             new_expiration = current_time + JWT_SESSION_LENGTH
             new_encoded_jwt = create_encoded_jwt(
-                user, role, new_expiration, request.app.jwt_token
+                user,
+                role,
+                new_expiration,
+                request.app.jwt_token,
+                # fork E26: the refreshed token stays in the same session
+                jti=refresh_session(request, token.claims, new_expiration),
             )
             set_jwt_cookie(
                 success_response,
@@ -912,6 +938,8 @@ def auth(request: Request):
 
         success_response.headers["remote-user"] = user
         success_response.headers["remote-role"] = role
+        # fork E27: names the session, so a revoke can close its open sockets
+        success_response.headers["remote-session"] = session_header(token.claims)
 
         deny_status = deny_response_for_media_uri(original_url, role, frigate_config)
         if deny_status is not None:
@@ -974,6 +1002,8 @@ def profile(request: Request):
 )
 def logout(request: Request):
     auth_config: AuthConfig = request.app.frigate_config.auth
+    # fork E26: the token stops working now, not when it expires
+    end_current_session(request)
     response = RedirectResponse(_LOGIN_PATH, status_code=303)
     response.delete_cookie(auth_config.cookie_name)
     return response
@@ -1017,7 +1047,11 @@ def login(request: Request, body: AppPostLoginBody):
             )
             role = "viewer"
         expiration = int(time.time()) + JWT_SESSION_LENGTH
-        encoded_jwt = create_encoded_jwt(user, role, expiration, request.app.jwt_token)
+        # fork E26: each login is a session that can be listed and revoked
+        jti = start_session(request, user, expiration, get_remote_addr(request))
+        encoded_jwt = create_encoded_jwt(
+            user, role, expiration, request.app.jwt_token, jti=jti
+        )
         response = Response("", 200)
         set_jwt_cookie(
             response,
@@ -1110,6 +1144,8 @@ def delete_user(request: Request, username: str):
     User.delete_by_id(username)
     # fork E16: a removed user's public clip links go with the account
     delete_user_share_links(username)
+    # fork E26: and so do its sessions
+    end_user_sessions(request, username)
     request.app.config_publisher.publisher.publish(_CONFIG_AUTH, None)
     return JSONResponse(content={"success": True})
 
@@ -1184,6 +1220,9 @@ async def update_password(
         .execute
     )
 
+    # fork E26: every session of the account ends now, not at its next refresh
+    await asyncio.to_thread(end_user_sessions, request, username)
+
     if username == "admin":
         await asyncio.to_thread(remove_admin_password, Path(CONFIG_DIR))
 
@@ -1196,8 +1235,12 @@ async def update_password(
         JWT_SESSION_LENGTH = request.app.frigate_config.auth.session_length
 
         expiration = int(time.time()) + JWT_SESSION_LENGTH
+        # fork E26: the caller continues in a new session
+        jti = await asyncio.to_thread(
+            start_session, request, username, expiration, get_remote_addr(request)
+        )
         encoded_jwt = create_encoded_jwt(
-            username, current_role, expiration, request.app.jwt_token
+            username, current_role, expiration, request.app.jwt_token, jti=jti
         )
         # Set new JWT cookie on response
         set_jwt_cookie(
@@ -1245,6 +1288,8 @@ async def update_role(
         )
 
     await asyncio.to_thread(User.set_by_id, username, {User.role: body.role})
+    # fork E26: tokens carry the role, so the user signs in again to get the new one
+    await asyncio.to_thread(end_user_sessions, request, username)
     request.app.config_publisher.publisher.publish(_CONFIG_AUTH, None)
     return JSONResponse(content={"success": True})
 

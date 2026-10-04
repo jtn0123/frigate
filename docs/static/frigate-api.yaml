@@ -8454,6 +8454,141 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
       security: []
       x-required-role: public
+  /fork/sessions:
+    get:
+      tags:
+        - Auth
+      summary: List signed-in sessions
+      description: |-
+        **Access:** Any authenticated user.
+
+        List usable sessions, most recently active first.
+
+        An admin gets every user's sessions, anyone else only their own. The
+        caller's own session is marked `current`.
+      operationId: list_sessions_fork_sessions_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionListItem'
+                title: Response List Sessions Fork Sessions Get
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
+  /fork/sessions/{session_id}:
+    delete:
+      tags:
+        - Auth
+      summary: Revoke a session
+      description: |-
+        **Access:** Any authenticated user.
+
+        Sign one session out. Its tokens stop working on their next request.
+
+        Only the session's user or an admin may; anyone else gets the same 404
+        as for an unknown session.
+      operationId: revoke_session_fork_sessions__session_id__delete
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
+  /fork/sessions/revoke_all:
+    post:
+      tags:
+        - Auth
+      summary: Sign a user out everywhere
+      description: |-
+        **Access:** Any authenticated user.
+
+        Revoke every session of a user, or every one but the caller's own.
+
+        A user may sign themselves out; an admin may sign out anyone. Signing
+        out everywhere also refuses older tokens that have no session, until
+        the next restart.
+      operationId: revoke_all_sessions_fork_sessions_revoke_all_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionRevokeAllBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionRevokeAllResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
+  /fork/sessions/push:
+    put:
+      tags:
+        - Auth
+      summary: Tie this device's notifications to its session
+      description: |-
+        **Access:** Any authenticated user.
+
+        Tie this device's push subscription to the session it is signed in with.
+
+        The web app sends it each time it connects, so signing this device out
+        stops its notifications. A subscription the user lost when one of their
+        sessions ended is restored; anyone else's, or one never registered, is
+        left alone (`linked` is false).
+      operationId: link_session_push_fork_sessions_push_put
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionPushBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPushResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
   /fork/updates:
     get:
       tags:
@@ -11683,6 +11818,114 @@ components:
       type: object
       title: ReviewSummaryResponse
       description: Review counts for the last 24 hours and each date.
+    SessionListItem:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Session id, the jti claim of its tokens
+        username:
+          type: string
+          title: Username
+          description: User the session belongs to
+        created_at:
+          type: number
+          title: Created At
+          description: Unix timestamp of the sign-in
+        last_seen:
+          type: number
+          title: Last Seen
+          description: Unix timestamp of the last request the session made
+        expires_at:
+          type: number
+          title: Expires At
+          description: Unix timestamp when the session ends unless it is 
+            refreshed
+        user_agent:
+          type: string
+          title: User Agent
+          description: User agent of the sign-in request, empty when unknown
+        ip:
+          type: string
+          title: Ip
+          description: Client address of the sign-in, empty when unknown
+        current:
+          type: boolean
+          title: Current
+          description: Whether this is the caller's own session
+      type: object
+      required:
+        - id
+        - username
+        - created_at
+        - last_seen
+        - expires_at
+        - user_agent
+        - ip
+        - current
+      title: SessionListItem
+      description: A signed-in session that can still be used (fork E26).
+    SessionPushBody:
+      properties:
+        sub:
+          type: object
+          title: Sub
+          description: The browser's push subscription, as 
+            PushSubscription.toJSON() gives it
+      type: object
+      required:
+        - sub
+      title: SessionPushBody
+    SessionPushResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        linked:
+          type: boolean
+          title: Linked
+          description: Whether the subscription is this user's and now follows 
+            this session
+      type: object
+      required:
+        - success
+        - linked
+      title: SessionPushResponse
+      description: Result of tying a device's push subscription to its session 
+        (fork E27).
+    SessionRevokeAllBody:
+      properties:
+        username:
+          anyOf:
+            - type: string
+              maxLength: 30
+            - type: 'null'
+          title: Username
+          description: User to sign out; the caller when omitted. Only an admin 
+            may name another user
+        keep_current:
+          type: boolean
+          title: Keep Current
+          description: Keep the caller's own session, to sign out only the 
+            others
+          default: false
+      type: object
+      title: SessionRevokeAllBody
+    SessionRevokeAllResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        revoked:
+          type: integer
+          title: Revoked
+          description: Number of sessions revoked
+      type: object
+      required:
+        - success
+        - revoked
+      title: SessionRevokeAllResponse
+      description: Result of signing a user out of several sessions at once.
     SeverityEnum:
       type: string
       enum:

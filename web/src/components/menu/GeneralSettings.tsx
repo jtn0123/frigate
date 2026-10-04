@@ -81,6 +81,8 @@ import AppearanceMenu from "@/components/fork/AppearanceMenu";
 import CommandPaletteMenuItem from "@/components/fork/CommandPaletteMenuItem";
 import SpotlightsMenuItem from "@/components/fork/spotlights/SpotlightsMenuItem";
 import { useCommandPaletteOpen } from "@/hooks/fork/use-command-palette";
+import SessionsMenuItem from "@/components/fork/sessions/SessionsMenuItem";
+import MySessionsDialog from "@/components/fork/sessions/MySessionsDialog";
 
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { MdCategory } from "react-icons/md";
@@ -172,6 +174,7 @@ export default function GeneralSettings({
   const { theme, colorScheme, setTheme, setColorScheme } = useTheme();
   const [restartDialogOpen, setRestartDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false); // fork (E26)
   const { send: sendRestart } = useRestart();
 
   const isAdmin = useIsAdmin();
@@ -318,6 +321,15 @@ export default function GeneralSettings({
                       </span>
                     </MenuItem>
                   )}
+                <SessionsMenuItem
+                  as={MenuItem}
+                  className={
+                    isDesktop
+                      ? "cursor-pointer"
+                      : "flex items-center p-2 text-sm"
+                  }
+                  onOpen={() => setSessionsOpen(true)}
+                />
                 <MenuItem
                   className={
                     isDesktop
@@ -817,6 +829,11 @@ export default function GeneralSettings({
         initialError={passwordError}
         username={profile?.username}
         isLoading={isPasswordLoading}
+      />
+      <MySessionsDialog
+        open={sessionsOpen}
+        onOpenChange={setSessionsOpen}
+        username={profile?.username}
       />
     </>
   );

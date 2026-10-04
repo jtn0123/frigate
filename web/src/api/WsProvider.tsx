@@ -7,6 +7,7 @@ import {
   processWsMessage,
   resetWsStore,
 } from "./ws";
+import { watchSession } from "./fork/session-socket";
 
 export function WsProvider({ children }: Readonly<{ children: ReactNode }>) {
   const wsUrl = `${baseUrl.replace(/^http/, "ws")}ws`;
@@ -35,6 +36,8 @@ export function WsProvider({ children }: Readonly<{ children: ReactNode }>) {
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
+      // fork (E27): a session ended elsewhere signs this page out
+      watchSession(ws);
 
       ws.onopen = () => {
         reconnectAttempt.current = 0;

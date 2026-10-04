@@ -15,6 +15,7 @@ from py_vapid import Vapid01, utils
 from frigate.api.auth import allow_any_authenticated
 from frigate.api.defs.tags import Tags
 from frigate.const import CONFIG_DIR
+from frigate.fork.sessions import link_registered_push
 from frigate.models import User
 
 logger = logging.getLogger(__name__)
@@ -177,6 +178,8 @@ def register_notifications(request: Request, body: dict = None):
         User.update(notification_tokens=User.notification_tokens.append(sub)).where(
             User.username == username
         ).execute()
+        # fork E27: tied to this sign-in, so signing the device out stops it
+        link_registered_push(request, username, sub)
         return JSONResponse(
             content=({"success": True, "message": "Successfully saved token."}),
             status_code=200,
