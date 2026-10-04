@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Chrome-free wall display at /kiosk that cycles camera groups. */
+  kioskMode: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -67,6 +69,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  kioskMode: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {
