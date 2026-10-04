@@ -15,6 +15,10 @@ export type Polygon = {
   enabled?: boolean;
   enabled_in_config?: boolean;
   polygonSource?: "base" | "profile" | "override";
+  // fork (D75, D76, D77): a zone's shape, a line's direction, exclusion
+  zoneType?: "polygon" | "line";
+  direction?: "both" | "a_to_b" | "b_to_a";
+  exclusion?: boolean;
 };
 
 export type ZoneFormValuesType = {

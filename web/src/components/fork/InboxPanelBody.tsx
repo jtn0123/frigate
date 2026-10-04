@@ -103,7 +103,7 @@ export default function InboxPanelBody({
           {t("inbox.systemNotices")}
         </Button>
       )}
-      {showSettings && <InboxSettingsSection />}
+      {showSettings && <InboxSettingsSection onNavigate={onNavigate} />}
       <div className="scrollbar-container flex-1 overflow-y-auto">
         {items.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
@@ -191,8 +191,10 @@ export default function InboxPanelBody({
   );
 }
 
-function InboxSettingsSection() {
+function InboxSettingsSection({ onNavigate }: Readonly<InboxPanelBodyProps>) {
   const { t } = useTranslation(["fork"]);
+  const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
   const { data: config } = useApi("/config", {
     revalidateOnFocus: false,
   });
@@ -230,6 +232,19 @@ function InboxSettingsSection() {
         <p className="text-xs text-muted-foreground">
           {t("inbox.quietHours.description")}
         </p>
+        {isAdmin && isForkEnabled("notificationSchedules") && (
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto justify-start p-0 text-xs underline"
+            onClick={() => {
+              onNavigate();
+              void navigate("/settings?page=notifications");
+            }}
+          >
+            {t("inbox.quietHours.pushSchedule")}
+          </Button>
+        )}
         <div className="flex items-center gap-2">
           <Label htmlFor="inbox-quiet-start" className="w-10 text-xs">
             {t("inbox.quietHours.start")}

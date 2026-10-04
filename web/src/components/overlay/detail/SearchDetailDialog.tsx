@@ -99,6 +99,7 @@ import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
 import EventSummaryHeader from "@/components/fork/EventSummaryHeader";
 import ShareClipButton from "@/components/fork/ShareClipButton";
 import ExploreSuggestion from "@/components/fork/classification/ExploreSuggestion";
+import SeenElsewhere from "@/components/fork/explore/SeenElsewhere";
 import { summaryFromSearchResult } from "@/lib/fork/event-summary";
 import { DialogPortal } from "@radix-ui/react-dialog";
 
@@ -1679,6 +1680,8 @@ function ObjectDetailsTab({
             </div>
           </div>
         )}
+      {/* fork (UI145): the same face, plate or look on other cameras */}
+      <SeenElsewhere search={search} />
       {/* fork (I46): the class the description supports, filed from here */}
       <ExploreSuggestion
         eventId={search.id}

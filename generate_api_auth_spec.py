@@ -59,7 +59,9 @@ from frigate.api import (
     fork_camera_history,
     fork_classification_suggestions,
     fork_go2rtc_state,
+    fork_line_crossings,
     fork_log_summary,
+    fork_notification_schedule,
     fork_sessions,
     fork_share,
     fork_updates,
@@ -177,9 +179,11 @@ def build_app() -> FastAPI:
         fork_log_summary.router,
         fork_classification_suggestions.router,
         fork_go2rtc_state.router,
+        fork_line_crossings.router,
         fork_share.router,
         fork_sessions.router,
         fork_updates.router,
+        fork_notification_schedule.router,
         system_history.router,
     ]
     for router in routers:

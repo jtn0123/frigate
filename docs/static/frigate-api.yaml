@@ -8229,6 +8229,77 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /fork/line_crossings:
+    get:
+      tags:
+        - Events
+      summary: Line Crossings
+      description: |-
+        **Access:** Any authenticated user.
+
+        Return how many tracked objects crossed each line zone.
+
+        Args:
+            request: The incoming request, carrying the config.
+            allowed_cameras: Cameras this caller may see.
+            camera: Comma separated cameras, or all (the default).
+            zone: Comma separated line zone names, or all (the default).
+            after: Window start, Unix timestamp; defaults to 24 hours before
+                ``before``.
+            before: Window end, Unix timestamp; defaults to now.
+
+        Returns:
+            Counts per line and label for the cameras the caller may see.
+      operationId: line_crossings_fork_line_crossings_get
+      parameters:
+        - name: camera
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Camera
+        - name: zone
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Zone
+        - name: after
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: number
+              - type: 'null'
+            title: After
+        - name: before
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: number
+              - type: 'null'
+            title: Before
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineCrossingsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
   /fork/share:
     get:
       tags:
@@ -8555,6 +8626,36 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /fork/notifications/schedule:
+    get:
+      tags:
+        - Notifications
+      summary: Notification Schedule
+      description: |-
+        **Access:** Admin role required.
+
+        Return the timezone quiet hours use and whether each camera is quiet.
+
+        The browser cannot know the server's local time, which is what quiet
+        hours use when `ui.timezone` is not set, so the schedule editor in the
+        notification settings reads it here. Admin only, like that editor.
+
+        Args:
+            request: The incoming request, carrying the config.
+
+        Returns:
+            The timezone, where it came from, and the state of every camera.
+      operationId: notification_schedule_fork_notifications_schedule_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationScheduleResponse'
+      security:
+        - frigateAdminAuth: []
+      x-required-role: admin
   /system/metrics/history:
     get:
       tags:
@@ -11024,6 +11125,65 @@ components:
         - total_alert
         - total_detection
       title: Last24HoursReview
+    LineCrossingCount:
+      properties:
+        camera:
+          type: string
+          title: Camera
+          description: Camera the line belongs to
+        zone:
+          type: string
+          title: Zone
+          description: Name of the line zone
+        direction:
+          type: string
+          title: Direction
+          description: "Direction the line counts: 'both', 'a_to_b' or 'b_to_a'"
+        total:
+          type: integer
+          title: Total
+          description: Tracked objects that crossed the line in a counted 
+            direction
+        labels:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Labels
+          description: The same count split by label
+      type: object
+      required:
+        - camera
+        - zone
+        - direction
+        - total
+        - labels
+      title: LineCrossingCount
+      description: Crossings of one line zone inside the requested window.
+    LineCrossingsResponse:
+      properties:
+        after:
+          type: number
+          title: After
+          description: Start of the window, Unix timestamp
+        before:
+          type: number
+          title: Before
+          description: End of the window, Unix timestamp
+        lines:
+          items:
+            $ref: '#/components/schemas/LineCrossingCount'
+          type: array
+          title: Lines
+          description: One entry per line zone on the requested cameras, zero 
+            counts included
+      type: object
+      required:
+        - after
+        - before
+        - lines
+      title: LineCrossingsResponse
+      description: Per-line crossing counts aggregated from stored tracked 
+        objects.
     LogSummaryGroup:
       properties:
         camera:
@@ -11416,6 +11576,39 @@ components:
         - status
       title: MotionSearchStatusResponse
       description: Response containing job status and results.
+    NotificationScheduleResponse:
+      properties:
+        timezone:
+          type: string
+          title: Timezone
+          description: IANA name of the timezone the windows use
+        source:
+          type: string
+          enum:
+            - ui
+            - server
+          title: Source
+          description: ui when ui.timezone is set, server for the server's local
+            time
+        now:
+          type: number
+          title: Now
+          description: Unix timestamp the state was computed at
+        cameras:
+          additionalProperties:
+            $ref: '#/components/schemas/QuietHoursCameraState'
+          type: object
+          title: Cameras
+          description: State per camera
+      type: object
+      required:
+        - timezone
+        - source
+        - now
+        - cameras
+      title: NotificationScheduleResponse
+      description: The clock quiet hours are read on, and each camera's state on
+        it.
     PlaybackFailure:
       properties:
         reason:
@@ -11514,6 +11707,22 @@ components:
         - last_activated
       title: ProfilesResponse
       description: Available profiles and their latest activation times.
+    QuietHoursCameraState:
+      properties:
+        quiet:
+          type: boolean
+          title: Quiet
+          description: Whether review alert and trigger pushes are held back now
+        windows:
+          type: integer
+          title: Windows
+          description: Number of quiet hours windows the camera uses
+      type: object
+      required:
+        - quiet
+        - windows
+      title: QuietHoursCameraState
+      description: Whether one camera's alert pushes are held back right now.
     RegenerateDescriptionEnum:
       type: string
       enum:

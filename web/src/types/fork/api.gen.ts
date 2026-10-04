@@ -4528,6 +4528,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fork/line_crossings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Line Crossings
+         * @description **Access:** Any authenticated user.
+         *
+         *     Return how many tracked objects crossed each line zone.
+         *
+         *     Args:
+         *         request: The incoming request, carrying the config.
+         *         allowed_cameras: Cameras this caller may see.
+         *         camera: Comma separated cameras, or all (the default).
+         *         zone: Comma separated line zone names, or all (the default).
+         *         after: Window start, Unix timestamp; defaults to 24 hours before
+         *             ``before``.
+         *         before: Window end, Unix timestamp; defaults to now.
+         *
+         *     Returns:
+         *         Counts per line and label for the cameras the caller may see.
+         */
+        get: operations["line_crossings_fork_line_crossings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/share": {
         parameters: {
             query?: never;
@@ -4726,6 +4760,38 @@ export interface paths {
          *     admins can force a refetch with `refresh=true`.
          */
         get: operations["fork_updates_fork_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fork/notifications/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification Schedule
+         * @description **Access:** Admin role required.
+         *
+         *     Return the timezone quiet hours use and whether each camera is quiet.
+         *
+         *     The browser cannot know the server's local time, which is what quiet
+         *     hours use when `ui.timezone` is not set, so the schedule editor in the
+         *     notification settings reads it here. Admin only, like that editor.
+         *
+         *     Args:
+         *         request: The incoming request, carrying the config.
+         *
+         *     Returns:
+         *         The timezone, where it came from, and the state of every camera.
+         */
+        get: operations["notification_schedule_fork_notifications_schedule_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6564,6 +6630,60 @@ export interface components {
             total_detection: number | null;
         };
         /**
+         * LineCrossingCount
+         * @description Crossings of one line zone inside the requested window.
+         */
+        LineCrossingCount: {
+            /**
+             * Camera
+             * @description Camera the line belongs to
+             */
+            camera: string;
+            /**
+             * Zone
+             * @description Name of the line zone
+             */
+            zone: string;
+            /**
+             * Direction
+             * @description Direction the line counts: 'both', 'a_to_b' or 'b_to_a'
+             */
+            direction: string;
+            /**
+             * Total
+             * @description Tracked objects that crossed the line in a counted direction
+             */
+            total: number;
+            /**
+             * Labels
+             * @description The same count split by label
+             */
+            labels: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * LineCrossingsResponse
+         * @description Per-line crossing counts aggregated from stored tracked objects.
+         */
+        LineCrossingsResponse: {
+            /**
+             * After
+             * @description Start of the window, Unix timestamp
+             */
+            after: number;
+            /**
+             * Before
+             * @description End of the window, Unix timestamp
+             */
+            before: number;
+            /**
+             * Lines
+             * @description One entry per line zone on the requested cameras, zero counts included
+             */
+            lines: components["schemas"]["LineCrossingCount"][];
+        };
+        /**
          * LogSummaryGroup
          * @description One message a camera repeated within one hour.
          */
@@ -6914,6 +7034,35 @@ export interface components {
             progress?: number | null;
         };
         /**
+         * NotificationScheduleResponse
+         * @description The clock quiet hours are read on, and each camera's state on it.
+         */
+        NotificationScheduleResponse: {
+            /**
+             * Timezone
+             * @description IANA name of the timezone the windows use
+             */
+            timezone: string;
+            /**
+             * Source
+             * @description ui when ui.timezone is set, server for the server's local time
+             * @enum {string}
+             */
+            source: "ui" | "server";
+            /**
+             * Now
+             * @description Unix timestamp the state was computed at
+             */
+            now: number;
+            /**
+             * Cameras
+             * @description State per camera
+             */
+            cameras: {
+                [key: string]: components["schemas"]["QuietHoursCameraState"];
+            };
+        };
+        /**
          * PlaybackFailure
          * @description Structured client playback failure.
          */
@@ -6986,6 +7135,22 @@ export interface components {
             last_activated: {
                 [key: string]: number;
             };
+        };
+        /**
+         * QuietHoursCameraState
+         * @description Whether one camera's alert pushes are held back right now.
+         */
+        QuietHoursCameraState: {
+            /**
+             * Quiet
+             * @description Whether review alert and trigger pushes are held back now
+             */
+            quiet: boolean;
+            /**
+             * Windows
+             * @description Number of quiet hours windows the camera uses
+             */
+            windows: number;
         };
         /**
          * RegenerateDescriptionEnum
@@ -14056,6 +14221,40 @@ export interface operations {
             };
         };
     };
+    line_crossings_fork_line_crossings_get: {
+        parameters: {
+            query?: {
+                camera?: string | null;
+                zone?: string | null;
+                after?: number | null;
+                before?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LineCrossingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_shares_fork_share_get: {
         parameters: {
             query?: never;
@@ -14355,6 +14554,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notification_schedule_fork_notifications_schedule_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationScheduleResponse"];
                 };
             };
         };

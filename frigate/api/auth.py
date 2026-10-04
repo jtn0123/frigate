@@ -125,6 +125,7 @@ def require_admin_by_default():
         "/fork/updates",
         "/fork/camera_history",
         "/fork/go2rtc_state",
+        "/fork/line_crossings",
     }
 
     # Path prefixes that should be exempt (for paths with parameters)

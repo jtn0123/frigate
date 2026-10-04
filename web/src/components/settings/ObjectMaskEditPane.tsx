@@ -39,6 +39,7 @@ import { getTranslatedLabel } from "@/utils/i18n";
 import NameAndIdFields from "../input/NameAndIdFields";
 import { Switch } from "../ui/switch";
 import { useObjectMaskState } from "@/api/ws";
+import MaskVsExclusionNote from "@/components/fork/settings/MaskVsExclusionNote";
 
 type ObjectMaskEditPaneProps = {
   polygons?: Polygon[];
@@ -343,6 +344,7 @@ export default function ObjectMaskEditPane({
       </Heading>
       <div className="my-2 text-sm text-muted-foreground">
         <p>{t("masksAndZones.objectMasks.context")}</p>
+        <MaskVsExclusionNote className="mt-2" />
       </div>
       <Separator className="my-3 bg-secondary" />
       {polygons && activePolygonIndex !== undefined && (

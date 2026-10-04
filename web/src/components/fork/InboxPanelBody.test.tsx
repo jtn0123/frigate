@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FrigateReview } from "@/types/ws";
 import type { ReviewSegment } from "@/types/review";
@@ -163,3 +163,54 @@ describe("system notices navigation", () => {
     auth.admin = true;
   });
 });
+
+describe("push schedule link (D78)", () => {
+  it("sends admins from inbox quiet hours to the push schedule", () => {
+    auth.admin = true;
+    const onNavigate = vi.fn();
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route
+            path="/review"
+            element={<InboxPanelBody onNavigate={onNavigate} />}
+          />
+          <Route path="/settings" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "inbox.settings.title" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "inbox.quietHours.pushSchedule" }),
+    );
+    expect(onNavigate).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/settings?page=notifications",
+    );
+  });
+
+  it("leaves the link out for viewers", () => {
+    auth.admin = false;
+    render(
+      <MemoryRouter>
+        <InboxPanelBody onNavigate={vi.fn()} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "inbox.settings.title" }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "inbox.quietHours.pushSchedule" }),
+    ).not.toBeInTheDocument();
+    auth.admin = true;
+  });
+});
+
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <span data-testid="location">{location.pathname + location.search}</span>
+  );
+}

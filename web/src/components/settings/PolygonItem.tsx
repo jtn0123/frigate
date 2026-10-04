@@ -35,6 +35,9 @@ import ActivityIndicator from "../indicators/activity-indicator";
 import { cn } from "@/lib/utils";
 import { useMotionMaskState, useObjectMaskState, useZoneState } from "@/api/ws";
 import { getProfileColor } from "@/utils/profileColors";
+import ZoneShapeBadge, {
+  forkZoneIcon,
+} from "@/components/fork/settings/ZoneShapeBadge";
 
 type PolygonItemProps = {
   polygon: Polygon;
@@ -111,7 +114,9 @@ export default function PolygonItem({
     object_mask: BsPersonBoundingBox,
   };
 
-  const PolygonItemIcon = polygon ? polygonTypeIcons[polygon.type] : undefined;
+  const PolygonItemIcon = polygon
+    ? (forkZoneIcon(polygon) ?? polygonTypeIcons[polygon.type])
+    : undefined;
 
   const isBasePolygon = !!editingProfile && polygon.polygonSource === "base";
 
@@ -471,6 +476,7 @@ export default function PolygonItem({
         >
           {polygon.friendly_name ?? polygon.name}
           {!isPolygonEnabled && " (disabled)"}
+          <ZoneShapeBadge polygon={polygon} />
           {isBasePolygon && (
             <span className="ml-1 text-xs text-muted-foreground">
               {t("masksAndZones.profileBase", { ns: "views/settings" })}

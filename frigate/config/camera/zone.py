@@ -4,6 +4,15 @@ import logging
 import numpy as np
 from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
+from frigate.config.fork.zone_shape import (
+    EXCLUSION_FIELD,
+    LINE_DIRECTION_FIELD,
+    ZONE_TYPE_FIELD,
+    LineDirection,
+    ZoneType,
+    validate_zone_shape,
+)
+
 from .objects import FilterConfig
 
 __all__ = ["ZoneConfig"]
@@ -62,6 +71,10 @@ class ZoneConfig(BaseModel):
         title="Trigger objects",
         description="List of object types (from labelmap) that can trigger this zone. Can be a string or a list of strings. If empty, all objects are considered.",
     )
+    # Fork (D75, D76, D77): line zones, their direction, and exclusion zones
+    type: ZoneType = ZONE_TYPE_FIELD
+    direction: LineDirection = LINE_DIRECTION_FIELD
+    exclusion: bool = EXCLUSION_FIELD
     _color: tuple[int, int, int] | None = PrivateAttr()
     _contour: np.ndarray = PrivateAttr()
 
@@ -113,6 +126,12 @@ class ZoneConfig(BaseModel):
             logger.warning(
                 "loitering_time should not be set on a zone if speed_threshold or distances is set."
             )
+        return self
+
+    @model_validator(mode="after")
+    def check_zone_shape(self):
+        # Fork (D75, D76, D77): reject options that do not fit the zone type
+        validate_zone_shape(self)
         return self
 
     def __init__(self, **config):

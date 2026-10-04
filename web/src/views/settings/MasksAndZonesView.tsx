@@ -35,6 +35,8 @@ import { useTranslation } from "react-i18next";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { cn } from "@/lib/utils";
 import { ProfileState } from "@/types/profile";
+import { zoneShapeFields } from "@/lib/fork/line-zones";
+import MaskVsExclusionNote from "@/components/fork/settings/MaskVsExclusionNote";
 type MasksAndZoneViewProps = {
   selectedCamera: string;
   selectedZoneMask?: PolygonType[];
@@ -346,6 +348,7 @@ export default function MasksAndZonesView({
           isFinished: true,
           color: isBase ? dimColor(baseColor) : baseColor,
           polygonSource: currentEditingProfile ? source : undefined,
+          ...zoneShapeFields(zoneData), // fork (D75, D76, D77)
         });
         zoneIndex++;
       }
@@ -967,6 +970,7 @@ export default function MasksAndZonesView({
                           <HoverCardContent>
                             <div className="my-2 flex flex-col gap-2 text-sm text-primary-variant">
                               <p>{t("masksAndZones.objectMasks.desc.title")}</p>
+                              <MaskVsExclusionNote />
                               <div className="flex items-center text-primary">
                                 <Link
                                   to={getLocaleDocUrl(

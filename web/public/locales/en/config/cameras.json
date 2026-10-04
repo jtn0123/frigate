@@ -834,6 +834,22 @@
       "label": "Cooldown period",
       "description": "Cooldown (seconds) between notifications to avoid spamming recipients."
     },
+    "quiet_hours": {
+      "label": "Quiet hours",
+      "description": "Times when review alert and trigger push notifications are not sent. Times use the UI timezone when one is set, otherwise the server's local time. A camera's own list replaces the global one.",
+      "days": {
+        "label": "Days",
+        "description": "Days the window starts on. Leave empty for every day. A window that runs past midnight belongs to the day it starts on."
+      },
+      "start": {
+        "label": "Start time",
+        "description": "Time the window starts, as HH:MM in 24 hour time."
+      },
+      "end": {
+        "label": "End time",
+        "description": "Time the window ends, as HH:MM in 24 hour time. An end at or before the start runs past midnight into the next day."
+      }
+    },
     "enabled_in_config": {
       "label": "Original notifications state",
       "description": "Indicates whether notifications were enabled in the original static configuration."
@@ -1015,6 +1031,18 @@
     "objects": {
       "label": "Trigger objects",
       "description": "List of object types (from labelmap) that can trigger this zone. Can be a string or a list of strings. If empty, all objects are considered."
+    },
+    "type": {
+      "label": "Zone type",
+      "description": "polygon is an area an object is inside or outside of. line is a line of exactly two points that objects cross: an object enters the zone when its bottom center crosses the line, and inertia is the number of frames it must stay on the new side before the crossing counts. A line zone has no loitering time, speed estimation or exclusion."
+    },
+    "direction": {
+      "label": "Crossing direction",
+      "description": "Which crossings of a line zone count. Side A is on the left of the line when looking from its first point to its second, side B on the right. both counts crossings either way, a_to_b only crossings from side A to side B, and b_to_a only crossings from side B to side A. Only valid on line zones."
+    },
+    "exclusion": {
+      "label": "Exclusion zone",
+      "description": "Objects in an exclusion zone are still tracked and listed in Explore, but while an object is inside one and has entered only exclusion zones, it does not start, extend or upgrade an alert or detection. Before it walks in, it is reviewed as usual, so cover the area where objects first appear. An object that also enters a normal zone or crosses a line is reviewed as usual. Unlike an object mask, an exclusion zone does not drop detections, so tracks through it are not broken. Only valid on polygon zones."
     }
   },
   "enabled_in_config": {

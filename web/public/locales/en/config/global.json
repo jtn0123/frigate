@@ -154,6 +154,22 @@
       "label": "Cooldown period",
       "description": "Cooldown (seconds) between notifications to avoid spamming recipients."
     },
+    "quiet_hours": {
+      "label": "Quiet hours",
+      "description": "Times when review alert and trigger push notifications are not sent. Times use the UI timezone when one is set, otherwise the server's local time. A camera's own list replaces the global one.",
+      "days": {
+        "label": "Days",
+        "description": "Days the window starts on. Leave empty for every day. A window that runs past midnight belongs to the day it starts on."
+      },
+      "start": {
+        "label": "Start time",
+        "description": "Time the window starts, as HH:MM in 24 hour time."
+      },
+      "end": {
+        "label": "End time",
+        "description": "Time the window ends, as HH:MM in 24 hour time. An end at or before the start runs past midnight into the next day."
+      }
+    },
     "enabled_in_config": {
       "label": "Original notifications state",
       "description": "Indicates whether notifications were enabled in the original static configuration."
