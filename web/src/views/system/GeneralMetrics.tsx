@@ -27,6 +27,8 @@ import { CiCircleAlert } from "react-icons/ci";
 import { useRefreshStatsOnActivate } from "@/hooks/use-refresh-stats-on-activate";
 import { useSystemMetricsHistory } from "@/hooks/fork/use-system-metrics-history";
 import MetricRangeToggle from "@/components/fork/MetricRangeToggle";
+import LiveTelemetryView from "@/views/fork/LiveTelemetryView";
+import { isForkEnabled } from "@/fork/flags";
 
 type GeneralMetricsProps = {
   lastUpdated: number;
@@ -626,6 +628,11 @@ export default function GeneralMetrics({
       />
 
       <div className="scrollbar-container mt-4 flex size-full flex-col overflow-y-auto">
+        {/* fork (UI146): live bitrate, viewers and detector latency, above
+            the range toggle because the range does not apply to them */}
+        {isForkEnabled("liveTelemetry") && (
+          <LiveTelemetryView isActive={isActive} />
+        )}
         {/* fork (D54): how far back every graph on this tab reaches */}
         <MetricRangeToggle
           range={range}

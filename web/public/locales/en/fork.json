@@ -877,5 +877,174 @@
     "fresh_other": "{{count}} new items",
     "more_one": "Show more ({{count}} left)",
     "more_other": "Show more ({{count}} left)"
+  },
+  "liveTelemetry": {
+    "title": "Live",
+    "status": {
+      "ready": "Live: the figures are updating",
+      "loading": "Loading the live figures",
+      "unavailable": "Paused: go2rtc is not reachable"
+    },
+    "cadence": "Updates every {{seconds}} s, sparklines cover the last {{minutes}} minutes",
+    "unavailable": "go2rtc is not reachable, so nothing can be measured right now.",
+    "measuring": "Measuring",
+    "bitrate": {
+      "title": "Incoming bitrate",
+      "noCameras": "No cameras to measure",
+      "cameras_one": "{{measured}} of {{count}} camera measured through go2rtc",
+      "cameras_other": "{{measured}} of {{count}} cameras measured through go2rtc",
+      "sparkline": "Incoming bitrate over the last few minutes"
+    },
+    "viewers": {
+      "title": "Active viewers",
+      "howCounted": "How viewers are counted",
+      "explanation": "Counts the browsers and apps watching a stream from go2rtc, such as a browser on the Live page, Home Assistant or VLC. Each viewer is one browser or app on one address, so a Live dashboard playing several cameras counts once, and the line below says how many streams the viewers play and over which protocol.",
+      "explanationNotCounted": "Frigate's own detect, record and audio readers and go2rtc's transcoders connect over RTSP from this machine, so they are not counted, and neither is a WebRTC session until it connects.",
+      "explanationLimits": "Two people behind the same proxy, using the same browser, look like one viewer. Cameras Frigate reads directly, not through go2rtc, are not seen, so someone watching only those is not counted.",
+      "unavailable": "The list of go2rtc readers is not available.",
+      "none": "Nobody is watching a live stream",
+      "streams_one": "{{count}} stream: {{kinds}}",
+      "streams_other": "{{count}} streams: {{kinds}}",
+      "unseen": "No camera goes through go2rtc, so viewers are not seen",
+      "internal_one": "Not counted: {{count}} Frigate reader",
+      "internal_other": "Not counted: {{count}} Frigate readers",
+      "sparkline": "Active viewers over the last few minutes"
+    },
+    "kinds": {
+      "webrtc_one": "{{count}} WebRTC",
+      "webrtc_other": "{{count}} WebRTC",
+      "mse_one": "{{count}} MSE",
+      "mse_other": "{{count}} MSE",
+      "hls_one": "{{count}} HLS",
+      "hls_other": "{{count}} HLS",
+      "mjpeg_one": "{{count}} MJPEG",
+      "mjpeg_other": "{{count}} MJPEG",
+      "rtsp_one": "{{count}} RTSP",
+      "rtsp_other": "{{count}} RTSP",
+      "other_one": "{{count}} other",
+      "other_other": "{{count}} other"
+    },
+    "latency": {
+      "title": "Detector latency",
+      "unavailable": "Detector stats are not available.",
+      "waiting": "Waiting for the first stats sample",
+      "ms": "{{value}} ms",
+      "sparkline": "{{detector}} inference speed over the last few minutes",
+      "threshold": "Warning above {{warning}} ms",
+      "slow": "Slower than {{warning}} ms: detections can lag or frames get skipped"
+    },
+    "table": {
+      "toggle_one": "Per camera ({{count}})",
+      "toggle_other": "Per camera ({{count}})",
+      "camera": "Camera",
+      "codec": "Codec",
+      "bitrate": "Bitrate",
+      "trend": "Last {{minutes}} min",
+      "streams": "Streams",
+      "sparkline": "{{camera}} bitrate over the last few minutes",
+      "partial": "Partial",
+      "partialHint": "Partial: Frigate also reads these cameras directly, not only through go2rtc, and that connection is not in the bitrate.",
+      "notMeasured": "Not measured",
+      "notMeasuredHint": "Not measured: Frigate reads these cameras directly instead of through go2rtc, so their bitrate and viewers are not seen.",
+      "internal_one": "+{{count}} Frigate",
+      "internal_other": "+{{count}} Frigate"
+    }
+  },
+  "syncedPlayback": {
+    "toggle": {
+      "label": "Multi-camera",
+      "enable": "Show cameras side by side in sync",
+      "disable": "Show one camera"
+    },
+    "grid": "Synced cameras",
+    "picker": {
+      "button": "Choose cameras",
+      "count": "{{selected}}/{{max}} cameras",
+      "title": "Cameras in the grid",
+      "limit": "Up to {{max}} cameras play at once.",
+      "add": "Add camera"
+    },
+    "tile": {
+      "main": "Main",
+      "isMain": "{{camera}} is the main camera",
+      "promote": "Make {{camera}} the main camera",
+      "fullscreen": "Show {{camera}} fullscreen",
+      "exitFullscreen": "Exit fullscreen",
+      "remove": "Remove {{camera}} from the grid"
+    },
+    "gap": {
+      "title": "No recording",
+      "next": "Next recording at {{time}}",
+      "noneLater": "No more recordings this hour",
+      "liveEdge": "Caught up to live",
+      "goLive": "Go to Live"
+    },
+    "status": {
+      "syncing": "Syncing",
+      "inSync": "In sync"
+    }
+  },
+  "kiosk": {
+    "launch": "Open as wall display",
+    "documentTitle": "Wall display - Frigate",
+    "allCameras": "All cameras",
+    "selectedCameras": "Selected cameras",
+    "clockDateFormat": "EEEE, MMMM d",
+    "empty": {
+      "title": "Nothing to show",
+      "description": "This wall display link names no cameras you can view. Check the group names in the link, or set up a new one from Live.",
+      "back": "Back to Live"
+    },
+    "takeover": {
+      "badge": "Alert",
+      "more_one": "+{{count}} more alert",
+      "more_other": "+{{count}} more alerts"
+    },
+    "controls": {
+      "label": "Wall display controls",
+      "paused": "Paused",
+      "exitHint": "Press Esc again to return to Live",
+      "previous": "Previous",
+      "next": "Next",
+      "pause": "Pause cycling",
+      "resume": "Resume cycling",
+      "position": "{{current}} / {{total}}",
+      "exit": "Return to Live"
+    },
+    "setup": {
+      "title": "Wall display",
+      "description": "Show live cameras full screen on a TV, monitor or tablet, with no menus. Open it here, or copy the link into the display's own browser.",
+      "groups": "Camera groups",
+      "cameraCount_one": "{{count}} camera",
+      "cameraCount_other": "{{count}} cameras",
+      "pickGroup": "Pick at least one group.",
+      "groupsCycle": "The display steps through the groups in this order.",
+      "layout": "Layout",
+      "modeGrid": "Grid",
+      "modeSingle": "One camera",
+      "modeGridHint": "The cameras of a group share the screen.",
+      "modeSingleHint": "One camera at a time fills the screen and streams continuously.",
+      "cycle": "Cycle every",
+      "cycleOff": "Do not cycle",
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "tiles": "Cameras per screen",
+      "tilesAll": "The whole group",
+      "tilesUpTo_one": "Up to {{count}}",
+      "tilesUpTo_other": "Up to {{count}}",
+      "savedLayout": "Use the group's saved layout",
+      "savedLayoutHint": "Arrange a group the way it is arranged on Live in this browser, scaled to fit the screen.",
+      "clock": "Show a clock",
+      "alerts": "Alert takeover",
+      "alertsHint": "When an alert starts on a camera on the display, that camera fills the screen for 20 seconds. Alerts that start together take turns.",
+      "link": "Link",
+      "tip": "Tip: start the display's browser in its kiosk mode with this link (for example chrome --kiosk), and sign in with a viewer account limited to these cameras. The display stays signed in while it is open.",
+      "copy": "Copy link",
+      "copied": "Link copied",
+      "copyFailed": "Could not copy the link",
+      "open": "Open"
+    }
   }
 }
