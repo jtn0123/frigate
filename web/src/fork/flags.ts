@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Live bitrate, viewer and detector latency cards on the System page. */
+  liveTelemetry: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -67,6 +69,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  liveTelemetry: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {

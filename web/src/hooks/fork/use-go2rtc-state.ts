@@ -18,18 +18,23 @@ export type Go2rtcStateResult = {
  *
  * Args:
  *     enabled: Whether to fetch and keep polling; false while nothing shows it.
+ *     refreshMs: How often to refetch. The live telemetry cards (UI146) ask
+ *         as often as the backend's cache turns over.
  *
  * Returns:
  *     The response, or the error when the request failed.
  */
-export function useGo2rtcState(enabled: boolean): Go2rtcStateResult {
+export function useGo2rtcState(
+  enabled: boolean,
+  refreshMs: number = REFRESH_MS,
+): Go2rtcStateResult {
   // Not `useApi`: the path is not in api.gen.ts yet, so the typed client
   // cannot name it. The key is the same axios-relative string it would use.
   const request = useSWR<Go2rtcStateResponse>(
     enabled ? "fork/go2rtc_state" : null,
     {
       revalidateOnFocus: false,
-      refreshInterval: REFRESH_MS,
+      refreshInterval: refreshMs,
       keepPreviousData: true,
     },
   );
