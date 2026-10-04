@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Spotlights page: a ranked feed of the activity worth a look. */
+  spotlights: boolean;
   /** Live bitrate, viewer and detector latency cards on the System page. */
   liveTelemetry: boolean;
   /** Multi-camera grid in the recording view, every tile on one clock. */
@@ -73,6 +75,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  spotlights: true,
   liveTelemetry: true,
   syncedPlayback: true,
   kioskMode: true,

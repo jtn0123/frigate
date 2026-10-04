@@ -9,6 +9,7 @@ import {
   ID_CLASSIFICATION,
   ID_CHAT,
 } from "@/hooks/use-navigation";
+import { ID_SPOTLIGHTS } from "@/lib/fork/spotlights-nav";
 
 /** Short destination descriptions for the desktop rail's icon-only links. */
 export default function RailNavHint({ id }: Readonly<{ id: number }>) {
@@ -16,6 +17,7 @@ export default function RailNavHint({ id }: Readonly<{ id: number }>) {
   const hints: Record<number, string> = {
     [ID_LIVE]: t("railHints.live"),
     [ID_REVIEW]: t("railHints.review"),
+    [ID_SPOTLIGHTS]: t("railHints.spotlights"),
     [ID_EXPLORE]: t("railHints.explore"),
     [ID_EXPORT]: t("railHints.export"),
     [ID_FACE_LIBRARY]: t("railHints.faces"),

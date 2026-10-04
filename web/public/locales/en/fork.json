@@ -658,6 +658,7 @@
   "railHints": {
     "live": "Every camera, right now",
     "review": "Alerts and detections on a timeline",
+    "spotlights": "The activity worth a look, best first",
     "explore": "Search footage by description",
     "export": "Save and download clips",
     "faces": "People the system recognizes",
@@ -799,6 +800,83 @@
       "budget": "The AI helper's daily limit is used up. Guesses resume tomorrow.",
       "error": "The AI helper didn't answer. Reload the page to try again."
     }
+  },
+  "spotlights": {
+    "title": "Spotlights",
+    "documentTitle": "Spotlights - Frigate",
+    "subtitle": "The activity worth a look, best first",
+    "range": {
+      "label": "Time range",
+      "day": "24 hours",
+      "threeDays": "3 days",
+      "week": "7 days"
+    },
+    "categories": {
+      "label": "Show",
+      "all": "All",
+      "people": "People you know",
+      "vehicles": "Vehicles",
+      "threats": "Possible threats",
+      "unreviewed": "Unreviewed alerts"
+    },
+    "reasons": {
+      "threat": "Threat level {{level}}",
+      "face": "Known face: {{name}}",
+      "knownPlate": "Known vehicle: {{name}}",
+      "plate": "Plate {{plate}}",
+      "identified": "Identified: {{name}}",
+      "loitering": "Loitering: {{zone}}",
+      "alert": "Alert",
+      "unreviewed": "Unreviewed"
+    },
+    "audio": {
+      "glass": "Glass break",
+      "shatter": "Shattering",
+      "breaking": "Breaking",
+      "gunshot": "Gunshot",
+      "explosion": "Explosion",
+      "scream": "Scream",
+      "smoke_detector": "Smoke alarm",
+      "fire_alarm": "Fire alarm",
+      "siren": "Siren",
+      "civil_defense_siren": "Civil defense siren",
+      "car_alarm": "Car alarm",
+      "alarm": "Alarm",
+      "yell": "Yelling"
+    },
+    "card": {
+      "where": "<camera>{{camera}}</camera> · {{zones}}",
+      "reviewed": "Reviewed",
+      "reasons": "Why it's here",
+      "open": "View in History",
+      "markReviewed_one": "Mark reviewed",
+      "markReviewed_other": "Mark {{count}} reviewed",
+      "findSimilar": "Find similar",
+      "repeats_one": "Seen {{count}} more time",
+      "repeats_other": "Seen {{count}} more times",
+      "repeatsHint": "The same tracked object, or the same name on this camera within 30 minutes.",
+      "openRepeat": "View {{time}} in History",
+      "new": "New"
+    },
+    "toast": {
+      "reviewed_one": "Marked as reviewed",
+      "reviewed_other": "Marked {{count}} items as reviewed",
+      "failed": "Could not update the review status"
+    },
+    "empty": {
+      "title": "Nothing stood out",
+      "description": "No alerts, known faces, plates, threats, or alarming sounds in this time range.",
+      "groupTitle": "Nothing in this group",
+      "groupDescription": "Nothing in this time range fits this group. Try another group or a longer range.",
+      "showAll": "Show everything"
+    },
+    "hidden_one": "{{count}} other detection had nothing that stood out.",
+    "hidden_other": "{{count}} other detections had nothing that stood out.",
+    "openReview": "Open Review",
+    "fresh_one": "{{count}} new item",
+    "fresh_other": "{{count}} new items",
+    "more_one": "Show more ({{count}} left)",
+    "more_other": "Show more ({{count}} left)"
   },
   "liveTelemetry": {
     "title": "Live",
