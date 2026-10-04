@@ -190,10 +190,15 @@ test.describe("Recording timeline rail @high", () => {
         .locator(".segment .absolute.z-10 > div")
         .filter({ hasText: /\d:\d\d/ });
       await expect(labels.first()).toBeVisible();
-      const sizes = await labels.evaluateAll((els) =>
-        els.map((label) => parseFloat(getComputedStyle(label).fontSize)),
-      );
-      for (const size of sizes) expect(size).toBeGreaterThanOrEqual(11);
+      // The virtual rail can replace these nodes between locator resolution
+      // and evaluation. Measure the current labels again if they detached.
+      await expect(async () => {
+        const sizes = await labels.evaluateAll((els) =>
+          els.map((label) => parseFloat(getComputedStyle(label).fontSize)),
+        );
+        expect(sizes).not.toHaveLength(0);
+        for (const size of sizes) expect(size).toBeGreaterThanOrEqual(11);
+      }).toPass({ timeout: 10_000 });
     },
   );
 

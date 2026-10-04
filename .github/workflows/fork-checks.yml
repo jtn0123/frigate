@@ -190,11 +190,12 @@ jobs:
       # only: it loads the same pages, so sharding it buys nothing (E6).
       - name: Content-Security-Policy
         if: matrix.shard == 1
-        run: npm run e2e -- specs/fork/csp.spec.ts
+        run: npm run e2e -- specs/fork/csp.spec.ts --output=test-results-csp
         working-directory: ./web
         env:
           E2E_CSP: "1"
           E2E_JSON_REPORT: e2e-report/results-csp.json
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-csp
       # The runs above retry once, so a test that failed and then passed left
       # the shard green and nobody saw it (D49). Every flaky test is annotated
       # here, and a push to next fails on one: a run that needed the retry does
@@ -217,7 +218,9 @@ jobs:
           name: playwright-report-${{ matrix.shard }}
           path: |
             web/playwright-report
+            web/playwright-report-csp
             web/test-results
+            web/test-results-csp
             web/e2e-report
           retention-days: 7
 
