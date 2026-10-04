@@ -383,7 +383,7 @@ describe("SessionsPanel", () => {
 
   it("reports in the panel instead of a toast when asked", async () => {
     mocks.post.mockRejectedValueOnce(new Error("offline"));
-    renderPanel({ user: "admin", inlineFeedback: true });
+    renderPanel({ user: "admin", feedbackStyle: "inline" });
     const signOutOthers = () => {
       fireEvent.click(
         screen.getByRole("button", { name: "sessions.signOutOthers" }),

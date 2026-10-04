@@ -41,7 +41,9 @@ export default function MySessionsDialog({
           <DialogDescription>{t("sessions.myDescription")}</DialogDescription>
         </DialogHeader>
         {/* read only while open: the list polls */}
-        {open && username && <SessionsPanel user={username} inlineFeedback />}
+        {open && username && (
+          <SessionsPanel user={username} feedbackStyle="inline" />
+        )}
       </DialogContent>
     </Dialog>
   );

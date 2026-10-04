@@ -75,6 +75,30 @@ describe("parseUserAgent", () => {
     });
   });
 
+  it("names Node.js clients by either token", () => {
+    expect(parseUserAgent("node")).toEqual({ kind: "app", app: "Node.js" });
+    expect(parseUserAgent("my-tool axios/1.7.7")).toEqual({
+      kind: "app",
+      app: "Node.js",
+    });
+  });
+
+  it("names Safari only when its version comes before the Safari token", () => {
+    expect(
+      parseUserAgent(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15",
+      ),
+    ).toEqual({ kind: "desktop", browser: "Safari", os: "macOS" });
+    expect(
+      parseUserAgent("Mozilla/5.0 (Macintosh) Safari/605.1.15 Version/17.6"),
+    ).toEqual({ kind: "desktop", os: "macOS" });
+  });
+
+  it("reads a long hostile user agent", () => {
+    const ua = `Mozilla/5.0 ${"Version/1.".repeat(20000)}`;
+    expect(parseUserAgent(ua)).toEqual({ kind: "desktop" });
+  });
+
   it("reports an empty or unreadable user agent as unknown", () => {
     expect(parseUserAgent("")).toEqual({ kind: "unknown" });
     expect(parseUserAgent(undefined)).toEqual({ kind: "unknown" });

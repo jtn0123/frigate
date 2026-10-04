@@ -508,7 +508,7 @@ test.describe("Signed-in sessions (E26) @high", () => {
 
       await sockets[0]?.close({ code: 4401, reason: "session ended" });
 
-      await page.waitForURL(/\/login/, { timeout: 10_000 });
+      await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
     });
 
     test("a page still signed in reconnects instead", async ({

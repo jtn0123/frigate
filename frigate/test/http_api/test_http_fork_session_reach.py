@@ -333,7 +333,7 @@ class TestPushFollowsTheSession(_ReachTestCase):
             headers=self._as("bob", "garage", token),
         )
 
-        self.assertEqual(response.json()["linked"], True)
+        self.assertTrue(response.json()["linked"])
         self.assertEqual(self._link(_ENDPOINT).session_id, self._claims(token)["jti"])
         self.assertEqual(self._tokens("bob"), [_ENDPOINT])
 
@@ -346,7 +346,7 @@ class TestPushFollowsTheSession(_ReachTestCase):
             headers=self._as("bob", "garage", token),
         )
 
-        self.assertEqual(response.json()["linked"], False)
+        self.assertFalse(response.json()["linked"])
         self.assertEqual(self._tokens("bob"), [])
         self.assertIsNone(self._link(_ENDPOINT))
 

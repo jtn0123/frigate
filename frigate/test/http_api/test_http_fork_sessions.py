@@ -567,6 +567,17 @@ class TestSessionsApi(_SessionsTestCase):
         self.assertEqual([self._auth(t).status_code for t in bob], [401, 401])
         self.assertEqual(self._auth(eve).status_code, 202)
 
+    def test_a_line_break_in_a_username_cannot_forge_a_log_line(self):
+        with self.assertLogs(fork_sessions.logger, "INFO") as logs:
+            self.client.post(
+                "/fork/sessions/revoke_all",
+                json={"username": "bob\nINFO forged"},
+                headers=self._as("admin", "admin"),
+            )
+
+        self.assertTrue(logs.output[-1].endswith("of bob\\nINFO forged"))
+        self.assertFalse(any("\n" in line for line in logs.output))
+
     def test_signing_out_everywhere_refuses_a_token_without_a_session(self):
         legacy = self._legacy_token("bob", "viewer", 3600, age=5)
 

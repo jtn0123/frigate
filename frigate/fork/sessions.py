@@ -124,6 +124,15 @@ def _int_claim(claims: Mapping[str, Any], name: str) -> int:
         return 0
 
 
+def log_safe(value: str) -> str:
+    """Return a value with its line breaks escaped, for a log line.
+
+    Usernames reach these logs from request bodies and paths, and a CR or LF
+    in one could otherwise forge a log line.
+    """
+    return value.replace("\r", "\\r").replace("\n", "\\n")
+
+
 def _run_quietly(task: Callable[..., object], *args: Any) -> None:
     try:
         task(*args)
@@ -754,11 +763,11 @@ def end_user_sessions(request: Request, username: str) -> None:
     try:
         revoked = store.revoke_user(username, now, _session_length(request))
     except DB_ERRORS:
-        logger.warning("Unable to revoke the sessions of %s", username)
+        logger.warning("Unable to revoke the sessions of %s", log_safe(username))
         revoked = 0
 
     if revoked:
-        logger.info("Revoked %s sessions of %s", revoked, username)
+        logger.info("Revoked %s sessions of %s", revoked, log_safe(username))
 
     # the cutoff above refuses every token of the user, with a session or not
     sessions_ended(request.app, (), username)

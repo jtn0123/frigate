@@ -62,18 +62,18 @@ type SessionsPanelProps = {
   /** List only this user's sessions, without group headers. */
   user?: string;
   /**
-   * Report results inside the panel rather than as toasts, for the account
-   * menu's dialog: the menu opens on any page, and a page's Toaster sits
-   * under the dialog's overlay (the live dashboard) or is not there at all.
+   * Where results are reported: as toasts, or inside the panel for the
+   * account menu's dialog. The menu opens on any page, and a page's Toaster
+   * sits under the dialog's overlay (the live dashboard) or is not there.
    */
-  inlineFeedback?: boolean;
+  feedbackStyle?: "toast" | "inline";
 };
 
 type Feedback = { tone: "success" | "error"; text: string };
 
 export default function SessionsPanel({
   user,
-  inlineFeedback = false,
+  feedbackStyle = "toast",
 }: Readonly<SessionsPanelProps>) {
   const { t } = useTranslation(["fork"]);
   const { auth } = useContext(AuthContext);
@@ -92,7 +92,7 @@ export default function SessionsPanel({
   const failed = sessions.error !== undefined;
 
   const notify = (tone: Feedback["tone"], text: string) => {
-    if (inlineFeedback) {
+    if (feedbackStyle === "inline") {
       setFeedback({ tone, text });
     } else if (tone === "success") {
       toast.success(text);

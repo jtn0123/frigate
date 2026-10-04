@@ -44,19 +44,39 @@ const APPS: ReadonlyArray<[RegExp, string]> = [
   [/^wget\//i, "Wget"],
   [/go-http-client\//i, "Go HTTP client"],
   [/okhttp\//i, "OkHttp"],
-  [/^node|axios\//i, "Node.js"],
+  [/^node/i, "Node.js"],
+  [/axios\//i, "Node.js"],
   [/^postmanruntime\//i, "Postman"],
 ];
 
-// Order matters: Edge and Opera also say Chrome, Chrome also says Safari.
+// Order matters: Edge and Opera also say Chrome. Chrome also says Safari,
+// so Safari is checked after this list (see detectBrowser).
 const BROWSERS: ReadonlyArray<[RegExp, string]> = [
   [/edg(e|a|ios)?\//i, "Edge"],
   [/(opr|opera)\//i, "Opera"],
   [/samsungbrowser\//i, "Samsung Internet"],
   [/(firefox|fxios)\//i, "Firefox"],
   [/(chrome|crios|chromium)\//i, "Chrome"],
-  [/version\/[\d.]+.*safari\//i, "Safari"],
 ];
+
+const SAFARI_VERSION = /version\/[\d.]/;
+
+// Safari says "Version/<n>" and then "Safari/". A plain search for the
+// second token keeps this linear on a long user agent, where one regex
+// spanning both would backtrack.
+function isSafari(ua: string): boolean {
+  const lower = ua.toLowerCase();
+  const version = SAFARI_VERSION.exec(lower);
+  return version !== null && lower.includes("safari/", version.index);
+}
+
+function detectBrowser(ua: string): string | undefined {
+  const named = BROWSERS.find(([pattern]) => pattern.test(ua))?.[1];
+  if (named) {
+    return named;
+  }
+  return isSafari(ua) ? "Safari" : undefined;
+}
 
 function detectOs(ua: string): { os?: string; kind?: SessionDeviceKind } {
   if (/ipad/i.test(ua)) {
@@ -105,7 +125,7 @@ export function parseUserAgent(
   }
 
   if (/^mozilla\//i.test(ua)) {
-    const browser = BROWSERS.find(([pattern]) => pattern.test(ua))?.[1];
+    const browser = detectBrowser(ua);
     return {
       kind: kind ?? "desktop",
       ...(browser ? { browser } : {}),

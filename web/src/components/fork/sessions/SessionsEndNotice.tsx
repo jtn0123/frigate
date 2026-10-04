@@ -18,10 +18,10 @@ type SessionsEndNoticeProps = {
   /** What the dialog changes. */
   change: "password" | "role";
   /**
-   * The account changed. Left out, a role change means the signed-in user,
-   * and a password change means an account the dialog does not name.
+   * The account changed. When undefined, a role change means the signed-in
+   * user, and a password change means an account the dialog does not name.
    */
-  username?: string | undefined;
+  username: string | undefined;
 };
 
 export default function SessionsEndNotice({

@@ -29,6 +29,7 @@ from frigate.fork.sessions import (
     DB_ERRORS,
     SessionInfo,
     current_session_id,
+    log_safe,
     session_store,
     sessions_ended,
 )
@@ -213,9 +214,9 @@ async def revoke_all_sessions(
 
     logger.info(
         "User %s revoked %s sessions of %s",
-        current_user["username"],
+        log_safe(current_user["username"]),
         revoked,
-        username,
+        log_safe(username),
     )
     return {"success": True, "revoked": revoked}
 
