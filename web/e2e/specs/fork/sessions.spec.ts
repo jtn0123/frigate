@@ -5,9 +5,12 @@
  * and "Sign out everywhere". The account menu opens the signed-in user's
  * own sessions with "Sign out other sessions". The server is a small
  * in-memory stand-in that answers like the real routes.
+ *
+ * Fork (E27): when a session ends elsewhere, the server closes its /ws
+ * connection with code 4401 and the page leaves for the login page.
  */
 
-import type { Page, Request } from "@playwright/test";
+import type { Page, Request, WebSocketRoute } from "@playwright/test";
 import { test, expect, type FrigateApp } from "../../fixtures/frigate-test";
 
 const NOW = Date.now() / 1000;
@@ -478,4 +481,47 @@ test.describe("Signed-in sessions (E26) @high", () => {
       }
     },
   );
+
+  test.describe("when the server ends this page's session (E27)", () => {
+    // the sign-in check after the close answers 401, as a revoked token does
+    test.use({ expectedErrors: [/Failed to load resource.*401/] });
+
+    async function openLive(frigateApp: FrigateApp) {
+      const { page } = frigateApp;
+      await frigateApp.installDefaults({ users: USERS });
+      const sockets: WebSocketRoute[] = [];
+      // registered after the defaults, so this one answers /ws
+      await page.routeWebSocket("**/ws", (ws) => {
+        sockets.push(ws);
+      });
+      await frigateApp.goto("/");
+      await expect.poll(() => sockets.length).toBe(1);
+      return sockets;
+    }
+
+    test("a revoked page leaves for the login page", async ({ frigateApp }) => {
+      const { page } = frigateApp;
+      const sockets = await openLive(frigateApp);
+      await page.route("**/api/profile", (route) =>
+        route.fulfill({ status: 401, json: { message: "Unauthorized" } }),
+      );
+
+      await sockets[0]?.close({ code: 4401, reason: "session ended" });
+
+      await page.waitForURL(/\/login/, { timeout: 10_000 });
+    });
+
+    test("a page still signed in reconnects instead", async ({
+      frigateApp,
+    }) => {
+      const { page } = frigateApp;
+      const sockets = await openLive(frigateApp);
+
+      // as after a password change made here: the new cookie is already set
+      await sockets[0]?.close({ code: 4401, reason: "session ended" });
+
+      await expect.poll(() => sockets.length, { timeout: 10_000 }).toBe(2);
+      expect(new URL(page.url()).pathname).toBe("/");
+    });
+  });
 });

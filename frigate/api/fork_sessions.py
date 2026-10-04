@@ -2,11 +2,14 @@
 
 An admin sees and revokes everyone's sessions; any other user only their
 own. Someone else's session reads as unknown, so its existence stays private.
+A revoke also closes the sessions' open connections and stops their
+notifications (fork E27).
 """
 
 import asyncio
 import logging
 import time
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
@@ -15,15 +18,19 @@ from pydantic import BaseModel, Field
 from frigate.api.auth import allow_any_authenticated, get_current_user
 from frigate.api.defs.response.fork_sessions_response import (
     SessionListResponse,
+    SessionPushResponse,
     SessionRevokeAllResponse,
 )
 from frigate.api.defs.response.generic_response import GenericResponse
 from frigate.api.defs.tags import Tags
+from frigate.api.notification import _validate_subscription
+from frigate.fork.session_reach import reattach_push
 from frigate.fork.sessions import (
     DB_ERRORS,
     SessionInfo,
     current_session_id,
     session_store,
+    sessions_ended,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,6 +50,12 @@ class SessionRevokeAllBody(BaseModel):
     keep_current: bool = Field(
         default=False,
         description="Keep the caller's own session, to sign out only the others",
+    )
+
+
+class SessionPushBody(BaseModel):
+    sub: dict[str, Any] = Field(
+        description="The browser's push subscription, as PushSubscription.toJSON() gives it",
     )
 
 
@@ -133,6 +146,7 @@ async def revoke_session(request: Request, session_id: str) -> JSONResponse | di
             return None
 
         store.revoke({session.id: session.expires_at}, now, session_length)
+        sessions_ended(request.app, {session.id})
         return session
 
     try:
@@ -195,6 +209,8 @@ async def revoke_all_sessions(
         logger.exception("Unable to revoke sessions")
         return _error(SESSIONS_UNAVAILABLE, 500)
 
+    await asyncio.to_thread(sessions_ended, request.app, (), username, keep)
+
     logger.info(
         "User %s revoked %s sessions of %s",
         current_user["username"],
@@ -202,3 +218,46 @@ async def revoke_all_sessions(
         username,
     )
     return {"success": True, "revoked": revoked}
+
+
+@router.put(
+    "/fork/sessions/push",
+    response_model=SessionPushResponse,
+    dependencies=[Depends(allow_any_authenticated())],
+    summary="Tie this device's notifications to its session",
+)
+async def link_session_push(
+    request: Request, body: SessionPushBody
+) -> JSONResponse | dict:
+    """Tie this device's push subscription to the session it is signed in with.
+
+    The web app sends it each time it connects, so signing this device out
+    stops its notifications. A subscription the user lost when one of their
+    sessions ended is restored; anyone else's, or one never registered, is
+    left alone (`linked` is false).
+    """
+    current_user = await get_current_user(request)
+    if isinstance(current_user, JSONResponse):
+        return current_user
+
+    reason = _validate_subscription(body.sub)
+
+    if reason:
+        return _error(f"Invalid subscription: {reason}", 400)
+
+    username = current_user["username"]
+    session_id = current_session_id(request, username)
+
+    if session_id is None:
+        # signed in without a session (a proxy, or a token from before them)
+        return {"success": True, "linked": False}
+
+    try:
+        linked = await asyncio.to_thread(
+            reattach_push, request.app, username, session_id, body.sub
+        )
+    except DB_ERRORS:
+        logger.exception("Unable to link a notification subscription")
+        return _error(SESSIONS_UNAVAILABLE, 500)
+
+    return {"success": True, "linked": linked}

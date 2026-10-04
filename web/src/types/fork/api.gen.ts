@@ -4682,6 +4682,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fork/sessions/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tie this device's notifications to its session
+         * @description **Access:** Any authenticated user.
+         *
+         *     Tie this device's push subscription to the session it is signed in with.
+         *
+         *     The web app sends it each time it connects, so signing this device out
+         *     stops its notifications. A subscription the user lost when one of their
+         *     sessions ended is restored; anyone else's, or one never registered, is
+         *     left alone (`linked` is false).
+         */
+        put: operations["link_session_push_fork_sessions_push_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/updates": {
         parameters: {
             query?: never;
@@ -7068,6 +7095,27 @@ export interface components {
              * @description Whether this is the caller's own session
              */
             current: boolean;
+        };
+        /** SessionPushBody */
+        SessionPushBody: {
+            /**
+             * Sub
+             * @description The browser's push subscription, as PushSubscription.toJSON() gives it
+             */
+            sub: Record<string, never>;
+        };
+        /**
+         * SessionPushResponse
+         * @description Result of tying a device's push subscription to its session (fork E27).
+         */
+        SessionPushResponse: {
+            /** Success */
+            success: boolean;
+            /**
+             * Linked
+             * @description Whether the subscription is this user's and now follows this session
+             */
+            linked: boolean;
         };
         /** SessionRevokeAllBody */
         SessionRevokeAllBody: {
@@ -14234,6 +14282,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionRevokeAllResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_session_push_fork_sessions_push_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionPushBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPushResponse"];
                 };
             };
             /** @description Validation Error */

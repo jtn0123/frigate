@@ -28,3 +28,12 @@ class SessionRevokeAllResponse(BaseModel):
 
     success: bool
     revoked: int = Field(description="Number of sessions revoked")
+
+
+class SessionPushResponse(BaseModel):
+    """Result of tying a device's push subscription to its session (fork E27)."""
+
+    success: bool
+    linked: bool = Field(
+        description="Whether the subscription is this user's and now follows this session"
+    )

@@ -8481,6 +8481,43 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /fork/sessions/push:
+    put:
+      tags:
+        - Auth
+      summary: Tie this device's notifications to its session
+      description: |-
+        **Access:** Any authenticated user.
+
+        Tie this device's push subscription to the session it is signed in with.
+
+        The web app sends it each time it connects, so signing this device out
+        stops its notifications. A subscription the user lost when one of their
+        sessions ended is restored; anyone else's, or one never registered, is
+        left alone (`linked` is false).
+      operationId: link_session_push_fork_sessions_push_put
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionPushBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPushResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
   /fork/updates:
     get:
       tags:
@@ -11619,6 +11656,34 @@ components:
         - current
       title: SessionListItem
       description: A signed-in session that can still be used (fork E26).
+    SessionPushBody:
+      properties:
+        sub:
+          type: object
+          title: Sub
+          description: The browser's push subscription, as 
+            PushSubscription.toJSON() gives it
+      type: object
+      required:
+        - sub
+      title: SessionPushBody
+    SessionPushResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+        linked:
+          type: boolean
+          title: Linked
+          description: Whether the subscription is this user's and now follows 
+            this session
+      type: object
+      required:
+        - success
+        - linked
+      title: SessionPushResponse
+      description: Result of tying a device's push subscription to its session 
+        (fork E27).
     SessionRevokeAllBody:
       properties:
         username:

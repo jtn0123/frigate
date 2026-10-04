@@ -35,6 +35,7 @@ from frigate.const import (
     UPDATE_REVIEW_DESCRIPTION,
     UPSERT_REVIEW_SEGMENT,
 )
+from frigate.fork.sessions import socket_session_ended
 from frigate.models import User
 from frigate.output.ws_auth import ws_has_camera_access
 
@@ -496,6 +497,10 @@ class WebSocketClient(Communicator):
             camera_names = set(self.config.cameras.keys())
 
             def received_message(self, message: WebSocket.received_message) -> None:  # type: ignore[name-defined]
+                # fork E27: a connection whose session ended takes no commands
+                if socket_session_ended(self):
+                    return
+
                 try:
                     json_message = json.loads(message.data.decode("utf-8"))
                     json_message = {

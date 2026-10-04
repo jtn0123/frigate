@@ -13,6 +13,9 @@ serves the API from one process, so this memory is the only copy.
 
 Tokens issued before this change have no ``jti``. They keep working until
 they expire, and the first refresh gives them a session of their own.
+
+When sessions end, frigate/fork/session_reach.py closes their open ``/ws``
+connections and detaches their push subscriptions (fork E27).
 """
 
 import logging
@@ -21,6 +24,7 @@ import secrets
 import sqlite3
 import threading
 import time
+import weakref
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
@@ -38,6 +42,13 @@ from peewee import (
 )
 from playhouse.sqliteq import SqliteQueueDatabase
 
+from frigate.fork.session_reach import (
+    close_session_sockets,
+    cut_socket,
+    detach_push,
+    link_push,
+    socket_session,
+)
 from frigate.models import User
 
 logger = logging.getLogger(__name__)
@@ -512,6 +523,10 @@ class SessionStore:
         self.revoke(sessions, now, session_length)
         return len(sessions)
 
+    def revoked(self, session_id: str) -> bool:
+        """Return whether a session was revoked; memory only."""
+        return session_id in self._revoked
+
     def refuse_issued_before(self, username: str, cutoff: int) -> None:
         """Refuse the user's tokens issued before ``cutoff``, sessions or not."""
         with self._lock:
@@ -519,6 +534,8 @@ class SessionStore:
 
 
 _store_lock = threading.Lock()
+# every store of the process, for the /ws server, which has no app (E27)
+_stores: "weakref.WeakSet[SessionStore]" = weakref.WeakSet()
 
 
 def session_store(app: Any) -> SessionStore:
@@ -534,6 +551,7 @@ def session_store(app: Any) -> SessionStore:
         if store is None:
             store = SessionStore()
             app.state.fork_sessions = store
+            _stores.add(store)
 
     return store
 
@@ -552,8 +570,11 @@ def _session_length(request: Request) -> float:
     return float(request.app.frigate_config.auth.session_length)
 
 
-def current_session_id(request: Request) -> str | None:
-    """Return the session id of the caller's own token, if it has one."""
+def current_session_id(request: Request, username: str | None = None) -> str | None:
+    """Return the session id of the caller's own token, if it has one.
+
+    With ``username``, only when the token is that user's.
+    """
     key = getattr(request.app, "jwt_token", None)
     encoded = _request_token(request)
 
@@ -565,8 +586,86 @@ def current_session_id(request: Request) -> str | None:
     except (JoseError, ValueError):
         return None
 
-    session_id = token.claims.get("jti")
-    return session_id if isinstance(session_id, str) else None
+    if username is not None and token.claims.get("sub") != username:
+        return None
+
+    return session_header(token.claims) or None
+
+
+def session_header(claims: Mapping[str, Any]) -> str:
+    """Return the session a token names, or "" (/auth's remote-session, E27)."""
+    session_id = claims.get("jti")
+    return session_id if isinstance(session_id, str) else ""
+
+
+def session_revoked(session_id: str) -> bool:
+    """Return whether a session of this process was revoked."""
+    with _store_lock:
+        stores = list(_stores)
+
+    return any(store.revoked(session_id) for store in stores)
+
+
+def socket_session_ended(ws: Any) -> bool:
+    """Return whether a ``/ws`` connection belongs to an ended session (E27).
+
+    A revoke closes its session's connections (see sessions_ended); one that
+    was still opening then is cut here, at its first message. Neither takes
+    another command.
+    """
+    if getattr(ws, "server_terminated", False):
+        return True
+
+    session_id = socket_session(ws)
+
+    if session_id is None or not session_revoked(session_id):
+        return False
+
+    cut_socket(ws)
+    return True
+
+
+def sessions_ended(
+    app: Any,
+    session_ids: Collection[str],
+    username: str | None = None,
+    keep: str | None = None,
+) -> None:
+    """Cut what ended sessions still hold open: ``/ws`` and push (E27).
+
+    ``session_ids`` names the sessions. With ``username``, all of that
+    user's sessions ended but ``keep``. Call after the store has revoked
+    them, so a closed connection cannot reconnect.
+    """
+    closed = close_session_sockets(app, session_ids, username, keep)
+
+    try:
+        detached = detach_push(app, session_ids, username, keep)
+    except DB_ERRORS:
+        logger.warning("Unable to detach the notifications of ended sessions")
+        detached = 0
+
+    if closed or detached:
+        logger.debug(
+            "Ended sessions lost %s connections and %s notifications",
+            closed,
+            detached,
+        )
+
+
+def link_registered_push(
+    request: Request, username: str, subscription: Mapping[str, Any]
+) -> None:
+    """Tie a push subscription just registered to the caller's session (E27)."""
+    session_id = current_session_id(request, username)
+
+    if session_id is None:
+        return
+
+    try:
+        link_push(request.app, username, session_id, subscription)
+    except DB_ERRORS:
+        logger.warning("Unable to link a notification subscription of %s", username)
 
 
 # The functions below are what frigate/api/auth.py calls. A table error never
@@ -638,6 +737,8 @@ def end_current_session(request: Request) -> None:
     except DB_ERRORS:
         logger.warning("Unable to record a logout; the session ends until restart")
 
+    sessions_ended(request.app, {session_id})
+
 
 def end_user_sessions(request: Request, username: str) -> None:
     """End all of a user's sessions, for a password, role or account change.
@@ -654,7 +755,10 @@ def end_user_sessions(request: Request, username: str) -> None:
         revoked = store.revoke_user(username, now, _session_length(request))
     except DB_ERRORS:
         logger.warning("Unable to revoke the sessions of %s", username)
-        return
+        revoked = 0
 
     if revoked:
         logger.info("Revoked %s sessions of %s", revoked, username)
+
+    # the cutoff above refuses every token of the user, with a session or not
+    sessions_ended(request.app, (), username)

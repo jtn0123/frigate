@@ -44,6 +44,7 @@ from frigate.fork.sessions import (
     refresh_session,
     role_changed,
     session_allows,
+    session_header,
     start_session,
 )
 from frigate.models import User
@@ -936,6 +937,8 @@ def auth(request: Request):
 
         success_response.headers["remote-user"] = user
         success_response.headers["remote-role"] = role
+        # fork E27: names the session, so a revoke can close its open sockets
+        success_response.headers["remote-session"] = session_header(token.claims)
 
         deny_status = deny_response_for_media_uri(original_url, role, frigate_config)
         if deny_status is not None:

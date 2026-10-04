@@ -20,6 +20,7 @@ from frigate.config import FrigateConfig
 from frigate.config.camera.updater import CameraConfigUpdatePublisher
 from frigate.const import JWT_SECRET_ENV_VAR
 from frigate.fork import sessions as sessions_module
+from frigate.fork.session_reach import UserSessionPush
 from frigate.fork.sessions import (
     LAST_SEEN_WRITE_INTERVAL,
     SessionStore,
@@ -64,7 +65,17 @@ class _SessionsTestCase(BaseTestHttp):
     enforce_default_admin = False
 
     def setUp(self):
-        super().setUp([Event, Recordings, ReviewSegment, ShareLink, User, UserSession])
+        super().setUp(
+            [
+                Event,
+                Recordings,
+                ReviewSegment,
+                ShareLink,
+                User,
+                UserSession,
+                UserSessionPush,
+            ]
+        )
         env = patch.dict(os.environ, {JWT_SECRET_ENV_VAR: _SECRET})
         env.start()
         self.addCleanup(env.stop)
@@ -630,5 +641,6 @@ class TestSessionsAccess(_SessionsTestCase):
                 "/fork/sessions",
                 "/fork/sessions/{session_id}",
                 "/fork/sessions/revoke_all",
+                "/fork/sessions/push",
             },
         )
