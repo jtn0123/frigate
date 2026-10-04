@@ -16,6 +16,7 @@ from frigate.config import (
     ZoomingModeEnum,
 )
 from frigate.const import CLIPS_DIR, THUMB_DIR
+from frigate.fork.line_crossing import draw_fork_zone
 from frigate.ptz.autotrack import PtzAutoTrackerThread
 from frigate.track.tracked_object import TrackedObject
 from frigate.util.image import (
@@ -236,6 +237,10 @@ class CameraState:
                     )
                     else 2
                 )
+                # fork (D75, D77): lines get side labels and an arrow,
+                # exclusion zones a red hatch
+                if draw_fork_zone(frame_copy, zone, thickness):
+                    continue
                 cv2.drawContours(frame_copy, [zone.contour], -1, zone.color, thickness)
 
         if draw_options.get("motion_boxes"):

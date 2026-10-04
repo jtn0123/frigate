@@ -799,5 +799,37 @@
       "budget": "The AI helper's daily limit is used up. Guesses resume tomorrow.",
       "error": "The AI helper didn't answer. Reload the page to try again."
     }
+  },
+  "lineZones": {
+    "shape": {
+      "label": "Shape",
+      "polygon": "Area",
+      "line": "Line"
+    },
+    "line": {
+      "hint": "Click two points to draw the line. Drag an end to move it, or drag the line to move it whole. A and B mark its two sides.",
+      "inertia": "On a line, inertia is how many frames an object must stay on the new side before its crossing counts."
+    },
+    "direction": {
+      "label": "Count crossings",
+      "both": "Both",
+      "a_to_b": "A to B",
+      "b_to_a": "B to A",
+      "desc": "The arrow on the line points the way crossings count. An object enters the line zone when it crosses that way.",
+      "alert": "To get an alert when something crosses, save the line, then select it for Alerts under Review Classification in this camera's Review settings. The line counts as occupied for 2 seconds after each crossing."
+    },
+    "exclusion": {
+      "label": "Exclusion zone",
+      "desc": "Objects here are still tracked and kept in Explore, but while an object is here and has entered only exclusion zones, it does not start or extend an alert or detection. Before it walks in, it is reviewed as usual, so cover the area where objects first appear. Unlike an object mask, detections are kept, so tracks through it stay whole."
+    },
+    "badge": {
+      "both": "Line",
+      "a_to_b": "Line, A to B",
+      "b_to_a": "Line, B to A",
+      "exclusion": "Exclusion"
+    },
+    "count_one": "{{count}} crossing today",
+    "count_other": "{{count}} crossings today",
+    "maskVsExclusion": "An object mask drops detections of the object in its area, which can break the track of an object passing through. To keep tracking an object there but stop it from alerting, use an exclusion zone instead."
   }
 }

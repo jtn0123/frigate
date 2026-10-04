@@ -26,6 +26,7 @@ from frigate.api import (
     fork_camera_history,
     fork_classification_suggestions,
     fork_go2rtc_state,
+    fork_line_crossings,
     fork_log_summary,
     fork_share,
     fork_updates,
@@ -232,6 +233,7 @@ def create_fastapi_app(
     app.include_router(fork_go2rtc_state.router)
     app.include_router(fork_share.router)
     app.include_router(fork_updates.router)
+    app.include_router(fork_line_crossings.router)
     app.include_router(system_history.router)
     # every route must declare its own auth gate; fail fast if one is missing
     assert_routes_have_auth_gate(app)

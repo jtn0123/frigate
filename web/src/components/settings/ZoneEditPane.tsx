@@ -37,6 +37,13 @@ import { useDocDomain } from "@/hooks/use-doc-domain";
 import { getTranslatedLabel } from "@/utils/i18n";
 import NameAndIdFields from "../input/NameAndIdFields";
 import { useZoneState } from "@/api/ws";
+import { cn } from "@/lib/utils";
+import ZoneShapeFields from "@/components/fork/settings/ZoneShapeFields";
+import {
+  forkZoneFormValues,
+  forkZoneQuery,
+  isLineZonePolygon,
+} from "@/lib/fork/line-zones";
 
 type ZoneEditPaneProps = {
   polygons?: Polygon[];
@@ -93,6 +100,8 @@ export default function ZoneEditPane({
   }, [polygons, activePolygonIndex]);
 
   const zoneName = polygon?.name || "";
+  // fork (D75): a line zone has no loitering time or speed estimation
+  const lineZone = isLineZonePolygon(polygon);
   const { send: sendZoneState } = useZoneState(polygon?.camera || "", zoneName);
 
   const isExistingZone = !!polygon && polygon.name.length > 0;
@@ -469,7 +478,15 @@ export default function ZoneEditPane({
         ? undefined
         : `config/cameras/${polygon.camera}/zones`;
 
-      const zoneQuery = `${pathPrefix}.coordinates=${coordinates}${enabledQuery}${inertiaQuery}${loiteringTimeQuery}${speedThresholdQuery}${distancesQuery}${objectQueries}${friendlyNameQuery}`;
+      // fork (D75, D76, D77): line zones, their direction, exclusion zones
+      const forkQuery = forkZoneQuery(
+        pathPrefix,
+        polygon,
+        resolvedZoneData,
+        renamingZone,
+      );
+
+      const zoneQuery = `${pathPrefix}.coordinates=${coordinates}${enabledQuery}${inertiaQuery}${loiteringTimeQuery}${speedThresholdQuery}${distancesQuery}${objectQueries}${friendlyNameQuery}${forkQuery}`;
       // A rename deletes the old zone in the same request (UI74), so a
       // rejected write leaves the zone as it was
       const request = renamingZone
@@ -552,7 +569,10 @@ export default function ZoneEditPane({
     setIsLoading(true);
 
     void saveToConfig(
-      values as ZoneFormValuesType,
+      forkZoneFormValues(
+        values as ZoneFormValuesType,
+        polygons[activePolygonIndex],
+      ),
       polygons[activePolygonIndex].objects,
     );
 
@@ -600,7 +620,20 @@ export default function ZoneEditPane({
           />
         </div>
       )}
-      <div className="mb-3 text-sm text-muted-foreground">
+      {/* fork (D75, D76, D77): area or line, direction, exclusion */}
+      {polygons && activePolygonIndex !== undefined && (
+        <ZoneShapeFields
+          polygons={polygons}
+          setPolygons={setPolygons}
+          activePolygonIndex={activePolygonIndex}
+        />
+      )}
+      <div
+        className={cn(
+          "mb-3 text-sm text-muted-foreground",
+          lineZone && "hidden",
+        )}
+      >
         {t("masksAndZones.zones.clickDrawPolygon")}
       </div>
 
@@ -668,12 +701,14 @@ export default function ZoneEditPane({
               </FormItem>
             )}
           />
-          <Separator className="my-2 flex bg-secondary" />
+          <Separator
+            className={cn("my-2 flex bg-secondary", lineZone && "hidden")}
+          />
           <FormField
             control={form.control}
             name="loitering_time"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className={cn(lineZone && "hidden")}>
                 <FormLabel>
                   {t("masksAndZones.zones.loiteringTime.title")}
                 </FormLabel>
@@ -718,12 +753,14 @@ export default function ZoneEditPane({
             />
           </FormItem>
 
-          <Separator className="my-2 flex bg-secondary" />
+          <Separator
+            className={cn("my-2 flex bg-secondary", lineZone && "hidden")}
+          />
           <FormField
             control={form.control}
             name="speedEstimation"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className={cn(lineZone && "hidden")}>
                 <div className="flex items-center space-x-2">
                   <FormControl>
                     <div className="my-2.5 flex w-full items-center justify-between">

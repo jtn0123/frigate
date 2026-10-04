@@ -8229,6 +8229,77 @@ paths:
       security:
         - frigateUserAuth: []
       x-required-role: any
+  /fork/line_crossings:
+    get:
+      tags:
+        - Events
+      summary: Line Crossings
+      description: |-
+        **Access:** Any authenticated user.
+
+        Return how many tracked objects crossed each line zone.
+
+        Args:
+            request: The incoming request, carrying the config.
+            allowed_cameras: Cameras this caller may see.
+            camera: Comma separated cameras, or all (the default).
+            zone: Comma separated line zone names, or all (the default).
+            after: Window start, Unix timestamp; defaults to 24 hours before
+                ``before``.
+            before: Window end, Unix timestamp; defaults to now.
+
+        Returns:
+            Counts per line and label for the cameras the caller may see.
+      operationId: line_crossings_fork_line_crossings_get
+      parameters:
+        - name: camera
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Camera
+        - name: zone
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: 'null'
+            title: Zone
+        - name: after
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: number
+              - type: 'null'
+            title: After
+        - name: before
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: number
+              - type: 'null'
+            title: Before
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineCrossingsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - frigateUserAuth: []
+      x-required-role: any
   /fork/share:
     get:
       tags:
@@ -10889,6 +10960,65 @@ components:
         - total_alert
         - total_detection
       title: Last24HoursReview
+    LineCrossingCount:
+      properties:
+        camera:
+          type: string
+          title: Camera
+          description: Camera the line belongs to
+        zone:
+          type: string
+          title: Zone
+          description: Name of the line zone
+        direction:
+          type: string
+          title: Direction
+          description: "Direction the line counts: 'both', 'a_to_b' or 'b_to_a'"
+        total:
+          type: integer
+          title: Total
+          description: Tracked objects that crossed the line in a counted 
+            direction
+        labels:
+          additionalProperties:
+            type: integer
+          type: object
+          title: Labels
+          description: The same count split by label
+      type: object
+      required:
+        - camera
+        - zone
+        - direction
+        - total
+        - labels
+      title: LineCrossingCount
+      description: Crossings of one line zone inside the requested window.
+    LineCrossingsResponse:
+      properties:
+        after:
+          type: number
+          title: After
+          description: Start of the window, Unix timestamp
+        before:
+          type: number
+          title: Before
+          description: End of the window, Unix timestamp
+        lines:
+          items:
+            $ref: '#/components/schemas/LineCrossingCount'
+          type: array
+          title: Lines
+          description: One entry per line zone on the requested cameras, zero 
+            counts included
+      type: object
+      required:
+        - after
+        - before
+        - lines
+      title: LineCrossingsResponse
+      description: Per-line crossing counts aggregated from stored tracked 
+        objects.
     LogSummaryGroup:
       properties:
         camera:

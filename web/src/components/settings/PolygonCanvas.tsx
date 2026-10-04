@@ -8,6 +8,12 @@ import { useApiHost } from "@/api";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { snapPointToLines } from "@/utils/canvasUtil";
 import { usePolygonStates } from "@/hooks/use-polygon-states";
+import LineZoneLayer from "@/components/fork/settings/LineZoneLayer";
+import {
+  addLinePoint,
+  isExclusionPolygon,
+  isLineZonePolygon,
+} from "@/lib/fork/line-zones";
 
 type PolygonCanvasProps = {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -120,6 +126,20 @@ export function PolygonCanvas({
     const stage = e.target.getStage()!;
     const mousePos = stage.getPointerPosition() ?? { x: 0, y: 0 };
     const intersection = stage.getIntersection(mousePos);
+
+    // fork (D75): a line zone takes two clicks, then its ends are dragged
+    if (isLineZonePolygon(activePolygon)) {
+      const line = addLinePoint(
+        activePolygon,
+        [mousePos.x, mousePos.y],
+        intersection?.getClassName() == "Circle",
+      );
+      if (line !== activePolygon) {
+        updatedPolygons[activePolygonIndex] = line;
+        setPolygons(updatedPolygons);
+      }
+      return;
+    }
 
     // right click on desktops to delete a point
     if (
@@ -313,12 +333,14 @@ export function PolygonCanvas({
           (polygon, index) =>
             (selectedZoneMask === undefined ||
               selectedZoneMask.includes(polygon.type)) &&
-            index !== activePolygonIndex && (
+            index !== activePolygonIndex &&
+            !isLineZonePolygon(polygon) && (
               <PolygonDrawer
                 stageRef={stageRef}
                 key={index}
                 points={polygon.points}
                 distances={polygon.distances}
+                exclusion={isExclusionPolygon(polygon)}
                 isActive={index === activePolygonIndex}
                 isHovered={index === hoveredPolygonIndex}
                 isFinished={polygon.isFinished}
@@ -342,6 +364,7 @@ export function PolygonCanvas({
         )}
         {activePolygonIndex !== undefined &&
           polygons?.[activePolygonIndex] &&
+          !isLineZonePolygon(polygons[activePolygonIndex]) &&
           (selectedZoneMask === undefined ||
             selectedZoneMask.includes(polygons[activePolygonIndex].type)) && (
             <PolygonDrawer
@@ -349,6 +372,7 @@ export function PolygonCanvas({
               key={activePolygonIndex}
               points={polygons[activePolygonIndex].points}
               distances={polygons[activePolygonIndex].distances}
+              exclusion={isExclusionPolygon(polygons[activePolygonIndex])}
               isActive={true}
               isHovered={activePolygonIndex === hoveredPolygonIndex}
               isFinished={polygons[activePolygonIndex].isFinished}
@@ -369,6 +393,18 @@ export function PolygonCanvas({
               }
             />
           )}
+        {/* fork (D75, D76): line zones */}
+        <LineZoneLayer
+          stageRef={stageRef}
+          polygons={polygons}
+          setPolygons={setPolygons}
+          activePolygonIndex={activePolygonIndex}
+          hoveredPolygonIndex={hoveredPolygonIndex}
+          selectedZoneMask={selectedZoneMask}
+          isEnabled={getPolygonEnabled}
+          handleGroupDragEnd={handleGroupDragEnd}
+          snapPoints={snapPoints}
+        />
       </Layer>
     </Stage>
   );
