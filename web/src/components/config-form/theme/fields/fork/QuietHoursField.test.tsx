@@ -272,6 +272,32 @@ describe("QuietHoursField", () => {
     });
   });
 
+  it("keeps the later row in place when an earlier one is removed", () => {
+    render(
+      <Harness
+        saved={[
+          { days: ["mon"], start: "22:00", end: "07:00" },
+          { days: ["sat"], start: "09:00", end: "10:00" },
+        ]}
+      />,
+    );
+    const rowName = (index: number) =>
+      `notificationSchedule.windows.label:{"index":${index}}`;
+    const removeName = (index: number) =>
+      `notificationSchedule.windows.remove:{"index":${index}}`;
+    const second = screen.getByRole("group", { name: rowName(2) });
+
+    fireEvent.click(screen.getByRole("button", { name: removeName(1) }));
+
+    // The Saturday row moves up as the same element, not a reused first row
+    const moved = screen.getByRole("group", { name: rowName(1) });
+    expect(moved).toBe(second);
+    expect(within(moved).getByLabelText("Start time")).toHaveValue("09:00");
+    expect(
+      within(moved).getByRole("button", { name: removeName(1) }),
+    ).toHaveFocus();
+  });
+
   it("shows the saved state, not unsaved edits, and what saving would do", () => {
     // Saved: the nightly window, quiet at 23:30. Edited: no windows at all.
     render(<Harness saved={NIGHTLY} draft={[]} />);

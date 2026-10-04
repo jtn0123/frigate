@@ -49,7 +49,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ConfigFormContext } from "@/types/configForm";
 
-export function QuietHoursField(props: FieldProps) {
+export function QuietHoursField(props: Readonly<FieldProps>) {
   const isAdmin = useIsAdmin();
   // Viewers can open the notifications page to register a device, but the
   // schedule is an admin setting.
@@ -71,7 +71,15 @@ function itemTitle(schema: RJSFSchema, key: string): string | undefined {
   return typeof property.title === "string" ? property.title : undefined;
 }
 
-function QuietHoursFieldBody(props: FieldProps) {
+/** The badge's state: off, or whether the saved windows hold pushes now. */
+function quietState(enabled: boolean, quiet: boolean): QuietState {
+  if (!enabled) {
+    return "off";
+  }
+  return quiet ? "quiet" : "notifying";
+}
+
+function QuietHoursFieldBody(props: Readonly<FieldProps>) {
   const { schema, onChange, disabled, readonly, name } = props;
   const formData: unknown = props.formData;
   const formContext = props.registry.formContext as
@@ -127,11 +135,7 @@ function QuietHoursFieldBody(props: FieldProps) {
   const saved = useMemo(() => baseline.filter(isValidWindow), [baseline]);
   const savedEnabled = formContext?.baselineFormData?.["enabled"] !== false;
   const savedStatus = quietStatus(clock, saved);
-  const state: QuietState = !savedEnabled
-    ? "off"
-    : savedStatus.quiet
-      ? "quiet"
-      : "notifying";
+  const state = quietState(savedEnabled, savedStatus.quiet);
   const modified = !sameWindows(windows, baseline);
   const draftDiffers = modified || draftEnabled !== savedEnabled;
   // With no windows saved or drafted the editor already says there are none
@@ -195,25 +199,6 @@ function QuietHoursFieldBody(props: FieldProps) {
     timezoneLink,
   ]);
 
-  let serverWarning: string | undefined;
-  if (serverOffset === 0) {
-    serverWarning = t("notificationSchedule.timezone.serverSeasonal", {
-      zone: zone.zone,
-    });
-  } else if (serverOffset !== undefined) {
-    const hours = Math.abs(serverOffset) / 60;
-    serverWarning =
-      serverOffset > 0
-        ? t("notificationSchedule.timezone.serverAhead", {
-            zone: zone.zone,
-            count: hours,
-          })
-        : t("notificationSchedule.timezone.serverBehind", {
-            zone: zone.zone,
-            count: hours,
-          });
-  }
-
   return (
     <div className="w-full max-w-5xl" data-testid="quiet-hours-field">
       <SettingsGroupCard
@@ -231,7 +216,7 @@ function QuietHoursFieldBody(props: FieldProps) {
             <p data-testid="quiet-hours-exempt">
               {t("notificationSchedule.exempt")}
             </p>
-            {serverWarning === undefined && (
+            {serverOffset === undefined && (
               <p className="text-xs text-muted-foreground">
                 {zoneText}{" "}
                 {zone.source !== undefined && browserZone !== zone.zone && (
@@ -252,28 +237,13 @@ function QuietHoursFieldBody(props: FieldProps) {
               </p>
             )}
           </div>
-          {serverWarning !== undefined && (
-            <Alert variant="warning" data-testid="quiet-timezone-warning">
-              <LuTriangleAlert className="size-4" aria-hidden />
-              <AlertTitle className="leading-snug">{serverWarning}</AlertTitle>
-              <AlertDescription className="space-y-2">
-                <p>
-                  {t("notificationSchedule.timezone.serverHelp", {
-                    zone: browserZone,
-                  })}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={suggestBrowserZone}
-                >
-                  {t("notificationSchedule.timezone.useBrowser", {
-                    zone: browserZone,
-                  })}
-                </Button>
-              </AlertDescription>
-            </Alert>
+          {serverOffset !== undefined && (
+            <ServerClockWarning
+              offset={serverOffset}
+              zone={zone.zone}
+              browserZone={browserZone}
+              onUseBrowserZone={suggestBrowserZone}
+            />
           )}
           {(showStatus || draftDiffers) && (
             <div className="space-y-1 text-sm">
@@ -300,7 +270,7 @@ function QuietHoursFieldBody(props: FieldProps) {
             onChange={handleChange}
             labels={labels}
             format={format}
-            disabled={disabled || readonly}
+            disabled={Boolean(disabled || readonly)}
           />
           {level === "global" && config && (
             <CameraScheduleList config={config} clock={clock} />
@@ -308,5 +278,64 @@ function QuietHoursFieldBody(props: FieldProps) {
         </div>
       </SettingsGroupCard>
     </div>
+  );
+}
+
+type ServerClockWarningProps = {
+  /**
+   * Minutes the server's clock is ahead of this browser's, negative when
+   * behind, zero when they differ only in another season.
+   */
+  offset: number;
+  zone: string;
+  browserZone: string;
+  onUseBrowserZone: () => void;
+};
+
+/** Says the server's clock decides and offers this browser's zone instead. */
+function ServerClockWarning({
+  offset,
+  zone,
+  browserZone,
+  onUseBrowserZone,
+}: Readonly<ServerClockWarningProps>) {
+  const { t } = useTranslation(["fork"]);
+  const hours = Math.abs(offset) / 60;
+  let warning: string;
+  if (offset === 0) {
+    warning = t("notificationSchedule.timezone.serverSeasonal", { zone });
+  } else if (offset > 0) {
+    warning = t("notificationSchedule.timezone.serverAhead", {
+      zone,
+      count: hours,
+    });
+  } else {
+    warning = t("notificationSchedule.timezone.serverBehind", {
+      zone,
+      count: hours,
+    });
+  }
+  return (
+    <Alert variant="warning" data-testid="quiet-timezone-warning">
+      <LuTriangleAlert className="size-4" aria-hidden />
+      <AlertTitle className="leading-snug">{warning}</AlertTitle>
+      <AlertDescription className="space-y-2">
+        <p>
+          {t("notificationSchedule.timezone.serverHelp", {
+            zone: browserZone,
+          })}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onUseBrowserZone}
+        >
+          {t("notificationSchedule.timezone.useBrowser", {
+            zone: browserZone,
+          })}
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }

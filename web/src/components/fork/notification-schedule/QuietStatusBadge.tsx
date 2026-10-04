@@ -1,6 +1,7 @@
 /** Fork (D78): whether push notifications are held back right now. */
 
 import { useTranslation } from "react-i18next";
+import type { IconType } from "react-icons";
 import { LuBell, LuBellOff, LuMoon } from "react-icons/lu";
 
 import { cn } from "@/lib/utils";
@@ -15,6 +16,12 @@ const STYLES: Record<QuietState, string> = {
   off: "border-border bg-muted text-muted-foreground",
 };
 
+const ICONS: Record<QuietState, IconType> = {
+  quiet: LuMoon,
+  notifying: LuBell,
+  off: LuBellOff,
+};
+
 type QuietStatusBadgeProps = {
   state: QuietState;
   testId?: string;
@@ -27,8 +34,7 @@ export function QuietStatusBadge({
   className,
 }: Readonly<QuietStatusBadgeProps>) {
   const { t } = useTranslation(["fork"]);
-  const Icon =
-    state === "quiet" ? LuMoon : state === "off" ? LuBellOff : LuBell;
+  const Icon = ICONS[state];
   let label: string;
   switch (state) {
     case "quiet":

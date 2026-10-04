@@ -1,6 +1,6 @@
 /** Fork (D78): edit the windows when alert pushes are held back. */
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { LuPlus, LuTrash2 } from "react-icons/lu";
 
@@ -22,6 +22,7 @@ import {
 import { phoneTouch } from "@/lib/fork/phone";
 import { cn } from "@/lib/utils";
 
+import { useRowKeys } from "./use-row-keys";
 import { useScheduleText, type TimeFormat } from "./use-schedule-text";
 
 export type QuietHoursLabels = {
@@ -36,7 +37,7 @@ type QuietHoursEditorProps = {
   onChange: (next: QuietWindow[]) => void;
   labels: QuietHoursLabels;
   format: TimeFormat;
-  disabled?: boolean | undefined;
+  disabled: boolean;
 };
 
 export function QuietHoursEditor({
@@ -48,6 +49,9 @@ export function QuietHoursEditor({
   disabled,
 }: Readonly<QuietHoursEditorProps>) {
   const { t } = useTranslation(["fork"]);
+  const { keys, remove: removeKey } = useRowKeys(windows.length);
+  const list = useRef<HTMLUListElement>(null);
+  const refocus = useRef<number | undefined>(undefined);
 
   const update = useCallback(
     (index: number, patch: Partial<QuietWindow>) =>
@@ -59,6 +63,27 @@ export function QuietHoursEditor({
     [onChange, windows],
   );
 
+  const removeWindow = useCallback(
+    (index: number) => {
+      removeKey(index);
+      refocus.current = index;
+      onChange(windows.filter((_, i) => i !== index));
+    },
+    [onChange, removeKey, windows],
+  );
+
+  // The removed row takes focus with it; hand it to the row moving up
+  useEffect(() => {
+    const index = refocus.current;
+    refocus.current = undefined;
+    if (index !== undefined) {
+      list.current?.children
+        .item(index)
+        ?.querySelector<HTMLElement>("[data-window-remove]")
+        ?.focus();
+    }
+  }, [windows]);
+
   return (
     <div className="space-y-3" data-testid="quiet-hours-editor">
       {windows.length === 0 ? (
@@ -66,11 +91,10 @@ export function QuietHoursEditor({
           {t("notificationSchedule.windows.empty")}
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul ref={list} className="space-y-3">
           {windows.map((window, index) => (
             <QuietWindowRow
-              // The list has no stable ids; rows only move by removal
-              key={index}
+              key={keys[index]}
               id={`${idPrefix}-${index}`}
               index={index}
               window={window}
@@ -78,7 +102,7 @@ export function QuietHoursEditor({
               format={format}
               disabled={disabled}
               onChange={(patch) => update(index, patch)}
-              onRemove={() => onChange(windows.filter((_, i) => i !== index))}
+              onRemove={() => removeWindow(index)}
             />
           ))}
         </ul>
@@ -104,7 +128,7 @@ type QuietWindowRowProps = {
   window: QuietWindow;
   labels: QuietHoursLabels;
   format: TimeFormat;
-  disabled?: boolean | undefined;
+  disabled: boolean;
   onChange: (patch: Partial<QuietWindow>) => void;
   onRemove: () => void;
 };
@@ -132,86 +156,89 @@ function QuietWindowRow({
       : labels.days;
 
   return (
-    <li
-      role="group"
-      aria-label={name}
-      className="space-y-3 rounded-lg bg-secondary p-3"
-      data-testid="quiet-window"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2 pt-1.5">
-          <span className="text-sm font-medium">{summary ?? name}</span>
-          {complete && isFullDay(window) && (
-            <WindowTag>{t("notificationSchedule.windows.fullDay")}</WindowTag>
-          )}
-          {ends && <WindowTag>{ends}</WindowTag>}
+    <li>
+      <fieldset
+        aria-label={name}
+        className="min-w-0 space-y-3 rounded-lg bg-secondary p-3"
+        data-testid="quiet-window"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 pt-1.5">
+            <span className="text-sm font-medium">{summary ?? name}</span>
+            {complete && isFullDay(window) && (
+              <WindowTag>{t("notificationSchedule.windows.fullDay")}</WindowTag>
+            )}
+            {ends && <WindowTag>{ends}</WindowTag>}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9 shrink-0"
+            disabled={disabled}
+            data-window-remove
+            aria-label={t("notificationSchedule.windows.remove", {
+              index: index + 1,
+            })}
+            onClick={onRemove}
+          >
+            <LuTrash2 className="size-4" aria-hidden />
+          </Button>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          disabled={disabled}
-          aria-label={t("notificationSchedule.windows.remove", {
-            index: index + 1,
-          })}
-          onClick={onRemove}
-        >
-          <LuTrash2 className="size-4" aria-hidden />
-        </Button>
-      </div>
-      <div className="flex flex-col gap-1">
-        <span
-          id={`${id}-days`}
-          className="text-xs text-muted-foreground"
-          data-testid="quiet-window-days-label"
-        >
-          {daysLabel}
-        </span>
-        <div
-          role="group"
-          aria-labelledby={`${id}-days`}
-          // seven equal columns keep the week on one row on a phone
-          className="grid grid-cols-7 gap-1 sm:flex sm:flex-wrap"
-        >
-          {WEEKDAYS.map((day: Weekday, weekday) => {
-            const on = startsOn(window, day);
-            return (
-              <Button
-                key={day}
-                type="button"
-                size="sm"
-                variant={on ? "select" : "outline"}
-                // focus-visible:ring-selected: the default theme's --ring
-                // is not a valid color, so the stock focus ring draws nothing
-                className="h-9 min-w-0 px-0 text-xs focus-visible:ring-selected sm:min-w-11 sm:px-2"
-                disabled={disabled}
-                aria-pressed={on}
-                aria-label={weekdayName(weekday, format.locale, "long")}
-                onClick={() => onChange({ days: toggleDay(window.days, day) })}
-              >
-                {weekdayName(weekday, format.locale)}
-              </Button>
-            );
-          })}
+        <div className="flex flex-col gap-1">
+          <span
+            id={`${id}-days`}
+            className="text-xs text-muted-foreground"
+            data-testid="quiet-window-days-label"
+          >
+            {daysLabel}
+          </span>
+          <fieldset
+            aria-labelledby={`${id}-days`}
+            // seven equal columns keep the week on one row on a phone
+            className="grid min-w-0 grid-cols-7 gap-1 sm:flex sm:flex-wrap"
+          >
+            {WEEKDAYS.map((day: Weekday, weekday) => {
+              const on = startsOn(window, day);
+              return (
+                <Button
+                  key={day}
+                  type="button"
+                  size="sm"
+                  variant={on ? "select" : "outline"}
+                  // focus-visible:ring-selected: the default theme's --ring
+                  // is not a valid color, so the stock focus ring draws nothing
+                  className="h-9 min-w-0 px-0 text-xs focus-visible:ring-selected sm:min-w-11 sm:px-2"
+                  disabled={disabled}
+                  aria-pressed={on}
+                  aria-label={weekdayName(weekday, format.locale, "long")}
+                  onClick={() =>
+                    onChange({ days: toggleDay(window.days, day) })
+                  }
+                >
+                  {weekdayName(weekday, format.locale)}
+                </Button>
+              );
+            })}
+          </fieldset>
         </div>
-      </div>
-      <div className="flex flex-wrap items-start gap-3">
-        <TimeInput
-          id={`${id}-start`}
-          label={labels.start}
-          value={window.start}
-          disabled={disabled}
-          onChange={(start) => onChange({ start })}
-        />
-        <TimeInput
-          id={`${id}-end`}
-          label={labels.end}
-          value={window.end}
-          disabled={disabled}
-          onChange={(end) => onChange({ end })}
-        />
-      </div>
+        <div className="flex flex-wrap items-start gap-3">
+          <TimeInput
+            id={`${id}-start`}
+            label={labels.start}
+            value={window.start}
+            disabled={disabled}
+            onChange={(start) => onChange({ start })}
+          />
+          <TimeInput
+            id={`${id}-end`}
+            label={labels.end}
+            value={window.end}
+            disabled={disabled}
+            onChange={(end) => onChange({ end })}
+          />
+        </div>
+      </fieldset>
     </li>
   );
 }
@@ -228,7 +255,7 @@ type TimeInputProps = {
   id: string;
   label: string;
   value: string;
-  disabled?: boolean | undefined;
+  disabled: boolean;
   onChange: (value: string) => void;
 };
 
