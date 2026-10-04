@@ -193,6 +193,54 @@ export function addLinePoint(
   };
 }
 
+type CanvasPoint = { x: number; y: number };
+
+/** The parts of a Konva pointer event that a line zone click reads. */
+export type LineZoneClickEvent = {
+  target: {
+    getStage(): {
+      getPointerPosition(): CanvasPoint | null;
+      getIntersection(pos: CanvasPoint): { getClassName(): string } | null;
+    } | null;
+  };
+};
+
+/**
+ * Wrap the zone canvas's click handler for line zones. While a line zone is
+ * active, a click goes to addLinePoint and never reaches the polygon
+ * handler, which would add, remove or close polygon points. Any other active
+ * shape gets the handler unchanged.
+ */
+export function withLineZoneClicks<E extends LineZoneClickEvent>(
+  handler: (e: E) => void,
+  polygons: Polygon[],
+  activePolygonIndex: number | undefined,
+  setPolygons: (polygons: Polygon[]) => void,
+): (e: E) => void {
+  const active =
+    activePolygonIndex === undefined ? undefined : polygons[activePolygonIndex];
+  if (
+    activePolygonIndex === undefined ||
+    active === undefined ||
+    !isLineZonePolygon(active)
+  ) {
+    return handler;
+  }
+
+  return (e) => {
+    const stage = e.target.getStage();
+    if (stage === null) return;
+    const pos = stage.getPointerPosition() ?? { x: 0, y: 0 };
+    const onPoint = stage.getIntersection(pos)?.getClassName() === "Circle";
+    const line = addLinePoint(active, [pos.x, pos.y], onPoint);
+    if (line !== active) {
+      const updated = [...polygons];
+      updated[activePolygonIndex] = line;
+      setPolygons(updated);
+    }
+  };
+}
+
 /**
  * Switch the zone being edited between an area and a line. A drawing that
  * does not fit the new shape starts over; two points already make a line.

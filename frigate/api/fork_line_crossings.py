@@ -43,26 +43,10 @@ def _split(value: str | None) -> set[str] | None:
     return {item for item in value.split(",") if item}
 
 
-def count_line_crossings(
-    config: FrigateConfig,
-    cameras: list[str],
-    zones: set[str] | None,
-    after: float,
-    before: float,
-) -> list[dict[str, Any]]:
-    """Count tracked objects per line zone and label.
-
-    Args:
-        config: The running config, for the cameras' line zones.
-        cameras: Cameras to count, already limited to what the caller may see.
-        zones: Line zone names to keep, or None for every line.
-        after: Window start (exclusive), Unix timestamp.
-        before: Window end (exclusive), Unix timestamp.
-
-    Returns:
-        One entry per line zone, in camera then zone order, zero counts
-        included.
-    """
+def _zero_counts(
+    config: FrigateConfig, cameras: list[str], zones: set[str] | None
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Return a zero count per line zone, keyed by camera and zone name."""
     lines: dict[tuple[str, str], dict[str, Any]] = {}
 
     for camera in cameras:
@@ -83,11 +67,36 @@ def count_line_crossings(
                 "labels": {},
             }
 
+    return lines
+
+
+def count_line_crossings(
+    config: FrigateConfig,
+    cameras: list[str],
+    zones: set[str] | None,
+    after: float,
+    before: float,
+) -> list[dict[str, Any]]:
+    """Count tracked objects per line zone and label.
+
+    Args:
+        config: The running config, for the cameras' line zones.
+        cameras: Cameras to count, already limited to what the caller may see.
+        zones: Line zone names to keep, or None for every line.
+        after: Window start (exclusive), Unix timestamp.
+        before: Window end (exclusive), Unix timestamp.
+
+    Returns:
+        One entry per line zone, in camera then zone order, zero counts
+        included.
+    """
+    lines = _zero_counts(config, cameras, zones)
+
     if not lines:
         return []
 
-    line_cameras = sorted({camera for camera, _ in lines})
-    line_names = sorted({name for _, name in lines})
+    line_cameras = sorted({entry["camera"] for entry in lines.values()})
+    line_names = sorted({entry["zone"] for entry in lines.values()})
     zone_clause = reduce(
         operator.or_,
         [Event.zones.cast("text") % f'*"{name}"*' for name in line_names],

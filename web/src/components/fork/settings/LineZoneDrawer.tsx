@@ -25,6 +25,11 @@ import {
 } from "@/lib/fork/line-zones";
 
 const VERTEX_RADIUS = 6;
+// a line has two ends, so each handle is named by its place on the line
+const END_HANDLES = [
+  { key: "start", index: 0 },
+  { key: "end", index: 1 },
+] as const;
 const ARROW_HALF_LENGTH = 22;
 const LABEL_OFFSET = 20;
 
@@ -168,27 +173,33 @@ export default function LineZoneDrawer({
         </>
       )}
       {isActive &&
-        points.map((point, index) => (
-          <Circle
-            key={index}
-            name={`point-${index}`}
-            x={point[0] ?? 0}
-            y={point[1] ?? 0}
-            radius={VERTEX_RADIUS}
-            stroke={stroke}
-            fill="#ffffff"
-            strokeWidth={3}
-            // the same 44 px grab area on a phone as polygon points
-            hitStrokeWidth={phoneTouch ? 32 : 9}
-            draggable
-            dragBoundFunc={pointDragBound}
-            onDragMove={(e) => {
-              const next = points.map((p) => [...p]);
-              next[index] = [e.target.x(), e.target.y()];
-              onPointsChange(next);
-            }}
-          />
-        ))}
+        END_HANDLES.map(({ key, index }) => {
+          // undefined until the line's second click places that end
+          const point = points.at(index);
+          return (
+            point && (
+              <Circle
+                key={key}
+                name={`point-${index}`}
+                x={point[0] ?? 0}
+                y={point[1] ?? 0}
+                radius={VERTEX_RADIUS}
+                stroke={stroke}
+                fill="#ffffff"
+                strokeWidth={3}
+                // the same 44 px grab area on a phone as polygon points
+                hitStrokeWidth={phoneTouch ? 32 : 9}
+                draggable
+                dragBoundFunc={pointDragBound}
+                onDragMove={(e) => {
+                  const next = points.map((p) => [...p]);
+                  next[index] = [e.target.x(), e.target.y()];
+                  onPointsChange(next);
+                }}
+              />
+            )
+          );
+        })}
     </Group>
   );
 }

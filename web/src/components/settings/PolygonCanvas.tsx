@@ -10,9 +10,9 @@ import { snapPointToLines } from "@/utils/canvasUtil";
 import { usePolygonStates } from "@/hooks/use-polygon-states";
 import LineZoneLayer from "@/components/fork/settings/LineZoneLayer";
 import {
-  addLinePoint,
   isExclusionPolygon,
   isLineZonePolygon,
+  withLineZoneClicks,
 } from "@/lib/fork/line-zones";
 
 type PolygonCanvasProps = {
@@ -127,20 +127,6 @@ export function PolygonCanvas({
     const mousePos = stage.getPointerPosition() ?? { x: 0, y: 0 };
     const intersection = stage.getIntersection(mousePos);
 
-    // fork (D75): a line zone takes two clicks, then its ends are dragged
-    if (isLineZonePolygon(activePolygon)) {
-      const line = addLinePoint(
-        activePolygon,
-        [mousePos.x, mousePos.y],
-        intersection?.getClassName() == "Circle",
-      );
-      if (line !== activePolygon) {
-        updatedPolygons[activePolygonIndex] = line;
-        setPolygons(updatedPolygons);
-      }
-      return;
-    }
-
     // right click on desktops to delete a point
     if (
       e.evt instanceof MouseEvent &&
@@ -207,6 +193,14 @@ export function PolygonCanvas({
       setPolygons(updatedPolygons);
     }
   };
+
+  // fork (D75): a line zone takes two clicks, then its ends are dragged
+  const handleCanvasClick = withLineZoneClicks(
+    handleMouseDown,
+    polygons,
+    activePolygonIndex,
+    setPolygons,
+  );
 
   const handlePointDragMove = (
     e: KonvaEventObject<MouseEvent | TouchEvent>,
@@ -313,8 +307,8 @@ export function PolygonCanvas({
       ref={stageRef}
       width={width}
       height={height}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleMouseDown}
+      onMouseDown={handleCanvasClick}
+      onTouchStart={handleCanvasClick}
       onMouseOver={handleStageMouseOver}
       onContextMenu={(e) => {
         e.evt.preventDefault();

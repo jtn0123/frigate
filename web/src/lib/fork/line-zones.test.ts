@@ -18,6 +18,7 @@ import {
   sideLabelPositions,
   sideOfLine,
   startOfDay,
+  withLineZoneClicks,
   zoneShapeFields,
 } from "./line-zones";
 
@@ -222,6 +223,69 @@ describe("addLinePoint", () => {
   it("ignores a click on an end, which starts a drag", () => {
     const line = zone({ zoneType: "line", points: [[1, 1]] });
     expect(addLinePoint(line, [1, 1], true)).toBe(line);
+  });
+});
+
+describe("withLineZoneClicks", () => {
+  function click(x: number, y: number, onShape?: string) {
+    return {
+      target: {
+        getStage: () => ({
+          getPointerPosition: () => ({ x, y }),
+          getIntersection: () =>
+            onShape === undefined ? null : { getClassName: () => onShape },
+        }),
+      },
+    };
+  }
+
+  it("leaves the handler alone for an area or no active zone", () => {
+    const handler = vi.fn();
+    const setPolygons = vi.fn();
+    const polygons = [zone({ zoneType: "polygon" })];
+    expect(withLineZoneClicks(handler, polygons, 0, setPolygons)).toBe(handler);
+    expect(withLineZoneClicks(handler, polygons, undefined, setPolygons)).toBe(
+      handler,
+    );
+    expect(withLineZoneClicks(handler, polygons, 3, setPolygons)).toBe(handler);
+  });
+
+  it("places a line's end instead of a polygon point", () => {
+    const handler = vi.fn();
+    const setPolygons = vi.fn();
+    const area = zone({ name: "yard" });
+    const line = zone({ zoneType: "line", points: [[10, 10]] });
+
+    withLineZoneClicks(handler, [area, line], 1, setPolygons)(click(50, 60));
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(setPolygons).toHaveBeenCalledWith([
+      area,
+      expect.objectContaining({
+        points: [
+          [10, 10],
+          [50, 60],
+        ],
+        isFinished: true,
+      }),
+    ]);
+  });
+
+  it("changes nothing for a click on an end or without a stage", () => {
+    const handler = vi.fn();
+    const setPolygons = vi.fn();
+    const onLine = withLineZoneClicks(
+      handler,
+      [zone({ zoneType: "line", points: [[10, 10]] })],
+      0,
+      setPolygons,
+    );
+
+    onLine(click(10, 10, "Circle"));
+    onLine({ target: { getStage: () => null } });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(setPolygons).not.toHaveBeenCalled();
   });
 });
 

@@ -48,7 +48,7 @@ export default function ZoneShapeFields({
       ? polygons[activePolygonIndex]
       : undefined;
 
-  if (!polygon || polygon.type !== "zone" || !isForkEnabled("lineZones")) {
+  if (polygon?.type !== "zone" || !isForkEnabled("lineZones")) {
     return null;
   }
 
