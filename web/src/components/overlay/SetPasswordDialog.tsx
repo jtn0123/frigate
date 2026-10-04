@@ -35,6 +35,7 @@ import {
   getPasswordStrengthLabel,
   getPasswordStrengthColor,
 } from "@/utils/passwordUtil";
+import SessionsEndNotice from "@/components/fork/sessions/SessionsEndNotice";
 
 type SetPasswordProps = {
   show: boolean;
@@ -207,6 +208,8 @@ export default function SetPasswordDialog({
               ns: "views/settings",
             })}
           </p>
+          {/* fork (E26): other devices are signed out at once */}
+          <SessionsEndNotice change="password" username={username} />
           {isAdmin && (
             <>
               <p className="text-sm text-muted-foreground">

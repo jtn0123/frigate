@@ -60,6 +60,7 @@ from frigate.api import (
     fork_classification_suggestions,
     fork_go2rtc_state,
     fork_log_summary,
+    fork_sessions,
     fork_share,
     fork_updates,
     hardware,
@@ -177,6 +178,7 @@ def build_app() -> FastAPI:
         fork_classification_suggestions.router,
         fork_go2rtc_state.router,
         fork_share.router,
+        fork_sessions.router,
         fork_updates.router,
         system_history.router,
     ]

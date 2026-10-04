@@ -39,6 +39,8 @@ import { Separator } from "@/components/ui/separator";
 import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
 import UsersLoadError from "@/components/fork/settings/UsersLoadError";
 import { useInlineReadError } from "@/hooks/fork/use-inline-read-error";
+import ActiveSessions from "@/components/fork/sessions/ActiveSessions";
+import { isForkEnabled } from "@/fork/flags";
 
 type AuthenticationViewProps = {
   section?: "users" | "roles";
@@ -582,6 +584,8 @@ export default function AuthenticationView({
           </div>
         </div>
       </div>
+      {/* fork (E26): who is signed in, with revoke */}
+      {isForkEnabled("userSessions") && <ActiveSessions />}
       <SetPasswordDialog
         show={showSetPassword}
         onCancel={() => {

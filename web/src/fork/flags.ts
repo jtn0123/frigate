@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Signed-in sessions with revoke, in Settings > Users and the account menu. */
+  userSessions: boolean;
 };
 
 const defaults: ForkFlags = {
@@ -67,6 +69,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  userSessions: true,
 };
 
 function readOverrides(): Partial<ForkFlags> {

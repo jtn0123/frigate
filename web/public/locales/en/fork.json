@@ -799,5 +799,77 @@
       "budget": "The AI helper's daily limit is used up. Guesses resume tomorrow.",
       "error": "The AI helper didn't answer. Reload the page to try again."
     }
+  },
+  "sessions": {
+    "title": "Signed-in sessions",
+    "description": "Browsers and apps signed in to Frigate. Revoking one signs that device out at once and stops its live video and notifications.",
+    "menu": "Signed-in devices",
+    "myTitle": "Your signed-in devices",
+    "myDescription": "Where your account is signed in. Signing a device out ends its session at once, with its live video and notifications.",
+    "loading": "Loading sessions...",
+    "loadFailed": "Could not load sessions",
+    "retry": "Retry",
+    "empty": "No one is signed in with a recorded session.",
+    "emptyMine": "No sessions are recorded for your account yet.",
+    "groupLabel": "Sessions of {{user}}",
+    "you": "(you)",
+    "count_one": "{{count}} session",
+    "count_other": "{{count}} sessions",
+    "thisDevice": "This device",
+    "from": "from {{ip}}",
+    "proxyHint": "Every device reaches Frigate through {{ip}}, usually a reverse proxy or Docker's network, so their own addresses are hidden. If a reverse proxy sets X-Forwarded-For, add its network to auth.trusted_proxies.",
+    "showMore_one": "Show {{count}} more",
+    "showMore_other": "Show {{count}} more",
+    "showFewer": "Show fewer",
+    "device": {
+      "browserOn": "{{browser}} on {{os}}",
+      "appOn": "{{app}} on {{os}}",
+      "someBrowserOn": "Browser on {{os}}",
+      "unknown": "Unknown device"
+    },
+    "signedIn": {
+      "now": "Signed in just now",
+      "minutes_one": "Signed in {{count}} minute ago",
+      "minutes_other": "Signed in {{count}} minutes ago",
+      "hours_one": "Signed in {{count}} hour ago",
+      "hours_other": "Signed in {{count}} hours ago",
+      "days_one": "Signed in {{count}} day ago",
+      "days_other": "Signed in {{count}} days ago"
+    },
+    "lastActive": {
+      "now": "Active now",
+      "minutes_one": "Active {{count}} minute ago",
+      "minutes_other": "Active {{count}} minutes ago",
+      "hours_one": "Active {{count}} hour ago",
+      "hours_other": "Active {{count}} hours ago",
+      "days_one": "Active {{count}} day ago",
+      "days_other": "Active {{count}} days ago"
+    },
+    "revoke": "Revoke",
+    "revoking": "Revoking...",
+    "revokeLabel": "Revoke {{device}} for {{user}}",
+    "revokeTitle": "Revoke this session?",
+    "revokeDescription": "{{device}} signed in as {{user}} will be signed out and must sign in again.",
+    "revoked": "Session revoked",
+    "revokeFailed": "Could not revoke the session",
+    "signOutEverywhere": "Sign out everywhere",
+    "signOutEverywhereLabel": "Sign out {{user}} everywhere",
+    "everywhereTitle": "Sign out {{user}} everywhere?",
+    "everywhereDescription": "Every browser and app signed in as {{user}} will be signed out and must sign in again.",
+    "signOutOthers": "Sign out other sessions",
+    "othersTitle": "Sign out other sessions?",
+    "othersDescription_one": "{{count}} other session will be signed out. This device stays signed in.",
+    "othersDescription_other": "{{count}} other sessions will be signed out. This device stays signed in.",
+    "signingOut": "Signing out...",
+    "signedOut_one": "Signed out {{count}} session",
+    "signedOut_other": "Signed out {{count}} sessions",
+    "signedOutNone": "No sessions needed signing out",
+    "signOutFailed": "Could not sign out the sessions",
+    "endNotice": {
+      "anyPassword": "Saving signs this account out of every device at once. If it is your own, this device stays signed in.",
+      "ownPassword": "Saving signs your other devices out at once. This one stays signed in.",
+      "password": "Saving signs {{user}} out of every device at once.",
+      "role": "Saving signs {{user}} out of every device, to sign in again with the new role."
+    }
   }
 }

@@ -74,6 +74,8 @@ export interface ApiMockOverrides {
     available?: { key: string; presets: Record<string, string> }[];
   };
   users?: { username: string; role: string }[];
+  // fork (E26): signed-in sessions in Settings > Users and the account menu
+  sessions?: unknown[];
   notices?: unknown[];
   mutedChecks?: unknown[];
   /** camera name to the ffprobe entries returned for `paths=camera:<name>` */
@@ -430,6 +432,20 @@ export class ApiMocker {
           })
         : route.fulfill({ json: { message: "ok" } }),
     );
+
+    // fork (E26): signed-in sessions. GET lists them; a revoke succeeds.
+    await this.page.route("**/api/fork/sessions**", (route) => {
+      const method = route.request().method();
+      if (method === "GET") {
+        return route.fulfill({ json: overrides?.sessions ?? [] });
+      }
+      return route.fulfill({
+        json:
+          method === "POST"
+            ? { success: true, revoked: 0 }
+            : { success: true, message: "Session revoked" },
+      });
+    });
 
     // Go2RTC streams
     await this.page.route("**/api/go2rtc/streams**", (route) =>
