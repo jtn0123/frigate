@@ -27,6 +27,8 @@ import RouteErrorBoundary, {
 } from "@/components/fork/RouteErrorBoundary";
 import CommandPaletteGate from "@/components/fork/CommandPaletteGate";
 import { isPublicSharePath } from "@/lib/fork/share-path";
+import { isKioskPath } from "@/lib/fork/kiosk";
+import { isForkEnabled } from "@/fork/flags";
 import { phoneShell } from "@/lib/fork/phone-shell";
 import { allowAndroidPageZoom } from "@/lib/fork/viewport-zoom";
 
@@ -52,6 +54,8 @@ const ShareClipPage = lazy(() => import("@/pages/fork/ShareClipPage"));
 const SuggestionReportPage = lazy(
   () => import("@/pages/fork/SuggestionReportPage"),
 );
+const KioskPage = lazy(() => import("@/pages/fork/KioskPage"));
+const SpotlightsPage = lazy(() => import("@/pages/fork/SpotlightsPage"));
 
 function App() {
   return (
@@ -108,6 +112,21 @@ function DefaultAppView({
     );
   }
 
+  // fork (UI19): the wall display is signed in but has no app chrome
+  if (isForkEnabled("kioskMode") && isKioskPath(location.pathname)) {
+    return (
+      <div id="pageRoot" className="absolute inset-0 overflow-hidden">
+        <RouteSuspense fallback={<PageLoading />}>
+          <Routes>
+            <Route element={<ProtectedRoute requiredRoles={mainRouteRoles} />}>
+              <Route path="/kiosk" element={<KioskPage />} />
+            </Route>
+          </Routes>
+        </RouteSuspense>
+      </div>
+    );
+  }
+
   return (
     <div className="size-full overflow-hidden">
       <RouteErrorBoundary variant="chrome">
@@ -134,6 +153,10 @@ function DefaultAppView({
             <Route element={<ProtectedRoute requiredRoles={mainRouteRoles} />}>
               <Route index element={<Live />} />
               <Route path="/review" element={<Events />} />
+              {/* fork (UI144): the ranked feed of the activity worth a look */}
+              {isForkEnabled("spotlights") && (
+                <Route path="/spotlights" element={<SpotlightsPage />} />
+              )}
               <Route path="/explore" element={<Explore />} />
               <Route path="/export" element={<Exports />} />
               <Route path="/settings" element={<Settings />} />

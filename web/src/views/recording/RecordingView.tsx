@@ -7,7 +7,7 @@ import { wrapAsync } from "@/utils/promise";
 import PreviewPlayer, {
   PreviewController,
 } from "@/components/player/PreviewPlayer";
-import { DynamicVideoController } from "@/components/player/dynamic/DynamicVideoController";
+import type { PlaybackControllerLike } from "@/lib/fork/synced-playback";
 import DynamicVideoPlayer from "@/components/player/dynamic/DynamicVideoPlayer";
 import QualitySelector from "@/components/player/QualitySelector";
 import MotionReviewTimeline from "@/components/timeline/MotionReviewTimeline";
@@ -91,6 +91,11 @@ import {
 import ShareTimestampDialog from "@/components/overlay/ShareTimestampDialog";
 import { shareOrCopy } from "@/utils/browserUtil";
 import { createRecordingReviewUrl } from "@/utils/recordingReviewUrl";
+import SyncedPlaybackToggle, {
+  SyncedPlaybackSlot,
+} from "@/components/fork/SyncedPlaybackToggle";
+import SyncedPlaybackView from "@/views/fork/SyncedPlaybackView";
+import { useSyncedPlaybackMode } from "@/hooks/fork/use-synced-playback-mode";
 
 const DATA_REFRESH_TIME = 600000; // 10 minutes
 
@@ -168,7 +173,8 @@ export function RecordingView({
 
   // controller state
 
-  const mainControllerRef = useRef<DynamicVideoController | null>(null);
+  // fork (UI143): the single player's controller, or the synced grid's
+  const mainControllerRef = useRef<PlaybackControllerLike | null>(null);
   const mainLayoutRef = useRef<HTMLDivElement | null>(null);
   const cameraLayoutRef = useRef<HTMLDivElement | null>(null);
   const previewRowRef = useRef<HTMLDivElement | null>(null);
@@ -717,6 +723,16 @@ export function RecordingView({
     [mainControllerRef],
   );
 
+  // fork (UI143): synced multi-camera grid; both players resume in place
+  const [syncedGrid, setSyncedGrid] = useSyncedPlaybackMode();
+  const onToggleSyncedGrid = useCallback(
+    (on: boolean) => {
+      setPlaybackStart(currentTime);
+      setSyncedGrid(on);
+    },
+    [currentTime, setSyncedGrid],
+  );
+
   return (
     <DetailStreamProvider
       isDetailMode={timelineType === "detail"}
@@ -760,6 +776,11 @@ export function RecordingView({
             </Button>
           </div>
           <div className="flex items-center justify-end gap-2">
+            <SyncedPlaybackToggle
+              active={syncedGrid}
+              available={effectiveCameras.length > 1}
+              onToggle={onToggleSyncedGrid}
+            />
             <MobileCameraDrawer
               allCameras={effectiveCameras}
               selected={mainCamera}
@@ -993,7 +1014,40 @@ export function RecordingView({
                 : "portrait:max-h-[50dvh] portrait:flex-shrink-0 portrait:flex-grow-0 portrait:basis-auto",
             )}
           >
-            <div
+            <SyncedPlaybackSlot
+              active={syncedGrid}
+              grid={
+                <SyncedPlaybackView
+                  cameras={effectiveCameras}
+                  mainCamera={mainCamera}
+                  onSelectCamera={onSelectCamera}
+                  timeRange={currentTimeRange}
+                  latestTime={timeRange.before}
+                  previews={allPreviews ?? []}
+                  reviewItems={reviewItems}
+                  startTimestamp={playbackStart}
+                  currentTime={currentTime}
+                  isScrubbing={
+                    scrubbing ||
+                    exportMode == "timeline" ||
+                    exportMode == "timeline_multi" ||
+                    debugReplayMode == "timeline"
+                  }
+                  quality={playerQuality}
+                  hotKeys={
+                    exportMode != "select" && debugReplayMode != "select"
+                  }
+                  onTimestampUpdate={(timestamp) => {
+                    setPlayerTime(timestamp);
+                    setCurrentTime(timestamp);
+                  }}
+                  onSeekToTime={manuallySetCurrentTime}
+                  onClipEnded={onClipEnded}
+                  onControllerReady={(controller) => {
+                    mainControllerRef.current = controller;
+                  }}
+                />
+              }
               className={cn(
                 "flex size-full items-center",
                 mainCameraAspect == "tall"
@@ -1125,7 +1179,7 @@ export function RecordingView({
                   <div className="w-2" />
                 </div>
               )}
-            </div>
+            </SyncedPlaybackSlot>
           </div>
           {phoneFixes && isMobileOnly && (
             <PhoneTimelineTabs
