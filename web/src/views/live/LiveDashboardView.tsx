@@ -54,6 +54,7 @@ import { EmptyCard } from "@/components/card/EmptyCard";
 import { BsFillCameraVideoOffFill } from "react-icons/bs";
 import { AuthContext } from "@/context/auth-state";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import KioskLaunchButton from "@/components/fork/kiosk/KioskLaunchButton";
 
 type LiveDashboardViewProps = {
   cameras: CameraConfig[];
@@ -477,6 +478,8 @@ export default function LiveDashboardView({
                   )}
                 </Button>
               )}
+              {/* fork (UI19): open this group as a wall display */}
+              <KioskLaunchButton variant="header" currentGroup={cameraGroup} />
             </div>
           )}
           {cameraGroup && cameraGroup !== "default" && isTablet && (
