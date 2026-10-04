@@ -322,6 +322,10 @@ export interface CameraConfig {
       objects: string[];
       color: number[];
       friendly_name?: string;
+      // fork (D75, D76, D77)
+      type?: "polygon" | "line";
+      direction?: "both" | "a_to_b" | "b_to_a";
+      exclusion?: boolean;
     };
   };
   profiles?: Record<string, CameraProfileConfig>;

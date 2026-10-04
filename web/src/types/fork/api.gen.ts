@@ -4528,6 +4528,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fork/line_crossings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Line Crossings
+         * @description **Access:** Any authenticated user.
+         *
+         *     Return how many tracked objects crossed each line zone.
+         *
+         *     Args:
+         *         request: The incoming request, carrying the config.
+         *         allowed_cameras: Cameras this caller may see.
+         *         camera: Comma separated cameras, or all (the default).
+         *         zone: Comma separated line zone names, or all (the default).
+         *         after: Window start, Unix timestamp; defaults to 24 hours before
+         *             ``before``.
+         *         before: Window end, Unix timestamp; defaults to now.
+         *
+         *     Returns:
+         *         Counts per line and label for the cameras the caller may see.
+         */
+        get: operations["line_crossings_fork_line_crossings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fork/share": {
         parameters: {
             query?: never;
@@ -6491,6 +6525,60 @@ export interface components {
             total_alert: number | null;
             /** Total Detection */
             total_detection: number | null;
+        };
+        /**
+         * LineCrossingCount
+         * @description Crossings of one line zone inside the requested window.
+         */
+        LineCrossingCount: {
+            /**
+             * Camera
+             * @description Camera the line belongs to
+             */
+            camera: string;
+            /**
+             * Zone
+             * @description Name of the line zone
+             */
+            zone: string;
+            /**
+             * Direction
+             * @description Direction the line counts: 'both', 'a_to_b' or 'b_to_a'
+             */
+            direction: string;
+            /**
+             * Total
+             * @description Tracked objects that crossed the line in a counted direction
+             */
+            total: number;
+            /**
+             * Labels
+             * @description The same count split by label
+             */
+            labels: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * LineCrossingsResponse
+         * @description Per-line crossing counts aggregated from stored tracked objects.
+         */
+        LineCrossingsResponse: {
+            /**
+             * After
+             * @description Start of the window, Unix timestamp
+             */
+            after: number;
+            /**
+             * Before
+             * @description End of the window, Unix timestamp
+             */
+            before: number;
+            /**
+             * Lines
+             * @description One entry per line zone on the requested cameras, zero counts included
+             */
+            lines: components["schemas"]["LineCrossingCount"][];
         };
         /**
          * LogSummaryGroup
@@ -13932,6 +14020,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Go2rtcStateResponse"];
+                };
+            };
+        };
+    };
+    line_crossings_fork_line_crossings_get: {
+        parameters: {
+            query?: {
+                camera?: string | null;
+                zone?: string | null;
+                after?: number | null;
+                before?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LineCrossingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -17,6 +17,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import Konva from "konva";
 import { Vector2d } from "konva/lib/types";
 import { phoneTouch } from "@/lib/fork/phone";
+import { exclusionShapeProps } from "@/lib/fork/exclusion-fill";
 
 type PolygonDrawerProps = {
   stageRef: RefObject<Konva.Stage | null>;
@@ -32,6 +33,8 @@ type PolygonDrawerProps = {
   activeLine?: number;
   snapToLines: (point: number[]) => number[] | null;
   snapPoints: boolean;
+  /** fork (D77): draw the zone as an exclusion zone */
+  exclusion?: boolean;
 };
 
 export default function PolygonDrawer({
@@ -48,6 +51,7 @@ export default function PolygonDrawer({
   activeLine,
   snapToLines,
   snapPoints,
+  exclusion = false,
 }: Readonly<PolygonDrawerProps>) {
   const vertexRadius = 6;
   const flattenedPoints = useMemo(() => flattenPoints(points), [points]);
@@ -190,6 +194,9 @@ export default function PolygonDrawer({
               : setCursor("crosshair")
             : setCursor("default")
         }
+        {...(exclusion
+          ? exclusionShapeProps(colorString(isActive || isHovered))
+          : {})}
       />
       {isFinished && isActive && (
         <Line

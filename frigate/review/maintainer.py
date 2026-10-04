@@ -27,6 +27,7 @@ from frigate.const import (
     CLIPS_DIR,
     UPSERT_REVIEW_SEGMENT,
 )
+from frigate.fork.exclusion_zones import excluded_from_review
 from frigate.models import ReviewSegment
 from frigate.review.types import SeverityEnum
 from frigate.track.object_processing import ManualEventState
@@ -207,6 +208,10 @@ class ActiveObjects:
                 # object must not be a false positive
                 continue
 
+            if excluded_from_review(o, camera_config):
+                # fork (D77): only in exclusion zones so far
+                continue
+
             if (
                 o["label"] in camera_config.review.alerts.labels
                 and (
@@ -287,6 +292,8 @@ class ReviewSegmentMaintainer(threading.Thread):
                 CameraConfigUpdateEnum.record,
                 CameraConfigUpdateEnum.remove,
                 CameraConfigUpdateEnum.review,
+                # fork (D77): exclusion zones saved from the UI apply at once
+                CameraConfigUpdateEnum.zones,
             ],
         )
         self.detection_subscriber = DetectionSubscriber(DetectionTypeEnum.all.value)

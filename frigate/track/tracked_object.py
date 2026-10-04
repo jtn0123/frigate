@@ -17,6 +17,8 @@ from frigate.config import (
 )
 from frigate.const import CLIPS_DIR, REPLAY_CAMERA_PREFIX, THUMB_DIR
 from frigate.detectors.detector_config import ModelConfig
+from frigate.fork.exclusion_zones import excluded_so_far, note_review_frame
+from frigate.fork.line_crossing import LineState, is_line_zone, update_line_zone
 from frigate.review.types import SeverityEnum
 from frigate.util.builtin import sanitize_float
 from frigate.util.image import (
@@ -66,6 +68,8 @@ class TrackedObject:
         self.zone_loitering: dict[str, int] = {}
         self.current_zones: list[str] = []
         self.entered_zones: list[str] = []
+        self.line_states: dict[str, LineState] = {}  # fork (D75)
+        self.seen_outside_exclusion = False  # fork (D77)
         self.new_zone_entered: bool = False
         self.attributes: dict[str, float] = defaultdict(float)
         self.false_positive = True
@@ -88,6 +92,10 @@ class TrackedObject:
     @property
     def max_severity(self) -> str | None:
         review_config = self.camera_config.review
+
+        # Fork (D77): not while review has only seen it in exclusion zones
+        if excluded_so_far(self):
+            return None
 
         if (
             self.camera_config.review.alerts.enabled
@@ -198,6 +206,15 @@ class TrackedObject:
             # if the zone is not for this object type, skip
             if len(zone.objects) > 0 and obj_data["label"] not in zone.objects:
                 continue
+
+            # Fork (D75, D76): a line zone is crossed, not occupied
+            if is_line_zone(zone):
+                if update_line_zone(
+                    self, name, zone, bottom_center, current_frame_time
+                ):
+                    current_zones.append(name)
+                continue
+
             contour = zone.contour
             zone_score = self.zone_presence.get(name, 0) + 1
 
@@ -384,6 +401,7 @@ class TrackedObject:
 
         self.obj_data.update(obj_data)
         self.current_zones = current_zones
+        note_review_frame(self)  # fork (D77)
         logger.debug(
             f"{self.camera_config.name}: Updating {obj_data['id']}: thumb update? {thumb_update}, significant change? {significant_change}, path update? {path_update}, autotracker update? {autotracker_update} "
         )

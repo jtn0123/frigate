@@ -46,6 +46,8 @@ export type ForkFlags = {
   trackOverlay: boolean;
   /** Suggested class from the event description on the classification train grid. */
   classificationSuggestions: boolean;
+  /** Line zones with a crossing direction, and exclusion zones, in the zone editor. */
+  lineZones: boolean;
   /** Quiet hours schedule editor for push notifications in Settings. */
   notificationSchedules: boolean;
   /** "Seen on other cameras" (same face, plate or look) in the tracked object detail. */
@@ -79,6 +81,7 @@ const defaults: ForkFlags = {
   phoneFixes: true,
   trackOverlay: true,
   classificationSuggestions: true,
+  lineZones: true,
   notificationSchedules: true,
   seenElsewhere: true,
   spotlights: true,
