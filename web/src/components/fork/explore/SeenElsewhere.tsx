@@ -464,9 +464,8 @@ function identityKindLabel(
 function PanelSkeleton() {
   const { t } = useTranslation(["fork"]);
   return (
-    <div
+    <output
       className="flex flex-col gap-2"
-      role="status"
       aria-label={t("seenElsewhere.loading")}
       data-testid="seen-elsewhere-loading"
     >
@@ -480,7 +479,7 @@ function PanelSkeleton() {
         <Skeleton className="aspect-square w-24" />
         <Skeleton className="aspect-square w-24" />
       </div>
-    </div>
+    </output>
   );
 }
 
@@ -527,13 +526,15 @@ function CameraStrip({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div
-        role="group"
+      <fieldset
         aria-label={t("seenElsewhere.timeline")}
         data-testid="seen-elsewhere-strip"
         // on a phone the lanes sit 44 px apart, so the marks' fingertip hit
         // areas meet without overlapping the next lane's
-        className={cn("relative flex flex-col", phoneTouch ? "gap-4" : "gap-1")}
+        className={cn(
+          "relative m-0 flex min-w-0 flex-col border-0 p-0",
+          phoneTouch ? "gap-4" : "gap-1",
+        )}
       >
         {guide !== undefined && (
           <div
@@ -584,7 +585,7 @@ function CameraStrip({
             </div>
           </div>
         ))}
-      </div>
+      </fieldset>
       <div
         aria-hidden="true"
         data-testid="seen-elsewhere-axis"
@@ -757,10 +758,10 @@ function StripMark({
       <span
         className={cn(className, "z-10")}
         style={style}
-        role="img"
-        aria-label={t("seenElsewhere.legend.this")}
         data-testid="seen-elsewhere-mark-current"
-      />
+      >
+        <span className="sr-only">{t("seenElsewhere.legend.this")}</span>
+      </span>
     );
   }
 

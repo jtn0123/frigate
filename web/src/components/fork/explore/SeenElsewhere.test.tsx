@@ -79,7 +79,7 @@ function answered(overrides: Partial<Seen> = {}): Partial<Seen> {
       id: CURRENT.id,
       camera: CURRENT.camera,
       start_time: CURRENT.start_time,
-      end_time: CURRENT.end_time,
+      end_time: T + 30,
     },
     now: T + 60,
     canSimilar: false,

@@ -165,16 +165,16 @@ export function useSeenElsewhere(search: SearchResult, choice: SeenWindow) {
       id: search.id,
       camera: search.camera,
       start_time: search.start_time,
-      end_time: endTime,
+      ...(endTime === undefined ? {} : { end_time: endTime }),
     }),
     [search.id, search.camera, search.start_time, endTime],
   );
   const sightings = useMemo(
     () =>
       buildSightings(current, {
-        name: nameAnswer,
-        plate: plateAnswer,
-        similar: similarAnswer,
+        name: nameAnswer ?? [],
+        plate: plateAnswer ?? [],
+        similar: similarAnswer ?? [],
       }),
     [current, nameAnswer, plateAnswer, similarAnswer],
   );

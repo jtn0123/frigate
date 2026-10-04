@@ -132,7 +132,8 @@ export function plateParam(plate: string): string {
   if (!plate.startsWith("^") && !PLATE_REGEX_TRIGGER.test(plate)) {
     return plate;
   }
-  return `^${plate.replace(REGEX_SPECIAL, String.raw`\$&`)}$`;
+  const escaped = plate.replace(REGEX_SPECIAL, String.raw`\$&`);
+  return `^${escaped}$`;
 }
 
 /** The face or name (sub label) and plate this object can be followed by. */
@@ -163,7 +164,9 @@ export function seenIdentities(
 
 /** Every camera but the object's own, sorted so the query key is stable. */
 export function otherCameras(cameras: string[], current: string): string[] {
-  return cameras.filter((camera) => camera !== current).sort();
+  return cameras
+    .filter((camera) => camera !== current)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 export type QueryParams = Record<string, string | number>;
@@ -297,28 +300,28 @@ export type Sighting = {
   event: SearchResult;
   reasons: SightingReason[];
   /** 0 to 1, only on appearance matches. */
-  similarity?: number | undefined;
+  similarity?: number;
   /** Seconds from the current object's start; negative is earlier. */
   offset: number;
 };
 
 export type SeenMatches = {
-  name?: SearchResult[] | undefined;
-  plate?: SearchResult[] | undefined;
-  similar?: SearchResult[] | undefined;
+  name?: SearchResult[];
+  plate?: SearchResult[];
+  similar?: SearchResult[];
 };
 
 type CurrentObject = {
   id: string;
   camera: string;
   start_time: number;
-  end_time?: number | undefined;
+  end_time?: number;
 };
 
 /** Cosine distance from the similarity search as a 0 to 1 likeness. */
 export function similarityOf(event: {
   // typed as always present, but only the similarity search sends it
-  search_distance?: number | undefined;
+  search_distance?: number;
 }): number | undefined {
   const distance = event.search_distance;
   if (typeof distance !== "number" || !Number.isFinite(distance)) {
@@ -372,10 +375,11 @@ export function buildSightings(
       continue;
     }
     taken.add(event.id);
+    const similarity = similarityOf(event);
     similar.push({
       event,
       reasons: ["similar"],
-      similarity: similarityOf(event),
+      ...(similarity === undefined ? {} : { similarity }),
       offset: event.start_time - current.start_time,
     });
   }
