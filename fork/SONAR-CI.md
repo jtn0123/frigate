@@ -164,3 +164,46 @@ blame (D65).
 - Single findings that are false positives or accepted risk go in
   `fork/SECURITY-TRIAGE.md` and are resolved in the Sonar UI by the owner.
 - Raise overall coverage by adding test files, not by changing upstream code.
+
+## Status and open work (I65, 2026-10-01)
+
+PRs #120 to #135 took `next` from a red gate to OK. Coverage went from 52.0%
+to 64.4% and line coverage from 63.2% to 73.3%, while uncovered lines fell from
+36,677 to 23,829. Bugs went from 1 to 0 (reliability A) and smells from 1,645
+to 1,411. They also fixed 20 upstream bugs, each with a regression test:
+B21 to B29 and C33 to C40.
+
+Owner actions (Sonar UI and settings):
+
+- Rotate the Sonar token before it expires on 2026-10-11 (see above).
+- Accept the 10 vulnerabilities triaged in `fork/SECURITY-TRIAGE.md` (E17).
+  This moves security from D to A.
+- Mark `docker/fork-runtime.Dockerfile:3` as won't fix. `FROM runtime` is a
+  named build context, so there is no tag to pin, and NOSONAR is not possible
+  on a Dockerfile instruction.
+
+Upstream bugs found by the D73 tests (#134), pinned with `# Upstream bug:`
+comments in `frigate/test/test_fork_cov_*.py` and not fixed yet. The PR body
+of #134 has a repro and suggested fix for each:
+
+- `frigate/ptz/onvif.py:439-469`: if the one status call during setup fails,
+  zoom is turned off even when it is set to absolute.
+- `frigate/ptz/onvif.py:1001-1005`: the retry limit and backoff never apply to
+  unreachable cameras, so every call reconnects.
+- `frigate/ptz/onvif.py:996-1000` (minor): the reply after a successful
+  retry leaves out `profiles`.
+- `frigate/ptz/autotrack.py:885-894`: `split_value` never suppresses small
+  moves. Also `:1405`, where `autotracked_object_region` raises `TypeError`
+  but has no caller, and dead code at `:1544-1545` that calls an async
+  function without awaiting it.
+- `frigate/embeddings/embeddings.py:352`: reindex progress can pass 100%.
+- `frigate/data_processing/real_time/whisper_online.py:212-223`:
+  `MLXWhisper.load_model` raises `UnboundLocalError` when given neither a
+  model directory nor a model size.
+- `frigate/embeddings/maintainer.py:541-549` and `:812-819`: a missing frame
+  raises `UnboundLocalError`. This cannot happen today.
+
+Next coverage targets: `web/src/components` and `web/src/views`, which have
+the most uncovered web lines (query `api/measures/component_tree`, sorted by
+`uncovered_lines`). About 3,300 uncovered lines are in tooling, and whether
+to exclude them from coverage is the owner's call.
