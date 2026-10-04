@@ -263,7 +263,7 @@ export type TileProbe = {
   ready: boolean;
   paused: boolean;
   /** Tile time minus master time, once the tile has reported a time. */
-  drift?: number | undefined;
+  drift: number | undefined;
   sinceSeekMs: number;
   /** How long the tile has been unready; 0 while ready. */
   notReadyMs: number;
@@ -458,7 +458,7 @@ export function fitBox(
   height: number,
   aspect: number,
 ): { width: number; height: number } {
-  if (width <= 0 || height <= 0 || !(aspect > 0)) {
+  if (width <= 0 || height <= 0 || aspect <= 0 || Number.isNaN(aspect)) {
     return { width: 0, height: 0 };
   }
 

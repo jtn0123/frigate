@@ -214,7 +214,9 @@ export default function SyncedPlaybackView({
   // layout
 
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
+  const [gridElement, setGridElement] = useState<HTMLFieldSetElement | null>(
+    null,
+  );
   const gridSize = useElementSize(gridElement);
   const fullscreen = useElementFullscreen();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -260,11 +262,10 @@ export default function SyncedPlaybackView({
         isPhone && "portrait:h-[50dvh]",
       )}
     >
-      <div
+      <fieldset
         ref={setGridElement}
-        role="group"
         aria-label={t("syncedPlayback.grid")}
-        className="relative grid min-h-0 flex-1"
+        className="relative grid min-h-0 min-w-0 flex-1"
         style={{
           gap: GRID_GAP_PX,
           gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`,
@@ -305,7 +306,7 @@ export default function SyncedPlaybackView({
             {t("syncedPlayback.picker.add")}
           </button>
         )}
-      </div>
+      </fieldset>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1">
         <SyncedCameraPicker
           cameras={gridCameras}
@@ -355,13 +356,13 @@ type SyncedTileProps = {
   camera: string;
   isMain: boolean;
   engine: SyncedPlaybackEngine;
-  config?: FrigateConfig | undefined;
+  config: FrigateConfig | undefined;
   timeRange: TimeRange;
   startTimestamp: number;
   previews: Preview[];
   isScrubbing: boolean;
-  quality?: PlaybackQuality | undefined;
-  tileState?: SyncedTileState | undefined;
+  quality: PlaybackQuality | undefined;
+  tileState: SyncedTileState | undefined;
   cell: { width: number; height: number };
   aspect: number;
   canRemove: boolean;
@@ -430,8 +431,9 @@ function SyncedTile({
   }, [coverage, tileQuality]);
 
   useEffect(() => {
+    const controller = controllerRef.current;
     engine.registerTile(camera, {
-      controller: controllerRef.current,
+      ...(controller ? { controller } : {}),
       container: playerRef.current,
     });
     return () => engine.unregisterTile(camera);
@@ -625,8 +627,8 @@ function SyncedGapCard({
   liveEdge,
 }: Readonly<{
   camera: string;
-  config?: FrigateConfig | undefined;
-  nextStart?: number | undefined;
+  config: FrigateConfig | undefined;
+  nextStart: number | undefined;
   liveEdge: boolean;
 }>) {
   const { t } = useTranslation(["fork"]);
@@ -679,7 +681,7 @@ function SyncedClockReadout({
   time,
   syncing,
 }: Readonly<{
-  config?: FrigateConfig | undefined;
+  config: FrigateConfig | undefined;
   time: number;
   syncing: boolean;
 }>) {
@@ -721,7 +723,7 @@ type SyncedCameraPickerProps = {
   onOpenChange: (open: boolean) => void;
   onToggle: (camera: string, on: boolean) => void;
   /** Where the menu renders; the fullscreen element while fullscreen. */
-  portal?: HTMLElement | undefined;
+  portal: HTMLElement | undefined;
 };
 
 function SyncedCameraPicker({

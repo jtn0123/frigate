@@ -80,7 +80,7 @@ describe("useSyncedPlayback", () => {
 
     unmount();
     vi.advanceTimersByTime(SYNC_TICK_MS * 3);
-    expect(tick.mock.calls.length).toBe(calls);
+    expect(tick.mock.calls).toHaveLength(calls);
   });
 
   it("tells the engine about a new chunk with the view's start", () => {

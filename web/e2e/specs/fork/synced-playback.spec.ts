@@ -307,7 +307,7 @@ test.describe("Synced multi-camera playback @high", () => {
       const buttons = await grid
         .locator('[data-testid^="synced-tile-"] button[title]')
         .all();
-      expect(buttons.length).toBe(3);
+      expect(buttons).toHaveLength(3);
       for (const button of buttons) {
         const box = await button.boundingBox();
         expect(box!.width).toBeGreaterThanOrEqual(44);

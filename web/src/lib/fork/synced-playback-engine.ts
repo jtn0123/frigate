@@ -52,20 +52,20 @@ type TileController = Pick<
 >;
 
 type TileEntry = {
-  controller?: TileController | undefined;
-  container?: HTMLElement | null | undefined;
+  controller?: TileController;
+  container?: HTMLElement | null;
   /** Merged recording coverage of the chunk; undefined while loading. */
-  spans?: TimeSpan[] | undefined;
+  spans: TimeSpan[] | undefined;
   /** A wall time the tile reported, with the media time it was at. */
-  calib?: { wall: number; media: number } | undefined;
+  calib: { wall: number; media: number } | undefined;
   lastSeekAt: number;
-  notReadySince?: number | undefined;
+  notReadySince: number | undefined;
   joined: boolean;
 };
 
 export type SyncedTileState = {
   gap: boolean;
-  nextStart?: number | undefined;
+  nextStart: number | undefined;
   /** The gap is only the newest footage, still being saved. */
   liveEdge: boolean;
 };
@@ -96,7 +96,7 @@ export type SyncedPlaybackEngineOptions = {
 export type SyncedPlaybackCallbacks = {
   onTimestampUpdate: (time: number) => void;
   onSeekToTime: (time: number, play?: boolean) => void;
-  onClipEnded?: (() => void) | undefined;
+  onClipEnded: () => void;
 };
 
 export type SyncedPlaybackEnvironment = {
@@ -129,7 +129,13 @@ function sameTileStates(
 }
 
 function newEntry(): TileEntry {
-  return { lastSeekAt: -Infinity, joined: false };
+  return {
+    spans: undefined,
+    calib: undefined,
+    lastSeekAt: -Infinity,
+    notReadySince: undefined,
+    joined: false,
+  };
 }
 
 export class SyncedPlaybackEngine implements PlaybackControllerLike {
@@ -314,10 +320,7 @@ export class SyncedPlaybackEngine implements PlaybackControllerLike {
 
   registerTile(
     camera: string,
-    tile: {
-      controller?: TileController | undefined;
-      container?: HTMLElement | null | undefined;
-    },
+    tile: { controller?: TileController; container?: HTMLElement | null },
   ) {
     const entry = this.tiles.get(camera) ?? newEntry();
 
@@ -452,7 +455,7 @@ export class SyncedPlaybackEngine implements PlaybackControllerLike {
         at: now,
         holding: true,
       };
-      this.callbacks.onClipEnded?.();
+      this.callbacks.onClipEnded();
       this.publish(timeRange.before);
       this.report(timeRange.before);
       return true;
@@ -488,7 +491,7 @@ export class SyncedPlaybackEngine implements PlaybackControllerLike {
   private reconcile(
     probed: {
       camera: string;
-      entry?: TileEntry | undefined;
+      entry: TileEntry | undefined;
       probe: TileProbe;
     }[],
     time: number,
@@ -665,6 +668,7 @@ export class SyncedPlaybackEngine implements PlaybackControllerLike {
         hasVideo: false,
         ready: false,
         paused: true,
+        drift: undefined,
         sinceSeekMs: Infinity,
         notReadyMs: 0,
         joined: false,
