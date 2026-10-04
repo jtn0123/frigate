@@ -27,6 +27,8 @@ import RouteErrorBoundary, {
 } from "@/components/fork/RouteErrorBoundary";
 import CommandPaletteGate from "@/components/fork/CommandPaletteGate";
 import { isPublicSharePath } from "@/lib/fork/share-path";
+import { isKioskPath } from "@/lib/fork/kiosk";
+import { isForkEnabled } from "@/fork/flags";
 import { phoneShell } from "@/lib/fork/phone-shell";
 import { allowAndroidPageZoom } from "@/lib/fork/viewport-zoom";
 
@@ -52,6 +54,7 @@ const ShareClipPage = lazy(() => import("@/pages/fork/ShareClipPage"));
 const SuggestionReportPage = lazy(
   () => import("@/pages/fork/SuggestionReportPage"),
 );
+const KioskPage = lazy(() => import("@/pages/fork/KioskPage"));
 
 function App() {
   return (
@@ -104,6 +107,21 @@ function DefaultAppView({
     return (
       <div className="size-full overflow-hidden">
         <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+      </div>
+    );
+  }
+
+  // fork (UI19): the wall display is signed in but has no app chrome
+  if (isForkEnabled("kioskMode") && isKioskPath(location.pathname)) {
+    return (
+      <div id="pageRoot" className="absolute inset-0 overflow-hidden">
+        <RouteSuspense fallback={<PageLoading />}>
+          <Routes>
+            <Route element={<ProtectedRoute requiredRoles={mainRouteRoles} />}>
+              <Route path="/kiosk" element={<KioskPage />} />
+            </Route>
+          </Routes>
+        </RouteSuspense>
       </div>
     );
   }
