@@ -175,4 +175,42 @@ describe("CameraHealthDrawer recording coverage", () => {
       'time.minute_one {"ns":"common","time":1} time.second_other {"ns":"common","time":30}',
     );
   });
+
+  it("preserves explicit zero loss and singular duration labels", () => {
+    show(
+      recording({
+        status: "ok",
+        coverage_percent: 100,
+        missing_seconds: 0,
+        longest_gap_seconds: 0,
+        gap_count: 0,
+        analyzed_seconds: 1,
+      }),
+    );
+    expect(screen.getByTestId("recording-missing")).toHaveTextContent(
+      'cameraHealth.recording.seconds {"count":0}',
+    );
+    expect(screen.getByTestId("recording-longestGap")).toHaveTextContent(
+      'cameraHealth.recording.seconds {"count":0}',
+    );
+    expect(screen.getByTestId("recording-gaps")).toHaveTextContent("0");
+    expect(screen.getByTestId("recording-analyzed")).toHaveTextContent(
+      'time.second_one {"ns":"common","time":1}',
+    );
+  });
+
+  it.each([Number.NaN, 0, -1])(
+    "keeps invalid assessment timestamps unavailable (%s)",
+    (timestamp) => {
+      show(
+        recording({ coverage_percent: 49.5, latest_analyzed_end: timestamp }),
+      );
+      expect(
+        screen.getByTestId("camera-health-recording-details"),
+      ).toHaveTextContent('cameraHealth.percent {"value":"49.5"}');
+      expect(screen.getByTestId("recording-checkedThrough")).toHaveTextContent(
+        "cameraHealth.recording.status.unknown",
+      );
+    },
+  );
 });

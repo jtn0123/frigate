@@ -101,40 +101,61 @@ class Bucket:
     @classmethod
     def decode(cls, row: Any) -> Bucket | None:
         """Reject malformed persisted rows instead of reporting false health."""
-        if not isinstance(row, list) or len(row) != 6:
-            return None
-        if any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in row):
+        if not cls._valid_numeric_row(row):
             return None
         state, missing, leading, trailing, longest, count = row
+        bucket = cls(
+            _STATES[int(state)], missing, leading, trailing, longest, int(count)
+        )
+        return bucket if bucket._valid_gap_totals() else None
+
+    @staticmethod
+    def _valid_numeric_row(row: Any) -> bool:
+        if not isinstance(row, list) or len(row) != 6:
+            return False
+        if any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in row):
+            return False
         if not all(math.isfinite(v) for v in row):
-            return None
+            return False
+        state, *_, count = row
         if int(state) != state or not 0 <= state < len(_STATES):
-            return None
+            return False
         if any(not 0 <= v <= BUCKET_SECONDS for v in row[1:5]):
-            return None
-        if int(count) != count or not 0 <= count <= MAX_ROWS:
-            return None
-        if state != 0 and any(row[1:]):
-            return None
-        if max(leading, trailing, longest) > missing + EPSILON:
-            return None
-        if leading + trailing > missing + EPSILON and not (
-            missing == leading == trailing == BUCKET_SECONDS
+            return False
+        return bool(int(count) == count and 0 <= count <= MAX_ROWS)
+
+    def _valid_gap_totals(self) -> bool:
+        if self.state != "analyzed":
+            return not any(
+                (
+                    self.missing,
+                    self.leading,
+                    self.trailing,
+                    self.longest_inner,
+                    self.inner_count,
+                )
+            )
+        if (
+            max(self.leading, self.trailing, self.longest_inner)
+            > self.missing + EPSILON
         ):
-            return None
-        if state == 0:
-            if missing == BUCKET_SECONDS:
-                if leading != missing or trailing != missing or longest or count:
-                    return None
-            else:
-                inner_missing = missing - leading - trailing
-                if longest > inner_missing + EPSILON or count * GAP_SECONDS > (
-                    inner_missing + EPSILON
-                ):
-                    return None
-                if bool(count) != (longest >= GAP_SECONDS):
-                    return None
-        return cls(_STATES[int(state)], missing, leading, trailing, longest, int(count))
+            return False
+        if self.leading + self.trailing > self.missing + EPSILON and not (
+            self.missing == self.leading == self.trailing == BUCKET_SECONDS
+        ):
+            return False
+        if self.missing == BUCKET_SECONDS:
+            return (
+                self.leading == self.trailing == self.missing
+                and not self.longest_inner
+                and not self.inner_count
+            )
+        inner_missing = self.missing - self.leading - self.trailing
+        return (
+            self.longest_inner <= inner_missing + EPSILON
+            and self.inner_count * GAP_SECONDS <= inner_missing + EPSILON
+            and bool(self.inner_count) == (self.longest_inner >= GAP_SECONDS)
+        )
 
 
 def coverage_bucket(rows: Iterable[tuple[float, float]], start: float) -> Bucket:
@@ -144,20 +165,8 @@ def coverage_bucket(rows: Iterable[tuple[float, float]], start: float) -> Bucket
     cannot be mistaken for missing recordings. Empty successful scans are gaps.
     """
     end = start + BUCKET_SECONDS
-    intervals: list[tuple[float, float]] = []
-    for count, row in enumerate(rows, 1):
-        if count > MAX_ROWS:
-            raise ValueError("Recording health row limit exceeded")
-        left, right = (float(value) for value in row)
-        if not math.isfinite(left) or not math.isfinite(right):
-            raise ValueError("Non-finite recording interval")
-        if right <= left or right - left > MAX_SEGMENT_DURATION:
-            raise ValueError("Invalid recording interval")
-        left, right = max(start, left), min(end, right)
-        if right > left:
-            intervals.append((left, right))
     merged: list[list[float]] = []
-    for left, right in sorted(intervals):
+    for left, right in sorted(_clipped_intervals(rows, start, end)):
         if merged and left <= merged[-1][1]:
             merged[-1][1] = max(merged[-1][1], right)
         else:
@@ -174,6 +183,25 @@ def coverage_bucket(rows: Iterable[tuple[float, float]], start: float) -> Bucket
         max(inner, default=0.0),
         sum(gap >= GAP_SECONDS for gap in inner),
     )
+
+
+def _clipped_intervals(
+    rows: Iterable[tuple[float, float]], start: float, end: float
+) -> list[tuple[float, float]]:
+    """Validate the entire bounded scan before calculating partial coverage."""
+    intervals = []
+    for count, row in enumerate(rows, 1):
+        if count > MAX_ROWS:
+            raise ValueError("Recording health row limit exceeded")
+        left, right = (float(value) for value in row)
+        if not math.isfinite(left) or not math.isfinite(right):
+            raise ValueError("Non-finite recording interval")
+        if right <= left or right - left > MAX_SEGMENT_DURATION:
+            raise ValueError("Invalid recording interval")
+        left, right = max(start, left), min(end, right)
+        if right > left:
+            intervals.append((left, right))
+    return intervals
 
 
 class RecordingHealth(threading.Thread):
@@ -216,20 +244,7 @@ class RecordingHealth(threading.Thread):
 
     def update_config(self, config: FrigateConfig) -> None:
         """Observe a runtime policy transition without querying the database."""
-        policies: dict[str, Policy] = {}
-        for name, camera in list(config.cameras.items())[:MAX_CAMERAS]:
-            if not camera.enabled or not camera.record.enabled:
-                policy = Policy("disabled")
-            elif camera.record.continuous.days <= 0:
-                policy = Policy("not_continuous")
-            else:
-                retention = float(camera.record.continuous.days) * 86400
-                policy = (
-                    Policy("analyzed", retention)
-                    if math.isfinite(retention)
-                    else Policy("unknown")
-                )
-            policies[name] = policy
+        policies = self._configured_policies(config)
         with self._lock:
             self._observe_locked(self._clock())
             database_path = str(config.database.path)
@@ -253,20 +268,41 @@ class RecordingHealth(threading.Thread):
             }
             self._policies = policies
             self._database_path = database_path
-            # Current cameras take priority over removed-camera history at the cap.
-            keep = set(policies)
-            for name in self._buckets:
-                if len(keep) >= MAX_CAMERAS:
-                    break
-                keep.add(name)
-            if set(self._buckets) - keep:
-                self._revision += 1
-            self._buckets = {
-                name: rows for name, rows in self._buckets.items() if name in keep
-            }
-            self._pending = {
-                key: row for key, row in self._pending.items() if key[0] in keep
-            }
+            self._limit_cameras_locked()
+
+    @staticmethod
+    def _configured_policies(config: FrigateConfig) -> dict[str, Policy]:
+        policies: dict[str, Policy] = {}
+        for name, camera in list(config.cameras.items())[:MAX_CAMERAS]:
+            if not camera.enabled or not camera.record.enabled:
+                policy = Policy("disabled")
+            elif camera.record.continuous.days <= 0:
+                policy = Policy("not_continuous")
+            else:
+                retention = float(camera.record.continuous.days) * 86400
+                policy = (
+                    Policy("analyzed", retention)
+                    if math.isfinite(retention)
+                    else Policy("unknown")
+                )
+            policies[name] = policy
+        return policies
+
+    def _limit_cameras_locked(self) -> None:
+        """Give current cameras priority over removed-camera history at the cap."""
+        keep = set(self._policies)
+        for name in self._buckets:
+            if len(keep) >= MAX_CAMERAS:
+                break
+            keep.add(name)
+        if set(self._buckets) - keep:
+            self._revision += 1
+        self._buckets = {
+            name: rows for name, rows in self._buckets.items() if name in keep
+        }
+        self._pending = {
+            key: row for key, row in self._pending.items() if key[0] in keep
+        }
 
     @staticmethod
     def _preserves_retention(current: Policy | None, original: Policy | None) -> bool:
@@ -327,68 +363,79 @@ class RecordingHealth(threading.Thread):
                 key=lambda item: (item[0][1], item[0][0]),
             )[: MAX_WORK_PER_TICK - len(jobs)]
         for (camera, slot), observation in jobs:
-            start = slot * BUCKET_SECONDS
-            policy = observation.policy or Policy("unknown")
-            bucket = Bucket("unknown")
-            if abs(observation.seconds - BUCKET_SECONDS) <= EPSILON:
-                if policy.state != "analyzed":
-                    bucket = Bucket(policy.state)
-                elif policy.retention_seconds > max(moment, self._clock()) - start:
-                    bucket = self._assess(camera, start) or bucket
-            with self._lock:
-                assessed_at = max(moment, self._clock())
-                if epoch != self._policy_epoch or (
-                    policy.state == "analyzed"
-                    and policy.retention_seconds <= assessed_at - start
-                ):
-                    bucket = Bucket("unknown")
-                if camera not in self._buckets and len(self._buckets) >= MAX_CAMERAS:
-                    continue
-                self._buckets.setdefault(camera, {})[slot] = bucket
-                if (
-                    epoch == self._policy_epoch
-                    and abs(observation.seconds - BUCKET_SECONDS) <= EPSILON
-                    and policy.state == "analyzed"
-                    and policy.retention_seconds > assessed_at - start
-                    and (bucket.state == "unknown" or bucket.missing > EPSILON)
-                ):
-                    self._rechecks[(camera, slot)] = (
-                        policy,
-                        moment + RECHECK_SECONDS,
-                    )
-                self._revision += 1
+            self._collect_observation(camera, slot, observation, moment, epoch)
         for (camera, slot), policy in retries:
-            start = slot * BUCKET_SECONDS
-            with self._lock:
-                if (
-                    epoch != self._policy_epoch
-                    or (camera, slot) not in self._rechecks
-                    or policy.retention_seconds <= max(moment, self._clock()) - start
-                ):
-                    self._rechecks.pop((camera, slot), None)
-                    continue
-                self._rechecks[(camera, slot)] = (policy, moment + RECHECK_SECONDS)
-            checked = self._assess(camera, start)
-            with self._lock:
-                original = self._buckets.get(camera, {}).get(slot)
-                if (
-                    epoch != self._policy_epoch
-                    or policy.retention_seconds <= max(moment, self._clock()) - start
-                    or checked is None
-                    or original is None
-                    or (
-                        original.state == "analyzed"
-                        and checked.missing > original.missing
-                    )
-                ):
-                    continue
-                if original != checked:
-                    self._buckets[camera][slot] = checked
-                    self._revision += 1
-                if checked.missing <= EPSILON:
-                    self._rechecks.pop((camera, slot), None)
+            self._recheck_bucket(camera, slot, policy, moment, epoch)
         if moment - self._last_flush >= FLUSH_SECONDS:
             self.flush()
+
+    def _collect_observation(
+        self,
+        camera: str,
+        slot: int,
+        observation: Observation,
+        moment: float,
+        epoch: int,
+    ) -> None:
+        """Assess outside the lock, then validate policy before storing a bucket."""
+        start = slot * BUCKET_SECONDS
+        policy = observation.policy or Policy("unknown")
+        bucket = Bucket("unknown")
+        if abs(observation.seconds - BUCKET_SECONDS) <= EPSILON:
+            if policy.state != "analyzed":
+                bucket = Bucket(policy.state)
+            elif policy.retention_seconds > max(moment, self._clock()) - start:
+                bucket = self._assess(camera, start) or bucket
+        with self._lock:
+            assessed_at = max(moment, self._clock())
+            if epoch != self._policy_epoch or (
+                policy.state == "analyzed"
+                and policy.retention_seconds <= assessed_at - start
+            ):
+                bucket = Bucket("unknown")
+            if camera not in self._buckets and len(self._buckets) >= MAX_CAMERAS:
+                return
+            self._buckets.setdefault(camera, {})[slot] = bucket
+            if (
+                epoch == self._policy_epoch
+                and abs(observation.seconds - BUCKET_SECONDS) <= EPSILON
+                and policy.state == "analyzed"
+                and policy.retention_seconds > assessed_at - start
+                and (bucket.state == "unknown" or bucket.missing > EPSILON)
+            ):
+                self._rechecks[(camera, slot)] = (policy, moment + RECHECK_SECONDS)
+            self._revision += 1
+
+    def _recheck_bucket(
+        self, camera: str, slot: int, policy: Policy, moment: float, epoch: int
+    ) -> None:
+        """Repair a recent deficit only while its original guarantee remains valid."""
+        start = slot * BUCKET_SECONDS
+        with self._lock:
+            if (
+                epoch != self._policy_epoch
+                or (camera, slot) not in self._rechecks
+                or policy.retention_seconds <= max(moment, self._clock()) - start
+            ):
+                self._rechecks.pop((camera, slot), None)
+                return
+            self._rechecks[(camera, slot)] = (policy, moment + RECHECK_SECONDS)
+        checked = self._assess(camera, start)
+        with self._lock:
+            original = self._buckets.get(camera, {}).get(slot)
+            if (
+                epoch != self._policy_epoch
+                or policy.retention_seconds <= max(moment, self._clock()) - start
+                or checked is None
+                or original is None
+                or (original.state == "analyzed" and checked.missing > original.missing)
+            ):
+                return
+            if original != checked:
+                self._buckets[camera][slot] = checked
+                self._revision += 1
+            if checked.missing <= EPSILON:
+                self._rechecks.pop((camera, slot), None)
 
     def _assess(self, camera: str, start: float) -> Bucket | None:
         try:
@@ -553,20 +600,25 @@ class RecordingHealth(threading.Thread):
             for name, rows in list(cameras.items())[:MAX_CAMERAS]:
                 if not isinstance(rows, dict):
                     continue
-                buckets = {}
-                for key, value in rows.items():
-                    try:
-                        slot = int(key)
-                    except (TypeError, ValueError):
-                        continue
-                    bucket = Bucket.decode(value)
-                    if last - MAX_BUCKETS <= slot < last and bucket is not None:
-                        buckets[slot] = bucket
-                self._buckets[str(name)] = buckets
+                self._buckets[str(name)] = self._decode_history(rows, last)
         except FileNotFoundError:
             return
         except (OSError, ValueError, TypeError) as err:
             logger.warning("Could not load recording health (%s)", type(err).__name__)
+
+    @staticmethod
+    def _decode_history(rows: dict[str, Any], last: int) -> dict[int, Bucket]:
+        """Keep valid observations within the retained mature window."""
+        buckets = {}
+        for key, value in rows.items():
+            try:
+                slot = int(key)
+            except (TypeError, ValueError):
+                continue
+            bucket = Bucket.decode(value)
+            if last - MAX_BUCKETS <= slot < last and bucket is not None:
+                buckets[slot] = bucket
+        return buckets
 
     def flush(self) -> None:
         """Atomically persist completed observations; retry failed writes later."""

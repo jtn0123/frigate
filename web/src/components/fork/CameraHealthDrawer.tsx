@@ -7,6 +7,7 @@
 
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   LuChevronDown,
   LuChevronUp,
@@ -36,6 +37,7 @@ import {
   type HealthRow,
 } from "@/lib/fork/camera-history";
 import type {
+  CameraRecordingHistory,
   HistoryCellState,
   HistoryRange,
 } from "@/types/fork/cameraHistory";
@@ -84,6 +86,192 @@ function formatFps(value: number | undefined): string {
   return value.toFixed(1);
 }
 
+type DrawerTranslate = TFunction<("fork" | "views/system" | "common")[]>;
+type MetricTimeFormatter = ReturnType<typeof useMetricTimeFormatter>;
+type RecordingMetric = { key: string; value: string };
+
+function formatRecordingDuration(
+  value: number | undefined,
+  t: DrawerTranslate,
+  unavailable: string,
+): string {
+  const parts = recordingDurationParts(value);
+  if (!parts) return unavailable;
+
+  return parts
+    .map(({ unit, count }) => {
+      if (count === 0) {
+        return t("cameraHealth.recording.seconds", { count: 0 });
+      }
+      const plural = count === 1 ? "one" : "other";
+      return t(`time.${unit}_${plural}`, { ns: "common", time: count });
+    })
+    .join(" ");
+}
+
+function formatRecordingCheckedThrough(
+  value: number | null | undefined,
+  formatTime: MetricTimeFormatter,
+  unavailable: string,
+): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) {
+    return unavailable;
+  }
+  return formatTime(value);
+}
+
+function buildRecordingMetrics(
+  recording: CameraRecordingHistory | null | undefined,
+  t: DrawerTranslate,
+  formatTime: MetricTimeFormatter,
+): RecordingMetric[] {
+  const available = recordingHealth(recording).coveragePercent !== null;
+  const unavailable = t("cameraHealth.recording.status.unknown");
+  const missing = available ? recording?.missing_seconds : undefined;
+  const longestGap = available ? recording?.longest_gap_seconds : undefined;
+  const gapCount = available ? recording?.gap_count : undefined;
+
+  return [
+    {
+      key: "missing",
+      value: formatRecordingDuration(missing, t, unavailable),
+    },
+    {
+      key: "longestGap",
+      value: formatRecordingDuration(longestGap, t, unavailable),
+    },
+    {
+      key: "gaps",
+      value: Number.isFinite(gapCount) ? String(gapCount) : unavailable,
+    },
+    {
+      key: "analyzed",
+      value: formatRecordingDuration(
+        recording?.analyzed_seconds,
+        t,
+        unavailable,
+      ),
+    },
+    {
+      key: "requested",
+      value: formatRecordingDuration(
+        recording?.requested_seconds,
+        t,
+        unavailable,
+      ),
+    },
+    {
+      key: "checkedThrough",
+      value: formatRecordingCheckedThrough(
+        recording?.latest_analyzed_end,
+        formatTime,
+        unavailable,
+      ),
+    },
+  ];
+}
+
+type RecordingDetailsProps = {
+  recording: CameraRecordingHistory | null | undefined;
+  t: DrawerTranslate;
+  formatTime: MetricTimeFormatter;
+};
+
+function RecordingDetails({
+  recording,
+  t,
+  formatTime,
+}: Readonly<RecordingDetailsProps>) {
+  const recordingState = recordingHealth(recording);
+  const recordingAvailable = recordingState.coveragePercent !== null;
+  const recordingMetrics = buildRecordingMetrics(recording, t, formatTime);
+  let inactiveExplanation: string | null = null;
+  if (recordingState.status === "disabled") {
+    inactiveExplanation = t("cameraHealth.recording.disabled");
+  }
+  if (recordingState.status === "not_continuous") {
+    inactiveExplanation = t("cameraHealth.recording.notContinuous");
+  }
+
+  return (
+    <section
+      className="mt-6 rounded-lg border border-secondary bg-background_alt p-4"
+      aria-label={t("cameraHealth.recording.title")}
+      data-testid="camera-health-recording-details"
+      data-recording-status={recordingState.status}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("cameraHealth.recording.title")}
+        </h3>
+        <Badge
+          variant="outline"
+          className={
+            recordingState.status === "gaps"
+              ? "border-orange-400/40 bg-orange-400/15 text-orange-400"
+              : "border-transparent bg-secondary text-muted-foreground"
+          }
+        >
+          {t(`cameraHealth.recording.status.${recordingState.status}`)}
+        </Badge>
+      </div>
+      {recordingAvailable && (
+        <p
+          className={cn(
+            "mt-2 text-2xl font-semibold tabular-nums",
+            recordingState.status === "gaps"
+              ? "text-orange-400"
+              : "text-primary",
+          )}
+        >
+          {t("cameraHealth.percent", {
+            value: Number.isInteger(recordingState.coveragePercent)
+              ? String(recordingState.coveragePercent)
+              : recordingState.coveragePercent?.toFixed(1),
+          })}
+        </p>
+      )}
+      {inactiveExplanation !== null ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          {inactiveExplanation}
+        </p>
+      ) : (
+        <>
+          {!recordingAvailable && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t("cameraHealth.recording.unavailable")}
+            </p>
+          )}
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+            {recordingMetrics.map(({ key, value }) => (
+              <div key={key}>
+                <dt className="text-xs text-muted-foreground">
+                  {t(`cameraHealth.recording.${key}`)}
+                </dt>
+                <dd
+                  className="mt-0.5 text-sm tabular-nums"
+                  data-testid={`recording-${key}`}
+                >
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {t("cameraHealth.recording.pending")}
+          </p>
+        </>
+      )}
+      <p className="mt-3 text-xs text-muted-foreground">
+        {t("cameraHealth.recording.scope")}
+      </p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        {t("cameraHealth.recording.basis")}
+      </p>
+    </section>
+  );
+}
+
 type CameraHealthDrawerProps = {
   row: HealthRow | undefined;
   /** Position within the current ordering, for the "3 of 6" counter. */
@@ -114,64 +302,6 @@ export default function CameraHealthDrawer({
   if (!row) return null;
 
   const series = row.series;
-  const recording = series?.recording;
-  const recordingState = recordingHealth(recording);
-  const recordingAvailable = recordingState.coveragePercent !== null;
-  const unavailable = t("cameraHealth.recording.status.unknown");
-  const formatRecordingDuration = (value: number | undefined): string => {
-    const parts = recordingDurationParts(value);
-    if (!parts) {
-      return unavailable;
-    }
-    return parts
-      .map(({ unit, count }) =>
-        count === 0
-          ? t("cameraHealth.recording.seconds", { count: 0 })
-          : t(`time.${unit}_${count === 1 ? "one" : "other"}`, {
-              ns: "common",
-              time: count,
-            }),
-      )
-      .join(" ");
-  };
-  const recordingMetrics = [
-    {
-      key: "missing",
-      value: recordingAvailable
-        ? formatRecordingDuration(recording?.missing_seconds)
-        : unavailable,
-    },
-    {
-      key: "longestGap",
-      value: recordingAvailable
-        ? formatRecordingDuration(recording?.longest_gap_seconds)
-        : unavailable,
-    },
-    {
-      key: "gaps",
-      value:
-        recordingAvailable && recording && Number.isFinite(recording.gap_count)
-          ? String(recording.gap_count)
-          : unavailable,
-    },
-    {
-      key: "analyzed",
-      value: formatRecordingDuration(recording?.analyzed_seconds),
-    },
-    {
-      key: "requested",
-      value: formatRecordingDuration(recording?.requested_seconds),
-    },
-    {
-      key: "checkedThrough",
-      value:
-        recording?.latest_analyzed_end != null &&
-        Number.isFinite(recording.latest_analyzed_end) &&
-        recording.latest_analyzed_end > 0
-          ? formatTime(recording.latest_analyzed_end)
-          : unavailable,
-    },
-  ];
   const cameraStats = row.stats;
   const metrics: Array<{ key: string; value: string }> = [
     {
@@ -384,84 +514,11 @@ export default function CameraHealthDrawer({
             </ul>
           </section>
 
-          <section
-            className="mt-6 rounded-lg border border-secondary bg-background_alt p-4"
-            aria-label={t("cameraHealth.recording.title")}
-            data-testid="camera-health-recording-details"
-            data-recording-status={recordingState.status}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t("cameraHealth.recording.title")}
-              </h3>
-              <Badge
-                variant="outline"
-                className={
-                  recordingState.status === "gaps"
-                    ? "border-orange-400/40 bg-orange-400/15 text-orange-400"
-                    : "border-transparent bg-secondary text-muted-foreground"
-                }
-              >
-                {t(`cameraHealth.recording.status.${recordingState.status}`)}
-              </Badge>
-            </div>
-            {recordingAvailable && (
-              <p
-                className={cn(
-                  "mt-2 text-2xl font-semibold tabular-nums",
-                  recordingState.status === "gaps"
-                    ? "text-orange-400"
-                    : "text-primary",
-                )}
-              >
-                {t("cameraHealth.percent", {
-                  value: Number.isInteger(recordingState.coveragePercent)
-                    ? String(recordingState.coveragePercent)
-                    : recordingState.coveragePercent?.toFixed(1),
-                })}
-              </p>
-            )}
-            {recordingState.status === "disabled" ||
-            recordingState.status === "not_continuous" ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                {recordingState.status === "disabled"
-                  ? t("cameraHealth.recording.disabled")
-                  : t("cameraHealth.recording.notContinuous")}
-              </p>
-            ) : (
-              <>
-                {!recordingAvailable && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {t("cameraHealth.recording.unavailable")}
-                  </p>
-                )}
-                <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
-                  {recordingMetrics.map(({ key, value }) => (
-                    <div key={key}>
-                      <dt className="text-xs text-muted-foreground">
-                        {t(`cameraHealth.recording.${key}`)}
-                      </dt>
-                      <dd
-                        className="mt-0.5 text-sm tabular-nums"
-                        data-testid={`recording-${key}`}
-                      >
-                        {value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {t("cameraHealth.recording.pending")}
-                </p>
-              </>
-            )}
-            <p className="mt-3 text-xs text-muted-foreground">
-              {t("cameraHealth.recording.scope")}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t("cameraHealth.recording.basis")}
-            </p>
-          </section>
+          <RecordingDetails
+            recording={series?.recording}
+            t={t}
+            formatTime={formatTime}
+          />
 
           <section className="mt-6" aria-label={t("cameraHealth.drawer.log")}>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
