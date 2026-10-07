@@ -14,6 +14,7 @@ import type {
 import type {
   CameraHistoryIncident,
   CameraHistorySeries,
+  CameraRecordingHistory,
   HistoryRange,
 } from "@/types/fork/cameraHistory";
 
@@ -39,7 +40,8 @@ export function isHistoryRange(value: string): value is HistoryRange {
 }
 
 /** How the sortable columns order rows. */
-export type SortKey = "name" | "state" | "rate" | "uptime" | "share";
+export type SortKey =
+  "name" | "state" | "rate" | "uptime" | "recording" | "share";
 export type SortDirection = "asc" | "desc";
 
 /** Severity order, so sorting by state puts the worst camera first. */
@@ -128,6 +130,66 @@ export function needsAttention(row: HealthRow): boolean {
   return row.state !== "ok" && row.state !== "disabled";
 }
 
+/** Recording health stays independent of frame sampling and incident counts. */
+export function recordingHealth(
+  recording: CameraRecordingHistory | null | undefined,
+): {
+  status: CameraRecordingHistory["status"];
+  coveragePercent: number | null;
+} {
+  if (
+    recording?.status === "disabled" ||
+    recording?.status === "not_continuous"
+  ) {
+    return { status: recording.status, coveragePercent: null };
+  }
+  const coverage = recording?.coverage_percent;
+  if (
+    !recording ||
+    (recording.status !== "ok" && recording.status !== "gaps") ||
+    !Number.isFinite(recording.analyzed_seconds) ||
+    recording.analyzed_seconds <= 0 ||
+    coverage === null ||
+    coverage === undefined ||
+    !Number.isFinite(coverage) ||
+    coverage < 0 ||
+    coverage > 100
+  ) {
+    return { status: "unknown", coveragePercent: null };
+  }
+  return {
+    status:
+      recording.status === "gaps" || coverage < 99 || recording.gap_count > 0
+        ? "gaps"
+        : "ok",
+    coveragePercent: coverage,
+  };
+}
+
+export function recordingNeedsAttention(row: HealthRow): boolean {
+  return recordingHealth(row.series?.recording).status === "gaps";
+}
+
+/** Translatable duration parts, including days for the week-long range. */
+export function recordingDurationParts(seconds: number | undefined):
+  | {
+      unit: "day" | "hour" | "minute" | "second";
+      count: number;
+    }[]
+  | undefined {
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds < 0) {
+    return undefined;
+  }
+  const whole = Math.round(seconds);
+  const parts = [
+    { unit: "day" as const, count: Math.floor(whole / 86400) },
+    { unit: "hour" as const, count: Math.floor((whole % 86400) / 3600) },
+    { unit: "minute" as const, count: Math.floor((whole % 3600) / 60) },
+    { unit: "second" as const, count: whole % 60 },
+  ].filter((part) => part.count > 0);
+  return parts.length > 0 ? parts : [{ unit: "second", count: 0 }];
+}
+
 /**
  * Order rows by one column.
  *
@@ -153,6 +215,8 @@ export function sortRows(
         return row.fps ?? -1;
       case "uptime":
         return row.uptime;
+      case "recording":
+        return recordingHealth(row.series?.recording).coveragePercent ?? -1;
       case "share":
         return row.share ?? -1;
       case "name":

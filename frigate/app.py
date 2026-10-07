@@ -521,6 +521,9 @@ class FrigateApp:
             ),
             self.stop_event,
         )
+        self.dispatcher.recording_policy_changed = (
+            self.stats_emitter.recording_health.update_config
+        )
         self.stats_emitter.start()
 
     def start_watchdog(self) -> None:

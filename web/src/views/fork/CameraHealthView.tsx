@@ -43,6 +43,9 @@ import {
   isHistoryRange,
   needsAttention,
   ranClean,
+  recordingDurationParts,
+  recordingHealth,
+  recordingNeedsAttention,
   sortRows,
   sparklinePoints,
   summarizeIssues,
@@ -180,14 +183,20 @@ export default function CameraHealthView() {
   const visible = useMemo(
     () =>
       sortRows(
-        scope === "attention" ? rows.filter(needsAttention) : rows,
+        scope === "attention"
+          ? rows.filter(
+              (row) => needsAttention(row) || recordingNeedsAttention(row),
+            )
+          : rows,
         sortKey,
         sortDir,
       ),
     [rows, scope, sortKey, sortDir],
   );
 
-  const attentionCount = rows.filter(needsAttention).length;
+  const attentionCount = rows.filter(
+    (row) => needsAttention(row) || recordingNeedsAttention(row),
+  ).length;
   const hasHistory = Object.keys(history.data?.cameras ?? {}).length > 0;
   const end = history.data?.end ?? now / 1000;
   const start = history.data?.start ?? end - RANGE_SECONDS[range];
@@ -389,6 +398,10 @@ function HealthSummary({
       ? t("cameraHealth.summary.fleet", { value: formatPercent(fleet) })
       : t("cameraHealth.summary.waiting"),
   );
+  const recordingGaps = rows.filter(recordingNeedsAttention).length;
+  if (recordingGaps > 0) {
+    details.push(t("cameraHealth.recording.summary", { count: recordingGaps }));
+  }
 
   return (
     <div
@@ -441,22 +454,27 @@ function HealthTable({
     {
       key: "name",
       label: t("cameraHealth.table.camera"),
-      className: "w-[22%]",
+      className: "w-[28%] sm:w-[20%]",
     },
     {
       key: "state",
       label: t("cameraHealth.table.state"),
-      className: "w-[12%]",
+      className: "w-[19%] sm:w-[12%]",
     },
     {
       key: "rate",
       label: t("cameraHealth.table.rate", { range: rangeLabel }),
-      className: "hidden w-[20%] sm:table-cell",
+      className: "hidden w-[18%] sm:table-cell",
     },
     {
       key: "uptime",
       label: t("cameraHealth.table.uptime"),
-      className: "w-[18%]",
+      className: "w-[24%] sm:w-[16%]",
+    },
+    {
+      key: "recording",
+      label: t("cameraHealth.table.recording"),
+      className: "w-[29%] sm:w-[14%]",
     },
     {
       key: "share",
@@ -468,13 +486,13 @@ function HealthTable({
       label: t("cameraHealth.table.issues", { range: rangeLabel }),
       className: "hidden lg:table-cell",
     },
-    { key: null, label: "", className: "w-9" },
+    { key: null, label: "", className: "hidden w-9 sm:table-cell" },
   ];
 
   const sortedAriaDirection = sortDir === "asc" ? "ascending" : "descending";
   return (
     <table
-      className="w-full border-collapse text-sm"
+      className="w-full table-fixed border-collapse text-sm sm:table-auto"
       data-testid="camera-health-table"
     >
       <thead>
@@ -483,7 +501,7 @@ function HealthTable({
             <th
               key={label || "open"}
               scope="col"
-              className={cn("px-3 pb-2 font-medium", className)}
+              className={cn("px-1.5 pb-2 font-medium sm:px-3", className)}
               aria-sort={
                 key === null || key !== sortKey
                   ? undefined
@@ -546,9 +564,18 @@ function HealthTableRow({
   cellSeconds,
   onOpen,
 }: Readonly<HealthTableRowProps>) {
-  const { t } = useTranslation(["fork"]);
+  const { t } = useTranslation(["fork", "common"]);
   const spark = sparklinePoints(row.series, start, cellSeconds);
   const state = row.state;
+  const recording = recordingHealth(row.series?.recording);
+  const durationUnits = { day: "d", hour: "h", minute: "m", second: "s" };
+  const recordingChecked = recordingDurationParts(
+    row.series?.recording?.analyzed_seconds,
+  )
+    ?.map(({ unit, count }) =>
+      t(`time.${durationUnits[unit]}`, { ns: "common", time: count }),
+    )
+    .join(" ");
 
   const issues: string[] = [];
   if (row.issues.outages > 0) {
@@ -583,7 +610,7 @@ function HealthTableRow({
       data-testid={`camera-health-${row.camera}`}
       data-state={state}
     >
-      <td className="px-3 py-3">
+      <td className="px-1.5 py-3 sm:px-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <span
             className={cn(
@@ -605,7 +632,7 @@ function HealthTableRow({
           </button>
         </div>
       </td>
-      <td className="px-3 py-3">
+      <td className="px-1.5 py-3 sm:px-3">
         <Badge variant="outline" className={STATE_BADGE[state]}>
           {t(`cameraHealth.state.${state}`)}
         </Badge>
@@ -627,8 +654,8 @@ function HealthTableRow({
           />
         </div>
       </td>
-      <td className="px-3 py-3">
-        <div className="flex items-center gap-2 whitespace-nowrap">
+      <td className="px-1.5 py-3 sm:px-3">
+        <div className="flex flex-col items-start gap-1 whitespace-nowrap sm:flex-row sm:items-center sm:gap-2">
           <span
             className={cn(
               "tabular-nums",
@@ -659,6 +686,45 @@ function HealthTableRow({
           )}
         </div>
       </td>
+      <td
+        className="px-1.5 py-3 sm:px-3"
+        data-testid="camera-health-recording"
+        data-recording-status={recording.status}
+      >
+        <div className="flex flex-col items-start gap-1">
+          {recording.coveragePercent !== null && (
+            <>
+              <span
+                className={cn(
+                  "tabular-nums",
+                  recording.status === "gaps"
+                    ? "font-medium text-orange-400"
+                    : "text-muted-foreground",
+                )}
+              >
+                {t("cameraHealth.percent", {
+                  value: formatPercent(recording.coveragePercent),
+                })}
+              </span>
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {t("cameraHealth.recording.checkedDuration", {
+                  duration: recordingChecked,
+                })}
+              </span>
+            </>
+          )}
+          <Badge
+            variant="outline"
+            className={
+              recording.status === "gaps"
+                ? "border-orange-400/40 bg-orange-400/15 text-orange-400"
+                : "border-transparent bg-secondary text-muted-foreground"
+            }
+          >
+            {t(`cameraHealth.recording.status.${recording.status}`)}
+          </Badge>
+        </div>
+      </td>
       <td className="hidden px-3 py-3 tabular-nums text-muted-foreground xl:table-cell">
         {row.share === undefined
           ? "-"
@@ -670,7 +736,7 @@ function HealthTableRow({
       >
         {issues.length > 0 ? issues.join(", ") : t("cameraHealth.table.clean")}
       </td>
-      <td className="px-3 py-3 text-right">
+      <td className="hidden px-3 py-3 text-right sm:table-cell">
         <LuChevronRight className="inline size-4 text-muted-foreground" />
       </td>
     </tr>

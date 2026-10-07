@@ -6,6 +6,8 @@
  * asks for it.
  */
 
+import type { CameraRecordingHistory } from "../../../src/types/fork/cameraHistory";
+
 export type HistoryRangeMock = "1h" | "6h" | "24h" | "7d";
 
 export type HistoryCellStateMock = "ok" | "degraded" | "offline" | "none";
@@ -25,6 +27,7 @@ export interface CameraHistorySeriesMock {
   fps: (number | null)[];
   states: HistoryCellStateMock[];
   incidents: CameraHistoryIncidentMock[];
+  recording?: CameraRecordingHistory | null;
 }
 
 export interface CameraHistoryMock {

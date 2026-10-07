@@ -152,7 +152,7 @@ test.describe("Camera health table @high", () => {
     await expect(front.getByTestId("camera-health-issues")).toHaveText("clean");
     await expect(
       frigateApp.page.getByTestId("camera-health-summary"),
-    ).toContainText("3 of 3 cameras ran clean in the last 24 hours.");
+    ).toContainText("3 of 3 cameras captured cleanly in the last 24 hours.");
   });
 
   test("zero fps marks a camera offline; only lasting trouble marks it degraded", async ({
@@ -199,7 +199,7 @@ test.describe("Camera health table @high", () => {
     await expect(
       frigateApp.page.getByTestId("camera-health-summary"),
       // The garage's single stall and reconnect keep it off the clean count.
-    ).toContainText("0 of 3 cameras ran clean");
+    ).toContainText("0 of 3 cameras captured cleanly");
   });
 
   test("the scope toggle keeps only the cameras that need a look", async ({
@@ -450,7 +450,7 @@ test.describe("Camera health drawer @high", () => {
     const drawer = frigateApp.page.getByTestId("camera-health-drawer");
     await expect(
       drawer.getByTestId("camera-health-no-incidents"),
-    ).toContainText("Nothing went wrong in this window.");
+    ).toContainText("No capture incidents were recorded in this window.");
   });
 
   test("the drawer steps between cameras in the order the table shows", async ({
@@ -713,5 +713,89 @@ test.describe("Camera health ping (I60) @high", () => {
     const section = frigateApp.page.getByTestId("source-state");
     await expect(section.getByTestId("source-state-stream")).toHaveCount(1);
     await expect(section.getByTestId("camera-ping")).toHaveCount(0);
+  });
+});
+
+test.describe("Saved main recording coverage @high", () => {
+  test("healthy capture still reveals fragmented saved footage", async ({
+    frigateApp,
+  }, testInfo) => {
+    const cutoff = Math.floor((Date.now() / 1000 - 120) / 300) * 300;
+    await gotoHealth(frigateApp, {
+      front_door: {
+        recording: {
+          status: "gaps",
+          coverage_percent: 50,
+          analyzed_seconds: 600,
+          requested_seconds: 86400,
+          missing_seconds: 300,
+          gap_count: 0,
+          longest_gap_seconds: 0.5,
+          mature_before: cutoff,
+          latest_analyzed_end: cutoff,
+        },
+      },
+      backyard: {},
+      garage: {},
+    });
+    const front = frigateApp.page.getByTestId("camera-health-front_door");
+    await expect(front).toHaveAttribute("data-state", "ok");
+    const recording = front.getByTestId("camera-health-recording");
+    await expect(recording).toHaveAttribute("data-recording-status", "gaps");
+    await expect(recording).toContainText("50%");
+    await expect(recording).toContainText("10m checked");
+    await expect(recording).toBeInViewport({ ratio: 1 });
+    await expect(
+      frigateApp.page.getByTestId("camera-health-summary"),
+    ).toContainText("1 camera has recording gaps");
+    await frigateApp.page.screenshot({
+      path: testInfo.outputPath("recording-health-table.png"),
+    });
+    await front.getByRole("button", { name: "Open Front Door" }).click();
+    const details = frigateApp.page.getByTestId(
+      "camera-health-recording-details",
+    );
+    await expect(details).toHaveAttribute("data-recording-status", "gaps");
+    await expect(details).toContainText("50%");
+    await expect(details).toContainText("Missing footage");
+    await expect(details).toContainText("5 minutes");
+    await expect(details).toContainText("does not verify playback integrity");
+    await details.scrollIntoViewIfNeeded();
+    await frigateApp.page.screenshot({
+      path: testInfo.outputPath("recording-health-drawer.png"),
+    });
+  });
+
+  test("missing and intentional gaps do not claim perfect coverage", async ({
+    frigateApp,
+  }) => {
+    const cutoff = Math.floor((Date.now() / 1000 - 120) / 300) * 300;
+    await gotoHealth(frigateApp, {
+      front_door: {},
+      backyard: {
+        recording: {
+          status: "not_continuous",
+          coverage_percent: null,
+          analyzed_seconds: 0,
+          requested_seconds: 86400,
+          missing_seconds: 0,
+          gap_count: 0,
+          longest_gap_seconds: 0,
+          mature_before: cutoff,
+          latest_analyzed_end: null,
+        },
+      },
+      garage: {},
+    });
+    const unavailable = frigateApp.page
+      .getByTestId("camera-health-front_door")
+      .getByTestId("camera-health-recording");
+    await expect(unavailable).toHaveText("Unavailable");
+    await expect(unavailable).not.toContainText("100%");
+    const intentional = frigateApp.page
+      .getByTestId("camera-health-backyard")
+      .getByTestId("camera-health-recording");
+    await expect(intentional).toHaveText("Not continuous");
+    await expect(intentional).not.toContainText("100%");
   });
 });

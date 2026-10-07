@@ -3,6 +3,7 @@ import type { CameraStats } from "@/types/stats";
 import type {
   CameraHistoryIncident,
   CameraHistorySeries,
+  CameraRecordingHistory,
 } from "@/types/fork/cameraHistory";
 import {
   DEFAULT_HISTORY_RANGE,
@@ -15,6 +16,9 @@ import {
   isOutage,
   needsAttention,
   ranClean,
+  recordingDurationParts,
+  recordingHealth,
+  recordingNeedsAttention,
   sortRows,
   sparklinePoints,
   stripTicks,
@@ -64,6 +68,23 @@ function row(overrides: Partial<HealthRow> = {}): HealthRow {
       reconnects: 0,
     },
     series: undefined,
+    ...overrides,
+  };
+}
+
+function recording(
+  overrides: Partial<CameraRecordingHistory> = {},
+): CameraRecordingHistory {
+  return {
+    status: "ok",
+    coverage_percent: 100,
+    analyzed_seconds: 600,
+    requested_seconds: 3600,
+    missing_seconds: 0,
+    gap_count: 0,
+    longest_gap_seconds: 0,
+    mature_before: 2000,
+    latest_analyzed_end: 2000,
     ...overrides,
   };
 }
@@ -151,6 +172,101 @@ describe("which rows the scopes show", () => {
     expect(needsAttention(row({ state: "unknown" }))).toBe(true);
     expect(needsAttention(row({ state: "disabled" }))).toBe(false);
     expect(needsAttention(row())).toBe(false);
+  });
+});
+
+describe("independent main recording coverage", () => {
+  it("keeps week-long durations and zero measurements explicit", () => {
+    expect(recordingDurationParts(604800)).toEqual([{ unit: "day", count: 7 }]);
+    expect(recordingDurationParts(90)).toEqual([
+      { unit: "minute", count: 1 },
+      { unit: "second", count: 30 },
+    ]);
+    expect(recordingDurationParts(3600)).toEqual([{ unit: "hour", count: 1 }]);
+    expect(recordingDurationParts(0)).toEqual([{ unit: "second", count: 0 }]);
+    expect(recordingDurationParts(undefined)).toBeUndefined();
+    expect(recordingDurationParts(Number.NaN)).toBeUndefined();
+    expect(recordingDurationParts(-1)).toBeUndefined();
+  });
+
+  it("flags lost footage without changing healthy capture or incident counts", () => {
+    const data = series({
+      recording: recording({ coverage_percent: 50, missing_seconds: 300 }),
+    });
+    const healthyCapture = row({ series: data });
+    expect(recordingHealth(data.recording)).toEqual({
+      status: "gaps",
+      coveragePercent: 50,
+    });
+    expect(recordingNeedsAttention(healthyCapture)).toBe(true);
+    expect(needsAttention(healthyCapture)).toBe(false);
+    expect(ranClean(healthyCapture)).toBe(true);
+    expect(hasIssues(summarizeIssues(data, undefined))).toBe(false);
+  });
+
+  it("flags a ten-second gap even when aggregate coverage is above 99%", () => {
+    expect(
+      recordingHealth(
+        recording({
+          coverage_percent: 99.9,
+          gap_count: 1,
+          longest_gap_seconds: 10,
+        }),
+      ).status,
+    ).toBe("gaps");
+    expect(recordingHealth(recording({ coverage_percent: 99 })).status).toBe(
+      "ok",
+    );
+    expect(recordingHealth(recording({ status: "gaps" })).status).toBe("gaps");
+  });
+
+  it.each([
+    undefined,
+    null,
+    recording({ status: "unknown" }),
+    recording({ analyzed_seconds: 0 }),
+    recording({ analyzed_seconds: Number.NaN }),
+    recording({ coverage_percent: null }),
+    recording({ coverage_percent: Number.NaN }),
+    recording({ coverage_percent: Number.POSITIVE_INFINITY }),
+    recording({ coverage_percent: -1 }),
+    recording({ coverage_percent: 101 }),
+  ])(
+    "does not report full coverage for missing or invalid analysis (%s)",
+    (value) => {
+      expect(recordingHealth(value)).toEqual({
+        status: "unknown",
+        coveragePercent: null,
+      });
+    },
+  );
+
+  it.each(["disabled", "not_continuous"] as const)(
+    "keeps %s separate from degraded recording",
+    (status) => {
+      const data = recording({ status, coverage_percent: 50, gap_count: 1 });
+      expect(recordingHealth(data)).toEqual({ status, coveragePercent: null });
+      expect(
+        recordingNeedsAttention(row({ series: series({ recording: data }) })),
+      ).toBe(false);
+    },
+  );
+
+  it("sorts unavailable coverage separately instead of treating it as 100%", () => {
+    const rows = [
+      row({ label: "Covered", series: series({ recording: recording() }) }),
+      row({
+        label: "Missing",
+        series: series({ recording: recording({ coverage_percent: 50 }) }),
+      }),
+      row({ label: "Unavailable" }),
+    ];
+    expect(
+      sortRows(rows, "recording", "asc").map((entry) => entry.label),
+    ).toEqual(["Unavailable", "Missing", "Covered"]);
+    expect(
+      sortRows(rows, "recording", "desc").map((entry) => entry.label),
+    ).toEqual(["Covered", "Missing", "Unavailable"]);
   });
 });
 

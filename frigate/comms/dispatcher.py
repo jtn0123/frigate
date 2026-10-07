@@ -74,6 +74,7 @@ class Dispatcher:
         self.ptz_metrics = ptz_metrics
         self.comms = communicators
         self.notice_registry = notice_registry
+        self.recording_policy_changed: Callable[[FrigateConfig], None] | None = None
 
         if notice_registry is not None:
             notice_registry.subscribe(self._publish_notices)
@@ -442,6 +443,11 @@ class Dispatcher:
 
     def publish(self, topic: str, payload: Any, retain: bool = False) -> None:
         """Handle publishing to communicators."""
+        recording_policy_changed = getattr(self, "recording_policy_changed", None)
+        if recording_policy_changed is not None and topic.endswith(
+            ("/recordings/state", "/enabled/state")
+        ):
+            recording_policy_changed(self.config)
         for comm in self.comms:
             comm.publish(topic, payload, retain)
 
