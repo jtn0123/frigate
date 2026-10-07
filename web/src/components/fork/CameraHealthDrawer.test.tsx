@@ -188,10 +188,10 @@ describe("CameraHealthDrawer recording coverage", () => {
       }),
     );
     expect(screen.getByTestId("recording-missing")).toHaveTextContent(
-      'cameraHealth.recording.seconds {"count":0}',
+      'cameraHealth.recording.seconds {"ns":"fork","count":0}',
     );
     expect(screen.getByTestId("recording-longestGap")).toHaveTextContent(
-      'cameraHealth.recording.seconds {"count":0}',
+      'cameraHealth.recording.seconds {"ns":"fork","count":0}',
     );
     expect(screen.getByTestId("recording-gaps")).toHaveTextContent("0");
     expect(screen.getByTestId("recording-analyzed")).toHaveTextContent(

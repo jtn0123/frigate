@@ -101,7 +101,7 @@ function formatRecordingDuration(
   return parts
     .map(({ unit, count }) => {
       if (count === 0) {
-        return t("cameraHealth.recording.seconds", { count: 0 });
+        return t("cameraHealth.recording.seconds", { ns: "fork", count: 0 });
       }
       const plural = count === 1 ? "one" : "other";
       return t(`time.${unit}_${plural}`, { ns: "common", time: count });
@@ -126,7 +126,9 @@ function buildRecordingMetrics(
   formatTime: MetricTimeFormatter,
 ): RecordingMetric[] {
   const available = recordingHealth(recording).coveragePercent !== null;
-  const unavailable = t("cameraHealth.recording.status.unknown");
+  const unavailable = t("cameraHealth.recording.status.unknown", {
+    ns: "fork",
+  });
   const missing = available ? recording?.missing_seconds : undefined;
   const longestGap = available ? recording?.longest_gap_seconds : undefined;
   const gapCount = available ? recording?.gap_count : undefined;
@@ -173,15 +175,14 @@ function buildRecordingMetrics(
 
 type RecordingDetailsProps = {
   recording: CameraRecordingHistory | null | undefined;
-  t: DrawerTranslate;
   formatTime: MetricTimeFormatter;
 };
 
 function RecordingDetails({
   recording,
-  t,
   formatTime,
 }: Readonly<RecordingDetailsProps>) {
+  const { t } = useTranslation(["fork", "views/system", "common"]);
   const recordingState = recordingHealth(recording);
   const recordingAvailable = recordingState.coveragePercent !== null;
   const recordingMetrics = buildRecordingMetrics(recording, t, formatTime);
@@ -516,7 +517,6 @@ export default function CameraHealthDrawer({
 
           <RecordingDetails
             recording={series?.recording}
-            t={t}
             formatTime={formatTime}
           />
 

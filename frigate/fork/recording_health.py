@@ -561,6 +561,7 @@ class RecordingHealth(threading.Thread):
 
     def _prune_locked(self, now: float) -> None:
         oldest = int((now - WINDOW_SECONDS - INGESTION_GRACE_SECONDS) // BUCKET_SECONDS)
+        # Snapshot keys because this loop deletes empty removed-camera histories.
         for name in list(self._buckets):
             previous_count = len(self._buckets[name])
             self._buckets[name] = dict(
