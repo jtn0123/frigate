@@ -205,6 +205,7 @@ class TestForkUpdateNotice(unittest.TestCase):
         stats_emitter.config = MagicMock()
         stats_emitter.config.mqtt.stats_interval = 60
         stats_emitter.camera_history = MagicMock()
+        stats_emitter.recording_health = MagicMock()
         stats_emitter.hardware_stats = MagicMock()
         stats_emitter.requestor = MagicMock()
 
@@ -219,3 +220,5 @@ class TestForkUpdateNotice(unittest.TestCase):
             thread.call_args.kwargs["target"], stats_emitter._check_update_notice
         )
         thread.return_value.start.assert_called_once()
+        stats_emitter.recording_health.start.assert_called_once()
+        stats_emitter.recording_health.join.assert_called_once_with(timeout=5)

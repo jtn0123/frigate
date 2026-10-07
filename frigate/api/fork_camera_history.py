@@ -57,6 +57,16 @@ async def camera_history(
         )
 
     data: dict[str, Any] = await asyncio.to_thread(history.read, range_key)
+    recording = getattr(request.app.stats_emitter, "recording_health", None)
+    if recording is not None:
+        coverage = await asyncio.to_thread(recording.read, range_key)
+        data = {
+            **data,
+            "cameras": {
+                name: {**series, "recording": coverage.get(name)}
+                for name, series in data["cameras"].items()
+            },
+        }
 
     if request.headers.get("remote-role") != "admin":
         allowed = set(allowed_cameras)

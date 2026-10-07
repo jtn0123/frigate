@@ -117,7 +117,7 @@
     "systemNotices": "System notices"
   },
   "cameraHealth": {
-    "description": "Per-camera health from the live stats stream, over a window Frigate keeps on disk.",
+    "description": "Capture health and saved main recording coverage, with history Frigate keeps on disk.",
     "state": {
       "ok": "OK",
       "degraded": "Degraded",
@@ -198,9 +198,9 @@
     "minutes_one": "{{count}} min",
     "minutes_other": "{{count}} min",
     "summary": {
-      "lead_one": "{{clean}} of {{count}} camera ran clean in the last {{range}}.",
-      "lead_other": "{{clean}} of {{count}} cameras ran clean in the last {{range}}.",
-      "fleet": "fleet uptime {{value}}%",
+      "lead_one": "{{clean}} of {{count}} camera captured cleanly in the last {{range}}.",
+      "lead_other": "{{clean}} of {{count}} cameras captured cleanly in the last {{range}}.",
+      "fleet": "capture uptime {{value}}%",
       "waiting": "History is still filling in; longer ranges fill as Frigate runs.",
       "restarted_one": "{{camera}} restarted once",
       "restarted_other": "{{camera}} restarted {{count}} times",
@@ -215,7 +215,7 @@
       "camera": "Camera",
       "state": "State",
       "rate": "Frame rate · {{range}}",
-      "uptime": "Uptime",
+      "uptime": "Capture uptime",
       "detector": "Detector",
       "issues": "Issues in {{range}}",
       "sort": "Sort by {{column}}",
@@ -223,7 +223,8 @@
       "clean": "clean",
       "empty": "Every camera is healthy right now.",
       "noCameras": "No cameras are configured.",
-      "noHistory": "no history yet"
+      "noHistory": "no history yet",
+      "recording": "Recorded"
     },
     "issues": {
       "outages_one": "1 outage",
@@ -236,7 +237,7 @@
       "reconnects_other": "{{count}} reconnects"
     },
     "cell": {
-      "ok": "Recording",
+      "ok": "Frames received",
       "degraded": "Degraded",
       "offline": "Offline",
       "none": "No data"
@@ -251,13 +252,13 @@
       "previous": "Previous camera",
       "next": "Next camera",
       "position": "{{index}} of {{total}}",
-      "uptime": "Uptime · {{range}}",
-      "downtime": "Time down",
+      "uptime": "Capture uptime · {{range}}",
+      "downtime": "Capture time down",
       "incidents": "Incidents",
-      "strip": "When it was down",
+      "strip": "When frames were missing",
       "noHistory": "No history has been collected for this camera yet.",
       "log": "What happened",
-      "clean": "Nothing went wrong in this window.",
+      "clean": "No capture incidents were recorded in this window.",
       "cell_one": "1 cell = {{count}} min",
       "cell_other": "1 cell = {{count}} min",
       "cellHours_one": "1 cell = {{count}} hour",
@@ -299,6 +300,33 @@
     "logs": {
       "filtered": "Logs containing camera: {{camera}}",
       "clear": "Show all logs"
+    },
+    "recording": {
+      "title": "Main recording coverage",
+      "status": {
+        "ok": "Covered",
+        "gaps": "Gaps",
+        "unknown": "Unavailable",
+        "not_continuous": "Not continuous",
+        "disabled": "Off"
+      },
+      "missing": "Missing footage",
+      "longestGap": "Longest gap",
+      "gaps": "Gaps of at least 10 seconds",
+      "analyzed": "Time analyzed",
+      "requested": "Time requested",
+      "checkedThrough": "Checked through",
+      "checkedDuration": "{{duration}} checked",
+      "pending": "Recent footage is assessed after it finishes saving.",
+      "scope": "Coverage is checked only during observed periods with continuous main recording enabled. Capture uptime is measured separately.",
+      "basis": "Coverage uses saved main-segment timestamps and does not verify playback integrity.",
+      "notContinuous": "The main stream is not configured for continuous recording; gaps may be intentional.",
+      "disabled": "Main recording is disabled.",
+      "unavailable": "No recording coverage is available for this period.",
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds",
+      "summary_one": "{{count}} camera has recording gaps",
+      "summary_other": "{{count}} cameras have recording gaps"
     }
   },
   "logSummary": {

@@ -123,6 +123,48 @@ Only admins can read `/api/metrics`. A scraper on another host has two ways in:
   firewall to the Prometheus host. Anyone who can reach that port has full
   admin access to Frigate.
 
+## Native recording completeness
+
+System > Health keeps capture history and saved recording coverage separately.
+Capture uptime means frames arrived; it does not establish that footage was
+saved continuously. The Health table's Recorded column and camera drawer show
+main-recording coverage, missing time, the longest gap, significant gap count,
+assessed time and the latest assessed endpoint. Percentages describe assessed
+time alone; the table shows how much time was checked and the drawer also shows
+the requested duration. No data is unavailable rather than 100 percent.
+
+The recording collector runs inside Frigate independently of browser tabs. It
+observes recording policy at runtime, analyzes completed five-minute intervals
+after at least 120 seconds for ingestion, and retains seven days of compact
+summaries in `/config/.recording_health.json`. Runtime camera/recording toggles
+invalidate mixed-policy intervals. Disabled, non-continuous, unobserved and
+failed scans do not become recording outages. Main and sub streams are not
+combined: a sub stream cannot conceal a gap in the configured continuous main
+recording. Sub-stream coverage is not assessed by this collector.
+
+The background reader uses a dedicated read-only SQLite connection, indexed
+time bounds, a one-second query budget, bounded rows and a bounded number of
+queries per tick. Tiny clips contribute only their actual registered duration,
+so fresh half-second clips cannot disguise 50 percent coverage. Overlaps are
+merged, and gaps crossing adjacent assessed intervals are counted once. Gaps
+never bridge unobserved periods. A deficit below 99 percent coverage or a gap
+lasting at least ten seconds is shown separately from live capture health.
+These are diagnostic thresholds, not vendor guarantees.
+
+Recent observations are reconciled while the original observed retention
+policy still protects their recording rows, so late ingestion can repair an
+apparent deficit. A failed retry or later deletion cannot reduce coverage
+already observed. Completed observations survive later footage expiry and
+process restarts; a restart does not infer past recording policy from current
+settings. New tracking initially reports unavailable until a complete observed
+interval has finished saving.
+
+Coverage uses registered segment timestamps. It does not decode footage or
+prove playback integrity. This native history requires no third-party scraper,
+uptime service, camera credentials, active camera probes or new network access.
+The existing host collectors remain useful for pressure and whole-server
+failures, which an application cannot observe while it is stopped.
+
 ## Camera pings for an uptime monitor
 
 Cameras normally sit on a network that only Frigate can reach, so an uptime

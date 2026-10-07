@@ -59,6 +59,39 @@ class TestHttpCameraHistory(BaseTestHttp):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["cameras"], {})
 
+    def test_recording_coverage_respects_camera_access_and_does_not_mutate_history(
+        self,
+    ):
+        payload = self.history.read("1h")
+        original = copy.deepcopy(payload)
+        self.app.stats_emitter.camera_history = SimpleNamespace(
+            read=Mock(return_value=payload)
+        )
+        coverage = {
+            "front_door": {"coverage_percent": 50},
+            "private": {"coverage_percent": 0},
+        }
+        self.app.stats_emitter.recording_health = SimpleNamespace(
+            read=Mock(return_value=coverage)
+        )
+        with AuthTestClient(self.app) as client:
+            response = client.get("/fork/camera_history?range=1h", headers=VIEWER)
+        self.assertEqual(set(response.json()["cameras"]), {"front_door"})
+        self.assertEqual(
+            response.json()["cameras"]["front_door"]["recording"],
+            coverage["front_door"],
+        )
+        self.app.stats_emitter.recording_health.read.assert_called_once_with("1h")
+        self.assertEqual(payload, original)
+
+    def test_collector_without_recording_measurement_reports_null(self):
+        self.app.stats_emitter.recording_health = SimpleNamespace(
+            read=Mock(return_value={})
+        )
+        with AuthTestClient(self.app) as client:
+            response = client.get("/fork/camera_history")
+        self.assertIsNone(response.json()["cameras"]["front_door"]["recording"])
+
     def test_unknown_range_defaults_to_day(self):
         with AuthTestClient(self.app) as client:
             response = client.get("/fork/camera_history?range=invalid")

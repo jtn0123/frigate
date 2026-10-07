@@ -1,4 +1,28 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+
+class CameraRecordingHistory(BaseModel):
+    """Main recording coverage during observed periods."""
+
+    status: Literal["ok", "gaps", "unknown", "not_continuous", "disabled"]
+    coverage_percent: float | None = Field(
+        description="Share of assessed time with saved main recordings"
+    )
+    analyzed_seconds: float = Field(
+        description="Assessed time with continuous main recording expected"
+    )
+    requested_seconds: float = Field(description="Length of the requested window")
+    missing_seconds: float = Field(description="Uncovered seconds in analyzed periods")
+    gap_count: int = Field(description="Recording gaps lasting at least ten seconds")
+    longest_gap_seconds: float = Field(description="Longest gap in analyzed periods")
+    mature_before: float = Field(
+        description="Bucket-aligned cutoff after recording ingestion allowance"
+    )
+    latest_analyzed_end: float | None = Field(
+        description="End of newest assessed bucket, null before analysis"
+    )
 
 
 class CameraHistoryIncident(BaseModel):
@@ -32,6 +56,10 @@ class CameraHistorySeries(BaseModel):
     )
     incidents: list[CameraHistoryIncident] = Field(
         description="Incidents overlapping the window, oldest first"
+    )
+    recording: CameraRecordingHistory | None = Field(
+        default=None,
+        description="Saved main recording coverage during observed periods",
     )
 
 

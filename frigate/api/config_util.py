@@ -62,3 +62,8 @@ def swap_runtime_config(app: FastAPI, config: FrigateConfig) -> None:
         # workers still hold the live toggle values, so correct only the
         # config object here rather than re-broadcasting every override
         app.dispatcher.reapply_runtime_state_to_config()
+
+    if app.stats_emitter is not None:
+        recording = getattr(app.stats_emitter, "recording_health", None)
+        if recording is not None:
+            recording.update_config(config)

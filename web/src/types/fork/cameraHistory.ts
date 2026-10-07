@@ -14,6 +14,22 @@ export type CameraHistoryIncident = {
   reason: string;
 };
 
+/** Coverage of saved main segments during observed continuous recording. */
+export type CameraRecordingHistory = {
+  status: "ok" | "gaps" | "unknown" | "not_continuous" | "disabled";
+  /** Null when there is no eligible observed period to assess. */
+  coverage_percent: number | null;
+  analyzed_seconds: number;
+  requested_seconds: number;
+  missing_seconds: number;
+  /** Missing intervals lasting at least ten seconds. */
+  gap_count: number;
+  longest_gap_seconds: number;
+  /** Recent, unfinished recordings are excluded up to this epoch cutoff. */
+  mature_before: number;
+  latest_analyzed_end: number | null;
+};
+
 export type CameraHistorySeries = {
   uptime: number;
   downtime: number;
@@ -23,6 +39,8 @@ export type CameraHistorySeries = {
   fps: (number | null)[];
   states: HistoryCellState[];
   incidents: CameraHistoryIncident[];
+  /** Older servers omit this independently assessed recording history. */
+  recording?: CameraRecordingHistory | null;
 };
 
 export type CameraHistoryResponse = {

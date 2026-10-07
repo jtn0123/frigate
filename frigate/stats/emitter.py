@@ -11,6 +11,7 @@ from typing import Any
 from frigate.comms.inter_process import InterProcessRequestor
 from frigate.config import FrigateConfig
 from frigate.const import FREQUENCY_STATS_POINTS
+from frigate.fork.recording_health import RecordingHealth
 from frigate.fork.updates import get_checker
 from frigate.notices import flush_notices, raise_notice, resolve_kind, resolve_notice
 from frigate.stats.camera_history import CameraHistory
@@ -109,6 +110,7 @@ class StatsEmitter(threading.Thread):
         self.stats_history: list[dict[str, Any]] = []
         # fork (UI131): seven days of per-camera buckets behind the Health tab
         self.camera_history = CameraHistory()
+        self.recording_health = RecordingHealth(config, stop_event)
         self.skipped_detections = EpisodeTracker(SKIPPED_DETECTIONS_PCT)
         self.ffmpeg_cpu = EpisodeTracker(FFMPEG_HIGH_CPU_PCT)
         self.detect_cpu = EpisodeTracker(DETECT_HIGH_CPU_PCT)
@@ -312,6 +314,7 @@ class StatsEmitter(threading.Thread):
         # add any additional notice types here
 
     def run(self) -> None:
+        self.recording_health.start()
         time.sleep(10)
         # on a thread, as the fork checker may ask GitHub
         threading.Thread(
@@ -329,6 +332,7 @@ class StatsEmitter(threading.Thread):
                 last_version_check = time.time()
 
             logger.debug("Starting stats collection")
+            self.recording_health.update_config(self.config)
             stats = stats_snapshot(
                 self.config, self.stats_tracking, self.hardware_stats
             )
@@ -343,6 +347,7 @@ class StatsEmitter(threading.Thread):
             logger.debug("Finished stats collection")
 
         self.camera_history.flush()  # fork (UI131)
+        self.recording_health.join(timeout=5)
         # write the repeats held back since the last tick
         flush_notices()
         self.hardware_stats.stop()

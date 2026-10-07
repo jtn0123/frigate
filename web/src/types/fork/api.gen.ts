@@ -5307,6 +5307,8 @@ export interface components {
              * @description Incidents overlapping the window, oldest first
              */
             incidents: components["schemas"]["CameraHistoryIncident"][];
+            /** @description Saved main recording coverage during observed periods */
+            recording?: components["schemas"]["CameraRecordingHistory"] | null;
         };
         /**
          * CameraPingState
@@ -5338,6 +5340,57 @@ export interface components {
              * @description Unix timestamp of the round
              */
             checked: number;
+        };
+        /**
+         * CameraRecordingHistory
+         * @description Main recording coverage during observed periods.
+         */
+        CameraRecordingHistory: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "gaps" | "unknown" | "not_continuous" | "disabled";
+            /**
+             * Coverage Percent
+             * @description Share of assessed time with saved main recordings
+             */
+            coverage_percent: number | null;
+            /**
+             * Analyzed Seconds
+             * @description Assessed time with continuous main recording expected
+             */
+            analyzed_seconds: number;
+            /**
+             * Requested Seconds
+             * @description Length of the requested window
+             */
+            requested_seconds: number;
+            /**
+             * Missing Seconds
+             * @description Uncovered seconds in analyzed periods
+             */
+            missing_seconds: number;
+            /**
+             * Gap Count
+             * @description Recording gaps lasting at least ten seconds
+             */
+            gap_count: number;
+            /**
+             * Longest Gap Seconds
+             * @description Longest gap in analyzed periods
+             */
+            longest_gap_seconds: number;
+            /**
+             * Mature Before
+             * @description Bucket-aligned cutoff after recording ingestion allowance
+             */
+            mature_before: number;
+            /**
+             * Latest Analyzed End
+             * @description End of newest assessed bucket, null before analysis
+             */
+            latest_analyzed_end: number | null;
         };
         /** CameraSetBody */
         CameraSetBody: {
