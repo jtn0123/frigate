@@ -1064,6 +1064,10 @@
         "label": "Review image source",
         "description": "Source of images sent to GenAI ('preview' or 'recordings'); 'recordings' uses higher quality frames but more tokens."
       },
+      "max_frames": {
+        "label": "Maximum review images",
+        "description": "Maximum images per review description (2 to 28). Unset preserves the context, duration, and frame-mode limits. Lower values reduce AI work and visual temporal detail while keeping the first and last available frames."
+      },
       "additional_concerns": {
         "label": "Additional concerns",
         "description": "A list of additional concerns or notes the GenAI should consider when evaluating activity on this camera."

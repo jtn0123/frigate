@@ -58,6 +58,28 @@ and the snapshot is partial. Other measured host/container rows remain available
 These readings are not allocated across individual models because doing so
 would invent per-model RAM/CPU figures.
 
+## Review image limits
+
+`review.genai.max_frames` optionally limits images in each review description.
+It accepts an integer from 2 to 28, globally or per camera. An unset value keeps
+the existing context, duration and frame-mode limits. The cap applies after
+those budgets and again at the provider handoff, including manual regeneration.
+It never increases the number of available frames. Uniform sampling preserves
+the first and last available frames and their annotation timestamps.
+
+```yaml
+review:
+  genai:
+    max_frames: 6
+```
+
+Lower values reduce image work and temporal detail; they do not establish GPU
+latency or detection improvement without a comparable runtime measurement.
+Object descriptions, model selection, context size and camera recording
+settings are unchanged. The model-history Ollama request count represents
+recent completions over its existing overlapping observation window, not an
+active queue or simultaneous GPU jobs.
+
 ## Prometheus metric migration
 
 Storage values from Frigate are MiB. `/metrics` converts them to bytes with

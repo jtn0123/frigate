@@ -264,6 +264,7 @@ export interface CameraConfig {
       enabled_in_config: boolean;
       alerts: boolean;
       detections: boolean;
+      max_frames?: number | null;
     };
   };
   rtmp: {
