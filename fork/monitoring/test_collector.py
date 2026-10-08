@@ -21,7 +21,7 @@ class CollectorTests(unittest.TestCase):
         with patch.object(collector.subprocess, "check_output") as command:
             for value in ("--help", "../108", "108;id", "0"):
                 with self.assertRaises(ValueError):
-                    collector.collect_ollama(Path("/group"), value, lambda *_: 0, 100)
+                    collector.collect_ollama(Path("/group"), value, lambda *_: 0)
             command.assert_not_called()
 
     def test_collects_host_and_container_pressure_without_inventing_missing_scope(self):

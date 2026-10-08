@@ -5,7 +5,7 @@ import json
 import os
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -164,9 +164,31 @@ def service_main(
     raise ValueError("Ollama service main process unavailable")
 
 
+def add_service_pids(group: Path, pids: set[int]) -> None:
+    """Add unique service PIDs without exceeding the shared collection bound."""
+    for value in kernel_text(group / "cgroup.procs").split():
+        pid = int(value)
+        if pid <= 0:
+            raise ValueError("Invalid service process ID")
+        pids.add(pid)
+        if len(pids) > MAX_SERVICE_PROCESSES:
+            raise ValueError("Service process count exceeds collection bound")
+
+
+def service_children(group: Path) -> Iterator[Path]:
+    """Yield child cgroups while rejecting redirected kernel paths."""
+    for child in group.iterdir():
+        if child.is_symlink():
+            raise ValueError("Unexpected service cgroup symlink")
+        if child.is_dir():
+            yield child
+
+
 def service_members(group: Path) -> set[int]:
     """Collect unique host PIDs from a bounded service cgroup subtree."""
-    pending, seen, pids = [group], set(), set()
+    pending = [group]
+    seen: set[Path] = set()
+    pids: set[int] = set()
     while pending:
         current = pending.pop()
         if current in seen:
@@ -174,27 +196,16 @@ def service_members(group: Path) -> set[int]:
         seen.add(current)
         if len(seen) > MAX_SERVICE_GROUPS:
             raise ValueError("Service cgroup scan exceeds collection bound")
-        for value in kernel_text(current / "cgroup.procs").split():
-            pid = int(value)
-            if pid <= 0:
-                raise ValueError("Invalid service process ID")
-            pids.add(pid)
-            if len(pids) > MAX_SERVICE_PROCESSES:
-                raise ValueError("Service process count exceeds collection bound")
-        for child in current.iterdir():
-            if child.is_symlink():
-                raise ValueError("Unexpected service cgroup symlink")
-            if child.is_dir():
-                pending.append(child)
-                if len(pending) + len(seen) > MAX_SERVICE_GROUPS:
-                    raise ValueError("Service cgroup scan exceeds collection bound")
+        add_service_pids(current, pids)
+        for child in service_children(current):
+            pending.append(child)
+            if len(pending) + len(seen) > MAX_SERVICE_GROUPS:
+                raise ValueError("Service cgroup scan exceeds collection bound")
     return pids
 
 
-def collect_ollama(
-    group: Path, ct: str, cpu: Callable[[str, float], float | None], hz: int
-) -> list[dict[str, Any]]:
-    """Measure the verified Ollama service and workers, independent of their names."""
+def ollama_service_identity(ct: str) -> tuple[int, Path] | None:
+    """Read and validate the container's active Ollama service properties."""
     if not ct.isdecimal() or not 100 <= int(ct) <= 999999999:
         raise ValueError("Container ID must be a positive Proxmox numeric ID")
     raw = subprocess.check_output(
@@ -213,9 +224,14 @@ def collect_ollama(
     )
     if len(raw) > 4096:
         raise ValueError("Service identity exceeds collection bound")
-    state = dict(line.split("=", 1) for line in raw.splitlines() if "=" in line)
+    state = {
+        key: value
+        for key, value in (
+            line.split("=", 1) for line in raw.splitlines() if "=" in line
+        )
+    }
     if state.get("ActiveState") in {"inactive", "failed"}:
-        return []
+        return None
     control_group = Path(state.get("ControlGroup", ""))
     main_pid = int(state.get("MainPID", "0"))
     if (
@@ -226,6 +242,33 @@ def collect_ollama(
         or ".." in control_group.parts
     ):
         raise ValueError("Ollama service identity unavailable")
+    return main_pid, control_group
+
+
+def service_memory(
+    service: Path, members: set[int]
+) -> tuple[int, dict[int, tuple[int, Path]]]:
+    """Sum verified worker RSS and retain identities for a consistency recheck."""
+    rss = 0
+    identities = {}
+    for member in members:
+        identity, memory = process_identity(member)
+        member_group = group_for(member)
+        if member_group != service and service not in member_group.parents:
+            raise ValueError("Process left Ollama service cgroup")
+        identities[member] = identity, member_group
+        rss += memory
+    return rss, identities
+
+
+def collect_ollama(
+    group: Path, ct: str, cpu: Callable[[str, float], float | None]
+) -> list[dict[str, Any]]:
+    """Measure the verified Ollama service and workers, independent of their names."""
+    service_identity = ollama_service_identity(ct)
+    if service_identity is None:
+        return []
+    main_pid, control_group = service_identity
     container_pid = init_pid(ct)
     container_start, _ = process_identity(container_pid)
     container_group = group_for(container_pid)
@@ -240,15 +283,7 @@ def collect_ollama(
     members = service_members(service)
     if pid not in members:
         raise ValueError("Ollama main process left service cgroup")
-    rss = 0
-    identities = {}
-    for member in members:
-        identity, memory = process_identity(member)
-        member_group = group_for(member)
-        if member_group != service and service not in member_group.parents:
-            raise ValueError("Process left Ollama service cgroup")
-        identities[member] = identity, member_group
-        rss += memory
+    rss, identities = service_memory(service, members)
     seconds = values(service / "cpu.stat")["usage_usec"] / 1000000
     if seconds < 0:
         raise ValueError("Invalid service CPU counter")
@@ -270,6 +305,35 @@ def collect_ollama(
             "cpu_percent": cpu(f"ollama:{ct}:{pid}:{start}", seconds),
         }
     ]
+
+
+def collect_container(
+    ct: str, cpu: Callable[[str, float], float | None]
+) -> tuple[Path, dict[str, Any]]:
+    """Measure one verified container cgroup and its effective limits."""
+    pid = init_pid(ct)
+    process_group = group_for(pid)
+    group = CGROUP / "lxc" / ct
+    if group != process_group and group not in process_group.parents:
+        raise ValueError("Container cgroup layout unavailable")
+    memory, cores = effective_limits(group)
+    disk = os.statvfs(f"/proc/{pid}/root")
+    row = {
+        "scope": "container",
+        "id": ct,
+        "memory_bytes": limit(group / "memory.current"),
+        "memory_limit_bytes": memory,
+        "cpu_limit": cores,
+        "swap_bytes": limit(group / "memory.swap.current"),
+        "swap_limit_bytes": limit(group / "memory.swap.max"),
+        "cpu_percent": cpu(ct, values(group / "cpu.stat")["usage_usec"] / 1000000),
+        "oom_kills": values(group / "memory.events").get("oom_kill"),
+        "disk_free_bytes": disk.f_bavail * disk.f_frsize,
+        "disk_total_bytes": disk.f_blocks * disk.f_frsize,
+    }
+    for kind in ("cpu", "memory", "io"):
+        row[kind + "_pressure"] = pressure(group / (kind + ".pressure"))
+    return group, row
 
 
 def sample(cts: list[str], previous: dict) -> dict:
@@ -317,33 +381,10 @@ def sample(cts: list[str], previous: dict) -> dict:
     incomplete = False
     for ct in cts:
         try:
-            pid = init_pid(ct)
-            process_group = group_for(pid)
-            group = CGROUP / "lxc" / ct
-            if group != process_group and group not in process_group.parents:
-                raise ValueError("Container cgroup layout unavailable")
-            memory, cores = effective_limits(group)
-            disk = os.statvfs(f"/proc/{pid}/root")
-            row = {
-                "scope": "container",
-                "id": ct,
-                "memory_bytes": limit(group / "memory.current"),
-                "memory_limit_bytes": memory,
-                "cpu_limit": cores,
-                "swap_bytes": limit(group / "memory.swap.current"),
-                "swap_limit_bytes": limit(group / "memory.swap.max"),
-                "cpu_percent": cpu(
-                    ct, values(group / "cpu.stat")["usage_usec"] / 1000000
-                ),
-                "oom_kills": values(group / "memory.events").get("oom_kill"),
-                "disk_free_bytes": disk.f_bavail * disk.f_frsize,
-                "disk_total_bytes": disk.f_blocks * disk.f_frsize,
-            }
-            for kind in ("cpu", "memory", "io"):
-                row[kind + "_pressure"] = pressure(group / (kind + ".pressure"))
+            group, row = collect_container(ct, cpu)
             scopes.append(row)
             try:
-                scopes.extend(collect_ollama(group, ct, cpu, hz))
+                scopes.extend(collect_ollama(group, ct, cpu))
             except (
                 OSError,
                 ValueError,

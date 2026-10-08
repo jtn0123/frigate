@@ -90,19 +90,22 @@ class OllamaScopeTests(unittest.TestCase):
         (proc / "status").write_text(f"NSpid:\t{pid}\t{namespace_pid}\n")
 
     def test_includes_service_workers_and_excludes_unrelated_processes(self):
-        rows = collector.collect_ollama(self.group, "108", self.cpu, 100)
+        (self.service / "worker/cpu.stat").write_text("usage_usec 100000000\n")
+        with patch.object(collector, "values", wraps=collector.values) as counters:
+            rows = collector.collect_ollama(self.group, "108", self.cpu)
         self.assertEqual(len(rows), 1)
         self.assertEqual(
             rows[0]["memory_bytes"], 1400002 * collector.os.sysconf("SC_PAGE_SIZE")
         )
         self.assertEqual(rows[0]["cpu_percent"], 12.5)
         self.cpu.assert_called_once_with("ollama:108:110:50", 123.456)
+        counters.assert_called_once_with(self.service / "cpu.stat")
 
     def test_service_properties_only_and_no_process_arguments_are_read(self):
         with patch.object(
             collector, "kernel_text", wraps=collector.kernel_text
         ) as read:
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
         self.systemctl.assert_called_once_with(
             [
                 "pct",
@@ -124,7 +127,7 @@ class OllamaScopeTests(unittest.TestCase):
 
     def test_inactive_service_has_no_ollama_scope(self):
         self.systemctl.return_value = "ActiveState=inactive\nMainPID=0\nControlGroup=\n"
-        self.assertEqual(collector.collect_ollama(self.group, "108", self.cpu, 100), [])
+        self.assertEqual(collector.collect_ollama(self.group, "108", self.cpu), [])
         self.cpu.assert_not_called()
 
     def test_host_pid_is_not_confused_with_container_service_pid(self):
@@ -132,23 +135,23 @@ class OllamaScopeTests(unittest.TestCase):
             "MainPID=17", "MainPID=110"
         )
         with self.assertRaisesRegex(ValueError, "main process unavailable"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
         self.cpu.assert_not_called()
 
     def test_container_init_is_verified_before_using_its_namespace_depth(self):
         (self.proc / "100/status").write_text("NSpid:\t100\t17\n")
         with self.assertRaisesRegex(ValueError, "init namespace identity"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
 
     def test_container_init_outside_requested_group_is_unknown(self):
         (self.proc / "100/cgroup").write_text("0::/lxc/109/ns/init.scope\n")
         with self.assertRaisesRegex(ValueError, "outside requested cgroup"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
 
     def test_service_main_must_still_be_a_member(self):
         (self.service / "cgroup.procs").write_text("111\n")
         with self.assertRaisesRegex(ValueError, "main process left"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
 
     def test_namespace_and_kernel_identity_counters_are_validated(self):
         for value in ("NSpid:\t100\t0\n", "NSpid:\t200\t1\n", "NSpid:\n"):
@@ -157,7 +160,7 @@ class OllamaScopeTests(unittest.TestCase):
                 self.subTest(value=value),
                 self.assertRaisesRegex(ValueError, "namespace identity"),
             ):
-                collector.collect_ollama(self.group, "108", self.cpu, 100)
+                collector.collect_ollama(self.group, "108", self.cpu)
         (self.proc / "100/status").write_text("NSpid:\t100\t1\n")
         for start, rss in ((-1, 2), (50, -1)):
             self.process(100, "init", "lxc/108/ns/init.scope", 1, start=start, rss=rss)
@@ -165,19 +168,19 @@ class OllamaScopeTests(unittest.TestCase):
                 self.subTest(start=start, rss=rss),
                 self.assertRaisesRegex(ValueError, "Invalid process counters"),
             ):
-                collector.collect_ollama(self.group, "108", self.cpu, 100)
+                collector.collect_ollama(self.group, "108", self.cpu)
         (self.proc / "100/stat").write_text("200 (init) " + "0 " * 22)
         with self.assertRaisesRegex(ValueError, "Process identity changed"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
 
     def test_invalid_kernel_cgroup_path_and_service_member_are_unknown(self):
         (self.proc / "100/cgroup").write_text("0::/../lxc/108\n")
         with self.assertRaisesRegex(ValueError, "Invalid unified cgroup"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
         (self.proc / "100/cgroup").write_text("0::/lxc/108/ns/init.scope\n")
         (self.service / "cgroup.procs").write_text("110\n0\n")
         with self.assertRaisesRegex(ValueError, "Invalid service process ID"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
 
     def test_invalid_service_metadata_is_unknown(self):
         for value in (
@@ -191,19 +194,19 @@ class OllamaScopeTests(unittest.TestCase):
             with self.subTest(value=value[:30]):
                 self.systemctl.return_value = value
                 with self.assertRaises(ValueError):
-                    collector.collect_ollama(self.group, "108", self.cpu, 100)
+                    collector.collect_ollama(self.group, "108", self.cpu)
         self.cpu.assert_not_called()
 
     def test_service_query_failure_is_unknown(self):
         self.systemctl.side_effect = subprocess.TimeoutExpired("systemctl", 5)
         with self.assertRaises(subprocess.TimeoutExpired):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
         self.cpu.assert_not_called()
 
     def test_missing_worker_does_not_become_server_only_memory(self):
         (self.proc / "111/stat").unlink()
         with self.assertRaises(FileNotFoundError):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
         self.cpu.assert_not_called()
 
     def test_pid_reused_during_collection_invalidates_the_sample(self):
@@ -231,20 +234,20 @@ class OllamaScopeTests(unittest.TestCase):
             patch.object(collector, "service_members", side_effect=members),
         ):
             with self.assertRaisesRegex(ValueError, "identity changed"):
-                collector.collect_ollama(self.group, "108", self.cpu, 100)
+                collector.collect_ollama(self.group, "108", self.cpu)
         self.cpu.assert_not_called()
 
     def test_reused_pid_outside_service_is_excluded_and_sample_is_unknown(self):
         (self.proc / "111/cgroup").write_text("0::/lxc/108/ns/unrelated.service\n")
         with self.assertRaisesRegex(ValueError, "left Ollama service"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
 
     def test_changed_cgroup_membership_invalidates_sample(self):
         with patch.object(
             collector, "service_members", side_effect=[{110, 111}, {110}]
         ):
             with self.assertRaisesRegex(ValueError, "membership changed"):
-                collector.collect_ollama(self.group, "108", self.cpu, 100)
+                collector.collect_ollama(self.group, "108", self.cpu)
 
     def test_host_scan_stops_when_main_process_is_at_the_bound(self):
         for order in ((110,), (100, 110)):
@@ -259,7 +262,7 @@ class OllamaScopeTests(unittest.TestCase):
                 patch.object(collector, "MAX_HOST_PROCESSES", len(order)),
                 patch.object(Path, "glob", return_value=candidates()),
             ):
-                rows = collector.collect_ollama(self.group, "108", self.cpu, 100)
+                rows = collector.collect_ollama(self.group, "108", self.cpu)
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["memory_bytes"], 1400002 * 4096)
 
@@ -277,14 +280,27 @@ class OllamaScopeTests(unittest.TestCase):
                 ),
             ):
                 with self.assertRaisesRegex(ValueError, "Host process scan.*bound"):
-                    collector.collect_ollama(self.group, "108", self.cpu, 100)
+                    collector.collect_ollama(self.group, "108", self.cpu)
             self.cpu.assert_not_called()
 
     def test_service_collection_is_bounded(self):
         for bound in ("MAX_SERVICE_PROCESSES", "MAX_SERVICE_GROUPS"):
             with self.subTest(bound=bound), patch.object(collector, bound, 1):
                 with self.assertRaisesRegex(ValueError, "collection bound"):
-                    collector.collect_ollama(self.group, "108", self.cpu, 100)
+                    collector.collect_ollama(self.group, "108", self.cpu)
+        self.cpu.assert_not_called()
+
+    def test_service_group_bound_stops_before_remaining_children_are_read(self):
+        def children():
+            yield self.service / "worker"
+            self.fail("Service children were read after reaching the cgroup bound")
+
+        with (
+            patch.object(collector, "MAX_SERVICE_GROUPS", 1),
+            patch.object(Path, "iterdir", return_value=children()),
+        ):
+            with self.assertRaisesRegex(ValueError, "Service cgroup scan.*bound"):
+                collector.collect_ollama(self.group, "108", self.cpu)
         self.cpu.assert_not_called()
 
     def test_cpu_is_per_core_and_unknown_after_service_restart(self):
@@ -326,7 +342,7 @@ class OllamaScopeTests(unittest.TestCase):
         for value in ("", "usage_usec invalid", "usage_usec -1"):
             (self.service / "cpu.stat").write_text(value)
             with self.subTest(value=value), self.assertRaises((ValueError, KeyError)):
-                collector.collect_ollama(self.group, "108", self.cpu, 100)
+                collector.collect_ollama(self.group, "108", self.cpu)
 
     def test_bounded_kernel_reads_and_cgroup_symlinks_are_rejected(self):
         path = self.root / "oversized"
@@ -335,7 +351,7 @@ class OllamaScopeTests(unittest.TestCase):
             collector.kernel_text(path, 10)
         (self.service / "redirect").symlink_to(self.group)
         with self.assertRaisesRegex(ValueError, "symlink"):
-            collector.collect_ollama(self.group, "108", self.cpu, 100)
+            collector.collect_ollama(self.group, "108", self.cpu)
 
 
 if __name__ == "__main__":
