@@ -246,12 +246,42 @@ class OllamaScopeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "membership changed"):
                 collector.collect_ollama(self.group, "108", self.cpu, 100)
 
-    def test_collection_is_bounded(self):
-        for bound in (
-            "MAX_HOST_PROCESSES",
-            "MAX_SERVICE_PROCESSES",
-            "MAX_SERVICE_GROUPS",
-        ):
+    def test_host_scan_stops_when_main_process_is_at_the_bound(self):
+        for order in ((110,), (100, 110)):
+
+            def candidates():
+                for pid in order:
+                    yield self.proc / str(pid)
+                self.fail("Host scan continued after finding the service main process")
+
+            with (
+                self.subTest(order=order),
+                patch.object(collector, "MAX_HOST_PROCESSES", len(order)),
+                patch.object(Path, "glob", return_value=candidates()),
+            ):
+                rows = collector.collect_ollama(self.group, "108", self.cpu, 100)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["memory_bytes"], 1400002 * 4096)
+
+    def test_host_scan_rejects_main_process_beyond_the_bound(self):
+        # Kernel process enumeration has no guaranteed order. Place a real
+        # non-matching process before the main PID so the scan must overflow.
+        for first in (100, 111, 114):
+            with (
+                self.subTest(first=first),
+                patch.object(collector, "MAX_HOST_PROCESSES", 1),
+                patch.object(
+                    Path,
+                    "glob",
+                    return_value=iter((self.proc / str(first), self.proc / "110")),
+                ),
+            ):
+                with self.assertRaisesRegex(ValueError, "Host process scan.*bound"):
+                    collector.collect_ollama(self.group, "108", self.cpu, 100)
+            self.cpu.assert_not_called()
+
+    def test_service_collection_is_bounded(self):
+        for bound in ("MAX_SERVICE_PROCESSES", "MAX_SERVICE_GROUPS"):
             with self.subTest(bound=bound), patch.object(collector, bound, 1):
                 with self.assertRaisesRegex(ValueError, "collection bound"):
                     collector.collect_ollama(self.group, "108", self.cpu, 100)
