@@ -9,8 +9,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from frigate.fork.recording_integrity import RecordingIntegrity
 from frigate.record.maintainer import RecordingMaintainer, SegmentInfo
 from frigate.record.move_failures import MAX_MOVE_ATTEMPTS, MoveFailures
+
+
+async def _verified_output(_ffprobe, _path, duration, _expected_audio=None):
+    """Isolate retry behavior from the separately tested packet verifier."""
+    return RecordingIntegrity("ok", duration, "not_present", (0,), False)
 
 
 class TestMoveFailures(unittest.TestCase):
@@ -53,7 +59,7 @@ class TestMaintainerDropsFailingSegments(unittest.IsolatedAsyncioTestCase):
         self.cache.write_bytes(b"original footage")
         self.maintainer = RecordingMaintainer.__new__(RecordingMaintainer)
         self.maintainer.config = SimpleNamespace(
-            ffmpeg=SimpleNamespace(ffmpeg_path="ffmpeg")
+            ffmpeg=SimpleNamespace(ffmpeg_path="ffmpeg", ffprobe_path="ffprobe")
         )
         self.maintainer.end_time_cache = {}
         self.maintainer.move_failures = MoveFailures()
@@ -78,9 +84,15 @@ class TestMaintainerDropsFailingSegments(unittest.IsolatedAsyncioTestCase):
         async def process(*args, **kwargs):
             return await spawn(sys.executable, "-c", spawn_script, args[-1], **kwargs)
 
-        with patch(
-            "frigate.record.maintainer.asyncio.create_subprocess_exec",
-            side_effect=process,
+        with (
+            patch(
+                "frigate.record.maintainer.asyncio.create_subprocess_exec",
+                side_effect=process,
+            ),
+            patch(
+                "frigate.record.maintainer.probe_recording_integrity",
+                side_effect=_verified_output,
+            ),
         ):
             for attempt in range(1, MAX_MOVE_ATTEMPTS + 1):
                 self.assertIsNone(await self.move())

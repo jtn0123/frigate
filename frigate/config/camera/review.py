@@ -141,6 +141,14 @@ class GenAIReviewConfig(FrigateBaseModel):
         title="Review image source",
         description="Source of images sent to GenAI ('preview' or 'recordings'); 'recordings' uses higher quality frames but more tokens.",
     )
+    max_frames: int | None = Field(
+        default=None,
+        ge=2,
+        le=28,
+        strict=True,
+        title="Maximum review images",
+        description="Maximum images per review description (2 to 28). Unset preserves the context, duration, and frame-mode limits. Lower values reduce AI work and visual temporal detail while keeping the first and last available frames.",
+    )
     additional_concerns: list[str] = Field(
         default=[],
         title="Additional concerns",

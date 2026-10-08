@@ -31,6 +31,7 @@ from frigate.const import (
     STREAM_TYPE_MAIN,
     UPDATE_REVIEW_DESCRIPTION,
 )
+from frigate.data_processing.fork.review_frame_cap import limit_review_frames
 from frigate.data_processing.types import PostProcessDataEnum
 from frigate.genai import GenAIClient
 from frigate.genai.manager import GenAIClientManager
@@ -49,6 +50,11 @@ MIN_RECORDING_DURATION = 10
 MAX_IMAGE_TOKENS = 24000
 MAX_FRAMES_PER_SECOND = 1
 MAX_ANNOTATED_FRAMES = 28
+
+
+def _apply_frame_limit(frame_count: int, frame_limit: int | None) -> int:
+    """Apply an optional camera limit without increasing the existing budget."""
+    return min(frame_count, frame_limit) if frame_limit is not None else frame_count
 
 
 class ReviewDescriptionProcessor(PostProcessorApi):
@@ -89,11 +95,13 @@ class ReviewDescriptionProcessor(PostProcessorApi):
             and skips the start/end action
           - MAX_ANNOTATED_FRAMES in annotated mode, where the tracking notes
             already carry the sequence
+          - an optional per-camera maximum applied after those existing limits
         """
         client = self.genai_manager.description_client
+        frame_limit = self.config.cameras[camera].review.genai.max_frames
 
         if client is None:
-            return 3
+            return _apply_frame_limit(3, frame_limit)
 
         context_size = client.get_context_size()
         camera_config = self.config.cameras[camera]
@@ -138,7 +146,8 @@ class ReviewDescriptionProcessor(PostProcessorApi):
         if frame_mode == ReviewFrameModeEnum.annotated_frames:
             max_frames = min(max_frames, MAX_ANNOTATED_FRAMES)
 
-        return max(max_frames, 3)
+        frame_count = max(max_frames, 3)
+        return _apply_frame_limit(frame_count, frame_limit)
 
     def process_data(
         self, data: dict[str, Any], data_type: PostProcessDataEnum
@@ -429,6 +438,7 @@ class ReviewDescriptionProcessor(PostProcessorApi):
         frames: list[tuple[bytes, float]],
     ) -> None:
         """Kick off description generation for a review item in the background."""
+        frames = limit_review_frames(frames, camera_config.review.genai.max_frames)
         thumbs = [frame for frame, _ in frames]
         captions: list[str] = []
 

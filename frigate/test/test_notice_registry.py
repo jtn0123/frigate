@@ -22,6 +22,15 @@ TEST_KINDS = {kind.key: kind for kind in (BATCHED, PRUNED)}
 
 
 class TestNoticeKinds(unittest.TestCase):
+    def test_recording_integrity_notices_are_camera_scoped_warnings(self):
+        for key in ("recording_video_integrity", "recording_audio_integrity"):
+            with self.subTest(key=key):
+                kind = NOTICE_KINDS[key]
+                self.assertEqual(kind.category, "camera")
+                self.assertEqual(kind.severity, NoticeSeverity.warning)
+                self.assertTrue(kind.counts_repeats)
+                self.assertEqual(kind.link_for({}), "/system#health")
+
     def test_every_kind_is_keyed_by_its_own_key(self):
         for key, definition in NOTICE_KINDS.items():
             self.assertEqual(key, definition.key)

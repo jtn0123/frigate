@@ -5,11 +5,23 @@ import json
 import os
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 CGROUP = Path("/sys/fs/cgroup")
+MAX_HOST_PROCESSES = 8192
+MAX_SERVICE_PROCESSES = 4096
+MAX_SERVICE_GROUPS = 128
+
+
+def kernel_text(path: Path, maximum: int = 65536) -> str:
+    """Read a bounded kernel counter or process identity file."""
+    with path.open() as source:
+        text = source.read(maximum + 1)
+    if len(text) > maximum:
+        raise ValueError("Kernel measurement exceeds collection bound")
+    return text
 
 
 def values(path: Path) -> dict[str, int]:
@@ -87,41 +99,241 @@ def group_for(pid: int) -> Path:
     """Resolve the host-visible unified cgroup for a process."""
     entry = next(
         line[3:]
-        for line in Path(f"/proc/{pid}/cgroup").read_text().splitlines()
+        for line in kernel_text(Path(f"/proc/{pid}/cgroup"), 4096).splitlines()
         if line.startswith("0::")
     )
+    if not entry.startswith("/") or ".." in Path(entry).parts:
+        raise ValueError("Invalid unified cgroup path")
     return CGROUP / entry.lstrip("/")
 
 
-def collect_ollama(
-    group: Path, ct: str, cpu: Callable[[str, float], float | None], hz: int
-) -> list[dict[str, Any]]:
-    """Measure matching Ollama processes only within the requested cgroup."""
-    scopes: list[dict[str, Any]] = []
-    rss, seconds, found = 0, 0.0, False
-    for proc in Path("/proc").glob("[0-9]*"):
+def process_identity(pid: int) -> tuple[int, int]:
+    """Read start ticks and RSS without opening process arguments or environments."""
+    raw = kernel_text(Path(f"/proc/{pid}/stat"), 4096)
+    if raw.split(" ", 1)[0] != str(pid):
+        raise ValueError("Process identity changed")
+    fields = raw.rsplit(")", 1)[1].split()
+    start, pages = int(fields[19]), int(fields[21])
+    if start < 0 or pages < 0:
+        raise ValueError("Invalid process counters")
+    return start, pages * os.sysconf("SC_PAGE_SIZE")
+
+
+def namespace_pids(pid: int) -> list[int]:
+    """Read PID namespace identities in host-to-container order."""
+    line = next(
+        line
+        for line in kernel_text(Path(f"/proc/{pid}/status"), 16384).splitlines()
+        if line.startswith("NSpid:")
+    )
+    pids = [int(value) for value in line.split()[1:]]
+    if not pids or pids[0] != pid or any(value <= 0 for value in pids):
+        raise ValueError("Invalid process namespace identity")
+    return pids
+
+
+def service_main(
+    group: Path, control_group: Path, main_pid: int, depth: int
+) -> tuple[int, int, Path]:
+    """Resolve a CT service PID and cgroup to the host's namespace."""
+    service_parts = control_group.parts[1:]
+    for count, proc in enumerate(Path("/proc").glob("[0-9]*"), 1):
+        if count > MAX_HOST_PROCESSES:
+            raise ValueError("Host process scan exceeds collection bound")
         try:
-            if "ollama" not in (proc / "comm").read_text().lower():
+            pid = int(proc.name)
+            before, _ = process_identity(pid)
+            process_group = group_for(pid)
+            if group not in process_group.parents:
                 continue
-            process_group = group_for(int(proc.name))
-            if process_group != group and group not in process_group.parents:
+            service = next(
+                ancestor
+                for ancestor in (process_group, *process_group.parents)
+                if ancestor.parts[-len(service_parts) :] == service_parts
+                and group in ancestor.parents
+            )
+            pids = namespace_pids(pid)
+            if len(pids) != depth or pids[depth - 1] != main_pid:
                 continue
-            stat = (proc / "stat").read_text().rsplit(")", 1)[1].split()
-            rss += int(stat[21]) * os.sysconf("SC_PAGE_SIZE")
-            seconds += (int(stat[11]) + int(stat[12])) / hz
-            found = True
-        except (OSError, ValueError, StopIteration, IndexError):
+            after, _ = process_identity(pid)
+            if before != after or group_for(pid) != process_group:
+                raise ValueError("Service process identity changed")
+            return pid, before, service
+        except (FileNotFoundError, ProcessLookupError, PermissionError, StopIteration):
             continue
-    if found:
-        scopes.append(
-            {
-                "scope": "ollama",
-                "id": ct,
-                "memory_bytes": rss,
-                "cpu_percent": cpu("ollama:" + ct, seconds),
-            }
+    raise ValueError("Ollama service main process unavailable")
+
+
+def add_service_pids(group: Path, pids: set[int]) -> None:
+    """Add unique service PIDs without exceeding the shared collection bound."""
+    for value in kernel_text(group / "cgroup.procs").split():
+        pid = int(value)
+        if pid <= 0:
+            raise ValueError("Invalid service process ID")
+        pids.add(pid)
+        if len(pids) > MAX_SERVICE_PROCESSES:
+            raise ValueError("Service process count exceeds collection bound")
+
+
+def service_children(group: Path) -> Iterator[Path]:
+    """Yield child cgroups while rejecting redirected kernel paths."""
+    for child in group.iterdir():
+        if child.is_symlink():
+            raise ValueError("Unexpected service cgroup symlink")
+        if child.is_dir():
+            yield child
+
+
+def service_members(group: Path) -> set[int]:
+    """Collect unique host PIDs from a bounded service cgroup subtree."""
+    pending = [group]
+    seen: set[Path] = set()
+    pids: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        if len(seen) > MAX_SERVICE_GROUPS:
+            raise ValueError("Service cgroup scan exceeds collection bound")
+        add_service_pids(current, pids)
+        for child in service_children(current):
+            pending.append(child)
+            if len(pending) + len(seen) > MAX_SERVICE_GROUPS:
+                raise ValueError("Service cgroup scan exceeds collection bound")
+    return pids
+
+
+def ollama_service_identity(ct: str) -> tuple[int, Path] | None:
+    """Read and validate the container's active Ollama service properties."""
+    if not ct.isdecimal() or not 100 <= int(ct) <= 999999999:
+        raise ValueError("Container ID must be a positive Proxmox numeric ID")
+    raw = subprocess.check_output(
+        [
+            "pct",
+            "exec",
+            ct,
+            "--",
+            "systemctl",
+            "show",
+            "ollama.service",
+            "--property=ActiveState,MainPID,ControlGroup",
+        ],
+        text=True,
+        timeout=5,
+    )
+    if len(raw) > 4096:
+        raise ValueError("Service identity exceeds collection bound")
+    state = {
+        key: value
+        for key, value in (
+            line.split("=", 1) for line in raw.splitlines() if "=" in line
         )
-    return scopes
+    }
+    if state.get("ActiveState") in {"inactive", "failed"}:
+        return None
+    control_group = Path(state.get("ControlGroup", ""))
+    main_pid = int(state.get("MainPID", "0"))
+    if (
+        state.get("ActiveState") != "active"
+        or main_pid <= 0
+        or not control_group.is_absolute()
+        or control_group.name != "ollama.service"
+        or ".." in control_group.parts
+    ):
+        raise ValueError("Ollama service identity unavailable")
+    return main_pid, control_group
+
+
+def service_memory(
+    service: Path, members: set[int]
+) -> tuple[int, dict[int, tuple[int, Path]]]:
+    """Sum verified worker RSS and retain identities for a consistency recheck."""
+    rss = 0
+    identities = {}
+    for member in members:
+        identity, memory = process_identity(member)
+        member_group = group_for(member)
+        if member_group != service and service not in member_group.parents:
+            raise ValueError("Process left Ollama service cgroup")
+        identities[member] = identity, member_group
+        rss += memory
+    return rss, identities
+
+
+def collect_ollama(
+    group: Path, ct: str, cpu: Callable[[str, float], float | None]
+) -> list[dict[str, Any]]:
+    """Measure the verified Ollama service and workers, independent of their names."""
+    service_identity = ollama_service_identity(ct)
+    if service_identity is None:
+        return []
+    main_pid, control_group = service_identity
+    container_pid = init_pid(ct)
+    container_start, _ = process_identity(container_pid)
+    container_group = group_for(container_pid)
+    if container_group != group and group not in container_group.parents:
+        raise ValueError("Container process outside requested cgroup")
+    container_pids = namespace_pids(container_pid)
+    if container_pids[-1] != 1:
+        raise ValueError("Container init namespace identity unavailable")
+    pid, start, service = service_main(
+        group, control_group, main_pid, len(container_pids)
+    )
+    members = service_members(service)
+    if pid not in members:
+        raise ValueError("Ollama main process left service cgroup")
+    rss, identities = service_memory(service, members)
+    seconds = values(service / "cpu.stat")["usage_usec"] / 1000000
+    if seconds < 0:
+        raise ValueError("Invalid service CPU counter")
+    for member, (identity, member_group) in identities.items():
+        if process_identity(member)[0] != identity or group_for(member) != member_group:
+            raise ValueError("Ollama process identity changed during collection")
+    if (
+        process_identity(pid)[0] != start
+        or process_identity(container_pid)[0] != container_start
+    ):
+        raise ValueError("Service or container restarted during collection")
+    if service_members(service) != members:
+        raise ValueError("Ollama service membership changed during collection")
+    return [
+        {
+            "scope": "ollama",
+            "id": ct,
+            "memory_bytes": rss,
+            "cpu_percent": cpu(f"ollama:{ct}:{pid}:{start}", seconds),
+        }
+    ]
+
+
+def collect_container(
+    ct: str, cpu: Callable[[str, float], float | None]
+) -> tuple[Path, dict[str, Any]]:
+    """Measure one verified container cgroup and its effective limits."""
+    pid = init_pid(ct)
+    process_group = group_for(pid)
+    group = CGROUP / "lxc" / ct
+    if group != process_group and group not in process_group.parents:
+        raise ValueError("Container cgroup layout unavailable")
+    memory, cores = effective_limits(group)
+    disk = os.statvfs(f"/proc/{pid}/root")
+    row = {
+        "scope": "container",
+        "id": ct,
+        "memory_bytes": limit(group / "memory.current"),
+        "memory_limit_bytes": memory,
+        "cpu_limit": cores,
+        "swap_bytes": limit(group / "memory.swap.current"),
+        "swap_limit_bytes": limit(group / "memory.swap.max"),
+        "cpu_percent": cpu(ct, values(group / "cpu.stat")["usage_usec"] / 1000000),
+        "oom_kills": values(group / "memory.events").get("oom_kill"),
+        "disk_free_bytes": disk.f_bavail * disk.f_frsize,
+        "disk_total_bytes": disk.f_blocks * disk.f_frsize,
+    }
+    for kind in ("cpu", "memory", "io"):
+        row[kind + "_pressure"] = pressure(group / (kind + ".pressure"))
+    return group, row
 
 
 def sample(cts: list[str], previous: dict) -> dict:
@@ -166,34 +378,22 @@ def sample(cts: list[str], previous: dict) -> dict:
         disk_total_bytes=disk.f_blocks * disk.f_frsize,
     )
     scopes: list[dict[str, Any]] = [host]
+    incomplete = False
     for ct in cts:
         try:
-            pid = init_pid(ct)
-            process_group = group_for(pid)
-            group = CGROUP / "lxc" / ct
-            if group != process_group and group not in process_group.parents:
-                raise ValueError("Container cgroup layout unavailable")
-            memory, cores = effective_limits(group)
-            disk = os.statvfs(f"/proc/{pid}/root")
-            row = {
-                "scope": "container",
-                "id": ct,
-                "memory_bytes": limit(group / "memory.current"),
-                "memory_limit_bytes": memory,
-                "cpu_limit": cores,
-                "swap_bytes": limit(group / "memory.swap.current"),
-                "swap_limit_bytes": limit(group / "memory.swap.max"),
-                "cpu_percent": cpu(
-                    ct, values(group / "cpu.stat")["usage_usec"] / 1000000
-                ),
-                "oom_kills": values(group / "memory.events").get("oom_kill"),
-                "disk_free_bytes": disk.f_bavail * disk.f_frsize,
-                "disk_total_bytes": disk.f_blocks * disk.f_frsize,
-            }
-            for kind in ("cpu", "memory", "io"):
-                row[kind + "_pressure"] = pressure(group / (kind + ".pressure"))
+            group, row = collect_container(ct, cpu)
             scopes.append(row)
-            scopes.extend(collect_ollama(group, ct, cpu, hz))
+            try:
+                scopes.extend(collect_ollama(group, ct, cpu))
+            except (
+                OSError,
+                ValueError,
+                KeyError,
+                StopIteration,
+                IndexError,
+                subprocess.SubprocessError,
+            ):
+                incomplete = True
         except (
             OSError,
             ValueError,
@@ -208,7 +408,8 @@ def sample(cts: list[str], previous: dict) -> dict:
         "scopes": scopes,
         "counters": counters,
         "status": "connected"
-        if all(
+        if not incomplete
+        and all(
             any(row["scope"] == "container" and row["id"] == ct for row in scopes)
             for ct in cts
         )

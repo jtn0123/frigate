@@ -20,6 +20,7 @@ from frigate.const import (
     RECORD_DIR,
     THUMB_DIR,
 )
+from frigate.fork.recording_quarantine import walk_recording_tree
 from frigate.models import (
     Event,
     Export,
@@ -216,7 +217,7 @@ def sync_recordings(
             hour_check = f"{RECORD_DIR}/{check_point.strftime('%Y-%m-%d/%H')}"
             files_on_disk = {
                 os.path.join(root, file)
-                for root, _, files in os.walk(RECORD_DIR)
+                for root, _, files in walk_recording_tree(RECORD_DIR)
                 for file in files
                 if root > hour_check
             }
@@ -224,7 +225,7 @@ def sync_recordings(
             # get all recordings files on disk and put them in a set
             files_on_disk = {
                 os.path.join(root, file)
-                for root, _, files in os.walk(RECORD_DIR)
+                for root, _, files in walk_recording_tree(RECORD_DIR)
                 for file in files
             }
 

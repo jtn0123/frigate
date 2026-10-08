@@ -74,6 +74,18 @@ _KINDS = (
     NoticeKind(
         "detect_high_cpu", NoticeSeverity.warning, "camera", link=_SYSTEM_CAMERAS_LINK
     ),
+    NoticeKind(
+        "recording_video_integrity",
+        NoticeSeverity.warning,
+        "camera",
+        link="/system#health",
+    ),
+    NoticeKind(
+        "recording_audio_integrity",
+        NoticeSeverity.warning,
+        "camera",
+        link="/system#health",
+    ),
     NoticeKind("shm_too_low", NoticeSeverity.warning, "system", link="/system#storage"),
     # one row per user per burst; the login log lines carry the address
     NoticeKind(

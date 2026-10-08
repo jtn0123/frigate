@@ -267,6 +267,7 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         processor.config.model_for_camera.return_value.all_attributes = ["amazon"]
         camera = MagicMock()
         final_data = {"id": "r1", "camera": "front"}
+        camera.review.genai.max_frames = None
 
         with patch.object(review_descriptions.threading, "Thread") as thread:
             processor.start_analysis(camera, final_data, [(b"a", 100.0)])

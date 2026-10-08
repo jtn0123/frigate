@@ -6,10 +6,15 @@ source timestamps and gaps. Only admins can read this history or `/metrics`.
 Existing Prometheus scrapers must use an admin identity.
 
 For host and CT pressure, run `collect_proxmox.py` on the Proxmox host as root
-through a systemd timer or cron every minute. It uses local kernel files and
-`lxc-info`, opens no network listener and needs no Portainer or Proxmox API token.
+through a systemd timer or cron every minute. It uses local kernel files,
+`lxc-info`, and bounded container-local `systemctl show` calls for the Ollama
+service's state, PID and cgroup. It opens no network listener and needs no
+Portainer or Proxmox API token.
 It reads host/CT counters and writes a sanitized snapshot into Frigate CT 106's
 existing local model cache. Change the CT IDs and config path for other layouts.
+
+For an Ollama container managed without `ollama.service`, attribution remains
+unavailable rather than falling back to process-name matching.
 
 Example command (after copying this script to `/opt/frigate-monitoring/`):
 
@@ -44,8 +49,36 @@ systemctl start frigate-monitoring.service
 ```
 
 Stop collection with `systemctl disable --now frigate-monitoring.timer`.
-Ollama process readings appear as their own service scope. They are not allocated
-across individual models because doing so would invent per-model RAM/CPU figures.
+Ollama readings include verified service workers and nested worker cgroups,
+regardless of process names. RSS sums unique service PIDs and can include shared
+pages. CPU uses the service's inclusive cgroup counter, expressed per logical
+core; the first interval after a service restart is unknown. If identity,
+membership, access or bounded traversal fails, the Ollama measurement is omitted
+and the snapshot is partial. Other measured host/container rows remain available.
+These readings are not allocated across individual models because doing so
+would invent per-model RAM/CPU figures.
+
+## Review image limits
+
+`review.genai.max_frames` optionally limits images in each review description.
+It accepts an integer from 2 to 28, globally or per camera. An unset value keeps
+the existing context, duration and frame-mode limits. The cap applies after
+those budgets and again at the provider handoff, including manual regeneration.
+It never increases the number of available frames. Uniform sampling preserves
+the first and last available frames and their annotation timestamps.
+
+```yaml
+review:
+  genai:
+    max_frames: 6
+```
+
+Lower values reduce image work and temporal detail; they do not establish GPU
+latency or detection improvement without a comparable runtime measurement.
+Object descriptions, model selection, context size and camera recording
+settings are unchanged. The model-history Ollama request count represents
+recent completions over its existing overlapping observation window, not an
+active queue or simultaneous GPU jobs.
 
 ## Prometheus metric migration
 
@@ -162,6 +195,27 @@ interval has finished saving.
 Coverage uses registered segment timestamps. It does not decode footage or
 prove playback integrity. This native history requires no third-party scraper,
 uptime service, camera credentials, active camera probes or new network access.
+
+New saved segments are checked once with a bounded final-file packet probe,
+replacing the former cache keyframe probe. Verified video timing determines
+the registered duration. Video with corrupt or missing expected audio retains
+its verified video coverage and raises a camera-scoped audio notice. Uncertain
+video mapping is withheld from coverage and raises a video notice. Source
+probe failures still use the existing bounded cache discard behavior.
+
+Unverified remuxed outputs are preserved under
+`/media/frigate/recordings/.integrity/` for diagnosis, limited globally to 128
+files, 256 MiB and 24 hours, with periodic expiry. They are absent from normal
+playback and do not claim a recording interval. Probe work has a five-second
+time budget, four MiB output budget and bounded packet count. This checks packet
+timing, not complete decoding of every image or audio sample.
+
+Native camera notices coalesce repeated failures by video/audio category for
+five minutes. Sustained verified success starts a new episode; it does not
+repair or erase historical warnings. Notices remain available to acknowledge.
+Sub-stream success, stale observations and unknown probe results cannot clear
+a main-stream failure. No automatic camera restart or model change is applied
+by these checks, and existing recordings are not rescanned or relabeled.
 The existing host collectors remain useful for pressure and whole-server
 failures, which an application cannot observe while it is stopped.
 

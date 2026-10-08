@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from frigate.config import FrigateConfig
+from frigate.fork.recording_integrity import RecordingIntegrity
 from frigate.models import Recordings
 from frigate.record.maintainer import (
     RecordingMaintainer,
@@ -27,6 +28,17 @@ async def _successful_conversion(*args, **kwargs):
     """Write the temporary file that a successful ffmpeg conversion produces."""
     await asyncio.to_thread(Path(args[-1]).write_bytes, b"converted")
     return MagicMock(returncode=0, communicate=AsyncMock(return_value=(b"", b"")))
+
+
+async def _verified_output(_ffprobe, _path, duration, expected_audio=None):
+    """Keep conversion/path tests independent of packet-probe fixtures."""
+    return RecordingIntegrity(
+        "ok",
+        duration,
+        "ok" if expected_audio else "not_present",
+        (0,),
+        bool(expected_audio),
+    )
 
 
 def _build_chaining_maintainer(
@@ -86,10 +98,6 @@ async def _validate_segment(
     )
     with (
         patch("frigate.record.maintainer.get_video_properties", probe),
-        patch(
-            "frigate.record.maintainer.get_keyframe_offsets",
-            AsyncMock(return_value=[0]),
-        ),
         patch("frigate.record.maintainer.os.path.getmtime", getmtime),
     ):
         return await maintainer.validate_and_move_segment(
@@ -275,10 +283,6 @@ class TestSegmentAudioPresence(unittest.IsolatedAsyncioTestCase):
                 )
                 with (
                     patch("frigate.record.maintainer.get_video_properties", probe),
-                    patch(
-                        "frigate.record.maintainer.get_keyframe_offsets",
-                        AsyncMock(return_value=[0, 2000]),
-                    ),
                 ):
                     await maintainer.validate_and_move_segment(
                         "test_cam",
@@ -295,7 +299,8 @@ class TestSegmentAudioPresence(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(call_args[7], has_audio)
                 self.assertEqual(call_args[8], audio_rate)
                 self.assertEqual(call_args[9], audio_codec)
-                self.assertEqual(call_args[11], [0, 2000])
+                # Keyframes are now taken from the finalized MP4, not the cache.
+                self.assertIsNone(call_args[11])
                 self.assertEqual(call_args[10], video_codec)
                 # the probe result is cached alongside the end time so the
                 # cached path stays as informed as the probed path
@@ -335,6 +340,10 @@ class TestSegmentAudioPresence(unittest.IsolatedAsyncioTestCase):
                         patch(
                             "frigate.record.maintainer.asyncio.create_subprocess_exec",
                             AsyncMock(side_effect=_successful_conversion),
+                        ),
+                        patch(
+                            "frigate.record.maintainer.probe_recording_integrity",
+                            side_effect=_verified_output,
                         ),
                     ):
                         result = await maintainer.move_segment(
@@ -422,6 +431,10 @@ class TestSegmentPathTime(unittest.IsolatedAsyncioTestCase):
                     patch(
                         "frigate.record.maintainer.asyncio.create_subprocess_exec",
                         AsyncMock(side_effect=_successful_conversion),
+                    ),
+                    patch(
+                        "frigate.record.maintainer.probe_recording_integrity",
+                        side_effect=_verified_output,
                     ),
                 ):
                     result = await maintainer.move_segment(
@@ -693,10 +706,6 @@ class TestSegmentChainOrder(unittest.IsolatedAsyncioTestCase):
             patch("frigate.record.maintainer.os.path.isfile", return_value=True),
             patch("frigate.record.maintainer.get_video_properties", probe),
             patch(
-                "frigate.record.maintainer.get_keyframe_offsets",
-                AsyncMock(return_value=[0]),
-            ),
-            patch(
                 "frigate.record.maintainer.os.path.getmtime",
                 MagicMock(side_effect=OSError("missing")),
             ),
@@ -744,10 +753,6 @@ class TestSegmentChainOrder(unittest.IsolatedAsyncioTestCase):
             patch(
                 "frigate.record.maintainer.get_video_properties",
                 AsyncMock(return_value={"has_valid_video": True, "duration": 10.4}),
-            ),
-            patch(
-                "frigate.record.maintainer.get_keyframe_offsets",
-                AsyncMock(return_value=[0]),
             ),
             patch(
                 "frigate.record.maintainer.os.path.getmtime",

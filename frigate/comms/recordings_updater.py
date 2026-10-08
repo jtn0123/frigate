@@ -15,12 +15,15 @@ class RecordingsDataTypeEnum(str, Enum):
     latest = "latest"  # segment is in cache
     valid = "valid"  # segment is valid
     invalid = "invalid"  # segment is invalid
+    integrity = "integrity"  # final saved-media verification
 
 
 class RecordingsDataPublisher(Publisher[Any]):
     """Publishes latest recording data.
 
-    Payloads are (camera, stream_type, timestamp, cache_path) on every topic.
+    Payloads are (camera, stream_type, timestamp, cache_path), except integrity:
+    (camera, stream_type, observed_at, details). Integrity details contain finite
+    reason/audio status values, video/source seconds or None, and quarantined.
     """
 
     topic_base = "recordings/"

@@ -2,13 +2,15 @@
 
 import asyncio
 import datetime
+import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from frigate.fork.recording_integrity import RecordingIntegrity
 from frigate.record.maintainer import RecordingMaintainer, SegmentInfo
 from frigate.record.move_failures import MoveFailures
 
@@ -22,22 +24,38 @@ class TestRecordingWriteSafety(unittest.IsolatedAsyncioTestCase):
         self.cache.write_bytes(b"original footage")
         self.maintainer = RecordingMaintainer.__new__(RecordingMaintainer)
         self.maintainer.config = SimpleNamespace(
-            ffmpeg=SimpleNamespace(ffmpeg_path="ffmpeg")
+            ffmpeg=SimpleNamespace(ffmpeg_path="ffmpeg", ffprobe_path="ffprobe")
         )
         self.maintainer.end_time_cache = {}
         self.maintainer.move_failures = MoveFailures()
+        self.maintainer.recordings_publisher = MagicMock()
         self.start = datetime.datetime(2026, 9, 13, tzinfo=datetime.UTC)
         self.end = self.start + datetime.timedelta(seconds=10)
+        self.duration = 10
         self.info = SegmentInfo(0, 0, 0, 0)
         self.record_dir = self.root / "recordings"
         self.final = self.record_dir / "2026-09-13/00/front/00.00.mp4"
         patcher = patch("frigate.record.maintainer.RECORD_DIR", str(self.record_dir))
         patcher.start()
         self.addCleanup(patcher.stop)
+        self.probe_patcher = patch(
+            "frigate.record.maintainer.probe_recording_integrity",
+            AsyncMock(
+                return_value=RecordingIntegrity("ok", 10, "not_present", (0,), False)
+            ),
+        )
+        self.probe_patcher.start()
+        self.addCleanup(self.probe_patcher.stop)
 
     async def move(self):
         return await self.maintainer.move_segment(
-            "front", "main", self.start, self.end, 10, str(self.cache), self.info
+            "front",
+            "main",
+            self.start,
+            self.end,
+            self.duration,
+            str(self.cache),
+            self.info,
         )
 
     async def test_process_start_failure_preserves_original_for_retry(self):
@@ -134,7 +152,15 @@ class TestRecordingWriteSafety(unittest.IsolatedAsyncioTestCase):
 
     async def test_real_ffmpeg_publishes_playable_recording(self):
         ffmpeg = "/usr/lib/ffmpeg/8.0/bin/ffmpeg"
+        if not Path(ffmpeg).is_file():
+            ffmpeg = shutil.which("ffmpeg") or ffmpeg
+        self.probe_patcher.stop()
         self.maintainer.config.ffmpeg.ffmpeg_path = ffmpeg
+        self.maintainer.config.ffmpeg.ffprobe_path = str(
+            Path(ffmpeg).with_name("ffprobe")
+        )
+        self.duration = 1
+        self.end = self.start + datetime.timedelta(seconds=1)
         process = await asyncio.create_subprocess_exec(
             ffmpeg,
             "-y",

@@ -9,9 +9,17 @@ from multiprocessing.synchronize import Event as MpEvent
 from typing import Any
 
 from frigate.comms.inter_process import InterProcessRequestor
+from frigate.comms.recordings_updater import (
+    RecordingsDataSubscriber,
+    RecordingsDataTypeEnum,
+)
 from frigate.config import FrigateConfig
 from frigate.const import FREQUENCY_STATS_POINTS
 from frigate.fork.recording_health import RecordingHealth
+from frigate.fork.recording_integrity_status import (
+    MAX_EVENTS_PER_TICK,
+    RecordingIntegrityStatus,
+)
 from frigate.fork.updates import get_checker
 from frigate.notices import flush_notices, raise_notice, resolve_kind, resolve_notice
 from frigate.stats.camera_history import CameraHistory
@@ -111,6 +119,8 @@ class StatsEmitter(threading.Thread):
         # fork (UI131): seven days of per-camera buckets behind the Health tab
         self.camera_history = CameraHistory()
         self.recording_health = RecordingHealth(config, stop_event)
+        self.recording_integrity_status = RecordingIntegrityStatus(raise_notice)
+        self.recording_integrity_subscriber: RecordingsDataSubscriber | None = None
         self.skipped_detections = EpisodeTracker(SKIPPED_DETECTIONS_PCT)
         self.ffmpeg_cpu = EpisodeTracker(FFMPEG_HIGH_CPU_PCT)
         self.detect_cpu = EpisodeTracker(DETECT_HIGH_CPU_PCT)
@@ -263,6 +273,7 @@ class StatsEmitter(threading.Thread):
 
     def _update_notices(self, stats: dict[str, Any], now: float) -> None:
         """Update notices based on current stats or time."""
+        self._update_recording_integrity(now)
         cameras = stats["cameras"]
 
         # absent when CPU collection timed out or failed on this tick
@@ -313,7 +324,25 @@ class StatsEmitter(threading.Thread):
 
         # add any additional notice types here
 
+    def _update_recording_integrity(self, now: float) -> None:
+        """Drain bounded, nonblocking media observations into native notices."""
+        subscriber = getattr(self, "recording_integrity_subscriber", None)
+        if subscriber is None:
+            return
+        for _ in range(MAX_EVENTS_PER_TICK):
+            topic, payload = subscriber.check_for_update(timeout=0)
+            if topic is None:
+                break
+            if topic == "recordings/integrity":
+                self.recording_integrity_status.update(
+                    payload, now, self.config.cameras
+                )
+
     def run(self) -> None:
+        # Create and use the ZMQ subscriber on its owning thread.
+        self.recording_integrity_subscriber = RecordingsDataSubscriber(
+            RecordingsDataTypeEnum.integrity
+        )
         self.recording_health.start()
         time.sleep(10)
         # on a thread, as the fork checker may ask GitHub
@@ -348,6 +377,7 @@ class StatsEmitter(threading.Thread):
 
         self.camera_history.flush()  # fork (UI131)
         self.recording_health.join(timeout=5)
+        self.recording_integrity_subscriber.stop()
         # write the repeats held back since the last tick
         flush_notices()
         self.hardware_stats.stop()
