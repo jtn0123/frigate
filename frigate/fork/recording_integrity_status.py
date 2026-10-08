@@ -35,6 +35,53 @@ class Episode:
     healthy_since: float | None = None
 
 
+def _parse_observation(
+    payload: Any, now: float, allowed: Collection[str]
+) -> tuple[str, float, str, dict[str, Any]] | None:
+    """Validate internal input before it can update a camera's episode."""
+    if not isinstance(payload, (tuple, list)) or len(payload) != 4:
+        return None
+    camera, stream, observed_at, detail = payload
+    if not isinstance(camera, str) or camera not in allowed or stream != "main":
+        return None
+    if (
+        isinstance(observed_at, bool)
+        or not isinstance(observed_at, (int, float))
+        or not math.isfinite(now)
+        or not now - MAX_EVENT_AGE <= observed_at <= now
+        or not isinstance(detail, dict)
+    ):
+        return None
+    reason = detail.get("reason")
+    if not isinstance(reason, str) or reason not in FAILURE_REASONS | {"ok"}:
+        return None
+    return camera, observed_at, reason, detail
+
+
+def _record_verified_recovery(
+    episode: Episode, detail: dict[str, Any], elapsed: float, gap: float
+) -> None:
+    """Clear repeat suppression only after uninterrupted verified media."""
+    audio_status = detail.get("audio_status")
+    video_seconds = detail.get("video_seconds")
+    if (
+        not isinstance(audio_status, str)
+        or audio_status not in {"ok", "not_present"}
+        or detail.get("quarantined") is not False
+        or isinstance(video_seconds, bool)
+        or not isinstance(video_seconds, (int, float))
+        or not 0 < video_seconds <= 600
+    ):
+        episode.healthy_since = None
+        return
+    if gap > RECOVERY_SECONDS:
+        episode.healthy_since = None
+    if episode.healthy_since is None:
+        episode.healthy_since = elapsed
+    elif elapsed - episode.healthy_since >= RECOVERY_SECONDS:
+        episode.emitted.clear()
+
+
 class RecordingIntegrityStatus:
     """Coalesce failures without treating recovery as repair of old footage.
 
@@ -60,22 +107,10 @@ class RecordingIntegrityStatus:
         self._episodes = {
             name: episode for name, episode in self._episodes.items() if name in allowed
         }
-        if not isinstance(payload, (tuple, list)) or len(payload) != 4:
+        observation = _parse_observation(payload, now, allowed)
+        if observation is None:
             return
-        camera, stream, observed_at, detail = payload
-        if not isinstance(camera, str) or camera not in allowed or stream != "main":
-            return
-        if (
-            isinstance(observed_at, bool)
-            or not isinstance(observed_at, (int, float))
-            or not math.isfinite(now)
-            or not now - MAX_EVENT_AGE <= observed_at <= now
-            or not isinstance(detail, dict)
-        ):
-            return
-        reason = detail.get("reason")
-        if not isinstance(reason, str) or reason not in FAILURE_REASONS | {"ok"}:
-            return
+        camera, observed_at, reason, detail = observation
         previous = self._episodes.get(camera)
         if previous is not None:
             if previous.observed_at > now:
@@ -89,24 +124,7 @@ class RecordingIntegrityStatus:
         gap = observed_at - episode.observed_at
         episode.observed_at = observed_at
         if reason == "ok":
-            audio_status = detail.get("audio_status")
-            video_seconds = detail.get("video_seconds")
-            if (
-                not isinstance(audio_status, str)
-                or audio_status not in {"ok", "not_present"}
-                or detail.get("quarantined") is not False
-                or isinstance(video_seconds, bool)
-                or not isinstance(video_seconds, (int, float))
-                or not 0 < video_seconds <= 600
-            ):
-                episode.healthy_since = None
-                return
-            if gap > RECOVERY_SECONDS:
-                episode.healthy_since = None
-            if episode.healthy_since is None:
-                episode.healthy_since = elapsed
-            elif elapsed - episode.healthy_since >= RECOVERY_SECONDS:
-                episode.emitted.clear()
+            _record_verified_recovery(episode, detail, elapsed, gap)
             return
         episode.healthy_since = None
         kind = (

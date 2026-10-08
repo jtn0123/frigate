@@ -66,6 +66,7 @@ class TestRecordingIntegrityStatus(unittest.TestCase):
             {"audio_status": []},
             {"video_seconds": None},
             {"video_seconds": float("inf")},
+            {"video_seconds": float("nan")},
             {"video_seconds": 10**1000},
             {"video_seconds": True},
             {"quarantined": True},
@@ -142,12 +143,16 @@ class TestRecordingIntegrityStatus(unittest.TestCase):
             None,
             ("side", "main", 1000),
             ("other", "main", 1000, {"reason": "video_timing"}),
+            ([], "main", 1000, {"reason": "video_timing"}),
             ("side", "main", True, {"reason": "video_timing"}),
             ("side", "main", float("nan"), {"reason": "video_timing"}),
+            ("side", "main", float("inf"), {"reason": "video_timing"}),
             ("side", "main", 10**1000, {"reason": "video_timing"}),
             ("side", "main", 1001, {"reason": "video_timing"}),
             ("side", "main", 879, {"reason": "video_timing"}),
             ("side", "main", 1000, {"reason": "secret-or-path"}),
+            ("side", "main", 1000, {"reason": []}),
+            ("side", "main", 1000, []),
         ):
             self.status.update(payload, 1000, ["side"])
         self.raise_notice.assert_not_called()

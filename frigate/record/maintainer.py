@@ -40,6 +40,7 @@ from frigate.const import (
     SUB_CACHE_TAG,
 )
 from frigate.fork.recording_integrity import (
+    MAX_VIDEO_SECONDS,
     RecordingIntegrity,
     finite_number,
     probe_recording_integrity,
@@ -1074,6 +1075,12 @@ class RecordingMaintainer(threading.Thread):
         video_codec: str | None = None,
         keyframes: list[int] | None = None,
     ) -> dict[str, Any] | None:
+        """Finalize cached media using metadata verified from the saved output.
+
+        Cache-derived end_time and keyframes remain compatibility inputs for
+        existing callers. Final verification supplies the saved interval and
+        keyframe offsets instead of trusting those preliminary values.
+        """
         path_time = segment_path_time(cache_path) or start_time
 
         # directory will be in utc due to path_time being in utc
@@ -1144,11 +1151,17 @@ class RecordingMaintainer(threading.Thread):
                     self.drop_segment(cache_path)
                     return None
                 source_duration = duration
-                assert integrity.video_seconds is not None
-                duration = integrity.video_seconds
+                verified_duration = finite_number(integrity.video_seconds)
+                if (
+                    verified_duration is None
+                    or not 0 < verified_duration < MAX_VIDEO_SECONDS
+                ):
+                    raise ValueError("Invalid verified recording duration")
                 start_time += datetime.timedelta(seconds=integrity.video_start)
-                end_time = start_time + datetime.timedelta(seconds=duration)
-                keyframes = list(integrity.keyframes)
+                verified_end_time = start_time + datetime.timedelta(
+                    seconds=verified_duration
+                )
+                verified_keyframes = list(integrity.keyframes)
                 has_audio = integrity.audio_present
                 if not has_audio:
                     audio_rate = None
@@ -1189,8 +1202,8 @@ class RecordingMaintainer(threading.Thread):
                     Recordings.stream_type.name: stream_type,
                     Recordings.path.name: file_path,
                     Recordings.start_time.name: start_time.timestamp(),
-                    Recordings.end_time.name: end_time.timestamp(),
-                    Recordings.duration.name: duration,
+                    Recordings.end_time.name: verified_end_time.timestamp(),
+                    Recordings.duration.name: verified_duration,
                     Recordings.motion.name: segment_info.motion_count,
                     # TODO: update this to store list of active objects at some point
                     Recordings.objects.name: segment_info.active_object_count,
@@ -1202,7 +1215,7 @@ class RecordingMaintainer(threading.Thread):
                     Recordings.audio_rate.name: audio_rate,
                     Recordings.audio_codec.name: audio_codec,
                     Recordings.video_codec.name: video_codec,
-                    Recordings.keyframes.name: keyframes,
+                    Recordings.keyframes.name: verified_keyframes,
                 }
         except Exception:
             logger.error(f"Unable to store recording segment {cache_path}")

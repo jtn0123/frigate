@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from playhouse.sqlite_ext import SqliteExtDatabase
 from zmq import ENOTSOCK, ZMQError
 
+from frigate.fork.recording_integrity import MAX_VIDEO_SECONDS, RecordingIntegrity
 from frigate.models import Recordings
 from frigate.record.maintainer import RecordingMaintainer, SegmentInfo
 from frigate.record.move_failures import MoveFailures
@@ -103,7 +104,7 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
         Path(args[-1]).write_bytes(b"complete saved video")
         return ProbeProcess()
 
-    async def save_and_register(self, source_duration):
+    async def save_and_register(self, source_duration, **metadata):
         with patch("asyncio.create_subprocess_exec", side_effect=self.spawn):
             row = await self.maintainer.move_segment(
                 "front",
@@ -113,6 +114,7 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                 source_duration,
                 str(self.cache),
                 SegmentInfo(0, 0, 0, 0),
+                **metadata,
             )
         if row is not None:
             Recordings.create(**row)
@@ -133,11 +135,49 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
 
     async def test_normal_audio_padding_uses_verified_video_span(self):
         self.probe = media_probe(10)
-        await self.save_and_register(10.112)
+        self.probe["packets"][125]["flags"] = "K_"
+        cache_keyframes = [123, 456]
+        await self.save_and_register(10.112, keyframes=cache_keyframes)
         row = Recordings.get()
         self.assertAlmostEqual(row.duration, 10)
         self.assertAlmostEqual(row.end_time - row.start_time, 10)
-        self.assertEqual(row.keyframes, [0])
+        self.assertEqual(row.keyframes, [0, 5000])
+        self.assertEqual(cache_keyframes, [123, 456])
+
+    async def test_malformed_verified_duration_keeps_source_for_retry(self):
+        for duration in (
+            None,
+            0,
+            -1,
+            float("nan"),
+            float("inf"),
+            True,
+            MAX_VIDEO_SECONDS,
+            MAX_VIDEO_SECONDS + 1,
+        ):
+            with self.subTest(duration=duration):
+                Recordings.delete().execute()
+                self.maintainer.move_failures = MoveFailures()
+                self.maintainer.recordings_publisher.publish.reset_mock()
+                for saved in self.recordings.rglob("*.mp4"):
+                    saved.unlink()
+                self.cache.write_bytes(b"preserved original video")
+                result = RecordingIntegrity("ok", duration, "not_present", (), False)
+                with (
+                    patch.object(
+                        self.maintainer,
+                        "_verify_recording",
+                        AsyncMock(return_value=result),
+                    ),
+                    patch("frigate.record.maintainer.logger"),
+                ):
+                    row = await self.save_and_register(10)
+                self.assertIsNone(row)
+                self.assertEqual(Recordings.select().count(), 0)
+                self.assertEqual(self.cache.read_bytes(), b"preserved original video")
+                self.assertFalse(list(self.recordings.rglob("*.mp4")))
+                self.assertFalse(list(self.recordings.rglob("*.tmp")))
+                self.maintainer.recordings_publisher.publish.assert_not_called()
 
     async def test_positive_video_offset_does_not_claim_the_leading_gap(self):
         self.probe = media_probe(0.48)
