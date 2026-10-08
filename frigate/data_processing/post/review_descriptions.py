@@ -52,6 +52,11 @@ MAX_FRAMES_PER_SECOND = 1
 MAX_ANNOTATED_FRAMES = 28
 
 
+def _apply_frame_limit(frame_count: int, frame_limit: int | None) -> int:
+    """Apply an optional camera limit without increasing the existing budget."""
+    return min(frame_count, frame_limit) if frame_limit is not None else frame_count
+
+
 class ReviewDescriptionProcessor(PostProcessorApi):
     def __init__(
         self,
@@ -96,7 +101,7 @@ class ReviewDescriptionProcessor(PostProcessorApi):
         frame_limit = self.config.cameras[camera].review.genai.max_frames
 
         if client is None:
-            return min(3, frame_limit) if frame_limit is not None else 3
+            return _apply_frame_limit(3, frame_limit)
 
         context_size = client.get_context_size()
         camera_config = self.config.cameras[camera]
@@ -142,7 +147,7 @@ class ReviewDescriptionProcessor(PostProcessorApi):
             max_frames = min(max_frames, MAX_ANNOTATED_FRAMES)
 
         frame_count = max(max_frames, 3)
-        return min(frame_count, frame_limit) if frame_limit is not None else frame_count
+        return _apply_frame_limit(frame_count, frame_limit)
 
     def process_data(
         self, data: dict[str, Any], data_type: PostProcessDataEnum

@@ -188,6 +188,23 @@ class TestReviewFrameCap(unittest.TestCase):
         self.assertIs(args[4], self.data)
         self.assertEqual(self.client.get_context_size.call_count, 0)
 
+    def test_provider_handoff_preserves_frames_within_limit_in_both_modes(self):
+        for mode in ReviewFrameModeEnum:
+            self.genai.frame_mode = mode
+            for cap in (None, 6):
+                self.set_cap(cap)
+                for count in (0, 1, 6):
+                    with self.subTest(mode=mode, cap=cap, count=count):
+                        frames = self.frames[:count]
+                        with patch.object(
+                            module, "build_frame_captions", return_value=[]
+                        ):
+                            self.dispatch(frames)
+                        self.assertEqual(
+                            self.client.generate_review_description.call_args.args[1],
+                            [frame for frame, _ in frames],
+                        )
+
     def test_annotated_timestamps_match_the_capped_provider_frames(self):
         self.set_cap(6)
         self.genai.frame_mode = ReviewFrameModeEnum.annotated_frames
