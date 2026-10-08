@@ -72,7 +72,9 @@ class TestRecordingIntegrityStatus(unittest.TestCase):
         ):
             with self.subTest(field=next(iter(detail))):
                 self.raise_notice.reset_mock()
-                self.status = RecordingIntegrityStatus(self.raise_notice)
+                self.status = RecordingIntegrityStatus(
+                    self.raise_notice, elapsed_clock=lambda: self.clock_now
+                )
                 self.observe("video_timing")
                 for at in range(1010, 1081, 10):
                     self.observe("ok", at, **detail)
