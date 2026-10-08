@@ -30,7 +30,9 @@ async def _successful_conversion(*args, **kwargs):
     return MagicMock(returncode=0, communicate=AsyncMock(return_value=(b"", b"")))
 
 
-async def _verified_output(_ffprobe, _path, duration, expected_audio=None):
+async def _verified_output(
+    _ffprobe, _path, duration, expected_audio=None, *, ffmpeg=None
+):
     """Keep conversion/path tests independent of packet-probe fixtures."""
     return RecordingIntegrity(
         "ok",

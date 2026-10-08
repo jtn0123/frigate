@@ -3,6 +3,7 @@
 import asyncio
 import datetime
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -178,6 +179,152 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(list(self.recordings.rglob("*.mp4")))
                 self.assertFalse(list(self.recordings.rglob("*.tmp")))
                 self.maintainer.recordings_publisher.publish.assert_not_called()
+
+    async def test_real_segmented_aac_startup_recording_keeps_video_and_seek_origin(
+        self,
+    ):
+        ffmpeg = Path("/usr/lib/ffmpeg/8.0/bin/ffmpeg")
+        if not ffmpeg.is_file():
+            ffmpeg = Path(shutil.which("ffmpeg") or str(ffmpeg))
+        self.maintainer.config.ffmpeg.ffmpeg_path = str(ffmpeg)
+        self.maintainer.config.ffmpeg.ffprobe_path = str(ffmpeg.with_name("ffprobe"))
+
+        async def run(*args):
+            process = await asyncio.create_subprocess_exec(
+                *map(str, args),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            output, errors = await asyncio.wait_for(process.communicate(), 15)
+            self.assertEqual(process.returncode, 0, errors)
+            return output
+
+        for rate in (16000, 48000):
+            with self.subTest(sample_rate=rate):
+                source = self.root / f"source-{rate}.mp4"
+                await run(
+                    ffmpeg,
+                    "-v",
+                    "error",
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=size=160x120:rate=25",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    f"sine=frequency=440:sample_rate={rate}",
+                    "-t",
+                    "21",
+                    "-c:v",
+                    "libx264",
+                    "-g",
+                    "250",
+                    "-c:a",
+                    "aac",
+                    source,
+                )
+                await run(
+                    ffmpeg,
+                    "-v",
+                    "error",
+                    "-y",
+                    "-i",
+                    source,
+                    "-f",
+                    "segment",
+                    "-segment_time",
+                    "10",
+                    "-segment_format",
+                    "mp4",
+                    "-reset_timestamps",
+                    "1",
+                    "-c",
+                    "copy",
+                    self.root / f"cache-{rate}-%02d.mp4",
+                )
+                cache = self.root / f"cache-{rate}-00.mp4"
+                source_probe = json.loads(
+                    await run(
+                        ffmpeg.with_name("ffprobe"),
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "json",
+                        cache,
+                    )
+                )
+                duration = float(source_probe["format"]["duration"])
+                original_video_hash = await run(
+                    ffmpeg,
+                    "-v",
+                    "error",
+                    "-i",
+                    cache,
+                    "-map",
+                    "0:v:0",
+                    "-c",
+                    "copy",
+                    "-f",
+                    "hash",
+                    "-",
+                )
+                row = await self.maintainer.move_segment(
+                    f"front{rate}",
+                    "main",
+                    self.start,
+                    self.start + datetime.timedelta(seconds=duration),
+                    duration,
+                    str(cache),
+                    SegmentInfo(0, 0, 0, 0),
+                    has_audio=True,
+                )
+                self.assertIsNotNone(row, "Valid startup footage was quarantined")
+                Recordings.insert(row).execute()
+                saved = Recordings.get(Recordings.camera == f"front{rate}")
+                self.assertAlmostEqual(saved.duration, 10)
+                self.assertGreater(saved.start_time, self.start.timestamp())
+                self.assertLess(saved.start_time - self.start.timestamp(), 0.1)
+                self.assertAlmostEqual(saved.end_time - saved.start_time, 10)
+                self.assertEqual(saved.keyframes, [0])
+                self.assertTrue(saved.has_audio)
+                self.assertFalse(cache.exists())
+                self.assertFalse(list(self.recordings.rglob("*.tmp")))
+                output = json.loads(
+                    await run(
+                        ffmpeg.with_name("ffprobe"),
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "format=start_time:stream=codec_type,start_time,duration,nb_frames",
+                        "-of",
+                        "json",
+                        saved.path,
+                    )
+                )
+                video = next(s for s in output["streams"] if s["codec_type"] == "video")
+                self.assertAlmostEqual(float(output["format"]["start_time"]), 0)
+                self.assertAlmostEqual(float(video["start_time"]), 0)
+                self.assertEqual(int(video["nb_frames"]), 250)
+                saved_video_hash = await run(
+                    ffmpeg,
+                    "-v",
+                    "error",
+                    "-i",
+                    saved.path,
+                    "-map",
+                    "0:v:0",
+                    "-c",
+                    "copy",
+                    "-f",
+                    "hash",
+                    "-",
+                )
+                self.assertEqual(saved_video_hash, original_video_hash)
+                await run(ffmpeg, "-v", "error", "-i", saved.path, "-f", "null", "-")
 
     async def test_positive_video_offset_does_not_claim_the_leading_gap(self):
         self.probe = media_probe(0.48)

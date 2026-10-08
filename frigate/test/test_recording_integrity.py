@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from frigate.fork.recording_integrity import (
     INTEGRITY_REASONS,
@@ -270,6 +270,71 @@ class TestBoundedRecordingProbe(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.reason, "ok")
         self.assertAlmostEqual(result.video_seconds, 1)
         self.assertTrue(result.audio_present)
+
+    async def test_origin_normalization_preserves_original_on_failed_or_changed_output(
+        self,
+    ):
+        original = media_probe(0.48, 0)
+        for packet in original["packets"]:
+            if packet["stream_index"] == 0:
+                packet["pts_time"] = str(float(packet["pts_time"]) + 0.064)
+                packet["dts_time"] = str(float(packet["dts_time"]) + 0.064)
+        shorter = media_probe(0.44)
+        lost_keyframe = media_probe(0.48)
+        lost_keyframe["packets"][0]["flags"] = "__"
+        for exit_code, output in (
+            (1, None),
+            (0, shorter),
+            (0, lost_keyframe),
+            (0, original),
+        ):
+            with self.subTest(exit_code=exit_code, output=output):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "saved.mp4.tmp"
+                    path.write_bytes(b"original footage")
+                    calls = 0
+
+                    async def spawn(*args, **kwargs):
+                        nonlocal calls
+                        calls += 1
+                        if calls == 1:
+                            return ProbeProcess(json.dumps(original).encode())
+                        if calls == 2:
+                            Path(args[-1]).write_bytes(b"uncertain remux")
+                            return ProbeProcess(returncode=exit_code)
+                        return ProbeProcess(json.dumps(output).encode())
+
+                    with patch("asyncio.create_subprocess_exec", side_effect=spawn):
+                        result = await probe_recording_integrity(
+                            "ffprobe", str(path), 0.544, ffmpeg="ffmpeg"
+                        )
+                    self.assertFalse(result.video_verified)
+                    self.assertEqual(path.read_bytes(), b"original footage")
+                    self.assertFalse(Path(f"{path}.normalized.tmp").exists())
+
+    async def test_origin_normalization_timeout_kills_process_and_keeps_original(self):
+        original = media_probe(0.48)
+        for packet in original["packets"]:
+            packet["pts_time"] = str(float(packet["pts_time"]) + 0.064)
+            packet["dts_time"] = str(float(packet["dts_time"]) + 0.064)
+        process = ProbeProcess(returncode=None)
+        process.wait = AsyncMock(side_effect=[TimeoutError, 0])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "saved.mp4.tmp"
+            path.write_bytes(b"original footage")
+            with patch(
+                "asyncio.create_subprocess_exec",
+                side_effect=[
+                    ProbeProcess(json.dumps(original).encode()),
+                    process,
+                ],
+            ):
+                result = await probe_recording_integrity(
+                    "ffprobe", str(path), 0.544, ffmpeg="ffmpeg"
+                )
+            self.assertEqual(result.reason, "probe_timeout")
+            self.assertEqual(process.returncode, -9)
+            self.assertEqual(path.read_bytes(), b"original footage")
 
     async def test_success_uses_file_only_packet_scan_without_decoding(self):
         process = ProbeProcess(json.dumps(media_probe()).encode())
