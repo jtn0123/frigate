@@ -52,6 +52,8 @@
         "skipped_detections": "Detection could not keep up and skipped {{pct}}% of frames for over a minute",
         "ffmpeg_high_cpu": "FFmpeg CPU usage is high ({{cpu}}% average)",
         "detect_high_cpu": "Detection CPU usage is high ({{cpu}}% average)",
+        "recording_video_integrity": "A saved recording's video timing could not be verified. Its coverage was withheld; inspect the recording logs.",
+        "recording_audio_integrity": "A saved recording had missing or invalid audio timing. Verified video coverage was kept; inspect the recording logs.",
         "shm_too_low": "/dev/shm allocation ({{total}} MB) should be increased to at least {{min}} MB",
         "failed_login_one": "Failed login attempt for {{user}}",
         "failed_login_other": "Failed login attempts for {{user}}",

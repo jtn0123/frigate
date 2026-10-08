@@ -68,6 +68,22 @@ class TestRecordingSyncSafety(unittest.TestCase):
         self.assertFalse(orphan.exists())
         self.assertEqual(result.orphans_deleted, 1)
 
+    def test_full_sync_leaves_exact_integrity_store_to_its_bounded_retention(self):
+        evidence = self.root / ".integrity" / "integrity-front-main-probe_failed.mp4"
+        orphan = self.root / "2026-10-08/00/front/orphan.mp4"
+        nested = self.root / "2026-10-08/00/front/.integrity/orphan.mp4"
+        for path in (evidence, orphan, nested):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"stored media")
+            old = time.time() - 7200
+            os.utime(path, (old, old))
+        result = sync_recordings(force=True)
+        self.assertTrue(evidence.exists())
+        self.assertFalse(orphan.exists())
+        self.assertFalse(nested.exists())
+        self.assertNotIn(str(evidence), result.orphan_paths)
+        self.assertEqual(result.orphans_deleted, 2)
+
     def test_dry_run_preserves_old_orphan(self):
         orphan = self.root / "old-orphan.mp4"
         orphan.write_bytes(b"orphan")

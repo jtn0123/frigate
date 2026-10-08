@@ -174,6 +174,26 @@ Coverage uses registered segment timestamps. It does not decode footage or
 prove playback integrity. This native history requires no third-party scraper,
 uptime service, camera credentials, active camera probes or new network access.
 
+New saved segments are checked once with a bounded final-file packet probe,
+replacing the former cache keyframe probe. Verified video timing determines
+the registered duration. Video with corrupt or missing expected audio retains
+its verified video coverage and raises a camera-scoped audio notice. Uncertain
+video mapping is withheld from coverage and raises a video notice. Source
+probe failures still use the existing bounded cache discard behavior.
+
+Unverified remuxed outputs are preserved under
+`/media/frigate/recordings/.integrity/` for diagnosis, limited globally to 128
+files, 256 MiB and 24 hours, with periodic expiry. They are absent from normal
+playback and do not claim a recording interval. Probe work has a five-second
+time budget, four MiB output budget and bounded packet count. This checks packet
+timing, not complete decoding of every image or audio sample.
+
+Native camera notices coalesce repeated failures by video/audio category for
+five minutes. Sustained verified success starts a new episode; it does not
+repair or erase historical warnings. Notices remain available to acknowledge.
+Sub-stream success, stale observations and unknown probe results cannot clear
+a main-stream failure. No automatic camera restart or model change is applied
+by these checks, and existing recordings are not rescanned or relabeled.
 The existing host collectors remain useful for pressure and whole-server
 failures, which an application cannot observe while it is stopped.
 

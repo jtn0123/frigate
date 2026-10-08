@@ -212,6 +212,7 @@ class TestForkUpdateNotice(unittest.TestCase):
         with (
             patch.object(emitter.time, "sleep"),
             patch.object(emitter, "flush_notices"),
+            patch.object(emitter, "RecordingsDataSubscriber") as subscriber,
             patch.object(emitter.threading, "Thread") as thread,
         ):
             stats_emitter.run()
@@ -222,3 +223,4 @@ class TestForkUpdateNotice(unittest.TestCase):
         thread.return_value.start.assert_called_once()
         stats_emitter.recording_health.start.assert_called_once()
         stats_emitter.recording_health.join.assert_called_once_with(timeout=5)
+        subscriber.return_value.stop.assert_called_once()

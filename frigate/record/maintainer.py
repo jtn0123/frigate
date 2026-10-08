@@ -38,12 +38,20 @@ from frigate.const import (
     STREAM_TYPE_SUB,
     SUB_CACHE_TAG,
 )
+from frigate.fork.recording_integrity import (
+    RecordingIntegrity,
+    finite_number,
+    probe_recording_integrity,
+)
+from frigate.fork.recording_quarantine import (
+    QUARANTINE_DIRECTORY,
+    RecordingQuarantine,
+)
 from frigate.models import Recordings, ReviewSegment
 from frigate.record.cache_tracker import CacheFileTracker
 from frigate.record.move_failures import MoveFailures
 from frigate.review.types import SeverityEnum
 from frigate.util.identifiers import random_id as generate_id
-from frigate.util.media import get_keyframe_offsets
 from frigate.util.services import get_video_properties
 
 logger = logging.getLogger(__name__)
@@ -324,6 +332,10 @@ class RecordingMaintainer(threading.Thread):
 
     async def move_files(self) -> None:
         self.probe_semaphore = asyncio.Semaphore(MAX_CONCURRENT_SEGMENT_PROBES)
+        try:
+            await asyncio.to_thread(self._quarantine().prune)
+        except OSError:
+            logger.warning("Could not prune recording integrity evidence")
 
         cache_files = [
             d
@@ -642,6 +654,9 @@ class RecordingMaintainer(threading.Thread):
                 )
 
             if not segment_info.get("has_valid_video", False):
+                self._publish_integrity(
+                    camera, stream_type, RecordingIntegrity("video_timing"), -1, False
+                )
                 logger.warning(
                     f"Invalid or missing video stream in segment {cache_path} "
                     f"({format_segment_details(cache_path, segment_info)}). Discarding."
@@ -661,10 +676,9 @@ class RecordingMaintainer(threading.Thread):
 
             # ensure duration is within expected length
             if 0 < duration < MAX_SEGMENT_DURATION:
-                # playback snaps mid-file entry points against these offsets
-                # instead of probing files on demand
-                async with self.probe_semaphore:
-                    keyframes = await get_keyframe_offsets(cache_path)
+                # Probe keyframes once from the saved output, together with
+                # packet timing, after the remux has finalized its timestamps.
+                keyframes = None
 
                 # chain against the previous segment's end, not whichever
                 # segment of this stream happened to finish probing last
@@ -694,6 +708,13 @@ class RecordingMaintainer(threading.Thread):
                 # chain for the next kept segment
                 self.last_segment_end[(camera, stream_type)] = end_time.timestamp()
             else:
+                self._publish_integrity(
+                    camera,
+                    stream_type,
+                    RecordingIntegrity("duration_mismatch"),
+                    duration,
+                    False,
+                )
                 if duration == -1:
                     logger.warning(f"Failed to probe corrupt segment {cache_path}")
 
@@ -966,6 +987,74 @@ class RecordingMaintainer(threading.Thread):
             motion_heatmap,
         )
 
+    def _quarantine(self) -> RecordingQuarantine:
+        """Lazily create the bounded evidence store on recording storage."""
+        if not hasattr(self, "_integrity_store"):
+            self._integrity_store = RecordingQuarantine(
+                Path(RECORD_DIR) / QUARANTINE_DIRECTORY
+            )
+        return self._integrity_store
+
+    def _publish_integrity(
+        self,
+        camera: str,
+        stream_type: str,
+        result: RecordingIntegrity,
+        source_seconds: float,
+        quarantined: bool,
+    ) -> None:
+        """Publish fixed internal evidence independently from video availability."""
+        self.recordings_publisher.publish(
+            (
+                camera,
+                stream_type,
+                time.time(),
+                {
+                    "reason": result.reason,
+                    "video_seconds": result.video_seconds,
+                    "source_seconds": finite_number(source_seconds),
+                    "audio_status": result.audio_status,
+                    "quarantined": quarantined,
+                },
+            ),
+            RecordingsDataTypeEnum.integrity.value,
+        )
+
+    async def _verify_recording(
+        self,
+        camera: str,
+        stream_type: str,
+        path: str,
+        duration: float,
+        expected_audio: bool | None,
+    ) -> RecordingIntegrity:
+        """Verify completed media and preserve failures outside DB coverage."""
+        semaphore = getattr(self, "probe_semaphore", None)
+        if semaphore is None:
+            self.probe_semaphore = semaphore = asyncio.Semaphore(
+                MAX_CONCURRENT_SEGMENT_PROBES
+            )
+        async with semaphore:
+            result = await probe_recording_integrity(
+                self.config.ffmpeg.ffprobe_path, path, duration, expected_audio
+            )
+        if not result.video_verified:
+            quarantined = False
+            try:
+                await asyncio.to_thread(
+                    self._quarantine().preserve,
+                    Path(path),
+                    camera,
+                    stream_type,
+                    result.reason,
+                )
+                quarantined = True
+            finally:
+                self._publish_integrity(
+                    camera, stream_type, result, duration, quarantined
+                )
+        return result
+
     async def move_segment(
         self,
         camera: str,
@@ -1044,6 +1133,23 @@ class RecordingMaintainer(threading.Thread):
                         f"Copied {file_path} in {datetime.datetime.now().timestamp() - start_frame} seconds."
                     )
 
+                integrity = await self._verify_recording(
+                    camera, stream_type, temporary_path, duration, has_audio
+                )
+                if not integrity.video_verified:
+                    self.drop_segment(cache_path)
+                    return None
+                source_duration = duration
+                assert integrity.video_seconds is not None
+                duration = integrity.video_seconds
+                start_time += datetime.timedelta(seconds=integrity.video_start)
+                end_time = start_time + datetime.timedelta(seconds=duration)
+                keyframes = list(integrity.keyframes)
+                has_audio = integrity.audio_present
+                if not has_audio:
+                    audio_rate = None
+                    audio_codec = None
+
                 try:
                     # get the segment size of the cache file
                     # file without faststart is same size
@@ -1068,6 +1174,10 @@ class RecordingMaintainer(threading.Thread):
                     )
 
                 rand_id = generate_id(6)
+
+                self._publish_integrity(
+                    camera, stream_type, integrity, source_duration, False
+                )
 
                 return {
                     Recordings.id.name: f"{start_time.timestamp()}-{rand_id}",
