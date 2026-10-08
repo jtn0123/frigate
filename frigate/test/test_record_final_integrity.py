@@ -199,9 +199,40 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(process.returncode, 0, errors)
             return output
 
-        for rate in (16000, 48000):
-            with self.subTest(sample_rate=rate):
-                source = self.root / f"source-{rate}.mp4"
+        async def audio_hashes(path):
+            data = json.loads(
+                await run(
+                    ffmpeg.with_name("ffprobe"),
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "a:0",
+                    "-show_packets",
+                    "-show_data_hash",
+                    "sha256",
+                    "-show_entries",
+                    "packet=data_hash",
+                    "-of",
+                    "json",
+                    path,
+                )
+            )
+            return [packet["data_hash"] for packet in data["packets"]]
+
+        for codec, rate in (
+            ("libx264", 16000),
+            ("libx264", 48000),
+            ("libx265", 16000),
+            ("libx265", 48000),
+        ):
+            with self.subTest(video_codec=codec, sample_rate=rate):
+                name = f"{codec}-{rate}"
+                source = self.root / f"source-{name}.mp4"
+                codec_options = (
+                    ["-x265-params", "pools=1:frame-threads=1:log-level=error"]
+                    if codec == "libx265"
+                    else []
+                )
                 await run(
                     ffmpeg,
                     "-v",
@@ -218,7 +249,10 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                     "-t",
                     "21",
                     "-c:v",
-                    "libx264",
+                    codec,
+                    "-threads",
+                    "1",
+                    *codec_options,
                     "-g",
                     "250",
                     "-c:a",
@@ -242,9 +276,9 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                     "1",
                     "-c",
                     "copy",
-                    self.root / f"cache-{rate}-%02d.mp4",
+                    self.root / f"cache-{name}-%02d.mp4",
                 )
-                cache = self.root / f"cache-{rate}-00.mp4"
+                cache = self.root / f"cache-{name}-00.mp4"
                 source_probe = json.loads(
                     await run(
                         ffmpeg.with_name("ffprobe"),
@@ -258,6 +292,7 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                     )
                 )
                 duration = float(source_probe["format"]["duration"])
+                original_audio_hashes = await audio_hashes(cache)
                 original_video_hash = await run(
                     ffmpeg,
                     "-v",
@@ -273,7 +308,7 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                     "-",
                 )
                 row = await self.maintainer.move_segment(
-                    f"front{rate}",
+                    name,
                     "main",
                     self.start,
                     self.start + datetime.timedelta(seconds=duration),
@@ -284,7 +319,7 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertIsNotNone(row, "Valid startup footage was quarantined")
                 Recordings.insert(row).execute()
-                saved = Recordings.get(Recordings.camera == f"front{rate}")
+                saved = Recordings.get(Recordings.camera == name)
                 self.assertAlmostEqual(saved.duration, 10)
                 self.assertGreater(saved.start_time, self.start.timestamp())
                 self.assertLess(saved.start_time - self.start.timestamp(), 0.1)
@@ -309,6 +344,16 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                 self.assertAlmostEqual(float(output["format"]["start_time"]), 0)
                 self.assertAlmostEqual(float(video["start_time"]), 0)
                 self.assertEqual(int(video["nb_frames"]), 250)
+                audio = next(s for s in output["streams"] if s["codec_type"] == "audio")
+                self.assertGreaterEqual(float(audio["start_time"]), 0)
+                self.assertLess(float(audio["start_time"]), 0.1)
+                self.assertGreaterEqual(float(audio["duration"]), 9.9)
+                saved_audio_hashes = await audio_hashes(saved.path)
+                self.assertGreater(len(saved_audio_hashes), 0)
+                self.assertEqual(
+                    saved_audio_hashes,
+                    original_audio_hashes[-len(saved_audio_hashes) :],
+                )
                 saved_video_hash = await run(
                     ffmpeg,
                     "-v",
