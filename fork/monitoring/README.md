@@ -6,10 +6,15 @@ source timestamps and gaps. Only admins can read this history or `/metrics`.
 Existing Prometheus scrapers must use an admin identity.
 
 For host and CT pressure, run `collect_proxmox.py` on the Proxmox host as root
-through a systemd timer or cron every minute. It uses local kernel files and
-`lxc-info`, opens no network listener and needs no Portainer or Proxmox API token.
+through a systemd timer or cron every minute. It uses local kernel files,
+`lxc-info`, and bounded container-local `systemctl show` calls for the Ollama
+service's state, PID and cgroup. It opens no network listener and needs no
+Portainer or Proxmox API token.
 It reads host/CT counters and writes a sanitized snapshot into Frigate CT 106's
 existing local model cache. Change the CT IDs and config path for other layouts.
+
+For an Ollama container managed without `ollama.service`, attribution remains
+unavailable rather than falling back to process-name matching.
 
 Example command (after copying this script to `/opt/frigate-monitoring/`):
 
@@ -44,8 +49,14 @@ systemctl start frigate-monitoring.service
 ```
 
 Stop collection with `systemctl disable --now frigate-monitoring.timer`.
-Ollama process readings appear as their own service scope. They are not allocated
-across individual models because doing so would invent per-model RAM/CPU figures.
+Ollama readings include verified service workers and nested worker cgroups,
+regardless of process names. RSS sums unique service PIDs and can include shared
+pages. CPU uses the service's inclusive cgroup counter, expressed per logical
+core; the first interval after a service restart is unknown. If identity,
+membership, access or bounded traversal fails, the Ollama measurement is omitted
+and the snapshot is partial. Other measured host/container rows remain available.
+These readings are not allocated across individual models because doing so
+would invent per-model RAM/CPU figures.
 
 ## Prometheus metric migration
 
@@ -162,6 +173,7 @@ interval has finished saving.
 Coverage uses registered segment timestamps. It does not decode footage or
 prove playback integrity. This native history requires no third-party scraper,
 uptime service, camera credentials, active camera probes or new network access.
+
 The existing host collectors remain useful for pressure and whole-server
 failures, which an application cannot observe while it is stopped.
 

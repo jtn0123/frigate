@@ -17,31 +17,12 @@ class CollectorTests(unittest.TestCase):
                     collector.init_pid(value)
             command.assert_not_called()
 
-    def test_ollama_measurements_include_only_matching_container_processes(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            group = root / "group"
-            for pid, name in (("110", "ollama"), ("111", "ffmpeg")):
-                proc = root / pid
-                proc.mkdir()
-                (proc / "comm").write_text(name)
-                fields = ["0"] * 22
-                fields[11], fields[12], fields[21] = "100", "50", "2"
-                (proc / "stat").write_text(f"{pid} ({name}) " + " ".join(fields))
-            cpu_calls = []
-
-            def cpu(key, seconds):
-                cpu_calls.append((key, seconds))
-                return 12.5
-
-            with (
-                patch.object(collector, "Path", return_value=root),
-                patch.object(collector, "group_for", return_value=group),
-            ):
-                rows = collector.collect_ollama(group, "108", cpu, 100)
-            self.assertEqual(cpu_calls, [("ollama:108", 1.5)])
-            self.assertEqual(rows[0]["cpu_percent"], 12.5)
-            self.assertGreater(rows[0]["memory_bytes"], 0)
+    def test_ollama_container_id_rejects_options_before_spawning(self):
+        with patch.object(collector.subprocess, "check_output") as command:
+            for value in ("--help", "../108", "108;id", "0"):
+                with self.assertRaises(ValueError):
+                    collector.collect_ollama(Path("/group"), value, lambda *_: 0, 100)
+            command.assert_not_called()
 
     def test_collects_host_and_container_pressure_without_inventing_missing_scope(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -86,6 +67,7 @@ class CollectorTests(unittest.TestCase):
                 patch.object(collector, "CGROUP", cgroup),
                 patch.object(collector, "init_pid", side_effect=[123, OSError()]),
                 patch.object(collector, "group_for", return_value=group),
+                patch.object(collector, "collect_ollama", return_value=[]) as ollama,
                 patch.object(
                     collector.os,
                     "statvfs",
@@ -105,6 +87,31 @@ class CollectorTests(unittest.TestCase):
             self.assertEqual(result["scopes"][1]["cpu_percent"], 100)
             self.assertEqual(result["scopes"][1]["memory_pressure"], 2.5)
             self.assertEqual(result["scopes"][0]["memory_bytes"], 500 * 1024)
+            # A missing worker reading must not discard measured CT/host values
+            # or label their incomplete service attribution as connected.
+            with (
+                patch.object(collector, "Path", side_effect=path),
+                patch.object(collector, "CGROUP", cgroup),
+                patch.object(collector, "init_pid", return_value=123),
+                patch.object(collector, "group_for", return_value=group),
+                patch.object(collector, "collect_ollama", side_effect=OSError()),
+                patch.object(
+                    collector.os,
+                    "statvfs",
+                    return_value=SimpleNamespace(
+                        f_bavail=2,
+                        f_frsize=4096,
+                        f_blocks=10,
+                    ),
+                ),
+                patch.object(collector.time, "time", return_value=120),
+            ):
+                incomplete = collector.sample(["106"], {})
+            self.assertEqual(incomplete["status"], "partial")
+            self.assertEqual(
+                [row["scope"] for row in incomplete["scopes"]], ["host", "container"]
+            )
+            ollama.assert_called_once()
 
     def test_ancestor_quota_constrains_unlimited_child(self):
         with tempfile.TemporaryDirectory() as directory:
