@@ -14,7 +14,9 @@ from frigate.record.maintainer import RecordingMaintainer, SegmentInfo
 from frigate.record.move_failures import MAX_MOVE_ATTEMPTS, MoveFailures
 
 
-async def _verified_output(_ffprobe, _path, duration, _expected_audio=None):
+async def _verified_output(
+    _ffprobe, _path, duration, _expected_audio=None, *, ffmpeg=None
+):
     """Isolate retry behavior from the separately tested packet verifier."""
     return RecordingIntegrity("ok", duration, "not_present", (0,), False)
 
