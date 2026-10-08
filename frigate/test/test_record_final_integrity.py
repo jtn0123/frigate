@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from playhouse.sqlite_ext import SqliteExtDatabase
+from zmq import ENOTSOCK, ZMQError
 
 from frigate.models import Recordings
 from frigate.record.maintainer import RecordingMaintainer, SegmentInfo
@@ -216,6 +217,22 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(event["quarantined"])
         self.assertIsNone(event["video_seconds"])
         self.assertFalse(list(self.recordings.rglob("*.tmp")))
+
+    async def test_notice_transport_failure_does_not_orphan_verified_recording(self):
+        self.probe = media_probe(10)
+        error = ZMQError(ENOTSOCK, "private transport details")
+        self.maintainer.recordings_publisher.publish.side_effect = error
+        with self.assertLogs("frigate.record.maintainer", level="WARNING") as logs:
+            row = await self.save_and_register(10)
+        self.assertIsNotNone(row)
+        self.assertEqual(Recordings.select().count(), 1)
+        recording = Recordings.get()
+        self.assertEqual(recording.duration, 10)
+        self.assertEqual(Path(recording.path).read_bytes(), b"complete saved video")
+        self.assertFalse(self.cache.exists())
+        self.assertFalse(list(self.recordings.rglob("*.tmp")))
+        self.assertNotIn(str(error), "\n".join(logs.output))
+        self.assertNotIn(str(self.cache), "\n".join(logs.output))
 
     async def test_quarantine_failure_keeps_original_for_retry_without_orphan(self):
         self.probe_exit = 1

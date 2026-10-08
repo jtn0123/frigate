@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 from peewee import fn
+from zmq import ZMQError
 
 from frigate.comms.detections_updater import DetectionSubscriber, DetectionTypeEnum
 from frigate.comms.inter_process import InterProcessRequestor
@@ -1004,21 +1005,24 @@ class RecordingMaintainer(threading.Thread):
         quarantined: bool,
     ) -> None:
         """Publish fixed internal evidence independently from video availability."""
-        self.recordings_publisher.publish(
-            (
-                camera,
-                stream_type,
-                time.time(),
-                {
-                    "reason": result.reason,
-                    "video_seconds": result.video_seconds,
-                    "source_seconds": finite_number(source_seconds),
-                    "audio_status": result.audio_status,
-                    "quarantined": quarantined,
-                },
-            ),
-            RecordingsDataTypeEnum.integrity.value,
+        payload = (
+            camera,
+            stream_type,
+            time.time(),
+            {
+                "reason": result.reason,
+                "video_seconds": result.video_seconds,
+                "source_seconds": finite_number(source_seconds),
+                "audio_status": result.audio_status,
+                "quarantined": quarantined,
+            },
         )
+        try:
+            self.recordings_publisher.publish(
+                payload, RecordingsDataTypeEnum.integrity.value
+            )
+        except ZMQError:
+            logger.warning("Unable to publish recording integrity observation")
 
     async def _verify_recording(
         self,
