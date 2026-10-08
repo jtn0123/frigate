@@ -45,3 +45,5 @@ class RecordProcess(FrigateProcess):
             self.stop_event,
         )
         maintainer.start()
+        # Keep the child alive before bootstrap shuts down async I/O executors.
+        maintainer.join()
