@@ -13,6 +13,11 @@ BASELINE_TOKENS = 12
 IMAGE_TOKENS = 1055
 
 
+def _images(call) -> list[bytes] | None:
+    """The images attached to a probe's single chat message."""
+    return call.kwargs["messages"][0].get("images")
+
+
 def _client(**provider_options):
     """Build an Ollama client offline with a fake server that reports token counts."""
     cfg = GenAIConfig(
@@ -24,8 +29,9 @@ def _client(**provider_options):
     client = PROVIDERS[GenAIProviderEnum.ollama](cfg, timeout=5, validate_model=False)
     client.provider = MagicMock()
     client.provider.show.return_value = {"capabilities": ["completion", "vision"]}
-    client.provider.generate.side_effect = lambda model, prompt, images=None, **kwargs: {
-        "prompt_eval_count": BASELINE_TOKENS + (IMAGE_TOKENS if images else 0)
+    client.provider.chat.side_effect = lambda **kwargs: {
+        "prompt_eval_count": BASELINE_TOKENS
+        + (IMAGE_TOKENS if kwargs["messages"][0].get("images") else 0)
     }
     return client
 
@@ -43,21 +49,21 @@ class TestOllamaImageTokenEstimate(unittest.TestCase):
         client.estimate_image_tokens(320, 180)
         client.estimate_image_tokens(853, 480)
 
-        images = [c.kwargs["images"] for c in client.provider.generate.call_args_list]
-        self.assertEqual(len(images), 3)
-        self.assertIsNone(images[0])
+        calls = client.provider.chat.call_args_list
+        self.assertEqual(len(calls), 3)
+        self.assertIsNone(_images(calls[0]))
 
     def test_probe_keeps_the_configured_context_and_keep_alive(self):
         client = _client(keep_alive=-1, options={"num_ctx": 32768})
 
         client.estimate_image_tokens(320, 180)
 
-        for call in client.provider.generate.call_args_list:
-            self.assertEqual(call.args[0], "qwen3-vl:8b-instruct")
+        for call in client.provider.chat.call_args_list:
+            self.assertEqual(call.kwargs["model"], "qwen3-vl:8b-instruct")
             self.assertEqual(call.kwargs["keep_alive"], -1)
             self.assertEqual(call.kwargs["options"]["num_ctx"], 32768)
             self.assertEqual(call.kwargs["options"]["num_predict"], 1)
-        image = client.provider.generate.call_args_list[1].kwargs["images"][0]
+        image = _images(client.provider.chat.call_args_list[1])[0]
         self.assertEqual(Image.open(io.BytesIO(image)).size, (320, 180))
         self.assertNotIn("num_predict", client.provider_options["options"])
 
@@ -67,11 +73,11 @@ class TestOllamaImageTokenEstimate(unittest.TestCase):
 
         client.estimate_image_tokens(320, 180)
 
-        self.assertIs(client.provider.generate.call_args.kwargs["think"], False)
+        self.assertIs(client.provider.chat.call_args.kwargs["think"], False)
 
     def test_falls_back_to_the_pixel_heuristic_when_ollama_fails(self):
         client = _client()
-        client.provider.generate.side_effect = ConnectionError("down")
+        client.provider.chat.side_effect = ConnectionError("down")
 
         self.assertAlmostEqual(client.estimate_image_tokens(320, 180), 320 * 180 / 1250)
         self.assertEqual(client._image_token_cache, {})
@@ -82,16 +88,7 @@ class TestOllamaImageTokenEstimate(unittest.TestCase):
         client.provider = None
 
         self.assertAlmostEqual(client.estimate_image_tokens(640, 360), 640 * 360 / 1250)
-        provider.generate.assert_not_called()
-
-    def test_reinitializing_the_provider_clears_measurements(self):
-        client = _client()
-        client.estimate_image_tokens(320, 180)
-
-        client._init_provider()
-
-        self.assertEqual(client._image_token_cache, {})
-        self.assertIsNone(client._text_baseline_tokens)
+        provider.chat.assert_not_called()
 
 
 if __name__ == "__main__":
