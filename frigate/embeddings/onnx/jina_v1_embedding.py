@@ -5,7 +5,7 @@ import os
 import threading
 import warnings
 
-from transformers import AutoTokenizer, CLIPImageProcessor
+from transformers import AutoTokenizer, CLIPImageProcessorPil
 from transformers.utils.logging import disable_progress_bar
 
 from frigate.comms.inter_process import InterProcessRequestor
@@ -214,7 +214,7 @@ class JinaV1ImageEmbedding(BaseEmbedding):
                 verify_artifact(
                     self.model_name, name, os.path.join(self.download_path, name)
                 )
-            self.feature_extractor = CLIPImageProcessor.from_pretrained(
+            self.feature_extractor = CLIPImageProcessorPil.from_pretrained(
                 self.download_path,
                 local_files_only=True,
                 trust_remote_code=False,
