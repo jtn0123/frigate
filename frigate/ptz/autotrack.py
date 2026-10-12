@@ -124,7 +124,7 @@ class PtzMotionEstimator:
             )
 
             yuv_frame = self.frame_manager.get(
-                frame_name, self.camera_config.frame_shape_yuv
+                frame_name, self.camera_config.frame_shape_yuv, frame_time
             )
 
             if yuv_frame is None:
@@ -184,8 +184,6 @@ class PtzMotionEstimator:
                     camera,
                     exc_info=True,
                 )
-
-            self.frame_manager.close(frame_name)
 
         return self.coord_transformations
 

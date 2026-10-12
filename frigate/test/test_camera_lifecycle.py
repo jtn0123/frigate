@@ -228,10 +228,12 @@ class TestReviewMaintainerRemoval(unittest.TestCase):
             "deleted_cam": [{"model": "gate", "from": "a", "to": "b", "timestamp": 1.0}]
         }
         maintainer.forcibly_end_segment = MagicMock()
+        maintainer.frame_manager = MagicMock()
 
         maintainer._handle_camera_removed("deleted_cam")
 
         maintainer.forcibly_end_segment.assert_called_once_with("deleted_cam")
+        maintainer.frame_manager.close_camera.assert_called_once_with("deleted_cam")
         self.assertNotIn("deleted_cam", maintainer.indefinite_events)
         self.assertNotIn("deleted_cam", maintainer.recent_classification_state_changes)
 
@@ -292,11 +294,16 @@ class TestReviewMaintainerRunLoopRemoval(unittest.TestCase):
         maintainer.indefinite_events = {"deleted_cam": {"1234.5-abcdef": 1.0}}
         maintainer.recent_classification_state_changes = {}
         maintainer.forcibly_end_segment = MagicMock()
+        maintainer.frame_manager = MagicMock()
 
         maintainer.run()
 
         self.assertEqual(
             [c.args for c in maintainer.forcibly_end_segment.call_args_list],
+            [("deleted_cam",), ("other_cam",)],
+        )
+        self.assertEqual(
+            [c.args for c in maintainer.frame_manager.close_camera.call_args_list],
             [("deleted_cam",), ("other_cam",)],
         )
         self.assertEqual(maintainer.indefinite_events, {})
