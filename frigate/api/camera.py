@@ -29,11 +29,11 @@ from frigate.api.defs.request.app_body import CameraSetBody
 from frigate.api.defs.tags import Tags
 from frigate.api.stream_diagnostics import router as stream_diagnostics_router
 from frigate.config import FrigateConfig
-from frigate.config.env import UnknownVariableError, substitute_frigate_vars
 from frigate.models import User
 from frigate.util.builtin import clean_camera_user_pass, get_record_segment_time
 from frigate.util.camera_cleanup import cleanup_camera_db, cleanup_camera_files
 from frigate.util.camera_discovery import get_reolink_main_stream, query_reolink
+from frigate.util.env import UnknownVariableError, substitute_frigate_vars
 from frigate.util.image import run_ffmpeg_snapshot
 from frigate.util.live_streams import (
     generated_transcode_streams,

@@ -1117,7 +1117,7 @@ def find_restricted_go2rtc_stream_changes(
     its {FRIGATE_*} placeholders and pass `is_restricted_go2rtc_api_source`.
     """
     # imported here since frigate.config imports this module
-    from frigate.config.env import UnknownVariableError, substitute_frigate_vars
+    from frigate.util.env import UnknownVariableError, substitute_frigate_vars
 
     old_streams = old_streams if isinstance(old_streams, dict) else {}
     new_streams = new_streams if isinstance(new_streams, dict) else {}

@@ -11,7 +11,7 @@ from pydantic import AfterValidator, ValidationInfo
 from ruamel.yaml import YAML
 
 # YAMLError is re-exported by the package at run time but not declared there,
-# so mypy only sees it at its own module (frigate.config.env is type-checked).
+# so mypy only sees it at its own module (frigate.util.env is type-checked).
 from ruamel.yaml.error import YAMLError
 
 from frigate.const import CONFIG_DIR

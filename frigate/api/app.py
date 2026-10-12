@@ -51,7 +51,6 @@ from frigate.config.camera.updater import (
     CameraConfigUpdateEnum,
     CameraConfigUpdateTopic,
 )
-from frigate.config.env import substitute_frigate_vars
 from frigate.const import REDACTED_CREDENTIAL_SENTINEL
 from frigate.ffmpeg_presets import FFMPEG_HWACCEL_VAAPI, _gpu_selector
 from frigate.fork.config_persistence import config_file_lock, write_config_file
@@ -81,6 +80,7 @@ from frigate.util.config import (
     find_config_file,
     redact_credential,
 )
+from frigate.util.env import substitute_frigate_vars
 from frigate.util.live_streams import (
     generated_transcode_streams,
     sync_transcode_streams,

@@ -1,7 +1,8 @@
 from pydantic import Field
 
+from frigate.util.env import EnvString
+
 from ..base import FrigateBaseModel
-from ..env import EnvString
 from ..fork.notification_schedule import QuietHoursWindow
 
 __all__ = ["NotificationConfig"]
