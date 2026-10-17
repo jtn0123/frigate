@@ -1,14 +1,15 @@
 """Warn before the SONAR_TOKEN secret expires, and fail once it has.
 
 The token's expiry cannot be read from the secret, so the owner records it in
-fork/sonar-token.env (SONAR_TOKEN_EXPIRES=YYYY-MM-DD) when rotating the token.
+fork/sonar-token.env (SONAR_TOKEN_EXPIRES=YYYY-MM-DD or never) when rotating it.
 The "sonar" job of "Fork - Checks" runs this before the scan: a GitHub Actions
 warning from 14 days before the date. Once the date has passed it asks
 SonarCloud whether the token in $SONAR_TOKEN still authenticates: if it does,
 the token was rotated and only the date file was forgotten, which is a
 warning; if it does not (or cannot be asked), an error and exit code 1, so the
 failure names its cause, which the scanner's own authentication error does
-not.
+not. Tokens with no fixed expiry are authenticated on every run because
+SonarCloud can revoke them after 60 days of inactivity.
 
     python3 fork/scripts/sonar-token-expiry.py [path-to-env-file]
 """
@@ -31,25 +32,30 @@ ROTATE = (
     "(steps: fork/README.md, Owner setup)"
 )
 
-_LINE = re.compile(rf"^{KEY}=(\d{{4}}-\d{{2}}-\d{{2}})\s*$", re.MULTILINE)
+_LINE = re.compile(rf"^{KEY}=(.*)$", re.MULTILINE)
 
 
-def read_expiry(text: str) -> date:
+def read_expiry(text: str) -> date | None:
     """Return the expiry date recorded in the env file's text.
 
     Args:
         text: Contents of fork/sonar-token.env
 
     Returns:
-        The date on the single SONAR_TOKEN_EXPIRES line
+        The date on the single SONAR_TOKEN_EXPIRES line, or None for never
 
     Raises:
-        ValueError: If the line is missing, repeated or not a real date
+        ValueError: If the line is missing, repeated or not a date or never
     """
     matches = _LINE.findall(text)
     if len(matches) != 1:
-        raise ValueError(f"expected exactly one {KEY}=YYYY-MM-DD line")
-    return date.fromisoformat(matches[0])
+        raise ValueError(f"expected exactly one {KEY}=YYYY-MM-DD or never line")
+    value = matches[0].strip()
+    if value == "never":
+        return None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError(f"expected {KEY}=YYYY-MM-DD or never")
+    return date.fromisoformat(value)
 
 
 def token_authenticates(token: str) -> bool | None:
@@ -78,20 +84,29 @@ def token_authenticates(token: str) -> bool | None:
 
 
 def check(
-    expiry: date, today: date, token_valid: bool | None = None
+    expiry: date | None, today: date, token_valid: bool | None = None
 ) -> tuple[int, str]:
     """Return the exit code and the line to print for an expiry date.
 
     Args:
-        expiry: The last day the token is valid
+        expiry: The last day the token is valid, or None for no fixed expiry
         today: The current date
-        token_valid: Whether the token still authenticates; only read once
-            the date has passed, None when that is unknown
+        token_valid: Whether the token still authenticates; checked after
+            a fixed expiry or on every run for no fixed expiry
 
     Returns:
-        Exit code (1 only when the expiry has passed and the token is not
-        known to work) and a workflow command or plain status line
+        Exit code and a workflow command or plain status line
     """
+    if expiry is None:
+        if token_valid:
+            return 0, (
+                "SONAR_TOKEN has no fixed expiry; authentication verified "
+                "(revoked after 60 days of inactivity)"
+            )
+        return 1, (
+            "::error title=SONAR_TOKEN authentication failed::The token has no "
+            f"fixed expiry but could not be verified. {ROTATE}"
+        )
     days = (expiry - today).days
     if days < 0 and token_valid:
         return 0, (
@@ -121,7 +136,7 @@ def main(path: Path = DEFAULT_FILE) -> int:
         return 1
     today = date.today()
     token_valid = None
-    if expiry < today:
+    if expiry is None or expiry < today:
         token_valid = token_authenticates(os.environ.get("SONAR_TOKEN", ""))
     code, line = check(expiry, today, token_valid)
     print(line)

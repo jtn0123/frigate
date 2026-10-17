@@ -85,20 +85,23 @@ back: repeat the steps with a new token.
 
 ### `SONAR_TOKEN` (rotation)
 
-The token cannot be asked for its expiry, so the date lives in
+The token cannot be asked for its expiry, so the setting lives in
 `fork/sonar-token.env`. The `sonar` job of "Fork - Checks" warns from 14 days
-before that date and fails once it has passed (I30). The current token expires
-on 2026-10-11. To rotate it:
+before a fixed date and verifies authentication once it has passed (I30).
+The token rotated on 2026-10-16 has no fixed expiry. SonarCloud revokes it
+after 60 days of inactivity, so CI verifies authentication on every run.
+To rotate it:
 
 1. SonarCloud (`sonarcloud.io`, signed in as the project admin) > My Account >
-   Security > Generate Tokens. Give it a name and the longest expiry offered,
-   generate, and copy the token and the expiry date shown.
+   Access Tokens > Generate Token. Give it a name and the longest expiry
+   offered, generate, and copy the token and the expiry setting shown.
 2. In `jtn0123/frigate`: Settings > Secrets and variables > Actions >
    `SONAR_TOKEN` > Update secret, or `gh secret set SONAR_TOKEN -R
    jtn0123/frigate` and paste it at the prompt.
-3. Set `SONAR_TOKEN_EXPIRES=<new date>` in `fork/sonar-token.env` (format
-   `YYYY-MM-DD`) and land that through a pull request to `next`. The pull
-   request's own `sonar` job proves the new token works.
+3. Set `SONAR_TOKEN_EXPIRES=<new expiry>` in `fork/sonar-token.env` (format
+   `YYYY-MM-DD`, or `never` for "No expiration") and land that through a pull
+   request to `next`. The pull request's own `sonar` job proves the new token
+   works.
 4. Revoke the old token on the same SonarCloud page.
 
 Server switches (container environment, read once at startup):

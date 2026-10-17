@@ -138,11 +138,13 @@ PR 39 CI scan at cb0e3ab30 imported both reports successfully and passed the
 quality gate with 82.9% new-code coverage, 0% new duplication, and A ratings.
 No coverage conditions were ignored. The scanner validated 312 Python and
 508 frontend report entries. The test image now runs as UID/GID 1000.
-The Sonar token was stored in GitHub Actions on September 12 and expires
-October 11, 2026 (as displayed by Sonar). Rotate it before that date. The date
-is recorded in `fork/sonar-token.env`; the `sonar` job warns from 14 days
-before it and fails once it has passed (`fork/scripts/sonar-token-expiry.py`,
-I30). Rotation steps: `fork/README.md`, "Owner setup".
+The original Sonar token expired on October 11, 2026. The owner replaced the
+GitHub Actions secret on October 16 with a token showing "Never (if used)".
+Its `never` expiry is recorded in `fork/sonar-token.env`; the `sonar` job
+verifies authentication on every run because SonarCloud revokes it after
+60 days of inactivity. Fixed expiries still warn from 14 days before the
+date (`fork/scripts/sonar-token-expiry.py`, I30).
+Rotation steps: `fork/README.md`, "Owner setup".
 Automatic Analysis is off; ongoing next scans start once this workflow merges.
 
 ## Upstream findings are not swept (I61, 2026-10-01)

@@ -23,6 +23,15 @@ class TestReadExpiry(unittest.TestCase):
         text = "# not a secret\nSONAR_TOKEN_EXPIRES=2026-10-11\n"
         self.assertEqual(_MODULE.read_expiry(text), EXPIRY)
 
+    def test_reads_no_fixed_expiry(self):
+        self.assertIsNone(_MODULE.read_expiry("SONAR_TOKEN_EXPIRES=never\n"))
+
+    def test_rejects_mixed_duplicate_values(self):
+        with self.assertRaises(ValueError):
+            _MODULE.read_expiry(
+                "SONAR_TOKEN_EXPIRES=never\nSONAR_TOKEN_EXPIRES=2026-10-11\n"
+            )
+
     def test_rejects_a_missing_line(self):
         with self.assertRaises(ValueError):
             _MODULE.read_expiry("# SONAR_TOKEN_EXPIRES=2026-10-11\n")
@@ -36,8 +45,26 @@ class TestReadExpiry(unittest.TestCase):
         with self.assertRaises(ValueError):
             _MODULE.read_expiry("SONAR_TOKEN_EXPIRES=2026-02-30\n")
 
+    def test_rejects_values_outside_the_documented_formats(self):
+        for value in ("soon", "", "20261011", "2026-W41-7"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                _MODULE.read_expiry(f"SONAR_TOKEN_EXPIRES={value}\n")
+
 
 class TestCheck(unittest.TestCase):
+    def test_no_fixed_expiry_requires_successful_authentication(self):
+        code, line = _MODULE.check(None, EXPIRY, True)
+        self.assertEqual(code, 0)
+        self.assertIn("no fixed expiry", line)
+        self.assertIn("60 days of inactivity", line)
+
+    def test_no_fixed_expiry_fails_if_authentication_is_rejected_or_unknown(self):
+        for valid in (False, None):
+            with self.subTest(valid=valid):
+                code, line = _MODULE.check(None, EXPIRY, valid)
+                self.assertEqual(code, 1)
+                self.assertTrue(line.startswith("::error "))
+
     def test_quiet_more_than_fourteen_days_ahead(self):
         code, line = _MODULE.check(EXPIRY, EXPIRY - timedelta(days=15))
         self.assertEqual(code, 0)
@@ -127,6 +154,22 @@ class TestMain(unittest.TestCase):
         code, out = self.run_main(f"SONAR_TOKEN_EXPIRES={far.isoformat()}\n")
         self.assertEqual(code, 0)
         self.assertNotIn("::", out)
+
+    def test_no_fixed_expiry_checks_the_current_token(self):
+        with (
+            mock.patch.dict(_MODULE.os.environ, {"SONAR_TOKEN": "test-only"}),
+            mock.patch.object(_MODULE, "token_authenticates", return_value=True) as ask,
+        ):
+            code, out = self.run_main("SONAR_TOKEN_EXPIRES=never\n")
+        ask.assert_called_once_with("test-only")
+        self.assertEqual(code, 0)
+        self.assertIn("no fixed expiry", out)
+
+    def test_no_fixed_expiry_fails_when_authentication_is_unavailable(self):
+        with mock.patch.object(_MODULE, "token_authenticates", return_value=None):
+            code, out = self.run_main("SONAR_TOKEN_EXPIRES=never\n")
+        self.assertEqual(code, 1)
+        self.assertIn("authentication", out)
 
     def test_a_past_date_fails_when_the_token_cannot_be_checked(self):
         past = date.today() - timedelta(days=1)
