@@ -6,8 +6,10 @@ import asyncio
 import contextlib
 import json
 import math
+import os
 import statistics
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any
 
 PROBE_TIMEOUT = 5
@@ -39,6 +41,8 @@ class RecordingIntegrity:
     keyframes: tuple[int, ...] = ()
     audio_present: bool | None = None
     video_start: float = 0.0
+    # Nonzero offsets remain unverified until a normalized copy passes the probe.
+    video_seek_offset: float = 0.0
 
     @property
     def video_verified(self) -> bool:
@@ -163,13 +167,18 @@ def _probe_shape_error(data: Any) -> str | None:
     return None
 
 
-def _video_origin_matches(data: dict[str, Any], video_start: float) -> bool:
-    """Keep existing relative seek callers aligned with the verified video."""
+def _video_seek_offset(data: dict[str, Any], video_start: float) -> float | None:
+    """Measure the leading audio interval that relative seeks must skip."""
     container = data.get("format")
     if not isinstance(container, dict):
-        return False
+        return None
     file_start = finite_number(container.get("start_time"))
-    return file_start is not None and abs(file_start - video_start) <= 0.000001
+    if file_start is None or file_start < -0.000001:
+        return None
+    offset = video_start - file_start
+    if abs(offset) <= 0.000001:
+        return 0.0
+    return offset if 0 < offset <= 1 else None
 
 
 def inspect_recording(
@@ -187,7 +196,8 @@ def inspect_recording(
     duration = _video_span(intervals)
     if duration is None or intervals is None:
         return RecordingIntegrity("video_timing")
-    if not _video_origin_matches(data, intervals[0][0]):
+    seek_offset = _video_seek_offset(data, intervals[0][0])
+    if seek_offset is None:
         return RecordingIntegrity("video_timing")
     source = finite_number(source_seconds)
     if (
@@ -209,12 +219,13 @@ def inspect_recording(
         streams, data, intervals[0][0], duration, expected_audio
     )
     return RecordingIntegrity(
-        reason,
+        "video_timing" if seek_offset else reason,
         duration,
         audio_status,
         keyframes,
         audio_present,
         max(0.0, intervals[0][0]),
+        seek_offset,
     )
 
 
@@ -234,13 +245,81 @@ async def _read_probe(process: asyncio.subprocess.Process) -> bytes:
     return bytes(output)
 
 
+async def _normalize_video_origin(
+    ffmpeg: str,
+    ffprobe: str,
+    path: str,
+    source_seconds: float,
+    original: RecordingIntegrity,
+    expected_audio: bool | None,
+) -> RecordingIntegrity:
+    """Align file-relative seeks without discarding video or re-encoding media."""
+    normalized_path = f"{path}.normalized.tmp"
+    process = None
+    try:
+        process = await asyncio.create_subprocess_exec(
+            ffmpeg,
+            "-v",
+            "error",
+            "-y",
+            "-ss",
+            str(original.video_seek_offset),
+            "-i",
+            path,
+            "-c",
+            "copy",
+            "-map_metadata",
+            "0",
+            "-movflags",
+            "+faststart",
+            "-f",
+            "mp4",
+            normalized_path,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await asyncio.wait_for(process.wait(), 10)
+        if process.returncode != 0:
+            return RecordingIntegrity("probe_failed")
+        normalized = await probe_recording_integrity(
+            ffprobe,
+            normalized_path,
+            source_seconds - original.video_start,
+            expected_audio,
+        )
+        # Seeking while copying must retain the full video, including its first
+        # keyframe. Reject a remux that drops/reorders coverage or keeps an offset.
+        if (
+            not normalized.video_verified
+            or normalized.video_start > 0.000001
+            or normalized.video_seconds is None
+            or original.video_seconds is None
+            or abs(normalized.video_seconds - original.video_seconds) > 0.000001
+            or normalized.keyframes != original.keyframes
+        ):
+            return original
+        await asyncio.to_thread(os.replace, normalized_path, path)
+        # Registration still starts at the original video's wall-clock offset;
+        # only the saved file's playback origin has moved to zero.
+        return replace(normalized, video_start=original.video_start)
+    finally:
+        if process is not None and process.returncode is None:
+            with contextlib.suppress(ProcessLookupError):
+                process.kill()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(process.wait(), 2)
+        await asyncio.to_thread(Path(normalized_path).unlink, missing_ok=True)
+
+
 async def probe_recording_integrity(
     ffprobe: str,
     path: str,
     source_seconds: float,
     expected_audio: bool | None = None,
+    *,
+    ffmpeg: str | None = None,
 ) -> RecordingIntegrity:
-    """Replace the keyframe probe with one bounded final-file packet scan."""
+    """Verify final media, optionally normalizing its seek origin with stream copy."""
     process = None
     try:
         process = await asyncio.create_subprocess_exec(
@@ -267,7 +346,12 @@ async def probe_recording_integrity(
         output = await asyncio.wait_for(_read_probe(process), PROBE_TIMEOUT)
         if process.returncode != 0:
             return RecordingIntegrity("probe_failed")
-        return inspect_recording(json.loads(output), source_seconds, expected_audio)
+        result = inspect_recording(json.loads(output), source_seconds, expected_audio)
+        if ffmpeg is not None and result.video_seek_offset > 0:
+            return await _normalize_video_origin(
+                ffmpeg, ffprobe, path, source_seconds, result, expected_audio
+            )
+        return result
     except ProbeLimitError:
         return RecordingIntegrity("probe_limit")
     except TimeoutError:

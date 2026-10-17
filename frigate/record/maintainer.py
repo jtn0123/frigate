@@ -1041,7 +1041,11 @@ class RecordingMaintainer(threading.Thread):
             )
         async with semaphore:
             result = await probe_recording_integrity(
-                self.config.ffmpeg.ffprobe_path, path, duration, expected_audio
+                self.config.ffmpeg.ffprobe_path,
+                path,
+                duration,
+                expected_audio,
+                ffmpeg=self.config.ffmpeg.ffmpeg_path,
             )
         if not result.video_verified:
             quarantined = False

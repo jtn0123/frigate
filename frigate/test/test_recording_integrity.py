@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from frigate.fork.recording_integrity import (
     INTEGRITY_REASONS,
@@ -271,6 +271,71 @@ class TestBoundedRecordingProbe(unittest.IsolatedAsyncioTestCase):
         self.assertAlmostEqual(result.video_seconds, 1)
         self.assertTrue(result.audio_present)
 
+    async def test_origin_normalization_preserves_original_on_failed_or_changed_output(
+        self,
+    ):
+        original = media_probe(0.48, 0)
+        for packet in original["packets"]:
+            if packet["stream_index"] == 0:
+                packet["pts_time"] = str(float(packet["pts_time"]) + 0.064)
+                packet["dts_time"] = str(float(packet["dts_time"]) + 0.064)
+        shorter = media_probe(0.44)
+        lost_keyframe = media_probe(0.48)
+        lost_keyframe["packets"][0]["flags"] = "__"
+        for exit_code, output in (
+            (1, None),
+            (0, shorter),
+            (0, lost_keyframe),
+            (0, original),
+        ):
+            with self.subTest(exit_code=exit_code, output=output):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "saved.mp4.tmp"
+                    path.write_bytes(b"original footage")
+                    calls = 0
+
+                    async def spawn(*args, **kwargs):
+                        nonlocal calls
+                        calls += 1
+                        if calls == 1:
+                            return ProbeProcess(json.dumps(original).encode())
+                        if calls == 2:
+                            Path(args[-1]).write_bytes(b"uncertain remux")
+                            return ProbeProcess(returncode=exit_code)
+                        return ProbeProcess(json.dumps(output).encode())
+
+                    with patch("asyncio.create_subprocess_exec", side_effect=spawn):
+                        result = await probe_recording_integrity(
+                            "ffprobe", str(path), 0.544, ffmpeg="ffmpeg"
+                        )
+                    self.assertFalse(result.video_verified)
+                    self.assertEqual(path.read_bytes(), b"original footage")
+                    self.assertFalse(Path(f"{path}.normalized.tmp").exists())
+
+    async def test_origin_normalization_timeout_kills_process_and_keeps_original(self):
+        original = media_probe(0.48)
+        for packet in original["packets"]:
+            packet["pts_time"] = str(float(packet["pts_time"]) + 0.064)
+            packet["dts_time"] = str(float(packet["dts_time"]) + 0.064)
+        process = ProbeProcess(returncode=None)
+        process.wait = AsyncMock(side_effect=[TimeoutError, 0])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "saved.mp4.tmp"
+            path.write_bytes(b"original footage")
+            with patch(
+                "asyncio.create_subprocess_exec",
+                side_effect=[
+                    ProbeProcess(json.dumps(original).encode()),
+                    process,
+                ],
+            ):
+                result = await probe_recording_integrity(
+                    "ffprobe", str(path), 0.544, ffmpeg="ffmpeg"
+                )
+            self.assertEqual(result.reason, "probe_timeout")
+            self.assertEqual(process.returncode, -9)
+            self.assertEqual(path.read_bytes(), b"original footage")
+
     async def test_success_uses_file_only_packet_scan_without_decoding(self):
         process = ProbeProcess(json.dumps(media_probe()).encode())
         with patch("asyncio.create_subprocess_exec", return_value=process) as spawn:
@@ -323,3 +388,138 @@ class TestBoundedRecordingProbe(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(asyncio.CancelledError):
                 await task
         self.assertEqual(process.returncode, -9)
+
+
+class SignaledProbeReader(asyncio.StreamReader):
+    """Signal when a subprocess output read starts, without polling or sleeps."""
+
+    def __init__(self, started):
+        super().__init__()
+        self.started = started
+
+    async def read(self, n=-1):
+        self.started.set()
+        return await super().read(n)
+
+
+class PendingNormalizationProcess(ProbeProcess):
+    """Keep a synthetic child alive until the production cleanup kills it."""
+
+    def __init__(self, output=b""):
+        super().__init__(returncode=None)
+        self.started = asyncio.Event()
+        self.stopped = asyncio.Event()
+        self.stdout = SignaledProbeReader(self.started)
+        self.stdout.feed_data(output)
+        self.kill_count = 0
+        self.drain_count = 0
+        self.wait_count = 0
+
+    async def wait(self):
+        self.wait_count += 1
+        self.started.set()
+        await self.stopped.wait()
+        return self.returncode
+
+    async def communicate(self):
+        self.drain_count += 1
+        await self.stopped.wait()
+        return b"", b""
+
+    def kill(self):
+        super().kill()
+        self.kill_count += 1
+        self.stdout.feed_eof()
+        self.stopped.set()
+
+
+class TestRecordingNormalizationCleanup(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.path = Path(directory.name) / "saved.mp4.tmp"
+        self.path.write_bytes(b"original footage")
+        self.normalized = Path(f"{self.path}.normalized.tmp")
+        original = media_probe(0.48)
+        for packet in original["packets"]:
+            packet["pts_time"] = str(float(packet["pts_time"]) + 0.064)
+            packet["dts_time"] = str(float(packet["dts_time"]) + 0.064)
+        self.original_probe = json.dumps(original).encode()
+
+    def start_normalization(self, stage, output=b""):
+        running = PendingNormalizationProcess(output)
+        calls = []
+
+        async def spawn(*args, **kwargs):
+            calls.append(args)
+            if len(calls) == 1:
+                return ProbeProcess(self.original_probe)
+            if len(calls) == 2:
+                self.assertEqual(args[0], "ffmpeg")
+                self.normalized.write_bytes(b"unverified normalized output")
+                return running if stage == "normalizer" else ProbeProcess()
+            self.assertEqual(len(calls), 3, "Normalization must not recurse")
+            self.assertEqual(args[0], "ffprobe")
+            self.assertEqual(args[-1], str(self.normalized))
+            return running
+
+        self.enterContext(patch("asyncio.create_subprocess_exec", side_effect=spawn))
+        task = asyncio.create_task(
+            probe_recording_integrity("ffprobe", str(self.path), 0.544, ffmpeg="ffmpeg")
+        )
+
+        async def stop_task():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+        self.addAsyncCleanup(stop_task)
+        return task, running, calls
+
+    def assert_original_preserved(self, running):
+        self.assertEqual(running.returncode, -9)
+        self.assertEqual(running.kill_count, 1)
+        self.assertEqual(self.path.read_bytes(), b"original footage")
+        self.assertFalse(self.normalized.exists())
+        self.assertEqual(list(self.path.parent.iterdir()), [self.path])
+
+    async def test_cancellation_during_normalizer_kills_child_and_removes_output(self):
+        task, running, calls = self.start_normalization("normalizer")
+        await asyncio.wait_for(running.started.wait(), 1)
+        self.assertTrue(self.normalized.exists())
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 1)
+        self.assert_original_preserved(running)
+        self.assertEqual(running.wait_count, 2)
+        self.assertEqual(len(calls), 2)
+
+    async def test_cancellation_during_second_probe_kills_and_drains_child(self):
+        task, running, calls = self.start_normalization("second_probe")
+        await asyncio.wait_for(running.started.wait(), 1)
+        self.assertTrue(self.normalized.exists())
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 1)
+        self.assert_original_preserved(running)
+        self.assertEqual(running.drain_count, 1)
+        self.assertEqual(len(calls), 3)
+
+    async def test_second_probe_timeout_preserves_original_and_cleans_output(self):
+        with patch("frigate.fork.recording_integrity.PROBE_TIMEOUT", 0.05):
+            task, running, calls = self.start_normalization("second_probe")
+            await asyncio.wait_for(running.started.wait(), 1)
+            result = await asyncio.wait_for(task, 1)
+        self.assertFalse(result.video_verified)
+        self.assert_original_preserved(running)
+        self.assertEqual(running.drain_count, 1)
+        self.assertEqual(len(calls), 3)
+
+    async def test_second_probe_output_limit_preserves_original_and_cleans_output(self):
+        with patch("frigate.fork.recording_integrity.PROBE_MAX_BYTES", 4096):
+            task, running, calls = self.start_normalization("second_probe", b"x" * 4097)
+            await asyncio.wait_for(running.started.wait(), 1)
+            result = await asyncio.wait_for(task, 1)
+        self.assertFalse(result.video_verified)
+        self.assert_original_preserved(running)
+        self.assertEqual(running.drain_count, 1)
+        self.assertEqual(len(calls), 3)

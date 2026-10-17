@@ -196,12 +196,22 @@ Coverage uses registered segment timestamps. It does not decode footage or
 prove playback integrity. This native history requires no third-party scraper,
 uptime service, camera credentials, active camera probes or new network access.
 
-New saved segments are checked once with a bounded final-file packet probe,
+New saved segments are checked with a bounded final-file packet probe,
 replacing the former cache keyframe probe. Verified video timing determines
 the registered duration. Video with corrupt or missing expected audio retains
 its verified video coverage and raises a camera-scoped audio notice. Uncertain
 video mapping is withheld from coverage and raises a video notice. Source
 probe failures still use the existing bounded cache discard behavior.
+
+Valid AAC can start before the first video frame, particularly in the first
+segment after recording starts. A positive audio-to-video seek offset of at
+most one second triggers a single stream-copy normalization with a ten-second
+time budget. A second bounded probe must confirm a zero video origin, unchanged
+video duration and matching relative keyframes before replacing the file.
+Registration preserves the original video wall-clock start. Normalization
+failures leave the original output available for diagnosis; they cannot add an
+unverified recording interval. The existing four-worker verification limit
+includes normalization and its second probe.
 
 Unverified remuxed outputs are preserved under
 `/media/frigate/recordings/.integrity/` for diagnosis, limited globally to 128

@@ -47,6 +47,13 @@ fork/demo/.build/
 .scannerwork/
 coverage-py/
 .coverage
+.coverage.*
+.pytest_cache/
+
+# Local agent reports and exploratory dependency resolution
+/.Codex/grade-report.local-before-sync-*.md
+/.Codex/retired-branches-*.json
+/uv.lock
 
 # fork: local evidence folders (agent logs, before/after screenshots)
 .codex-output/
