@@ -44,7 +44,11 @@ class TestGo2RtcAddStreamSubstitution(unittest.TestCase):
             resp.status_code = 200
             return resp
 
-        with patch.object(camera_api.requests, "put", side_effect=fake_put):
+        # These tests isolate substitution, including operator-approved raw filters.
+        with (
+            patch.object(camera_api.requests, "put", side_effect=fake_put),
+            patch("frigate.util.services._GO2RTC_ARBITRARY_EXEC_ENV", "true"),
+        ):
             camera_api.go2rtc_add_stream(
                 request=MagicMock(), stream_name="cam1", src=src
             )
@@ -544,3 +548,16 @@ class TestSourceRobustness(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestProtectedEnvironmentOverrides(unittest.TestCase):
+    def test_config_cannot_enable_go2rtc_exec_override(self):
+        for key in ("GO2RTC_ALLOW_ARBITRARY_EXEC", "go2rtc_allow_arbitrary_exec"):
+            with patch.dict(os.environ, {}, clear=True):
+                env.apply_config_env_vars({key: "true"})
+                self.assertNotIn(key, os.environ)
+
+    def test_config_cannot_replace_operator_override(self):
+        with patch.dict(os.environ, {"GO2RTC_ALLOW_ARBITRARY_EXEC": "false"}):
+            env.apply_config_env_vars({"GO2RTC_ALLOW_ARBITRARY_EXEC": "true"})
+            self.assertEqual(os.environ["GO2RTC_ALLOW_ARBITRARY_EXEC"], "false")
