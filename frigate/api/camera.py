@@ -38,7 +38,7 @@ from frigate.util.image import run_ffmpeg_snapshot
 from frigate.util.services import (
     analyze_record_keyframes,
     ffprobe_stream,
-    is_restricted_go2rtc_source,
+    is_restricted_go2rtc_api_source,
 )
 
 _ERROR_FETCHING_STREAM_DATA = "Error fetching stream data"
@@ -145,7 +145,7 @@ def go2rtc_camera_stream(request: Request, stream_name: str):
 )
 def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
     """Add or update a go2rtc stream configuration."""
-    if src and is_restricted_go2rtc_source(src):
+    if src and is_restricted_go2rtc_api_source(src):
         logger.warning(
             "Rejected go2rtc stream %s with restricted source type (echo/expr/exec)",
             repr(stream_name).replace("\r", "_").replace("\n", "_"),
@@ -166,7 +166,7 @@ def go2rtc_add_stream(request: Request, stream_name: str, src: str = ""):
             except UnknownVariableError:
                 resolved_src = src
 
-            if is_restricted_go2rtc_source(resolved_src):
+            if is_restricted_go2rtc_api_source(resolved_src):
                 logger.warning(
                     "Rejected go2rtc stream %s with restricted source type (echo/expr/exec)",
                     repr(stream_name).replace("\r", "_").replace("\n", "_"),

@@ -175,6 +175,12 @@ def apply_config_env_vars(values: Mapping[str, object]) -> None:
     Unprefixed keys only set os.environ.
     """
     for key, value in values.items():
+        if key.upper() == "GO2RTC_ALLOW_ARBITRARY_EXEC":
+            logger.warning(
+                "Ignoring %s in environment_vars, it must be set in the container environment",
+                key,
+            )
+            continue
         resolved = str(value)
 
         if key.startswith("FRIGATE_"):
