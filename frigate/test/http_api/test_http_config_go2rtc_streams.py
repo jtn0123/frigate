@@ -126,7 +126,7 @@ class TestConfigGo2rtcStreamRestrictions(BaseTestHttp):
         assert _EXISTING_SRC in self._read_config()
 
     def test_set_allows_injected_source_when_override_set(self):
-        with patch.dict(os.environ, {"GO2RTC_ALLOW_ARBITRARY_EXEC": "true"}):
+        with patch("frigate.util.services._GO2RTC_ARBITRARY_EXEC_ENV", "true"):
             resp = self._set_streams({"new_stream": [_INJECTED_SRC]})
         assert resp.status_code == 200, resp.text
 
