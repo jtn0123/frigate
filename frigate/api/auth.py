@@ -41,6 +41,8 @@ from frigate.api.media_auth import (
 from frigate.config import AuthConfig, ProxyConfig
 from frigate.const import CONFIG_DIR, JWT_SECRET_ENV_VAR, PASSWORD_HASH_ALGORITHM
 from frigate.events.share_links import delete_user_share_links
+from frigate.fork.api_routes import api_routes
+from frigate.fork.login_throttle import check_login_budget
 from frigate.fork.sessions import (
     end_current_session,
     end_user_sessions,
@@ -231,10 +233,7 @@ def assert_routes_have_auth_gate(app: FastAPI) -> None:
     """
     problems: list[str] = []
 
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
-
+    for route in api_routes(app):
         gates = route_auth_gates(route)
 
         if len(gates) != 1:
@@ -1021,12 +1020,24 @@ limiter = Limiter(key_func=get_remote_addr)
     summary="Login with credentials",
     description='Authenticates a user with username and password. Returns a JWT token as a secure HTTP-only cookie that can be used for subsequent API requests. The JWT token can also be retrieved from the response and used as a Bearer token in the Authorization header.\n\nExample using Bearer token:\n```\ncurl -H "Authorization: Bearer <token_value>" https://frigate_ip:8971/api/profile\n```',
 )
-@limiter.limit(limit_value=rateLimiter.get_limit)
 def login(request: Request, body: AppPostLoginBody):
     if not request.app.frigate_config.auth.enabled:
         return JSONResponse(
             content={"message": "Authentication is disabled"}, status_code=404
         )
+
+    client = get_remote_addr(request)
+    limited = check_login_budget(limiter, rateLimiter.get_limit(), client)
+    if limited is not None:
+        return limited
+
+    def failed_response():
+        limited = check_login_budget(
+            limiter, rateLimiter.get_limit(), client, failed=True
+        )
+        if limited is not None:
+            return limited
+        return JSONResponse(content={"message": "Login failed"}, status_code=401)
 
     JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
     JWT_COOKIE_SECURE = request.app.frigate_config.auth.cookie_secure
@@ -1038,7 +1049,7 @@ def login(request: Request, body: AppPostLoginBody):
         db_user: User = User.get_by_id(user)
     except DoesNotExist:
         failed_logins.record(user, time.time())
-        return JSONResponse(content={"message": "Login failed"}, status_code=401)
+        return failed_response()
 
     password_hash = db_user.password_hash
     if verify_password(password, password_hash):
@@ -1071,7 +1082,7 @@ def login(request: Request, body: AppPostLoginBody):
         return response
 
     failed_logins.record(user, time.time(), known=True)
-    return JSONResponse(content={"message": "Login failed"}, status_code=401)
+    return failed_response()
 
 
 @router.get(

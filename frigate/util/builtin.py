@@ -13,6 +13,7 @@ import time
 import urllib.parse
 from collections import deque
 from collections.abc import Mapping
+from io import StringIO
 from multiprocessing.managers import ValueProxy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -26,6 +27,7 @@ from frigate.const import (
     STREAM_TYPE_MAIN,
     STREAM_TYPE_SUB,
 )
+from frigate.fork.config_persistence import config_file_lock, write_config_file
 
 if TYPE_CHECKING:
     from frigate.config import CameraConfig
@@ -283,18 +285,11 @@ def split_config_key_path(key_path_str: str) -> list[str]:
     return parts
 
 
-def update_yaml_file_bulk(file_path: str, updates: dict[str, Any]):
+def render_yaml_updates(raw_config: str, updates: dict[str, Any]) -> str:
+    """Apply configuration updates in memory while preserving YAML comments."""
     yaml = YAML()
     yaml.indent(mapping=2, sequence=4, offset=2)
-
-    try:
-        with open(file_path) as f:
-            data = yaml.load(f)
-    except FileNotFoundError:
-        logger.error(
-            f"Unable to read from Frigate config file {file_path}. Make sure it exists and is readable."
-        )
-        return
+    data = yaml.load(raw_config)
 
     # Apply all updates
     for key_path_str, new_value in updates.items():
@@ -308,11 +303,17 @@ def update_yaml_file_bulk(file_path: str, updates: dict[str, Any]):
                 pass
         data = update_yaml(data, key_path, new_value)
 
-    try:
-        with open(file_path, "w") as f:
-            yaml.dump(data, f)
-    except Exception as e:
-        logger.exception("Unable to write to Frigate config file %s: %s", file_path, e)
+    output = StringIO()
+    yaml.dump(data, output)
+    return output.getvalue()
+
+
+def update_yaml_file_bulk(file_path: str, updates: dict[str, Any]) -> None:
+    """Serialize configuration writers and propagate failed atomic saves."""
+    with config_file_lock(file_path):
+        with open(file_path) as source:
+            candidate = render_yaml_updates(source.read(), updates)
+        write_config_file(file_path, candidate)
 
 
 def clear_orphaned_comments(collection, parent, parent_key) -> None:

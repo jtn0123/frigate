@@ -238,7 +238,7 @@ class TestDeleteCameraRuntimeConfig(BaseTestHttp):
                 "frigate.api.camera_config.find_config_file",
                 return_value="/config/test",
             ),
-            patch("frigate.api.camera_config.FileLock") as lock,
+            patch("frigate.api.camera_config.config_file_lock") as lock,
             patch("frigate.api.camera.cleanup_camera_db") as cleanup,
             AuthTestClient(app) as client,
         ):

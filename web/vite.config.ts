@@ -151,10 +151,10 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "lcov", "json"],
-      // Baseline from 2026-09-23: 15.48% overall lines, 88.69% lib/fork,
-      // and 58.16% hooks/fork. Keep a small margin for toolchain drift.
+      // D48: exact bf2c15c release measured 41.91% Vitest-only lines.
+      // Keep one point of drift, plus the stronger fork-library floors.
       thresholds: {
-        lines: 14.5,
+        lines: 40.91,
         "src/lib/fork/**": { lines: 87.5 },
         "src/hooks/fork/**": { lines: 57 },
       },

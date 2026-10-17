@@ -77,6 +77,18 @@ class TestSonarCoverage(unittest.TestCase):
 class TestCoverageFloor(unittest.TestCase):
     """A floor is only useful if it fails on a drop and tolerates noise."""
 
+    def test_recorded_release_baselines_pass_but_large_losses_fail(self):
+        root = Path(__file__).resolve().parents[2]
+        self.assertEqual(
+            _MODULE.check_floor(
+                root, {"python": 78.83, "web": 72.75, "web_unit": 41.91}
+            ),
+            [],
+        )
+        self.assertEqual(
+            len(_MODULE.check_floor(root, {"python": 60, "web": 55, "web_unit": 30})), 3
+        )
+
     def floor_file(self, directory: Path, **values: object) -> Path:
         payload = {"tolerance_points": 0.5, "python": None, "web": None}
         payload.update(values)

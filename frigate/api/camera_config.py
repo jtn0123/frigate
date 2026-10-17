@@ -1,10 +1,11 @@
 """Locked camera removal from persisted and runtime configuration."""
 
 import logging
+from io import StringIO
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from filelock import FileLock, Timeout
+from filelock import Timeout
 from ruamel.yaml import YAML
 
 from frigate.api.config_util import swap_runtime_config
@@ -13,6 +14,7 @@ from frigate.config.camera.updater import (
     CameraConfigUpdateEnum,
     CameraConfigUpdateTopic,
 )
+from frigate.fork.config_persistence import config_file_lock, write_config_file
 from frigate.util.config import find_config_file
 
 logger = logging.getLogger(__name__)
@@ -26,7 +28,7 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
     an older config after a newer one.
     """
     config_file = find_config_file()
-    lock = FileLock(f"{config_file}.lock", timeout=5)
+    lock = config_file_lock(config_file)
 
     try:
         with lock:
@@ -50,8 +52,7 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
                 yaml = YAML()
                 yaml.indent(mapping=2, sequence=4, offset=2)
 
-                with open(config_file) as f:
-                    data = yaml.load(f)
+                data = yaml.load(old_raw_config)
 
                 # Remove camera from config
                 if "cameras" in data and camera_name in data["cameras"]:
@@ -59,17 +60,13 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
 
                 _remove_camera_roles(data, camera_name)
 
-                with open(config_file, "w") as f:
-                    yaml.dump(data, f)
-
-                with open(config_file) as f:
-                    new_raw_config = f.read()
+                candidate = StringIO()
+                yaml.dump(data, candidate)
+                new_raw_config = candidate.getvalue()
 
                 try:
                     config = FrigateConfig.parse(new_raw_config)
                 except Exception:
-                    with open(config_file, "w") as f:
-                        f.write(old_raw_config)
                     logger.exception(
                         "Config error after removing camera %s",
                         camera_name,
@@ -81,6 +78,7 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
                         },
                         status_code=400,
                     )
+                write_config_file(config_file, new_raw_config)
             except Exception:
                 logger.exception(
                     "Error updating config to remove camera %s", camera_name

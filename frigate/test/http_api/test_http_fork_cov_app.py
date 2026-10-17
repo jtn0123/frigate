@@ -478,7 +478,7 @@ class TestConfigSetToFile(_AppHttpTestCase):
         with (
             self._config_file(),
             patch.object(
-                app_api, "update_yaml_file_bulk", side_effect=RuntimeError("disk")
+                app_api, "write_config_file", side_effect=RuntimeError("disk")
             ),
             AuthTestClient(self.app) as client,
         ):
@@ -495,7 +495,7 @@ class TestConfigSetToFile(_AppHttpTestCase):
         lock.__enter__.side_effect = app_api.Timeout("config.yml.lock")
         with (
             self._config_file(),
-            patch.object(app_api, "FileLock", return_value=lock),
+            patch.object(app_api, "config_file_lock", return_value=lock),
             AuthTestClient(self.app) as client,
         ):
             response = client.put(

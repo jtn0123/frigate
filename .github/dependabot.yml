@@ -53,10 +53,9 @@ updates:
     directory: "/docker/rocm"
     schedule:
       interval: daily
-    # fork: not part of the amd64 image this fork builds; no PRs of any kind.
+    # fork: ROCm is published. Permit security update PRs for this image too.
+    # Zero scheduled version PRs preserves the security-only fork policy.
     open-pull-requests-limit: 0
-    ignore:
-      - dependency-name: "*"
   - package-ecosystem: "pip"
     directory: "/fork"
     schedule:

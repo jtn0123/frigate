@@ -221,7 +221,7 @@ async def camera_ptz_info(request: Request, camera_name: str):
     dependencies=[Depends(require_camera_access)],
     description="Returns the latest frame from the specified camera in the requested format (jpg, png, webp). Falls back to preview frames if the camera is offline.",
 )
-async def latest_frame(
+def latest_frame(
     request: Request,
     camera_name: str,
     extension: Extension,

@@ -2,3 +2,5 @@
 #   uv pip compile fork/requirements-audit.in --universal --python-version 3.11 \
 #     --generate-hashes --only-binary :all: -o fork/requirements-audit.txt
 pip-audit==2.10.1
+# F12: the auditor makes HTTP requests and needs the same reviewed fix as runtime.
+urllib3==2.8.0

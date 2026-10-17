@@ -199,9 +199,8 @@ def create_fastapi_app(
             app.state.replay_watchdog_task = None
 
     # Rate limiter (used for login endpoint)
-    if frigate_config.auth.failed_login_rate_limit is None:
-        limiter.enabled = False
-    else:
+    limiter.enabled = frigate_config.auth.failed_login_rate_limit is not None
+    if frigate_config.auth.failed_login_rate_limit is not None:
         auth.rateLimiter.set_limit(frigate_config.auth.failed_login_rate_limit)
 
     app.state.limiter = limiter

@@ -5189,18 +5189,12 @@ export interface components {
         };
         /** Body_recognize_face_faces_recognize_post */
         Body_recognize_face_faces_recognize_post: {
-            /**
-             * File
-             * Format: binary
-             */
+            /** File */
             file: string;
         };
         /** Body_register_face_faces__name__register_post */
         Body_register_face_faces__name__register_post: {
-            /**
-             * File
-             * Format: binary
-             */
+            /** File */
             file: string;
         };
         /**
@@ -7823,6 +7817,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
         /**
          * VodStreamPreference

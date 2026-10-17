@@ -8,3 +8,6 @@ packaging==26.3
 cffi==2.1.1
 ml-dtypes==0.5.4
 pycparser==3.0
+# Security patch pins for shared HTTP dependencies.
+multidict==6.9.1
+werkzeug==3.1.9

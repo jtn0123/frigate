@@ -5,7 +5,6 @@ import time
 from unittest.mock import MagicMock, Mock, patch
 
 from fastapi import FastAPI
-from fastapi.routing import APIRoute
 from joserfc import jwt
 from peewee import OperationalError
 
@@ -20,6 +19,7 @@ from frigate.config import FrigateConfig
 from frigate.config.camera.updater import CameraConfigUpdatePublisher
 from frigate.const import JWT_SECRET_ENV_VAR
 from frigate.fork import sessions as sessions_module
+from frigate.fork.api_routes import api_routes
 from frigate.fork.session_reach import UserSessionPush
 from frigate.fork.sessions import (
     LAST_SEEN_WRITE_INTERVAL,
@@ -645,7 +645,7 @@ class TestSessionsAccess(_SessionsTestCase):
         app.include_router(fork_sessions.router)
 
         assert_routes_have_auth_gate(app)
-        paths = {r.path for r in app.routes if isinstance(r, APIRoute)}
+        paths = {r.path for r in api_routes(app)}
         self.assertEqual(
             paths,
             {

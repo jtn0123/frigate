@@ -1,4 +1,5 @@
 import { isIOS } from "react-device-detect";
+import { parseTimeInput } from "@/lib/fork/time-input";
 
 type TimeInputProps = {
   id: string;
@@ -24,18 +25,8 @@ export function TimeInput({
       value={value}
       step={isIOS ? "60" : "1"}
       onChange={(event) => {
-        const clock = event.target.value;
-        const [hour, minute, second] = isIOS
-          ? [...clock.split(":"), "00"]
-          : clock.split(":");
-        const time = new Date(timestamp * 1000);
-        time.setHours(
-          Number.parseInt(hour),
-          Number.parseInt(minute),
-          Number.parseInt(second ?? "0"),
-          0,
-        );
-        onChange(time.getTime() / 1000);
+        const time = parseTimeInput(event.target.value, timestamp, isIOS);
+        if (time !== null) onChange(time);
       }}
     />
   );

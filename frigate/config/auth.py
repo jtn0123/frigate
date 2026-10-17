@@ -40,9 +40,9 @@ class AuthConfig(FrigateBaseModel):
         ge=30,
     )
     failed_login_rate_limit: str | None = Field(
-        default=None,
+        default="10/minute;100/hour",
         title="Failed login limits",
-        description="Rate limiting rules for failed login attempts to reduce brute-force attacks.",
+        description="Rate limiting rules for failed login attempts. Defaults to 10 failures per minute and 100 per hour per client IP. Successful logins do not consume the limit. Set null to disable.",
     )
     trusted_proxies: list[str] = Field(
         default=[],

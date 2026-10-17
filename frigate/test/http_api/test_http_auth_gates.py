@@ -3,7 +3,6 @@
 import unittest
 
 from fastapi import APIRouter, Depends, FastAPI
-from fastapi.routing import APIRoute
 
 from frigate.api import (
     ai_models,
@@ -31,6 +30,7 @@ from frigate.api.auth import (
     require_role,
     route_auth_gates,
 )
+from frigate.fork.api_routes import api_routes
 
 ALL_ROUTERS = [
     ai_models.router,
@@ -62,7 +62,7 @@ def _app_with(*routers: APIRouter) -> FastAPI:
 class TestRouteAuthGates(unittest.TestCase):
     def test_every_route_declares_exactly_one_gate(self):
         app = _app_with(*ALL_ROUTERS)
-        routes = [r for r in app.routes if isinstance(r, APIRoute)]
+        routes = list(api_routes(app))
         assert len(routes) > 100, "router set looks incomplete"
 
         missing = {
@@ -95,9 +95,7 @@ class TestRouteAuthGates(unittest.TestCase):
             return {}
 
         app = _app_with(router)
-        gates = {
-            r.path: route_auth_gates(r) for r in app.routes if isinstance(r, APIRoute)
-        }
+        gates = {r.path: route_auth_gates(r) for r in api_routes(app)}
         assert gates == {
             "/public": ["public_checker"],
             "/any": ["auth_checker"],

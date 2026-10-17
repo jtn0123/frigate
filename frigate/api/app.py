@@ -18,7 +18,7 @@ from fastapi import APIRouter, Body, Path, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
-from filelock import FileLock, Timeout
+from filelock import Timeout
 from markupsafe import escape
 from peewee import SQL, fn, operator
 from pydantic import ValidationError
@@ -53,6 +53,7 @@ from frigate.config.camera.updater import (
 )
 from frigate.const import REDACTED_CREDENTIAL_SENTINEL
 from frigate.ffmpeg_presets import FFMPEG_HWACCEL_VAAPI, _gpu_selector
+from frigate.fork.config_persistence import config_file_lock, write_config_file
 from frigate.genai import PROVIDERS, load_providers
 from frigate.jobs.media_sync import (
     get_current_media_sync_job,
@@ -70,7 +71,7 @@ from frigate.util.builtin import (
     flatten_config_data,
     load_labels,
     process_config_query_string,
-    update_yaml_file_bulk,
+    render_yaml_updates,
 )
 from frigate.util.config import (
     apply_section_update,
@@ -682,28 +683,24 @@ def config_save(save_option: str, body: Any = Body(media_type=_TEXT_PLAIN)):
 
     config_file = find_config_file()
     try:
-        with open(config_file) as f:
-            old_raw_config = f.read()
-    except OSError:
-        old_raw_config = ""
-
-    restricted_response = _restricted_go2rtc_streams_response(
-        old_raw_config, new_config
-    )
-    if restricted_response is not None:
-        return restricted_response
-
-    # Save the config to file
-    try:
-        with open(config_file, "w") as f:
-            f.write(new_config)
-            f.close()
+        with config_file_lock(config_file):
+            try:
+                with open(config_file) as f:
+                    old_raw_config = f.read()
+            except OSError:
+                old_raw_config = ""
+            restricted_response = _restricted_go2rtc_streams_response(
+                old_raw_config, new_config
+            )
+            if restricted_response is not None:
+                return restricted_response
+            write_config_file(config_file, new_config)
     except Exception:
         return JSONResponse(
             content=(
                 {
                     "success": False,
-                    "message": "Could not write config file, be sure that Frigate has write permission on the config file.",
+                    "message": "Could not write config file. Frigate needs write permission on the config directory, which must be mounted as a directory rather than a single file.",
                 }
             ),
             status_code=400,
@@ -907,7 +904,7 @@ def config_set(request: Request, body: AppConfigSetBody):
     if body.skip_save:
         return _config_set_in_memory(request, body)
 
-    lock = FileLock(f"{config_file}.lock", timeout=5)
+    lock = config_file_lock(config_file)
 
     try:
         with lock:
@@ -954,27 +951,18 @@ def config_set(request: Request, body: AppConfigSetBody):
                         status_code=400,
                     )
 
-                # apply all updates in a single operation
-                update_yaml_file_bulk(config_file, updates)
-
-                # validate the updated config
-                with open(config_file) as f:
-                    new_raw_config = f.read()
+                # Validate the complete candidate before touching persisted YAML.
+                new_raw_config = render_yaml_updates(old_raw_config, updates)
 
                 restricted_response = _restricted_go2rtc_streams_response(
                     old_raw_config, new_raw_config
                 )
                 if restricted_response is not None:
-                    with open(config_file, "w") as f:
-                        f.write(old_raw_config)
                     return restricted_response
 
                 try:
                     config = FrigateConfig.parse(new_raw_config)
                 except ValidationError as e:
-                    with open(config_file, "w") as f:
-                        f.write(old_raw_config)
-                        f.close()
                     logger.exception("Config validation failed")
                     error_messages = []
                     for err in e.errors():
@@ -998,9 +986,6 @@ def config_set(request: Request, body: AppConfigSetBody):
                         status_code=400,
                     )
                 except Exception:
-                    with open(config_file, "w") as f:
-                        f.write(old_raw_config)
-                        f.close()
                     logger.exception("Invalid config")
                     return JSONResponse(
                         content=(
@@ -1011,6 +996,7 @@ def config_set(request: Request, body: AppConfigSetBody):
                         ),
                         status_code=400,
                     )
+                write_config_file(config_file, new_raw_config)
             except Exception as e:
                 logger.exception("Error updating config: %s", e)
                 return JSONResponse(
@@ -1173,7 +1159,9 @@ async def logs(
                         buffer += line
                         # Process logs only when there are enough lines in the buffer
                         if "\n" in buffer:
-                            _, processed_lines = process_logs(buffer, service)
+                            _, processed_lines = await asyncio.to_thread(
+                                process_logs, buffer, service
+                            )
                             buffer = ""
                             for processed_line in processed_lines:
                                 yield f"{processed_line}\n"
@@ -1196,7 +1184,7 @@ async def logs(
         )
 
     if download:
-        return download_logs(service_location)
+        return await asyncio.to_thread(download_logs, service_location)
 
     if stream:
         return StreamingResponse(stream_logs(service_location), media_type=_TEXT_PLAIN)
@@ -1206,11 +1194,14 @@ async def logs(
         async with aiofiles.open(service_location) as file:
             contents = await file.read()
 
-        total_lines, log_lines = process_logs(contents, service, start, end)
-        return JSONResponse(
-            content={"totalLines": total_lines, "lines": log_lines},
-            status_code=200,
-        )
+        def log_response():
+            total_lines, log_lines = process_logs(contents, service, start, end)
+            return JSONResponse(
+                content={"totalLines": total_lines, "lines": log_lines},
+                status_code=200,
+            )
+
+        return await asyncio.to_thread(log_response)
     except FileNotFoundError:
         logger.exception("Could not read log file")
         return JSONResponse(
