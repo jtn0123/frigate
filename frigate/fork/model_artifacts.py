@@ -21,7 +21,7 @@ def artifact_urls(model: str, files: list[str]) -> dict[str, str]:
     """Return immutable URLs, also verifying the configured mirror uses HTTPS."""
     endpoint = os.environ.get("HF_ENDPOINT", "https://huggingface.co").rstrip("/")
     parsed = urlsplit(endpoint)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username:
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username is not None:
         raise ValueError("HF_ENDPOINT must be an HTTPS URL without credentials")
     pin = PINS[model]
     return {

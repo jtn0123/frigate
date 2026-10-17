@@ -204,8 +204,14 @@ class TestArtifactIntegrity(unittest.TestCase):
             artifacts.verified_tokenizer_path("jina/test", str(self.directory))
 
     def test_insecure_or_credentialed_mirror_is_rejected(self):
-        for endpoint in ("http://mirror.invalid", "https://user@mirror.invalid"):
+        for endpoint in (
+            "http://mirror.invalid",
+            "https://user@mirror.invalid",
+            "https://@mirror.invalid",
+            "https://:placeholder@mirror.invalid",
+        ):
             with (
+                self.subTest(endpoint=endpoint),
                 patch.dict("os.environ", {"HF_ENDPOINT": endpoint}),
                 self.assertRaises(ValueError),
             ):
