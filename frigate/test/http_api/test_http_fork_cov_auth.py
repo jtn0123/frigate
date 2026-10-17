@@ -480,8 +480,12 @@ class TestCameraGates(unittest.TestCase):
 
         self.assertIsNone(deny_response_for_go2rtc_stream(None, "garage", req))
         self.assertIsNone(deny_response_for_go2rtc_stream("/api/x", "garage", req))
-        self.assertIsNone(deny_response_for_go2rtc_stream(f"{ws}?src=x", "admin", req))
-        self.assertIsNone(deny_response_for_go2rtc_stream(f"{ws}?src=x", None, req))
+        self.assertIsNone(
+            deny_response_for_go2rtc_stream(f"{ws}?src=back_yard", "admin", req)
+        )
+        self.assertIsNone(
+            deny_response_for_go2rtc_stream(f"{ws}?src=back_yard", None, req)
+        )
         self.assertEqual(deny_response_for_go2rtc_stream(ws, "garage", req), 403)
         self.assertIsNone(
             deny_response_for_go2rtc_stream(f"{ws}?src=front_sub", "garage", req)
