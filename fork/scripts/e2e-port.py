@@ -30,6 +30,9 @@ def available(port: int) -> bool:
     for family, address in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
         try:
             with socket.socket(family, socket.SOCK_STREAM) as probe:
+                # Match Node's bind behavior after a stopped preview served TCP.
+                # TIME_WAIT is reusable, while an active listener still conflicts.
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 probe.bind((address, port))
         except OSError as error:
             if family == socket.AF_INET6 and error.errno in (

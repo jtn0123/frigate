@@ -84,6 +84,26 @@ class TestPreviewPort(unittest.TestCase):
             record.write_text("4190\n")
             self.assertEqual(PORT.reserve(self.other, start=4190, end=4191), 4191)
 
+    def test_sequential_previews_can_rebind_after_serving_connections(self):
+        for family, address in (
+            (socket.AF_INET, "127.0.0.1"),
+            (socket.AF_INET6, "::1"),
+        ):
+            with self.subTest(address=address):
+                with socket.socket(family, socket.SOCK_STREAM) as listener:
+                    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    listener.bind((address, 0))
+                    listener.listen()
+                    port = listener.getsockname()[1]
+                    with self.assertRaises(RuntimeError):
+                        PORT.reserve(self.main, requested=port)
+                    with socket.create_connection((address, port), timeout=3) as client:
+                        connection, _ = listener.accept()
+                        # An orderly server-side close leaves TCP TIME_WAIT behind.
+                        connection.close()
+                        self.assertEqual(client.recv(1), b"")
+                self.assertEqual(PORT.reserve(self.main, requested=port), port)
+
     def test_invalid_records_and_explicit_ports_are_rejected(self):
         for value in ("", "0", "65536", "4190junk"):
             with self.assertRaises(ValueError):
