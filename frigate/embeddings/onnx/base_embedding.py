@@ -11,6 +11,7 @@ import requests
 from PIL import Image
 
 from frigate.const import UPDATE_MODEL_STATE
+from frigate.fork.model_artifacts import PINS, download_artifact
 from frigate.types import ModelStatusTypesEnum
 from frigate.util.downloader import ModelDownloader
 
@@ -31,7 +32,12 @@ class BaseEmbedding(ABC):
             file_name = os.path.basename(path)
 
             if file_name in self.download_urls:
-                ModelDownloader.download_from_url(self.download_urls[file_name], path)
+                if self.model_name in PINS:
+                    download_artifact(self.model_name, file_name, path)
+                else:
+                    ModelDownloader.download_from_url(
+                        self.download_urls[file_name], path
+                    )
 
             self.downloader.requestor.send_data(
                 UPDATE_MODEL_STATE,

@@ -4,7 +4,8 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
 
 - `Dockerfile.test` layers the working tree's Python sources over the matching
   upstream image so backend unit tests, mypy, and the API-spec check run against
-  the real runtime without a 40-minute image build. Dev tools are installed
+  the reviewed architecture runtime lock without a full application image build.
+  Dev tools and the complete runtime dependency lock are installed
   before the sources are copied, so a Python edit rebuilds it in about a second.
   Used by `make test-py` and `.github/workflows/fork-checks.yml`.
 - `scripts/check.sh` runs every CI gate locally (`make check`), or only what
@@ -26,6 +27,13 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
   (see `SONAR-CI.md`).
 - `scripts/wt.sh` creates a section worktree with node_modules and its own e2e
   port (`make wt NAME=<name>`).
+- `scripts/e2e-port.py` reserves ports 4190-4299 under a shared Git lock,
+  checking other worktrees and actual listeners. `E2E_PORT=<unused port>` is
+  an explicit override. Exhaustion and duplicate overrides fail; Playwright
+  never reuses an existing server and Vite requires the selected port.
+- `scripts/lock-audit.py` audits all ten runtime, add-on and tooling locks.
+  `--no-deps --disable-pip` checks their already locked closures without
+  resolving a different platform's wheels. Exceptions require a reviewed entry.
 - `demo/` overlays this checkout on the shared runtime image with three looping sample
   cameras (`make demo-up` / `demo-down` / `demo-logs`). Ports are loopback-only.
   See `fork/demo/README.md`.
@@ -120,6 +128,25 @@ worktrees never test each other's sources.
 Gotcha: `vite build --outDir` must stay inside `web/`. The monaco plugin joins
 an absolute outDir onto `web/`, so `--outDir /tmp/x` writes worker bundles to
 `web/tmp/x` and eslint then lints them.
+
+Retire a local branch only after fetching `origin`, confirming every commit is
+in `origin/next`, checking it is not used by a worktree or open PR, and recording
+its revision for recovery. Preserve dirty and ignored artifacts before retiring
+a worktree. A clean checkout alone does not establish that its preview is idle.
+
+## Reviewed runtime behavior
+
+Failed logins default to `10/minute;100/hour` per client address. Successful
+logins do not consume the allowance; `auth.failed_login_rate_limit: null`
+explicitly disables it. Normal nginx forwarding uses its appended client
+address. Configure `auth.trusted_proxies` only for the actual proxy networks
+when additional trusted hops sit in front of nginx.
+
+Jina v1/v2 artifacts are pinned in `frigate/fork/model-artifacts.json` and
+verified before model or tokenizer loading. Built-in tokenizers load local
+data with remote code disabled. The first use downloads a separate cache under
+the reviewed revision, so old mutable caches cannot satisfy the new checks.
+An HTTPS `HF_ENDPOINT` mirror must serve the same reviewed bytes.
 
 ## Runtime and operations
 

@@ -1,0 +1,68 @@
+{
+  "jinaai/jina-clip-v1": {
+    "revision": "ceb3e44ca4d6eceaa4f3fb58b1c1a5748b3f29b6",
+    "files": {
+      "tokenizer.json": {
+        "path": "tokenizer.json",
+        "sha256": "b36ee0ed6d20d181de65ce729dea6169658a9cfa4dede6717ba9fa2e4fbd3bc7"
+      },
+      "tokenizer_config.json": {
+        "path": "tokenizer_config.json",
+        "sha256": "95ba08ef8e1932981fd3bf0720e576e87200613db15d9ab1c7e77f1312c99007"
+      },
+      "special_tokens_map.json": {
+        "path": "special_tokens_map.json",
+        "sha256": "5d5b662e421ea9fac075174bb0688ee0d9431699900b90662acd44b2a350503a"
+      },
+      "preprocessor_config.json": {
+        "path": "preprocessor_config.json",
+        "sha256": "96111755d7d85492e502e0667f52961a71f9f1397769c11a3139a2a3a5498ff5"
+      },
+      "vocab.txt": {
+        "path": "vocab.txt",
+        "sha256": "109753d618dbb576a35112f9c20ef35cf3517d46106175bcf010c986a4bef1df"
+      },
+      "text_model_fp16.onnx": {
+        "path": "onnx/text_model_fp16.onnx",
+        "sha256": "745253a923bf58fc5d8df680c114a68651eaf9aba84e54e86d3963296e6d7735"
+      },
+      "vision_model_fp16.onnx": {
+        "path": "onnx/vision_model_fp16.onnx",
+        "sha256": "588446f8029156236e5bde68df444bb0b798eedb31259902b1d9cd4541cf7aec"
+      },
+      "vision_model_quantized.onnx": {
+        "path": "onnx/vision_model_quantized.onnx",
+        "sha256": "d81e0329d7b9285017d99d68e66002bc35c8c5dd0d61d6b6bb119cc910159657"
+      }
+    }
+  },
+  "jinaai/jina-clip-v2": {
+    "revision": "e10d47f5691d0454a0fb5d13f46f2199b74cb436",
+    "files": {
+      "tokenizer.json": {
+        "path": "tokenizer.json",
+        "sha256": "6601c4120779a1a3863897ba332fe3481d548e363bec2c91eba10ef8640a5e93"
+      },
+      "tokenizer_config.json": {
+        "path": "tokenizer_config.json",
+        "sha256": "e1bc77da5b90ba65b47aa8bd776c6317f47d50dc6717e92b10177686b3b8f161"
+      },
+      "special_tokens_map.json": {
+        "path": "special_tokens_map.json",
+        "sha256": "8c785abebea9ae3257b61681b4e6fd8365ceafde980c21970d001e834cf10835"
+      },
+      "preprocessor_config.json": {
+        "path": "preprocessor_config.json",
+        "sha256": "920bc482e3dad0de2bffe4e534181a1f61a4a6baefa1aee53b75849557786301"
+      },
+      "model_fp16.onnx": {
+        "path": "onnx/model_fp16.onnx",
+        "sha256": "746a78209096d1cd52891b70d752903b8bf86088ba847bd0c56c03fb29256801"
+      },
+      "model_quantized.onnx": {
+        "path": "onnx/model_quantized.onnx",
+        "sha256": "65c6423fc82eecffb7f7f813730c6a6f0d28e2dc908e414250733b1416ed30bf"
+      }
+    }
+  }
+}

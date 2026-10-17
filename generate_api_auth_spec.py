@@ -78,6 +78,7 @@ from frigate.api import (
 )
 from frigate.api import app as main_app
 from frigate.api.auth import require_admin_by_default
+from frigate.fork.api_routes import api_routes
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("generate_api_auth_spec")
@@ -348,9 +349,7 @@ def build_access_map(
 ) -> dict[tuple[str, str], dict]:
     """Map (path, lowercase method) -> classification details."""
     access_map: dict[tuple[str, str], dict] = {}
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
+    for route in api_routes(app):
         level, roles, flag = classify_route(route, exempt_paths, exempt_prefixes)
         for method in route.methods:
             if method in ("HEAD", "OPTIONS"):

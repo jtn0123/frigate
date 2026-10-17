@@ -1,10 +1,32 @@
 import { defineConfig, devices } from "@playwright/test";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const port = Number(process.env.E2E_PORT ?? 4173);
 const webRoot = resolve(__dirname, "..");
+// Workers load this config after the runner has started its preview server.
+// Reserve once in the runner; workers inherit that reservation without binding.
+const reservedPort =
+  process.env.TEST_WORKER_INDEX === undefined
+    ? execFileSync(
+        "python3",
+        [
+          resolve(webRoot, "../fork/scripts/e2e-port.py"),
+          "--worktree",
+          resolve(webRoot, ".."),
+          ...(process.env.E2E_PORT
+            ? ["--requested", process.env.E2E_PORT]
+            : []),
+        ],
+        { encoding: "utf-8" },
+      ).trim()
+    : process.env.E2E_PORT;
+const port = Number(reservedPort);
+if (!reservedPort || !Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("A Playwright worker must inherit the runner's preview port");
+}
+process.env.E2E_PORT = String(port);
 
 // fork: one JSON report per Playwright run, in a directory of its own so
 // neither the html reporter nor the next run's output cleanup removes it.
@@ -51,10 +73,10 @@ export default defineConfig({
   },
 
   webServer: {
-    command: `npx vite preview --port ${port}`,
+    command: `npx vite preview --port ${port} --strictPort`,
     port,
     cwd: webRoot,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 
   projects: [

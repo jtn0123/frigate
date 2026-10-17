@@ -55,7 +55,10 @@ behind="$(git rev-list --count HEAD..refs/remotes/origin/next 2>/dev/null)" || b
 if ((behind > stale_limit)); then
   echo "warning: HEAD is $behind commits behind origin/next (as of the last fetch); merge or rebase before trusting this run" >&2
 fi
-export E2E_PORT="${E2E_PORT:-$(cat web/.e2e-port 2>/dev/null || echo 4173)}"
+port_args=(--worktree "$PWD")
+if [[ -n "${E2E_PORT:-}" ]]; then port_args+=(--requested "$E2E_PORT"); fi
+E2E_PORT="$(python3 fork/scripts/e2e-port.py "${port_args[@]}")" || exit 1
+export E2E_PORT
 logs="$(mktemp -d "${TMPDIR:-/tmp}/fork-check.XXXXXX")"
 changed="$({
   git diff --name-only --no-renames "$base"

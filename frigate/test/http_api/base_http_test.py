@@ -11,6 +11,7 @@ from playhouse.sqlite_ext import SqliteExtDatabase
 from playhouse.sqliteq import SqliteQueueDatabase
 from pydantic import Json
 
+from frigate.api.auth import limiter
 from frigate.api.fastapi_app import create_fastapi_app
 from frigate.config import FrigateConfig
 from frigate.const import BASE_DIR, CACHE_DIR
@@ -37,6 +38,10 @@ class AuthTestClient(TestClient):
 
 class BaseTestHttp(unittest.TestCase):
     def setUp(self, models):
+        # Failed-login budgets are per application in production. Test apps
+        # share the module-level limiter, so each fixture needs a fresh store.
+        limiter.reset()
+        self.addCleanup(limiter.reset)
         # setup clean database for each test run
         migrate_db = SqliteExtDatabase("test.db")
         del logging.getLogger("peewee_migrate").handlers[:]

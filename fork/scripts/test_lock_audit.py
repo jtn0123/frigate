@@ -42,6 +42,20 @@ def exceptions(*ids: str) -> dict[str, object]:
 
 
 class LockAuditTests(unittest.TestCase):
+    def test_published_image_and_scanner_locks_are_all_audited(self):
+        root = Path(__file__).resolve().parents[2]
+        locks = {
+            str(path.relative_to(root))
+            for pattern in (
+                "fork/requirements-runtime-*.lock",
+                "docker/main/requirements*.lock",
+                "docker/rocm/requirements*.lock",
+            )
+            for path in root.glob(pattern)
+        }
+        locks.add("fork/requirements-audit.txt")
+        self.assertEqual(locks - _MODULE.TARGETS.keys(), set())
+
     def test_findings_are_flattened_and_deduplicated(self):
         self.assertEqual(
             _MODULE.findings(REPORT),

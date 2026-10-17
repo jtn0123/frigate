@@ -14,6 +14,14 @@ from frigate.comms.inter_process import InterProcessRequestor
 from frigate.const import MODEL_CACHE_DIR, UPDATE_MODEL_STATE
 from frigate.detectors.detection_runners import get_optimized_runner
 from frigate.embeddings.types import EnrichmentModelTypeEnum
+from frigate.fork.model_artifacts import (
+    artifact_cache_path,
+    artifact_urls,
+    download_artifact,
+    download_tokenizer,
+    verified_tokenizer_path,
+    verify_artifact,
+)
 from frigate.types import ModelStatusTypesEnum
 from frigate.util.downloader import ModelDownloader
 
@@ -36,21 +44,19 @@ class JinaV2Embedding(BaseEmbedding):
         model_file = (
             "model_fp16.onnx" if model_size == "large" else "model_quantized.onnx"
         )
-        HF_ENDPOINT = os.environ.get("HF_ENDPOINT", "https://huggingface.co")
         super().__init__(
             model_name="jinaai/jina-clip-v2",
             model_file=model_file,
-            download_urls={
-                model_file: f"{HF_ENDPOINT}/jinaai/jina-clip-v2/resolve/main/onnx/{model_file}",
-                "preprocessor_config.json": f"{HF_ENDPOINT}/jinaai/jina-clip-v2/resolve/main/preprocessor_config.json",
-            },
+            download_urls=artifact_urls(
+                "jinaai/jina-clip-v2", [model_file, "preprocessor_config.json"]
+            ),
         )
         self.tokenizer_file = "tokenizer"
         self.embedding_type = embedding_type
         self.requestor = requestor
         self.model_size = model_size
         self.device = device
-        self.download_path = os.path.join(MODEL_CACHE_DIR, self.model_name)
+        self.download_path = artifact_cache_path(MODEL_CACHE_DIR, self.model_name)
         self.tokenizer = None
         self.image_processor = None
         self.runner = None
@@ -90,20 +96,9 @@ class JinaV2Embedding(BaseEmbedding):
             file_name = os.path.basename(path)
 
             if file_name in self.download_urls:
-                ModelDownloader.download_from_url(self.download_urls[file_name], path)
+                download_artifact(self.model_name, file_name, path)
             elif file_name == self.tokenizer_file:
-                if not os.path.exists(os.path.join(path, self.model_name)):
-                    logger.info(f"Downloading {self.model_name} tokenizer")
-
-                tokenizer = AutoTokenizer.from_pretrained(
-                    self.model_name,
-                    trust_remote_code=True,
-                    cache_dir=os.path.join(
-                        MODEL_CACHE_DIR, self.model_name, "tokenizer"
-                    ),
-                    clean_up_tokenization_spaces=True,
-                )
-                tokenizer.save_pretrained(path)
+                download_tokenizer(self.model_name, path)
             self.requestor.send_data(
                 UPDATE_MODEL_STATE,
                 {
@@ -125,13 +120,17 @@ class JinaV2Embedding(BaseEmbedding):
             if self.downloader:
                 self.downloader.wait_for_download()
 
-            tokenizer_path = os.path.join(
-                f"{MODEL_CACHE_DIR}/{self.model_name}/tokenizer"
+            for name in self.download_urls:
+                verify_artifact(
+                    self.model_name, name, os.path.join(self.download_path, name)
+                )
+            tokenizer_path = verified_tokenizer_path(
+                self.model_name, self.download_path
             )
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                cache_dir=tokenizer_path,
-                trust_remote_code=True,
+                tokenizer_path,
+                local_files_only=True,
+                trust_remote_code=False,
                 clean_up_tokenization_spaces=True,
             )
 

@@ -3,7 +3,6 @@ import logging
 import multiprocessing as mp
 import os
 import secrets
-import shutil
 from collections.abc import Callable
 from multiprocessing import Queue
 from multiprocessing.managers import DictProxy, SyncManager
@@ -56,6 +55,7 @@ from frigate.embeddings import EmbeddingProcess, EmbeddingsContext
 from frigate.events.audio import AudioProcessor
 from frigate.events.cleanup import EventCleanup
 from frigate.events.maintainer import EventProcessor
+from frigate.fork.database_backup import backup_database
 from frigate.jobs.export import reap_stale_exports
 from frigate.jobs.motion_search import stop_all_motion_search_jobs
 from frigate.log import _stop_logging
@@ -213,10 +213,7 @@ class FrigateApp:
 
         if len(router.diff) > 0:
             logger.info("Making backup of DB before migrations...")
-            shutil.copyfile(
-                self.config.database.path,
-                self.config.database.path.replace("frigate.db", "backup.db"),
-            )
+            backup_database(migrate_db.connection(), self.config.database.path)
 
         router.run()
 

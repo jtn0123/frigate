@@ -5,7 +5,7 @@ import os
 import threading
 import warnings
 
-from transformers import AutoFeatureExtractor, AutoTokenizer
+from transformers import AutoTokenizer, CLIPImageProcessor
 from transformers.utils.logging import disable_progress_bar
 
 from frigate.comms.inter_process import InterProcessRequestor
@@ -16,6 +16,14 @@ from frigate.detectors.detection_runners import BaseModelRunner, get_optimized_r
 # https://github.com/huggingface/transformers/issues/27214
 # suppressed by setting env TRANSFORMERS_NO_ADVISORY_WARNINGS=1
 from frigate.embeddings.types import EnrichmentModelTypeEnum
+from frigate.fork.model_artifacts import (
+    artifact_cache_path,
+    artifact_urls,
+    download_artifact,
+    download_tokenizer,
+    verified_tokenizer_path,
+    verify_artifact,
+)
 from frigate.types import ModelStatusTypesEnum
 from frigate.util.downloader import ModelDownloader
 
@@ -39,19 +47,18 @@ class JinaV1TextEmbedding(BaseEmbedding):
         requestor: InterProcessRequestor,
         device: str = "AUTO",
     ):
-        HF_ENDPOINT = os.environ.get("HF_ENDPOINT", "https://huggingface.co")
         super().__init__(
             model_name="jinaai/jina-clip-v1",
             model_file="text_model_fp16.onnx",
-            download_urls={
-                "text_model_fp16.onnx": f"{HF_ENDPOINT}/jinaai/jina-clip-v1/resolve/main/onnx/text_model_fp16.onnx",
-            },
+            download_urls=artifact_urls(
+                "jinaai/jina-clip-v1", ["text_model_fp16.onnx"]
+            ),
         )
         self.tokenizer_file = "tokenizer"
         self.requestor = requestor
         self.model_size = model_size
         self.device = device
-        self.download_path = os.path.join(MODEL_CACHE_DIR, self.model_name)
+        self.download_path = artifact_cache_path(MODEL_CACHE_DIR, self.model_name)
         self.tokenizer = None
         self.feature_extractor = None
         self.runner = None
@@ -85,18 +92,9 @@ class JinaV1TextEmbedding(BaseEmbedding):
             file_name = os.path.basename(path)
 
             if file_name in self.download_urls:
-                ModelDownloader.download_from_url(self.download_urls[file_name], path)
+                download_artifact(self.model_name, file_name, path)
             elif file_name == self.tokenizer_file:
-                if not os.path.exists(path + "/" + self.model_name):
-                    logger.info(f"Downloading {self.model_name} tokenizer")
-
-                tokenizer = AutoTokenizer.from_pretrained(
-                    self.model_name,
-                    trust_remote_code=True,
-                    cache_dir=f"{MODEL_CACHE_DIR}/{self.model_name}/tokenizer",
-                    clean_up_tokenization_spaces=True,
-                )
-                tokenizer.save_pretrained(path)
+                download_tokenizer(self.model_name, path)
 
             self.downloader.requestor.send_data(
                 UPDATE_MODEL_STATE,
@@ -119,13 +117,18 @@ class JinaV1TextEmbedding(BaseEmbedding):
             if self.downloader:
                 self.downloader.wait_for_download()
 
-            tokenizer_path = os.path.join(
-                f"{MODEL_CACHE_DIR}/{self.model_name}/tokenizer"
+            verify_artifact(
+                self.model_name,
+                self.model_file,
+                os.path.join(self.download_path, self.model_file),
+            )
+            tokenizer_path = verified_tokenizer_path(
+                self.model_name, self.download_path
             )
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                cache_dir=tokenizer_path,
-                trust_remote_code=True,
+                tokenizer_path,
+                local_files_only=True,
+                trust_remote_code=False,
                 clean_up_tokenization_spaces=True,
             )
 
@@ -162,19 +165,17 @@ class JinaV1ImageEmbedding(BaseEmbedding):
             if model_size == "large"
             else "vision_model_quantized.onnx"
         )
-        HF_ENDPOINT = os.environ.get("HF_ENDPOINT", "https://huggingface.co")
         super().__init__(
             model_name="jinaai/jina-clip-v1",
             model_file=model_file,
-            download_urls={
-                model_file: f"{HF_ENDPOINT}/jinaai/jina-clip-v1/resolve/main/onnx/{model_file}",
-                "preprocessor_config.json": f"{HF_ENDPOINT}/jinaai/jina-clip-v1/resolve/main/preprocessor_config.json",
-            },
+            download_urls=artifact_urls(
+                "jinaai/jina-clip-v1", [model_file, "preprocessor_config.json"]
+            ),
         )
         self.requestor = requestor
         self.model_size = model_size
         self.device = device
-        self.download_path = os.path.join(MODEL_CACHE_DIR, self.model_name)
+        self.download_path = artifact_cache_path(MODEL_CACHE_DIR, self.model_name)
         self.feature_extractor = None
         self.runner: BaseModelRunner | None = None
         self._lock = threading.Lock()
@@ -209,8 +210,14 @@ class JinaV1ImageEmbedding(BaseEmbedding):
             if self.downloader:
                 self.downloader.wait_for_download()
 
-            self.feature_extractor = AutoFeatureExtractor.from_pretrained(
-                f"{MODEL_CACHE_DIR}/{self.model_name}",
+            for name in self.download_urls:
+                verify_artifact(
+                    self.model_name, name, os.path.join(self.download_path, name)
+                )
+            self.feature_extractor = CLIPImageProcessor.from_pretrained(
+                self.download_path,
+                local_files_only=True,
+                trust_remote_code=False,
             )
 
             self.runner = get_optimized_runner(

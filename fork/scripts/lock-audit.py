@@ -1,8 +1,8 @@
-"""Scan the fork's own dependency locks for known advisories.
+"""Scan every published runtime and the fork's tooling locks for advisories.
 
-Everything that reaches the published image is scanned by Dependabot and
-CodeQL; the fork's side images (the audio companion and the backend test image)
-install from their own locks, which nothing looked at until E8.
+Dependabot and CodeQL do not replace a complete resolved dependency audit.
+Include both main architectures, detector extras, ROCm, the audio companion,
+the backend test image and the auditor's own dependencies.
 
 Advisories that do not apply to how the fork runs a package are listed with a
 reason in fork/audit-exceptions.json. An exception that no longer matches a
@@ -31,6 +31,13 @@ TARGETS: dict[str, list[str]] = {
     ],
     "fork/requirements-dev.lock": [],
     "fork/requirements-sonar.txt": [],
+    "fork/requirements-audit.txt": [],
+    "fork/requirements-runtime-amd64.lock": [],
+    "fork/requirements-runtime-arm64.lock": [],
+    "docker/main/requirements.lock": [],
+    "docker/main/requirements-ov.lock": [],
+    "docker/main/requirements-axengine.lock": [],
+    "docker/rocm/requirements-wheels-rocm.lock": [],
 }
 
 
@@ -44,6 +51,7 @@ def audit(requirements: str, extra: list[str]) -> dict[str, Any]:
             "-r",
             requirements,
             "--no-deps",
+            "--disable-pip",
             "--format",
             "json",
             *extra,

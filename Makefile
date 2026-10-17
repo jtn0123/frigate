@@ -71,8 +71,8 @@ RUFF ?= $(if $(shell command -v uvx),uvx -q ruff@$(shell sed -n 's/^ruff *== *//
 
 # One list of Python paths for every gate (fork/scripts/targets.sh).
 PY_LINT_TARGETS := $(shell fork/scripts/targets.sh py-lint)
-# Written by `make wt`; worktrees without one use Playwright's default.
-E2E_PORT ?= $(shell cat web/.e2e-port 2>/dev/null || echo 4173)
+# Written by `make wt`; the check runner and Playwright reserve one if absent.
+E2E_PORT ?= $(shell cat web/.e2e-port 2>/dev/null)
 export E2E_PORT
 
 fork-test-image: version

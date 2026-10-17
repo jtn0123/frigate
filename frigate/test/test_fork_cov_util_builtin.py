@@ -348,9 +348,10 @@ class TestUpdateYaml(unittest.TestCase):
         collection.ca.items.clear.assert_not_called()
         clear_orphaned_comments({}, None, None)
 
-    def test_bulk_update_missing_file_is_logged(self) -> None:
-        with self.assertLogs("frigate.util.builtin", level="ERROR"):
-            update_yaml_file_bulk("/nonexistent/dir/config.yml", {"a": 1})
+    def test_bulk_update_missing_file_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(FileNotFoundError):
+                update_yaml_file_bulk(os.path.join(directory, "missing.yml"), {"a": 1})
 
     def test_bulk_update_with_list_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -367,24 +368,22 @@ class TestUpdateYaml(unittest.TestCase):
             self.assertEqual(list(data["cameras"]["cam"]["zones"]), ["a", "c"])
             self.assertTrue(data["cameras"]["cam"]["enabled"])
 
-    def test_bulk_update_write_failure_is_logged(self) -> None:
+    def test_bulk_update_write_failure_is_reported(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "config.yml")
             with open(path, "w") as f:
                 f.write("a: 1\n")
 
-            real_open = open
-
-            def fake_open(file, mode="r", *args, **kwargs):
-                if "w" in mode:
-                    raise PermissionError("read only")
-                return real_open(file, mode, *args, **kwargs)
-
             with (
-                patch("builtins.open", side_effect=fake_open),
-                self.assertLogs("frigate.util.builtin", level="ERROR"),
+                patch(
+                    "frigate.util.builtin.write_config_file",
+                    side_effect=PermissionError("read only"),
+                ),
+                self.assertRaises(PermissionError),
             ):
                 update_yaml_file_bulk(path, {"a": 2})
+            with open(path) as source:
+                self.assertEqual(source.read(), "a: 1\n")
 
 
 if __name__ == "__main__":

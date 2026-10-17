@@ -215,3 +215,11 @@ class TestConfigGo2rtcStreamRestrictions(BaseTestHttp):
             resp = self._set_streams({"new_stream": [src]})
         assert resp.status_code == 200, resp.text
         assert src in self._read_config()
+
+    def test_rejected_structured_save_never_rewrites_the_file(self):
+        with patch("frigate.api.app.open", wraps=open) as opened:
+            response = self._set_streams({"new_stream": [_INJECTED_SRC]})
+        self.assertEqual(response.status_code, 400)
+        for call in opened.call_args_list:
+            mode = call.args[1] if len(call.args) > 1 else call.kwargs.get("mode", "r")
+            self.assertNotIn("w", mode)

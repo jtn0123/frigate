@@ -42,6 +42,7 @@ py_script_tests=(
   test_sonar_token_expiry.py
   test_ledger.py
   test_runtime_lock.py
+  test_e2e_port.py
 )
 
 main() {

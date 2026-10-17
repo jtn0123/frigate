@@ -7,6 +7,21 @@ vi.mock("react-device-detect", () => device);
 afterEach(cleanup);
 
 describe("TimeInput", () => {
+  it("does not replace the selected timestamp when the time is cleared", () => {
+    const onChange = vi.fn();
+    const { getByLabelText } = render(
+      <TimeInput
+        id="time"
+        label="Select time"
+        value="07:04:03"
+        timestamp={1234}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(getByLabelText("Select time"), { target: { value: "" } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it.each([
     { ios: false, clock: "09:18:37", seconds: 37, step: "1" },
     { ios: false, clock: "09:18", seconds: 0, step: "1" },
