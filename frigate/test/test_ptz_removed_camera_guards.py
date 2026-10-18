@@ -64,8 +64,6 @@ def _controller(zooming: str = "disabled") -> OnvifController:
             "presets": {"home": "token_home"},
             "move_request": MagicMock(ProfileToken="profile_1"),
             "relative_move_request": MagicMock(),
-            "absolute_move_request": MagicMock(),
-            "status_request": MagicMock(),
             "relative_fov_range": {
                 "XRange": {"Min": -1.0, "Max": 1.0},
                 "YRange": {"Min": -1.0, "Max": 1.0},
@@ -73,7 +71,7 @@ def _controller(zooming: str = "disabled") -> OnvifController:
             "absolute_zoom_range": {"XRange": {"Min": 0.0, "Max": 10.0}},
         }
     }
-    controller.ptz_metrics = {CAMERA: PTZMetrics(autotracker_enabled=True)}
+    controller.ptz_metrics = {CAMERA: PTZMetrics()}
     controller.status_locks = {CAMERA: asyncio.Lock()}
     return controller
 
@@ -150,10 +148,13 @@ class TestOnvifMoves(unittest.IsolatedAsyncioTestCase):
 
         await controller._zoom_absolute(CAMERA, 0.5, 1)
 
-        request = controller.cams[CAMERA]["absolute_move_request"]
-        self.assertEqual(request.Position, {"Zoom": 5.0})
-        self.assertEqual(request.Speed, {"Zoom": 1})
-        controller.cams[CAMERA]["ptz"].AbsoluteMove.assert_awaited_once_with(request)
+        controller.cams[CAMERA]["ptz"].AbsoluteMove.assert_awaited_once_with(
+            {
+                "ProfileToken": "profile_1",
+                "Position": {"Zoom": 5.0},
+                "Speed": {"Zoom": 1},
+            }
+        )
         self.assertEqual(metrics.start_time.value, 100.0)
         self.assertEqual(metrics.stop_time.value, 0)
         self.assertFalse(metrics.motor_stopped.is_set())
@@ -219,7 +220,7 @@ class TestAutotrackerAbsoluteZoomMove(unittest.TestCase):
         autotracking = tracker.config.cameras[CAMERA].onvif.autotracking
         self.assertEqual(autotracking.zooming, ZoomingModeEnum.absolute)
         autotracking.movement_weights = ["0.0"] * 6
-        metrics = PTZMetrics(autotracker_enabled=True)
+        metrics = PTZMetrics()
         tracker.ptz_metrics = {CAMERA: metrics}
         tracker.intercept = {CAMERA: 1.0}
         tracker.move_coefficients = {CAMERA: np.array([0.5, 2.0])}

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { baseUrl } from "../../api/baseUrl";
+import { getPostLoginUrl } from "@/api/auth-redirect";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -70,7 +70,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
         username: profileRes.data.username,
         role: profileRes.data.role || "viewer",
       });
-      window.location.href = baseUrl;
+      window.location.href = getPostLoginUrl();
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const err = error as AxiosError;

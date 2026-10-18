@@ -139,6 +139,7 @@ def events(
         zones = zone
 
     limit = params.limit
+    offset = params.offset
     after = params.after
     before = params.before
     time_range = params.time_range
@@ -371,11 +372,15 @@ def events(
     else:
         order_by = Event.start_time.desc()
 
+    # offset paging needs a stable order when scores or speeds tie
+    tiebreaker = [Event.id] if sort and sort.startswith(("score", "speed")) else []
+
     events = (
         Event.select(*selected_columns)
         .where(reduce(operator.and_, clauses))
-        .order_by(order_by)
+        .order_by(order_by, *tiebreaker)
         .limit(limit)
+        .offset(offset)
         .dicts()
         .iterator()
     )
@@ -499,6 +504,7 @@ def events_search(
     search_type = params.search_type
     include_thumbnails = params.include_thumbnails
     limit = params.limit
+    offset = params.offset
     sort = params.sort
 
     # Filters
@@ -799,17 +805,22 @@ def events_search(
         events_query = events_query.where(reduce(operator.and_, event_filters))
 
     # Relevance is ordered by the search distance in Python; every other sort
-    # is pushed into SQL together with the limit so only `limit` rows are read.
+    # is pushed into SQL together with the limit and offset so only one page
+    # of rows is read. Ties are ordered by id so offset pages stay stable.
     sort_by_relevance = sort is None or sort == "relevance"
 
     if not sort_by_relevance:
-        events_query = events_query.order_by(*_events_search_order(sort)).limit(limit)
+        events_query = (
+            events_query.order_by(*_events_search_order(sort), Event.id)
+            .limit(limit)
+            .offset(offset)
+        )
 
     events = list(events_query.dicts())
 
     if sort_by_relevance:
-        events.sort(key=lambda e: search_results[e["id"]]["distance"])
-        events = events[:limit]
+        events.sort(key=lambda e: (search_results[e["id"]]["distance"], e["id"]))
+        events = events[offset:][:limit]
 
     thumb_paths = _review_thumb_paths_for_events(events)
 

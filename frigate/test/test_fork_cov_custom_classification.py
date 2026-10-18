@@ -231,22 +231,27 @@ class TestStateVerification(_ProcessorTestBase):
 
     def test_verify_state_change_needs_three_consecutive(self):
         proc = self.proc
-        self.assertIsNone(proc.verify_state_change(CAMERA, "open"))
+        self.assertIsNone(proc.verify_state_change(CAMERA, "open", 1.0))
         self.assertEqual(proc.state_history[CAMERA]["consecutive_count"], 1)
-        self.assertIsNone(proc.verify_state_change(CAMERA, "open"))
-        self.assertEqual(proc.verify_state_change(CAMERA, "open"), "open")
+        self.assertIsNone(proc.verify_state_change(CAMERA, "open", 2.0))
+        # the first verified state has no previous one; the change is dated
+        # to when the new state was first seen (UI152, upstream #24503)
+        self.assertEqual(proc.verify_state_change(CAMERA, "open", 3.0), (None, 1.0))
         self.assertEqual(proc.state_history[CAMERA]["current_state"], "open")
         # same as current resets any pending change
-        self.assertIsNone(proc.verify_state_change(CAMERA, "closed"))
-        self.assertIsNone(proc.verify_state_change(CAMERA, "open"))
+        self.assertIsNone(proc.verify_state_change(CAMERA, "closed", 4.0))
+        self.assertIsNone(proc.verify_state_change(CAMERA, "open", 5.0))
         self.assertIsNone(proc.state_history[CAMERA]["pending_state"])
         self.assertEqual(proc.state_history[CAMERA]["consecutive_count"], 0)
         # a different pending state restarts the count
-        proc.verify_state_change(CAMERA, "closed")
-        proc.verify_state_change(CAMERA, "closed")
-        proc.verify_state_change(CAMERA, "half")
+        proc.verify_state_change(CAMERA, "closed", 6.0)
+        proc.verify_state_change(CAMERA, "closed", 7.0)
+        proc.verify_state_change(CAMERA, "half", 8.0)
         self.assertEqual(proc.state_history[CAMERA]["pending_state"], "half")
+        self.assertEqual(proc.state_history[CAMERA]["pending_since"], 8.0)
         self.assertEqual(proc.state_history[CAMERA]["consecutive_count"], 1)
+        proc.verify_state_change(CAMERA, "half", 9.0)
+        self.assertEqual(proc.verify_state_change(CAMERA, "half", 10.0), ("open", 8.0))
 
 
 class TestStateProcessFrame(_ProcessorTestBase):
@@ -279,10 +284,16 @@ class TestStateProcessFrame(_ProcessorTestBase):
         )
         return proc
 
-    def test_returns_early_without_model_details(self):
+    def test_untrained_model_still_enqueues_for_image_saving(self):
+        # upstream #24597: an untrained model has no tensor details yet but
+        # must still queue frames so Recent Classifications gets images
         proc = self._make(with_model=False)
+        self.assertIsNone(proc.tensor_input_details)
+        proc.last_run = 0
         proc.process_frame({"camera": CAMERA}, _frame())
-        self.assertTrue(proc._task_queue.empty())
+        task = proc._task_queue.get_nowait()
+        self.assertEqual(task[0], "classify")
+        self.assertEqual(task[1], CAMERA)
 
     def test_unknown_camera_is_ignored_but_cps_updated(self):
         proc = self._make()
@@ -416,6 +427,8 @@ class TestStateClassify(_ProcessorTestBase):
                     "model_name": MODEL,
                     "camera": CAMERA,
                     "state": "open",
+                    "previous_state": None,
+                    "timestamp": 1.0,
                 }
             ],
         )
@@ -518,10 +531,15 @@ class TestObjectProcessor(_ProcessorTestBase):
         proc.process_frame(self._obj(), _frame())
         self.assertTrue(proc._task_queue.empty())
 
-    def test_process_frame_without_details_returns(self):
+    def test_untrained_model_still_enqueues_for_image_saving(self):
+        # upstream #24597: an untrained model has no tensor details yet but
+        # must still queue crops so Recent Classifications gets images
         proc = self._make(with_model=False)
+        self.assertIsNone(proc.tensor_input_details)
         proc.process_frame(self._obj(), _frame())
-        self.assertTrue(proc._task_queue.empty())
+        task = proc._task_queue.get_nowait()
+        self.assertEqual(task[0], "classify")
+        self.assertEqual(task[1], "obj1")
 
     def test_process_frame_enqueues_crop(self):
         proc = self._make()

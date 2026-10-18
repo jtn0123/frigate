@@ -738,6 +738,34 @@ class TestUpdateExistingSegment(MaintainerTestCase):
             [(u["id"], u["end_time"]) for u in ended], [(segment.id, 10.0)]
         )
 
+    def test_ongoing_detection_does_not_keep_the_alert_open(self) -> None:
+        # B34 (upstream #24534): the alert ends at its cutoff even while the
+        # car is still active, and the car goes on in a detection segment
+        segment = self.segment(SeverityEnum.alert)
+        segment.frame_active_count = 5
+        car = {"id": "car1", "label": "car", "zones": ("yard",), "start_time": 18.0}
+
+        for frame_time in (20.0, 45.0, 51.0):
+            self.maintainer.update_existing_segment(
+                segment, "frame", frame_time, [tracked(frame_time=frame_time, **car)]
+            )
+
+        follow_up = self.maintainer.active_review_segments[CAMERA]
+        self.assertIsNotNone(follow_up)
+        self.assertIsNot(follow_up, segment)
+        self.assertEqual(follow_up.severity, SeverityEnum.detection)
+        self.assertEqual(follow_up.detections, {"car1": "car"})
+        self.assertEqual(follow_up.last_detection_time, 51.0)
+        types = [json.loads(r)["type"] for r in self.sent("reviews")]
+        self.assertEqual(types[-2:], ["end", "new"])
+
+        # the car keeps the detection segment open, not the ended alert
+        self.maintainer.update_existing_segment(
+            follow_up, "frame", 75.0, [tracked(frame_time=75.0, **car)]
+        )
+        self.assertIs(self.maintainer.active_review_segments[CAMERA], follow_up)
+        self.assertEqual(follow_up.last_detection_time, 75.0)
+
     def test_detection_that_joined_the_alert_does_not_follow_it(self) -> None:
         # the car started after the alert's last activity, but the alert
         # came back and now covers its start, so it stays in the alert
@@ -878,6 +906,22 @@ class TestRunLoop(MaintainerTestCase):
             )
 
         self.assertEqual([c.args[0] for c in end.call_args_list], ["a", "b", CAMERA])
+
+    def test_state_classification_change_is_handed_to_the_segment(self) -> None:
+        # UI152 (upstream #24503): a verified state change reaches the review
+        # maintainer on its own topic and never starts a segment by itself
+        change = {"model": "gate", "from": "closed", "to": "open", "timestamp": 9.0}
+
+        with patch.object(
+            self.maintainer, "handle_classification_state_change"
+        ) as handle:
+            self.run_loop(
+                (DetectionTypeEnum.classification_state.value, (CAMERA, change)),
+                (DetectionTypeEnum.classification_state.value, ("ghost", change)),
+            )
+
+        handle.assert_called_once_with(CAMERA, change)
+        self.assertEqual(self.maintainer.active_review_segments, {})
 
     def test_empty_messages_are_ignored(self) -> None:
         self.run_loop(None, ("", None), (DetectionTypeEnum.video.value, None))

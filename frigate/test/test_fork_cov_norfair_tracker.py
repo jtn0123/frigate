@@ -62,8 +62,10 @@ class NorfairTestBase(unittest.TestCase):
     def make_tracker(
         self, autotracking: bool = False, enabled: bool = False, **detect: Any
     ) -> NorfairTracker:
-        metrics = PTZMetrics(autotracker_enabled=enabled)
-        return NorfairTracker(_camera_config(autotracking, **detect), metrics)
+        config = _camera_config(autotracking, **detect)
+        # the runtime state, which MQTT can flip while enabled_in_config stays
+        config.onvif.autotracking.enabled = enabled
+        return NorfairTracker(config, PTZMetrics())
 
     def run_frames(
         self,
@@ -95,8 +97,9 @@ class TestConstruction(NorfairTestBase):
         self.assertIs(person, tracker.trackers["person"]["ptz"])
         # person has no stationary max_frames, so the reid settings are used
         self.assertEqual(person.reid_hit_counter_max, 10)
-        # non person labels fall back to the static or default ptz tracker
-        self.assertIs(tracker.get_tracker("dog"), tracker.default_tracker["static"])
+        # labels without their own tracker fall back to the default tracker of
+        # the saved autotracking mode (upstream #24633)
+        self.assertIs(tracker.get_tracker("dog"), tracker.default_tracker["ptz"])
 
     def test_max_frames_disables_reid(self) -> None:
         tracker = self.make_tracker(
@@ -166,7 +169,7 @@ class TestMatchAndUpdate(NorfairTestBase):
             )
             self.assertIsNone(tracker.ptz_motion_estimator)
             # enabled at runtime (for example over mqtt)
-            tracker.ptz_metrics.autotracker_enabled.value = True
+            tracker.camera_config.onvif.autotracking.enabled = True
             estimator_cls.return_value.motion_estimator.return_value = None
 
             person = _det("person", (100, 50, 160, 250))

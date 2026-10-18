@@ -214,7 +214,7 @@ class TestReviewFrameCap(unittest.TestCase):
             return_value=[f"caption{i}" for i in range(6)],
         ) as annotate:
             args = self.dispatch(self.frames)
-        annotate.assert_called_once_with(["event1"], [100, 104, 109, 113, 118, 122])
+        annotate.assert_called_once_with(["event1"], [100, 104, 109, 113, 118, 122], [])
         self.assertEqual(args[6], [f"caption{i}" for i in range(6)])
         self.assertEqual(len(args[5]), len(args[6]))
         self.assertEqual(

@@ -15,6 +15,23 @@ const notifications: SectionConfigOverrides = {
         "ui:options": { label: false, suppressDescription: true },
       },
     },
+    fieldMessages: [
+      {
+        key: "profile-base-notifications-disabled",
+        field: "enabled",
+        messageKey: "configMessages.notifications.profileBaseDisabled",
+        severity: "warning",
+        position: "after",
+        condition: (ctx) =>
+          !!ctx.profileName &&
+          ctx.formData.enabled === true &&
+          !Object.values(ctx.fullConfig.cameras).some(
+            (camera) =>
+              camera.enabled_in_config &&
+              camera.notifications.enabled_in_config,
+          ),
+      },
+    ],
   },
   global: {
     uiSchema: {

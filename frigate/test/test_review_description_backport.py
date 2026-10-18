@@ -160,7 +160,7 @@ class TestReviewDescriptionBackport(unittest.TestCase):
                 self.assertEqual(args[8:], (["car", "person"], ["face"]))
                 thread.return_value.start.assert_called_once()
                 if mode == ReviewFrameModeEnum.annotated_frames:
-                    annotate.assert_called_once_with(["event1"], [100.0, 104.0])
+                    annotate.assert_called_once_with(["event1"], [100.0, 104.0], [])
                 else:
                     annotate.assert_not_called()
 

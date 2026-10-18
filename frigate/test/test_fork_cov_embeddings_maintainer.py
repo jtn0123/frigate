@@ -37,6 +37,7 @@ from frigate.embeddings.maintainer import (  # noqa: E402
     CameraTypeEnum,
     CustomObjectClassificationProcessor,
     CustomStateClassificationProcessor,
+    DetectionTypeEnum,
     EmbeddingMaintainer,
     EmbeddingsRequestEnum,
     EventMetadataTypeEnum,
@@ -79,6 +80,7 @@ PATCHED_NAMES = (
     "RecordingsDataSubscriber",
     "ReviewDataSubscriber",
     "DetectionSubscriber",
+    "DetectionPublisher",
     "EmbeddingsResponder",
     "SharedMemoryFrameManager",
     "LicensePlateModelRunner",
@@ -311,6 +313,7 @@ class TestRun(MaintainerMixin):
             "event_end_subscriber",
             "recordings_subscriber",
             "detection_subscriber",
+            "detection_publisher",
             "event_metadata_publisher",
             "event_metadata_subscriber",
             "embeddings_responder",
@@ -658,13 +661,12 @@ class TestProcessUpdates(MaintainerMixin):
     def test_frame_not_found_error(self) -> None:
         self.m.frame_manager.get.side_effect = FileNotFoundError
 
-        # Upstream bug: _process_updates catches FileNotFoundError from
-        # frame_manager.get but never assigns yuv_frame, so the following
-        # "if yuv_frame is None" raises UnboundLocalError. It is latent today
-        # because SharedMemoryFrameManager.get already returns None on a
-        # missing segment; setting yuv_frame = None in the except would fix it.
-        with self.assertRaises(UnboundLocalError):
-            self.update()
+        # fixed in the fork (B35): upstream leaves yuv_frame unassigned here,
+        # so this raised UnboundLocalError
+        self.update()
+
+        self.realtime.process_frame.assert_not_called()
+        self.m.frame_manager.close.assert_not_called()
 
     def test_update_feeds_realtime_and_description_processors(self) -> None:
         self.update()
@@ -1050,10 +1052,11 @@ class TestProcessFrameUpdates(MaintainerMixin):
     def test_frame_not_found_error(self) -> None:
         self.m.frame_manager.get.side_effect = FileNotFoundError
 
-        # Upstream bug: same unassigned yuv_frame as _process_updates, so a
-        # FileNotFoundError from frame_manager.get surfaces as UnboundLocalError
-        with self.assertRaises(UnboundLocalError):
-            self.detection("plates", [[0, 0, 1, 1]])
+        # fixed in the fork (B35), as in _process_updates
+        self.detection("plates", [[0, 0, 1, 1]])
+
+        self.lpr.process_frame.assert_not_called()
+        self.m.frame_manager.close.assert_not_called()
 
 
 class TestProcessDeferredResults(MaintainerMixin):
@@ -1085,6 +1088,8 @@ class TestProcessDeferredResults(MaintainerMixin):
                 "camera": CAMERA,
                 "model_name": "door",
                 "state": "open",
+                "previous_state": None,
+                "timestamp": 10.0,
             },
         ]
 
@@ -1094,6 +1099,31 @@ class TestProcessDeferredResults(MaintainerMixin):
             f"{CAMERA}/classification/door", "open"
         )
         self.m.event_metadata_publisher.publish.assert_not_called()
+        # the first state verified after startup is not a change
+        self.m.detection_publisher.publish.assert_not_called()
+
+    def test_state_change_is_published_for_review_items(self) -> None:
+        self.processor.drain_results.return_value = [
+            {
+                "type": "classification",
+                "processor": "state",
+                "camera": CAMERA,
+                "model_name": "door",
+                "state": "open",
+                "previous_state": "closed",
+                "timestamp": 10.0,
+            },
+        ]
+
+        self.m._process_deferred_results()
+
+        self.m.detection_publisher.publish.assert_called_once_with(
+            (
+                CAMERA,
+                {"model": "door", "from": "closed", "to": "open", "timestamp": 10.0},
+            ),
+            DetectionTypeEnum.classification_state.value,
+        )
 
     def test_sub_label_result_is_published(self) -> None:
         self.processor.drain_results.return_value = [
