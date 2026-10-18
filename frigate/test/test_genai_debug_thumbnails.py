@@ -99,6 +99,22 @@ class TestEarlyRequestDebugThumbnails(unittest.TestCase):
 
         self.assertFalse(os.path.exists(self._saved_path()))
 
+    def test_missing_thumbnail_is_skipped_with_a_warning(self):
+        processor = self._make_processor(debug_save=True)
+        processor.tracked_events[EVENT_ID] = [
+            {"thumbnail": None},
+            {"thumbnail": b"second"},
+        ]
+
+        with (
+            patch(f"{MODULE}.CLIPS_DIR", self.clips_dir),
+            self.assertLogs(MODULE, level="WARNING"),
+        ):
+            processor._save_debug_thumbnails(EVENT_ID)
+
+        folder = os.path.join(self.clips_dir, "genai-requests", EVENT_ID)
+        self.assertEqual(os.listdir(folder), ["2.jpg"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,6 +12,7 @@ import os
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from peewee import OperationalError
 
@@ -157,6 +158,12 @@ class TestEmbeddingsTableWrites(unittest.TestCase):
 
         stored = self._stored("vec_thumbnails", "thumbnail_embedding", "evt1")
         self.assertTrue(stored.startswith("[0.990000"), stored)
+
+    def test_upsert_with_no_embeddings_writes_nothing(self) -> None:
+        with patch.object(self.db, "execute_write") as write:
+            self.db.upsert_embeddings("vec_thumbnails", "thumbnail_embedding", {})
+
+        write.assert_not_called()
 
     def test_upsert_keeps_one_row_per_event(self) -> None:
         for _ in range(3):
