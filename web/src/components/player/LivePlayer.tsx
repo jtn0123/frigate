@@ -16,6 +16,7 @@ import { MdCircle } from "react-icons/md";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useCameraActivity } from "@/hooks/use-camera-activity";
 import {
+  LiveHealthSample,
   LivePlayerError,
   TwoWayTalkError,
   LivePlayerMode,
@@ -61,6 +62,8 @@ type LivePlayerProps = {
   onClick?: () => void;
   setFullResolution?: React.Dispatch<React.SetStateAction<VideoResolutionType>>;
   onError?: (error: LivePlayerError) => void;
+  onHealthSample?: (sample: LiveHealthSample) => void;
+  streamAuto?: boolean;
   onMicrophoneError?: (error: TwoWayTalkError) => void;
   onResetLiveMode?: () => void;
   onLiveAspectChange?: (aspectRatio: number | undefined) => void;
@@ -88,6 +91,8 @@ export default function LivePlayer({
   onClick,
   setFullResolution,
   onError,
+  onHealthSample,
+  streamAuto = false,
   onMicrophoneError,
   onResetLiveMode,
   onLiveAspectChange,
@@ -117,6 +122,14 @@ export default function LivePlayer({
     decodedFrames: 0,
     droppedFrameRate: 0, // percentage
   });
+
+  const streamLabel = useMemo(
+    () =>
+      Object.keys(cameraConfig.live.streams).find(
+        (label) => cameraConfig.live.streams[label] === streamName,
+      ),
+    [cameraConfig.live.streams, streamName],
+  );
 
   // camera activity
 
@@ -245,21 +258,17 @@ export default function LivePlayer({
   }, [preferredLiveMode]);
 
   const [key, setKey] = useState(0);
-  const prevStreamNameRef = useRef(streamName);
 
-  const resetPlayer = () => {
-    setLiveReady(false);
-    setKey((prevKey) => prevKey + 1);
-  };
-
-  useEffect(() => {
-    if (prevStreamNameRef.current !== streamName) {
-      prevStreamNameRef.current = streamName;
-      if (streamName) {
-        resetPlayer();
-      }
+  // the stream is part of the MSE and WebRTC keys, so a stream change
+  // remounts them in the same render and the new player is hidden until it
+  // plays. jsmpeg plays the camera, not the stream, and keeps playing
+  const [renderedStream, setRenderedStream] = useState(streamName);
+  if (renderedStream !== streamName) {
+    setRenderedStream(streamName);
+    if (preferredLiveMode !== "jsmpeg") {
+      setLiveReady(false);
     }
-  }, [streamName]);
+  }
 
   useEffect(() => {
     if (showStillWithoutActivity && !autoLive) {
@@ -320,7 +329,7 @@ export default function LivePlayer({
   } else if (preferredLiveMode == "webrtc") {
     player = (
       <WebRtcPlayer
-        key={`webrtc_${key}_${playback.attempt}`}
+        key={`webrtc_${streamName}_${key}_${playback.attempt}`}
         className={`size-full ${liveReady ? "" : "hidden"}`}
         camera={streamName}
         playbackEnabled={cameraActive || liveReady}
@@ -334,6 +343,7 @@ export default function LivePlayer({
         onPlaying={playerIsPlaying}
         pip={pip}
         onError={playerError}
+        onHealthSample={onHealthSample}
         onMicrophoneError={onMicrophoneError}
       />
     );
@@ -341,7 +351,7 @@ export default function LivePlayer({
     if ("MediaSource" in window || "ManagedMediaSource" in window) {
       player = (
         <MSEPlayer
-          key={`mse_${key}_${playback.attempt}`}
+          key={`mse_${streamName}_${key}_${playback.attempt}`}
           className={`size-full ${liveReady ? "" : "hidden"}`}
           camera={streamName}
           playbackEnabled={cameraActive || liveReady}
@@ -354,6 +364,7 @@ export default function LivePlayer({
           pip={pip}
           setFullResolution={handleFullResolution}
           onError={playerError}
+          onHealthSample={onHealthSample}
         />
       );
     } else {
@@ -595,7 +606,12 @@ export default function LivePlayer({
           )}
       </div>
       {showStats && (
-        <PlayerStats stats={stats} minimal={cameraRef !== undefined} />
+        <PlayerStats
+          stats={stats}
+          minimal={cameraRef !== undefined}
+          streamLabel={preferredLiveMode === "jsmpeg" ? undefined : streamLabel}
+          streamAuto={streamAuto}
+        />
       )}
     </div>
   );

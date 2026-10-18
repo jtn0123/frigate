@@ -461,6 +461,7 @@ describe("prepareSectionSavePayload", () => {
       updateTopic: "config/cameras/front/detect",
       needsRestart: true,
       pendingDataKey: "front::detect",
+      replacePaths: [],
     });
   });
 
@@ -511,6 +512,7 @@ describe("prepareSectionSavePayload", () => {
       updateTopic: undefined,
       needsRestart: false,
       pendingDataKey: "front::profiles.armed.detect",
+      replacePaths: [],
     });
   });
 

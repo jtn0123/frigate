@@ -818,6 +818,11 @@
           "title": "Live stream names",
           "type": "object"
         },
+        "transcode": {
+          "$ref": "#/$defs/LiveTranscodeConfig",
+          "description": "Lower-quality live streams transcoded on demand by go2rtc.",
+          "title": "Transcoded streams"
+        },
         "height": {
           "default": 720,
           "description": "Height (pixels) to render the jsmpeg live stream in the Web UI; must be <= detect stream height.",
@@ -1966,6 +1971,52 @@
         }
       },
       "title": "ListenConfig",
+      "type": "object"
+    },
+    "LiveTranscodeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Add lower-quality live streams that go2rtc transcodes in real time while someone is watching.",
+          "title": "Enable transcoded streams",
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "description": "go2rtc stream to transcode. Defaults to the first live stream.",
+          "title": "Source stream"
+        },
+        "qualities": {
+          "description": "One transcoded stream is added per quality.",
+          "items": { "$ref": "#/$defs/LiveTranscodeQualityConfig" },
+          "title": "Qualities",
+          "type": "array"
+        }
+      },
+      "title": "LiveTranscodeConfig",
+      "type": "object"
+    },
+    "LiveTranscodeQualityConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "description": "Output height in pixels; width follows the source aspect ratio.",
+          "maximum": 2160,
+          "minimum": 144,
+          "title": "Height",
+          "type": "integer"
+        },
+        "bitrate": {
+          "description": "Target and maximum video bitrate in kbps.",
+          "minimum": 64,
+          "title": "Bitrate",
+          "type": "integer"
+        }
+      },
+      "required": ["height", "bitrate"],
+      "title": "LiveTranscodeQualityConfig",
       "type": "object"
     },
     "LogLevel": {

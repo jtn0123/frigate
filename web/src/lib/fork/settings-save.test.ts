@@ -320,4 +320,52 @@ describe("savePendingSettings", () => {
       keysToClear: ["go2rtc_streams", "unknown_section"],
     });
   });
+
+  it("sends a reordered live stream map whole with its replace path", async () => {
+    const client = api();
+    const streams = { Main: "front_main", Sub: "front_sub" };
+    const result = await savePendingSettings({
+      config: cfg({
+        cameras: { front: { live: { streams, height: 720, quality: 8 } } },
+      }),
+      fullSchema: {
+        $defs: {
+          CameraLiveConfig: {
+            type: "object",
+            properties: {
+              streams: {
+                type: "object",
+                additionalProperties: { type: "string" },
+              },
+              height: { type: "integer", default: 720 },
+              quality: { type: "integer", default: 8 },
+            },
+          },
+          CameraConfig: {
+            type: "object",
+            properties: { live: { $ref: "#/$defs/CameraLiveConfig" } },
+          },
+        },
+      },
+      pendingDataBySection: {
+        "front::live": section({
+          streams: { Sub: "front_sub", Main: "front_main" },
+          height: 720,
+          quality: 8,
+        }),
+      },
+      api: client,
+    });
+
+    const body = client.put.mock.calls[0]?.[1] as {
+      config_data: { cameras: { front: { live: { streams: object } } } };
+      replace_paths?: string[];
+    };
+    expect(body.replace_paths).toEqual(["cameras.front.live.streams"]);
+    expect(Object.keys(body.config_data.cameras.front.live.streams)).toEqual([
+      "Sub",
+      "Main",
+    ]);
+    expect(result).toMatchObject({ successCount: 1, failCount: 0 });
+  });
 });

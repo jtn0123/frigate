@@ -71,6 +71,7 @@ function run(
 beforeEach(() => {
   fx.config = {
     go2rtc: { streams: { front_main: [], front_sub: [] } },
+    cameras: {},
   };
   fx.metadata = { front_main: withAudio };
   fx.requestedStreams = [];
@@ -142,6 +143,7 @@ describe("useCameraLiveMode", () => {
   it("follows the active stream selection", () => {
     fx.config = {
       go2rtc: { streams: { front_sub: [] } },
+      cameras: {},
     };
     const restreamed = run([front], { activeStreams: { front: "front_sub" } });
     expect(fx.requestedStreams.at(-1)).toEqual(["front_sub"]);
@@ -154,7 +156,7 @@ describe("useCameraLiveMode", () => {
   });
 
   it("treats a config without go2rtc streams as not restreamed", () => {
-    fx.config = { go2rtc: {} };
+    fx.config = { go2rtc: {}, cameras: {} };
     const { result } = run([front]);
     expect(result.current.isRestreamedStates["front"]).toBe(false);
     expect(fx.requestedStreams.at(-1)).toEqual([]);

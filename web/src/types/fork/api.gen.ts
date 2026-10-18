@@ -337,6 +337,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/go2rtc/streams/{stream_name}/bitrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Go2Rtc Stream Bitrate
+         * @description **Access:** Admin role required.
+         *
+         *     Measure a go2rtc stream's bitrate over a few seconds.
+         */
+        get: operations["go2rtc_stream_bitrate_go2rtc_streams__stream_name__bitrate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ffprobe": {
         parameters: {
             query?: never;
@@ -4943,6 +4965,8 @@ export interface components {
              * @default false
              */
             skip_save: boolean;
+            /** Replace Paths */
+            replace_paths?: string[];
         };
         /** AppPostLoginBody */
         AppPostLoginBody: {
@@ -8294,6 +8318,37 @@ export interface operations {
         };
     };
     go2rtc_delete_stream_go2rtc_streams__stream_name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stream_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    go2rtc_stream_bitrate_go2rtc_streams__stream_name__bitrate_get: {
         parameters: {
             query?: never;
             header?: never;

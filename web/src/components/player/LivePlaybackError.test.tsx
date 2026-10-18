@@ -37,6 +37,25 @@ it("shows the failure, requests a diagnostic, and retries on demand", async () =
   expect(retry).toHaveBeenCalledOnce();
 });
 
+it("reports a go2rtc codec mismatch as a decode failure", async () => {
+  render(
+    <LivePlaybackError
+      streamName="side"
+      reason="mse-codec"
+      onRetry={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("playbackError.decode")).toBeVisible();
+  expect(
+    await screen.findByText("playbackError.diagnostics.decode_error"),
+  ).toBeVisible();
+  expect(axios.post).toHaveBeenCalledWith(
+    "go2rtc/streams/side/diagnostics",
+    { reason: "mse-decode", media_error_code: undefined },
+    expect.anything(),
+  );
+});
+
 it("keeps Retry available if backend diagnostics fail", async () => {
   vi.mocked(axios.post).mockRejectedValue(new Error("offline"));
   render(

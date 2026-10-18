@@ -1,5 +1,6 @@
 import { baseUrl } from "@/api/baseUrl";
 import {
+  LiveHealthSample,
   LivePlayerError,
   PlayerStatsType,
   TwoWayTalkError,
@@ -26,6 +27,7 @@ type WebRtcPlayerProps = {
   setFullResolution?: React.Dispatch<React.SetStateAction<VideoResolutionType>>;
   onPlaying?: () => void;
   onError?: (error: LivePlayerError) => void;
+  onHealthSample?: (sample: LiveHealthSample) => void;
   onMicrophoneError?: (error: TwoWayTalkError) => void;
 };
 
@@ -43,6 +45,7 @@ export default function WebRtcPlayer({
   setFullResolution,
   onPlaying,
   onError,
+  onHealthSample,
   onMicrophoneError,
 }: Readonly<WebRtcPlayerProps>) {
   // metadata
@@ -378,13 +381,20 @@ export default function WebRtcPlayer({
     onPlaying?.();
   };
 
-  // stats
+  // stats and health samples
+
+  const onHealthSampleRef = useRef(onHealthSample);
+  useEffect(() => {
+    onHealthSampleRef.current = onHealthSample;
+  }, [onHealthSample]);
+  const sampleHealth = onHealthSample !== undefined;
 
   useEffect(() => {
-    if (!pcRef.current || !getStats) return;
+    if (!pcRef.current || (!getStats && !sampleHealth)) return;
 
     let lastBytesReceived = 0;
     let lastTimestamp = 0;
+    let lastFreezeSeconds: number | undefined;
 
     const interval = setInterval(
       wrapAsync(async () => {
@@ -396,6 +406,7 @@ export default function WebRtcPlayer({
           let framesReceived = 0;
           let framesDropped = 0;
           let framesDecoded = 0;
+          let freezeSeconds: number | undefined;
 
           report.forEach((stat) => {
             if (stat.type === "inbound-rtp" && stat.kind === "video") {
@@ -404,6 +415,7 @@ export default function WebRtcPlayer({
               framesReceived = stat.framesReceived;
               framesDropped = stat.framesDropped;
               framesDecoded = stat.framesDecoded;
+              freezeSeconds = stat.totalFreezesDuration as number | undefined;
             }
             if (stat.type === "candidate-pair" && stat.state === "succeeded") {
               roundTripTime = stat.currentRoundTripTime;
@@ -411,24 +423,50 @@ export default function WebRtcPlayer({
           });
 
           const timeDiff = (timestamp - lastTimestamp) / 1000; // in seconds
-          const bitrate =
-            timeDiff > 0
-              ? (bytesReceived - lastBytesReceived) / timeDiff / 1000
-              : 0; // in kBps
 
-          setStats?.({
-            streamType: "WebRTC",
-            bandwidth: Math.round(bitrate),
-            latency: roundTripTime,
-            totalFrames: framesReceived,
-            droppedFrames: framesDropped,
-            decodedFrames: framesDecoded,
-            droppedFrameRate:
-              framesReceived > 0 ? (framesDropped / framesReceived) * 100 : 0,
-          });
+          if (getStats) {
+            const bitrate =
+              timeDiff > 0
+                ? (bytesReceived - lastBytesReceived) / timeDiff / 1000
+                : 0; // in kBps
+
+            setStats?.({
+              streamType: "WebRTC",
+              bandwidth: Math.round(bitrate),
+              latency: roundTripTime,
+              totalFrames: framesReceived,
+              droppedFrames: framesDropped,
+              decodedFrames: framesDecoded,
+              droppedFrameRate:
+                framesReceived > 0 ? (framesDropped / framesReceived) * 100 : 0,
+            });
+          }
+
+          if (
+            sampleHealth &&
+            lastTimestamp > 0 &&
+            timeDiff > 0 &&
+            document.visibilityState === "visible"
+          ) {
+            // freeze time does not depend on the camera's frame rate. A
+            // freeze is credited only when it ends, so media goes negative
+            // to carry its full length. Browsers without the field report
+            // full delivery and rely on the stall watchdog
+            const frozen =
+              freezeSeconds !== undefined && lastFreezeSeconds !== undefined
+                ? Math.max(0, freezeSeconds - lastFreezeSeconds)
+                : 0;
+
+            onHealthSampleRef.current?.({
+              bytes: bytesReceived - lastBytesReceived,
+              mediaSeconds: timeDiff - frozen,
+              wallSeconds: timeDiff,
+            });
+          }
 
           lastBytesReceived = bytesReceived;
           lastTimestamp = timestamp;
+          lastFreezeSeconds = freezeSeconds;
         }
       }),
       1000,
@@ -436,18 +474,20 @@ export default function WebRtcPlayer({
 
     return () => {
       clearInterval(interval);
-      setStats?.({
-        streamType: "-",
-        bandwidth: 0,
-        totalFrames: 0,
-        droppedFrames: undefined,
-        decodedFrames: 0,
-        droppedFrameRate: 0,
-      });
+      if (getStats) {
+        setStats?.({
+          streamType: "-",
+          bandwidth: 0,
+          totalFrames: 0,
+          droppedFrames: undefined,
+          decodedFrames: 0,
+          droppedFrameRate: 0,
+        });
+      }
     };
     // we need to listen on the value of the ref
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pcRef, pcRef.current, getStats]);
+  }, [pcRef, pcRef.current, getStats, sampleHealth]);
 
   return (
     // Camera media has no caption track supplied by the recording or stream.

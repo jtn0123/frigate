@@ -133,6 +133,9 @@ async function saveSection(
           payload.basePath,
           payload.sanitizedOverrides,
         ),
+        ...(payload.replacePaths?.length
+          ? { replace_paths: payload.replacePaths }
+          : {}),
       });
       saved = true;
       needsRestart = payload.needsRestart;
