@@ -125,7 +125,7 @@ test.describe("Explore paging for non-date sorts (B33) @high @mobile", () => {
       (url) => url.searchParams.has("offset") || url.searchParams.has("before"),
     );
     // every later page uses the offset, never a start_time cursor
-    expect(later[0].searchParams.get("offset")).toBe(String(API_LIMIT));
+    expect(later[0]?.searchParams.get("offset")).toBe(String(API_LIMIT));
     for (const url of later) {
       expect(url.searchParams.get("before")).toBeNull();
     }

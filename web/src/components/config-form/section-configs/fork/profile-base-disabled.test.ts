@@ -17,20 +17,23 @@ function camera(record: boolean, notifications: boolean, enabled = true) {
 }
 
 function ctx(
-  overrides: Partial<MessageConditionContext> & {
+  overrides: {
     cameras?: Record<string, CameraConfig>;
-  },
+    profileName?: string;
+    formData?: ConfigSectionData;
+  } = {},
 ): MessageConditionContext {
-  const { cameras, ...rest } = overrides;
-  const cams = cameras ?? { front: camera(false, false) };
-  return {
+  const cams = overrides.cameras ?? { front: camera(false, false) };
+  const context: MessageConditionContext = {
     fullConfig: { cameras: cams } as unknown as FrigateConfig,
-    fullCameraConfig: cams.front,
     level: "camera",
     cameraName: "front",
-    formData: { enabled: true } as ConfigSectionData,
-    ...rest,
+    formData: overrides.formData ?? ({ enabled: true } as ConfigSectionData),
   };
+  const front = cams["front"];
+  if (front) context.fullCameraConfig = front;
+  if (overrides.profileName) context.profileName = overrides.profileName;
+  return context;
 }
 
 function message(section: typeof record, key: string) {
