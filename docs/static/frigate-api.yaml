@@ -4597,6 +4597,16 @@ paths:
               - type: 'null'
             default: 100
             title: Limit
+        - name: offset
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: integer
+                minimum: 0
+              - type: 'null'
+            default: 0
+            title: Offset
         - name: after
           in: query
           required: false
@@ -4902,6 +4912,16 @@ paths:
               - type: 'null'
             default: 50
             title: Limit
+        - name: offset
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: integer
+                minimum: 0
+              - type: 'null'
+            default: 0
+            title: Offset
         - name: cameras
           in: query
           required: false

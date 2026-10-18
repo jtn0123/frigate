@@ -15,6 +15,7 @@ from frigate.config.camera.updater import (
     CameraConfigUpdateTopic,
 )
 from frigate.fork.config_persistence import config_file_lock, write_config_file
+from frigate.util.builtin import clear_orphaned_comments
 from frigate.util.config import find_config_file
 
 logger = logging.getLogger(__name__)
@@ -54,10 +55,7 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
 
                 data = yaml.load(old_raw_config)
 
-                # Remove camera from config
-                if "cameras" in data and camera_name in data["cameras"]:
-                    del data["cameras"][camera_name]
-
+                _remove_camera_entry(data, camera_name)
                 _remove_camera_roles(data, camera_name)
 
                 candidate = StringIO()
@@ -119,6 +117,18 @@ def remove_camera_from_config(app: FastAPI, camera_name: str) -> JSONResponse | 
         )
 
     return None
+
+
+def _remove_camera_entry(data: dict, camera_name: str) -> None:
+    """Delete a camera from the loaded YAML, keeping the file parseable.
+
+    The default config carries a trailing comment on the cameras key. When
+    the last camera is removed ruamel would otherwise emit that comment ahead
+    of the empty mapping and the next load fails.
+    """
+    if "cameras" in data and camera_name in data["cameras"]:
+        del data["cameras"][camera_name]
+        clear_orphaned_comments(data["cameras"], data, "cameras")
 
 
 def _remove_camera_roles(data: dict, camera_name: str) -> None:
