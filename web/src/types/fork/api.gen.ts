@@ -7931,6 +7931,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Access Denied (proxy user resolved to a default role of 'none') */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     profile_profile_get: {

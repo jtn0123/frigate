@@ -47,7 +47,6 @@ class TestOnvifLogInjection(unittest.IsolatedAsyncioTestCase):
         controller = object.__new__(OnvifController)
         controller.config = MagicMock()
         controller.config.cameras = {"front": MagicMock()}
-        controller.camera_configs = {}
         with self.assertLogs("frigate.ptz.onvif", "ERROR") as logs:
             result = await controller._init_single_camera("front\r\nforged")
         self.assertFalse(result)

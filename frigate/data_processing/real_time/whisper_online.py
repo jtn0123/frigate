@@ -219,6 +219,9 @@ class MLXWhisper(ASRBase):
             logger.debug(
                 f"Loading whisper model {modelsize}. You use mlx whisper, so {model_size_or_path} will be used."
             )
+        else:
+            # fork (B35): fail with a configuration error, not UnboundLocalError
+            raise ValueError("modelsize or model_dir parameter must be set")
 
         self.model_size_or_path = model_size_or_path
 
