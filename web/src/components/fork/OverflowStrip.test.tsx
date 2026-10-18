@@ -52,7 +52,7 @@ afterEach(() => {
     if (descriptor) {
       Object.defineProperty(HTMLElement.prototype, key, descriptor);
     } else {
-      delete (HTMLElement.prototype as unknown as Record<string, unknown>)[key];
+      Reflect.deleteProperty(HTMLElement.prototype, key);
     }
   }
 });
