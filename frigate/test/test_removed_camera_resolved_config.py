@@ -27,7 +27,7 @@ def camera_config():
                             }
                         ]
                     },
-                    "detect": {"fps": 5},
+                    "detect": {"enabled": True, "fps": 5},
                     "audio": {"enabled": True},
                 }
             },
