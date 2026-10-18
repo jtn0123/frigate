@@ -8,6 +8,8 @@ from multiprocessing import Queue
 from multiprocessing.synchronize import Event as MpEvent
 from typing import Any
 
+import cv2
+
 from frigate.camera import CameraMetrics, PTZMetrics
 from frigate.comms.inter_process import InterProcessRequestor
 from frigate.config import CameraConfig, DetectConfig, LoggerConfig, ModelConfig
@@ -82,6 +84,11 @@ class CameraTracker(FrigateProcess):
 
     def run(self) -> None:
         self.pre_run_setup(self.log_config)
+
+        # OpenCV only sees small images here, and its default per-core thread
+        # pool burns ~5x the CPU of running them inline
+        cv2.setNumThreads(1)
+
         frame_queue = self.camera_metrics.frame_queue
         frame_shape = self.config.frame_shape
 
@@ -91,6 +98,7 @@ class CameraTracker(FrigateProcess):
             self.config.detect.fps,
             name=self.config.name,
             ptz_metrics=self.ptz_metrics,
+            autotracking_enabled=self.config.onvif.autotracking.enabled,
         )
         object_detector = RemoteObjectDetector(
             self.config.name,
@@ -192,10 +200,12 @@ def process_frames(
         None,
         {camera_config.name: camera_config},
         [
+            CameraConfigUpdateEnum.autotracking,
             CameraConfigUpdateEnum.detect,
             CameraConfigUpdateEnum.enabled,
             CameraConfigUpdateEnum.motion,
             CameraConfigUpdateEnum.objects,
+            CameraConfigUpdateEnum.onvif,
         ],
     )
 
@@ -231,6 +241,12 @@ def process_frames(
         if "motion" in updated_configs:
             motion_detector.config = camera_config.motion
             motion_detector.update_mask()
+
+        if "autotracking" in updated_configs or "onvif" in updated_configs:
+            motion_detector.autotracking_enabled = (
+                camera_config.onvif.autotracking.enabled
+            )
+            object_tracker.sync_trackers()
 
         if (
             not camera_enabled
@@ -346,8 +362,8 @@ def process_frames(
 
             # only add in the motion boxes when not calibrating and a ptz is not moving via autotracking
             # the ptz timestamps are only maintained while autotracking is on, so gate
-            # on the metric rather than trusting them to be reset otherwise
-            ptz_moving = ptz_metrics.autotracker_enabled.value and (
+            # on the config rather than trusting them to be reset otherwise
+            ptz_moving = camera_config.onvif.autotracking.enabled and (
                 ptz_moving_at_frame_time(
                     frame_time,
                     ptz_metrics.start_time.value,

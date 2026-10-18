@@ -207,10 +207,9 @@ class TestMLXWhisper(unittest.TestCase):
             asr.translate_model_name("huge")
 
     def test_without_model_dir_or_size_fails(self):
-        # Upstream bug: with neither model_dir nor modelsize the local
-        # model_size_or_path is never assigned, so loading raises
-        # UnboundLocalError instead of a clear configuration error.
-        with self.assertRaises(UnboundLocalError):
+        # fixed in the fork (B35): upstream raises UnboundLocalError because
+        # model_size_or_path is never assigned
+        with self.assertRaisesRegex(ValueError, "modelsize or model_dir"):
             MLXWhisper("en")
 
     def test_transcribe_and_words(self):

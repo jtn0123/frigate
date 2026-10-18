@@ -284,10 +284,16 @@ class TestStateProcessFrame(_ProcessorTestBase):
         )
         return proc
 
-    def test_returns_early_without_model_details(self):
+    def test_untrained_model_still_enqueues_for_image_saving(self):
+        # upstream #24597: an untrained model has no tensor details yet but
+        # must still queue frames so Recent Classifications gets images
         proc = self._make(with_model=False)
+        self.assertIsNone(proc.tensor_input_details)
+        proc.last_run = 0
         proc.process_frame({"camera": CAMERA}, _frame())
-        self.assertTrue(proc._task_queue.empty())
+        task = proc._task_queue.get_nowait()
+        self.assertEqual(task[0], "classify")
+        self.assertEqual(task[1], CAMERA)
 
     def test_unknown_camera_is_ignored_but_cps_updated(self):
         proc = self._make()
@@ -525,10 +531,15 @@ class TestObjectProcessor(_ProcessorTestBase):
         proc.process_frame(self._obj(), _frame())
         self.assertTrue(proc._task_queue.empty())
 
-    def test_process_frame_without_details_returns(self):
+    def test_untrained_model_still_enqueues_for_image_saving(self):
+        # upstream #24597: an untrained model has no tensor details yet but
+        # must still queue crops so Recent Classifications gets images
         proc = self._make(with_model=False)
+        self.assertIsNone(proc.tensor_input_details)
         proc.process_frame(self._obj(), _frame())
-        self.assertTrue(proc._task_queue.empty())
+        task = proc._task_queue.get_nowait()
+        self.assertEqual(task[0], "classify")
+        self.assertEqual(task[1], "obj1")
 
     def test_process_frame_enqueues_crop(self):
         proc = self._make()

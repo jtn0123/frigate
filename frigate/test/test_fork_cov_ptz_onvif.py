@@ -196,12 +196,7 @@ def _controller(
     controller.failed_cams = {}
     controller.max_retries = 5
     controller.reset_timeout = 900
-    controller.camera_configs = {CAMERA: config.cameras[CAMERA]}
-    controller.ptz_metrics = {
-        CAMERA: PTZMetrics(
-            autotracker_enabled=config.cameras[CAMERA].onvif.autotracking.enabled
-        )
-    }
+    controller.ptz_metrics = {CAMERA: PTZMetrics()}
     controller.status_locks = {}
     return controller
 
@@ -240,9 +235,6 @@ def _ready_controller(features: list[str] | None = None) -> OnvifController:
             "relative_move_request": Z(
                 Translation=Z(PanTilt=Z(x=0, y=0, space=FOV_URI)), Speed=None
             ),
-            "absolute_move_request": Z(),
-            "status_request": Z(request_type="GetStatus"),
-            "service_capabilities_request": Z(request_type="GetServiceCapabilities"),
             "relative_fov_range": {
                 "XRange": {"Min": -2.0, "Max": 2.0},
                 "YRange": {"Min": -1.0, "Max": 1.0},
@@ -274,8 +266,9 @@ class TestControllerLifecycle(unittest.TestCase):
             controller = OnvifController(config, {})
         self.addCleanup(controller.loop.close)
 
-        self.assertEqual(list(controller.camera_configs), [CAMERA])
-        self.assertEqual(list(controller.status_locks), [CAMERA])
+        # the cameras and their status locks are set up on the loop thread
+        self.assertEqual(controller.cams, {})
+        self.assertEqual(controller.status_locks, {})
         self.assertEqual(controller.max_retries, 5)
         self.assertEqual(controller.reset_timeout, 900)
         threading_mock.Thread.assert_called_once_with(
@@ -301,8 +294,13 @@ class TestControllerLifecycle(unittest.TestCase):
         controller.config_subscriber = MagicMock()
         controller.loop_thread = MagicMock()
 
-        controller.close()
+        with patch.object(
+            onvif_module.asyncio, "run_coroutine_threadsafe", side_effect=_close_coro
+        ) as run_threadsafe:
+            controller.close()
 
+        run_threadsafe.assert_called_once()
+        self.assertIs(run_threadsafe.call_args.args[1], controller.loop)
         controller.config_subscriber.stop.assert_called_once()
         controller.loop_thread.join.assert_called_once()
         # the scheduled callback stops the loop, so run_forever returns
@@ -315,26 +313,49 @@ class TestControllerLifecycle(unittest.TestCase):
         self.assertIn("already closed", logs.output[0])
         controller.config_subscriber.stop.assert_called_once()
 
-    def test_close_without_loop_is_noop(self) -> None:
-        controller = OnvifController.__new__(OnvifController)
-        with self.assertLogs(onvif_module.logger, "DEBUG") as logs:
-            controller.close()
-        self.assertIn("already closed", logs.output[0])
-
-    def test_close_logs_loop_stop_failure(self) -> None:
+    def test_close_still_stops_loop_when_sessions_time_out(self) -> None:
         controller = OnvifController.__new__(OnvifController)
         controller.loop = MagicMock()
         controller.loop.is_closed.return_value = False
-        controller.loop.stop.side_effect = RuntimeError("boom")
-        controller.loop.call_soon_threadsafe.side_effect = lambda fn: fn()
         controller.config_subscriber = MagicMock()
         controller.loop_thread = MagicMock()
+        future = MagicMock()
+        future.result.side_effect = TimeoutError()
 
-        with self.assertLogs(onvif_module.logger, "ERROR") as logs:
+        def schedule(coro: Any, _loop: Any) -> MagicMock:
+            coro.close()
+            return future
+
+        with (
+            patch.object(
+                onvif_module.asyncio, "run_coroutine_threadsafe", side_effect=schedule
+            ),
+            self.assertLogs(onvif_module.logger, "DEBUG") as logs,
+        ):
             controller.close()
 
-        self.assertIn("Error during loop cleanup", logs.output[0])
+        future.result.assert_called_once_with(timeout=5)
+        self.assertTrue(any("Timed out closing" in line for line in logs.output))
+        controller.config_subscriber.stop.assert_called_once()
+        controller.loop.call_soon_threadsafe.assert_called_once_with(
+            controller.loop.stop
+        )
         controller.loop_thread.join.assert_called_once()
+
+    def test_shutdown_closes_sessions_and_cancels_tasks(self) -> None:
+        controller = _controller()
+        session = controller.cams[CAMERA]["onvif"]
+        session.close = AsyncMock()
+
+        async def run() -> asyncio.Task:
+            pending = asyncio.create_task(asyncio.sleep(60))
+            await controller._shutdown()
+            return pending
+
+        pending = asyncio.run(run())
+
+        session.close.assert_awaited_once()
+        self.assertTrue(pending.cancelled())
 
     def test_run_event_loop_runs_until_stopped(self) -> None:
         controller = OnvifController.__new__(OnvifController)
@@ -416,14 +437,14 @@ class TestHandleCommandSync(unittest.TestCase):
 class TestConfigUpdates(unittest.IsolatedAsyncioTestCase):
     async def test_init_cameras_initializes_each_config(self) -> None:
         controller = _controller()
-        controller.camera_configs["other"] = MagicMock()
         controller._init_single_camera = AsyncMock(return_value=True)
 
         await controller._init_cameras()
 
+        # off_cam is disabled and plain_cam has no onvif host
         self.assertEqual(
             [c.args[0] for c in controller._init_single_camera.await_args_list],
-            [CAMERA, "other"],
+            [CAMERA],
         )
 
     async def test_poll_dispatches_updates_and_survives_errors(self) -> None:
@@ -479,7 +500,6 @@ class TestConfigUpdates(unittest.IsolatedAsyncioTestCase):
 
         session.close.assert_awaited_once()
         self.assertNotIn(CAMERA, controller.cams)
-        self.assertNotIn(CAMERA, controller.camera_configs)
         self.assertNotIn(CAMERA, controller.failed_cams)
 
     async def test_reinit_creates_new_session(self) -> None:
@@ -487,7 +507,6 @@ class TestConfigUpdates(unittest.IsolatedAsyncioTestCase):
         old_session = controller.cams[CAMERA]["onvif"]
         old_session.close = AsyncMock()
         controller.failed_cams[CAMERA] = {"retry_attempts": 3}
-        controller.camera_configs = {}
 
         with patch.object(onvif_module, "ONVIFCamera") as camera_cls:
             await controller._reinit_camera(CAMERA)
@@ -495,9 +514,6 @@ class TestConfigUpdates(unittest.IsolatedAsyncioTestCase):
         old_session.close.assert_awaited_once()
         self.assertIs(controller.cams[CAMERA]["onvif"], camera_cls.return_value)
         self.assertFalse(controller.cams[CAMERA]["init"])
-        self.assertIs(
-            controller.camera_configs[CAMERA], controller.config.cameras[CAMERA]
-        )
         self.assertIsInstance(controller.status_locks[CAMERA], asyncio.Lock)
         self.assertNotIn(CAMERA, controller.failed_cams)
 
@@ -553,7 +569,7 @@ class TestInitSingleCamera(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             controller.failed_cams[CAMERA],
-            {"retry_attempts": 0, "last_error": "no route", "last_attempt": 1234.0},
+            {"retry_attempts": 0, "last_attempt": 1234.0},
         )
         self.assertNotIn(CAMERA, controller.cams)
 
@@ -586,11 +602,9 @@ class TestInitOnvifFeatures(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cam["profiles"], [{"name": "Main", "token": "profile_1"}])
         self.assertEqual(cam["video_source_token"], "video_source_1")
         self.assertEqual(cam["move_request"].ProfileToken, "profile_1")
-        self.assertEqual(cam["absolute_move_request"].ProfileToken, "profile_1")
         self.assertEqual(cam["relative_fov_range"]["URI"], FOV_URI)
         self.assertEqual(cam["relative_zoom_range"]["URI"], GENERIC_ZOOM_URI)
         self.assertEqual(cam["absolute_zoom_range"]["XRange"]["Max"], 10.0)
-        self.assertEqual(cam["zoom_limits"], Z(Range=Z(Min=0, Max=1)))
 
         # the relative request is seeded from the current position
         rel = cam["relative_move_request"]
@@ -638,7 +652,7 @@ class TestInitOnvifFeatures(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn("pt-r-fov", controller.cams[CAMERA]["features"])
 
-    async def test_status_failure_disables_absolute_zooming(self) -> None:
+    async def test_status_failure_keeps_absolute_zooming(self) -> None:
         onvif = _onvif_camera()
         onvif.create_ptz_service.return_value.GetStatus.side_effect = RuntimeError(
             "no status"
@@ -649,23 +663,21 @@ class TestInitOnvifFeatures(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs(onvif_module.logger, "WARNING") as logs:
             self.assertTrue(await controller._init_onvif(CAMERA))
 
-        # Upstream bug: the fallback Translation is a plain dict without a Zoom
-        # entry, so setting Translation.Zoom.space raises and zooming is
-        # disabled, even in absolute mode, which never uses the relative
-        # request and whose absolute zoom range is available here.
+        self.assertFalse(any("zoom" in line for line in logs.output))
+        # absolute mode never uses the relative request, so a camera without
+        # GetStatus keeps absolute zooming (fixed upstream in #24559)
         self.assertIn("absolute_zoom_range", controller.cams[CAMERA])
         self.assertEqual(
             config.cameras[CAMERA].onvif.autotracking.zooming,
-            ZoomingModeEnum.disabled,
+            ZoomingModeEnum.absolute,
         )
-        self.assertTrue(
-            any("Relative zoom not supported" in line for line in logs.output)
-        )
+        translation = controller.cams[CAMERA]["relative_move_request"].Translation
+        self.assertEqual(translation["PanTilt"]["space"], FOV_URI)
 
     async def test_missing_zoom_ranges_disable_zooming(self) -> None:
         cases = (
-            ("relative", "RelativeZoomTranslationSpace", "Relative zoom not"),
-            ("absolute", "AbsoluteZoomPositionSpace", "Absolute zoom not"),
+            ("relative", "RelativeZoomTranslationSpace", "relative zoom range"),
+            ("absolute", "AbsoluteZoomPositionSpace", "absolute zoom range"),
         )
         for zooming, space, message in cases:
             with self.subTest(zooming=zooming):
@@ -684,8 +696,8 @@ class TestInitOnvifFeatures(unittest.IsolatedAsyncioTestCase):
 
     async def test_no_configuration_options_disables_zooming(self) -> None:
         for zooming, message in (
-            ("relative", "Relative zoom range unavailable"),
-            ("absolute", "Absolute zoom range unavailable"),
+            ("relative", "relative zoom range unavailable"),
+            ("absolute", "absolute zoom range unavailable"),
         ):
             with self.subTest(zooming=zooming):
                 onvif = _onvif_camera()
@@ -850,7 +862,7 @@ class TestInitOnvifProfiles(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(message, logs.output[0])
                 self.assertFalse(controller.cams[CAMERA]["init"])
 
-    async def test_ptz_configuration_read_failure(self) -> None:
+    async def test_ptz_configuration_read_failure_raises(self) -> None:
         class FlakyProfile:
             token = "flaky"
             Name = "Flaky"
@@ -870,10 +882,10 @@ class TestInitOnvifProfiles(unittest.IsolatedAsyncioTestCase):
         onvif = _onvif_camera(profiles=[FlakyProfile()])
         controller = _controller(_config(), onvif)
 
-        with self.assertLogs(onvif_module.logger, "ERROR") as logs:
-            self.assertFalse(await controller._init_onvif(CAMERA))
+        # get_camera_info catches and logs what _init_onvif raises
+        with self.assertRaises(RuntimeError):
+            await controller._init_onvif(CAMERA)
 
-        self.assertIn("Invalid Onvif PTZ configuration", logs.output[0])
         onvif.create_ptz_service.assert_not_awaited()
 
 
@@ -1194,11 +1206,12 @@ class TestGetCameraInfo(unittest.IsolatedAsyncioTestCase):
             info = await controller.get_camera_info(CAMERA)
 
         self.assertEqual(
-            info, {"name": CAMERA, "features": ["pt"], "presets": ["home"]}
+            info,
+            {"name": CAMERA, "features": ["pt"], "presets": ["home"], "profiles": []},
         )
         self.assertNotIn(CAMERA, controller.failed_cams)
 
-    async def test_failed_init_does_not_count_a_retry(self) -> None:
+    async def test_failed_init_counts_a_retry(self) -> None:
         controller = _controller()
         controller._init_onvif = AsyncMock(return_value=False)
 
@@ -1206,10 +1219,9 @@ class TestGetCameraInfo(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await controller.get_camera_info(CAMERA), {})
 
         self.assertIn("ONVIF initialization failed", logs.output[0])
-        # Upstream bug: a False return (the usual result for an unreachable
-        # camera, since _init_onvif catches connection errors) never increments
-        # retry_attempts, so max_retries only limits raised exceptions.
-        self.assertEqual(controller.failed_cams, {})
+        # a False return (the usual result for an unreachable camera) counts
+        # toward max_retries too (fixed upstream in #24559)
+        self.assertEqual(controller.failed_cams[CAMERA]["retry_attempts"], 1)
 
     async def test_too_many_attempts_reports_remaining_time(self) -> None:
         for elapsed, suffix in ((300.0, "10 minutes"), (840.0, "1 minute")):
@@ -1254,9 +1266,7 @@ class TestServiceCapabilities(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(await controller.get_service_capabilities(CAMERA))
         controller._init_onvif.assert_awaited_once_with(CAMERA)
-        ptz.GetServiceCapabilities.assert_awaited_once_with(
-            controller.cams[CAMERA]["service_capabilities_request"]
-        )
+        ptz.GetServiceCapabilities.assert_awaited_once_with()
 
     async def test_unsupported_method_returns_false(self) -> None:
         controller = _ready_controller()

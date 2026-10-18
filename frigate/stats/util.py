@@ -272,6 +272,15 @@ def watchdog_age(heartbeat: float, now: float | None = None) -> float | None:
     return round(max(0.0, now - heartbeat), 1)
 
 
+def get_go2rtc_pid(cpu_usages: dict[str, dict[str, Any]]) -> int | None:
+    """Find the pid of the running go2rtc process in the cpu usages."""
+    for pid, usage in cpu_usages.items():
+        if usage.get("cmdline", "").split(" ")[0].endswith("/go2rtc"):
+            return int(pid)
+
+    return None
+
+
 def stats_snapshot(
     config: FrigateConfig,
     stats_tracking: StatsTrackingTypes,
@@ -284,8 +293,9 @@ def stats_snapshot(
     total_camera_fps = total_process_fps = total_skipped_fps = total_detection_fps = 0.0
 
     stats["cameras"] = {}
-    for name, camera_stats in camera_metrics.items():
-        if name not in config.cameras:
+    for name, camera_stats in list(camera_metrics.items()):
+        camera_config = config.cameras.get(name)
+        if camera_config is None:
             continue
 
         total_camera_fps += camera_stats.camera_fps.value
@@ -302,7 +312,7 @@ def stats_snapshot(
         # Calculate connection quality based on current state
         # This is computed at stats-collection time so offline cameras
         # correctly show as unusable rather than excellent
-        expected_fps = config.cameras[name].detect.fps
+        expected_fps = camera_config.detect.fps
         current_fps = camera_stats.camera_fps.value
         reconnects = camera_stats.reconnects_last_hour.value
         stalls = camera_stats.stalls_last_hour.value
@@ -345,10 +355,10 @@ def stats_snapshot(
             "skipped_pct": skipped_percent(
                 camera_stats.skipped_fps.value,
                 current_fps,
-                config.cameras[name].enabled,
+                camera_config.enabled,
             ),
             "detection_fps": round(camera_stats.detection_fps.value, 2),
-            "detection_enabled": config.cameras[name].detect.enabled,
+            "detection_enabled": camera_config.detect.enabled,
             "pid": pid,
             "capture_pid": capture_pid,
             "ffmpeg_pid": ffmpeg_pid,
@@ -416,6 +426,14 @@ def stats_snapshot(
 
     stats["service"]["storage"]["/dev/shm"] = calculate_shm_requirements(config)
 
+    cpu_usages = stats.get("cpu_usages", {})
+
+    # go2rtc is supervised by s6, so its pid changes when s6 restarts it
+    go2rtc_pid = get_go2rtc_pid(cpu_usages)
+
+    if go2rtc_pid is not None:
+        stats_tracking["processes"]["go2rtc"] = go2rtc_pid
+
     stats["processes"] = {}
     for name, pid in stats_tracking["processes"].items():
         stats["processes"][name] = {
@@ -424,7 +442,6 @@ def stats_snapshot(
 
     # Embed cpu/mem stats into detectors, cameras, and processes
     # so history consumers don't need the full cpu_usages dict
-    cpu_usages = stats.get("cpu_usages", {})
 
     for det_stats in stats["detectors"].values():
         pid_str = str(det_stats.get("pid", ""))

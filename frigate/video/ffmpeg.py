@@ -90,7 +90,8 @@ def capture_frames(
         frame_name = f"{config.name}_frame{frame_index}"
         frame_buffer = frame_manager.write(frame_name)
         try:
-            frame_buffer[:] = ffmpeg_process.stdout.read(frame_size)
+            if ffmpeg_process.stdout.readinto(frame_buffer) != frame_size:
+                raise EOFError("incomplete frame")
         except Exception:
             # shutdown has been initiated
             if stop_event.is_set():
@@ -148,12 +149,33 @@ def _check_record_staleness(
         watchdog._restart_stalled_record(process, now_utc, reason)
         return True
     if reason is None:
-        for stream in streams:
-            watchdog._send_record_status(stream, "online", now)
+        # B32 (upstream #24522): fresh segments from an exited recorder are
+        # not a recovery, so only a running process reports online
+        if process["process"].poll() is None:
+            for stream in streams:
+                watchdog._send_record_status(stream, "online", now)
         process["latest_segment_time"] = max(
             watchdog.latest_cache_segment_time[stream] for stream in streams
         )
     return False
+
+
+def _send_roles_offline(
+    watchdog: "CameraWatchdog", roles: list[Any], now: float
+) -> None:
+    """Send offline for each role of a restarted ffmpeg process.
+
+    B32 (upstream #24522): record roles go through the status cache, so the
+    cache reads offline and the recovery to online is published. A module
+    function for the same test double reason as the one above.
+    """
+    for role in roles:
+        if role in ROLE_TO_STREAM_TYPE:
+            watchdog._send_record_status(ROLE_TO_STREAM_TYPE[role], "offline", now)
+        else:
+            watchdog.requestor.send_data(
+                f"{watchdog.config.name}/status/{role.value}", "offline"
+            )
 
 
 class CameraWatchdog(threading.Thread):
@@ -272,29 +294,33 @@ class CameraWatchdog(threading.Thread):
         # Status caching to reduce message volume
         self._last_detect_status: str | None = None
         self._last_record_status: dict[str, str] = {}
-        self._last_status_update_time: float = 0.0
+        # B32 (upstream #24522): one resend clock per status, since detect's
+        # resend runs first each pass and would otherwise starve record's
+        self._last_detect_status_update_time: float = 0.0
+        self._last_record_status_update_time: dict[str, float] = {}
 
     def _send_detect_status(self, status: str, now: float) -> None:
         """Send detect status only if changed or retry_interval has elapsed."""
         if (
             status != self._last_detect_status
-            or (now - self._last_status_update_time) >= self.sleeptime
+            or (now - self._last_detect_status_update_time) >= self.sleeptime
         ):
             self.requestor.send_data(f"{self.config.name}/status/detect", status)
             self._last_detect_status = status
-            self._last_status_update_time = now
+            self._last_detect_status_update_time = now
 
     def _send_record_status(self, stream_type: str, status: str, now: float) -> None:
         """Send a record stream's status only if changed or retry_interval has elapsed."""
         if (
             status != self._last_record_status.get(stream_type)
-            or (now - self._last_status_update_time) >= self.sleeptime
+            or (now - self._last_record_status_update_time.get(stream_type, 0.0))
+            >= self.sleeptime
         ):
             self.requestor.send_data(
                 f"{self.config.name}/status/{STREAM_TYPE_TO_ROLE[stream_type]}", status
             )
             self._last_record_status[stream_type] = status
-            self._last_status_update_time = now
+            self._last_record_status_update_time[stream_type] = now
 
     def _notify_outage(self, event: dict[str, Any]) -> None:
         """Fork (SV6): push an outage event, when the fork flag asks for it.
@@ -605,10 +631,7 @@ class CameraWatchdog(threading.Thread):
             self.logger,
             process["logpipe"],
         )
-        for role in process["roles"]:
-            self.requestor.send_data(
-                f"{self.config.name}/status/{role.value}", "offline"
-            )
+        _send_roles_offline(self, process["roles"], now.timestamp())
 
     def _check_record_processes(self, now: float, can_restart: bool = True) -> bool:
         """Check each recording stream and retain restart logging and grace."""
@@ -624,10 +647,7 @@ class CameraWatchdog(threading.Thread):
                 continue
             if poll is None or not can_restart:
                 continue
-            for role in process["roles"]:
-                self.requestor.send_data(
-                    f"{self.config.name}/status/{role.value}", "offline"
-                )
+            _send_roles_offline(self, process["roles"], now)
             self.restart_log.note_exit(
                 "_".join(sorted(role.value for role in process["roles"])),
                 process["logpipe"],

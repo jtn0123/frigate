@@ -29,7 +29,7 @@ class TestOnvifErrorLogging(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIs(record.exc_info[1], error)
 
-    async def test_initialization_failure_sanitizes_log_but_retains_retry_error(self):
+    async def test_initialization_failure_sanitizes_log_and_counts_a_retry(self):
         camera_name = "front\r\nforged record"
         error = RuntimeError("remote\r\nforged message")
         controller = object.__new__(OnvifController)
@@ -51,4 +51,5 @@ class TestOnvifErrorLogging(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIs(record.exc_info[1], error)
         self.assertEqual(controller.failed_cams[camera_name]["retry_attempts"], 1)
-        self.assertEqual(controller.failed_cams[camera_name]["last_error"], str(error))
+        # the remote error text is not kept (upstream #24559 dropped last_error)
+        self.assertNotIn("last_error", controller.failed_cams[camera_name])

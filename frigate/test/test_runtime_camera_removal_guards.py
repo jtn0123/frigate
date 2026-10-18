@@ -213,6 +213,8 @@ class TestWebPushRemovedCamera(unittest.TestCase):
                 )
             }
         )
+        # B32 (upstream #24607): publish drains config under this lock
+        self.client.config_lock = threading.Lock()
         self.client.global_config_subscriber = MagicMock()
         self.client.global_config_subscriber.check_for_update.return_value = (
             None,

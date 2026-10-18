@@ -130,8 +130,8 @@ PRESETS_HW_ACCEL_SCALE = {
     "preset-apple-silicon-h264": _SOFTWARE_SCALE_FILTER,
     "preset-apple-silicon-h265": _SOFTWARE_SCALE_FILTER,
     FFMPEG_HWACCEL_VAAPI: "-r {0} -vf fps={0},scale_vaapi=w={1}:h={2},hwdownload,format=nv12",
-    "preset-intel-qsv-h264": "-r {0} -vf vpp_qsv=w={1}:h={2}:format=nv12,hwdownload,format=nv12,fps={0},format=yuv420p",
-    "preset-intel-qsv-h265": "-r {0} -vf vpp_qsv=w={1}:h={2}:format=nv12,hwdownload,format=nv12,fps={0},format=yuv420p",
+    "preset-intel-qsv-h264": "-r {0} -vf fps={0},vpp_qsv=w={1}:h={2}:format=nv12,hwdownload,format=nv12,format=yuv420p",
+    "preset-intel-qsv-h265": "-r {0} -vf fps={0},vpp_qsv=w={1}:h={2}:format=nv12,hwdownload,format=nv12,format=yuv420p",
     FFMPEG_HWACCEL_NVIDIA: "-r {0} -vf fps={0},scale_cuda=w={1}:h={2},hwdownload,format=nv12",
     "preset-jetson-h264": "-r {0}",  # scaled in decoder
     "preset-jetson-h265": "-r {0}",  # scaled in decoder

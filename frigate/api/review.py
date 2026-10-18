@@ -45,6 +45,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=[Tags.review])
 
 
+def get_label_clause(label: str):
+    """Build a clause matching a label within a review segment's data.
+
+    Verified objects are stored with a `-verified` suffix (eg. `person-verified`)
+    so that variant is matched as well.
+    """
+    return (
+        (ReviewSegment.data["objects"].cast("text") % f'*"{label}"*')
+        | (ReviewSegment.data["objects"].cast("text") % f'*"{label}-verified"*')
+        | (ReviewSegment.data["audio"].cast("text") % f'*"{label}"*')
+    )
+
+
 @router.get(
     "/review",
     response_model=list[ReviewSegmentResponse],
@@ -90,11 +103,7 @@ def review(
     if labels != "all":
         # use matching so segments with multiple labels
         # still match on a search where any label matches
-        label_clauses = [
-            (ReviewSegment.data["objects"].cast("text") % f'*"{label}"*')
-            | (ReviewSegment.data["audio"].cast("text") % f'*"{label}"*')
-            for label in labels.split(",")
-        ]
+        label_clauses = [get_label_clause(label) for label in labels.split(",")]
         clauses.append(reduce(operator.or_, label_clauses))
 
     if zones != "all":
@@ -235,10 +244,7 @@ def review_summary(
         filtered_labels = labels.split(",")
 
         for label in filtered_labels:
-            label_clauses.append(
-                (ReviewSegment.data["objects"].cast("text") % f'*"{label}"*')
-                | (ReviewSegment.data["audio"].cast("text") % f'*"{label}"*')
-            )
+            label_clauses.append(get_label_clause(label))
         clauses.append(reduce(operator.or_, label_clauses))
     if zones != "all":
         # use matching so segments with multiple zones

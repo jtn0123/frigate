@@ -8,6 +8,7 @@ from paho.mqtt.enums import CallbackAPIVersion
 
 from frigate.comms.base_communicator import Communicator
 from frigate.config import FrigateConfig, birdseye_modes_to_mqtt_payload
+from frigate.fork.mqtt_loop import use_selector_loop
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +248,8 @@ class MqttClient(Communicator):
             callback_api_version=CallbackAPIVersion.VERSION2,
             client_id=self.mqtt_config.client_id,
         )
+        # fork (B34): select() fails for descriptors >= 1024 (upstream #24573)
+        use_selector_loop(self.client)
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
         self.client.will_set(
