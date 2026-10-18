@@ -1740,7 +1740,8 @@
     },
     "defaultRole": {
       "admin": "Admin",
-      "viewer": "Viewer"
+      "viewer": "Viewer",
+      "none": "None (deny access)"
     },
     "audioTranscriptionModel": {
       "placeholder": "Select model…",

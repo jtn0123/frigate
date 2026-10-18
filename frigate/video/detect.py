@@ -8,6 +8,8 @@ from multiprocessing import Queue
 from multiprocessing.synchronize import Event as MpEvent
 from typing import Any
 
+import cv2
+
 from frigate.camera import CameraMetrics, PTZMetrics
 from frigate.comms.inter_process import InterProcessRequestor
 from frigate.config import CameraConfig, DetectConfig, LoggerConfig, ModelConfig
@@ -82,6 +84,11 @@ class CameraTracker(FrigateProcess):
 
     def run(self) -> None:
         self.pre_run_setup(self.log_config)
+
+        # OpenCV only sees small images here, and its default per-core thread
+        # pool burns ~5x the CPU of running them inline
+        cv2.setNumThreads(1)
+
         frame_queue = self.camera_metrics.frame_queue
         frame_shape = self.config.frame_shape
 
