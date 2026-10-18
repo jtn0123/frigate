@@ -8,30 +8,33 @@ import type { MessageConditionContext } from "../types";
 // B33 (upstream #24272): recording and notifications only start when they are
 // enabled in the base config, so enabling them in a profile has no effect
 
+const asCamera = (value: unknown) => value as CameraConfig;
+const asConfig = (value: unknown) => value as FrigateConfig;
+
 function camera(record: boolean, notifications: boolean, enabled = true) {
-  return {
+  return asCamera({
     enabled_in_config: enabled,
     record: { enabled_in_config: record },
     notifications: { enabled_in_config: notifications },
-  } as unknown as CameraConfig;
+  });
 }
 
 function ctx(
   overrides: {
-    cameras?: Record<string, CameraConfig>;
+    front?: CameraConfig;
+    others?: Record<string, CameraConfig>;
     profileName?: string;
     formData?: ConfigSectionData;
   } = {},
 ): MessageConditionContext {
-  const cams = overrides.cameras ?? { front: camera(false, false) };
+  const front = overrides.front ?? camera(false, false);
   const context: MessageConditionContext = {
-    fullConfig: { cameras: cams } as unknown as FrigateConfig,
+    fullConfig: asConfig({ cameras: { front, ...overrides.others } }),
+    fullCameraConfig: front,
     level: "camera",
     cameraName: "front",
     formData: overrides.formData ?? ({ enabled: true } as ConfigSectionData),
   };
-  const front = cams["front"];
-  if (front) context.fullCameraConfig = front;
   if (overrides.profileName) context.profileName = overrides.profileName;
   return context;
 }
@@ -56,9 +59,7 @@ describe("record profileBaseDisabled field message", () => {
 
   it("stays hidden when the base config enables recording", () => {
     expect(
-      msg.condition(
-        ctx({ profileName: "away", cameras: { front: camera(true, false) } }),
-      ),
+      msg.condition(ctx({ profileName: "away", front: camera(true, false) })),
     ).toBe(false);
   });
 
@@ -83,10 +84,7 @@ describe("notifications profileBaseDisabled field message", () => {
         ctx({
           profileName: "away",
           // a disabled camera with notifications on does not count
-          cameras: {
-            front: camera(false, false),
-            back: camera(false, true, false),
-          },
+          others: { back: camera(false, true, false) },
         }),
       ),
     ).toBe(true);
@@ -97,7 +95,7 @@ describe("notifications profileBaseDisabled field message", () => {
       msg.condition(
         ctx({
           profileName: "away",
-          cameras: { front: camera(false, false), back: camera(false, true) },
+          others: { back: camera(false, true) },
         }),
       ),
     ).toBe(false);

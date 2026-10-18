@@ -42,7 +42,7 @@ const record: SectionConfigOverrides = {
           "/configuration/profiles#why-cant-a-profile-enable-recording-when-its-disabled-in-the-base-config",
         condition: (ctx) =>
           !!ctx.profileName &&
-          ctx.formData?.enabled === true &&
+          ctx.formData.enabled === true &&
           ctx.fullCameraConfig?.record.enabled_in_config === false,
       },
     ],

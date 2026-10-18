@@ -24,7 +24,7 @@ const notifications: SectionConfigOverrides = {
         position: "after",
         condition: (ctx) =>
           !!ctx.profileName &&
-          ctx.formData?.enabled === true &&
+          ctx.formData.enabled === true &&
           !Object.values(ctx.fullConfig.cameras).some(
             (camera) =>
               camera.enabled_in_config &&
