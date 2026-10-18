@@ -11,21 +11,14 @@ import { Button, buttonVariants } from "../ui/button";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
-  useRef,
   useState,
   Suspense,
   lazy,
 } from "react";
 
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  HiDotsHorizontal,
-  HiOutlineDotsVertical,
-  HiTrash,
-} from "react-icons/hi";
-import { IoClose } from "react-icons/io5";
+import { HiOutlineDotsVertical, HiTrash } from "react-icons/hi";
+import OverflowStrip from "@/components/fork/OverflowStrip";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 // fork (UI132): the "all cameras" group sits in the same column as the nav
 // icons, so it uses the same family.
@@ -190,80 +183,7 @@ export function CameraGroupSelector({
 
   const [addGroup, setAddGroup] = useState(false);
 
-  // mobile overflow reveal - the group strip sits left of the logo and is
-  // clipped (not scrollable) when there are too many groups, so render only
-  // the buttons that fully fit and surface a kebab next to the last visible
-  // one that expands a panel revealing all of them
-
-  const [expanded, setExpanded] = useState(false);
-  // null => all buttons fit, render them all with no kebab; a number => only
-  // that many fit alongside the kebab
-  const [visibleCount, setVisibleCount] = useState<number | null>(null);
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const measureRef = useRef<HTMLDivElement | null>(null);
-
-  useLayoutEffect(() => {
-    if (isDesktop) {
-      return;
-    }
-
-    const wrapper = wrapperRef.current;
-    const measure = measureRef.current;
-
-    if (!wrapper || !measure) {
-      return;
-    }
-
-    const gap = 8; // gap-2 between buttons in the strip
-    const wrapperGap = 4; // gap-1 between the strip and the kebab
-
-    const compute = () => {
-      const buttons = Array.from(measure.children) as HTMLElement[];
-
-      if (buttons.length === 0) {
-        return;
-      }
-
-      // the trailing child of the measurement row is a kebab clone
-      const kebab = buttons[buttons.length - 1];
-      const groupButtons = buttons.slice(0, -1);
-      const available = wrapper.clientWidth;
-      const fullWidth =
-        groupButtons.reduce((sum, el) => sum + el.offsetWidth, 0) +
-        Math.max(groupButtons.length - 1, 0) * gap;
-
-      if (fullWidth <= available) {
-        setVisibleCount(null);
-        return;
-      }
-
-      const budget = available - kebab.offsetWidth - wrapperGap;
-      let used = 0;
-      let count = 0;
-
-      for (const el of groupButtons) {
-        const next = (count === 0 ? 0 : gap) + el.offsetWidth;
-
-        if (used + next <= budget) {
-          used += next;
-          count += 1;
-        } else {
-          break;
-        }
-      }
-
-      setVisibleCount(Math.max(count, 1));
-    };
-
-    compute();
-
-    const observer = new ResizeObserver(compute);
-    observer.observe(wrapper);
-
-    return () => observer.disconnect();
-  }, [groups, isAdmin]);
-
-  const groupButtons = (afterSelect?: () => void) => {
+  const groupButtons = () => {
     const buttons = [
       <Button
         key="default-group"
@@ -279,7 +199,6 @@ export function CameraGroupSelector({
           if (group) {
             setGroup("default", true);
           }
-          afterSelect?.();
         }}
       >
         <LuHouse className="size-5" />
@@ -297,7 +216,6 @@ export function CameraGroupSelector({
           size="sm"
           onClick={() => {
             setGroup(name, group != "default");
-            afterSelect?.();
           }}
         >
           <GroupIcon icon={config?.icon} className="size-5" />
@@ -314,7 +232,6 @@ export function CameraGroupSelector({
           size="sm"
           onClick={() => {
             setAddGroup(true);
-            afterSelect?.();
           }}
         >
           <LuPencil className="size-5 text-primary-variant" />
@@ -419,75 +336,15 @@ export function CameraGroupSelector({
           <KioskLaunchButton variant="rail" currentGroup={group} />
         </div>
       ) : (
-        <div
-          ref={wrapperRef}
-          className={cn("flex min-w-0 items-center gap-1", className)}
-        >
-          <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
-            {visibleCount == null
-              ? groupButtons()
-              : groupButtons().slice(0, visibleCount)}
-          </div>
-          {visibleCount != null && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="shrink-0 px-2 text-secondary-foreground"
-              aria-label={t("group.showAll")}
-              onClick={() => setExpanded(true)}
-            >
-              <HiDotsHorizontal className="size-5" />
-            </Button>
-          )}
-
-          {/* invisible row used only to measure natural button widths so we
-              can render exactly the buttons that fully fit */}
-          <div
-            className="pointer-events-none absolute left-0 top-0 h-0 w-0 overflow-hidden"
-            aria-hidden
-            inert
-          >
-            <div ref={measureRef} className="flex w-max items-center gap-2">
-              {groupButtons()}
-              <Button variant="ghost" size="sm" className="px-2">
-                <HiDotsHorizontal className="size-5" />
-              </Button>
-            </div>
-          </div>
-
-          {expanded && (
-            <div
-              className="fixed inset-0 z-20"
-              onClick={() => setExpanded(false)}
-              aria-hidden="true"
-            />
-          )}
-          <AnimatePresence>
-            {expanded && (
-              <motion.div
-                key="group-overlay"
-                className="absolute inset-x-0 top-0 z-30 bg-background py-1 shadow-lg"
-                initial={{ clipPath: "inset(0 100% 0 0)" }}
-                animate={{ clipPath: "inset(0 0% 0 0)" }}
-                exit={{ clipPath: "inset(0 100% 0 0)" }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  {groupButtons(() => setExpanded(false))}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-auto shrink-0 px-2 text-secondary-foreground"
-                    aria-label={t("group.showLess")}
-                    onClick={() => setExpanded(false)}
-                  >
-                    <IoClose className="size-5" />
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        // fork (UI149, upstream #24543): the shared strip keeps the selected
+        // group visible when it falls past the cut
+        <OverflowStrip
+          className={className}
+          items={groupButtons()}
+          activeIndex={groups.findIndex(([name]) => name == group) + 1}
+          showAllLabel={t("group.showAll")}
+          showLessLabel={t("group.showLess")}
+        />
       )}
     </>
   );
