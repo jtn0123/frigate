@@ -624,9 +624,10 @@ export function ConfigSection({
           : undefined,
       level: effectiveLevel,
       cameraName,
+      profileName,
       formData: currentFormData as ConfigSectionData,
     };
-  }, [config, currentFormData, effectiveLevel, cameraName]);
+  }, [config, currentFormData, effectiveLevel, cameraName, profileName]);
 
   const { activeMessages, activeFieldMessages } = useConfigMessages(
     sectionConfig.messages,

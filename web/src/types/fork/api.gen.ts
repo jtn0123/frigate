@@ -11699,6 +11699,7 @@ export interface operations {
                 zone?: string | null;
                 zones?: string | null;
                 limit?: number | null;
+                offset?: number | null;
                 after?: number | null;
                 before?: number | null;
                 time_range?: string | null;
@@ -11815,6 +11816,7 @@ export interface operations {
                 search_type?: string | null;
                 include_thumbnails?: number | null;
                 limit?: number | null;
+                offset?: number | null;
                 cameras?: string | null;
                 labels?: string | null;
                 sub_labels?: string | null;

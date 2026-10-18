@@ -16,7 +16,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-from peewee import IntegrityError
+from peewee import DatabaseError, IntegrityError
 from PIL import Image
 from playhouse.sqlite_ext import SqliteExtDatabase
 
@@ -266,9 +266,9 @@ class TestEmbedCalls(ModelPatchMixin):
 
         self.emb.vision_embedding.assert_called_once_with([b"thumb"])
         np.testing.assert_array_equal(result, self.vector)
-        sql, params = self.db.execute_sql.call_args.args
-        self.assertIn("vec_thumbnails", sql)
-        self.assertEqual(params, ("ev1", serialize(self.vector)))
+        self.db.upsert_embeddings.assert_called_once_with(
+            "vec_thumbnails", "thumbnail_embedding", {"ev1": serialize(self.vector)}
+        )
         self.assertEqual(len(self.emb.image_eps._timestamps), 1)
 
     def test_embed_thumbnail_without_upsert_skips_db(self) -> None:
@@ -276,7 +276,7 @@ class TestEmbedCalls(ModelPatchMixin):
 
         self.emb.embed_thumbnail("ev1", b"thumb", upsert=False)
 
-        self.db.execute_sql.assert_not_called()
+        self.db.upsert_embeddings.assert_not_called()
 
     def test_batch_embed_thumbnail_skips_corrupt_images(self) -> None:
         good = jpeg_bytes()
@@ -286,23 +286,23 @@ class TestEmbedCalls(ModelPatchMixin):
 
         self.emb.vision_embedding.assert_called_once_with([good])
         self.assertEqual(len(result), 1)
-        sql, items = self.db.execute_sql.call_args.args
-        self.assertEqual(sql.count("(?, ?)"), 1)
-        self.assertEqual(items, ["ok", serialize(self.vector)])
+        self.db.upsert_embeddings.assert_called_once_with(
+            "vec_thumbnails", "thumbnail_embedding", {"ok": serialize(self.vector)}
+        )
 
     def test_batch_embed_thumbnail_all_corrupt_returns_empty(self) -> None:
         self.emb.vision_embedding = MagicMock()
 
         self.assertEqual(self.emb.batch_embed_thumbnail({"bad": b"nope"}), [])
         self.emb.vision_embedding.assert_not_called()
-        self.db.execute_sql.assert_not_called()
+        self.db.upsert_embeddings.assert_not_called()
 
     def test_batch_embed_thumbnail_without_upsert(self) -> None:
         self.emb.vision_embedding = MagicMock(return_value=[self.vector])
 
         self.emb.batch_embed_thumbnail({"ok": jpeg_bytes()}, upsert=False)
 
-        self.db.execute_sql.assert_not_called()
+        self.db.upsert_embeddings.assert_not_called()
 
     def test_embed_description_upserts(self) -> None:
         self.emb.text_embedding = MagicMock(return_value=[self.vector])
@@ -311,16 +311,18 @@ class TestEmbedCalls(ModelPatchMixin):
 
         self.emb.text_embedding.assert_called_once_with(["a red car"])
         np.testing.assert_array_equal(result, self.vector)
-        sql, params = self.db.execute_sql.call_args.args
-        self.assertIn("vec_descriptions", sql)
-        self.assertEqual(params, ("ev1", serialize(self.vector)))
+        self.db.upsert_embeddings.assert_called_once_with(
+            "vec_descriptions",
+            "description_embedding",
+            {"ev1": serialize(self.vector)},
+        )
 
     def test_embed_description_without_upsert(self) -> None:
         self.emb.text_embedding = MagicMock(return_value=[self.vector])
 
         self.emb.embed_description("", "query", upsert=False)
 
-        self.db.execute_sql.assert_not_called()
+        self.db.upsert_embeddings.assert_not_called()
 
     def test_batch_embed_description_embeds_one_by_one(self) -> None:
         other = np.array([1.0, 0.0], dtype=np.float32)
@@ -330,16 +332,18 @@ class TestEmbedCalls(ModelPatchMixin):
 
         self.assertEqual(self.emb.text_embedding.call_count, 2)
         self.assertEqual(len(result), 2)
-        sql, items = self.db.execute_sql.call_args.args
-        self.assertEqual(sql.count("(?, ?)"), 2)
-        self.assertEqual(items, ["a", serialize(self.vector), "b", serialize(other)])
+        self.db.upsert_embeddings.assert_called_once_with(
+            "vec_descriptions",
+            "description_embedding",
+            {"a": serialize(self.vector), "b": serialize(other)},
+        )
 
     def test_batch_embed_description_without_upsert(self) -> None:
         self.emb.text_embedding = MagicMock(return_value=[self.vector])
 
         self.emb.batch_embed_description({"a": "one"}, upsert=False)
 
-        self.db.execute_sql.assert_not_called()
+        self.db.upsert_embeddings.assert_not_called()
 
 
 class DatabaseMixin(ModelPatchMixin):
@@ -496,6 +500,19 @@ class TestReindex(DatabaseMixin):
         self.assertEqual(updates[1]["time_remaining"], 4)
         self.assertEqual(updates[2]["time_remaining"], 0)
         self.assertEqual(updates[0]["time_remaining"], -1)
+
+    def test_reindex_database_failure_reports_failed_status(self) -> None:
+        # upstream #24407: a failed drop or write used to be swallowed by the
+        # queued writer and reindex still reported success
+        self.db.drop_embeddings_tables.side_effect = DatabaseError("SQL logic error")
+        emb = self.make()
+
+        with self.assertLogs(embeddings_module.logger, level="ERROR"):
+            emb.reindex()
+
+        updates = self.progress()
+        self.assertEqual(updates[-1]["status"], "failed")
+        self.assertNotIn("completed", [u["status"] for u in updates])
 
     def test_reindex_jinav2_with_no_events(self) -> None:
         emb = self.make(make_config(model=SemanticSearchModelEnum.jinav2))
