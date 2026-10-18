@@ -78,7 +78,7 @@ test.describe("Embeddings reindex failure (B33) @high", () => {
   );
 });
 
-test.describe("Explore paging for non-date sorts (B33) @high", () => {
+test.describe("Explore paging for non-date sorts (B33) @high @mobile", () => {
   const API_LIMIT = 25;
 
   function page(offset: number): unknown[] {
@@ -101,18 +101,34 @@ test.describe("Explore paging for non-date sorts (B33) @high", () => {
     });
 
     await frigateApp.goto("/explore?sort=score_desc&labels=person");
-    await expect.poll(() => requests.length, { timeout: 10_000 }).toBe(1);
+    const scoreRequests = () =>
+      requests.filter((url) => url.searchParams.get("sort") === "score_desc");
+    await expect
+      .poll(() => scoreRequests().length, { timeout: 10_000 })
+      .toBeGreaterThan(0);
 
-    // scroll to the end of the grid to load the next page
+    // scroll every scroll container to its end so the grid loads the next
+    // page on both layouts
     await expect(async () => {
-      await frigateApp.page.mouse.move(400, 400);
-      await frigateApp.page.mouse.wheel(0, 20_000);
-      expect(requests.length).toBeGreaterThan(1);
+      await frigateApp.page.evaluate(() => {
+        document.querySelectorAll<HTMLElement>("*").forEach((el) => {
+          if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
+        });
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+      expect(
+        scoreRequests().some((url) => url.searchParams.has("offset")),
+      ).toBe(true);
     }).toPass({ timeout: 15_000 });
 
-    const next = requests[1];
-    expect(next.searchParams.get("offset")).toBe(String(API_LIMIT));
-    expect(next.searchParams.get("before")).toBeNull();
-    expect(next.searchParams.get("sort")).toBe("score_desc");
+    const later = scoreRequests().filter(
+      (url) => url.searchParams.has("offset") || url.searchParams.has("before"),
+    );
+    // every later page uses the offset, never a start_time cursor
+    expect(later.length).toBeGreaterThan(0);
+    for (const url of later) {
+      expect(url.searchParams.get("before")).toBeNull();
+    }
+    expect(later[0].searchParams.get("offset")).toBe(String(API_LIMIT));
   });
 });
