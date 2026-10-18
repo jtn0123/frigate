@@ -346,7 +346,7 @@ def stats_snapshot(
             "skipped_pct": skipped_percent(
                 camera_stats.skipped_fps.value,
                 current_fps,
-                config.cameras[name].enabled,
+                camera_config.enabled,
             ),
             "detection_fps": round(camera_stats.detection_fps.value, 2),
             "detection_enabled": camera_config.detect.enabled,
