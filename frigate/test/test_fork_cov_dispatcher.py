@@ -616,14 +616,16 @@ class TestToggleHandlers(DispatcherTestCase):
         self.assertEqual(self.published("front_door/ptz_autotracker/state"), [])
 
         camera.onvif.autotracking.enabled_in_config = True
-        metrics.autotracker_enabled.value = False
+        camera.onvif.autotracking.enabled = False
+        metrics.start_time.value = 5
         self.dispatcher._receive("front_door/ptz_autotracker/set", "ON")
-        self.assertTrue(metrics.autotracker_enabled.value)
         self.assertTrue(camera.onvif.autotracking.enabled)
+        self.assertEqual(metrics.start_time.value, 0)
 
+        metrics.start_time.value = 5
         self.dispatcher._receive("front_door/ptz_autotracker/set", "OFF")
-        self.assertFalse(metrics.autotracker_enabled.value)
         self.assertFalse(camera.onvif.autotracking.enabled)
+        self.assertEqual(metrics.start_time.value, 0)
         self.assertEqual(self.update_enums(), [CameraConfigUpdateEnum.autotracking] * 2)
 
     def test_audio_toggle_and_gate(self) -> None:

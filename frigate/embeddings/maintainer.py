@@ -544,7 +544,7 @@ class EmbeddingMaintainer(threading.Thread):
             )
         except FileNotFoundError:
             logger.debug(f"Frame {frame_name} not found for camera {camera}")
-            pass
+            yuv_frame = None  # fork (B35): was left unassigned
 
         if yuv_frame is None:
             logger.debug(
@@ -814,7 +814,7 @@ class EmbeddingMaintainer(threading.Thread):
                 frame_name, camera_config.frame_shape_yuv
             )
         except FileNotFoundError:
-            pass
+            yuv_frame = None  # fork (B35): was left unassigned
 
         if yuv_frame is None:
             logger.debug(

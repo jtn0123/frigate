@@ -17,7 +17,7 @@ from frigate.config import (
 )
 from frigate.const import CLIPS_DIR, THUMB_DIR
 from frigate.fork.line_crossing import draw_fork_zone
-from frigate.ptz.autotrack import PtzAutoTrackerThread
+from frigate.ptz.autotrack import PtzAutoTracker, calculate_max_target_box
 from frigate.track.tracked_object import TrackedObject
 from frigate.util.image import (
     SharedMemoryFrameManager,
@@ -36,7 +36,7 @@ class CameraState:
         name: str,
         config: FrigateConfig,
         frame_manager: SharedMemoryFrameManager,
-        ptz_autotracker_thread: PtzAutoTrackerThread,
+        ptz_autotracker_thread: PtzAutoTracker,
     ) -> None:
         self.name = name
         self.config = config
@@ -116,17 +116,13 @@ class CameraState:
                 # draw thicker box around ptz autotracked object
                 if (
                     self.camera_config.onvif.autotracking.enabled
-                    and self.ptz_autotracker_thread.ptz_autotracker.autotracker_init.get(
-                        self.name
-                    )
-                    and self.ptz_autotracker_thread.ptz_autotracker.tracked_object[
-                        self.name
-                    ]
+                    and self.ptz_autotracker_thread.autotracker_init.get(self.name)
+                    and self.ptz_autotracker_thread.tracked_object[self.name]
                     is not None
                     and obj["id"]
-                    == self.ptz_autotracker_thread.ptz_autotracker.tracked_object[
+                    == self.ptz_autotracker_thread.tracked_object[  # type: ignore[union-attr]
                         self.name
-                    ].obj_data["id"]  # type: ignore[attr-defined]
+                    ].obj_data["id"]
                     and obj["frame_time"] == frame_time
                 ):
                     thickness = 5
@@ -139,9 +135,9 @@ class CameraState:
                         and self.camera_config.detect.width is not None
                         and self.camera_config.detect.height is not None
                     ):
-                        max_target_box = self.ptz_autotracker_thread.ptz_autotracker.tracked_object_metrics[
-                            self.name
-                        ]["max_target_box"]  # type: ignore[index]
+                        max_target_box = calculate_max_target_box(
+                            self.camera_config.onvif.autotracking.zoom_factor
+                        )
                         side_length = max_target_box * (
                             max(
                                 self.camera_config.detect.width,

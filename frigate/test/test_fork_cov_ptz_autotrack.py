@@ -9,6 +9,7 @@ handoff and the clock are all mocked; no threads are started.
 import asyncio
 import copy
 import functools
+import threading
 import unittest
 from collections import deque
 from types import SimpleNamespace
@@ -23,7 +24,6 @@ from frigate.const import AUTOTRACKING_MAX_AREA_RATIO
 from frigate.ptz import autotrack as autotrack_module
 from frigate.ptz.autotrack import (
     PtzAutoTracker,
-    PtzAutoTrackerThread,
     PtzMotionEstimator,
     ptz_moving_at_frame_time,
     transform_is_finite,
@@ -129,9 +129,11 @@ def _tracker(
     """A tracker in the state _autotracker_setup leaves it in, built without
     __init__ so no ONVIF setup or config subscriber is created."""
     tracker = PtzAutoTracker.__new__(PtzAutoTracker)
+    # PtzAutoTracker is the thread itself since upstream #24559
+    threading.Thread.__init__(tracker, name="ptz_autotracker")
     tracker.config = config or _config(zooming, weights, calibrate=calibrate)
     tracker.onvif = _onvif()
-    tracker.ptz_metrics = {CAMERA: PTZMetrics(autotracker_enabled=True)}
+    tracker.ptz_metrics = {CAMERA: PTZMetrics()}
     tracker.dispatcher = MagicMock()
     tracker.stop_event = MagicMock()
     tracker.stop_event.is_set.return_value = False
@@ -190,6 +192,31 @@ def _obj(
     )
 
 
+def _write_weights() -> Any:
+    """Patch the config file write that saves new movement weights."""
+    return patch.object(autotrack_module, "update_yaml_file_bulk")
+
+
+def _assert_weights_written(test: unittest.TestCase, tracker, write) -> None:
+    write.assert_called_once_with(
+        "/config/c.yml",
+        {
+            f"cameras.{CAMERA}.onvif.autotracking.movement_weights": (
+                tracker.config.cameras[CAMERA].onvif.autotracking.movement_weights
+            )
+        },
+    )
+
+
+class _ConfigFileTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        find = patch.object(
+            autotrack_module, "find_config_file", return_value="/config/c.yml"
+        )
+        find.start()
+        self.addCleanup(find.stop)
+
+
 def _close_coroutine(coro, loop):
     """Stand-in for run_coroutine_threadsafe that never schedules the work."""
     coro.close()
@@ -242,7 +269,7 @@ class TestPtzMotionEstimator(unittest.TestCase):
 
     def _estimator(self, zooming: str = "disabled") -> PtzMotionEstimator:
         config = _config(zooming).cameras[CAMERA]
-        self.metrics = PTZMetrics(autotracker_enabled=True)
+        self.metrics = PTZMetrics()
         return PtzMotionEstimator(config, self.metrics)
 
     def _moving(self) -> None:
@@ -349,15 +376,13 @@ class TestPtzMotionEstimator(unittest.TestCase):
         self.assertIn("non-finite transform", logs.output[0])
 
 
-class TestPtzAutoTrackerThread(unittest.TestCase):
-    def _thread(self, config: FrigateConfig) -> tuple[PtzAutoTrackerThread, Any]:
-        stop_event = MagicMock()
-        stop_event.wait.side_effect = [False, True]
-        with patch.object(autotrack_module, "PtzAutoTracker") as tracker_cls:
-            thread = PtzAutoTrackerThread(
-                config, MagicMock(), {}, MagicMock(), stop_event
-            )
-        return thread, tracker_cls.return_value
+class TestPtzAutoTrackerRun(unittest.TestCase):
+    """PtzAutoTrackerThread was merged into PtzAutoTracker upstream (#24559)."""
+
+    def _tracker(self, config: FrigateConfig) -> PtzAutoTracker:
+        tracker = _tracker(config=config)
+        tracker.stop_event.wait.side_effect = [False, True]
+        return tracker
 
     def test_run_maintains_enabled_autotracking_cameras(self) -> None:
         config = _config(
@@ -366,7 +391,7 @@ class TestPtzAutoTrackerThread(unittest.TestCase):
                 "plain_cam": _plain_camera(),
             }
         )
-        thread, tracker = self._thread(config)
+        tracker = self._tracker(config)
         tracker.camera_maintenance = MagicMock(return_value="coro")
         tracker.tracked_object = {"plain_cam": None}
         future = MagicMock()
@@ -379,9 +404,9 @@ class TestPtzAutoTrackerThread(unittest.TestCase):
             ) as run,
             self.assertLogs("frigate.ptz.autotrack", "INFO") as logs,
         ):
-            thread.run()
+            tracker.run()
 
-        tracker.check_for_updates.assert_called_once()
+        tracker.config_subscriber.check_for_updates.assert_called_once()
         tracker.camera_maintenance.assert_called_once_with(CAMERA)
         run.assert_called_once_with("coro", tracker.onvif.loop)
         future.result.assert_called_once()
@@ -390,12 +415,13 @@ class TestPtzAutoTrackerThread(unittest.TestCase):
 
     def test_run_clears_tracking_when_disabled_dynamically(self) -> None:
         config = _config(enabled=False)
-        thread, tracker = self._thread(config)
+        tracker = self._tracker(config)
         history = deque([{"frame_time": 1.0}])
         tracker.tracked_object = {CAMERA: object()}
         tracker.tracked_object_history = {CAMERA: history}
 
-        thread.run()
+        with self.assertLogs("frigate.ptz.autotrack", "INFO"):
+            tracker.run()
 
         self.assertIsNone(tracker.tracked_object[CAMERA])
         self.assertEqual(len(history), 0)
@@ -432,20 +458,6 @@ class TestPtzAutoTrackerInit(unittest.TestCase):
         self.assertEqual(scheduled, ["_autotracker_setup"])
 
 
-class TestCheckForUpdates(unittest.TestCase):
-    def test_mirrors_autotracking_state_to_metrics(self) -> None:
-        tracker = _tracker()
-        metrics = tracker.ptz_metrics[CAMERA]
-        metrics.autotracker_enabled.value = False
-        tracker.config_subscriber.check_for_updates.return_value = {
-            "autotracking": [CAMERA, "gone"]
-        }
-
-        tracker.check_for_updates()
-
-        self.assertTrue(metrics.autotracker_enabled.value)
-
-
 class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         run_patch = patch.object(
@@ -460,9 +472,12 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
         await tracker._autotracker_setup(tracker.config.cameras[CAMERA], CAMERA)
 
     def _assert_disabled(self, tracker: PtzAutoTracker) -> None:
-        self.assertFalse(tracker.config.cameras[CAMERA].onvif.autotracking.enabled)
-        self.assertFalse(tracker.ptz_metrics[CAMERA].autotracker_enabled.value)
-        self.assertTrue(tracker.autotracker_init[CAMERA])
+        autotracking = tracker.config.cameras[CAMERA].onvif.autotracking
+        self.assertFalse(autotracking.enabled)
+        # the camera process is told through a config update
+        update = tracker.dispatcher.config_updater.publish_update.call_args.args
+        self.assertEqual(update[0].camera, CAMERA)
+        self.assertIs(update[1], autotracking)
 
     async def test_missing_onvif_connection_disables(self) -> None:
         tracker = _tracker()
@@ -471,8 +486,7 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs("frigate.ptz.autotrack", "WARNING") as logs:
             await self._setup(tracker)
 
-        self.assertFalse(tracker.config.cameras[CAMERA].onvif.autotracking.enabled)
-        self.assertFalse(tracker.ptz_metrics[CAMERA].autotracker_enabled.value)
+        self._assert_disabled(tracker)
         self.assertIn("onvif connection failed", logs.output[0])
         self.assertIsInstance(tracker.move_queues[CAMERA], asyncio.Queue)
         self.assertEqual(tracker.tracked_object_history[CAMERA].maxlen, 8)
@@ -527,7 +541,6 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
     async def test_initialized_camera_loads_movement_weights(self) -> None:
         tracker = _tracker(weights=WEIGHTS)
         metrics = tracker.ptz_metrics[CAMERA]
-        metrics.tracking_active.set()
 
         await self._setup(tracker)
 
@@ -540,9 +553,8 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(tracker.zoom_time[CAMERA], 2.0)
         self.assertEqual(
             tracker.config.cameras[CAMERA].onvif.autotracking.movement_weights,
-            [0.0, 1.0, 0.5, 0.5, 1.0, 2.0],
+            ["0.0", "1.0", "0.5", "0.5", "1.0", "2.0"],
         )
-        self.assertFalse(metrics.tracking_active.is_set())
         tracker.dispatcher.publish.assert_called_once_with(
             f"{CAMERA}/ptz_autotracker/active", "OFF", retain=False
         )
@@ -550,18 +562,10 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(tracker.tracked_object[CAMERA])
         self.assertFalse(tracker.calibrating[CAMERA])
 
-    async def test_wrong_number_of_weights_requires_recalibration(self) -> None:
-        tracker = _tracker()
-        tracker.config.cameras[CAMERA].onvif.autotracking.movement_weights = [
-            "1.0",
-            "2.0",
-        ]
-
-        with self.assertLogs("frigate.ptz.autotrack", "WARNING") as logs:
-            await self._setup(tracker)
-
-        self._assert_disabled(tracker)
-        self.assertIn("recalibration is required", logs.output[0])
+    async def test_wrong_number_of_weights_is_rejected_by_config(self) -> None:
+        # setup no longer re-checks the count (#24559): the config rejects it
+        with self.assertRaisesRegex(ValueError, "movement_weights"):
+            _build_config("disabled", "1.0, 2.0", True, False, None)
 
     async def test_calibrate_on_startup_runs_calibration(self) -> None:
         tracker = _tracker(calibrate=True)
@@ -570,33 +574,6 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
             await self._setup(tracker)
 
         calibrate.assert_awaited_once_with(CAMERA)
-
-
-class TestWriteConfig(unittest.TestCase):
-    def test_writes_movement_weights_to_the_config_file(self) -> None:
-        tracker = _tracker(weights=WEIGHTS)
-
-        with (
-            patch.object(
-                autotrack_module, "find_config_file", return_value="/config/c.yml"
-            ),
-            patch.object(autotrack_module, "update_yaml_file_bulk") as update,
-        ):
-            tracker._write_config(CAMERA)
-
-        update.assert_called_once_with(
-            "/config/c.yml",
-            {
-                f"cameras.{CAMERA}.onvif.autotracking.movement_weights": [
-                    "0.0",
-                    "1.0",
-                    "0.5",
-                    "0.5",
-                    "1.0",
-                    "2.0",
-                ]
-            },
-        )
 
 
 class _FakePtz:
@@ -636,6 +613,13 @@ class _FakePtz:
 
 
 class TestCalibrateCamera(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        find = patch.object(
+            autotrack_module, "find_config_file", return_value="/config/c.yml"
+        )
+        find.start()
+        self.addCleanup(find.stop)
+
     async def _calibrate(self, zooming: str) -> tuple[PtzAutoTracker, _FakePtz, Any]:
         tracker = _tracker(zooming)
         tracker.zoom_time = {}
@@ -643,7 +627,7 @@ class TestCalibrateCamera(unittest.IsolatedAsyncioTestCase):
         fake = _FakePtz(tracker)
         with (
             patch.object(autotrack_module.time, "time", side_effect=fake.time),
-            patch.object(tracker, "_write_config") as write,
+            _write_weights() as write,
             self.assertLogs("frigate.ptz.autotrack", "INFO"),
         ):
             await tracker._calibrate_camera(CAMERA)
@@ -656,7 +640,7 @@ class TestCalibrateCamera(unittest.IsolatedAsyncioTestCase):
         intercept, slope = tracker.move_coefficients[CAMERA]
         self.assertAlmostEqual(intercept, 0.5)
         self.assertAlmostEqual(slope, 1.0)
-        write.assert_called_once_with(CAMERA)
+        _assert_weights_written(self, tracker, write)
         weights = tracker.config.cameras[CAMERA].onvif.autotracking.movement_weights
         self.assertIsInstance(weights, str)
         self.assertEqual(len(weights.split(", ")), 6)
@@ -695,7 +679,7 @@ class TestCalibrateCamera(unittest.IsolatedAsyncioTestCase):
         self._assert_regression(tracker, write)
 
 
-class TestMoveCoefficients(unittest.TestCase):
+class TestMoveCoefficients(_ConfigFileTestCase):
     def _metrics(self, count: int, slope: float) -> list[dict[str, float]]:
         return [
             {
@@ -711,7 +695,7 @@ class TestMoveCoefficients(unittest.TestCase):
         tracker = _tracker(weights=WEIGHTS)
         tracker.move_metrics[CAMERA] = self._metrics(49, 1.0)
 
-        with patch.object(tracker, "_write_config") as write:
+        with _write_weights() as write:
             self.assertIsNone(tracker._calculate_move_coefficients(CAMERA))
 
         write.assert_not_called()
@@ -722,10 +706,10 @@ class TestMoveCoefficients(unittest.TestCase):
         tracker.intercept[CAMERA] = 0.7
         tracker.move_metrics[CAMERA] = self._metrics(50, 1.5)
 
-        with patch.object(tracker, "_write_config") as write:
+        with _write_weights() as write:
             tracker._calculate_move_coefficients(CAMERA)
 
-        write.assert_called_once_with(CAMERA)
+        _assert_weights_written(self, tracker, write)
         self.assertAlmostEqual(tracker.move_coefficients[CAMERA][1], 1.5)
         self.assertEqual(tracker.intercept[CAMERA], 0.7)
         weights = tracker.config.cameras[CAMERA].onvif.autotracking.movement_weights
@@ -738,7 +722,7 @@ class TestMoveCoefficients(unittest.TestCase):
         tracker.move_metrics[CAMERA] = self._metrics(50, -0.3)
 
         with (
-            patch.object(tracker, "_write_config") as write,
+            _write_weights() as write,
             self.assertLogs("frigate.ptz.autotrack", "WARNING") as logs,
         ):
             result = tracker._calculate_move_coefficients(CAMERA)
@@ -911,16 +895,14 @@ class TestEnqueueMove(unittest.TestCase):
     def _queued(self, tracker: PtzAutoTracker) -> list[tuple]:
         return [c.args[1] for c in tracker.onvif.loop.call_soon_threadsafe.mock_calls]
 
-    def test_clips_and_suppresses_small_moves(self) -> None:
+    def test_clips_moves_without_suppressing_small_ones(self) -> None:
         tracker = _tracker()
         tracker.move_queues = {CAMERA: MagicMock()}
 
         tracker._enqueue_move(CAMERA, 10.0, 1.7, 0.03, 0.02)
 
-        # Upstream bug: split_value only zeroes the discarded diff for moves
-        # inside (-0.05, 0.05) and still returns the clipped value, so the
-        # "don't make small movements" suppression never takes effect and the
-        # 0.03 tilt is enqueued unchanged
+        # moves are only clipped: split_value's "don't make small movements"
+        # suppression never took effect, and upstream removed it in #24559
         self.assertEqual(self._queued(tracker), [(10.0, 1.0, 0.03, 0.02)])
         call = tracker.onvif.loop.call_soon_threadsafe.call_args
         self.assertIs(call.args[0], tracker.move_queues[CAMERA].put_nowait)
@@ -1009,46 +991,32 @@ class TestShouldZoomIn(unittest.TestCase):
 
     def test_small_centered_object_zooms_in(self) -> None:
         tracker = self._tracker(0.05)
-        self.assertTrue(
-            tracker._should_zoom_in(
-                CAMERA, _obj(), (900, 480, 1020, 600), 0, debug_zooming=True
-            )
-        )
+        self.assertTrue(tracker._should_zoom_in(CAMERA, (900, 480, 1020, 600), 0))
 
     def test_no_zoom_in_at_max_zoom(self) -> None:
         tracker = self._tracker(0.05)
         tracker.ptz_metrics[CAMERA].zoom_level.value = 1.0
-        self.assertIsNone(
-            tracker._should_zoom_in(CAMERA, _obj(), (900, 480, 1020, 600), 0)
-        )
+        self.assertIsNone(tracker._should_zoom_in(CAMERA, (900, 480, 1020, 600), 0))
 
     def test_edges_or_velocity_zoom_out(self) -> None:
         tracker = self._tracker(0.05)
-        self.assertFalse(tracker._should_zoom_in(CAMERA, _obj(), (0, 0, 1020, 600), 0))
+        self.assertFalse(tracker._should_zoom_in(CAMERA, (0, 0, 1020, 600), 0))
 
         fast = self._tracker(0.05, velocity=np.array([100, 0, 100, 0]))
-        self.assertFalse(fast._should_zoom_in(CAMERA, _obj(), (900, 480, 1020, 600), 0))
+        self.assertFalse(fast._should_zoom_in(CAMERA, (900, 480, 1020, 600), 0))
 
     def test_large_object_zooms_out_unless_at_min(self) -> None:
         tracker = self._tracker(0.99)
-        self.assertFalse(
-            tracker._should_zoom_in(CAMERA, _obj(), (500, 300, 1400, 800), 0)
-        )
+        self.assertFalse(tracker._should_zoom_in(CAMERA, (500, 300, 1400, 800), 0))
         tracker.ptz_metrics[CAMERA].zoom_level.value = 0.0
-        self.assertIsNone(
-            tracker._should_zoom_in(CAMERA, _obj(), (500, 300, 1400, 800), 0)
-        )
+        self.assertIsNone(tracker._should_zoom_in(CAMERA, (500, 300, 1400, 800), 0))
 
     def test_predicted_area_and_weight_based_velocity_threshold(self) -> None:
         tracker = self._tracker(
             0.05, weights=WEIGHTS, area_coefficients=np.array([0.0])
         )
         tracker.tracked_object_history[CAMERA].append({"frame_time": 100.0})
-        self.assertTrue(
-            tracker._should_zoom_in(
-                CAMERA, _obj(), (900, 480, 1020, 600), 1.0, debug_zooming=True
-            )
-        )
+        self.assertTrue(tracker._should_zoom_in(CAMERA, (900, 480, 1020, 600), 1.0))
 
 
 class TestZoomAmount(unittest.TestCase):
@@ -1257,26 +1225,16 @@ class TestAutotrackObject(unittest.TestCase):
 
         self.tracker.autotrack_object(CAMERA, obj)
 
-        self.assertTrue(self.tracker.is_autotracking(CAMERA))
         self.assertIs(self.tracker.tracked_object[CAMERA], obj)
-        self.assertTrue(self.tracker.ptz_metrics[CAMERA].tracking_active.is_set())
         self.tracker.dispatcher.publish.assert_called_once_with(
             f"{CAMERA}/ptz_autotracker/active", "ON", retain=False
         )
         self.assertEqual(len(self.tracker.tracked_object_history[CAMERA]), 1)
         self.ptz_move.assert_called_once_with(CAMERA, obj)
 
-    def test_autotracked_object_region_cannot_index_tracked_object(self) -> None:
-        # Upstream bug: autotracked_object_region indexes the stored TrackedObject
-        # like a dict, but TrackedObject has no __getitem__, so the (currently
-        # unused) method raises TypeError instead of returning obj_data["region"]
-        self.tracker.tracked_object[CAMERA] = _obj()
-        with self.assertRaises(TypeError):
-            self.tracker.autotracked_object_region(CAMERA)
-
     def test_new_object_outside_required_zone_is_ignored(self) -> None:
         self.tracker.autotrack_object(CAMERA, _obj(zones=["other"]))
-        self.assertFalse(self.tracker.is_autotracking(CAMERA))
+        self.assertIsNone(self.tracker.tracked_object[CAMERA])
 
     def test_existing_object_moves_or_zooms(self) -> None:
         first = _obj()
@@ -1350,8 +1308,8 @@ class TestAutotrackObject(unittest.TestCase):
 
         self.tracker.end_object(CAMERA, obj)
         self.assertIsNone(self.tracker.tracked_object[CAMERA])
-        self.assertNotIn("target_box", self.tracker.tracked_object_metrics[CAMERA])
-        self.assertIn("max_target_box", self.tracker.tracked_object_metrics[CAMERA])
+        # max_target_box is derived from the zoom factor when needed (#24559)
+        self.assertEqual(self.tracker.tracked_object_metrics[CAMERA], {})
 
 
 class TestCameraMaintenance(unittest.IsolatedAsyncioTestCase):
@@ -1392,7 +1350,6 @@ class TestCameraMaintenance(unittest.IsolatedAsyncioTestCase):
         metrics = tracker.ptz_metrics[CAMERA]
         tracker.tracked_object_history[CAMERA].append({"frame_time": 100.0})
         metrics.frame_time.value = 111.0
-        metrics.tracking_active.set()
         metrics.zoom_level.value = 0.7
 
         async def preset(camera, name):
@@ -1418,7 +1375,6 @@ class TestCameraMaintenance(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(metrics.motor_stopped.is_set())
         self.assertEqual(metrics.zoom_level.value, 0.0)
         self.assertEqual(len(tracker.tracked_object_history[CAMERA]), 0)
-        self.assertFalse(metrics.tracking_active.is_set())
         self.assertTrue(metrics.reset.is_set())
         tracker.dispatcher.publish.assert_called_once_with(
             f"{CAMERA}/ptz_autotracker/active", "OFF", retain=False

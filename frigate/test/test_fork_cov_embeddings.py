@@ -468,13 +468,10 @@ class TestReindex(DatabaseMixin):
         self.assertEqual(updates[-1]["thumbnails"], 2)
         self.assertEqual(updates[-1]["descriptions"], 1)
         self.assertEqual(updates[-1]["total_objects"], 3)
-        # Upstream bug: when there are fewer events than one batch the counter
-        # is seeded with total_events - 1 and then incremented once per event,
-        # so processed_objects ends at 2 * total - 1 (5 of 3 here) and the
-        # reported progress exceeds 100 percent. Seeding it with 0 (or not
-        # incrementing in that case) would fix it.
+        # the first message of a single batch shows it nearly done, then the
+        # counter restarts so it ends at the total (upstream #24528)
         self.assertEqual(updates[0]["processed_objects"], 2)
-        self.assertEqual(updates[-1]["processed_objects"], 5)
+        self.assertEqual(updates[-1]["processed_objects"], 3)
 
     def test_reindex_genai_pages_one_event_at_a_time(self) -> None:
         self.add_event("a", 1.0, thumbnail=b"t", data={"description": "x"})
