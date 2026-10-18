@@ -28,27 +28,32 @@ const enabled = forkFlags.liveLayoutMemory;
 /** Class that enables the touch-friendly resize handles (see live-grid.css). */
 export const liveGridClassName = enabled ? "fork-live-grid" : undefined;
 
-export type LiveGridLayoutPersistence = [
-  layout: Layout | undefined,
-  setLayout: (layout: Layout | undefined) => void,
+export type LiveGridLayoutPersistence<T = Layout> = [
+  layout: T | undefined,
+  setLayout: (layout: T | undefined) => void,
   loaded: boolean,
   deleteLayout: () => void,
 ];
 
-export function useLiveGridLayout(
+/**
+ * `T` is the stored shape: a bare `Layout` array before upstream #24461
+ * (UI151), a versioned `{ version, naturalAspect, layout }` object after it.
+ * Callers that read the value must accept both (see `lib/fork/live-layout`).
+ */
+export function useLiveGridLayout<T = Layout>(
   cameraGroup: string,
-): LiveGridLayoutPersistence {
+): LiveGridLayoutPersistence<T> {
   const { class: viewportClass } = useViewport();
   const sharedKey = layoutKeyForGroup(cameraGroup);
   const deviceKey = deviceLayoutKeyForGroup(cameraGroup, viewportClass);
 
   const [sharedLayout, setSharedLayout, sharedLoaded, deleteSharedLayout] =
-    useUserPersistence<Layout>(sharedKey);
+    useUserPersistence<T>(sharedKey);
   const [deviceLayout, setDeviceLayout, deviceLoaded, deleteDeviceLayout] =
-    useUserPersistence<Layout>(deviceKey);
+    useUserPersistence<T>(deviceKey);
 
   const setLayout = useCallback(
-    (layout: Layout | undefined) => {
+    (layout: T | undefined) => {
       setDeviceLayout(layout);
       setSharedLayout(layout);
     },

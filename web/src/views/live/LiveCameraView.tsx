@@ -890,7 +890,8 @@ export default function LiveCameraView({
                 )}
                 <LivePlayer
                   key={camera.name}
-                  className={`${fullscreen ? "*:rounded-none" : ""}`}
+                  // fork: fill the frame so the clipped error card has room
+                  className={cn("h-full", fullscreen && "rounded-none")}
                   windowVisible
                   showStillWithoutActivity={false}
                   alwaysShowCameraName={false}

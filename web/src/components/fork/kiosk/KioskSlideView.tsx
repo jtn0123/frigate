@@ -8,6 +8,7 @@ import useSWR from "swr";
 import KioskTile from "@/components/fork/kiosk/KioskTile";
 import { useStreamingSettings } from "@/context/streaming-settings-provider";
 import { useLiveGridLayout } from "@/hooks/fork/use-live-grid-layout";
+import { readSavedGrid } from "@/lib/fork/live-layout";
 import { useElementSize } from "@/hooks/fork/use-element-size";
 import useCameraLiveMode from "@/hooks/use-camera-live-mode";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
@@ -161,20 +162,21 @@ export default function KioskSlideView({
     ];
   });
 
-  const [layout, , layoutLoaded] = useLiveGridLayout(slide.source);
+  const [layout, , layoutLoaded] = useLiveGridLayout<unknown>(slide.source);
 
   const [containerRef, { width, height }] = useElementSize<HTMLDivElement>();
 
   const useSaved = !single && savedLayout && isGroup && slide.pages === 1;
   const fitted = useMemo(() => {
-    if (!useSaved || !layout) return undefined;
+    const saved = useSaved ? readSavedGrid(layout) : undefined;
+    if (!saved) return undefined;
     const shown = new Set(slide.cameras);
-    const items: SavedLayoutItem[] = layout
-      .filter((item) => shown.has(item.i))
-      .map(({ i, x, y, w, h }) => ({ i, x, y, w, h }));
+    const items: SavedLayoutItem[] = saved.items.filter((item) =>
+      shown.has(item.i),
+    );
     // A layout missing some cameras would hide them; use the grid instead.
     if (items.length !== shown.size) return undefined;
-    return fitSavedLayout(items, width, height);
+    return fitSavedLayout(items, width, height, saved.rowUnit);
   }, [useSaved, layout, slide.cameras, width, height]);
 
   // Wait for the saved layout instead of flashing the plain grid first.

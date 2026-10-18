@@ -439,6 +439,22 @@ describe("fitSavedLayout", () => {
     expect(fitted?.tiles[1]).toMatchObject({ left: 8 / 12, height: 0.5 });
   });
 
+  it("uses the row height of a 96 column layout", () => {
+    // two 16:9 tiles side by side: w 32, h 32 * 4 / (16 / 9) = 72 rows
+    const fitted = fitSavedLayout(
+      [
+        { i: "a", x: 0, y: 0, w: 32, h: 72 },
+        { i: "b", x: 32, y: 0, w: 32, h: 72 },
+      ],
+      1600,
+      900,
+      1 / 4,
+    );
+    expect(fitted?.width).toBe(1600);
+    expect(fitted?.height).toBe(450);
+    expect(fitted?.tiles[1]).toMatchObject({ left: 0.5, width: 0.5 });
+  });
+
   it("is undefined without items or room", () => {
     expect(fitSavedLayout([], 100, 100)).toBeUndefined();
     expect(
