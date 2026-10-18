@@ -907,6 +907,22 @@ class TestRunLoop(MaintainerTestCase):
 
         self.assertEqual([c.args[0] for c in end.call_args_list], ["a", "b", CAMERA])
 
+    def test_state_classification_change_is_handed_to_the_segment(self) -> None:
+        # UI152 (upstream #24503): a verified state change reaches the review
+        # maintainer on its own topic and never starts a segment by itself
+        change = {"model": "gate", "from": "closed", "to": "open", "timestamp": 9.0}
+
+        with patch.object(
+            self.maintainer, "handle_classification_state_change"
+        ) as handle:
+            self.run_loop(
+                (DetectionTypeEnum.classification_state.value, (CAMERA, change)),
+                (DetectionTypeEnum.classification_state.value, ("ghost", change)),
+            )
+
+        handle.assert_called_once_with(CAMERA, change)
+        self.assertEqual(self.maintainer.active_review_segments, {})
+
     def test_empty_messages_are_ignored(self) -> None:
         self.run_loop(None, ("", None), (DetectionTypeEnum.video.value, None))
 

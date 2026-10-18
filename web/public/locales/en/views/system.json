@@ -16,6 +16,8 @@
   },
   "title": "System",
   "metrics": "System metrics",
+  "showAllTabs": "Show all tabs",
+  "showLessTabs": "Show less",
   "health": {
     "title": "Health",
     "notices": {

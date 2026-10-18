@@ -3,7 +3,11 @@ import { SWRConfig } from "swr";
 import { WsProvider } from "./WsProvider";
 import axios from "axios";
 import { ReactNode } from "react";
-import { isRedirectingToLogin, setRedirectingToLogin } from "./auth-redirect";
+import {
+  getLoginUrl,
+  isRedirectingToLogin,
+  setRedirectingToLogin,
+} from "./auth-redirect";
 import { reportReadError } from "./fork/read-error-toast";
 import { readRetryDelay } from "./fork/read-retry";
 import { isPublicSharePath } from "@/lib/fork/share-path";
@@ -60,7 +64,7 @@ export function ApiProvider({ children, options }: Readonly<ApiProviderType>) {
             const loginPage = error.response.headers.get("location") ?? "login";
             if (window.location.href !== loginPage && !isRedirectingToLogin()) {
               setRedirectingToLogin(true);
-              window.location.href = loginPage;
+              window.location.href = getLoginUrl(loginPage);
             }
           } else if (!publicShare) {
             reportReadError(error, _key);

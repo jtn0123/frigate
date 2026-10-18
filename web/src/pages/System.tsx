@@ -8,6 +8,7 @@ import { lazy, useEffect, useMemo, useState } from "react";
 import TimeAgo from "@/components/dynamic/TimeAgo";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/fork/use-viewport";
+import OverflowStrip from "@/components/fork/OverflowStrip";
 
 import { wrapAsync } from "@/utils/promise";
 import { cn } from "@/lib/utils";
@@ -116,6 +117,37 @@ function System() {
     revalidateOnFocus: false,
   });
 
+  // don't allow the severity to be unselected
+  const onTabChange = (value: string) => {
+    if (isSystemMetric(value)) {
+      setPage(value);
+    }
+  };
+  const tabGroupClassName = cn(
+    "*:rounded-md *:px-3 *:py-4",
+    phoneTouch && "*:min-h-11",
+  );
+  const tabItems = metrics.map((item) => (
+    <ToggleGroupItem
+      key={item}
+      className={`flex items-center justify-between gap-2 ${page == item ? "" : "*:text-muted-foreground"}`}
+      value={item}
+      aria-label={t("selectTab", { tab: t(item + ".title") })}
+    >
+      {item == "notices" && <LuShieldCheck className="size-4" />}
+      {item == "general" && <LuActivity className="size-4" />}
+      {item == "enrichments" && <LuSearchCode className="size-4" />}
+      {item == "models" && <LuCpu className="size-4" />}
+      {item == "storage" && <LuHardDrive className="size-4" />}
+      {item == "cameras" && <FaVideo className="size-4" />}
+      {item == "health" && <LuHeartPulse className="size-4" />}
+      {/* fork: a phone names the open tab, the rest stay icons */}
+      {(isDesktop || (phoneFixes && page == item)) && (
+        <div className="smart-capitalize">{t(item + ".title")}</div>
+      )}
+    </ToggleGroupItem>
+  ));
+
   return (
     <div className="flex size-full flex-col p-2">
       <Toaster position="top-center" />
@@ -124,41 +156,40 @@ function System() {
       {/* fork (UI128): pr-2 so "Last refreshed" clears the window edge; it
           sat flush against it with no gutter at 1920px */}
       <div className="relative flex min-h-11 w-full shrink-0 flex-wrap items-center justify-between gap-1 pr-2">
-        <ToggleGroup
-          className={cn(
-            "*:rounded-md *:px-3 *:py-4",
-            phoneTouch && "*:min-h-11",
-          )}
-          type="single"
-          size="sm"
-          value={page}
-          onValueChange={(value) => {
-            if (isSystemMetric(value)) {
-              setPage(value);
-            }
-          }} // don't allow the severity to be unselected
-        >
-          {Object.values(metrics).map((item) => (
-            <ToggleGroupItem
-              key={item}
-              className={`flex items-center justify-between gap-2 ${page == item ? "" : "*:text-muted-foreground"}`}
-              value={item}
-              aria-label={t("selectTab", { tab: t(item + ".title") })}
-            >
-              {item == "notices" && <LuShieldCheck className="size-4" />}
-              {item == "general" && <LuActivity className="size-4" />}
-              {item == "enrichments" && <LuSearchCode className="size-4" />}
-              {item == "models" && <LuCpu className="size-4" />}
-              {item == "storage" && <LuHardDrive className="size-4" />}
-              {item == "cameras" && <FaVideo className="size-4" />}
-              {item == "health" && <LuHeartPulse className="size-4" />}
-              {/* fork: a phone names the open tab, the rest stay icons */}
-              {(isDesktop || (phoneFixes && page == item)) && (
-                <div className="smart-capitalize">{t(item + ".title")}</div>
-              )}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        {/* fork (UI149, upstream #24543): a phone keeps the tabs on one
+            line and hides the ones that do not fit behind a kebab */}
+        {isMobile ? (
+          <OverflowStrip
+            className="w-full"
+            items={tabItems}
+            activeIndex={metrics.indexOf(page)}
+            gapClassName="gap-0.5"
+            showAllLabel={t("showAllTabs")}
+            showLessLabel={t("showLessTabs")}
+            renderRow={({ ref, className, children }) => (
+              <ToggleGroup
+                ref={ref}
+                className={cn(className, tabGroupClassName)}
+                type="single"
+                size="sm"
+                value={page}
+                onValueChange={onTabChange}
+              >
+                {children}
+              </ToggleGroup>
+            )}
+          />
+        ) : (
+          <ToggleGroup
+            className={tabGroupClassName}
+            type="single"
+            size="sm"
+            value={page}
+            onValueChange={onTabChange}
+          >
+            {tabItems}
+          </ToggleGroup>
+        )}
 
         <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center gap-3">
           <ShareViewButton compact={phoneTouch} />

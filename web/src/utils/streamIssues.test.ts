@@ -85,6 +85,23 @@ describe("stream probe interpretation", () => {
 describe("stream validation rules", () => {
   it.each([
     [{ brand: "reolink", url: "RTSP://camera/live" }, ["reolink-rtsp:warning"]],
+    // UI154: RTSP is the right choice above 5MP, so no warning then
+    [
+      { brand: "reolink", url: "rtsp://camera/live", reolinkProtocol: "rtsp" },
+      [],
+    ],
+    [
+      { brand: "reolink", url: "rtsp://camera/live", reolinkProtocol: null },
+      ["reolink-rtsp:warning"],
+    ],
+    [
+      {
+        brand: "reolink",
+        url: "rtsp://camera/live",
+        reolinkProtocol: "http-flv",
+      },
+      ["reolink-rtsp:warning"],
+    ],
     [{ brand: "reolink", url: "http://camera/live" }, ["reolink-http:warning"]],
     [{ brand: "reolink", url: "http://camera/live", useFfmpeg: true }, []],
     [

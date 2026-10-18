@@ -13,6 +13,7 @@ export type StreamIssueInput = {
   url: string;
   roles: StreamRole[];
   brand?: CameraBrand;
+  reolinkProtocol?: "http-flv" | "rtsp" | null;
   useFfmpeg?: boolean;
   restream?: boolean;
   testResult?: TestResult;
@@ -94,7 +95,9 @@ export function ffprobeToTestResult(
 function reolinkIssues(input: StreamIssueInput, t: TFunction): StreamIssue[] {
   const result: StreamIssue[] = [];
   const streamUrl = input.url.toLowerCase();
-  if (streamUrl.startsWith("rtsp://")) {
+  // UI154 (upstream #24570): no warning when the camera's resolution made
+  // RTSP the right choice
+  if (streamUrl.startsWith("rtsp://") && input.reolinkProtocol !== "rtsp") {
     result.push({
       type: "warning",
       rule: "reolink-rtsp",

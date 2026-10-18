@@ -8,7 +8,9 @@ from playhouse.sqlite_ext import SqliteExtDatabase
 from frigate.data_processing.post import review_annotations as module
 from frigate.data_processing.post.review_annotations import (
     annotations_by_frame,
+    build_frame_captions,
     build_timeline,
+    describe_classification_change,
     describe_heading,
     describe_position,
     event_name,
@@ -397,6 +399,76 @@ class TestStoredFrameCaptions(unittest.TestCase):
                 [{"start_time": None}]
             )
             self.assertEqual(module.get_tracked_events(["incomplete"]), [])
+
+
+class TestClassificationChangeCaptions(unittest.TestCase):
+    def setUp(self):
+        person = track(
+            "1789481994.684479-lpyc2z",
+            "person",
+            0.0,
+            straight_path((0.9, 0.6), (0.4, 0.3), 10, 0.0),
+        )
+        patcher = patch(
+            "frigate.data_processing.post.review_annotations.get_tracked_events",
+            return_value=[person],
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        patcher = patch(
+            "frigate.data_processing.post.review_annotations.get_state_changes",
+            return_value=[],
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_change_is_phrased_without_underscores(self):
+        self.assertEqual(
+            describe_classification_change(
+                {"model": "trash_day", "from": "no_bins", "to": "bins_at_curb"}
+            ),
+            "trash day changed from no bins to bins at curb",
+        )
+
+    def test_change_is_noted_before_the_frame_it_precedes(self):
+        change = {"model": "front_gate", "from": "closed", "to": "open"}
+        captions = build_frame_captions(
+            ["1789481994.684479-lpyc2z"],
+            [0.0, 10.0, 20.0],
+            [{**change, "timestamp": 12.0}],
+        )
+        self.assertEqual(
+            captions[2],
+            "Frame 3 of 3 (+20.0s):\n[state] front gate changed from closed to open",
+        )
+        self.assertTrue(captions[0].splitlines()[1].startswith("[tracker] "))
+
+    def test_change_is_noted_without_tracked_objects(self):
+        with patch(
+            "frigate.data_processing.post.review_annotations.get_tracked_events",
+            return_value=[],
+        ):
+            captions = build_frame_captions(
+                [],
+                [0.0, 10.0],
+                [{"model": "gate", "from": "a", "to": "b", "timestamp": 5.0}],
+            )
+
+        self.assertEqual(
+            captions,
+            [
+                "Frame 1 of 2 (+0.0s):",
+                "Frame 2 of 2 (+10.0s):\n[state] gate changed from a to b",
+            ],
+        )
+
+    def test_change_after_the_last_frame_is_dropped(self):
+        captions = build_frame_captions(
+            ["1789481994.684479-lpyc2z"],
+            [0.0, 10.0, 20.0],
+            [{"model": "gate", "from": "a", "to": "b", "timestamp": 25.0}],
+        )
+        self.assertFalse(any("[state]" in caption for caption in captions))
 
 
 if __name__ == "__main__":
