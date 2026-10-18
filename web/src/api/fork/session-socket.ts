@@ -16,8 +16,8 @@
  */
 
 import axios from "axios";
-import { baseUrl } from "@/api/baseUrl";
 import {
+  getLoginUrl,
   isRedirectingToLogin,
   setRedirectingToLogin,
 } from "@/api/auth-redirect";
@@ -47,7 +47,7 @@ export async function leaveIfSignedOut(
       !isRedirectingToLogin()
     ) {
       setRedirectingToLogin(true);
-      navigate(`${baseUrl}login`);
+      navigate(getLoginUrl());
     }
     // anything else: the socket's own reconnects try again
   }

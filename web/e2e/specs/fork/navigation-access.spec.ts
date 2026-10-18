@@ -30,7 +30,8 @@ test.describe("expired shared link @high @mobile", () => {
         json: { message: "Session expired" },
       }),
     );
-    await page.route("**/login", (route) => {
+    // UI147: the login page carries the deep link to return to
+    await page.route("**/login?redirect=*", (route) => {
       logins++;
       return route.fulfill({
         contentType: "text/html",
@@ -39,7 +40,11 @@ test.describe("expired shared link @high @mobile", () => {
     });
     await page.goto("/system?model=audio%3Amedium&range=15#models");
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-    await expect(page).toHaveURL(/\/login$/);
+    const url = new URL(page.url());
+    expect(url.pathname).toBe("/login");
+    expect(url.searchParams.get("redirect")).toBe(
+      "/system?model=audio%3Amedium&range=15#models",
+    );
     expect(logins).toBe(1);
   });
 });
