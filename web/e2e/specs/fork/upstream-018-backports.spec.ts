@@ -108,14 +108,29 @@ test.describe("Explore paging for non-date sorts (B33) @high @mobile", () => {
       .toBeGreaterThan(0);
 
     // scroll every scroll container to its end so the grid loads the next
-    // page on both layouts
+    // page on both layouts. Chromium sometimes misses a single jump from the
+    // top, leaving the grid's observer stale, so each attempt first steps
+    // back from the end and then scrolls to it again.
     await expect(async () => {
-      await frigateApp.page.evaluate(() => {
-        document.querySelectorAll<HTMLElement>("*").forEach((el) => {
-          if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
-        });
-        window.scrollTo(0, document.body.scrollHeight);
-      });
+      for (const toEnd of [false, true]) {
+        await frigateApp.page.evaluate((end) => {
+          document.querySelectorAll<HTMLElement>("*").forEach((el) => {
+            if (el.scrollHeight > el.clientHeight) {
+              el.scrollTop = end
+                ? el.scrollHeight
+                : el.scrollHeight - el.clientHeight * 2;
+            }
+          });
+          window.scrollTo(0, end ? document.body.scrollHeight : 0);
+        }, toEnd);
+        // let a frame render so the observer sees each position
+        await frigateApp.page.evaluate(
+          () =>
+            new Promise((done) =>
+              requestAnimationFrame(() => requestAnimationFrame(done)),
+            ),
+        );
+      }
       expect(
         scoreRequests().some((url) => url.searchParams.has("offset")),
       ).toBe(true);
