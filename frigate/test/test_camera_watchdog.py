@@ -5,8 +5,14 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from frigate.config import FrigateConfig
+from frigate.config.camera.ffmpeg import CameraRoleEnum
 from frigate.const import STREAM_TYPE_MAIN, STREAM_TYPE_SUB
-from frigate.video.ffmpeg import HEARTBEAT_SECONDS, CameraWatchdog
+from frigate.video.ffmpeg import (
+    HEARTBEAT_SECONDS,
+    CameraWatchdog,
+    _check_record_staleness,
+    _send_roles_offline,
+)
 
 
 def build_watchdog(
@@ -230,6 +236,68 @@ class TestCameraWatchdogStreamHealth(unittest.TestCase):
 
         assert watchdog.record_stale_threshold[STREAM_TYPE_MAIN] == 120
         assert watchdog.record_stale_threshold[STREAM_TYPE_SUB] == 150
+
+
+class TestRecordStatusRecovery(unittest.TestCase):
+    """B32 (upstream #24522): record status returns online after a restart."""
+
+    def test_offline_after_a_restart_is_followed_by_online(self):
+        watchdog = build_watchdog()
+        watchdog._send_record_status(STREAM_TYPE_MAIN, "online", 100.0)
+
+        _send_roles_offline(watchdog, [CameraRoleEnum.record], 101.0)
+        watchdog._send_record_status(STREAM_TYPE_MAIN, "online", 102.0)
+
+        topics = [
+            call.args
+            for call in watchdog.requestor.send_data.call_args_list
+            if call.args[0] == "front_door/status/record"
+        ]
+        assert topics == [
+            ("front_door/status/record", "online"),
+            ("front_door/status/record", "offline"),
+            ("front_door/status/record", "online"),
+        ]
+
+    def test_non_record_roles_are_sent_offline_directly(self):
+        watchdog = build_watchdog()
+
+        _send_roles_offline(watchdog, [CameraRoleEnum.audio], 100.0)
+
+        watchdog.requestor.send_data.assert_called_once_with(
+            "front_door/status/audio", "offline"
+        )
+
+    def test_detect_resend_does_not_starve_the_record_resend(self):
+        watchdog = build_watchdog()
+        watchdog._send_detect_status("online", 100.0)
+        watchdog._send_record_status(STREAM_TYPE_MAIN, "online", 100.0)
+        watchdog.requestor.send_data.reset_mock()
+
+        later = 100.0 + watchdog.sleeptime
+        watchdog._send_detect_status("online", later)
+        watchdog._send_record_status(STREAM_TYPE_MAIN, "online", later)
+
+        watchdog.requestor.send_data.assert_any_call(
+            "front_door/status/detect", "online"
+        )
+        watchdog.requestor.send_data.assert_any_call(
+            "front_door/status/record", "online"
+        )
+
+    def test_an_exited_recorder_is_not_reported_online(self):
+        watchdog = build_watchdog()
+        now = datetime.now().astimezone(UTC)
+        watchdog.latest_cache_segment_time[STREAM_TYPE_MAIN] = now.timestamp()
+        watchdog.latest_valid_segment_time[STREAM_TYPE_MAIN] = now.timestamp()
+        exited = {"process": MagicMock(**{"poll.return_value": 1})}
+
+        restarted = _check_record_staleness(
+            watchdog, exited, [STREAM_TYPE_MAIN], now.timestamp(), now, True
+        )
+
+        assert restarted is False
+        watchdog.requestor.send_data.assert_not_called()
 
 
 class TestWatchdogHeartbeat(unittest.TestCase):
