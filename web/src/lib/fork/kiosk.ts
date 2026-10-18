@@ -388,9 +388,10 @@ export function fitSavedLayout(
   items: readonly SavedLayoutItem[],
   width: number,
   height: number,
+  /** One grid row's height in column widths (see lib/fork/live-layout). */
+  rowUnit: number = 9 / 16,
 ): FittedLayout | undefined {
   if (items.length === 0 || width <= 0 || height <= 0) return undefined;
-  const rowUnit = 9 / 16;
   const minX = Math.min(...items.map((item) => item.x));
   const minY = Math.min(...items.map((item) => item.y));
   const maxX = Math.max(...items.map((item) => item.x + item.w));

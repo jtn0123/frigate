@@ -23,6 +23,9 @@ export function LivePlaybackError({
 }>) {
   const { t } = useTranslation("views/live");
   const [diagnostics, setDiagnostics] = useState<DiagnosticState>();
+  // The diagnostics API predates go2rtc's codec mismatch reply, which is a
+  // decode failure from its point of view.
+  const diagnosticReason = reason === "mse-codec" ? "mse-decode" : reason;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -30,7 +33,7 @@ export function LivePlaybackError({
     axios
       .post<Diagnostics>(
         `go2rtc/streams/${encodeURIComponent(streamName)}/diagnostics`,
-        { reason, media_error_code: mediaErrorCode },
+        { reason: diagnosticReason, media_error_code: mediaErrorCode },
         { signal: controller.signal, timeout: 20_000 },
       )
       .then(({ data }) => {
@@ -42,10 +45,10 @@ export function LivePlaybackError({
         }
       });
     return () => controller.abort();
-  }, [streamName, reason, mediaErrorCode]);
+  }, [streamName, diagnosticReason, mediaErrorCode]);
 
   let failureMessage = t("playbackError.startup");
-  if (reason === "mse-decode") {
+  if (reason === "mse-decode" || reason === "mse-codec") {
     failureMessage = t("playbackError.decode");
   } else if (reason === "stalled") {
     failureMessage = t("playbackError.stalled");

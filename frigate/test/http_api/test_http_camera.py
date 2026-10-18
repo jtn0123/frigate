@@ -14,6 +14,7 @@ from frigate.config import FrigateConfig
 from frigate.config.camera.updater import CameraConfigUpdatePublisher
 from frigate.models import Event, Recordings, ReviewSegment
 from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
+from frigate.util.live_streams import transcode_stream_source
 
 
 class TestDeleteCameraRuntimeConfig(BaseTestHttp):
@@ -129,6 +130,52 @@ class TestDeleteCameraRuntimeConfig(BaseTestHttp):
                 dispatcher.clear_runtime_state_for_camera.assert_called_once_with(
                     "front_door"
                 )
+        finally:
+            os.unlink(config_path)
+
+    @patch("frigate.api.camera.sync_transcode_streams")
+    @patch("frigate.api.camera.requests.delete")
+    @patch("frigate.api.camera.cleanup_camera_files")
+    @patch("frigate.api.camera.cleanup_camera_db")
+    @patch("frigate.api.camera_config.find_config_file")
+    def test_delete_removes_the_cameras_transcoded_streams(
+        self,
+        mock_find_config,
+        mock_cleanup_db,
+        mock_cleanup_files,
+        mock_go2rtc_delete,
+        mock_sync,
+    ):
+        """go2rtc drops the transcoded streams the deleted camera generated."""
+        self.minimal_config["go2rtc"] = {
+            "streams": {"front_main": ["rtsp://10.0.0.1:554/main"]}
+        }
+        self.minimal_config["cameras"]["front_door"]["live"] = {
+            "streams": {"Main": "front_main"},
+            "transcode": {
+                "enabled": True,
+                "qualities": [{"height": 480, "bitrate": 500}],
+            },
+        }
+        config_path = self._write_config_file()
+        mock_find_config.return_value = config_path
+        mock_cleanup_db.return_value = ({}, [])
+
+        try:
+            app, _ = self._create_app_with_dispatcher(None)
+
+            with AuthTestClient(app) as client:
+                resp = client.delete("/cameras/front_door")
+
+            self.assertEqual(resp.status_code, 200)
+            mock_sync.assert_called_once_with(
+                {
+                    "front_door_transcode_480p": transcode_stream_source(
+                        "front_main", 480, 500
+                    )
+                },
+                {},
+            )
         finally:
             os.unlink(config_path)
 

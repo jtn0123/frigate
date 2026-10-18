@@ -255,6 +255,7 @@ describe("buildClonedCameraPayloads for an existing camera", () => {
       updateTopic: "config/cameras/back/detect",
       needsRestart: true,
       pendingDataKey: "back::detect",
+      replacePaths: [],
     });
   });
 

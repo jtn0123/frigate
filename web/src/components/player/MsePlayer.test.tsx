@@ -144,3 +144,133 @@ describe("MSE fragment failures", () => {
     },
   );
 });
+
+describe("MSE health samples", () => {
+  function setupPlayer(props: Partial<Parameters<typeof MSEPlayer>[0]> = {}) {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const onHealthSample = vi.fn();
+    const view = render(
+      <MSEPlayer
+        camera="side_yard"
+        onHealthSample={onHealthSample}
+        {...props}
+      />,
+    );
+    const video = view.container.querySelector("video")!;
+    let bufferedEnd = 0;
+    Object.defineProperty(video, "buffered", {
+      get: () => ({ length: 1, end: () => bufferedEnd, start: () => 0 }),
+    });
+    Object.defineProperty(video, "paused", { get: () => false });
+    const socket = FakeSocket.instances[0];
+    act(() => {
+      socket.readyState = FakeSocket.OPEN;
+      socket.dispatchEvent(new Event("open"));
+      socket.dispatchEvent(
+        new MessageEvent("message", {
+          data: JSON.stringify({
+            type: "mse",
+            value: 'video/mp4; codecs="avc1.42E01E"',
+          }),
+        }),
+      );
+    });
+    const media = FakeMediaSource.instances[0];
+    return {
+      ...view,
+      video,
+      onHealthSample,
+      setBufferedEnd: (end: number) => {
+        bufferedEnd = end;
+      },
+      sendFragment: (bytes: number) =>
+        act(() => {
+          socket.dispatchEvent(
+            new MessageEvent("message", { data: new ArrayBuffer(bytes) }),
+          );
+        }),
+      appended: () =>
+        act(() => {
+          media.buffer.dispatchEvent(new Event("updateend"));
+        }),
+      tick: () =>
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        }),
+    };
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("reports delivered media against wall time", () => {
+    const player = setupPlayer();
+    player.sendFragment(500);
+    player.appended();
+    player.setBufferedEnd(1);
+    player.tick();
+    expect(player.onHealthSample).toHaveBeenLastCalledWith({
+      bytes: 500,
+      mediaSeconds: 1,
+      wallSeconds: 1,
+    });
+  });
+
+  it("waits one tick for an append that is still landing", () => {
+    const player = setupPlayer();
+    player.sendFragment(500);
+    player.tick();
+    expect(player.onHealthSample).not.toHaveBeenCalled();
+    player.setBufferedEnd(2);
+    player.tick();
+    expect(player.onHealthSample).toHaveBeenCalledExactlyOnceWith({
+      bytes: 500,
+      mediaSeconds: 2,
+      wallSeconds: 2,
+    });
+  });
+
+  it("skips a new timeline and a hidden page", () => {
+    const player = setupPlayer();
+    player.setBufferedEnd(5);
+    player.tick();
+    expect(player.onHealthSample).toHaveBeenCalledOnce();
+
+    player.setBufferedEnd(1);
+    player.tick();
+    expect(player.onHealthSample).toHaveBeenCalledOnce();
+
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    player.setBufferedEnd(2);
+    player.tick();
+    expect(player.onHealthSample).toHaveBeenCalledOnce();
+  });
+
+  it("reports stats alongside health and clears them on unmount", () => {
+    const setStats = vi.fn();
+    const player = setupPlayer({ getStats: true, setStats });
+    Object.defineProperty(player.video, "getVideoPlaybackQuality", {
+      value: () => ({ totalVideoFrames: 100, droppedVideoFrames: 5 }),
+    });
+    player.sendFragment(2000);
+    player.appended();
+    player.tick();
+    expect(setStats).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        streamType: "MSE",
+        bandwidth: 2,
+        totalFrames: 100,
+        droppedFrames: 5,
+        decodedFrames: 95,
+        droppedFrameRate: 5,
+      }),
+    );
+    player.unmount();
+    expect(setStats).toHaveBeenLastCalledWith(
+      expect.objectContaining({ streamType: "-", bandwidth: 0 }),
+    );
+  });
+});

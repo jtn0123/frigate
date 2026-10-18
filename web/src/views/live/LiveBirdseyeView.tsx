@@ -309,7 +309,7 @@ export default function LiveBirdseyeView({
                 ))}
               </div>
               <BirdseyeLivePlayer
-                className={`${fullscreen ? "*:rounded-none" : ""}`}
+                className={fullscreen ? "rounded-none" : ""}
                 birdseyeConfig={config.birdseye}
                 liveMode={preferredLiveMode}
                 containerRef={containerRef}

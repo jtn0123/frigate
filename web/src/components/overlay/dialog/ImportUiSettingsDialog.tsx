@@ -10,10 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { LuTriangleAlert } from "react-icons/lu";
+import { LuFileJson, LuInfo, LuTriangleAlert } from "react-icons/lu";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import FilterSwitch from "@/components/filter/FilterSwitch";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import {
+  importedLayoutsNaturalAspect,
   ImportSummary,
   TransferSection,
   UiSettingsFile,
@@ -26,6 +28,7 @@ type ImportUiSettingsDialogProps = {
   fileName: string;
   file: UiSettingsFile;
   summary: ImportSummary;
+  currentNaturalAspect: boolean;
   onConfirm: (sections: Record<TransferSection, boolean>) => Promise<void>;
 };
 
@@ -35,18 +38,22 @@ export default function ImportUiSettingsDialog({
   fileName,
   file,
   summary,
+  currentNaturalAspect,
   onConfirm,
 }: ImportUiSettingsDialogProps) {
   const { t } = useTranslation(["views/settings", "common"]);
+  const isMobile = useIsMobile();
   const [isImporting, setIsImporting] = useState(false);
 
   const available = useMemo(
     () => ({
-      layouts: summary.layoutGroupCount > 0,
+      // phones use the static grid, so a saved grid layout has nothing to
+      // apply to and would only flip the tile sizing mode behind the scenes
+      layouts: !isMobile && summary.layoutGroupCount > 0,
       streaming: summary.streamingCameraCount > 0,
       preferences: summary.preferenceCount > 0,
     }),
-    [summary],
+    [summary, isMobile],
   );
 
   const [sections, setSections] =
@@ -91,6 +98,16 @@ export default function ImportUiSettingsDialog({
     [sections.streaming, summary.unknownCameras],
   );
 
+  // importing layouts also applies the tile-sizing mode they were built for
+  const layoutsModeChange = useMemo(() => {
+    if (!sections.layouts) {
+      return null;
+    }
+
+    const mode = importedLayoutsNaturalAspect(file);
+    return mode === null || mode === currentNaturalAspect ? null : mode;
+  }, [sections.layouts, file, currentNaturalAspect]);
+
   const handleConfirm = useCallback(async () => {
     setIsImporting(true);
     await onConfirm(sections);
@@ -116,73 +133,102 @@ export default function ImportUiSettingsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-0.5">
-          <p className="break-all text-base text-primary-variant">{fileName}</p>
-          <p className="text-sm text-muted-foreground">
-            {t("general.backupRestore.importDialog.exportedFrom", {
-              date: exportedDate,
-              version: file.frigate_version,
-            })}
-          </p>
-        </div>
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-lg bg-secondary p-3">
+            <LuFileJson className="mt-0.5 size-5 shrink-0 text-secondary-foreground" />
+            <div className="min-w-0">
+              <p className="break-all text-base font-medium text-primary-variant">
+                {fileName}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t("general.backupRestore.importDialog.exportedFrom", {
+                  date: exportedDate,
+                  version: file.frigate_version,
+                })}
+              </p>
+            </div>
+          </div>
 
-        <div className="space-y-3">
-          <FilterSwitch
-            label={t("general.backupRestore.importDialog.layouts", {
-              count: summary.layoutGroupCount,
-            })}
-            isChecked={sections.layouts}
-            disabled={!available.layouts || isImporting}
-            onCheckedChange={(checked) =>
-              setSections((prev) => ({ ...prev, layouts: checked }))
-            }
-          />
-          <FilterSwitch
-            label={t("general.backupRestore.importDialog.streaming", {
-              count: summary.streamingCameraCount,
-            })}
-            isChecked={sections.streaming}
-            disabled={!available.streaming || isImporting}
-            onCheckedChange={(checked) =>
-              setSections((prev) => ({ ...prev, streaming: checked }))
-            }
-          />
-          <FilterSwitch
-            label={t("general.backupRestore.importDialog.preferences", {
-              count: summary.preferenceCount,
-            })}
-            isChecked={sections.preferences}
-            disabled={!available.preferences || isImporting}
-            onCheckedChange={(checked) =>
-              setSections((prev) => ({ ...prev, preferences: checked }))
-            }
-          />
-        </div>
+          <div className="space-y-2.5">
+            <FilterSwitch
+              label={t("general.backupRestore.importDialog.layouts", {
+                count: summary.layoutGroupCount,
+              })}
+              isChecked={sections.layouts}
+              disabled={!available.layouts || isImporting}
+              onCheckedChange={(checked) =>
+                setSections((prev) => ({ ...prev, layouts: checked }))
+              }
+            />
+            <FilterSwitch
+              label={t("general.backupRestore.importDialog.streaming", {
+                count: summary.streamingCameraCount,
+              })}
+              isChecked={sections.streaming}
+              disabled={!available.streaming || isImporting}
+              onCheckedChange={(checked) =>
+                setSections((prev) => ({ ...prev, streaming: checked }))
+              }
+            />
+            <FilterSwitch
+              label={t("general.backupRestore.importDialog.preferences", {
+                count: summary.preferenceCount,
+              })}
+              isChecked={sections.preferences}
+              disabled={!available.preferences || isImporting}
+              onCheckedChange={(checked) =>
+                setSections((prev) => ({ ...prev, preferences: checked }))
+              }
+            />
+          </div>
 
-        {(visibleUnknownGroups.length > 0 ||
-          visibleUnknownCameras.length > 0) && (
-          <Alert variant="warning">
-            <LuTriangleAlert className="size-5" />
-            <AlertDescription className="space-y-2">
-              {visibleUnknownGroups.length > 0 && (
-                <p>
-                  {t("general.backupRestore.importDialog.unknownGroups", {
-                    count: visibleUnknownGroups.length,
-                    groups: visibleUnknownGroups.join(", "),
-                  })}
-                </p>
-              )}
-              {visibleUnknownCameras.length > 0 && (
-                <p>
-                  {t("general.backupRestore.importDialog.unknownCameras", {
-                    count: visibleUnknownCameras.length,
-                    cameras: visibleUnknownCameras.join(", "),
-                  })}
-                </p>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
+          {isMobile && summary.layoutGroupCount > 0 && (
+            <Alert variant="info">
+              <LuInfo className="size-5" />
+              <AlertDescription>
+                {t("general.backupRestore.importDialog.layoutsPhone")}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {layoutsModeChange !== null && (
+            <Alert variant="info">
+              <LuInfo className="size-5" />
+              <AlertDescription>
+                {t(
+                  layoutsModeChange
+                    ? "general.backupRestore.importDialog.layoutsModeOn"
+                    : "general.backupRestore.importDialog.layoutsModeOff",
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {(visibleUnknownGroups.length > 0 ||
+            visibleUnknownCameras.length > 0) && (
+            <Alert variant="warning">
+              <LuTriangleAlert className="size-5" />
+              <AlertDescription className="space-y-2">
+                {visibleUnknownGroups.length > 0 && (
+                  <p>
+                    {t("general.backupRestore.importDialog.unknownGroups", {
+                      count: visibleUnknownGroups.length,
+                      groups: visibleUnknownGroups.join(", "),
+                    })}
+                  </p>
+                )}
+                {visibleUnknownCameras.length > 0 && (
+                  <p>
+                    {t("general.backupRestore.importDialog.unknownCameras", {
+                      count: visibleUnknownCameras.length,
+                      cameras: visibleUnknownCameras.join(", "),
+                    })}
+                  </p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
 
         <DialogFooter>
           <Button
@@ -201,7 +247,7 @@ export default function ImportUiSettingsDialog({
           >
             {isImporting ? (
               <div className="flex flex-row items-center gap-2">
-                <ActivityIndicator />
+                <ActivityIndicator className="size-4" />
                 <span>{t("general.backupRestore.importDialog.confirm")}</span>
               </div>
             ) : (

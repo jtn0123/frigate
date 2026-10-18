@@ -14,6 +14,8 @@ import CameraFeatureToggle from "@/components/dynamic/CameraFeatureToggle";
 import FilterSwitch from "@/components/filter/FilterSwitch";
 import LivePlayer from "@/components/player/LivePlayer";
 import StreamTechnologySelect from "@/components/player/StreamTechnologySelect";
+import LiveStreamSelect from "@/components/player/LiveStreamSelect";
+import { useAutoLiveStream } from "@/hooks/use-auto-live-stream";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import {
@@ -34,6 +36,7 @@ import {
 } from "@/hooks/use-webrtc-availability";
 import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
 import {
+  LiveAutoReason,
   LivePlayerError,
   TwoWayTalkError,
   LivePlayerMode,
@@ -43,13 +46,7 @@ import {
 } from "@/types/live";
 import type { components } from "@/types/fork/api.gen";
 import { RecordingStartingPoint } from "@/types/record";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   isDesktop,
   isIOS,
@@ -108,14 +105,6 @@ import { phoneFullscreenRail } from "@/lib/fork/phone-fullscreen";
 import PhoneBoxesToggle from "@/components/fork/PhoneBoxesToggle";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
 
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useUserPersistence } from "@/hooks/use-user-persistence";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -126,6 +115,7 @@ import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useTranslation } from "react-i18next";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { detectCameraAudioFeatures } from "@/utils/cameraUtil";
+import { isRestreamedStream } from "@/utils/liveTranscode";
 import PtzControlPanel from "@/components/overlay/PtzControlPanel";
 import ObjectSettingsView from "../settings/ObjectSettingsView";
 import { useSearchEffect } from "@/hooks/use-overlay-state";
@@ -167,11 +157,9 @@ export default function LiveCameraView({
 
   // supported features
 
-  const [streamName, setStreamName, streamNameLoaded] =
-    useUserPersistence<string>(
-      `${camera.name}-stream`,
-      Object.values(camera.live.streams)[0],
-    );
+  // an absent saved stream means auto
+  const [pinnedStream, setPinnedStream, streamNameLoaded, clearPinnedStream] =
+    useUserPersistence<string>(`${camera.name}-stream`);
 
   const [
     userPreferredLiveMode,
@@ -190,25 +178,67 @@ export default function LiveCameraView({
   const preferencesLoaded =
     streamNameLoaded && userPreferredLiveModeLoaded && forceLowBandwidthLoaded;
 
+  const [mic, setMic] = useState(false);
+  const [debug, setDebug] = useState(false);
+  // error fallback latches, layered on top in preferredLiveMode
+  const [webRTC, setWebRTC] = useState(false);
+  const [lowBandwidth, setLowBandwidth] = useState(false);
+
+  const liveStreams = useMemo(
+    () => Object.values(camera.live.streams),
+    [camera.live.streams],
+  );
+  const autoAvailable = liveStreams.length > 1;
+  const autoSelected = autoAvailable && pinnedStream == undefined;
+
+  const autoStream = useAutoLiveStream({
+    cameraName: camera.name,
+    streams: liveStreams,
+    selected: autoSelected,
+    paused:
+      !preferencesLoaded ||
+      mic ||
+      debug ||
+      webRTC ||
+      lowBandwidth ||
+      (forceLowBandwidth ?? false),
+  });
+  const {
+    handleError: autoHandleError,
+    reset: resetAutoStream,
+    onHealthSample,
+  } = autoStream;
+
+  // the stream actually playing; everything downstream keys off it
+  const streamName = autoSelected
+    ? autoStream.streamName
+    : (pinnedStream ?? liveStreams[0]);
+
+  const selectStream = useCallback(
+    (stream: string | undefined) => {
+      if (stream == undefined) {
+        clearPinnedStream();
+      } else {
+        setPinnedStream(stream);
+      }
+    },
+    [clearPinnedStream, setPinnedStream],
+  );
+
   const isRestreamed = useMemo(
-    () =>
-      config &&
-      Object.keys(config.go2rtc.streams || {}).includes(streamName ?? ""),
+    () => isRestreamedStream(config, streamName),
     [config, streamName],
   );
 
-  // validate stored stream name and reset if now invalid
+  // a pin to a stream no longer in config falls back to auto
 
   useEffect(() => {
-    if (!streamNameLoaded) return;
+    if (!streamNameLoaded || pinnedStream == undefined) return;
 
-    const available = Object.values(camera.live.streams || {});
-    if (available.length === 0) return;
-
-    if (streamName != null && !available.includes(streamName)) {
-      setStreamName(available[0]);
+    if (liveStreams.length > 0 && !liveStreams.includes(pinnedStream)) {
+      clearPinnedStream();
     }
-  }, [streamNameLoaded, camera.live.streams, streamName, setStreamName]);
+  }, [streamNameLoaded, liveStreams, pinnedStream, clearPinnedStream]);
 
   const { data: cameraMetadata } = useSWR<LiveStreamMetadata>(
     isRestreamed ? `go2rtc/streams/${streamName}` : null,
@@ -404,10 +434,7 @@ export default function LiveCameraView({
   // playback state
 
   const [audio, setAudio] = useSessionPersistence("liveAudio", false);
-  const [mic, setMic] = useState(false);
-  const [webRTC, setWebRTC] = useState(false);
   const [pip, setPip] = useState(false);
-  const [lowBandwidth, setLowBandwidth] = useState(false);
 
   const [playInBackground, setPlayInBackground] = useUserPersistence<boolean>(
     `${camera.name}-background-play`,
@@ -415,7 +442,6 @@ export default function LiveCameraView({
   );
 
   const [showStats, setShowStats] = useState(false);
-  const [debug, setDebug] = useState(false);
 
   useSearchEffect("debug", (value: string) => {
     if (value === "true") {
@@ -435,7 +461,7 @@ export default function LiveCameraView({
       return "webrtc";
     }
 
-    if (forceLowBandwidth) {
+    if (forceLowBandwidth || autoStream.atFloor) {
       return "jsmpeg";
     }
 
@@ -471,6 +497,7 @@ export default function LiveCameraView({
     resolvedUserMode,
     isWebRTCAvailable,
     webRTCUsable,
+    autoStream.atFloor,
   ]);
 
   // The mic only connects through WebRtcPlayer, so an active mic without it
@@ -603,6 +630,11 @@ export default function LiveCameraView({
   const handleError = useCallback(
     (e: LivePlayerError) => {
       if (e) {
+        // auto answers congestion and codec failures with a lower stream
+        if (autoHandleError(e)) {
+          return;
+        }
+
         // WebRTC can now be the user's own choice, so the fallback flag no
         // longer implies untried: hopping to the mode that just failed sticks.
         if (preferredLiveMode !== "webrtc" && webRTCUsable) {
@@ -613,8 +645,13 @@ export default function LiveCameraView({
         }
       }
     },
-    [preferredLiveMode, webRTCUsable],
+    [autoHandleError, preferredLiveMode, webRTCUsable],
   );
+
+  const resetStream = useCallback(() => {
+    setLowBandwidth(false);
+    resetAutoStream();
+  }, [resetAutoStream]);
 
   const handleMicrophoneError = useCallback(
     (error: TwoWayTalkError) => {
@@ -806,8 +843,11 @@ export default function LiveCameraView({
                 camera.audio_transcription.enabled_in_config
               }
               fullscreen={fullscreen}
-              streamName={streamName ?? ""}
-              setStreamName={setStreamName}
+              pinnedStream={pinnedStream}
+              playingStream={streamName ?? ""}
+              autoAvailable={autoAvailable}
+              autoReason={autoStream.reason}
+              onSelectStream={selectStream}
               userPreferredLiveMode={resolvedUserMode}
               setUserPreferredLiveMode={setUserPreferredLiveMode}
               forceLowBandwidth={forceLowBandwidth ?? false}
@@ -820,7 +860,7 @@ export default function LiveCameraView({
               isRestreamed={isRestreamed ?? false}
               isWebRTCAvailable={isWebRTCAvailable}
               webRTCUnavailableReason={webRTCAvailability.reason}
-              setLowBandwidth={setLowBandwidth}
+              onResetStream={resetStream}
               supportsAudioOutput={supportsAudioOutput}
               supports2WayTalk={supports2WayTalk}
               cameraEnabled={cameraEnabled}
@@ -890,7 +930,8 @@ export default function LiveCameraView({
                 )}
                 <LivePlayer
                   key={camera.name}
-                  className={`${fullscreen ? "*:rounded-none" : ""}`}
+                  // fork: fill the frame so the clipped error card has room
+                  className={cn("h-full", fullscreen && "rounded-none")}
                   windowVisible
                   showStillWithoutActivity={false}
                   alwaysShowCameraName={false}
@@ -908,6 +949,8 @@ export default function LiveCameraView({
                   containerRef={containerRef}
                   setFullResolution={setFullResolution}
                   onError={handleError}
+                  onHealthSample={autoSelected ? onHealthSample : undefined}
+                  streamAuto={autoSelected}
                   onMicrophoneError={handleMicrophoneError}
                 />
               </div>
@@ -961,8 +1004,11 @@ type FrigateCameraFeaturesProps = {
   autotrackingEnabled: boolean;
   transcriptionEnabled: boolean;
   fullscreen: boolean;
-  streamName: string;
-  setStreamName?: (value: string | undefined) => void;
+  pinnedStream: string | undefined;
+  playingStream: string;
+  autoAvailable: boolean;
+  autoReason?: LiveAutoReason;
+  onSelectStream: (stream: string | undefined) => void;
   userPreferredLiveMode: LivePlayerMode;
   setUserPreferredLiveMode: (value: LivePlayerMode | undefined) => void;
   forceLowBandwidth: boolean;
@@ -975,7 +1021,7 @@ type FrigateCameraFeaturesProps = {
   isRestreamed: boolean;
   isWebRTCAvailable: boolean;
   webRTCUnavailableReason?: WebRTCUnavailableReason;
-  setLowBandwidth: React.Dispatch<React.SetStateAction<boolean>>;
+  onResetStream: () => void;
   supportsAudioOutput: boolean;
   supports2WayTalk: boolean;
   cameraEnabled: boolean;
@@ -989,8 +1035,11 @@ function FrigateCameraFeatures({
   autotrackingEnabled,
   transcriptionEnabled,
   fullscreen,
-  streamName,
-  setStreamName,
+  pinnedStream,
+  playingStream,
+  autoAvailable,
+  autoReason,
+  onSelectStream,
   userPreferredLiveMode,
   setUserPreferredLiveMode,
   forceLowBandwidth,
@@ -1003,7 +1052,7 @@ function FrigateCameraFeatures({
   isRestreamed,
   isWebRTCAvailable,
   webRTCUnavailableReason,
-  setLowBandwidth,
+  onResetStream,
   supportsAudioOutput,
   supports2WayTalk,
   cameraEnabled,
@@ -1034,10 +1083,6 @@ function FrigateCameraFeatures({
   // roles
 
   const isAdmin = useIsAdmin();
-
-  const streamSelectLabel = Object.keys(camera.live.streams).find(
-    (key) => camera.live.streams[key] === streamName,
-  );
 
   // manual event
 
@@ -1402,33 +1447,16 @@ function FrigateCameraFeatures({
                       <Label htmlFor="streaming-method">
                         {t("stream.title")}
                       </Label>
-                      <Select
-                        value={streamName}
+                      <LiveStreamSelect
+                        streams={camera.live.streams}
+                        pinnedStream={pinnedStream}
+                        playingStream={playingStream}
+                        autoAvailable={autoAvailable}
+                        autoReason={autoReason}
+                        onSelect={onSelectStream}
+                        onRetry={onResetStream}
                         disabled={debug || forceLowBandwidth}
-                        onValueChange={(value) => {
-                          setStreamName?.(value);
-                        }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue>{streamSelectLabel}</SelectValue>
-                        </SelectTrigger>
-
-                        <SelectContent>
-                          <SelectGroup>
-                            {Object.entries(camera.live.streams).map(
-                              ([stream, name]) => (
-                                <SelectItem
-                                  key={stream}
-                                  className="cursor-pointer"
-                                  value={name}
-                                >
-                                  {stream}
-                                </SelectItem>
-                              ),
-                            )}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      />
 
                       {debug && (
                         <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
@@ -1547,7 +1575,7 @@ function FrigateCameraFeatures({
                               aria-label={t("stream.lowBandwidth.resetStream")}
                               variant="outline"
                               size="sm"
-                              onClick={() => setLowBandwidth(false)}
+                              onClick={onResetStream}
                             >
                               <MdOutlineRestartAlt className="size-5 text-primary-variant" />
                               <div className="text-primary-variant">
@@ -1813,33 +1841,16 @@ function FrigateCameraFeatures({
             {isRestreamed && Object.values(camera.live.streams).length > 0 && (
               <div className="mt-1 p-2">
                 <div className="mb-1 text-sm">{t("stream.title")}</div>
-                <Select
-                  value={streamName}
-                  onValueChange={(value) => {
-                    setStreamName?.(value);
-                  }}
+                <LiveStreamSelect
+                  streams={camera.live.streams}
+                  pinnedStream={pinnedStream}
+                  playingStream={playingStream}
+                  autoAvailable={autoAvailable}
+                  autoReason={autoReason}
+                  onSelect={onSelectStream}
+                  onRetry={onResetStream}
                   disabled={debug || forceLowBandwidth}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue>{streamSelectLabel}</SelectValue>
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectGroup>
-                      {Object.entries(camera.live.streams).map(
-                        ([stream, name]) => (
-                          <SelectItem
-                            key={stream}
-                            className="cursor-pointer"
-                            value={name}
-                          >
-                            {stream}
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                />
 
                 {debug && (
                   <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
@@ -1952,7 +1963,7 @@ function FrigateCameraFeatures({
                         variant="outline"
                         size="sm"
                         disabled={debug}
-                        onClick={() => setLowBandwidth(false)}
+                        onClick={onResetStream}
                       >
                         <MdOutlineRestartAlt className="size-5 text-primary-variant" />
                         <div className="text-primary-variant">

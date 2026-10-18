@@ -19,6 +19,7 @@ import {
   useUserPersistence,
   deleteUserNamespacedKey,
 } from "@/hooks/use-user-persistence";
+import { useIsMobile } from "@/hooks/fork/use-viewport";
 import {
   Select,
   SelectContent,
@@ -151,6 +152,7 @@ function ValueSettingRow({
 export default function UiSettingsView() {
   const { data: config } = useSWR<FrigateConfig>("config");
   const { t } = useTranslation(["views/settings", "fork"]);
+  const isMobile = useIsMobile();
   const { auth } = useContext(AuthContext);
   const username = auth?.user?.username;
 
@@ -158,8 +160,10 @@ export default function UiSettingsView() {
 
   // fork (UI123): both Clear All buttons discard browser-local state that
   // nothing on the server can restore, so they ask before acting
+  // UI151: switching the tile sizing mode (upstream #24461) clears every
+  // stored layout too, so it asks through the same dialog
   const [confirmClear, setConfirmClear] = useState<
-    "layouts" | "streaming" | null
+    "layouts" | "streaming" | "naturalAspect" | null
   >(null);
 
   const clearStoredLayouts = useCallback(() => {
@@ -361,6 +365,8 @@ export default function UiSettingsView() {
     "displayCameraNames",
     true,
   );
+  const [naturalAspect, setNaturalAspect, naturalAspectLoaded] =
+    useUserPersistence("naturalAspectLayout", false);
   const [playbackRate, setPlaybackRate, playbackRateLoaded] =
     useUserPersistence("playbackRate", 1);
   const [weekStartsOn, setWeekStartsOn, weekStartsOnLoaded] =
@@ -397,6 +403,19 @@ export default function UiSettingsView() {
       onCheckedChange: setCameraName,
       disabled: !cameraNamesLoaded,
     },
+    // phones use the static grid, so tile sizing has nothing to affect there
+    ...(isMobile
+      ? []
+      : [
+          {
+            id: "natural-aspect",
+            label: t("general.liveDashboard.naturalAspectLayout.label"),
+            description: t("general.liveDashboard.naturalAspectLayout.desc"),
+            checked: naturalAspect,
+            onCheckedChange: () => setConfirmClear("naturalAspect"),
+            disabled: !naturalAspectLoaded,
+          },
+        ]),
   ];
 
   return (
@@ -615,23 +634,38 @@ export default function UiSettingsView() {
       <ConfirmClearDialog
         open={confirmClear !== null}
         onOpenChange={(open) => !open && setConfirmClear(null)}
-        title={t(`confirmClear.${confirmClear ?? "layouts"}.title`, {
-          ns: "fork",
-        })}
-        description={t(
-          `confirmClear.${confirmClear ?? "layouts"}.description`,
-          {
-            ns: "fork",
-          },
-        )}
-        action={t(`confirmClear.${confirmClear ?? "layouts"}.action`, {
-          ns: "fork",
-        })}
+        title={
+          confirmClear === "naturalAspect"
+            ? t("general.liveDashboard.naturalAspectLayout.label")
+            : t(`confirmClear.${confirmClear ?? "layouts"}.title`, {
+                ns: "fork",
+              })
+        }
+        description={
+          confirmClear === "naturalAspect"
+            ? t("general.liveDashboard.naturalAspectLayout.descNote")
+            : t(`confirmClear.${confirmClear ?? "layouts"}.description`, {
+                ns: "fork",
+              })
+        }
+        action={
+          confirmClear === "naturalAspect"
+            ? naturalAspect
+              ? t("button.disable", { ns: "common" })
+              : t("button.enable", { ns: "common" })
+            : t(`confirmClear.${confirmClear ?? "layouts"}.action`, {
+                ns: "fork",
+              })
+        }
         onConfirm={() => {
           if (confirmClear === "layouts") {
             clearStoredLayouts();
           } else if (confirmClear === "streaming") {
             void clearStreamingSettings();
+          } else if (confirmClear === "naturalAspect") {
+            // a layout only renders in the mode that built it
+            setNaturalAspect(!naturalAspect);
+            clearStoredLayouts();
           }
           setConfirmClear(null);
         }}
@@ -648,6 +682,7 @@ export default function UiSettingsView() {
           fileName={pendingImport.name}
           file={pendingImport.file}
           summary={pendingImport.summary}
+          currentNaturalAspect={naturalAspect ?? false}
           onConfirm={handleImportConfirm}
         />
       )}

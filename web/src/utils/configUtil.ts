@@ -303,6 +303,49 @@ export function buildOverrides(
 }
 
 // ---------------------------------------------------------------------------
+// Ordered maps: config maps whose key order is meaningful
+// ---------------------------------------------------------------------------
+
+// lodash isEqual ignores key order, so ordered maps compare entry lists.
+export function changedOrderedMapPaths(
+  current: unknown,
+  base: unknown,
+  paths: string[],
+): string[] {
+  return paths.filter((path) => {
+    const value: unknown = get(current, path);
+
+    if (!isJsonObject(value)) {
+      return false;
+    }
+
+    const baseValue: unknown = get(base, path);
+    return !isEqual(
+      Object.entries(value),
+      isJsonObject(baseValue) ? Object.entries(baseValue) : undefined,
+    );
+  });
+}
+
+// Send a changed ordered map whole; per-key overrides cannot carry order.
+export function applyOrderedMaps(
+  overrides: unknown,
+  current: unknown,
+  base: unknown,
+  paths: string[],
+): unknown {
+  const changed = changedOrderedMapPaths(current, base, paths);
+
+  if (changed.length === 0) {
+    return overrides;
+  }
+
+  const result = isJsonObject(overrides) ? cloneDeep(overrides) : {};
+  changed.forEach((path) => set(result, path, cloneDeep(get(current, path))));
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // flattenOverrides — turn an overrides object into a list of leaf paths
 // ---------------------------------------------------------------------------
 
@@ -509,6 +552,7 @@ export interface SectionSavePayload {
   updateTopic: string | undefined;
   needsRestart: boolean;
   pendingDataKey: string;
+  replacePaths?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -712,7 +756,13 @@ export function prepareSectionSavePayload(opts: {
   );
 
   // Build overrides
-  const overrides = buildOverrides(pendingData, rawData, effectiveDefaults);
+  const orderedMaps = sectionConfig.orderedMaps ?? [];
+  const overrides = applyOrderedMaps(
+    buildOverrides(pendingData, rawData, effectiveDefaults),
+    pendingData,
+    rawData,
+    orderedMaps,
+  );
   const sanitizedOverrides = sanitizeOverridesForSection(
     schemaSection,
     level,
@@ -762,6 +812,9 @@ export function prepareSectionSavePayload(opts: {
     updateTopic,
     needsRestart,
     pendingDataKey,
+    replacePaths: changedOrderedMapPaths(pendingData, rawData, orderedMaps).map(
+      (path) => `${basePath}.${path}`,
+    ),
   };
 }
 

@@ -199,6 +199,15 @@
       },
       "live": {
         "streams": { "front_door": "front_door" },
+        "transcode": {
+          "enabled": false,
+          "source": null,
+          "qualities": [
+            { "height": 720, "bitrate": 1200 },
+            { "height": 480, "bitrate": 500 },
+            { "height": 360, "bitrate": 250 }
+          ]
+        },
         "height": 720,
         "quality": 8
       },
@@ -446,6 +455,15 @@
       },
       "live": {
         "streams": { "backyard": "backyard" },
+        "transcode": {
+          "enabled": false,
+          "source": null,
+          "qualities": [
+            { "height": 720, "bitrate": 1200 },
+            { "height": 480, "bitrate": 500 },
+            { "height": 360, "bitrate": 250 }
+          ]
+        },
         "height": 720,
         "quality": 8
       },
@@ -693,6 +711,15 @@
       },
       "live": {
         "streams": { "garage": "garage" },
+        "transcode": {
+          "enabled": false,
+          "source": null,
+          "qualities": [
+            { "height": 720, "bitrate": 1200 },
+            { "height": 480, "bitrate": 500 },
+            { "height": 360, "bitrate": 250 }
+          ]
+        },
         "height": 720,
         "quality": 8
       },

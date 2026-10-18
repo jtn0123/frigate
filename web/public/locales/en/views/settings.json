@@ -164,6 +164,11 @@
         "label": "Always Show Camera Names",
         "desc": "Always show the camera names in a chip in the multi-camera live view dashboard."
       },
+      "naturalAspectLayout": {
+        "label": "Use Natural Aspect Ratios",
+        "desc": "On camera group live view dashboards, size each tile to its camera's own natural aspect ratio. When disabled, cameras are snapped to a standard wide, landscape, or tall tile shape.",
+        "descNote": "Toggling this setting on or off will clear the stored layout for all camera group live dashboards. Manual reconfiguration will be required."
+      },
       "liveFallbackTimeout": {
         "label": "Live Player Fallback Timeout",
         "desc": "When a camera's high quality live stream is unavailable, fall back to low bandwidth mode after this many seconds. Default: 3."
@@ -192,6 +197,9 @@
         "desc": "Choose what to apply from this file. Frigate will reload when the import finishes.",
         "exportedFrom": "Exported {{date}} from Frigate config version {{version}}",
         "layouts_one": "Camera group layouts ({{count}} group)",
+        "layoutsPhone": "Camera group layouts aren't imported on phones, which always use the standard grid.",
+        "layoutsModeOn": "These layouts use camera aspect ratio tile sizing, so importing them will also turn on \"Use Natural Aspect Ratios\".",
+        "layoutsModeOff": "These layouts use standard tile sizing, so importing them will also turn off \"Use Natural Aspect Ratios\".",
         "layouts_other": "Camera group layouts ({{count}} groups)",
         "streaming_one": "Streaming settings ({{count}} camera)",
         "streaming_other": "Streaming settings ({{count}} cameras)",
@@ -1540,7 +1548,27 @@
       "noGo2rtcStreams": "No go2rtc streams configured",
       "availableStreams": "Available streams",
       "useCustom": "Use \"{{value}}\"",
-      "addStream": "Add stream"
+      "addStream": "Add stream",
+      "reorderHandle": "Drag to reorder",
+      "transcodedBadge": "Transcoded",
+      "autoOrder": "Auto order",
+      "autoOrderTips": "Measure each stream's bitrate and sort highest first",
+      "measuring": "Measuring…",
+      "rate": "{{kbps}} kbps",
+      "rateSet": "{{kbps}} kbps (set)",
+      "rateFailed": "Couldn't measure"
+    },
+    "liveTranscode": {
+      "title": "Transcoded streams",
+      "description": "Adds lower-quality streams that go2rtc transcodes in real time while someone is watching.",
+      "unavailable": "Transcoded streams need a go2rtc stream to read from. Add one under go2rtc streams first.",
+      "enable": "Enable transcoded streams",
+      "source": "Source stream",
+      "height": "Height",
+      "heightOption": "{{height}}p",
+      "bitrate": "Bitrate (kbps)",
+      "addQuality": "Add quality",
+      "removeQuality": "Remove quality"
     },
     "timezone": {
       "defaultOption": "Use browser timezone"
@@ -1775,6 +1803,7 @@
   "toast": {
     "success": "Settings saved successfully",
     "applied": "Settings applied successfully",
+    "go2rtcSyncFailed": "Saved, but go2rtc couldn't be updated. Restart Frigate to apply.",
     "successRestartRequired": "Settings saved successfully. Restart Frigate to apply your changes.",
     "error": "Failed to save settings",
     "validationError": "Validation failed: {{message}}",

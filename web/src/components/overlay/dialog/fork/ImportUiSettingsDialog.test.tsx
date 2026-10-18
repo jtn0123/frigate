@@ -16,6 +16,9 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+// Phones cannot import grid layouts, so these cases run as a desktop.
+vi.mock("@/hooks/fork/use-viewport", () => ({ useIsMobile: () => false }));
+
 const prefix = "general.backupRestore.importDialog.";
 const file: UiSettingsFile = {
   type: "frigate-ui-settings",
@@ -39,6 +42,7 @@ function props(overrides = {}) {
     fileName: "settings.json",
     file,
     summary,
+    currentNaturalAspect: false,
     onConfirm: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
