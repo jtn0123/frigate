@@ -73,13 +73,22 @@ def _config_dict(**auth) -> dict:
     }
 
 
-def _request(headers=None, app_config=None, host="10.0.0.9", path="/"):
+def _request(
+    headers=None,
+    app_config=None,
+    host="10.0.0.9",
+    path="/",
+    route_path=None,
+    path_params=None,
+):
     """A minimal stand in for a starlette request."""
     return SimpleNamespace(
         headers=headers or {},
         client=SimpleNamespace(host=host) if host else None,
         url=SimpleNamespace(path=path),
         app=SimpleNamespace(frigate_config=app_config),
+        scope={"route": SimpleNamespace(path=route_path)} if route_path else {},
+        path_params=path_params or {},
     )
 
 
@@ -357,10 +366,19 @@ class TestRoleGates(unittest.TestCase):
         checker = require_admin_by_default()
         viewer = {"remote-role": "viewer"}
 
-        for path in ("/login", "/review/abc", "/front_door/latest.jpg"):
+        for path in ("/login", "/review/abc"):
             with self.subTest(path=path):
                 request = _request(viewer, self.config, path=path)
                 self.assertIsNone(_run(checker(request)))
+
+        camera_route = _request(
+            viewer,
+            self.config,
+            path="/front_door/latest.jpg",
+            route_path="/{camera_name}/latest.{extension}",
+            path_params={"camera_name": "front_door", "extension": "jpg"},
+        )
+        self.assertIsNone(_run(checker(camera_route)))
 
         admin = _request({"remote-role": "admin"}, self.config, path="/config/set")
         self.assertIsNone(_run(checker(admin)))
@@ -369,9 +387,39 @@ class TestRoleGates(unittest.TestCase):
             _run(checker(_request(viewer, self.config, path="/config/set")))
         self.assertEqual(ctx.exception.status_code, 403)
 
+    def test_admin_by_default_ignores_camera_named_like_a_namespace(self):
+        # A camera whose name matches another namespace must not waive the
+        # admin check for that namespace's routes (upstream #24516)
+        checker = require_admin_by_default()
+        config = SimpleNamespace(cameras={"faces": self.config.cameras["front_door"]})
+        viewer = {"remote-role": "viewer"}
+
+        for route_path, path_params in (
+            (None, {}),
+            ("/faces", {}),
+            ("/faces/train/{name}/classify", {"name": "person"}),
+            ("/{camera_name}/latest.{extension}", {"camera_name": "unknown"}),
+        ):
+            with self.subTest(route_path=route_path):
+                request = _request(
+                    viewer,
+                    config,
+                    path="/faces/train/person/classify",
+                    route_path=route_path,
+                    path_params=path_params,
+                )
+                with self.assertRaises(HTTPException) as ctx:
+                    _run(checker(request))
+                self.assertEqual(ctx.exception.status_code, 403)
+
     def test_admin_by_default_fails_closed_without_a_config(self):
         checker = require_admin_by_default()
-        request = _request({"remote-role": "viewer"}, path="/front_door/x")
+        request = _request(
+            {"remote-role": "viewer"},
+            path="/front_door/x",
+            route_path="/{camera_name}/x",
+            path_params={"camera_name": "front_door"},
+        )
         request.app = SimpleNamespace()
 
         with self.assertRaises(HTTPException):

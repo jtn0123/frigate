@@ -163,21 +163,19 @@ def require_admin_by_default():
         if path.startswith(EXEMPT_PREFIXES):
             return
 
-        # Dynamic camera path exemption:
-        # Any path whose first segment matches a configured camera name should
-        # bypass the global admin requirement. These endpoints enforce access
-        # via route-level dependencies (e.g. require_camera_access) to ensure
-        # per-camera authorization. This allows non-admin authenticated users
-        # (e.g. viewer role) to access camera-specific resources without
-        # needing admin privileges.
+        # Camera routes enforce per-camera access via route-level dependencies
+        # (e.g. require_camera_access). Match on the route template, not the raw
+        # path, so a camera named like another namespace (e.g. "faces") can't
+        # waive the admin check for that namespace's routes.
         try:
-            if path.startswith("/"):
-                first_segment = path.split("/", 2)[1]
-                if (
-                    first_segment
-                    and first_segment in request.app.frigate_config.cameras
-                ):
-                    return
+            route = request.scope.get("route")
+            if (
+                route is not None
+                and route.path.startswith("/{camera_name}")
+                and request.path_params.get("camera_name")
+                in request.app.frigate_config.cameras
+            ):
+                return
         except Exception:
             # fail closed: fall through to the admin check
             logger.debug(
@@ -1111,7 +1109,7 @@ def create_user(
     HASH_ITERATIONS = request.app.frigate_config.auth.hash_iterations
     config_roles = list(request.app.frigate_config.auth.roles.keys())
 
-    if not re.match("^[A-Za-z0-9._]+$", body.username):
+    if not re.match(r"^(?!\.+$)[A-Za-z0-9._]+$", body.username):
         return JSONResponse(content={"message": "Invalid username"}, status_code=400)
 
     if body.role not in config_roles:
