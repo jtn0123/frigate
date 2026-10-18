@@ -133,6 +133,20 @@ class TestRawTranscodeStreams(unittest.TestCase):
             {},
         )
 
+    def test_camera_with_only_transcoded_streams_generates_nothing(self):
+        config = {
+            "cameras": {
+                "front": {
+                    "live": {
+                        "streams": {"Low": "front_transcode_360p"},
+                        "transcode": {"enabled": True},
+                    }
+                }
+            }
+        }
+
+        self.assertEqual(raw_transcode_streams(config), {})
+
 
 def camera_config(live: dict | None = None, go2rtc: dict | None = None) -> dict:
     config = {
@@ -370,6 +384,12 @@ class TestSyncTranscodeStreams(unittest.TestCase):
         self.assertFalse(sync_transcode_streams({}, {"a": "x", "b": "y"}))
         self.assertEqual(mock_request.call_count, 2)
 
+    @patch("frigate.util.live_streams.requests.request")
+    def test_error_response_returns_false(self, mock_request):
+        mock_request.return_value = MagicMock(ok=False, text="bad source")
+
+        self.assertFalse(sync_transcode_streams({"a": "x"}, {}))
+
 
 class TestMeasureStreamBitrate(unittest.TestCase):
     @patch("frigate.util.live_streams.time.monotonic")
@@ -396,6 +416,12 @@ class TestMeasureStreamBitrate(unittest.TestCase):
         response = MagicMock(ok=True)
         response.iter_content.return_value = []
         mock_get.return_value.__enter__.return_value = response
+
+        self.assertIsNone(measure_stream_bitrate("front"))
+
+    @patch("frigate.util.live_streams.requests.get")
+    def test_error_response_returns_none(self, mock_get):
+        mock_get.return_value.__enter__.return_value = MagicMock(ok=False)
 
         self.assertIsNone(measure_stream_bitrate("front"))
 
