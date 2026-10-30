@@ -61,7 +61,7 @@ appdirs==1.4.*
 argcomplete==2.0.*
 contextlib2==0.6.*
 distlib==0.3.*
-filelock==3.32.6
+filelock==4.2.1
 future==0.18.*
 importlib-metadata==5.1.*
 importlib-resources==5.1.*
