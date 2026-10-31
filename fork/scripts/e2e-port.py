@@ -25,9 +25,22 @@ def port_number(value: str) -> int:
     return int(value)
 
 
+LOOPBACK = ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1"))
+
+
+def answers(family: socket.AddressFamily, address: str, port: int) -> bool:
+    """Whether a listener accepts connections on the loopback address."""
+    try:
+        with socket.socket(family, socket.SOCK_STREAM) as probe:
+            probe.settimeout(1)
+            return probe.connect_ex((address, port)) == 0
+    except OSError:
+        return False
+
+
 def available(port: int) -> bool:
     """Check IPv4 and IPv6 loopback listeners before reserving a port."""
-    for family, address in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+    for family, address in LOOPBACK:
         try:
             with socket.socket(family, socket.SOCK_STREAM) as probe:
                 # Match Node's bind behavior after a stopped preview served TCP.
@@ -41,7 +54,9 @@ def available(port: int) -> bool:
             ):
                 continue
             return False
-    return True
+    # macOS lets the SO_REUSEADDR bind above share a port that another process
+    # holds on 0.0.0.0 or ::, so a listener that loopback reaches counts too
+    return not any(answers(family, address, port) for family, address in LOOPBACK)
 
 
 def reserve(

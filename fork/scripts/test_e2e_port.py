@@ -76,6 +76,18 @@ class TestPreviewPort(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 PORT.reserve(self.other, requested=listener.getsockname()[1])
 
+    def test_a_wildcard_listener_is_occupied(self):
+        # I67: on macOS a loopback probe with SO_REUSEADDR binds beside a
+        # listener on 0.0.0.0, so the port looked free
+        with socket.socket() as listener:
+            # "" is the wildcard address, 0.0.0.0
+            listener.bind(("", 0))
+            listener.listen()
+            port = listener.getsockname()[1]
+            self.assertFalse(PORT.available(port))
+            with self.assertRaises(RuntimeError):
+                PORT.reserve(self.other, requested=port)
+
     def test_duplicate_old_records_are_reassigned(self):
         with patch.object(PORT, "available", return_value=True):
             PORT.reserve(self.main, requested=4190)
