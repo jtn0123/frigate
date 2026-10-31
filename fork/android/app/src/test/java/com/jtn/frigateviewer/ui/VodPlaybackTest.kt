@@ -53,20 +53,36 @@ class VodPlaybackTest {
         scope.cancel()
     }
 
-    private fun openRecording(): AppViewModel {
-        val vm = compose.showApp(
-            serverRule.server,
-            temp.root,
-            scope,
-            content = { vm ->
-                CompositionLocalProvider(
-                    LocalLifecycleOwner provides owner,
-                    LocalPlayerFactory provides { builder -> builder.build().also(players::add) },
-                ) { Phone(landscape) { App(vm) } }
-            },
-        ) { request ->
-            if (request.url.encodedPath == "/api/config") json("""{"cameras": {"driveway": {"friendly_name": "Driveway"}}}""") else null
+    /** The one alert the server lists, in progress until [ended]. */
+    @Volatile private var ended = false
+
+    private fun review(): String {
+        val end = if (ended) "1700000060.0" else "null"
+        return """[{"id": "r1", "camera": "driveway", "start_time": 1700000000.0, "end_time": $end,
+            "has_been_reviewed": false, "severity": "alert", "thumb_path": "/t/r1.webp",
+            "data": {"objects": ["person"], "zones": [], "audio": []}}]"""
+    }
+
+    private fun show(): AppViewModel = compose.showApp(
+        serverRule.server,
+        temp.root,
+        scope,
+        content = { vm ->
+            CompositionLocalProvider(
+                LocalLifecycleOwner provides owner,
+                LocalPlayerFactory provides { builder -> builder.build().also(players::add) },
+            ) { Phone(landscape) { App(vm) } }
+        },
+    ) { request ->
+        when (request.url.encodedPath) {
+            "/api/config" -> json("""{"cameras": {"driveway": {"friendly_name": "Driveway"}}}""")
+            "/api/review" -> json(review())
+            else -> null
         }
+    }
+
+    private fun openRecording(): AppViewModel {
+        val vm = show()
         compose.runOnIdle { vm.nav.openRecording("driveway", 15) }
         compose.waitForIdle()
         return vm
@@ -106,6 +122,20 @@ class VodPlaybackTest {
         compose.onNodeWithContentDescription("Exit fullscreen").assertExists()
         compose.runOnIdle { landscape = false }
         compose.onNodeWithContentDescription("Fullscreen").assertExists()
+
+        assertEquals(1, compose.runOnIdle { players.size })
+    }
+
+    @Test
+    fun anAlertEndingWhileItPlaysKeepsItsPlayer() {
+        val vm = show()
+        compose.runOnIdle { vm.openEvent(vm.reviewById("r1")!!) }
+        compose.waitForIdle()
+        assertEquals(1, compose.runOnIdle { players.size })
+
+        ended = true
+        compose.runOnIdle { vm.refreshReviews() }
+        compose.awaitMain { vm.reviewById("r1")?.endTime != null }
 
         assertEquals(1, compose.runOnIdle { players.size })
     }

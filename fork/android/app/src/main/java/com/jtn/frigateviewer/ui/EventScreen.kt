@@ -68,9 +68,9 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
 
     PlaybackLayout(
         vm = vm,
-        // An ongoing event's range ends "now"; fix it per item and end time so
-        // recomposing does not restart the player.
-        url = remember(item.id, item.endTime) { session.api.reviewVodUrl(item) },
+        // An ongoing event's range ends "now"; fix it per item so neither recomposing
+        // nor the event ending while it plays starts the recording again from the top.
+        url = remember(item.id) { session.api.reviewVodUrl(item) },
         session = session,
         aspectRatio = camera?.aspectRatio ?: (16f / 9f),
         title = vm.cameraLabel(item.camera),
