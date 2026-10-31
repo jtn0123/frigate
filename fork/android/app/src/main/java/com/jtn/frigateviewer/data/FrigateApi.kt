@@ -115,10 +115,17 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
 
         internal val JSON = "application/json".toMediaType()
 
-        /** Accepts `host:port`, adds `http://` when no scheme is given, and drops a trailing slash. */
+        /**
+         * Accepts `host:port`, adds `http://` when no scheme is given, lowercases
+         * the scheme (so `Https://` is checked as `https://`), and drops a trailing slash.
+         */
         fun normalizeBaseUrl(input: String): String {
             val trimmed = input.trim().trimEnd('/')
-            val withScheme = if ("://" in trimmed) trimmed else "http://$trimmed"
+            val withScheme = if ("://" in trimmed) {
+                trimmed.substringBefore("://").lowercase() + "://" + trimmed.substringAfter("://")
+            } else {
+                "http://$trimmed"
+            }
             return "$withScheme/"
         }
 

@@ -25,6 +25,8 @@ class FrigateApiTest {
     fun normalizesBaseUrls() {
         assertEquals("http://10.0.0.5:5000/", FrigateApi.normalizeBaseUrl("10.0.0.5:5000"))
         assertEquals("https://nvr.local:8971/", FrigateApi.normalizeBaseUrl(" https://nvr.local:8971/ "))
+        assertEquals("https://nvr.local:8971/", FrigateApi.normalizeBaseUrl("Https://nvr.local:8971"))
+        assertEquals("http://NVR.local/", FrigateApi.normalizeBaseUrl("HTTP://NVR.local"))
     }
 
     @Test

@@ -140,6 +140,25 @@ class SignInTest {
     }
 
     @Test
+    fun aCapitalizedSchemeIsStillPlainHttp() = runTest {
+        val failure = runCatching {
+            signIn.signIn(ServerSettings(), "Http://203.0.113.5:5000", "admin", "secret", selfSignedCert = false)
+        }.exceptionOrNull()
+        assertTrue("Expected InsecureLoginException, got $failure", failure is InsecureLoginException)
+    }
+
+    @Test
+    fun aCapitalizedHttpsSchemeStillAsksToTrustTheCertificate() = runTest {
+        useTls()
+        server.enqueue(MockResponse.Builder().code(401).build())
+
+        val result = signIn.signIn(ServerSettings(), url().replaceFirst("https", "HTTPS"), "admin", "secret", selfSignedCert = true)
+
+        assertEquals(SignInResult.NeedsTrust(fingerprint, changed = false), result)
+        assertEquals(listOf("/api/version"), paths())
+    }
+
+    @Test
     fun recognizesPrivateAddresses() {
         listOf(
             "10.1.2.3", "172.16.0.1", "172.31.255.1", "192.168.1.10", "127.0.0.1", "100.101.102.103", "169.254.1.1",
