@@ -49,8 +49,10 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
     internal val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * Logs in and returns the JWT. Frigate only delivers it as a cookie, so
-     * the first cookie on the response is taken, whatever `auth.cookie_name` is.
+     * Logs in and returns the JWT. Frigate only delivers it as a cookie named
+     * by `auth.cookie_name`, which the app cannot read before signing in, and
+     * a proxy in front may add cookies of its own. So `frigate_token` (the
+     * default name) is taken if present, else a cookie holding a JWT, else the first.
      */
     suspend fun login(user: String, password: String): LoginToken {
         val body = buildJsonObject {
@@ -59,12 +61,13 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
         }.toString().toRequestBody(JSON)
         val request = Request.Builder().url(url("api/login")).post(body).build()
         return call(request) { response ->
-            response.headers("Set-Cookie")
-                .firstNotNullOfOrNull { cookie ->
-                    val pair = cookie.substringBefore(';').trim()
-                    val name = pair.substringBefore('=')
-                    cookieValue(cookie, name)?.let { LoginToken(name, it) }
-                }
+            val cookies = response.headers("Set-Cookie").mapNotNull { cookie ->
+                val name = cookie.substringBefore(';').trim().substringBefore('=')
+                cookieValue(cookie, name)?.let { LoginToken(name, it) }
+            }
+            cookies.firstOrNull { it.cookieName == ServerSettings.DEFAULT_TOKEN_COOKIE }
+                ?: cookies.firstOrNull { it.token.isJwt() }
+                ?: cookies.firstOrNull()
                 ?: throw IOException("Login succeeded but no token was returned")
         }
     }
@@ -222,5 +225,10 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
         }
 
         private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
+
+        /** Three base64url parts joined by dots, as a JWT is. */
+        private fun String.isJwt(): Boolean = JWT.matches(this)
+
+        private val JWT = Regex("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+")
     }
 }

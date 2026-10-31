@@ -110,6 +110,30 @@ class FrigateApiTest {
     }
 
     @Test
+    fun loginPrefersFrigatesCookieOverAProxys() = runTest {
+        server.enqueue(
+            MockResponse.Builder()
+                .addHeader("Set-Cookie", "AWSALB=sticky123; Path=/")
+                .addHeader("Set-Cookie", "frigate_token=abc.def.ghi; HttpOnly; Path=/")
+                .body("{}")
+                .build(),
+        )
+        assertEquals(LoginToken("frigate_token", "abc.def.ghi"), api().login("admin", "pw"))
+    }
+
+    @Test
+    fun loginFindsARenamedTokenCookieByItsJwt() = runTest {
+        server.enqueue(
+            MockResponse.Builder()
+                .addHeader("Set-Cookie", "session=opaque; Path=/")
+                .addHeader("Set-Cookie", "nvr_auth=aaa.bbb.ccc; Path=/")
+                .body("{}")
+                .build(),
+        )
+        assertEquals(LoginToken("nvr_auth", "aaa.bbb.ccc"), api().login("admin", "pw"))
+    }
+
+    @Test
     fun loginKeepsCustomCookieName() = runTest {
         server.enqueue(MockResponse.Builder().addHeader("Set-Cookie", "nvr_auth=xyz; Path=/").body("{}").build())
         assertEquals(LoginToken("nvr_auth", "xyz"), api().login("admin", "pw"))
