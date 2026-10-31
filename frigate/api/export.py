@@ -1182,7 +1182,9 @@ def bulk_delete_exports(body: ExportBulkDeleteBody):
     files_in_use = _get_files_in_use()
 
     for export in exports:
-        if export.video_path.split("/")[-1] in files_in_use:
+        # a staged export's ffmpeg writes into the cache, not the exports
+        # folder, so the open-file check alone misses it
+        if export.in_progress or export.video_path.split("/")[-1] in files_in_use:
             return JSONResponse(
                 content={
                     "success": False,
