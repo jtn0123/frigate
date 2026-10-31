@@ -22,8 +22,12 @@ import com.jtn.frigateviewer.data.SignInResult
 import com.jtn.frigateviewer.data.allowedCameras
 import com.jtn.frigateviewer.tunnel.RemoteAccess
 import java.io.IOException
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 
 /**
@@ -67,7 +71,18 @@ class AppViewModel(
     var cameras by mutableStateOf<Remote<List<Camera>>>(Remote.Loading)
         private set
 
-    private val reviewStore = ReviewStore(viewModelScope, onSessionLost = ::sessionLost)
+    /**
+     * The signed-in session's work. It is cancelled when the session ends, so
+     * a request still running from it cannot sign out or change the next one.
+     */
+    private var sessionJob = SupervisorJob(viewModelScope.coroutineContext.job)
+
+    /** Runs work in the current session's [sessionJob], read again at each launch. */
+    private val sessionScope = object : CoroutineScope {
+        override val coroutineContext: CoroutineContext get() = viewModelScope.coroutineContext + sessionJob
+    }
+
+    private val reviewStore = ReviewStore(sessionScope, onSessionLost = ::sessionLost)
     val reviews get() = reviewStore.reviews
     val refreshingReviews get() = reviewStore.refreshing
     var severity by reviewStore::severity
@@ -80,17 +95,17 @@ class AppViewModel(
     fun reviewMessageShown() = reviewStore.messageShown()
 
     /** Clips being saved and snapshots being shared. */
-    val clips = Clips(viewModelScope, onSessionLost = ::sessionLost, media)
+    val clips = Clips(sessionScope, onSessionLost = ::sessionLost, media)
 
     /** The server can find tracked objects from a description. */
     var semanticSearch by mutableStateOf(false)
         private set
 
     /** Switching cameras' detection and recording, and moving PTZ cameras, for admins. */
-    val controls = CameraControl(viewModelScope, onSessionLost = ::sessionLost)
+    val controls = CameraControl(sessionScope, onSessionLost = ::sessionLost)
 
     /** Searching past the last 24 hours; kept while its results are opened. */
-    val search = ReviewSearch(viewModelScope, onSessionLost = ::sessionLost)
+    val search = ReviewSearch(sessionScope, onSessionLost = ::sessionLost)
 
     /** go2rtc streams; null when unknown, in which case live video is attempted anyway. */
     private var liveStreams by mutableStateOf<Set<String>?>(null)
@@ -200,6 +215,8 @@ class AppViewModel(
 
     /** Forgets the session here, keeping the address for signing in again. */
     private fun endSession() {
+        // At once, so nothing from this session runs on while the store is cleared.
+        sessionJob.cancel()
         viewModelScope.launch {
             store.clearSession()
             savedSettings = savedSettings.copy(token = "")
@@ -256,7 +273,7 @@ class AppViewModel(
 
     fun refreshCameras() {
         val api = session?.api ?: return
-        viewModelScope.launch {
+        sessionScope.launch {
             if (cameras !is Remote.Ready) cameras = Remote.Loading
             val config = load(api::config)
             if (config is Remote.Ready) {
@@ -335,7 +352,11 @@ class AppViewModel(
     }
 
     private fun startSession(settings: ServerSettings) {
-        session = Session.saving(settings) { change -> viewModelScope.launch { updateSettings(change) } }
+        sessionJob.cancel()
+        sessionJob = SupervisorJob(viewModelScope.coroutineContext.job)
+        // Bound to this session's job: a token renewed for an ended session is not saved over the next one's.
+        val ownScope = CoroutineScope(viewModelScope.coroutineContext + sessionJob)
+        session = Session.saving(settings) { change -> ownScope.launch { updateSettings(change) } }
         cameras = Remote.Loading
         reviewStore.reset()
         refreshCameras()
@@ -347,15 +368,16 @@ class AppViewModel(
     private fun loadVersion() {
         val api = session?.api ?: return
         serverVersion = Remote.Loading
-        viewModelScope.launch { serverVersion = load(api::version) }
+        sessionScope.launch { serverVersion = load(api::version) }
     }
 
     private suspend fun <T> load(block: suspend () -> T): Remote<T> = loadRemote(::sessionLost, block)
 
     /** Runs a request for a screen's own data, signing out like any other request when the session is refused. */
     suspend fun <T> fetch(block: suspend (FrigateApi) -> T): Remote<T> {
-        val api = session?.api ?: return Remote.Failed("Not signed in")
-        return load { block(api) }
+        val current = session ?: return Remote.Failed("Not signed in")
+        // A screen's request can outlive its session; only the session it was made in may be ended by it.
+        return loadRemote({ reason -> if (session?.client === current.client) sessionLost(reason) }) { block(current.api) }
     }
 
     /** The server stopped accepting this session; sign in again, showing [reason] if there is one. */

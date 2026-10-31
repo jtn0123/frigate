@@ -3,6 +3,8 @@ package com.jtn.frigateviewer.ui
 import com.jtn.frigateviewer.data.AuthException
 import com.jtn.frigateviewer.data.certificateChange
 import java.io.IOException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /** Loading state for a remote list. */
 sealed interface Remote<out T> {
@@ -25,9 +27,12 @@ fun <T, R> Remote<T>.map(transform: (T) -> R): Remote<R> = when (this) {
 suspend fun <T> loadRemote(onSessionLost: (String?) -> Unit, block: suspend () -> T): Remote<T> = try {
     Remote.Ready(block())
 } catch (_: AuthException) {
+    // Work cancelled with its session must not end the one after it.
+    currentCoroutineContext().ensureActive()
     onSessionLost(null)
     Remote.Failed("Session expired, please sign in again")
 } catch (e: IOException) {
+    currentCoroutineContext().ensureActive()
     // Signing in again shows the new certificate for the user to judge.
     if (e.certificateChange() != null) onSessionLost(CERTIFICATE_CHANGED)
     Remote.Failed(describeError(e))

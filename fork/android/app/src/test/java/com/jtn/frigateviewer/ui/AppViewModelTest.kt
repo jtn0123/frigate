@@ -7,8 +7,12 @@ import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.data.certificateFingerprint
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -61,6 +65,9 @@ class AppViewModelTest {
     /** Body per path, in place of the default answer. */
     private val bodies = mutableMapOf<String, String>()
 
+    /** Answers per path that come before all others; null falls through to them. */
+    private val hooks = ConcurrentHashMap<String, (RecordedRequest) -> MockResponse?>()
+
     private val item = ReviewItem(id = "r1", camera = "driveway", startTime = 1.0, endTime = 2.0, severity = "alert", thumbPath = "/t.webp")
 
     @Before
@@ -72,15 +79,18 @@ class AppViewModelTest {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.url.encodedPath
                 paths += path
-                failing[path]?.let { return MockResponse.Builder().code(it).build() }
-                bodies[path]?.let { return MockResponse.Builder().body(it).build() }
-                return when (path) {
-                    "/api/login" -> MockResponse.Builder().addHeader("Set-Cookie", "frigate_token=jwt1; Path=/").body("{}").build()
-                    "/api/config" -> MockResponse.Builder().body("""{"cameras": {}}""").build()
-                    "/api/review" -> MockResponse.Builder().body("[]").build()
-                    "/api/version" -> MockResponse.Builder().body("0.17.0").build()
-                    else -> MockResponse.Builder().code(200).body("{}").build()
-                }
+                return hooks[path]?.let { hook -> hook(request) }
+                    ?: failing[path]?.let { MockResponse.Builder().code(it).build() }
+                    ?: bodies[path]?.let { MockResponse.Builder().body(it).build() }
+                    ?: defaultAnswer(path)
+            }
+
+            private fun defaultAnswer(path: String): MockResponse = when (path) {
+                "/api/login" -> MockResponse.Builder().addHeader("Set-Cookie", "frigate_token=jwt1; Path=/").body("{}").build()
+                "/api/config" -> MockResponse.Builder().body("""{"cameras": {}}""").build()
+                "/api/review" -> MockResponse.Builder().body("[]").build()
+                "/api/version" -> MockResponse.Builder().body("0.17.0").build()
+                else -> MockResponse.Builder().code(200).body("{}").build()
             }
         }
     }
@@ -294,5 +304,38 @@ class AppViewModelTest {
         await("cameras") { vm.cameras is Remote.Ready }
 
         assertEquals(listOf("front", "garage"), (runOnMain { vm.cameras } as Remote.Ready).value.map { it.name })
+    }
+
+    /** The first [path] request waits for [release] and is then refused as signed out. */
+    private fun holdFirstThenRefuse(path: String, release: CountDownLatch) {
+        val first = AtomicBoolean(true)
+        hooks[path] = {
+            if (first.getAndSet(false)) {
+                release.await(5, TimeUnit.SECONDS)
+                MockResponse.Builder().code(401).build()
+            } else {
+                null
+            }
+        }
+    }
+
+    @Test
+    fun aRequestLeftFromAnEndedSessionCannotEndTheNextOne() {
+        val release = CountDownLatch(1)
+        holdFirstThenRefuse("/api/review", release)
+        val vm = viewModel()
+        signIn(vm)
+        await("the first session's reviews to be asked for") { "/api/review" in paths }
+
+        runOnMain { vm.logout() }
+        await("sign-out") { vm.session == null }
+        signIn(vm)
+        val second = runOnMain { vm.session }
+        release.countDown()
+        Thread.sleep(500)
+
+        assertTrue("The new session is kept", runOnMain { vm.session } === second)
+        assertNull(runOnMain { vm.loginError })
+        assertEquals("jwt1", runBlocking { store.settings.first() }.token)
     }
 }
