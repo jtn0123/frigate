@@ -80,17 +80,22 @@ export default function MediaSyncSettingsView() {
           position: "top-center",
           closeButton: true,
         });
-      } else if (response.status === 409) {
-        toast.error(t("maintenance.sync.alreadyRunning"), {
+      }
+    } catch (e) {
+      // fork (UI155): axios rejects a 409, so it is told apart here
+      const alreadyRunning =
+        axios.isAxiosError(e) && e.response?.status === 409;
+      toast.error(
+        t(
+          alreadyRunning
+            ? "maintenance.sync.alreadyRunning"
+            : "maintenance.sync.error",
+        ),
+        {
           position: "top-center",
           closeButton: true,
-        });
-      }
-    } catch {
-      toast.error(t("maintenance.sync.error"), {
-        position: "top-center",
-        closeButton: true,
-      });
+        },
+      );
     } finally {
       setIsSubmitting(false);
     }
