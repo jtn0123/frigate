@@ -915,6 +915,21 @@ class TestLogin(_AuthHttpTestCase):
         self.assertEqual(wrong.json(), {"message": "Login failed"})
         self.assertEqual(self.failed_logins.record.call_count, 2)
 
+    def test_unknown_user_costs_a_password_check(self):
+        # B36: an unknown name answered before any hashing, so the timing
+        # told which usernames exist
+        with patch.object(auth_api, "verify_password", wraps=verify_password) as verify:
+            missing = self._login("ghost")
+
+        self.assertEqual(missing.status_code, 401)
+        # the configured iteration count, the cost of a real user's check
+        verify.assert_called_once_with(_PASSWORD, auth_api.unknown_user_hash(10))
+        for password in ("", _PASSWORD):
+            with self.subTest(password=password):
+                self.assertFalse(
+                    verify_password(password, auth_api.unknown_user_hash(10))
+                )
+
 
 class TestLoginRateLimit(_AuthHttpTestCase):
     def setUp(self):

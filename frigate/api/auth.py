@@ -527,6 +527,15 @@ def hash_password(password: str, salt=None, iterations=600000):
     return "{}${}${}${}".format(PASSWORD_HASH_ALGORITHM, iterations, salt, b64_hash)
 
 
+def unknown_user_hash(iterations: int) -> str:
+    """A stored hash for login to check an unknown username against (fork B36).
+
+    A miss then costs the same PBKDF2 run as a wrong password, so its timing
+    names no user. It matches no password: its digest is empty.
+    """
+    return f"{PASSWORD_HASH_ALGORITHM}${iterations}$unknownuser$"
+
+
 def verify_password(password, password_hash):
     if (password_hash or "").count("$") != 3:
         return False
@@ -1061,6 +1070,9 @@ def login(request: Request, body: AppPostLoginBody):
     try:
         db_user: User = User.get_by_id(user)
     except DoesNotExist:
+        verify_password(
+            password, unknown_user_hash(request.app.frigate_config.auth.hash_iterations)
+        )
         failed_logins.record(user, time.time())
         return failed_response()
 
