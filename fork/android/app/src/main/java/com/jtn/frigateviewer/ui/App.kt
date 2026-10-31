@@ -171,19 +171,19 @@ private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: Image
     when (overlay) {
         is Overlay.CameraDetail -> vm.cameraByName(overlay.camera)
             ?.let { CameraDetailScreen(vm, session, it, imageLoader) }
-            ?: Unavailable(vm, loading = vm.cameras is Remote.Loading)
+            ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.Event -> vm.reviewById(overlay.reviewId)
             ?.let { EventScreen(vm, session, it) }
-            ?: Unavailable(vm, loading = vm.reviews is Remote.Loading)
+            ?: Unavailable(vm, vm.reviews, onRetry = vm::refreshReviews)
         is Overlay.Recording -> vm.cameraByName(overlay.camera)
             ?.let { RecordingScreen(vm, session, it, overlay.minutes, overlay.end) }
-            ?: Unavailable(vm, loading = vm.cameras is Remote.Loading)
+            ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.Timeline -> vm.cameraByName(overlay.camera)
             ?.let { TimelineScreen(vm, session, it, overlay.start) }
-            ?: Unavailable(vm, loading = vm.cameras is Remote.Loading)
+            ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.LiveGrid -> LiveGridScreen(vm, session, overlay.cameras)
         Overlay.Health -> HealthScreen(vm)
-        Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(vm, it) } ?: Unavailable(vm, loading = false)
+        Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(vm, it) } ?: Unavailable(vm, source = null)
         Overlay.Search -> SearchScreen(vm, session, imageLoader)
     }
 }
@@ -245,18 +245,22 @@ private fun ShareSheet(request: ShareRequest?, onShown: () -> Unit) {
     }
 }
 
-/** A restored screen whose camera or event is still loading, or is gone. */
+/**
+ * A restored screen whose camera or event is not in [source], the list it comes from:
+ * still loading, failed to load (with the reason and a retry), or gone from the server.
+ */
 @Composable
-private fun Unavailable(vm: AppViewModel, loading: Boolean) {
+private fun Unavailable(vm: AppViewModel, source: Remote<*>?, onRetry: () -> Unit = {}) {
     Column(Modifier.fillMaxSize()) {
         IconButton(onClick = { vm.nav.back() }, modifier = Modifier.statusBarsPadding().padding(start = 4.dp, top = 4.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
         }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (loading) {
-                CircularProgressIndicator()
-            } else {
-                EmptyState(
+            when (source) {
+                Remote.Loading -> CircularProgressIndicator()
+                // The list did not load, so whether it is still there is not known yet.
+                is Remote.Failed -> RemoteContent(source, onRetry = onRetry) {}
+                else -> EmptyState(
                     Icons.Outlined.EventBusy,
                     "This is no longer available",
                     detail = "It may have been deleted, or aged out of what the server keeps.",

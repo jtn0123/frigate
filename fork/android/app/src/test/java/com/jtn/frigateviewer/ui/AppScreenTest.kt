@@ -157,6 +157,20 @@ class AppScreenTest {
     private fun dayHeader(state: String) = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, state)
 
     @Test
+    fun aRestoredEventWhoseListFailedSaysWhyAndRetries() {
+        val saved = SavedStateHandle(mapOf("overlays" to encodeOverlays(listOf(Overlay.Event("r1")))))
+
+        show(saved, reviewStatus = 500)
+
+        compose.onNodeWithText("Couldn't load this").assertExists()
+        compose.onNodeWithText("This is no longer available").assertDoesNotExist()
+        val before = serverRule.server.requestCount
+        compose.onNodeWithText("Retry").performScrollTo().performClick()
+
+        awaitMain { serverRule.server.requestCount > before }
+    }
+
+    @Test
     fun aRestoredEventThatIsGoneSaysSoAndGoesBack() {
         val saved = SavedStateHandle(mapOf("overlays" to encodeOverlays(listOf(Overlay.Event("gone")))))
 
