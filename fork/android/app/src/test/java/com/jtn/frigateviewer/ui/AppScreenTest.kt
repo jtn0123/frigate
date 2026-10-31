@@ -1,6 +1,8 @@
 package com.jtn.frigateviewer.ui
 
 import android.os.Looper
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -134,6 +136,25 @@ class AppScreenTest {
 
         awaitMain { serverRule.server.requestCount > before }
     }
+
+    @Test
+    fun aFoldedDayStaysFoldedUnderAPushedScreenAndAnotherTab() {
+        val vm = show()
+        compose.runOnIdle { vm.nav.tab = Tab.REVIEW }
+        compose.onNode(dayHeader("Expanded")).performClick()
+        compose.onNode(dayHeader("Collapsed")).assertExists()
+
+        compose.runOnIdle { vm.nav.push(Overlay.Health) }
+        compose.onNode(dayHeader("Collapsed")).assertDoesNotExist()
+        compose.runOnIdle { vm.nav.back() }
+        compose.onNode(dayHeader("Collapsed")).assertExists()
+
+        compose.runOnIdle { vm.nav.tab = Tab.CAMERAS }
+        compose.runOnIdle { vm.nav.tab = Tab.REVIEW }
+        compose.onNode(dayHeader("Collapsed")).assertExists()
+    }
+
+    private fun dayHeader(state: String) = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, state)
 
     @Test
     fun aRestoredEventThatIsGoneSaysSoAndGoesBack() {
