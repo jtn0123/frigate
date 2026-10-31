@@ -1729,6 +1729,8 @@ async def preview_gif(
                 | ((start_ts > Previews.start_time) & (end_ts < Previews.end_time))
             )
             .where(Previews.camera == camera_name)
+            # the earliest overlapping preview, the one that holds start_ts
+            .order_by(Previews.start_time.asc())
             .limit(1)
         )
         try:
@@ -1739,7 +1741,9 @@ async def preview_gif(
                 status_code=404,
             )
 
-        diff = start_ts - preview.start_time
+        # a preview that starts after start_ts is read from its beginning; a
+        # negative diff wrapped to the wrong second (-30 % 60 is 30)
+        diff = max(start_ts - preview.start_time, 0)
         minutes = int(diff / 60)
         seconds = int(diff % 60)
         config: FrigateConfig = request.app.frigate_config
@@ -1900,6 +1904,8 @@ async def preview_mp4(
                 | ((start_ts > Previews.start_time) & (end_ts < Previews.end_time))
             )
             .where(Previews.camera == camera_name)
+            # the earliest overlapping preview, the one that holds start_ts
+            .order_by(Previews.start_time.asc())
             .limit(1)
         )
         try:
@@ -1913,7 +1919,9 @@ async def preview_mp4(
                 status_code=404,
             )
 
-        diff = start_ts - preview.start_time
+        # a preview that starts after start_ts is read from its beginning; a
+        # negative diff wrapped to the wrong second (-30 % 60 is 30)
+        diff = max(start_ts - preview.start_time, 0)
         minutes = int(diff / 60)
         seconds = int(diff % 60)
         config: FrigateConfig = request.app.frigate_config
