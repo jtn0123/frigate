@@ -54,8 +54,18 @@ class ReviewStore(
 
     fun forCamera(camera: String): List<ReviewItem> = all.filter { it.camera == camera }
 
-    /** Forgets the list, for a new session. */
+    /** The running refresh, cancelled by [reset]. */
+    private var running: Job? = null
+
+    /** Counts [reset]s, so a refresh from before one leaves the new session's list and flag alone. */
+    private var generation = 0
+
+    /** Forgets the list and stops a refresh still running, for a new session. */
     fun reset() {
+        generation++
+        running?.cancel()
+        running = null
+        refreshing = false
         reviews = Remote.Loading
     }
 
@@ -63,15 +73,16 @@ class ReviewStore(
     fun refresh(api: FrigateApi): Job? {
         if (refreshing) return null
         refreshing = true
+        val started = generation
         return scope.launch {
             try {
                 val result = loadRemote(onSessionLost) { api.reviews(limit = limit) }
                 // Keep showing the last good list when a background refresh fails.
-                if (result is Remote.Ready || reviews !is Remote.Ready) reviews = result
+                if (started == generation && (result is Remote.Ready || reviews !is Remote.Ready)) reviews = result
             } finally {
-                refreshing = false
+                if (started == generation) refreshing = false
             }
-        }
+        }.also { running = it }
     }
 
     /**

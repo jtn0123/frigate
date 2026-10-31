@@ -15,6 +15,7 @@ import mockwebserver3.MockWebServer
 import mockwebserver3.junit4.MockWebServerRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -218,6 +219,25 @@ class ReviewStoreTest {
         val request = server.takeRequest(1, TimeUnit.SECONDS)!!
         assertEquals("/api/reviews/viewed", request.url.encodedPath)
         assertEquals("""{"ids":["a3"],"reviewed":true}""", request.body?.utf8())
+    }
+
+    @Test
+    fun aResetDropsTheRunningRefreshSoTheNextSessionLoadsItsOwn() = runBlocking {
+        server.enqueue(MockResponse.Builder().headersDelay(500, TimeUnit.MILLISECONDS).body(sample).build())
+        server.enqueue(MockResponse.Builder().body("[${review("n1", "front", "alert", 4000.0)}]").build())
+        val old = store.refresh(api)!!
+        server.takeRequest()
+
+        store.reset()
+        assertFalse("The new session is not left waiting on the old refresh", store.refreshing)
+        val fresh = store.refresh(api)
+        assertNotNull("The new session's refresh runs", fresh)
+        fresh!!.join()
+        old.join()
+
+        assertEquals(listOf("n1"), ids())
+        assertFalse(store.refreshing)
+        assertTrue(sessionLost.isEmpty())
     }
 }
 
