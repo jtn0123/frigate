@@ -193,13 +193,19 @@ internal fun PlaybackLayout(
     if (landscape) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             VodVideo(playback, Modifier.fillMaxSize())
-            Row(Modifier.safeDrawingPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // One row, so a long title ends short of the exit button rather than under it.
+            Row(Modifier.fillMaxWidth().safeDrawingPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { vm.nav.back() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
-                Text(title, color = Color.White, style = MaterialTheme.typography.titleMedium)
-            }
-            Box(Modifier.align(Alignment.TopEnd).safeDrawingPadding()) {
+                Text(
+                    title,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
                 OverlayIconButton(Icons.Filled.FullscreenExit, "Exit fullscreen") { setFullscreen(false) }
             }
         }

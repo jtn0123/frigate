@@ -39,6 +39,12 @@ class FormatTest {
     }
 
     @Test
+    fun theLivePillNamesTheFirstThingAndCountsTheRest() {
+        assertEquals("MOTION", pillLabel("Motion"))
+        assertEquals("PERSON +2", pillLabel("Person, Car, Dog"))
+    }
+
+    @Test
     fun theSecondLineNamesWhereAndNeverRepeatsTheTime() {
         val item = ReviewItem(id = "1", camera = "driveway", startTime = 1.0, endTime = 2.0, severity = "alert", thumbPath = "/t.webp")
         val person = item.copy(data = ReviewData(objects = listOf("person")))

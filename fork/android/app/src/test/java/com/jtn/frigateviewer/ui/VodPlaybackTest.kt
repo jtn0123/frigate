@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -25,8 +26,11 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.GraphicsMode
 
 /** A recording's player: paused in the background and kept through changes of layout. */
+// Real text layout, so a long title takes the width it would on a phone.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @RunWith(RobolectricTestRunner::class)
 class VodPlaybackTest {
     @get:Rule val compose = createComposeRule()
@@ -53,6 +57,9 @@ class VodPlaybackTest {
         scope.cancel()
     }
 
+    /** The camera's name as the server gives it. */
+    @Volatile private var label = "Driveway"
+
     /** The one alert the server lists, in progress until [ended]. */
     @Volatile private var ended = false
 
@@ -75,7 +82,7 @@ class VodPlaybackTest {
         },
     ) { request ->
         when (request.url.encodedPath) {
-            "/api/config" -> json("""{"cameras": {"driveway": {"friendly_name": "Driveway"}}}""")
+            "/api/config" -> json("""{"cameras": {"driveway": {"friendly_name": "$label"}}}""")
             "/api/review" -> json(review())
             else -> null
         }
@@ -138,5 +145,16 @@ class VodPlaybackTest {
         compose.awaitMain { vm.reviewById("r1")?.endTime != null }
 
         assertEquals(1, compose.runOnIdle { players.size })
+    }
+
+    @Test
+    fun aLongTitleInFullscreenStopsShortOfTheExitButton() {
+        label = "The camera over the side gate by the garden shed, looking down the drive"
+        landscape = true
+        openRecording()
+
+        val title = compose.onNodeWithText(label).fetchSemanticsNode().boundsInRoot
+        val exit = compose.onNodeWithContentDescription("Exit fullscreen").fetchSemanticsNode().boundsInRoot
+        assertTrue("The title ends before the button", title.right <= exit.left)
     }
 }
