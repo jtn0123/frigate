@@ -48,6 +48,10 @@ class Clips(
     var share by mutableStateOf<ShareRequest?>(null)
         private set
 
+    /** Items whose snapshot is being fetched to share; their Share button waits meanwhile. */
+    var sharingSnapshots by mutableStateOf<Set<String>>(emptySet())
+        private set
+
     /** A one-time message, such as a snapshot that could not be fetched; cleared with [noticeShown]. */
     var notice by mutableStateOf<String?>(null)
         private set
@@ -88,16 +92,23 @@ class Clips(
         (states[item.id] as? ClipState.Saved)?.let { share = ShareRequest(it.uri, "video/mp4") }
     }
 
+    /** Shares [item]'s snapshot; null when it is already being fetched (a double tap) or there is nowhere to put it. */
     fun shareSnapshot(api: FrigateApi, item: ReviewItem, cameraLabel: String): Job? {
-        val files = media ?: return null
+        val files = media
+        if (files == null || item.id in sharingSnapshots) return null
+        sharingSnapshots = sharingSnapshots + item.id
         return scope.launch {
-            val result = loadRemote(onSessionLost) {
-                files.shareable("${clipName(cameraLabel, item.startTime)}.jpg", api.reviewSnapshot(item))
-            }
-            when (result) {
-                is Remote.Ready -> share = ShareRequest(result.value, "image/jpeg")
-                is Remote.Failed -> notice = "Could not get the snapshot (${result.message})"
-                Remote.Loading -> Unit
+            try {
+                val result = loadRemote(onSessionLost) {
+                    files.shareable("${clipName(cameraLabel, item.startTime)}.jpg", api.reviewSnapshot(item))
+                }
+                when (result) {
+                    is Remote.Ready -> share = ShareRequest(result.value, "image/jpeg")
+                    is Remote.Failed -> notice = "Could not get the snapshot (${result.message})"
+                    Remote.Loading -> Unit
+                }
+            } finally {
+                sharingSnapshots = sharingSnapshots - item.id
             }
         }
     }
@@ -113,6 +124,7 @@ class Clips(
     /** Forgets everything, for a new session. */
     fun reset() {
         states = emptyMap()
+        sharingSnapshots = emptySet()
         share = null
         notice = null
     }

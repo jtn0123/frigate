@@ -4,20 +4,26 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.MediaFiles
+import com.jtn.frigateviewer.data.ReviewItem
+import com.jtn.frigateviewer.data.buildHttpClient
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.junit4.MockWebServerRule
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -130,6 +136,24 @@ class ClipsTest {
 
         assertArrayEquals(jpeg, media.saved.single().second)
         assertTrue(media.saved.single().first.endsWith(".jpg"))
+    }
+
+    @Test
+    fun aDoubleTapSharesTheSnapshotOnce() {
+        serverRule.server.enqueue(MockResponse.Builder().headersDelay(300, TimeUnit.MILLISECONDS).body(Buffer().write(jpeg)).build())
+        val api = FrigateApi(buildHttpClient(null, pin = null), serverRule.server.url("/").toString())
+        val clips = Clips(scope, onSessionLost = {}, media)
+        val item = ReviewItem(id = "r1", camera = "driveway", startTime = 1.0, endTime = 2.0, severity = "alert", thumbPath = "/t.webp")
+
+        val first = clips.shareSnapshot(api, item, "Driveway")
+        assertNull("The second tap waits for the first", clips.shareSnapshot(api, item, "Driveway"))
+        assertEquals(setOf("r1"), clips.sharingSnapshots)
+        runBlocking { first!!.join() }
+
+        assertEquals(1, serverRule.server.requestCount)
+        assertEquals(1, media.saved.size)
+        assertTrue(clips.sharingSnapshots.isEmpty())
+        assertEquals("image/jpeg", clips.share?.mime)
     }
 
     @Test
