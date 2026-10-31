@@ -61,12 +61,13 @@ from frigate.config.classification import ObjectClassificationType
 from frigate.const import CLIPS_DIR
 from frigate.embeddings import EmbeddingsContext
 from frigate.fork.event_data_keys import custom_attribute_keys
+from frigate.fork.time_of_day import time_of_day_clause
 from frigate.models import Event, ReviewSegment, Trigger
 from frigate.track.object_processing import TrackedObject
 from frigate.util.file import get_event_thumbnail_bytes, load_event_snapshot_image
 from frigate.util.identifiers import random_id as generate_id
 from frigate.util.path import get_trigger_thumbnail_path, safe_join
-from frigate.util.time import get_dst_transitions, get_tz_modifiers
+from frigate.util.time import get_dst_transitions
 
 _EVENT_NOT_FOUND = "Event not found"
 _SEMANTIC_SEARCH_IS_NOT_ENABLED = "Semantic search is not enabled"
@@ -282,32 +283,13 @@ def events(
         clauses.append(Event.start_time < before)
 
     if time_range != DEFAULT_TIME_RANGE:
-        # get timezone arg to ensure browser times are used
-        tz_name = params.timezone
-        hour_modifier, minute_modifier, _ = get_tz_modifiers(tz_name)
-
-        times = time_range.split(",")
-        time_after = times[0]
-        time_before = times[1]
-
-        start_hour_fun = fn.strftime(
-            "%H:%M",
-            fn.datetime(Event.start_time, "unixepoch", hour_modifier, minute_modifier),
-        )
-
-        # cases where user wants events overnight, ex: from 20:00 to 06:00
-        # should use or operator
-        if time_after > time_before:
-            clauses.append(
-                reduce(
-                    operator.or_,
-                    [(start_hour_fun > time_after), (start_hour_fun < time_before)],
-                )
+        # get timezone arg to ensure browser times are used, with each event's
+        # own DST offset (fork B36)
+        clauses.append(
+            time_of_day_clause(
+                Event.start_time, time_range, params.timezone, after, before
             )
-        # all other cases should be and operator
-        else:
-            clauses.append(start_hour_fun > time_after)
-            clauses.append(start_hour_fun < time_before)
+        )
 
     if has_clip is not None:
         clauses.append(Event.has_clip == has_clip)
@@ -696,30 +678,12 @@ def events_search(
             event_filters.append(Event.data["average_estimated_speed"] <= max_speed)
 
     if time_range != DEFAULT_TIME_RANGE:
-        tz_name = params.timezone
-        hour_modifier, minute_modifier, _ = get_tz_modifiers(tz_name)
-
-        times = time_range.split(",")
-        time_after, time_before = times
-
-        start_hour_fun = fn.strftime(
-            "%H:%M",
-            fn.datetime(Event.start_time, "unixepoch", hour_modifier, minute_modifier),
-        )
-
-        # cases where user wants events overnight, ex: from 20:00 to 06:00
-        # should use or operator
-        if time_after > time_before:
-            event_filters.append(
-                reduce(
-                    operator.or_,
-                    [(start_hour_fun > time_after), (start_hour_fun < time_before)],
-                )
+        # each event's own DST offset (fork B36)
+        event_filters.append(
+            time_of_day_clause(
+                Event.start_time, time_range, params.timezone, after, before
             )
-        # all other cases should be and operator
-        else:
-            event_filters.append(start_hour_fun > time_after)
-            event_filters.append(start_hour_fun < time_before)
+        )
 
     # Perform semantic search
     search_results = {}

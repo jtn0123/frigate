@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from frigate.models import Event, Export, Previews, Recordings, ReviewSegment
 from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
+from frigate.util.time import get_timezone
 
 
 class _BoundsTestCase(BaseTestHttp):
@@ -139,3 +140,45 @@ class TestHourEndpointsUseTheDatesOffset(_BoundsTestCase):
         start_ts, end_ts = vod.call_args.args[1:3]
         self.assertEqual(start_ts, datetime(2024, 11, 3, 5, tzinfo=UTC).timestamp())
         self.assertAlmostEqual(end_ts - start_ts, 3600, places=2)
+
+
+class TestEventsTimeOfDayFilter(_BoundsTestCase):
+    def _ids(self, **params) -> set[str]:
+        with AuthTestClient(self.app) as client:
+            response = client.get(
+                "/events",
+                params={"timezone": "America/New_York", "limit": 100, **params},
+            )
+        self.assertEqual(response.status_code, 200)
+        return {event["id"] for event in response.json()}
+
+    def _event(self, id: str, local: datetime) -> None:
+        self.insert_mock_event(id, start_time=local.timestamp())
+
+    def test_each_event_uses_its_own_offset_and_the_start_minute(self):
+        tz = get_timezone("America/New_York")
+        self._event("winter_start", datetime(2024, 1, 15, 8, 0, 30, tzinfo=tz))
+        self._event("winter_before", datetime(2024, 1, 15, 7, 59, tzinfo=tz))
+        self._event("summer_inside", datetime(2024, 7, 15, 8, 30, tzinfo=tz))
+        self._event("summer_end", datetime(2024, 7, 15, 9, 0, tzinfo=tz))
+
+        self.assertEqual(
+            self._ids(time_range="08:00,09:00"), {"winter_start", "summer_inside"}
+        )
+        # the same with explicit bounds around both dates
+        self.assertEqual(
+            self._ids(
+                time_range="08:00,09:00",
+                after=datetime(2024, 1, 1, tzinfo=UTC).timestamp(),
+                before=datetime(2024, 8, 1, tzinfo=UTC).timestamp(),
+            ),
+            {"winter_start", "summer_inside"},
+        )
+
+    def test_an_overnight_range_spans_midnight(self):
+        tz = get_timezone("America/New_York")
+        self._event("late", datetime(2024, 1, 15, 22, 0, tzinfo=tz))
+        self._event("early", datetime(2024, 7, 16, 5, 59, tzinfo=tz))
+        self._event("midday", datetime(2024, 7, 16, 12, 0, tzinfo=tz))
+
+        self.assertEqual(self._ids(time_range="20:00,06:00"), {"late", "early"})
