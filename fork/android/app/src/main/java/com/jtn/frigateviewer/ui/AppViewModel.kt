@@ -19,6 +19,7 @@ import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.data.Severity
 import com.jtn.frigateviewer.data.SignIn
 import com.jtn.frigateviewer.data.SignInResult
+import com.jtn.frigateviewer.data.allowedCameras
 import com.jtn.frigateviewer.tunnel.RemoteAccess
 import java.io.IOException
 import kotlinx.coroutines.flow.drop
@@ -262,7 +263,9 @@ class AppViewModel(
                 liveStreams = config.value.liveStreams
                 semanticSearch = config.value.semanticSearch
             }
-            cameras = config.map { it.cameras }
+            // A role limited to some cameras would only get 403s from the others.
+            val allowed = if (config is Remote.Ready) api.allowedCameras() else null
+            cameras = config.map { it.cameras.filter { camera -> allowed == null || camera.name in allowed } }
         }
     }
 

@@ -7,6 +7,8 @@ import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import java.io.IOException
+import java.net.HttpURLConnection.HTTP_FORBIDDEN
+import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
@@ -93,7 +95,8 @@ class MseStream(client: OkHttpClient, url: String, private val readTimeoutSecond
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             val error = when (response?.code) {
-                401, 403 -> AuthException("Not authorized for live video (HTTP ${response.code})")
+                HTTP_UNAUTHORIZED -> AuthException("Not authorized for live video (HTTP $HTTP_UNAUTHORIZED)")
+                HTTP_FORBIDDEN -> HttpException(HTTP_FORBIDDEN, FrigateApi.NOT_ALLOWED)
                 else -> IOException("Live stream connection failed", t)
             }
             events.put(Event.Failed(error))

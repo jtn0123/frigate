@@ -70,6 +70,25 @@ class FrigateApiTest {
     }
 
     @Test
+    fun forbiddenIsAnOrdinaryFailureNotASignOut() = runTest {
+        server.enqueue(MockResponse.Builder().code(403).body("""{"detail":"Access denied to camera 'back'"}""").build())
+        val failure = runCatching { api().config() }.exceptionOrNull()
+        assertFalse("Not a sign-out", failure is AuthException)
+        assertEquals(403, (failure as HttpException).code)
+        assertEquals(FrigateApi.NOT_ALLOWED, failure.message)
+    }
+
+    @Test
+    fun allowedCamerasAreReadFromTheProfile() = runTest {
+        server.enqueue(MockResponse.Builder().body("""{"username":"v","role":"viewer","allowed_cameras":["front"]}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"username":"v","role":"viewer"}""").build())
+        server.enqueue(MockResponse.Builder().code(404).build())
+        assertEquals(setOf("front"), api().allowedCameras())
+        assertNull("An older server does not say", api().allowedCameras())
+        assertNull("No profile hides nothing", api().allowedCameras())
+    }
+
+    @Test
     fun loginKeepsCustomCookieName() = runTest {
         server.enqueue(MockResponse.Builder().addHeader("Set-Cookie", "nvr_auth=xyz; Path=/").body("{}").build())
         assertEquals(LoginToken("nvr_auth", "xyz"), api().login("admin", "pw"))

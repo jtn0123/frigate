@@ -25,7 +25,15 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 
+/** The server no longer accepts this session (HTTP 401): it has to be signed in again. */
 class AuthException(message: String) : IOException(message)
+
+/**
+ * The server answered [code], which is not a success. A 403 is one of these,
+ * not an [AuthException]: Frigate sends it when this account may not see a
+ * camera or do something, while the session itself stays good.
+ */
+class HttpException(val code: Int, message: String) : IOException(message)
 
 /** The JWT from a login and the name of the cookie Frigate delivered it in (`auth.cookie_name`). */
 data class LoginToken(val cookieName: String, val token: String)
@@ -98,9 +106,9 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
     internal suspend fun <T> call(request: Request, read: (Response) -> T): T = withContext(Dispatchers.IO) {
         client.newCall(request).execute().use { response ->
             when {
-                response.code == HTTP_UNAUTHORIZED || response.code == HTTP_FORBIDDEN ->
-                    throw AuthException("Not authorized (HTTP ${response.code})")
-                !response.isSuccessful -> throw IOException("HTTP ${response.code} for ${request.url.encodedPath}")
+                response.code == HTTP_UNAUTHORIZED -> throw AuthException("Not authorized (HTTP ${response.code})")
+                response.code == HTTP_FORBIDDEN -> throw HttpException(response.code, NOT_ALLOWED)
+                !response.isSuccessful -> throw HttpException(response.code, "HTTP ${response.code} for ${request.url.encodedPath}")
                 else -> read(response)
             }
         }
@@ -114,6 +122,9 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
         private const val LOGOUT_TIMEOUT_SECONDS = 5L
 
         internal val JSON = "application/json".toMediaType()
+
+        /** What a 403 means for a signed-in user. */
+        const val NOT_ALLOWED = "Your account is not allowed to see or do this (HTTP 403)"
 
         /**
          * Accepts `host:port`, adds `http://` when no scheme is given, lowercases

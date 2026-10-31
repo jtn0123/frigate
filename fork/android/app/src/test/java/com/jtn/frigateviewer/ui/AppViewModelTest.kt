@@ -58,6 +58,9 @@ class AppViewModelTest {
     /** Status per path, for the responses that should fail. */
     private val failing = mutableMapOf<String, Int>()
 
+    /** Body per path, in place of the default answer. */
+    private val bodies = mutableMapOf<String, String>()
+
     private val item = ReviewItem(id = "r1", camera = "driveway", startTime = 1.0, endTime = 2.0, severity = "alert", thumbPath = "/t.webp")
 
     @Before
@@ -70,6 +73,7 @@ class AppViewModelTest {
                 val path = request.url.encodedPath
                 paths += path
                 failing[path]?.let { return MockResponse.Builder().code(it).build() }
+                bodies[path]?.let { return MockResponse.Builder().body(it).build() }
                 return when (path) {
                     "/api/login" -> MockResponse.Builder().addHeader("Set-Cookie", "frigate_token=jwt1; Path=/").body("{}").build()
                     "/api/config" -> MockResponse.Builder().body("""{"cameras": {}}""").build()
@@ -265,5 +269,30 @@ class AppViewModelTest {
         assertEquals("", runBlocking { store.settings.first() }.token)
         assertFalse("Nothing to revoke", "/api/logout" in paths)
         assertNotNull("Stays on the sign-in screen with the address", runOnMain { vm.savedSettings.baseUrl.ifEmpty { null } })
+    }
+
+    @Test
+    fun aForbiddenRequestFailsWithoutSigningOut() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "viewer", token = "jwt1")) }
+        failing["/api/review"] = 403
+
+        val vm = viewModel()
+        await("reviews to fail") { vm.reviews is Remote.Failed }
+
+        assertNotNull("Still signed in", runOnMain { vm.session })
+        assertEquals("jwt1", runBlocking { store.settings.first() }.token)
+        assertTrue((runOnMain { vm.reviews } as Remote.Failed).message.contains("403"))
+    }
+
+    @Test
+    fun onlyTheCamerasTheAccountMaySeeAreListed() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "viewer", token = "jwt1")) }
+        bodies["/api/config"] = """{"cameras": {"front": {}, "back": {}, "garage": {}}}"""
+        bodies["/api/profile"] = """{"username": "viewer", "role": "family", "allowed_cameras": ["front", "garage"]}"""
+
+        val vm = viewModel()
+        await("cameras") { vm.cameras is Remote.Ready }
+
+        assertEquals(listOf("front", "garage"), (runOnMain { vm.cameras } as Remote.Ready).value.map { it.name })
     }
 }
