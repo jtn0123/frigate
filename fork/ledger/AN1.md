@@ -1,0 +1,1 @@
+| AN1 | android | `fork/android/`, `.github/workflows/fork-android.yml`, `sonar-project.properties` (exclusion) | Native Android viewer for this fork's server (live video, review, recordings, app-only WireGuard tunnel), kept beside the server it talks to; its own workflow runs the app's check, so Sonar skips the Kotlin | fork-only |
