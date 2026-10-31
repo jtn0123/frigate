@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.data
 
 import java.io.IOException
 import java.io.OutputStream
+import java.net.HttpURLConnection.HTTP_NOT_FOUND
 import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -44,16 +45,54 @@ suspend fun FrigateApi.startExport(camera: String, start: Long, end: Long, name:
 suspend fun FrigateApi.exportInfo(id: String): ExportInfo? =
     json.decodeFromString<List<ExportInfo>>(getText(url("api/exports"))).firstOrNull { it.id == id }
 
-/** Waits for export [id] to finish, checking every [intervalMs], and returns where to download it. */
+/** Where export job [id] is, from `/api/jobs/export/<id>`; only what the app reads. */
+@Serializable
+internal data class ExportJob(val status: String = "", @SerialName("error_message") val errorMessage: String? = null) {
+    val failed: Boolean get() = status == "failed" || status == "cancelled"
+}
+
+/**
+ * Export job [id], or null when the server does not know it: an older server
+ * without the route, or a job dropped a few seconds after it finished.
+ */
+internal suspend fun FrigateApi.exportJob(id: String): ExportJob? = try {
+    json.decodeFromString<ExportJob>(getText(url("api/jobs/export/$id")))
+} catch (e: HttpException) {
+    if (e.code != HTTP_NOT_FOUND) throw e
+    null
+}
+
+private fun ExportInfo?.isDone() = this != null && !inProgress && videoPath.isNotEmpty()
+
+/**
+ * Waits for export [id] to finish, checking every [intervalMs], and returns
+ * where to download it. A failed export never appears as finished, so its
+ * job is checked too: a job that failed, or vanished without leaving a
+ * finished export, ends the wait at once instead of after [timeoutMs].
+ */
 suspend fun FrigateApi.awaitExport(id: String, intervalMs: Long = EXPORT_POLL_MS, timeoutMs: Long = EXPORT_TIMEOUT_MS): ExportInfo {
     val deadline = System.currentTimeMillis() + timeoutMs
+    var jobSeen = false
+    var checksSinceJobGone = 0
     while (System.currentTimeMillis() < deadline) {
-        val info = exportInfo(id)
-        if (info != null && !info.inProgress && info.videoPath.isNotEmpty()) return info
+        exportInfo(id).takeIf { it.isDone() }?.let { return it }
+        val job = exportJob(id)
+        jobSeen = jobSeen || job != null
+        // A finished job is dropped after a few seconds; give its export one more check to be listed.
+        checksSinceJobGone = if (job == null && jobSeen) checksSinceJobGone + 1 else 0
+        val failure = when {
+            job?.failed == true -> exportFailure(job)
+            checksSinceJobGone > 1 -> EXPORT_GONE
+            else -> null
+        }
+        failure?.let { throw IOException(it) }
         delay(intervalMs)
     }
     throw IOException("The export took too long; it may still appear in Frigate's Exports")
 }
+
+private fun exportFailure(job: ExportJob) =
+    "The server could not make the clip" + (job.errorMessage?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "")
 
 /** Copies a finished export into [out]. Frigate serves exports from `/exports/`, not their path on disk. */
 suspend fun FrigateApi.downloadExport(info: ExportInfo, out: OutputStream) {
@@ -75,5 +114,6 @@ suspend fun FrigateApi.reviewSnapshot(item: ReviewItem): ByteArray {
     return call(Request.Builder().url(url(path)).build()) { it.body.bytes() }
 }
 
+private const val EXPORT_GONE = "The server stopped making the clip"
 private const val EXPORT_POLL_MS = 2_000L
 private const val EXPORT_TIMEOUT_MS = 10 * 60_000L
