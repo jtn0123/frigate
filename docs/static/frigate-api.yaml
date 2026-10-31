@@ -2321,6 +2321,8 @@ paths:
           required: false
           schema:
             type: integer
+            maximum: 3600
+            minimum: 1
             default: 30
             title: Scale
       responses:

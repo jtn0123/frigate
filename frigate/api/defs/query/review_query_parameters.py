@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
 from frigate.review.types import SeverityEnum
@@ -26,4 +26,5 @@ class ReviewActivityMotionQueryParams(BaseModel):
     cameras: str = "all"
     before: float | SkipJsonSchema[None] = None
     after: float | SkipJsonSchema[None] = None
-    scale: int = 30
+    # seconds per bucket: 0 divides by zero and over 3600 makes a zero chunk
+    scale: int = Field(30, ge=1, le=3600)

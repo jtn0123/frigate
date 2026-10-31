@@ -182,3 +182,22 @@ class TestEventsTimeOfDayFilter(_BoundsTestCase):
         self._event("midday", datetime(2024, 7, 16, 12, 0, tzinfo=tz))
 
         self.assertEqual(self._ids(time_range="20:00,06:00"), {"late", "early"})
+
+
+class TestMotionActivityScale(_BoundsTestCase):
+    def test_scale_is_bounded(self):
+        # 0 divided by zero; over 3600 made a chunk of 0 rows and range() raised
+        with AuthTestClient(self.app) as client:
+            for scale in (0, 3601):
+                with self.subTest(scale=scale):
+                    response = client.get(
+                        "/review/activity/motion", params={"scale": scale}
+                    )
+                    self.assertEqual(response.status_code, 422)
+
+            for scale in (1, 3600):
+                with self.subTest(scale=scale):
+                    response = client.get(
+                        "/review/activity/motion", params={"scale": scale}
+                    )
+                    self.assertEqual(response.status_code, 200)
