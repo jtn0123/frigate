@@ -25,6 +25,7 @@ import mockwebserver3.RecordedRequest
 import mockwebserver3.junit4.MockWebServerRule
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -64,6 +65,17 @@ class SearchTest {
         assertEquals(LocalDate.of(2026, 10, 1).atStartOfDay(ZoneOffset.UTC).toEpochSecond(), custom.after)
         assertEquals(LocalDate.of(2026, 10, 3).atStartOfDay(ZoneOffset.UTC).toEpochSecond(), custom.before)
         assertEquals("van", filter(SearchInputs(query = "  van ")).query)
+    }
+
+    @Test
+    fun theDatePickerOffersEveryDayUpToTodayHereWhateverTheZone() {
+        // The picker's days are midnight UTC; today is 2026-10-31 here, whatever the time is in UTC.
+        val today = LocalDate.of(2026, 10, 31)
+        fun pickerDay(date: LocalDate) = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+        assertTrue(isPickableDay(pickerDay(today), today))
+        assertTrue(isPickableDay(pickerDay(today.minusDays(30)), today))
+        assertFalse(isPickableDay(pickerDay(today.plusDays(1)), today))
     }
 
     private val oldReview =

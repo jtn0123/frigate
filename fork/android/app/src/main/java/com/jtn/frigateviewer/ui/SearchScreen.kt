@@ -168,7 +168,7 @@ private fun <T> ChipRow(items: List<T>, selected: (T) -> Boolean, label: (T) -> 
 private fun DatesDialog(onDismiss: () -> Unit, onPick: (LocalDate, LocalDate) -> Unit) {
     val state = rememberDateRangePickerState(
         selectableDates = object : SelectableDates {
-            override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= System.currentTimeMillis()
+            override fun isSelectableDate(utcTimeMillis: Long) = isPickableDay(utcTimeMillis)
         },
     )
 
@@ -188,6 +188,14 @@ private fun DatesDialog(onDismiss: () -> Unit, onPick: (LocalDate, LocalDate) ->
         DateRangePicker(state, Modifier.weight(1f), title = { Text("Days to search", Modifier.padding(start = 24.dp, top = 16.dp)) })
     }
 }
+
+/**
+ * Whether the picker's day at [utcTimeMillis], midnight UTC of that date, is no later
+ * than [today] here. Comparing it with the current time instead would shut out today
+ * east of UTC, before midnight UTC comes, and let in tomorrow west of it.
+ */
+internal fun isPickableDay(utcTimeMillis: Long, today: LocalDate = LocalDate.now()): Boolean =
+    !Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate().isAfter(today)
 
 private fun dateSpan(from: LocalDate, to: LocalDate): String {
     val first = dayLabel(from.atStartOfDay(ZoneId.systemDefault()).toEpochSecond().toDouble())

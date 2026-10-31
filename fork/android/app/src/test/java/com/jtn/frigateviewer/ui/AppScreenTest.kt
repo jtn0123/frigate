@@ -1,6 +1,8 @@
 package com.jtn.frigateviewer.ui
 
 import android.os.Looper
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -129,6 +131,39 @@ class AppScreenTest {
         compose.runOnIdle { vm.nav.tab = Tab.REVIEW }
 
         compose.onNodeWithText("Couldn't load this").assertExists()
+        val before = serverRule.server.requestCount
+        compose.onNodeWithText("Retry").performScrollTo().performClick()
+
+        awaitMain { serverRule.server.requestCount > before }
+    }
+
+    @Test
+    fun aFoldedDayStaysFoldedUnderAPushedScreenAndAnotherTab() {
+        val vm = show()
+        compose.runOnIdle { vm.nav.tab = Tab.REVIEW }
+        compose.onNode(dayHeader("Expanded")).performClick()
+        compose.onNode(dayHeader("Collapsed")).assertExists()
+
+        compose.runOnIdle { vm.nav.push(Overlay.Health) }
+        compose.onNode(dayHeader("Collapsed")).assertDoesNotExist()
+        compose.runOnIdle { vm.nav.back() }
+        compose.onNode(dayHeader("Collapsed")).assertExists()
+
+        compose.runOnIdle { vm.nav.tab = Tab.CAMERAS }
+        compose.runOnIdle { vm.nav.tab = Tab.REVIEW }
+        compose.onNode(dayHeader("Collapsed")).assertExists()
+    }
+
+    private fun dayHeader(state: String) = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, state)
+
+    @Test
+    fun aRestoredEventWhoseListFailedSaysWhyAndRetries() {
+        val saved = SavedStateHandle(mapOf("overlays" to encodeOverlays(listOf(Overlay.Event("r1")))))
+
+        show(saved, reviewStatus = 500)
+
+        compose.onNodeWithText("Couldn't load this").assertExists()
+        compose.onNodeWithText("This is no longer available").assertDoesNotExist()
         val before = serverRule.server.requestCount
         compose.onNodeWithText("Retry").performScrollTo().performClick()
 

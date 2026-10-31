@@ -1,8 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.view.LayoutInflater
-import android.widget.FrameLayout
-import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,39 +41,21 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.hls.HlsMediaSource
-import androidx.media3.ui.PlayerView
-import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.reviewVodUrl
 import com.jtn.frigateviewer.data.vodUrl
-import kotlinx.coroutines.delay
 
 /** A review item's recording, with what happened and previous/next navigation. */
 @Composable
@@ -89,9 +68,9 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
 
     PlaybackLayout(
         vm = vm,
-        // An ongoing event's range ends "now"; fix it per item and end time so
-        // recomposing does not restart the player.
-        url = remember(item.id, item.endTime) { session.api.reviewVodUrl(item) },
+        // An ongoing event's range ends "now"; fix it per item so neither recomposing
+        // nor the event ending while it plays starts the recording again from the top.
+        url = remember(item.id) { session.api.reviewVodUrl(item) },
         session = session,
         aspectRatio = camera?.aspectRatio ?: (16f / 9f),
         title = vm.cameraLabel(item.camera),
@@ -208,17 +187,25 @@ internal fun PlaybackLayout(
     val landscape = isLandscape()
     val setFullscreen = rememberFullscreenToggle()
     ImmersiveEffect(landscape)
+    // One player for both layouts, so turning the phone carries on where it was.
+    val playback = rememberVodPlayback(session, url, onPosition)
 
     if (landscape) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            VodPlayer(session, url, Modifier.fillMaxSize(), onPosition)
-            Row(Modifier.safeDrawingPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            VodVideo(playback, Modifier.fillMaxSize())
+            // One row, so a long title ends short of the exit button rather than under it.
+            Row(Modifier.fillMaxWidth().safeDrawingPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { vm.nav.back() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
-                Text(title, color = Color.White, style = MaterialTheme.typography.titleMedium)
-            }
-            Box(Modifier.align(Alignment.TopEnd).safeDrawingPadding()) {
+                Text(
+                    title,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
                 OverlayIconButton(Icons.Filled.FullscreenExit, "Exit fullscreen") { setFullscreen(false) }
             }
         }
@@ -238,7 +225,7 @@ internal fun PlaybackLayout(
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color.Black),
         ) {
-            VodPlayer(session, url, Modifier.fillMaxSize(), onPosition)
+            VodVideo(playback, Modifier.fillMaxSize())
             Box(Modifier.align(Alignment.TopEnd)) {
                 OverlayIconButton(Icons.Filled.Fullscreen, "Fullscreen") { setFullscreen(true) }
             }
@@ -261,55 +248,6 @@ internal fun PlaybackLayout(
                 ),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) { bottomBar?.invoke(this) }
-        }
-    }
-}
-
-@OptIn(UnstableApi::class)
-@Composable
-private fun VodPlayer(session: Session, url: String, modifier: Modifier = Modifier, onPosition: ((Long) -> Unit)? = null) {
-    val context = LocalContext.current
-    var error by remember(url) { mutableStateOf<String?>(null) }
-    val player = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaSource(
-                HlsMediaSource.Factory(OkHttpDataSource.Factory(session.client)).createMediaSource(MediaItem.fromUri(url)),
-            )
-            playWhenReady = true
-            prepare()
-        }
-    }
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onPlayerError(e: PlaybackException) {
-                error = "This recording could not be played (${e.errorCodeName})"
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-            player.release()
-        }
-    }
-    if (onPosition != null) {
-        // Milliseconds into the playlist, for a timeline to follow while it plays.
-        LaunchedEffect(player) {
-            while (true) {
-                if (player.isPlaying) onPosition(player.currentPosition)
-                delay(POSITION_INTERVAL_MS)
-            }
-        }
-    }
-    Box(modifier) {
-        AndroidView(
-            factory = { ctx ->
-                LayoutInflater.from(ctx).inflate(R.layout.vod_player, FrameLayout(ctx), false) as PlayerView
-            },
-            update = { it.player = player },
-            modifier = Modifier.fillMaxSize(),
-        )
-        error?.let {
-            Text(it, color = Palette.Alert, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
         }
     }
 }
@@ -380,4 +318,3 @@ internal fun eventWhen(item: ReviewItem): String {
 }
 
 private const val PILL_TINT = 0.16f
-private const val POSITION_INTERVAL_MS = 250L

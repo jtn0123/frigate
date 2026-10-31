@@ -136,6 +136,23 @@ class CameraControlsTest {
     }
 
     @Test
+    fun closingTheScreenMidHoldStopsTheCamera() {
+        val vm = show("admin")
+        compose.awaitMain { vm.controls.isAdmin }
+        openSettings()
+        compose.awaitMain { compose.onAllNodes(hasContentDescription("Tilt down")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Tilt down").performScrollTo()
+
+        compose.onNodeWithContentDescription("Pan left").performTouchInput { down(center) }
+        awaitSent("porch/ptz=MOVE_LEFT")
+        // Leaving while the finger is still down takes the button away before it is let go.
+        compose.runOnIdle { vm.nav.back() }
+
+        awaitSent("porch/ptz=STOP")
+        assertEquals(listOf("porch/ptz=MOVE_LEFT", "porch/ptz=STOP"), sent.toList())
+    }
+
+    @Test
     fun viewersGetNoControls() {
         val vm = show("viewer")
         compose.waitForIdle()

@@ -2,11 +2,13 @@ package com.jtn.frigateviewer.ui
 
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.lifecycle.SavedStateHandle
@@ -32,8 +34,11 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.GraphicsMode
 
 /** The Tunnel log: what the tunnel did, live, and the report to copy, over a fake tunnel. */
+// Real text layout, so long entries wrap as on a phone.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @RunWith(RobolectricTestRunner::class)
 class TunnelLogScreenTest {
     @get:Rule val compose = createComposeRule()
@@ -86,6 +91,23 @@ class TunnelLogScreenTest {
     }
 
     @Test
+    fun aFullLogStillShowsAllOfTheNewestEntry() {
+        val remote = show()
+        compose.runOnIdle { repeat(FULL) { remote.log.add("Entry $it") } }
+        compose.onNodeWithText("Entry ${FULL - 1}", substring = true).assertIsDisplayed()
+
+        // Full, the log drops its oldest entry for each new one, so its size stays the same;
+        // this one wraps over many lines where the one it replaces took one.
+        val long = "Newest " + "and longer than a line ".repeat(LONG_REPEATS)
+        compose.runOnIdle { remote.log.add(long) }
+
+        // Its whole height, not only the part the list does not clip.
+        val entry = compose.onNodeWithText(long, substring = true).fetchSemanticsNode()
+        val window = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertTrue("The newest entry ends in view", entry.positionInRoot.y + entry.size.height <= window.bottom)
+    }
+
+    @Test
     fun clearLogEmptiesIt() {
         val remote = show()
         val first = remote.log.entries.first().text
@@ -114,5 +136,11 @@ class TunnelLogScreenTest {
         val privateKey = config.lines().first { it.trim().startsWith("PrivateKey") }.substringAfter("=").trim()
         assertFalse(privateKey in report)
         assertFalse("PrivateKey" in report)
+    }
+
+    private companion object {
+        /** More entries than the log keeps. */
+        const val FULL = 310
+        const val LONG_REPEATS = 40
     }
 }

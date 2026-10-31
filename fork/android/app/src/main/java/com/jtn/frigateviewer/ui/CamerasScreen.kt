@@ -141,7 +141,8 @@ private fun CameraTile(
 ) {
     val toReview = if (trackReviews) events.count { it.isAlert && !it.reviewed } else 0
     val latest = events.maxByOrNull { it.startTime }
-    val activity = latest?.let { "${it.title} · ${timeAgo(it.startTime)}" } ?: "No activity in 24h"
+    val nowMillis = LocalNow.current
+    val activity = latest?.let { "${it.title} · ${timeAgo(it.startTime, nowMillis)}" } ?: "No activity in 24h"
     // Ask Frigate for frames the size the tile shows, not one size for every layout.
     var tileHeight by remember { mutableIntStateOf(0) }
     Box(
@@ -182,11 +183,17 @@ private fun CameraTile(
         } else {
             Text("Disabled", color = Palette.TextSecondary, modifier = Modifier.align(Alignment.Center))
         }
+        val inset = if (compact) 6.dp else 8.dp
         if (now != null) {
-            LivePill(now.uppercase(), live = true, Modifier.align(Alignment.TopStart).padding(if (compact) 6.dp else 8.dp))
+            // Short of the badge, when there is one, rather than running under it.
+            LivePill(
+                pillLabel(now),
+                live = true,
+                Modifier.align(Alignment.TopStart).padding(inset).padding(end = if (toReview > 0) BADGE_ROOM else 0.dp),
+            )
         }
         if (toReview > 0) {
-            CountBadge(toReview, Palette.Alert, Modifier.align(Alignment.TopEnd).padding(if (compact) 6.dp else 8.dp))
+            CountBadge(toReview, Palette.Alert, Modifier.align(Alignment.TopEnd).padding(inset))
         }
         Column(
             Modifier
@@ -222,6 +229,17 @@ internal fun activityLabel(activity: CameraActivity): String? = when {
 }
 
 /**
+ * The live pill's label: the first thing seen and how many more, such as "PERSON +2",
+ * so it stays one short line however many objects are tracked. The tile's description
+ * still names them all.
+ */
+internal fun pillLabel(now: String): String {
+    val things = now.split(", ")
+    val first = things.first().uppercase()
+    return if (things.size > 1) "$first +${things.size - 1}" else first
+}
+
+/**
  * The snapshot height to request for a tile [pixels] tall: the next of a few
  * fixed sizes, so resizing does not change the request for every pixel and
  * Frigate's cache stays useful.
@@ -229,3 +247,6 @@ internal fun activityLabel(activity: CameraActivity): String? = when {
 internal fun snapshotHeight(pixels: Int): Int = SNAPSHOT_HEIGHTS.firstOrNull { it >= pixels } ?: SNAPSHOT_HEIGHTS.last()
 
 private val SNAPSHOT_HEIGHTS = listOf(180, 270, 360, 540, 720)
+
+/** Room the alert count takes at a tile's corner, up to "99+". */
+private val BADGE_ROOM = 40.dp

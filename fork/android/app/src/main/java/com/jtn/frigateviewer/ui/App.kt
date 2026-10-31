@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.ui
 
 import android.content.ClipData
 import android.content.Intent
+import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -39,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -46,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import coil3.ImageLoader
@@ -56,6 +59,12 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun App(vm: AppViewModel) {
+    // The 12/24-hour setting can change while the app is away, so it is read again on each return.
+    val context = LocalContext.current
+    LifecycleStartEffect(context) {
+        use24HourClock = DateFormat.is24HourFormat(context)
+        onStopOrDispose {}
+    }
     Surface(Modifier.fillMaxSize()) {
         val session = vm.session
         when {
@@ -116,7 +125,7 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
     ShareSheet(vm.clips.share, onShown = { vm.clips.shared() })
 
     Box(Modifier.fillMaxSize()) {
-        Screens(vm, session, imageLoader)
+        ProvideTickingNow { Screens(vm, session, imageLoader) }
         SnackbarHost(
             snackbar,
             Modifier
@@ -141,47 +150,73 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
 
 @Composable
 private fun Screens(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
-    when (val overlay = vm.nav.overlays.lastOrNull()) {
+    // Each screen keeps what it saves (its scroll, folded days, the stream chosen) while
+    // others are pushed over it, and forgets it once closed, so opening it again starts afresh.
+    val states = rememberSaveableStateHolder()
+    val keys = vm.nav.overlays.mapIndexed { index, overlay -> "$index:$overlay" }
+    val composed = remember { mutableSetOf<String>() }
+    LaunchedEffect(keys) {
+        (composed - keys.toSet()).forEach(states::removeState)
+        composed.retainAll(keys.toSet())
+        composed += keys
+    }
+    val overlay = vm.nav.overlays.lastOrNull()
+    states.SaveableStateProvider(keys.lastOrNull() ?: "tabs") {
+        if (overlay == null) Tabs(vm, session, imageLoader) else OverlayScreen(vm, session, imageLoader, overlay)
+    }
+}
+
+@Composable
+private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader, overlay: Overlay) {
+    when (overlay) {
         is Overlay.CameraDetail -> vm.cameraByName(overlay.camera)
             ?.let { CameraDetailScreen(vm, session, it, imageLoader) }
-            ?: Unavailable(vm, loading = vm.cameras is Remote.Loading)
+            ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.Event -> vm.reviewById(overlay.reviewId)
             ?.let { EventScreen(vm, session, it) }
-            ?: Unavailable(vm, loading = vm.reviews is Remote.Loading)
+            ?: Unavailable(vm, vm.reviews, onRetry = vm::refreshReviews)
         is Overlay.Recording -> vm.cameraByName(overlay.camera)
             ?.let { RecordingScreen(vm, session, it, overlay.minutes, overlay.end) }
-            ?: Unavailable(vm, loading = vm.cameras is Remote.Loading)
+            ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.Timeline -> vm.cameraByName(overlay.camera)
             ?.let { TimelineScreen(vm, session, it, overlay.start) }
-            ?: Unavailable(vm, loading = vm.cameras is Remote.Loading)
+            ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.LiveGrid -> LiveGridScreen(vm, session, overlay.cameras)
         Overlay.Health -> HealthScreen(vm)
-        Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(vm, it) } ?: Unavailable(vm, loading = false)
+        Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(vm, it) } ?: Unavailable(vm, source = null)
         Overlay.Search -> SearchScreen(vm, session, imageLoader)
-        null -> Scaffold(
-            bottomBar = {
-                NavigationBar(containerColor = Palette.Chrome) {
-                    Tab.entries.forEach { tab ->
-                        val selected = vm.nav.tab == tab
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = { vm.nav.tab = tab },
-                            icon = {
-                                val badge = if (tab == Tab.REVIEW && vm.trackReviews) vm.unreviewedAlerts else 0
-                                BadgedBox(badge = { if (badge > 0) Badge { Text(if (badge > 99) "99+" else "$badge") } }) {
-                                    Icon(tab.icon(selected), contentDescription = null)
-                                }
-                            },
-                            label = { Text(tab.title) },
-                            colors = NavigationBarItemDefaults.colors(indicatorColor = Palette.Outline),
-                        )
-                    }
+    }
+}
+
+/** The tabs and the bar to switch between them; each tab keeps its state while another shows. */
+@Composable
+private fun Tabs(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
+    val states = rememberSaveableStateHolder()
+    Scaffold(
+        bottomBar = {
+            NavigationBar(containerColor = Palette.Chrome) {
+                Tab.entries.forEach { tab ->
+                    val selected = vm.nav.tab == tab
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = { vm.nav.tab = tab },
+                        icon = {
+                            val badge = if (tab == Tab.REVIEW && vm.trackReviews) vm.unreviewedAlerts else 0
+                            BadgedBox(badge = { if (badge > 0) Badge { Text(if (badge > 99) "99+" else "$badge") } }) {
+                                Icon(tab.icon(selected), contentDescription = null)
+                            }
+                        },
+                        label = { Text(tab.title) },
+                        colors = NavigationBarItemDefaults.colors(indicatorColor = Palette.Outline),
+                    )
                 }
-            },
-        ) { padding ->
-            // Only the bottom bar's space is taken here; each screen pads for the status bar itself.
-            // The header band shares the bottom bar's color, so each tab's sheet sits framed between them.
-            Box(Modifier.fillMaxSize().background(Palette.Chrome).padding(bottom = padding.calculateBottomPadding())) {
+            }
+        },
+    ) { padding ->
+        // Only the bottom bar's space is taken here; each screen pads for the status bar itself.
+        // The header band shares the bottom bar's color, so each tab's sheet sits framed between them.
+        Box(Modifier.fillMaxSize().background(Palette.Chrome).padding(bottom = padding.calculateBottomPadding())) {
+            states.SaveableStateProvider(vm.nav.tab.name) {
                 when (vm.nav.tab) {
                     Tab.CAMERAS -> CamerasScreen(vm, session)
                     Tab.REVIEW -> ReviewScreen(vm, session, imageLoader)
@@ -210,18 +245,22 @@ private fun ShareSheet(request: ShareRequest?, onShown: () -> Unit) {
     }
 }
 
-/** A restored screen whose camera or event is still loading, or is gone. */
+/**
+ * A restored screen whose camera or event is not in [source], the list it comes from:
+ * still loading, failed to load (with the reason and a retry), or gone from the server.
+ */
 @Composable
-private fun Unavailable(vm: AppViewModel, loading: Boolean) {
+private fun Unavailable(vm: AppViewModel, source: Remote<*>?, onRetry: () -> Unit = {}) {
     Column(Modifier.fillMaxSize()) {
         IconButton(onClick = { vm.nav.back() }, modifier = Modifier.statusBarsPadding().padding(start = 4.dp, top = 4.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
         }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            if (loading) {
-                CircularProgressIndicator()
-            } else {
-                EmptyState(
+            when (source) {
+                Remote.Loading -> CircularProgressIndicator()
+                // The list did not load, so whether it is still there is not known yet.
+                is Remote.Failed -> RemoteContent(source, onRetry = onRetry) {}
+                else -> EmptyState(
                     Icons.Outlined.EventBusy,
                     "This is no longer available",
                     detail = "It may have been deleted, or aged out of what the server keeps.",

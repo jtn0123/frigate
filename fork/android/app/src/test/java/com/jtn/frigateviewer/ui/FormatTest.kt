@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.ui
 
 import com.jtn.frigateviewer.data.ReviewData
 import com.jtn.frigateviewer.data.ReviewItem
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -25,6 +26,22 @@ class FormatTest {
         assertEquals("now", shortTime(now - 5))
         assertEquals("12m", shortTime(now - 12 * 60 - 5))
         assertEquals(formatTime(now - 2 * 3600), shortTime(now - 2 * 3600))
+    }
+
+    @Test
+    fun daysNameTheYearOnlyWhenItIsNotThisOne() {
+        val today = LocalDate.of(2026, 10, 31)
+
+        assertEquals("Today", dayLabel(today, today))
+        assertEquals("Yesterday", dayLabel(today.minusDays(1), today))
+        assertEquals("Tuesday, Oct 27", dayLabel(LocalDate.of(2026, 10, 27), today))
+        assertEquals("Monday, Oct 27, 2025", dayLabel(LocalDate.of(2025, 10, 27), today))
+    }
+
+    @Test
+    fun theLivePillNamesTheFirstThingAndCountsTheRest() {
+        assertEquals("MOTION", pillLabel("Motion"))
+        assertEquals("PERSON +2", pillLabel("Person, Car, Dog"))
     }
 
     @Test

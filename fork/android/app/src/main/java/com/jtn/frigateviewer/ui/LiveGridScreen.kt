@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -31,7 +32,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,7 +56,7 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
     val landscape = isLandscape()
     ImmersiveEffect(landscape)
 
-    val grid: @Composable (Modifier) -> Unit = { modifier ->
+    val gridContent: @Composable (Modifier) -> Unit = { modifier ->
         BoxWithConstraints(modifier) {
             // Fill the space: in landscape the height decides each tile's width.
             val across = (maxWidth - GAP) / 2
@@ -70,6 +74,11 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
             }
         }
     }
+
+    // The grid moves between the two layouts rather than being made anew in each, so
+    // turning the phone does not reconnect every stream.
+    val currentGrid by rememberUpdatedState(gridContent)
+    val grid = remember { movableContentOf { modifier: Modifier -> currentGrid(modifier) } }
 
     if (landscape) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -155,9 +164,11 @@ private fun CameraPicker(all: List<Camera>, current: List<String>, onDismiss: ()
                 all.forEach { camera ->
                     val checked = camera.name in selected
                     val enabled = checked || selected.size < MAX_LIVE
+                    // The checkbox only shows the state, so it adds no touch target of its own: the row is one.
                     Row(
                         Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 48.dp)
                             .toggleable(checked, enabled = enabled, role = Role.Checkbox) { on ->
                                 selected = if (on) selected + camera.name else selected - camera.name
                             }
