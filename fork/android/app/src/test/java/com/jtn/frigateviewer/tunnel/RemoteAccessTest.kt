@@ -208,17 +208,18 @@ class RemoteAccessTest {
         remote.foreground()
         await { remote.status == TunnelStatus.Connected }
 
-        // Another VPN app took over, which also takes away the permission.
+        // Stopped from outside (another VPN app, or the system's VPN settings): it is not
+        // assumed still running, the lost route is reported, and it is brought back up.
+        backend.stopOutside()
+        await { backend.ups.size == 2 && remote.status == TunnelStatus.Connected }
+        assertTrue(remote.log.entries.any { it.text == "The VPN was turned off outside the app" })
+        assertTrue("The lost route is reported", remote.routeChanges >= 3)
+
+        // Stopped again along with the app's VPN permission: it asks for the permission. A
+        // check already under way may see the permission gone first; either way it ends here.
         backend.permitted = false
         backend.stopOutside()
         await { remote.status == TunnelStatus.NeedsPermission }
-        assertEquals("The lost route is reported", 2, remote.routeChanges)
-        assertTrue(remote.log.entries.any { it.text == "The VPN was turned off outside the app" })
-
-        // Allowed again: it is brought back up rather than assumed running.
-        backend.permitted = true
-        remote.check()
-        await { remote.status == TunnelStatus.Connected }
         assertEquals(2, backend.ups.size)
     }
 
