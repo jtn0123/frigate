@@ -125,10 +125,15 @@ def preview_hour(
 ):
     """Get all mp4 previews relevant for time period given the timezone"""
     parts = year_month.split("-")
-    start_date = (
-        datetime(int(parts[0]), int(parts[1]), int(day), int(hour), tzinfo=UTC)
-        - datetime.now(get_timezone(tz_name.replace(",", "/"))).utcoffset()
-    )
+    # the requested date's own offset, so an hour across a DST change is
+    # right; in UTC so the hour added below is an hour of real time
+    start_date = datetime(
+        int(parts[0]),
+        int(parts[1]),
+        int(day),
+        int(hour),
+        tzinfo=get_timezone(tz_name.replace(",", "/")),
+    ).astimezone(UTC)
     end_date = start_date + timedelta(hours=1) - timedelta(milliseconds=1)
     start_ts = start_date.timestamp()
     end_ts = end_date.timestamp()

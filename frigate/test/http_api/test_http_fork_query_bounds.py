@@ -1,7 +1,9 @@
 """Regression tests for unbounded API parameters and their fixes (fork B36)."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import patch
+
+from fastapi.responses import JSONResponse
 
 from frigate.models import Event, Export, Previews, Recordings, ReviewSegment
 from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
@@ -85,3 +87,55 @@ class TestBulkExportDeleteInProgress(_BoundsTestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Export.select().count(), 1)
+
+
+class TestHourEndpointsUseTheDatesOffset(_BoundsTestCase):
+    # 10:00 in New York is 15:00 UTC in winter (EST) and 14:00 UTC in summer
+    # (EDT); one of them was an hour off whatever the day the test ran
+    CASES = (
+        ("2024-01", 15, datetime(2024, 1, 15, 15, tzinfo=UTC)),
+        ("2024-07", 15, datetime(2024, 7, 15, 14, tzinfo=UTC)),
+    )
+
+    def test_vod_hour(self):
+        for year_month, day, expected in self.CASES:
+            with self.subTest(year_month=year_month):
+                with patch(
+                    "frigate.api.media.vod_ts", return_value=JSONResponse(content={})
+                ) as vod:
+                    with AuthTestClient(self.app) as client:
+                        response = client.get(
+                            f"/vod/{year_month}/{day}/10/front_door/America,New_York"
+                        )
+
+                self.assertEqual(response.status_code, 200)
+                start_ts, end_ts = vod.call_args.args[1:3]
+                self.assertEqual(start_ts, expected.timestamp())
+                self.assertAlmostEqual(end_ts - start_ts, 3600, places=2)
+
+    def test_preview_hour(self):
+        for year_month, day, expected in self.CASES:
+            with self.subTest(year_month=year_month):
+                with patch(
+                    "frigate.api.preview.preview_ts",
+                    return_value=JSONResponse(content=[]),
+                ) as preview:
+                    with AuthTestClient(self.app) as client:
+                        response = client.get(
+                            f"/preview/{year_month}/{day}/10/front_door/America,New_York"
+                        )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(preview.call_args.args[1], expected.timestamp())
+
+    def test_an_hour_across_the_fall_back_change_is_one_real_hour(self):
+        # 2024-11-03 01:00 New York is the first (EDT) 1 o'clock: 05:00 UTC
+        with patch(
+            "frigate.api.media.vod_ts", return_value=JSONResponse(content={})
+        ) as vod:
+            with AuthTestClient(self.app) as client:
+                client.get("/vod/2024-11/3/1/front_door/America,New_York")
+
+        start_ts, end_ts = vod.call_args.args[1:3]
+        self.assertEqual(start_ts, datetime(2024, 11, 3, 5, tzinfo=UTC).timestamp())
+        self.assertAlmostEqual(end_ts - start_ts, 3600, places=2)

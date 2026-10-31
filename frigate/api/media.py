@@ -1048,10 +1048,15 @@ def vod_hour_no_timezone(year_month: str, day: int, hour: int, camera_name: str)
 )
 def vod_hour(year_month: str, day: int, hour: int, camera_name: str, tz_name: str):
     parts = year_month.split("-")
-    start_date = (
-        datetime(int(parts[0]), int(parts[1]), day, hour, tzinfo=UTC)
-        - datetime.now(get_timezone(tz_name.replace(",", "/"))).utcoffset()
-    )
+    # the requested date's own offset, so an hour across a DST change is
+    # right; in UTC so the hour added below is an hour of real time
+    start_date = datetime(
+        int(parts[0]),
+        int(parts[1]),
+        day,
+        hour,
+        tzinfo=get_timezone(tz_name.replace(",", "/")),
+    ).astimezone(UTC)
     end_date = start_date + timedelta(hours=1) - timedelta(milliseconds=1)
     start_ts = start_date.timestamp()
     end_ts = end_date.timestamp()
