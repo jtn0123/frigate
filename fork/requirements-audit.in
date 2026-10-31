@@ -4,3 +4,7 @@
 pip-audit==2.10.1
 # F12: the auditor makes HTTP requests and needs the same reviewed fix as runtime.
 urllib3==2.8.0
+# F13: transitive auditor dependencies with published advisory fixes.
+certifi==2026.10.18
+filelock==4.2.1
+msgpack==1.2.3
