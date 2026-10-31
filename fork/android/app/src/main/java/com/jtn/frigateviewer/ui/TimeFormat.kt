@@ -25,6 +25,7 @@ private val time24 = DateTimeFormatter.ofPattern("H:mm")
 private val hour12 = DateTimeFormatter.ofPattern("h a")
 private val minutes12 = DateTimeFormatter.ofPattern("h:mm")
 private val dayFormat = DateTimeFormatter.ofPattern("EEEE, MMM d")
+private val dayYearFormat = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
 
 private fun localeUses24Hours(): Boolean =
     DateTimeFormatterBuilder.getLocalizedDateTimePattern(null, FormatStyle.SHORT, IsoChronology.INSTANCE, Locale.getDefault())
@@ -49,15 +50,17 @@ fun formatTick(epochSeconds: Long): String {
     }
 }
 
-/** "Today", "Yesterday", or "Tuesday, Oct 28". */
-fun dayLabel(epochSeconds: Double): String {
-    val date = zoned(epochSeconds).toLocalDate()
-    val today = LocalDate.now()
-    return when (date) {
-        today -> "Today"
-        today.minusDays(1) -> "Yesterday"
-        else -> date.format(dayFormat)
-    }
+/** The day [epochSeconds] falls on here. */
+fun localDate(epochSeconds: Double): LocalDate = zoned(epochSeconds).toLocalDate()
+
+/** [dayLabel] of the day [epochSeconds] falls on here. */
+fun dayLabel(epochSeconds: Double, today: LocalDate = LocalDate.now()): String = dayLabel(localDate(epochSeconds), today)
+
+/** "Today", "Yesterday", "Tuesday, Oct 28", or "Tuesday, Oct 28, 2025" for a day in another year than [today]. */
+fun dayLabel(date: LocalDate, today: LocalDate = LocalDate.now()): String = when (date) {
+    today -> "Today"
+    today.minusDays(1) -> "Yesterday"
+    else -> date.format(if (date.year == today.year) dayFormat else dayYearFormat)
 }
 
 /** "just now", "4m ago", "2h ago", as of [nowMillis]. */

@@ -60,6 +60,8 @@ import coil3.ImageLoader
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.Severity
+import java.time.Instant
+import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -68,7 +70,9 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
     val items = vm.filteredReviews
     val unreviewed = if (vm.trackReviews) items.count { !it.reviewed } else 0
     var confirmMarkAll by remember { mutableStateOf(false) }
-    var collapsedDays by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    // Folded days are kept as dates (epoch days), not labels: after midnight "Today" is another day.
+    var collapsedDays by rememberSaveable { mutableStateOf(emptyList<Long>()) }
+    val today = Instant.ofEpochMilli(LocalNow.current).atZone(ZoneId.systemDefault()).toLocalDate()
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(
@@ -162,13 +166,14 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
                     if (items.isEmpty()) {
                         ReviewEmpty(vm)
                     } else {
-                        val byDay = remember(items) { items.groupBy { dayLabel(it.startTime) } }
+                        val byDay = remember(items) { items.groupBy { localDate(it.startTime) } }
                         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                            byDay.forEach { (day, dayItems) ->
+                            byDay.forEach { (date, dayItems) ->
+                                val day = date.toEpochDay()
                                 val folded = day in collapsedDays
                                 stickyHeader(key = "day-$day") {
                                     DayHeader(
-                                        day,
+                                        dayLabel(date, today),
                                         dayItems.size,
                                         collapsed = folded,
                                         onToggle = { collapsedDays = if (folded) collapsedDays - day else collapsedDays + day },

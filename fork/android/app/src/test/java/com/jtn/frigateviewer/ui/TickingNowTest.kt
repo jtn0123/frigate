@@ -1,9 +1,15 @@
 package com.jtn.frigateviewer.ui
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,8 +36,10 @@ class TickingNowTest {
     /** The app's clock, which the test moves on by hand. */
     @Volatile private var clock = System.currentTimeMillis()
 
-    /** An alert that started half a minute before the test did. */
-    private val review = """[{"id": "r1", "camera": "driveway", "start_time": ${clock / 1000 - 30}, "end_time": ${clock / 1000 - 20},
+    /** The server's one alert, by default from half a minute before the test started. */
+    @Volatile private var review = alertAt(clock / 1000 - 30)
+
+    private fun alertAt(start: Long) = """[{"id": "r1", "camera": "driveway", "start_time": $start, "end_time": ${start + 10},
         "has_been_reviewed": false, "severity": "alert", "thumb_path": "/t/r1.webp",
         "data": {"objects": ["person"], "zones": [], "audio": []}}]"""
 
@@ -81,6 +89,25 @@ class TickingNowTest {
 
         compose.onNodeWithText("5m").assertExists()
     }
+
+    @Test
+    fun aFoldedDayStaysFoldedPastMidnight() {
+        // A minute before midnight, with an alert from the minute before that.
+        val midnight = LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toEpochSecond()
+        clock = (midnight - 60) * 1000
+        review = alertAt(midnight - 120)
+        val vm = show()
+        compose.runOnIdle { vm.nav.tab = Tab.REVIEW }
+        compose.onNode(hasText("Today · 1") and collapsed(false)).performClick()
+        compose.onNode(hasText("Today · 1") and collapsed(true)).assertExists()
+
+        wait(2)
+
+        compose.onNode(hasText("Yesterday · 1") and collapsed(true)).assertExists()
+    }
+
+    private fun collapsed(folded: Boolean) =
+        SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, if (folded) "Collapsed" else "Expanded")
 
     private companion object {
         const val MINUTE_MS = 60_000L
