@@ -1,0 +1,47 @@
+"""Regression tests for unbounded API parameters and their fixes (fork B36)."""
+
+from frigate.models import Event, Export, Previews, Recordings, ReviewSegment
+from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
+
+
+class _BoundsTestCase(BaseTestHttp):
+    def setUp(self):
+        super().setUp([Event, Export, Previews, Recordings, ReviewSegment])
+        self.app = super().create_app()
+
+    def tearDown(self):
+        self.app.dependency_overrides.clear()
+        super().tearDown()
+
+
+class TestRecordingsUnavailableBounds(_BoundsTestCase):
+    def test_scale_below_one_is_rejected(self):
+        # scale=0 never advanced the scan and hung the worker
+        with AuthTestClient(self.app) as client:
+            for scale in (0, -5):
+                with self.subTest(scale=scale):
+                    response = client.get(
+                        "/recordings/unavailable",
+                        params={"after": 1000, "before": 1300, "scale": scale},
+                    )
+                    self.assertEqual(response.status_code, 422)
+
+    def test_a_range_of_millions_of_segments_is_rejected(self):
+        with AuthTestClient(self.app) as client:
+            response = client.get(
+                "/recordings/unavailable",
+                params={"after": 1, "before": 1_700_000_000, "scale": 1},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["success"])
+
+    def test_an_ordinary_day_still_answers(self):
+        with AuthTestClient(self.app) as client:
+            response = client.get(
+                "/recordings/unavailable",
+                params={"after": 0.5, "before": 86400.5, "scale": 1},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [{"start_time": 0, "end_time": 86400}])

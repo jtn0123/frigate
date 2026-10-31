@@ -7710,6 +7710,7 @@ paths:
           description: Successful Response
           content:
             application/json:
+            minimum: 1
               schema:
                 type: array
                 items:

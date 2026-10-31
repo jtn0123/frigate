@@ -391,6 +391,10 @@ def recordings(
     return JSONResponse(content=list(recordings))
 
 
+# a week of 1 s segments is about 600,000
+MAX_UNAVAILABLE_SEGMENTS = 1_000_000
+
+
 @router.get(
     "/recordings/unavailable",
     response_model=list[dict],
@@ -415,6 +419,17 @@ def no_recordings(
     before = params.before or datetime.now().timestamp()
     after = params.after or (datetime.now() - timedelta(hours=1)).timestamp()
     scale = params.scale
+
+    # the scan below takes one step per segment, so refuse a range that would
+    # take millions of them (scale=1 from the epoch) instead of tying up a worker
+    if (before - after) / scale > MAX_UNAVAILABLE_SEGMENTS:
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Time range is too large for this scale.",
+            },
+            status_code=400,
+        )
 
     recordings: list[tuple[float, float]] = []
     for camera in camera_list:
