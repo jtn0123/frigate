@@ -793,6 +793,34 @@ describe("NotificationsSettingsExtras", () => {
     );
   });
 
+  it("reports and rolls back a push subscription the browser refuses", async () => {
+    const { registration } = fakeRegistration(true);
+    registration.pushManager.subscribe.mockRejectedValue(
+      new Error("push service unavailable"),
+    );
+    serviceWorker.register.mockResolvedValue(registration);
+    renderExtras();
+    await flush();
+    fireEvent.click(
+      screen.getByRole("button", { name: "notification.registerDevice" }),
+    );
+    await waitFor(() =>
+      expect(h.toastError).toHaveBeenCalledWith(
+        "notification.toast.error.registerFailed",
+      ),
+    );
+    expect(h.axiosPost).not.toHaveBeenCalledWith(
+      "notifications/register",
+      expect.anything(),
+    );
+    expect(registration.unregister).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "notification.registerDevice" }),
+      ).toHaveTextContent("notification.registerDevice"),
+    );
+  });
+
   it("waits for a new worker to activate before subscribing", async () => {
     const { registration } = fakeRegistration(false);
     serviceWorker.register.mockResolvedValue(registration);

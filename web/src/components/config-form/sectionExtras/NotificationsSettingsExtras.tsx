@@ -439,6 +439,15 @@ export default function NotificationsSettingsExtras({
               void workerRegistration.unregister();
               setRegistration(null);
             });
+        })
+        // fork (UI155): a refused subscription (a bad key, a push service
+        // that is down) used to fail silently
+        .catch(() => {
+          toast.error(t("notification.toast.error.registerFailed"), {
+            position: "top-center",
+          });
+          void workerRegistration.unregister();
+          setRegistration(null);
         });
     },
     [addMessage, publicKey, t],
