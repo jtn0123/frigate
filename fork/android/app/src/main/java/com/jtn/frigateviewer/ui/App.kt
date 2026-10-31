@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.ui
 
 import android.content.ClipData
 import android.content.Intent
+import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import coil3.ImageLoader
@@ -57,6 +59,12 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun App(vm: AppViewModel) {
+    // The 12/24-hour setting can change while the app is away, so it is read again on each return.
+    val context = LocalContext.current
+    LifecycleStartEffect(context) {
+        use24HourClock = DateFormat.is24HourFormat(context)
+        onStopOrDispose {}
+    }
     Surface(Modifier.fillMaxSize()) {
         val session = vm.session
         when {

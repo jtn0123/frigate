@@ -50,9 +50,6 @@ import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.motionActivity
 import com.jtn.frigateviewer.data.vodUrl
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * A camera's last 24 hours: drag the strip to scrub, and recordings play from
@@ -248,7 +245,7 @@ private fun DrawScope.drawTicks(
     while (tick < windowStart + WINDOW_SECONDS) {
         val tx = ((tick - windowStart) * perSecond).toFloat()
         drawLine(color.copy(alpha = TICK_ALPHA), Offset(tx, labelTop - 4.dp.toPx()), Offset(tx, size.height), strokeWidth = 1f)
-        val label = measurer.measure(tickFormat.format(Instant.ofEpochSecond(tick).atZone(ZoneId.systemDefault())), style)
+        val label = measurer.measure(formatTick(tick), style)
         if (tx + 4.dp.toPx() + label.size.width < size.width) {
             drawText(label, topLeft = Offset(tx + 4.dp.toPx(), labelTop))
         }
@@ -304,8 +301,6 @@ private class TimelineColors(
     val playhead: Color,
     val outside: Color,
 )
-
-private val tickFormat = DateTimeFormatter.ofPattern("h:mm")
 
 private const val DAY_SECONDS = 86_400L
 private const val HOUR_SECONDS = 3_600L
