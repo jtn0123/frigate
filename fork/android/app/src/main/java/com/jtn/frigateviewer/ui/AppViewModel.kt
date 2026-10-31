@@ -1,6 +1,7 @@
 package com.jtn.frigateviewer.ui
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -20,6 +21,7 @@ import com.jtn.frigateviewer.data.Severity
 import com.jtn.frigateviewer.data.SignIn
 import com.jtn.frigateviewer.data.SignInResult
 import com.jtn.frigateviewer.data.allowedCameras
+import com.jtn.frigateviewer.data.review
 import com.jtn.frigateviewer.tunnel.RemoteAccess
 import java.io.IOException
 import kotlin.coroutines.CoroutineContext
@@ -67,8 +69,15 @@ class AppViewModel(
 
     val nav = Navigator(saved)
 
-    /** Events as last seen, so an open one stays up after it ages out of the 24-hour list. */
-    private val openedEvents = mutableMapOf<String, ReviewItem>()
+    /**
+     * Events as last seen, so an open one stays up after it ages out of the
+     * 24-hour list. Observable, so an event fetched to restore a screen shows up.
+     */
+    private val openedEvents = mutableStateMapOf<String, ReviewItem>()
+
+    /** IDs of open events being fetched after Android restarted the app; their screens wait for them. */
+    var restoringEvents by mutableStateOf<Set<String>>(emptySet())
+        private set
 
     var cameras by mutableStateOf<Remote<List<Camera>>>(Remote.Loading)
         private set
@@ -228,6 +237,7 @@ class AppViewModel(
             savedSettings = savedSettings.copy(token = "")
             session = null
             openedEvents.clear()
+            restoringEvents = emptySet()
             clips.reset()
             search.reset()
             controls.reset()
@@ -370,6 +380,23 @@ class AppViewModel(
         refreshReviews()
         session?.let { controls.loadRole(it.api) }
         loadVersion()
+        restoreEvents()
+    }
+
+    /**
+     * Fetches the events of screens restored after Android stopped the app. Only
+     * the last 24 hours are listed, so one opened from Search would be missing.
+     */
+    private fun restoreEvents() {
+        val api = session?.api ?: return
+        val missing = nav.overlays.filterIsInstance<Overlay.Event>().map { it.reviewId }.filter { it !in openedEvents }.toSet()
+        restoringEvents = missing
+        missing.forEach { id ->
+            sessionScope.launch {
+                (load { api.review(id) } as? Remote.Ready)?.let { openedEvents[id] = it.value }
+                restoringEvents = restoringEvents - id
+            }
+        }
     }
 
     private fun loadVersion() {

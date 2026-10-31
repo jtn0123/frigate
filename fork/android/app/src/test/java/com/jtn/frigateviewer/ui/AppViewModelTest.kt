@@ -361,4 +361,18 @@ class AppViewModelTest {
         await("a request") { paths.size > before }
         assertEquals("frigate_token=jwt2", cookies[before])
     }
+
+    @Test
+    fun anEventOpenedFromSearchIsFetchedWhenItsScreenIsRestored() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "admin", token = "jwt1")) }
+        bodies["/api/review/old1"] =
+            """{"id": "old1", "camera": "front", "start_time": 1000, "end_time": 1010, "severity": "alert", "thumb_path": "t.webp"}"""
+        val saved = SavedStateHandle(mapOf("overlays" to encodeOverlays(listOf(Overlay.Event("old1")))))
+
+        val vm = viewModel(saved)
+        await("the event") { vm.reviewById("old1") != null }
+
+        assertEquals("front", runOnMain { vm.reviewById("old1") }!!.camera)
+        assertTrue(runOnMain { vm.restoringEvents }.isEmpty())
+    }
 }
