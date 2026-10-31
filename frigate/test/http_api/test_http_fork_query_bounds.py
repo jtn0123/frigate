@@ -201,3 +201,13 @@ class TestMotionActivityScale(_BoundsTestCase):
                         "/review/activity/motion", params={"scale": scale}
                     )
                     self.assertEqual(response.status_code, 200)
+
+
+class TestMjpegFeedBounds(_BoundsTestCase):
+    def test_fps_and_height_are_bounded(self):
+        # fps=0 divided by zero in the stream loop, height=0 in the resize
+        with AuthTestClient(self.app) as client:
+            for params in ({"fps": 0}, {"fps": 31}, {"height": 0}, {"height": 15}):
+                with self.subTest(params=params):
+                    response = client.get("/front_door", params=params)
+                    self.assertEqual(response.status_code, 422)

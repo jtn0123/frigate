@@ -5951,6 +5951,8 @@ paths:
           required: false
           schema:
             type: integer
+            maximum: 30
+            minimum: 1
             default: 3
             title: Fps
         - name: height
@@ -5958,6 +5960,7 @@ paths:
           required: false
           schema:
             type: integer
+            minimum: 16
             default: 360
             title: Height
         - name: bbox
@@ -6500,13 +6503,13 @@ paths:
           required: false
           schema:
             type: integer
+            maximum: 3600
+            minimum: 0
             description: Padding to apply to the vod.
             default: 0
             title: Padding
           description: Padding to apply to the vod.
       responses:
-            maximum: 3600
-            minimum: 0
         '200':
           description: Successful Response
           content:
@@ -7707,6 +7710,7 @@ paths:
           required: false
           schema:
             type: integer
+            minimum: 1
             default: 30
             title: Scale
       responses:
@@ -7714,7 +7718,6 @@ paths:
           description: Successful Response
           content:
             application/json:
-            minimum: 1
               schema:
                 type: array
                 items:
