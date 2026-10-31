@@ -125,7 +125,7 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
     ShareSheet(vm.clips.share, onShown = { vm.clips.shared() })
 
     Box(Modifier.fillMaxSize()) {
-        Screens(vm, session, imageLoader)
+        ProvideTickingNow { Screens(vm, session, imageLoader) }
         SnackbarHost(
             snackbar,
             Modifier

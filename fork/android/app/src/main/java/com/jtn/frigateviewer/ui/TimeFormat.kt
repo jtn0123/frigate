@@ -60,9 +60,9 @@ fun dayLabel(epochSeconds: Double): String {
     }
 }
 
-/** "just now", "4m ago", "2h ago". */
-fun timeAgo(epochSeconds: Double): String {
-    val seconds = (System.currentTimeMillis() / 1000.0 - epochSeconds).toLong()
+/** "just now", "4m ago", "2h ago", as of [nowMillis]. */
+fun timeAgo(epochSeconds: Double, nowMillis: Long = System.currentTimeMillis()): String {
+    val seconds = (nowMillis / 1000.0 - epochSeconds).toLong()
     return when {
         seconds < 60 -> "just now"
         seconds < 3600 -> "${seconds / 60}m ago"
@@ -71,9 +71,9 @@ fun timeAgo(epochSeconds: Double): String {
     }
 }
 
-/** "now" and "12m" within the hour, then the clock time, as list rows show it. */
-fun shortTime(epochSeconds: Double): String {
-    val seconds = (System.currentTimeMillis() / 1000.0 - epochSeconds).toLong()
+/** "now" and "12m" within the hour of [nowMillis], then the clock time, as list rows show it. */
+fun shortTime(epochSeconds: Double, nowMillis: Long = System.currentTimeMillis()): String {
+    val seconds = (nowMillis / 1000.0 - epochSeconds).toLong()
     return when {
         seconds < 60 -> "now"
         seconds < 3600 -> "${seconds / 60}m"

@@ -141,7 +141,8 @@ private fun CameraTile(
 ) {
     val toReview = if (trackReviews) events.count { it.isAlert && !it.reviewed } else 0
     val latest = events.maxByOrNull { it.startTime }
-    val activity = latest?.let { "${it.title} · ${timeAgo(it.startTime)}" } ?: "No activity in 24h"
+    val nowMillis = LocalNow.current
+    val activity = latest?.let { "${it.title} · ${timeAgo(it.startTime, nowMillis)}" } ?: "No activity in 24h"
     // Ask Frigate for frames the size the tile shows, not one size for every layout.
     var tileHeight by remember { mutableIntStateOf(0) }
     Box(

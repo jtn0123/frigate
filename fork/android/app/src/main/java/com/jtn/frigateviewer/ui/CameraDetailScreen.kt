@@ -254,6 +254,7 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
 @Composable
 private fun CameraActivity(vm: AppViewModel, session: Session, camera: Camera, imageLoader: ImageLoader) {
     val events = vm.reviewsFor(camera.name)
+    val now = LocalNow.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = WindowInsets.navigationBars.asPaddingValues()) {
         item {
             Row(
@@ -269,7 +270,7 @@ private fun CameraActivity(vm: AppViewModel, session: Session, camera: Camera, i
                 Stat(
                     "Last activity",
                     // "12m", "3h" or "now": a full "12m ago" does not fit a third of the width.
-                    events.maxOfOrNull { it.startTime }?.let { timeAgo(it).removeSuffix(" ago").replace("just now", "now") } ?: "None",
+                    events.maxOfOrNull { it.startTime }?.let { timeAgo(it, now).removeSuffix(" ago").replace("just now", "now") } ?: "None",
                     Palette.TextPrimary,
                     Modifier.weight(1f),
                 )

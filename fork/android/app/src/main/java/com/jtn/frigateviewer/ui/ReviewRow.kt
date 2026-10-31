@@ -195,7 +195,7 @@ private fun ReviewRowContent(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    shortTime(item.startTime),
+                    shortTime(item.startTime, LocalNow.current),
                     style = MaterialTheme.typography.bodySmall.merge(Tabular),
                     color = Palette.TextSecondary,
                     modifier = Modifier.padding(start = 8.dp),
