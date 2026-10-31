@@ -1,0 +1,1 @@
+| AN2 | android | `fork/android/app/src/main/java/com/jtn/frigateviewer/ui/` | Android UI bug polish pass: playback and live video survive rotation, PiP and the background, screens keep their state under overlays, times follow the 12/24-hour setting and stay current, and dates, folds, PTZ stop and long labels behave | fork-only |

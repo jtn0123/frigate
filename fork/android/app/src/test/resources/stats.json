@@ -1,0 +1,25 @@
+{
+  "cameras": {
+    "driveway": {"camera_fps": 5.1, "process_fps": 5.0, "skipped_fps": 0.0, "detection_fps": 1.2, "detection_enabled": true, "pid": 101, "capture_pid": 102, "ffmpeg_pid": 103, "audio_dBFS": 0.0, "audio_rms": 0.0},
+    "garage": {"camera_fps": 0.0, "process_fps": 0.0, "skipped_fps": 0.0, "detection_fps": 0.0, "detection_enabled": false, "pid": 104}
+  },
+  "cpu_usages": {
+    "frigate.full_system": {"cpu": "23.5", "mem": "41.2"},
+    "101": {"cpu": "4.0", "cpu_average": "3.9", "mem": "1.1"}
+  },
+  "detection_fps": 1.2,
+  "detectors": {"coral": {"detection_start": 0.0, "inference_speed": 8.42, "pid": 90}},
+  "gpu_usages": {"intel-qsv": {"gpu": "12.0%", "mem": "-%"}},
+  "processes": {"go2rtc": {"pid": 50}},
+  "service": {
+    "last_updated": 1700000000,
+    "latest_version": "0.17.1",
+    "storage": {
+      "/media/frigate/recordings": {"free": 102400.0, "mount_type": "ext4", "total": 1048576.0, "used": 946176.0},
+      "/dev/shm": {"free": 400.0, "mount_type": "tmpfs", "total": 512.0, "used": 112.0},
+      "/tmp/cache": {"free": 0.0, "mount_type": "tmpfs", "total": 0.0, "used": 0.0}
+    },
+    "uptime": 273600,
+    "version": "0.17.0-abc123"
+  }
+}

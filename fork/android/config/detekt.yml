@@ -1,0 +1,26 @@
+# Additions to detekt's defaults for a Compose app.
+naming:
+  FunctionNaming:
+    # Composables are named like types.
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][A-Za-z0-9_]*'
+
+style:
+  MaxLineLength:
+    maxLineLength: 140
+  MagicNumber:
+    # Layouts are full of sizes in dp and sp; naming each one adds nothing.
+    excludes: ['**/test/**', '**/ui/**']
+  ReturnCount:
+    max: 3
+
+complexity:
+  # Screens are long, branching composables by nature; split them for
+  # readability, not to satisfy a count.
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+  CyclomaticComplexMethod:
+    ignoreAnnotated: ['Composable']
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
