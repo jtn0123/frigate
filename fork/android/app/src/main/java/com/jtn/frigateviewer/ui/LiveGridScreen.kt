@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -163,9 +164,11 @@ private fun CameraPicker(all: List<Camera>, current: List<String>, onDismiss: ()
                 all.forEach { camera ->
                     val checked = camera.name in selected
                     val enabled = checked || selected.size < MAX_LIVE
+                    // The checkbox only shows the state, so it adds no touch target of its own: the row is one.
                     Row(
                         Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 48.dp)
                             .toggleable(checked, enabled = enabled, role = Role.Checkbox) { on ->
                                 selected = if (on) selected + camera.name else selected - camera.name
                             }

@@ -3,6 +3,7 @@ package com.jtn.frigateviewer.ui
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.data.Camera
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +81,16 @@ class LiveGridTest {
         compose.runOnIdle { assertEquals(Overlay.LiveGrid(listOf("b", "c", "d", "e")), vm.nav.overlays.single()) }
         compose.onNode(hasClickLabel("Open Cam E")).performClick()
         compose.runOnIdle { assertEquals(Overlay.CameraDetail("e"), vm.nav.overlays.last()) }
+    }
+
+    @Test
+    fun eachCameraToChooseIsAFullSizeTouchTarget() {
+        val vm = show()
+        compose.runOnIdle { vm.nav.push(Overlay.LiveGrid()) }
+
+        compose.onNodeWithContentDescription("Choose cameras").performClick()
+
+        names.forEach { compose.onNode(choice("Cam ${it.uppercase()}")).assertHeightIsAtLeast(48.dp) }
     }
 
     @Test
