@@ -1,6 +1,7 @@
 package com.jtn.frigateviewer.widget
 
 import android.content.Context
+import android.provider.Settings
 import androidx.core.content.edit
 import com.jtn.frigateviewer.data.AuthException
 import com.jtn.frigateviewer.data.FrigateApi
@@ -51,6 +52,21 @@ private const val FRAME_HEIGHT = 360
 /** Each widget's camera, kept until the widget is removed. */
 class WidgetChoices(context: Context) {
     private val prefs = context.getSharedPreferences("widgets", Context.MODE_PRIVATE)
+    private val resolver = context.contentResolver
+
+    /** Counts the phone's starts; the launcher's copy of every widget is gone after one. */
+    private val boot: Int get() = Settings.Global.getInt(resolver, Settings.Global.BOOT_COUNT, 0)
+
+    /**
+     * Whether widget [id] has had a full update since the phone started. Until
+     * it has, Android ignores partial updates, so the next one has to be full.
+     */
+    fun shownSinceBoot(id: Int): Boolean = prefs.getInt("boot_$id", -1) == boot
+
+    /** Notes that widget [id] just had a full update. */
+    fun markShown(id: Int) {
+        prefs.edit { putInt("boot_$id", boot) }
+    }
 
     operator fun get(id: Int): WidgetChoice? {
         val camera = prefs.getString("camera_$id", null) ?: return null
@@ -62,6 +78,6 @@ class WidgetChoices(context: Context) {
     }
 
     fun forget(ids: IntArray) {
-        prefs.edit { ids.forEach { remove("camera_$it").remove("label_$it") } }
+        prefs.edit { ids.forEach { remove("camera_$it").remove("label_$it").remove("boot_$it") } }
     }
 }

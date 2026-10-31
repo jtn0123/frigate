@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.widget
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.provider.Settings
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -26,6 +27,7 @@ import mockwebserver3.junit4.MockWebServerRule
 import okio.Buffer
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -146,6 +148,25 @@ class WidgetTest {
         choices.forget(intArrayOf(1))
         assertNull(choices[1])
         assertEquals("Yard", choices[2]?.label)
+    }
+
+    @Test
+    fun aFailureIsAFullUpdateUntilTheWidgetHasHadOne() {
+        val choices = WidgetChoices(context)
+        val failed = WidgetContent.Failed("Server not found")
+        assertFalse(choices.shownSinceBoot(3))
+        assertFalse("Never shown: a partial update would be ignored", CameraWidget.isPartial(failed, choices.shownSinceBoot(3)))
+
+        choices.markShown(3)
+        assertTrue("Shown: the last picture is kept", CameraWidget.isPartial(failed, choices.shownSinceBoot(3)))
+        assertFalse(CameraWidget.isPartial(WidgetContent.Ready(jpeg, 0), shown = true))
+
+        // After a restart the launcher has lost the widget's views.
+        Settings.Global.putInt(context.contentResolver, Settings.Global.BOOT_COUNT, 5)
+        assertFalse(choices.shownSinceBoot(3))
+        choices.markShown(3)
+        choices.forget(intArrayOf(3))
+        assertFalse(choices.shownSinceBoot(3))
     }
 
     @Test
