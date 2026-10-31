@@ -119,6 +119,16 @@ class TestCiChanges(unittest.TestCase):
             jobs_for("fork/ledger/B10.md"), {"web": "false", "python": "true"}
         )
 
+    def test_a_runtime_lock_runs_the_python_suites(self):
+        # I67: the test image installs these locks, so a change can break
+        # the backend tests, in CI and in make check-fast
+        gate = check_pattern("py_gates")
+        for arch in ("amd64", "arm64"):
+            path = f"fork/requirements-runtime-{arch}.lock"
+            with self.subTest(path=path):
+                self.assertEqual(jobs_for(path), {"web": "false", "python": "true"})
+                self.assertTrue(matches(path, gate))
+
     def test_fast_mode_runs_the_scripts_tests_for_shell_scripts_and_ledgers(self):
         # I67: test_ci_changes.py tests the shell gates and test_ledger.py the
         # rows, so changing either alone must still run the scripts tests
