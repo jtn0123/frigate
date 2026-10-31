@@ -187,8 +187,13 @@ private fun HoldButton(icon: ImageVector, label: String, command: String, send: 
                 detectTapGestures(onPress = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     send(command)
-                    tryAwaitRelease()
-                    send(Ptz.STOP)
+                    // Also when the press is cut short, such as by the sheet closing under the
+                    // finger, or the camera would keep moving. Sending does not suspend.
+                    try {
+                        tryAwaitRelease()
+                    } finally {
+                        send(Ptz.STOP)
+                    }
                 })
             }
             .semantics {
@@ -197,8 +202,11 @@ private fun HoldButton(icon: ImageVector, label: String, command: String, send: 
                 onClick(label) {
                     scope.launch {
                         send(command)
-                        delay(NUDGE_MS)
-                        send(Ptz.STOP)
+                        try {
+                            delay(NUDGE_MS)
+                        } finally {
+                            send(Ptz.STOP)
+                        }
                     }
                     true
                 }
