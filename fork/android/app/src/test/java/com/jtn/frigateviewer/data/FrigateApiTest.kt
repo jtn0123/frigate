@@ -70,6 +70,12 @@ class FrigateApiTest {
     }
 
     @Test
+    fun webSocketsArePingedSoADeadConnectionIsNoticed() {
+        assertEquals(30_000, buildHttpClient(null, pin = null).pingIntervalMillis)
+        assertEquals(30_000, buildHttpClient(AuthToken("frigate_token", "t"), CertificatePin(null)).pingIntervalMillis)
+    }
+
+    @Test
     fun forbiddenIsAnOrdinaryFailureNotASignOut() = runTest {
         server.enqueue(MockResponse.Builder().code(403).body("""{"detail":"Access denied to camera 'back'"}""").build())
         val failure = runCatching { api().config() }.exceptionOrNull()
