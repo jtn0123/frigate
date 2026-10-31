@@ -6,12 +6,38 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import java.io.IOException
+import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
+/**
+ * Tries [addresses] in turn until [connect] succeeds, all within [budgetMs].
+ * Each gets an equal share of the time left, so an address that never answers
+ * (often an IPv6 one) does not use up the time the others need. Throws the
+ * last failure when none connects.
+ */
+internal fun connectToAny(addresses: List<InetAddress>, budgetMs: Int, connect: (InetAddress, timeoutMs: Int) -> Unit) {
+    val deadline = System.nanoTime() + budgetMs * NANOS_PER_MS
+    var failure: IOException = UnknownHostException("No address found")
+    for ((index, address) in addresses.withIndex()) {
+        val leftMs = (deadline - System.nanoTime()) / NANOS_PER_MS
+        if (leftMs <= 0) break
+        try {
+            connect(address, (leftMs / (addresses.size - index)).toInt().coerceAtLeast(1))
+            return
+        } catch (e: IOException) {
+            failure = e
+        }
+    }
+    throw failure
+}
+
+private const val NANOS_PER_MS = 1_000_000L
 
 /** Whether the server answers without the tunnel, as it does on the home network. */
 enum class Reach { DIRECT, NOT_DIRECT, NO_NETWORK }
@@ -60,8 +86,10 @@ class AndroidDirectRoute(context: Context) : DirectRoute {
             runInterruptible(Dispatchers.IO) {
                 try {
                     // Looked up on that network too, so a name only the home router knows resolves at home only.
-                    val address = network.getAllByName(url.host).first()
-                    network.socketFactory.createSocket().use { it.connect(InetSocketAddress(address, url.port), PROBE_MS) }
+                    val addresses = network.getAllByName(url.host).toList()
+                    connectToAny(addresses, PROBE_MS) { address, timeoutMs ->
+                        network.socketFactory.createSocket().use { it.connect(InetSocketAddress(address, url.port), timeoutMs) }
+                    }
                     ""
                 } catch (e: IOException) {
                     "${e::class.simpleName}: ${maskAddresses(e.message.orEmpty())}"
@@ -106,6 +134,5 @@ class AndroidDirectRoute(context: Context) : DirectRoute {
 
     private companion object {
         const val PROBE_MS = 2_500
-        const val NANOS_PER_MS = 1_000_000L
     }
 }
