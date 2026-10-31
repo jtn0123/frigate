@@ -92,7 +92,9 @@ fun TunnelLogScreen(vm: AppViewModel, remote: RemoteAccess) {
         TabSheet {
             val entries = remote.log.entries
             val list = rememberLazyListState()
-            LaunchedEffect(entries.size) { if (entries.isNotEmpty()) list.scrollToItem(entries.size) }
+            // Follow the newest entry. Once the log is full its size stays put as the oldest
+            // drop off, so the last entry, not the count, says when there is a new one.
+            LaunchedEffect(entries.lastOrNull()) { if (entries.isNotEmpty()) list.scrollToItem(entries.size) }
             LazyColumn(
                 Modifier.fillMaxSize(),
                 state = list,
