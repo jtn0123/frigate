@@ -1,0 +1,63 @@
+name: Fork - Android
+
+# Builds and checks the Android viewer in fork/android (AN1): formatting,
+# detekt, unit tests with coverage and screenshot comparison, Android lint, and
+# the debug and minified release builds, all through its scripts/check.sh. It
+# runs only when the app or this workflow changes.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - next
+      - main
+    paths:
+      - "fork/android/**"
+      - ".github/workflows/fork-android.yml"
+  pull_request:
+    branches:
+      - next
+      - main
+    paths:
+      - "fork/android/**"
+      - ".github/workflows/fork-android.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-android-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Android check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: fork/android
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Format, static analysis, test, lint and build (debug and release)
+        run: scripts/check.sh
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-app-debug
+          path: fork/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: fork/android/app/build/reports/
+          retention-days: 7
