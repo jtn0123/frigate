@@ -62,7 +62,9 @@ class ReleaseNotesTest(unittest.TestCase):
         self.commit("UI1: add a camera wall", "web/src/wall.tsx")
         self.commit("D2: fix a crash on reconnect", "frigate/video.py")
         self.commit("D3: cover the reconnect path", "frigate/test/test_video.py")
-        self.commit("I4: faster checks", "frigate/util/ci.py")
+        self.commit("I4: faster CI checks", "frigate/util/ci.py")
+        self.commit("I5: show camera health", "web/src/health.tsx")
+        self.commit("I6: lint the fork scripts", "fork/scripts/lint.sh")
         self.commit("E5: patch an advisory", "web/package-lock.json")
         self.commit("F6 + S0: newer web packages", "web/package.json")
         self.commit("fork: scaffold", "web/src/fork/flags.ts")
@@ -71,9 +73,13 @@ class ReleaseNotesTest(unittest.TestCase):
         notes = self.build()
 
         self.assertEqual(notes.sections["New"], ["Add a camera wall"])
+        # I commits are listed like any other (I67): an I feature is a line,
+        # I tooling folds under the hood, and tooling-only files stay hidden
         self.assertEqual(
-            notes.sections["Fixes and improvements"], ["Fix a crash on reconnect"]
+            notes.sections["Fixes and improvements"],
+            ["Fix a crash on reconnect", "Show camera health"],
         )
+        self.assertEqual(notes.sections["Under the hood"], ["Faster CI checks"])
         self.assertEqual(notes.sections["Security"], ["Patch an advisory"])
         self.assertEqual(notes.sections["Dependencies"], ["Newer web packages"])
         self.assertEqual(notes.internal, 4)

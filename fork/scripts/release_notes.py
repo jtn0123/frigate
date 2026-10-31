@@ -51,8 +51,10 @@ INTERNAL_PATTERNS = (
 )
 
 # Grade-report categories that never change what a user sees: architecture,
-# docs, developer tooling, and fork scaffolding.
-INTERNAL_IDS = {"A", "H", "I", "S"}
+# docs and fork scaffolding. "I" is not one: since I41 it also names features
+# (classification suggestions, camera health), and its tooling commits are
+# caught by INTERNAL_PATTERNS or folded by TOOLING_RE.
+INTERNAL_IDS = {"A", "H", "S"}
 
 SECTIONS = ("New", "Fixes and improvements", "Security", "Dependencies")
 
