@@ -355,6 +355,34 @@ describe("ExportContent export tab", () => {
     });
   });
 
+  it("counts elapsed hours across a DST change (fork UI155)", () => {
+    const zone = process.env.TZ;
+    process.env.TZ = "America/New_York";
+    try {
+      // 07:00 EST on the US fall-back day; a day of wall-clock hours earlier
+      // is 25 elapsed hours back
+      const latest = Date.UTC(2026, 10, 1, 12, 0, 0) / 1000;
+      const props = contentProps({ latestTime: latest });
+      renderContent(props);
+      fireEvent.click(hourRadio(24));
+      expect(props.setRange).toHaveBeenLastCalledWith({
+        before: latest,
+        after: latest - 24 * 3600,
+      });
+      fireEvent.click(hourRadio(8));
+      expect(props.setRange).toHaveBeenLastCalledWith({
+        before: latest,
+        after: latest - 8 * 3600,
+      });
+    } finally {
+      if (zone === undefined) {
+        Reflect.deleteProperty(process.env, "TZ");
+      } else {
+        process.env.TZ = zone;
+      }
+    }
+  });
+
   it("shows the custom selector for the custom option", () => {
     const props = contentProps();
     renderContent(props);

@@ -674,29 +674,17 @@ export function ExportContent({
     (option: ExportOption) => {
       setSelectedOption(option);
 
-      const now = new Date(latestTime * 1000);
       let start = 0;
 
+      // fork (UI155): elapsed hours, not wall-clock ones, so a DST change
+      // does not stretch or shrink the range
       switch (option) {
         case "1":
-          now.setHours(now.getHours() - 1);
-          start = now.getTime() / 1000;
-          break;
         case "4":
-          now.setHours(now.getHours() - 4);
-          start = now.getTime() / 1000;
-          break;
         case "8":
-          now.setHours(now.getHours() - 8);
-          start = now.getTime() / 1000;
-          break;
         case "12":
-          now.setHours(now.getHours() - 12);
-          start = now.getTime() / 1000;
-          break;
         case "24":
-          now.setHours(now.getHours() - 24);
-          start = now.getTime() / 1000;
+          start = latestTime - Number(option) * 3600;
           break;
         case "custom":
           start = latestTime - 3600;
