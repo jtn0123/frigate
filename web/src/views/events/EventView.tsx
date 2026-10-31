@@ -107,6 +107,7 @@ import { EmptyCard } from "@/components/card/EmptyCard";
 import { EmptyCardData } from "@/types/card";
 // fork (UI116): the mark-reviewed bar replaces the centered button
 import MarkReviewedBar from "@/components/fork/review/MarkReviewedBar";
+import { markableReviewCount } from "@/lib/fork/bulk-actions";
 
 type EventViewProps = {
   reviewItems?: SegmentedReviewData;
@@ -909,10 +910,10 @@ function DetectionReview({
                   <Skeleton key={idx} className="aspect-video size-full" />
                 ))}
           {!loading &&
-            (currentItems?.filter((seg) => seg.end_time)?.length ?? 0) > 0 &&
+            markableReviewCount(currentItems) > 0 &&
             (itemsToReview ?? 0) > 0 && (
               <MarkReviewedBar
-                count={currentItems?.length ?? 0}
+                count={markableReviewCount(currentItems)}
                 onMarkReviewed={() => {
                   setSelectedReviews([]);
                   markItemsAsReviewed(currentItems ?? []);

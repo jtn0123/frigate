@@ -22,7 +22,11 @@ vi.mock("i18next", () => ({
 }));
 
 import type { ReviewSegment } from "@/types/review";
-import { changedReviewIds, markReviewedWithUndo } from "./bulk-actions";
+import {
+  changedReviewIds,
+  markableReviewCount,
+  markReviewedWithUndo,
+} from "./bulk-actions";
 
 function review(id: string, hasBeenReviewed: boolean): ReviewSegment {
   return {
@@ -53,6 +57,25 @@ describe("changedReviewIds", () => {
 
   it("is empty when nothing would change", () => {
     expect(changedReviewIds([review("b", true)], true)).toEqual([]);
+  });
+});
+
+describe("markableReviewCount", () => {
+  it("counts only finished items that are not reviewed yet", () => {
+    const { end_time: _end, ...inProgress } = review("d", false);
+    expect(
+      markableReviewCount([
+        review("a", false),
+        review("b", true),
+        inProgress,
+        review("c", false),
+      ]),
+    ).toBe(2);
+  });
+
+  it("is zero without items", () => {
+    expect(markableReviewCount(null)).toBe(0);
+    expect(markableReviewCount([review("b", true)])).toBe(0);
   });
 });
 
