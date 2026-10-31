@@ -787,6 +787,10 @@ describe("NotificationsSettingsExtras", () => {
         screen.getByRole("button", { name: "notification.registerDevice" }),
       ).toHaveTextContent("notification.registerDevice"),
     );
+    // a rejected registration never also reports success
+    expect(h.toastSuccess).not.toHaveBeenCalledWith(
+      "notification.toast.success.registered",
+    );
   });
 
   it("waits for a new worker to activate before subscribing", async () => {
