@@ -59,6 +59,9 @@ class AppViewModelTest {
     /** Paths requested, in order; read while the app is still making requests. */
     private val paths = CopyOnWriteArrayList<String>()
 
+    /** The Cookie header of each request, in the same order. */
+    private val cookies = CopyOnWriteArrayList<String>()
+
     /** Status per path, for the responses that should fail. */
     private val failing = mutableMapOf<String, Int>()
 
@@ -78,6 +81,7 @@ class AppViewModelTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.url.encodedPath
+                cookies += request.headers["Cookie"].orEmpty()
                 paths += path
                 return hooks[path]?.let { hook -> hook(request) }
                     ?: failing[path]?.let { MockResponse.Builder().code(it).build() }
@@ -337,5 +341,24 @@ class AppViewModelTest {
         assertTrue("The new session is kept", runOnMain { vm.session } === second)
         assertNull(runOnMain { vm.loginError })
         assertEquals("jwt1", runBlocking { store.settings.first() }.token)
+    }
+
+    @Test
+    fun aTokenTheWidgetRenewedIsUsedAndNotOverwritten() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "admin", token = "jwt1")) }
+        val vm = viewModel()
+        await("session") { vm.session != null }
+
+        // The widget renewed the token and saved it while the app was running.
+        runBlocking { store.update { it.copy(token = "jwt2") } }
+        await("the app to take it up") { vm.session?.token == "jwt2" }
+        runOnMain { vm.toggleGridColumns() }
+        await("the preference to be saved") { runBlocking { store.settings.first() }.gridColumns == 2 }
+
+        assertEquals("A preference does not put the old token back", "jwt2", runBlocking { store.settings.first() }.token)
+        val before = paths.size
+        runOnMain { vm.refreshCameras() }
+        await("a request") { paths.size > before }
+        assertEquals("frigate_token=jwt2", cookies[before])
     }
 }

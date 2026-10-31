@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -75,37 +76,53 @@ class SettingsStore(private val dataStore: DataStore<Preferences>, private val c
         val tunnelEnabled = booleanPreferencesKey("tunnel_enabled")
     }
 
-    val settings: Flow<ServerSettings> = dataStore.data.map { p ->
-        ServerSettings(
-            baseUrl = p[Keys.baseUrl].orEmpty(),
-            username = p[Keys.username].orEmpty(),
-            // Unreadable (the key is gone) means signed out, not a crash.
-            token = p[Keys.token]?.let(cipher::decrypt).orEmpty(),
-            tokenCookie = p[Keys.tokenCookie] ?: ServerSettings.DEFAULT_TOKEN_COOKIE,
-            selfSignedCert = p[Keys.selfSigned] ?: false,
-            certificatePin = p[Keys.certificatePin].orEmpty(),
-            gridColumns = p[Keys.gridColumns] ?: 1,
-            markReviewedOnOpen = p[Keys.markReviewed] ?: true,
-            trackReviews = p[Keys.trackReviews] ?: true,
-            theme = p[Keys.theme].orEmpty(),
-            appLock = p[Keys.appLock] ?: false,
-        )
-    }.flowOn(Dispatchers.IO)
+    val settings: Flow<ServerSettings> = dataStore.data.map(::read).flowOn(Dispatchers.IO)
 
     suspend fun save(settings: ServerSettings) {
+        dataStore.edit { p -> write(p, settings) }
+    }
+
+    /**
+     * Applies [change] to the settings as stored, in one transaction, so what
+     * it leaves alone keeps its stored value: a preference saved by the app
+     * does not put back a token the widget renewed meanwhile.
+     */
+    suspend fun update(change: (ServerSettings) -> ServerSettings) {
         dataStore.edit { p ->
-            p[Keys.baseUrl] = settings.baseUrl
-            p[Keys.username] = settings.username
-            p[Keys.token] = cipher.encrypt(settings.token)
-            p[Keys.tokenCookie] = settings.tokenCookie
-            p[Keys.selfSigned] = settings.selfSignedCert
-            p[Keys.certificatePin] = settings.certificatePin
-            p[Keys.gridColumns] = settings.gridColumns
-            p[Keys.markReviewed] = settings.markReviewedOnOpen
-            p[Keys.trackReviews] = settings.trackReviews
-            p[Keys.theme] = settings.theme
-            p[Keys.appLock] = settings.appLock
+            val stored = read(p)
+            val next = change(stored)
+            // Encrypting gives new bytes each time, so an unchanged token is not written again.
+            write(p, next, token = next.token != stored.token)
         }
+    }
+
+    private fun read(p: Preferences) = ServerSettings(
+        baseUrl = p[Keys.baseUrl].orEmpty(),
+        username = p[Keys.username].orEmpty(),
+        // Unreadable (the key is gone) means signed out, not a crash.
+        token = p[Keys.token]?.let(cipher::decrypt).orEmpty(),
+        tokenCookie = p[Keys.tokenCookie] ?: ServerSettings.DEFAULT_TOKEN_COOKIE,
+        selfSignedCert = p[Keys.selfSigned] ?: false,
+        certificatePin = p[Keys.certificatePin].orEmpty(),
+        gridColumns = p[Keys.gridColumns] ?: 1,
+        markReviewedOnOpen = p[Keys.markReviewed] ?: true,
+        trackReviews = p[Keys.trackReviews] ?: true,
+        theme = p[Keys.theme].orEmpty(),
+        appLock = p[Keys.appLock] ?: false,
+    )
+
+    private fun write(p: MutablePreferences, settings: ServerSettings, token: Boolean = true) {
+        p[Keys.baseUrl] = settings.baseUrl
+        p[Keys.username] = settings.username
+        if (token) p[Keys.token] = cipher.encrypt(settings.token)
+        p[Keys.tokenCookie] = settings.tokenCookie
+        p[Keys.selfSigned] = settings.selfSignedCert
+        p[Keys.certificatePin] = settings.certificatePin
+        p[Keys.gridColumns] = settings.gridColumns
+        p[Keys.markReviewed] = settings.markReviewedOnOpen
+        p[Keys.trackReviews] = settings.trackReviews
+        p[Keys.theme] = settings.theme
+        p[Keys.appLock] = settings.appLock
     }
 
     /** The imported WireGuard tunnel, kept apart from the server's settings and through signing out; null when there is none. */

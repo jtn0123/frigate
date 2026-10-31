@@ -74,7 +74,7 @@ class CameraWidget : AppWidgetProvider() {
             val store = SettingsStore.create(context)
             val settings = store.settings.first()
             val session = settings.takeIf { it.isConfigured && (it.token.isNotEmpty() || it.username.isEmpty()) }?.let {
-                Session.saving(it) { change -> scope.launch { store.save(change(store.settings.first())) } }
+                Session.saving(it) { change -> scope.launch { store.update(change) } }
             }
             val tunnelOn = store.tunnel.first()?.enabled == true
             val choices = WidgetChoices(context)

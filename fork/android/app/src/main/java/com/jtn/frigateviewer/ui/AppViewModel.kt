@@ -25,8 +25,10 @@ import java.io.IOException
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 
@@ -132,6 +134,10 @@ class AppViewModel(
                 startSession(settings)
             }
             loaded = true
+            // The widget renews the token too, while the app runs; use the newest one saved.
+            store.settings.map { it.token }.distinctUntilChanged().collect { token ->
+                session?.takeIf { token.isNotEmpty() && it.token != token }?.adoptToken(token)
+            }
         }
         remoteAccess?.let { remote ->
             viewModelScope.launch {
@@ -268,7 +274,8 @@ class AppViewModel(
         val settings = change(current.settings)
         savedSettings = settings
         session = current.withSettings(settings)
-        viewModelScope.launch { store.save(settings) }
+        // Applied to the stored settings, so a token the widget renewed meanwhile is kept.
+        viewModelScope.launch { store.update(change) }
     }
 
     fun refreshCameras() {

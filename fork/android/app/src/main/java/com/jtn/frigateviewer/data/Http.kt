@@ -26,6 +26,11 @@ class AuthToken(val cookieName: String, initial: String, private val onRenewed: 
     internal fun renew(token: String) {
         if (token.isNotEmpty() && value.getAndSet(token) != token) onRenewed(token)
     }
+
+    /** Uses [token], renewed elsewhere (by the widget) and already saved, from now on. */
+    internal fun adopt(token: String) {
+        if (token.isNotEmpty()) value.set(token)
+    }
 }
 
 /**
