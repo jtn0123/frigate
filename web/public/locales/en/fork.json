@@ -676,7 +676,8 @@
     "selectedImage": "Selected image",
     "preview": "Preview",
     "cameraSnapshot": "Camera snapshot",
-    "exampleNumber": "Example {{index}}"
+    "exampleNumber": "Example {{index}}",
+    "birdseye": "Birdseye"
   },
   "cameras": {
     "allIncludedHint": "All cameras are included. Turn one on to narrow the view to it."

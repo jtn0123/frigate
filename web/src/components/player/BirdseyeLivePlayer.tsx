@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import React, { Suspense } from "react";
 import { ImageShadowOverlay } from "../overlay/ImageShadowOverlay";
 import { onActivate } from "@/utils/fork/a11y";
+import { useTranslation } from "react-i18next";
 
 type LivePlayerProps = {
   className?: string;
@@ -26,6 +27,7 @@ export default function BirdseyeLivePlayer({
   playerRef,
   onClick,
 }: Readonly<LivePlayerProps>) {
+  const { t } = useTranslation(["fork"]);
   let player;
   if (liveMode == "webrtc") {
     player = <WebRtcPlayer className="size-full" camera="birdseye" pip={pip} />;
@@ -65,6 +67,8 @@ export default function BirdseyeLivePlayer({
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
+      // fork (UI155): a focusable tile needs a name, as LivePlayer's has
+      aria-label={onClick ? t("a11yLabels.birdseye") : undefined}
       onKeyDown={onActivate(onClick)}
     >
       <div
