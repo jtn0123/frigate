@@ -76,7 +76,11 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
         title = vm.cameraLabel(item.camera),
         actions = {
             if (vm.clips.available) {
-                IconButton(onClick = { vm.clips.shareSnapshot(session.api, item, vm.cameraLabel(item.camera)) }) {
+                IconButton(
+                    onClick = { vm.clips.shareSnapshot(session.api, item, vm.cameraLabel(item.camera)) },
+                    // Fetching the snapshot can take a moment; one tap shares it once.
+                    enabled = item.id !in vm.clips.sharingSnapshots,
+                ) {
                     Icon(Icons.Outlined.Share, contentDescription = "Share snapshot")
                 }
                 val busy = vm.clips.states[item.id].let { it == ClipState.Preparing || it == ClipState.Downloading }

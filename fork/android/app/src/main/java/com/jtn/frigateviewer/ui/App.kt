@@ -174,7 +174,12 @@ private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: Image
             ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.Event -> vm.reviewById(overlay.reviewId)
             ?.let { EventScreen(vm, session, it) }
-            ?: Unavailable(vm, vm.reviews, onRetry = vm::refreshReviews)
+            // An event open before a restart may still be on its way back from the server.
+            ?: Unavailable(
+                vm,
+                if (overlay.reviewId in vm.restoringEvents) Remote.Loading else vm.reviews,
+                onRetry = vm::refreshReviews,
+            )
         is Overlay.Recording -> vm.cameraByName(overlay.camera)
             ?.let { RecordingScreen(vm, session, it, overlay.minutes, overlay.end) }
             ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
