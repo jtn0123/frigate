@@ -1,8 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.view.LayoutInflater
-import android.widget.FrameLayout
-import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,39 +41,21 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.hls.HlsMediaSource
-import androidx.media3.ui.PlayerView
-import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.reviewVodUrl
 import com.jtn.frigateviewer.data.vodUrl
-import kotlinx.coroutines.delay
 
 /** A review item's recording, with what happened and previous/next navigation. */
 @Composable
@@ -265,55 +244,6 @@ internal fun PlaybackLayout(
     }
 }
 
-@OptIn(UnstableApi::class)
-@Composable
-private fun VodPlayer(session: Session, url: String, modifier: Modifier = Modifier, onPosition: ((Long) -> Unit)? = null) {
-    val context = LocalContext.current
-    var error by remember(url) { mutableStateOf<String?>(null) }
-    val player = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaSource(
-                HlsMediaSource.Factory(OkHttpDataSource.Factory(session.client)).createMediaSource(MediaItem.fromUri(url)),
-            )
-            playWhenReady = true
-            prepare()
-        }
-    }
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onPlayerError(e: PlaybackException) {
-                error = "This recording could not be played (${e.errorCodeName})"
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-            player.release()
-        }
-    }
-    if (onPosition != null) {
-        // Milliseconds into the playlist, for a timeline to follow while it plays.
-        LaunchedEffect(player) {
-            while (true) {
-                if (player.isPlaying) onPosition(player.currentPosition)
-                delay(POSITION_INTERVAL_MS)
-            }
-        }
-    }
-    Box(modifier) {
-        AndroidView(
-            factory = { ctx ->
-                LayoutInflater.from(ctx).inflate(R.layout.vod_player, FrameLayout(ctx), false) as PlayerView
-            },
-            update = { it.player = player },
-            modifier = Modifier.fillMaxSize(),
-        )
-        error?.let {
-            Text(it, color = Palette.Alert, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
-        }
-    }
-}
-
 /** How saving the clip is going, and a way to share it once saved. */
 @Composable
 private fun ClipStatus(state: ClipState, onShare: () -> Unit) {
@@ -380,4 +310,3 @@ internal fun eventWhen(item: ReviewItem): String {
 }
 
 private const val PILL_TINT = 0.16f
-private const val POSITION_INTERVAL_MS = 250L

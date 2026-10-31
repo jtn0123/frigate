@@ -1,0 +1,124 @@
+package com.jtn.frigateviewer.ui
+
+import android.content.Context
+import android.view.LayoutInflater
+import android.widget.FrameLayout
+import androidx.annotation.OptIn
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.ui.PlayerView
+import com.jtn.frigateviewer.R
+import com.jtn.frigateviewer.data.Session
+import kotlinx.coroutines.delay
+
+/** Makes the player for a recording; tests provide one that keeps hold of what it made. */
+internal val LocalVodPlayerFactory = staticCompositionLocalOf<(Context) -> ExoPlayer> { { ExoPlayer.Builder(it).build() } }
+
+@OptIn(UnstableApi::class)
+@Composable
+internal fun VodPlayer(session: Session, url: String, modifier: Modifier = Modifier, onPosition: ((Long) -> Unit)? = null) {
+    val context = LocalContext.current
+    val newPlayer = LocalVodPlayerFactory.current
+    var error by remember(url) { mutableStateOf<String?>(null) }
+    val player = remember(url) {
+        newPlayer(context).apply {
+            setMediaSource(
+                HlsMediaSource.Factory(OkHttpDataSource.Factory(session.client)).createMediaSource(MediaItem.fromUri(url)),
+            )
+            playWhenReady = true
+            prepare()
+        }
+    }
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onPlayerError(e: PlaybackException) {
+                error = "This recording could not be played (${e.errorCodeName})"
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+        }
+    }
+    PauseWhileStopped(player)
+    if (onPosition != null) {
+        // Milliseconds into the playlist, for a timeline to follow while it plays.
+        LaunchedEffect(player) {
+            while (true) {
+                if (player.isPlaying) onPosition(player.currentPosition)
+                delay(POSITION_INTERVAL_MS)
+            }
+        }
+    }
+    Box(modifier) {
+        AndroidView(
+            factory = { ctx ->
+                LayoutInflater.from(ctx).inflate(R.layout.vod_player, FrameLayout(ctx), false) as PlayerView
+            },
+            update = { it.player = player },
+            modifier = Modifier.fillMaxSize(),
+        )
+        error?.let {
+            Text(it, color = Palette.Alert, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
+        }
+    }
+}
+
+/**
+ * Pauses [player] while the app is in the background or the screen is off, so a
+ * recording's sound does not carry on unseen, and plays on when the app returns
+ * if it was playing when it left.
+ */
+@Composable
+private fun PauseWhileStopped(player: Player) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, player) {
+        // Opened while already in the background, it waits for the app to return.
+        var resume = !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && player.playWhenReady
+        if (resume) player.pause()
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    resume = resume || player.playWhenReady
+                    player.pause()
+                }
+                Lifecycle.Event.ON_START -> if (resume) {
+                    resume = false
+                    player.play()
+                }
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+}
+
+private const val POSITION_INTERVAL_MS = 250L
