@@ -69,7 +69,8 @@
       "nothingToReview": "Nothing left to review",
       "markedReviewed_one": "Marked {{count}} item as reviewed",
       "markedReviewed_other": "Marked {{count}} items as reviewed",
-      "markFailed": "Could not mark items as reviewed"
+      "markFailed": "Could not mark items as reviewed",
+      "markedReviewed": "commandPalette.toast.markedReviewed"
     },
     "footage": {
       "result": "{{label}} on {{camera}}",
