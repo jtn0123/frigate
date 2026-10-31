@@ -50,7 +50,8 @@ data class SearchInputs(
             SearchRange.YESTERDAY -> start(today.minusDays(1)) to start(today)
             SearchRange.WEEK -> end - Duration.ofDays(WEEK_DAYS).seconds to end
             SearchRange.MONTH -> end - Duration.ofDays(MONTH_DAYS).seconds to end
-            SearchRange.ANY -> 0L to end
+            // Frigate reads after=0 as unset and then searches only the last 24 hours.
+            SearchRange.ANY -> EARLIEST to end
             SearchRange.CUSTOM -> start(from ?: today) to start((to ?: from ?: today).plusDays(1))
         }
         return SearchFilter(after, before, cameras, labels, query.trim())
@@ -133,4 +134,7 @@ class ReviewSearch(private val scope: CoroutineScope, private val onSessionLost:
 }
 
 private const val WEEK_DAYS = 7L
+
+/** The first second after the epoch: the earliest time Frigate takes as given. */
+private const val EARLIEST = 1L
 private const val MONTH_DAYS = 30L

@@ -63,6 +63,18 @@ internal class FakeBackend : TunnelBackend {
         downs++
     }
 
+    private var onStopped: () -> Unit = {}
+
+    override fun watchStops(onStopped: () -> Unit) {
+        this.onStopped = onStopped
+    }
+
+    /** The VPN goes down without the app asking, as when Android revokes it. */
+    fun stopOutside() {
+        downs++
+        onStopped()
+    }
+
     override suspend fun stats(): TunnelStats {
         val up = ups.size > downs
         return TunnelStats(
@@ -188,6 +200,26 @@ class RemoteAccessTest {
         await { remote.status == TunnelStatus.Home }
         assertEquals(1, backend.downs)
         assertEquals(2, remote.routeChanges)
+    }
+
+    @Test
+    fun aVpnStoppedOutsideTheAppIsNotShownConnected() {
+        val remote = remote()
+        remote.foreground()
+        await { remote.status == TunnelStatus.Connected }
+
+        // Another VPN app took over, which also takes away the permission.
+        backend.permitted = false
+        backend.stopOutside()
+        await { remote.status == TunnelStatus.NeedsPermission }
+        assertEquals("The lost route is reported", 2, remote.routeChanges)
+        assertTrue(remote.log.entries.any { it.text == "The VPN was turned off outside the app" })
+
+        // Allowed again: it is brought back up rather than assumed running.
+        backend.permitted = true
+        remote.check()
+        await { remote.status == TunnelStatus.Connected }
+        assertEquals(2, backend.ups.size)
     }
 
     @Test

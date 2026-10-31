@@ -74,7 +74,7 @@ class CameraWidget : AppWidgetProvider() {
             val store = SettingsStore.create(context)
             val settings = store.settings.first()
             val session = settings.takeIf { it.isConfigured && (it.token.isNotEmpty() || it.username.isEmpty()) }?.let {
-                Session.saving(it) { change -> scope.launch { store.save(change(store.settings.first())) } }
+                Session.saving(it) { change -> scope.launch { store.update(change) } }
             }
             val tunnelOn = store.tunnel.first()?.enabled == true
             val choices = WidgetChoices(context)
@@ -87,13 +87,26 @@ class CameraWidget : AppWidgetProvider() {
                         ?: WidgetContent.Failed("Could not connect to the server")
                 }?.awayIf(tunnelOn)
                 val views = render(context, id, choice, content, settings)
-                if (content is WidgetContent.Failed) manager.partiallyUpdateAppWidget(id, views) else manager.updateAppWidget(id, views)
+                if (isPartial(content, choices.shownSinceBoot(id))) {
+                    manager.partiallyUpdateAppWidget(id, views)
+                } else {
+                    manager.updateAppWidget(id, views)
+                    choices.markShown(id)
+                }
             }
         }
 
         /**
+         * A failure only changes the status line, keeping the last picture, but
+         * Android ignores a partial update until the widget has had a full one,
+         * so a widget not [shown] yet gets the failure as a full update.
+         */
+        internal fun isPartial(content: WidgetContent?, shown: Boolean): Boolean = content is WidgetContent.Failed && shown
+
+        /**
          * The widget's views. With no [choice] it asks for a camera; a failed
-         * [content] only changes the status line, so it is applied as a partial update.
+         * [content] only changes the status line, so it is applied as a partial
+         * update once the widget has had a full one.
          */
         fun render(
             context: Context,

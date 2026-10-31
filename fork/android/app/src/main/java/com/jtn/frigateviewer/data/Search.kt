@@ -50,6 +50,9 @@ suspend fun FrigateApi.searchDescriptions(filter: SearchFilter): List<TrackedObj
     return json.decodeFromString(getText(url))
 }
 
+/** One review item by its ID, from any time. */
+suspend fun FrigateApi.review(id: String): ReviewItem = json.decodeFromString(getText(url("api/review/$id")))
+
 /** The review item an object was part of. */
 suspend fun FrigateApi.reviewForObject(id: String): ReviewItem = json.decodeFromString(getText(url("api/review/event/$id")))
 

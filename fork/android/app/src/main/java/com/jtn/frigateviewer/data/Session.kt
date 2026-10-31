@@ -25,6 +25,12 @@ class Session private constructor(val settings: ServerSettings, private val auth
 
     fun withSettings(settings: ServerSettings) = Session(settings, auth, client)
 
+    /** The token currently sent, which renewals replace. */
+    val token: String get() = auth.current
+
+    /** Sends [token] from now on: one the widget renewed and saved while this session ran. */
+    fun adoptToken(token: String) = auth.adopt(token)
+
     companion object {
         /**
          * A session that hands what the server changes to [update] for saving:

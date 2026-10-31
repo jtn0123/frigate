@@ -1,0 +1,1 @@
+| AN3 | android | `fork/android/app/src/main/java/com/jtn/frigateviewer/{data,tunnel,widget,ui}/` | Android data, tunnel and widget bug polish pass: scheme checks, session scoping, 403 handling, socket pings, widget timeouts and failures, export job status, bounded live buffers and safer clip saves | fork-only |

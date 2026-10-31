@@ -9,6 +9,7 @@ import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 /** Where clips and snapshots go on the phone; an interface so tests need no media store. */
@@ -24,13 +25,15 @@ class AndroidMediaFiles(private val context: Context) : MediaFiles {
     override suspend fun saveVideo(name: String, write: suspend (OutputStream) -> Unit): String {
         val resolver = context.contentResolver
         val uri = newPendingVideo(name)
+        var written = false
         try {
             withContext(Dispatchers.IO) {
                 resolver.openOutputStream(uri)?.use { write(it) } ?: throw IOException("Could not save to Movies")
             }
-        } catch (e: IOException) {
-            withContext(Dispatchers.IO) { resolver.delete(uri, null, null) }
-            throw e
+            written = true
+        } finally {
+            // Whatever stopped it, cancelling included: a pending entry left behind is an orphan file.
+            if (!written) withContext(NonCancellable + Dispatchers.IO) { resolver.delete(uri, null, null) }
         }
         val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
         withContext(Dispatchers.IO) { resolver.update(uri, done, null, null) }

@@ -23,6 +23,13 @@ interface TunnelBackend {
 
     /** The running tunnel's traffic, and when its server last answered a handshake. */
     suspend fun stats(): TunnelStats
+
+    /**
+     * Calls [onStopped] when the tunnel goes down without [down] being asked,
+     * as when the user disconnects the VPN in Android's settings or another
+     * VPN app takes over. It may be called on any thread.
+     */
+    fun watchStops(onStopped: () -> Unit)
 }
 
 /** A WireGuard file that cannot be used, with a message saying why. */
@@ -36,10 +43,21 @@ class WireGuardBackend(context: Context) : TunnelBackend {
     private val context = context.applicationContext
     private val backend by lazy { GoBackend(this.context) }
 
+    /** Set while the app itself changes the tunnel, whose own DOWN is not news. */
+    @Volatile private var changing = false
+
+    @Volatile private var onStopped: () -> Unit = {}
+
     private val tunnel = object : Tunnel {
         override fun getName() = TUNNEL_NAME
 
-        override fun onStateChange(newState: Tunnel.State) = Unit
+        override fun onStateChange(newState: Tunnel.State) {
+            if (newState == Tunnel.State.DOWN && !changing) onStopped()
+        }
+    }
+
+    override fun watchStops(onStopped: () -> Unit) {
+        this.onStopped = onStopped
     }
 
     override fun hasPermission() = VpnService.prepare(context) == null
@@ -47,6 +65,7 @@ class WireGuardBackend(context: Context) : TunnelBackend {
     override suspend fun up(config: Config) {
         val failure = withContext(Dispatchers.IO) {
             try {
+                changing = true
                 backend.setState(tunnel, Tunnel.State.UP, config)
                 null
             } catch (e: BackendException) {
@@ -58,6 +77,8 @@ class WireGuardBackend(context: Context) : TunnelBackend {
             } catch (e: IllegalStateException) {
                 // Android refuses to start a service while the app is in the background.
                 TunnelException("The tunnel can only start while the app is open.", e)
+            } finally {
+                changing = false
             }
         }
         if (failure != null) throw failure
@@ -66,6 +87,7 @@ class WireGuardBackend(context: Context) : TunnelBackend {
     override suspend fun down() {
         withContext(Dispatchers.IO) {
             try {
+                changing = true
                 backend.setState(tunnel, Tunnel.State.DOWN, null)
             } catch (_: BackendException) {
                 // Already down: nothing is running.
@@ -75,6 +97,8 @@ class WireGuardBackend(context: Context) : TunnelBackend {
                 // As above.
             } catch (_: IllegalStateException) {
                 // As above.
+            } finally {
+                changing = false
             }
         }
     }

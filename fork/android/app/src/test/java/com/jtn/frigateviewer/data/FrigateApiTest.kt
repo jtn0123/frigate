@@ -4,7 +4,10 @@ import com.jtn.frigateviewer.data.liveUrl
 import com.jtn.frigateviewer.data.reviewVodUrl
 import com.jtn.frigateviewer.data.reviews
 import com.jtn.frigateviewer.data.thumbnailUrl
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.junit4.MockWebServerRule
@@ -25,6 +28,8 @@ class FrigateApiTest {
     fun normalizesBaseUrls() {
         assertEquals("http://10.0.0.5:5000/", FrigateApi.normalizeBaseUrl("10.0.0.5:5000"))
         assertEquals("https://nvr.local:8971/", FrigateApi.normalizeBaseUrl(" https://nvr.local:8971/ "))
+        assertEquals("https://nvr.local:8971/", FrigateApi.normalizeBaseUrl("Https://nvr.local:8971"))
+        assertEquals("http://NVR.local/", FrigateApi.normalizeBaseUrl("HTTP://NVR.local"))
     }
 
     @Test
@@ -65,6 +70,67 @@ class FrigateApiTest {
     fun loginFailureIsAuthException() = runTest {
         server.enqueue(MockResponse.Builder().code(401).body("""{"message":"Login failed"}""").build())
         api().login("admin", "wrong")
+    }
+
+    @Test
+    fun aTimeoutCancelsTheCallInsteadOfWaitingForTheServer() = runBlocking {
+        server.enqueue(MockResponse.Builder().headersDelay(10, TimeUnit.SECONDS).body("0.17.0").build())
+        val started = System.nanoTime()
+
+        val result = withTimeoutOrNull(300) { api().version() }
+
+        val ms = (System.nanoTime() - started) / 1_000_000
+        assertNull(result)
+        assertTrue("Gave up after $ms ms", ms < 3_000)
+    }
+
+    @Test
+    fun webSocketsArePingedSoADeadConnectionIsNoticed() {
+        assertEquals(30_000, buildHttpClient(null, pin = null).pingIntervalMillis)
+        assertEquals(30_000, buildHttpClient(AuthToken("frigate_token", "t"), CertificatePin(null)).pingIntervalMillis)
+    }
+
+    @Test
+    fun forbiddenIsAnOrdinaryFailureNotASignOut() = runTest {
+        server.enqueue(MockResponse.Builder().code(403).body("""{"detail":"Access denied to camera 'back'"}""").build())
+        val failure = runCatching { api().config() }.exceptionOrNull()
+        assertFalse("Not a sign-out", failure is AuthException)
+        assertEquals(403, (failure as HttpException).code)
+        assertEquals(FrigateApi.NOT_ALLOWED, failure.message)
+    }
+
+    @Test
+    fun allowedCamerasAreReadFromTheProfile() = runTest {
+        server.enqueue(MockResponse.Builder().body("""{"username":"v","role":"viewer","allowed_cameras":["front"]}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"username":"v","role":"viewer"}""").build())
+        server.enqueue(MockResponse.Builder().code(404).build())
+        assertEquals(setOf("front"), api().allowedCameras())
+        assertNull("An older server does not say", api().allowedCameras())
+        assertNull("No profile hides nothing", api().allowedCameras())
+    }
+
+    @Test
+    fun loginPrefersFrigatesCookieOverAProxys() = runTest {
+        server.enqueue(
+            MockResponse.Builder()
+                .addHeader("Set-Cookie", "AWSALB=sticky123; Path=/")
+                .addHeader("Set-Cookie", "frigate_token=abc.def.ghi; HttpOnly; Path=/")
+                .body("{}")
+                .build(),
+        )
+        assertEquals(LoginToken("frigate_token", "abc.def.ghi"), api().login("admin", "pw"))
+    }
+
+    @Test
+    fun loginFindsARenamedTokenCookieByItsJwt() = runTest {
+        server.enqueue(
+            MockResponse.Builder()
+                .addHeader("Set-Cookie", "session=opaque; Path=/")
+                .addHeader("Set-Cookie", "nvr_auth=aaa.bbb.ccc; Path=/")
+                .body("{}")
+                .build(),
+        )
+        assertEquals(LoginToken("nvr_auth", "aaa.bbb.ccc"), api().login("admin", "pw"))
     }
 
     @Test

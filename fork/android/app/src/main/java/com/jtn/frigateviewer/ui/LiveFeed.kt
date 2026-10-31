@@ -3,6 +3,7 @@ package com.jtn.frigateviewer.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.jtn.frigateviewer.data.AuthException
 import com.jtn.frigateviewer.data.CameraActivity
 import com.jtn.frigateviewer.data.FeedCommands
 import com.jtn.frigateviewer.data.FeedEvent
@@ -17,13 +18,14 @@ import kotlinx.coroutines.delay
  *
  * [api] is read again before each connection, so signing out ends the loop.
  * [onReconnect] runs when the feed comes back after a drop, to fetch anything
- * missed meanwhile.
+ * missed meanwhile. [onSessionLost] runs when the server refuses the session.
  */
 class LiveFeed(
     private val api: () -> FrigateApi?,
     private val onReview: (ReviewItem) -> Unit,
     private val onCommands: (FeedCommands?) -> Unit,
     private val onReconnect: () -> Unit,
+    private val onSessionLost: () -> Unit = {},
 ) {
     /** What each camera sees right now; empty until the feed connects. */
     var activity by mutableStateOf<Map<String, CameraActivity>>(emptyMap())
@@ -50,8 +52,16 @@ class LiveFeed(
                     }
                     apply(event)
                 }
+            } catch (_: AuthException) {
+                // Retrying would be refused forever. Only the session this was tried with is ended;
+                // if another took its place meanwhile, that one is tried at once.
+                if (api() === api) {
+                    onSessionLost()
+                    return
+                }
+                continue
             } catch (_: IOException) {
-                // Dropped or refused; polling covers the gap until it reconnects.
+                // Dropped; polling covers the gap until it reconnects.
             } finally {
                 connected = false
                 onCommands(null)

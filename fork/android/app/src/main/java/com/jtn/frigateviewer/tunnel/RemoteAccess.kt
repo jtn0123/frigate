@@ -92,6 +92,22 @@ class RemoteAccess(
 
     /** Follows the saved tunnel and server address, checking again when either changes. */
     fun start() {
+        // Stopped outside the app: forget it was up, so it is not shown connected, and decide again.
+        backend.watchStops {
+            scope.launch {
+                checkJob?.cancel()
+                changing.withLock {
+                    if (upWith == null) return@withLock
+                    log.add("The VPN was turned off outside the app")
+                    if (answered) routeChanges++
+                    upWith = null
+                    answered = false
+                    stats = null
+                    status = TunnelStatus.Checking
+                }
+                check()
+            }
+        }
         scope.launch {
             store.tunnel.combine(store.settings.map { it.baseUrl }) { saved, url -> listOf(saved?.config, saved?.enabled, url) }
                 .distinctUntilChanged()

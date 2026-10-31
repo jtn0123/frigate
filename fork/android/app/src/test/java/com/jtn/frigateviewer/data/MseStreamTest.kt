@@ -60,6 +60,28 @@ class MseStreamTest {
     }
 
     @Test
+    fun aPlayerThatFallsBehindEndsTheStreamInsteadOfBufferingForever() {
+        val closed = LinkedBlockingQueue<Throwable>()
+        serverRule.server.enqueue(
+            MockResponse.Builder().webSocketUpgrade(object : WebSocketListener() {
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    repeat(20) { webSocket.send(byteArrayOf(it.toByte()).toByteString()) }
+                }
+
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    closed.put(t)
+                }
+            }).build(),
+        )
+        val source = MseStream(client, liveUrl(), maxQueued = 4)
+
+        assertTrue("The server sees the stream dropped", closed.poll(5, TimeUnit.SECONDS) != null)
+        val error = runCatching { repeat(20) { source.read(ByteArray(1), 0, 1) } }.exceptionOrNull()
+        source.close()
+        assertTrue("Expected the overflow, got $error", error?.message?.contains("faster than it could be played") == true)
+    }
+
+    @Test
     fun go2rtcErrorBecomesIOException() {
         serverRule.server.enqueue(
             MockResponse.Builder().webSocketUpgrade(object : WebSocketListener() {

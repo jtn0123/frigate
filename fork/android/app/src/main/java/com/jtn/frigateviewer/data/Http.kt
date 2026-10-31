@@ -26,6 +26,11 @@ class AuthToken(val cookieName: String, initial: String, private val onRenewed: 
     internal fun renew(token: String) {
         if (token.isNotEmpty() && value.getAndSet(token) != token) onRenewed(token)
     }
+
+    /** Uses [token], renewed elsewhere (by the widget) and already saved, from now on. */
+    internal fun adopt(token: String) {
+        if (token.isNotEmpty()) value.set(token)
+    }
 }
 
 /**
@@ -47,6 +52,9 @@ fun buildHttpClient(auth: AuthToken?, pin: CertificatePin?): OkHttpClient {
     val builder = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // The live feed and MSE video are WebSockets: without pings a connection that died
+        // silently (a phone changing networks, a NAT dropping it) would look open for good.
+        .pingInterval(PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
         .addInterceptor { chain ->
             val token = auth?.current.orEmpty()
             val request = chain.request().newBuilder().apply {
@@ -63,6 +71,9 @@ fun buildHttpClient(auth: AuthToken?, pin: CertificatePin?): OkHttpClient {
     if (pin != null) builder.trustOnly(pin)
     return builder.build()
 }
+
+/** How often an open WebSocket is pinged; one unanswered ping closes it as failed. */
+internal const val PING_INTERVAL_SECONDS = 30L
 
 /** SHA-256 of the certificate, as colon-separated uppercase hex like browsers show it. */
 fun certificateFingerprint(certificate: X509Certificate): String =

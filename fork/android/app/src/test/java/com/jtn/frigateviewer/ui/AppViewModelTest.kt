@@ -7,8 +7,12 @@ import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.data.certificateFingerprint
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -55,8 +59,17 @@ class AppViewModelTest {
     /** Paths requested, in order; read while the app is still making requests. */
     private val paths = CopyOnWriteArrayList<String>()
 
+    /** The Cookie header of each request, in the same order. */
+    private val cookies = CopyOnWriteArrayList<String>()
+
     /** Status per path, for the responses that should fail. */
     private val failing = mutableMapOf<String, Int>()
+
+    /** Body per path, in place of the default answer. */
+    private val bodies = mutableMapOf<String, String>()
+
+    /** Answers per path that come before all others; null falls through to them. */
+    private val hooks = ConcurrentHashMap<String, (RecordedRequest) -> MockResponse?>()
 
     private val item = ReviewItem(id = "r1", camera = "driveway", startTime = 1.0, endTime = 2.0, severity = "alert", thumbPath = "/t.webp")
 
@@ -68,15 +81,20 @@ class AppViewModelTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.url.encodedPath
+                cookies += request.headers["Cookie"].orEmpty()
                 paths += path
-                failing[path]?.let { return MockResponse.Builder().code(it).build() }
-                return when (path) {
-                    "/api/login" -> MockResponse.Builder().addHeader("Set-Cookie", "frigate_token=jwt1; Path=/").body("{}").build()
-                    "/api/config" -> MockResponse.Builder().body("""{"cameras": {}}""").build()
-                    "/api/review" -> MockResponse.Builder().body("[]").build()
-                    "/api/version" -> MockResponse.Builder().body("0.17.0").build()
-                    else -> MockResponse.Builder().code(200).body("{}").build()
-                }
+                return hooks[path]?.let { hook -> hook(request) }
+                    ?: failing[path]?.let { MockResponse.Builder().code(it).build() }
+                    ?: bodies[path]?.let { MockResponse.Builder().body(it).build() }
+                    ?: defaultAnswer(path)
+            }
+
+            private fun defaultAnswer(path: String): MockResponse = when (path) {
+                "/api/login" -> MockResponse.Builder().addHeader("Set-Cookie", "frigate_token=jwt1; Path=/").body("{}").build()
+                "/api/config" -> MockResponse.Builder().body("""{"cameras": {}}""").build()
+                "/api/review" -> MockResponse.Builder().body("[]").build()
+                "/api/version" -> MockResponse.Builder().body("0.17.0").build()
+                else -> MockResponse.Builder().code(200).body("{}").build()
             }
         }
     }
@@ -265,5 +283,96 @@ class AppViewModelTest {
         assertEquals("", runBlocking { store.settings.first() }.token)
         assertFalse("Nothing to revoke", "/api/logout" in paths)
         assertNotNull("Stays on the sign-in screen with the address", runOnMain { vm.savedSettings.baseUrl.ifEmpty { null } })
+    }
+
+    @Test
+    fun aForbiddenRequestFailsWithoutSigningOut() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "viewer", token = "jwt1")) }
+        failing["/api/review"] = 403
+
+        val vm = viewModel()
+        await("reviews to fail") { vm.reviews is Remote.Failed }
+
+        assertNotNull("Still signed in", runOnMain { vm.session })
+        assertEquals("jwt1", runBlocking { store.settings.first() }.token)
+        assertTrue((runOnMain { vm.reviews } as Remote.Failed).message.contains("403"))
+    }
+
+    @Test
+    fun onlyTheCamerasTheAccountMaySeeAreListed() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "viewer", token = "jwt1")) }
+        bodies["/api/config"] = """{"cameras": {"front": {}, "back": {}, "garage": {}}}"""
+        bodies["/api/profile"] = """{"username": "viewer", "role": "family", "allowed_cameras": ["front", "garage"]}"""
+
+        val vm = viewModel()
+        await("cameras") { vm.cameras is Remote.Ready }
+
+        assertEquals(listOf("front", "garage"), (runOnMain { vm.cameras } as Remote.Ready).value.map { it.name })
+    }
+
+    /** The first [path] request waits for [release] and is then refused as signed out. */
+    private fun holdFirstThenRefuse(path: String, release: CountDownLatch) {
+        val first = AtomicBoolean(true)
+        hooks[path] = {
+            if (first.getAndSet(false)) {
+                release.await(5, TimeUnit.SECONDS)
+                MockResponse.Builder().code(401).build()
+            } else {
+                null
+            }
+        }
+    }
+
+    @Test
+    fun aRequestLeftFromAnEndedSessionCannotEndTheNextOne() {
+        val release = CountDownLatch(1)
+        holdFirstThenRefuse("/api/review", release)
+        val vm = viewModel()
+        signIn(vm)
+        await("the first session's reviews to be asked for") { "/api/review" in paths }
+
+        runOnMain { vm.logout() }
+        await("sign-out") { vm.session == null }
+        signIn(vm)
+        val second = runOnMain { vm.session }
+        release.countDown()
+        Thread.sleep(500)
+
+        assertTrue("The new session is kept", runOnMain { vm.session } === second)
+        assertNull(runOnMain { vm.loginError })
+        assertEquals("jwt1", runBlocking { store.settings.first() }.token)
+    }
+
+    @Test
+    fun aTokenTheWidgetRenewedIsUsedAndNotOverwritten() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "admin", token = "jwt1")) }
+        val vm = viewModel()
+        await("session") { vm.session != null }
+
+        // The widget renewed the token and saved it while the app was running.
+        runBlocking { store.update { it.copy(token = "jwt2") } }
+        await("the app to take it up") { vm.session?.token == "jwt2" }
+        runOnMain { vm.toggleGridColumns() }
+        await("the preference to be saved") { runBlocking { store.settings.first() }.gridColumns == 2 }
+
+        assertEquals("A preference does not put the old token back", "jwt2", runBlocking { store.settings.first() }.token)
+        val before = paths.size
+        runOnMain { vm.refreshCameras() }
+        await("a request") { paths.size > before }
+        assertEquals("frigate_token=jwt2", cookies[before])
+    }
+
+    @Test
+    fun anEventOpenedFromSearchIsFetchedWhenItsScreenIsRestored() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "admin", token = "jwt1")) }
+        bodies["/api/review/old1"] =
+            """{"id": "old1", "camera": "front", "start_time": 1000, "end_time": 1010, "severity": "alert", "thumb_path": "t.webp"}"""
+        val saved = SavedStateHandle(mapOf("overlays" to encodeOverlays(listOf(Overlay.Event("old1")))))
+
+        val vm = viewModel(saved)
+        await("the event") { vm.reviewById("old1") != null }
+
+        assertEquals("front", runOnMain { vm.reviewById("old1") }!!.camera)
+        assertTrue(runOnMain { vm.restoringEvents }.isEmpty())
     }
 }

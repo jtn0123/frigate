@@ -35,10 +35,12 @@ class SignIn(private val certificateOf: suspend (baseUrl: String) -> String = Fr
         trustedFingerprint: String? = null,
     ): SignInResult {
         val base = FrigateApi.normalizeBaseUrl(url)
-        val host = base.toHttpUrl().host
-        if (base.startsWith("http://") && user.isNotBlank() && !isPrivateHost(host)) throw InsecureLoginException(host)
+        // The parsed scheme, not the text, so no spelling of it skips a check.
+        val parsed = base.toHttpUrl()
+        val host = parsed.host
+        if (!parsed.isHttps && user.isNotBlank() && !isPrivateHost(host)) throw InsecureLoginException(host)
         var pin = ""
-        if (selfSignedCert && base.startsWith("https://")) {
+        if (selfSignedCert && parsed.isHttps) {
             val saved = previous.certificatePin.takeIf { previous.baseUrl == base && previous.selfSignedCert }
             val seen = trustedFingerprint ?: certificateOf(base)
             if (trustedFingerprint == null && !seen.equals(saved, ignoreCase = true)) {

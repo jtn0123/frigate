@@ -7,6 +7,8 @@ import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import java.io.IOException
+import java.net.HttpURLConnection.HTTP_FORBIDDEN
+import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
@@ -29,7 +31,13 @@ import okio.ByteString
  * segment, then moof/mdat fragments). Concatenated, they are exactly what
  * ExoPlayer's FragmentedMp4Extractor reads.
  */
-class MseStream(client: OkHttpClient, url: String, private val readTimeoutSeconds: Long = 10) {
+class MseStream(
+    client: OkHttpClient,
+    url: String,
+    private val readTimeoutSeconds: Long = 10,
+    /** The most messages held for the player; a player that falls this far behind ends the stream. */
+    maxQueued: Int = MAX_QUEUED,
+) {
 
     private sealed interface Event {
         class Data(val bytes: ByteArray) : Event
@@ -37,7 +45,10 @@ class MseStream(client: OkHttpClient, url: String, private val readTimeoutSecond
         data object Closed : Event
     }
 
-    private val events = LinkedBlockingQueue<Event>()
+    private val events = LinkedBlockingQueue<Event>(maxQueued)
+
+    /** Set when the player fell too far behind and the stream was dropped. */
+    @Volatile private var overflow: IOException? = null
     private val socket: WebSocket = client.newWebSocket(Request.Builder().url(url).build(), Listener())
     private var current = ByteArray(0)
     private var position = 0
@@ -48,8 +59,7 @@ class MseStream(client: OkHttpClient, url: String, private val readTimeoutSecond
         if (length == 0) return 0
         while (position >= current.size) {
             if (finished) return -1
-            when (val event = events.poll(readTimeoutSeconds, TimeUnit.SECONDS)) {
-                null -> throw IOException("No video from the live stream for $readTimeoutSeconds seconds")
+            when (val event = next()) {
                 is Event.Data -> {
                     current = event.bytes
                     position = 0
@@ -62,6 +72,13 @@ class MseStream(client: OkHttpClient, url: String, private val readTimeoutSecond
         System.arraycopy(current, position, buffer, offset, count)
         position += count
         return count
+    }
+
+    /** The next event, waiting up to the read timeout; a dropped stream fails at once. */
+    private fun next(): Event {
+        overflow?.let { return Event.Failed(it) }
+        return events.poll(readTimeoutSeconds, TimeUnit.SECONDS)
+            ?: Event.Failed(IOException("No video from the live stream for $readTimeoutSeconds seconds"))
     }
 
     fun close() {
@@ -78,25 +95,38 @@ class MseStream(client: OkHttpClient, url: String, private val readTimeoutSecond
             val message = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return
             if (message["type"]?.jsonPrimitive?.contentOrNull == "error") {
                 val detail = message["value"]?.jsonPrimitive?.contentOrNull ?: "unknown error"
-                events.put(Event.Failed(IOException("Live stream error: $detail")))
+                deliver(webSocket, Event.Failed(IOException("Live stream error: $detail")))
             }
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-            events.put(Event.Data(bytes.toByteArray()))
+            deliver(webSocket, Event.Data(bytes.toByteArray()))
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
             webSocket.close(code, null)
-            events.put(Event.Closed)
+            deliver(webSocket, Event.Closed)
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             val error = when (response?.code) {
-                401, 403 -> AuthException("Not authorized for live video (HTTP ${response.code})")
+                HTTP_UNAUTHORIZED -> AuthException("Not authorized for live video (HTTP $HTTP_UNAUTHORIZED)")
+                HTTP_FORBIDDEN -> HttpException(HTTP_FORBIDDEN, FrigateApi.NOT_ALLOWED)
                 else -> IOException("Live stream connection failed", t)
             }
-            events.put(Event.Failed(error))
+            deliver(webSocket, Event.Failed(error))
+        }
+
+        /**
+         * Queues [event] for the player. A player that cannot keep up would
+         * otherwise hold ever more video in memory, so a full queue ends the
+         * stream with an error, which the player retries from the live edge.
+         */
+        private fun deliver(webSocket: WebSocket, event: Event) {
+            if (!events.offer(event) && overflow == null) {
+                overflow = IOException("The live stream arrived faster than it could be played")
+                webSocket.cancel()
+            }
         }
     }
 
@@ -106,6 +136,9 @@ class MseStream(client: OkHttpClient, url: String, private val readTimeoutSecond
          * in hardware. go2rtc picks the camera's codecs from this list.
          */
         const val SUPPORTED_CODECS = "avc1.640029,avc1.64002A,avc1.640033,hvc1.1.6.L153.B0,mp4a.40.2,mp4a.40.5"
+
+        /** About 20 seconds of fragments at 25 frames a second, a few tens of megabytes at most. */
+        const val MAX_QUEUED = 500
     }
 }
 

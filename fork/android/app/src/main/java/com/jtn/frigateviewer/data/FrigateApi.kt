@@ -6,7 +6,10 @@ import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -25,7 +28,15 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 
+/** The server no longer accepts this session (HTTP 401): it has to be signed in again. */
 class AuthException(message: String) : IOException(message)
+
+/**
+ * The server answered [code], which is not a success. A 403 is one of these,
+ * not an [AuthException]: Frigate sends it when this account may not see a
+ * camera or do something, while the session itself stays good.
+ */
+class HttpException(val code: Int, message: String) : IOException(message)
 
 /** The JWT from a login and the name of the cookie Frigate delivered it in (`auth.cookie_name`). */
 data class LoginToken(val cookieName: String, val token: String)
@@ -38,8 +49,10 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
     internal val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * Logs in and returns the JWT. Frigate only delivers it as a cookie, so
-     * the first cookie on the response is taken, whatever `auth.cookie_name` is.
+     * Logs in and returns the JWT. Frigate only delivers it as a cookie named
+     * by `auth.cookie_name`, which the app cannot read before signing in, and
+     * a proxy in front may add cookies of its own. So `frigate_token` (the
+     * default name) is taken if present, else a cookie holding a JWT, else the first.
      */
     suspend fun login(user: String, password: String): LoginToken {
         val body = buildJsonObject {
@@ -48,12 +61,13 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
         }.toString().toRequestBody(JSON)
         val request = Request.Builder().url(url("api/login")).post(body).build()
         return call(request) { response ->
-            response.headers("Set-Cookie")
-                .firstNotNullOfOrNull { cookie ->
-                    val pair = cookie.substringBefore(';').trim()
-                    val name = pair.substringBefore('=')
-                    cookieValue(cookie, name)?.let { LoginToken(name, it) }
-                }
+            val cookies = response.headers("Set-Cookie").mapNotNull { cookie ->
+                val name = cookie.substringBefore(';').trim().substringBefore('=')
+                cookieValue(cookie, name)?.let { LoginToken(name, it) }
+            }
+            cookies.firstOrNull { it.cookieName == ServerSettings.DEFAULT_TOKEN_COOKIE }
+                ?: cookies.firstOrNull { it.token.isJwt() }
+                ?: cookies.firstOrNull()
                 ?: throw IOException("Login succeeded but no token was returned")
         }
     }
@@ -95,14 +109,35 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
     internal suspend fun getText(url: HttpUrl): String =
         call(Request.Builder().url(url).build()) { it.body.string() }
 
+    /**
+     * Runs [request] and hands a successful response to [read]. Cancelling the
+     * caller cancels the call itself, so a timeout such as the widget's really
+     * stops waiting for a slow server instead of blocking until OkHttp gives up.
+     */
     internal suspend fun <T> call(request: Request, read: (Response) -> T): T = withContext(Dispatchers.IO) {
-        client.newCall(request).execute().use { response ->
-            when {
-                response.code == HTTP_UNAUTHORIZED || response.code == HTTP_FORBIDDEN ->
-                    throw AuthException("Not authorized (HTTP ${response.code})")
-                !response.isSuccessful -> throw IOException("HTTP ${response.code} for ${request.url.encodedPath}")
-                else -> read(response)
+        val call = client.newCall(request)
+        val cancelOnCancel = launch {
+            try {
+                awaitCancellation()
+            } finally {
+                call.cancel()
             }
+        }
+        try {
+            call.execute().use { response ->
+                when {
+                    response.code == HTTP_UNAUTHORIZED -> throw AuthException("Not authorized (HTTP ${response.code})")
+                    response.code == HTTP_FORBIDDEN -> throw HttpException(response.code, NOT_ALLOWED)
+                    !response.isSuccessful -> throw HttpException(response.code, "HTTP ${response.code} for ${request.url.encodedPath}")
+                    else -> read(response)
+                }
+            }
+        } catch (e: IOException) {
+            // Cancelled with its caller: say so, rather than fail as if the network had.
+            ensureActive()
+            throw e
+        } finally {
+            cancelOnCancel.cancel()
         }
     }
 
@@ -115,10 +150,20 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
 
         internal val JSON = "application/json".toMediaType()
 
-        /** Accepts `host:port`, adds `http://` when no scheme is given, and drops a trailing slash. */
+        /** What a 403 means for a signed-in user. */
+        const val NOT_ALLOWED = "Your account is not allowed to see or do this (HTTP 403)"
+
+        /**
+         * Accepts `host:port`, adds `http://` when no scheme is given, lowercases
+         * the scheme (so `Https://` is checked as `https://`), and drops a trailing slash.
+         */
         fun normalizeBaseUrl(input: String): String {
             val trimmed = input.trim().trimEnd('/')
-            val withScheme = if ("://" in trimmed) trimmed else "http://$trimmed"
+            val withScheme = if ("://" in trimmed) {
+                trimmed.substringBefore("://").lowercase() + "://" + trimmed.substringAfter("://")
+            } else {
+                "http://$trimmed"
+            }
             return "$withScheme/"
         }
 
@@ -180,5 +225,10 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
         }
 
         private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
+
+        /** Three base64url parts joined by dots, as a JWT is. */
+        private fun String.isJwt(): Boolean = JWT.matches(this)
+
+        private val JWT = Regex("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+")
     }
 }
