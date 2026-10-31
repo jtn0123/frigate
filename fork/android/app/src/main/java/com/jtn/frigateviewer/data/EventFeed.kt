@@ -1,6 +1,7 @@
 package com.jtn.frigateviewer.data
 
 import java.io.IOException
+import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -53,7 +54,10 @@ data class CameraActivity(
     val switches: Map<String, Boolean> = emptyMap(),
 )
 
-/** Opens the feed on [client]; it ends with an [IOException] when the connection drops. */
+/**
+ * Opens the feed on [client]; it ends with an [IOException] when the connection
+ * drops, an [AuthException] when the server refuses the session.
+ */
 internal fun eventFeed(client: OkHttpClient, url: String): Flow<FeedEvent> = callbackFlow {
     val socket = client.newWebSocket(
         Request.Builder().url(url).build(),
@@ -89,7 +93,14 @@ internal fun eventFeed(client: OkHttpClient, url: String): Flow<FeedEvent> = cal
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                close(t as? IOException ?: IOException(t))
+                // A refused upgrade is the session ending, not the connection dropping.
+                close(
+                    if (response?.code == HTTP_UNAUTHORIZED) {
+                        AuthException("Not authorized for the live feed (HTTP $HTTP_UNAUTHORIZED)")
+                    } else {
+                        t as? IOException ?: IOException(t)
+                    },
+                )
             }
         },
     )

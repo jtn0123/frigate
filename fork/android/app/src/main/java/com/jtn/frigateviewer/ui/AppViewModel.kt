@@ -309,6 +309,7 @@ class AppViewModel(
         onReview = reviewStore::upsert,
         onCommands = { controls.commands = it },
         onReconnect = ::refreshReviews,
+        onSessionLost = { sessionLost(null) },
     )
 
     fun refreshReviews() {
