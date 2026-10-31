@@ -322,7 +322,10 @@ export function KnownPlatesField(props: FieldProps) {
     [],
   );
 
+  // fork (UI155): a second unnamed entry would replace the first one's plates
+  const hasUnnamedEntry = Object.prototype.hasOwnProperty.call(data, "");
   const handleAddEntry = useCallback(() => {
+    if (Object.prototype.hasOwnProperty.call(data, "")) return;
     const next = { ...data, "": [""] };
     onChange(next, fieldPath);
   }, [data, fieldPath, onChange]);
@@ -513,7 +516,7 @@ export function KnownPlatesField(props: FieldProps) {
                 variant="outline"
                 size="sm"
                 onClick={handleAddEntry}
-                disabled={disabled || readonly}
+                disabled={disabled || readonly || hasUnnamedEntry}
                 className="gap-2"
               >
                 <LuPlus className="h-4 w-4" />
