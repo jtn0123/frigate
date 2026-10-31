@@ -1067,7 +1067,9 @@ def vod_hour(year_month: str, day: int, hour: int, camera_name: str, tz_name: st
 async def vod_event(
     request: Request,
     event_id: str,
-    padding: int = Query(0, description="Padding to apply to the vod."),
+    # a negative padding shrinks the window to nothing, and the 404 that
+    # follows would clear has_clip on an event whose clip exists
+    padding: int = Query(0, ge=0, le=3600, description="Padding to apply to the vod."),
 ):
     try:
         event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)

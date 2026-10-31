@@ -1,5 +1,7 @@
 """Regression tests for unbounded API parameters and their fixes (fork B36)."""
 
+from datetime import datetime
+
 from frigate.models import Event, Export, Previews, Recordings, ReviewSegment
 from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
 
@@ -45,3 +47,18 @@ class TestRecordingsUnavailableBounds(_BoundsTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [{"start_time": 0, "end_time": 86400}])
+
+
+class TestVodEventPadding(_BoundsTestCase):
+    def test_padding_outside_the_bounds_is_rejected_and_keeps_has_clip(self):
+        now = datetime.now().timestamp()
+        self.insert_mock_event("old", start_time=now - 600, has_clip=True)
+
+        with AuthTestClient(self.app) as client:
+            for padding in (-30, 3601):
+                with self.subTest(padding=padding):
+                    response = client.get(f"/vod/event/old?padding={padding}")
+                    self.assertEqual(response.status_code, 422)
+
+        # a negative padding inverted the window, and the 404 cleared has_clip
+        self.assertTrue(Event.get(Event.id == "old").has_clip)

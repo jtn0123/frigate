@@ -6503,6 +6503,8 @@ paths:
             title: Padding
           description: Padding to apply to the vod.
       responses:
+            maximum: 3600
+            minimum: 0
         '200':
           description: Successful Response
           content:
