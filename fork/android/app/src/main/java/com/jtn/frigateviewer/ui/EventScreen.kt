@@ -187,10 +187,12 @@ internal fun PlaybackLayout(
     val landscape = isLandscape()
     val setFullscreen = rememberFullscreenToggle()
     ImmersiveEffect(landscape)
+    // One player for both layouts, so turning the phone carries on where it was.
+    val playback = rememberVodPlayback(session, url, onPosition)
 
     if (landscape) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            VodPlayer(session, url, Modifier.fillMaxSize(), onPosition)
+            VodVideo(playback, Modifier.fillMaxSize())
             Row(Modifier.safeDrawingPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { vm.nav.back() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
@@ -217,7 +219,7 @@ internal fun PlaybackLayout(
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color.Black),
         ) {
-            VodPlayer(session, url, Modifier.fillMaxSize(), onPosition)
+            VodVideo(playback, Modifier.fillMaxSize())
             Box(Modifier.align(Alignment.TopEnd)) {
                 OverlayIconButton(Icons.Filled.Fullscreen, "Fullscreen") { setFullscreen(true) }
             }

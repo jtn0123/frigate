@@ -40,25 +40,36 @@ import kotlinx.coroutines.delay
 /** Makes the player for a recording; tests provide one that keeps hold of what it made. */
 internal val LocalVodPlayerFactory = staticCompositionLocalOf<(Context) -> ExoPlayer> { { ExoPlayer.Builder(it).build() } }
 
+/** A recording's player, and why it could not play when it could not. */
+internal class VodPlayback(val player: ExoPlayer) {
+    var error by mutableStateOf<String?>(null)
+}
+
+/**
+ * The player for [url], made once for as long as the caller stays composed, so
+ * the layouts that show it can change (rotating, going fullscreen) without the
+ * recording starting again from the beginning.
+ */
 @OptIn(UnstableApi::class)
 @Composable
-internal fun VodPlayer(session: Session, url: String, modifier: Modifier = Modifier, onPosition: ((Long) -> Unit)? = null) {
+internal fun rememberVodPlayback(session: Session, url: String, onPosition: ((Long) -> Unit)? = null): VodPlayback {
     val context = LocalContext.current
     val newPlayer = LocalVodPlayerFactory.current
-    var error by remember(url) { mutableStateOf<String?>(null) }
-    val player = remember(url) {
-        newPlayer(context).apply {
+    val playback = remember(url) {
+        val player = newPlayer(context).apply {
             setMediaSource(
                 HlsMediaSource.Factory(OkHttpDataSource.Factory(session.client)).createMediaSource(MediaItem.fromUri(url)),
             )
             playWhenReady = true
             prepare()
         }
+        VodPlayback(player)
     }
+    val player = playback.player
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
-                error = "This recording could not be played (${e.errorCodeName})"
+                playback.error = "This recording could not be played (${e.errorCodeName})"
             }
         }
         player.addListener(listener)
@@ -77,15 +88,23 @@ internal fun VodPlayer(session: Session, url: String, modifier: Modifier = Modif
             }
         }
     }
+    return playback
+}
+
+/** Shows [playback]'s picture, its controls, and its error if it has one. */
+@Composable
+internal fun VodVideo(playback: VodPlayback, modifier: Modifier = Modifier) {
     Box(modifier) {
         AndroidView(
             factory = { ctx ->
                 LayoutInflater.from(ctx).inflate(R.layout.vod_player, FrameLayout(ctx), false) as PlayerView
             },
-            update = { it.player = player },
+            update = { it.player = playback.player },
+            // The view of the layout being left lets go, and the next one takes the picture.
+            onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize(),
         )
-        error?.let {
+        playback.error?.let {
             Text(it, color = Palette.Alert, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
         }
     }
