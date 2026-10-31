@@ -59,6 +59,7 @@ fun LiveVideo(
     val context = LocalContext.current
     val retry = remember(stream) { LiveRetry() }
     val state = retry.state
+    val newPlayer = LocalPlayerFactory.current
 
     LaunchedEffect(state) { onState(state) }
 
@@ -70,7 +71,7 @@ fun LiveVideo(
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(1_000, 4_000, 250, 500)
             .build()
-        ExoPlayer.Builder(context).setLoadControl(loadControl).build().apply {
+        newPlayer(ExoPlayer.Builder(context).setLoadControl(loadControl)).apply {
             setMediaSource(source)
             playWhenReady = true
             prepare()

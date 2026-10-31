@@ -1,5 +1,6 @@
 package com.jtn.frigateviewer.ui
 
+import android.content.res.Configuration
 import android.os.Looper
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -70,3 +71,13 @@ fun ComposeContentTestRule.awaitMain(timeoutMs: Long = 5_000, condition: () -> B
 fun ComposeContentTestRule.awaitText(text: String, substring: Boolean = false) = awaitMain {
     onAllNodes(androidx.compose.ui.test.hasText(text, substring = substring)).fetchSemanticsNodes().isNotEmpty()
 }
+
+/** [base] turned to landscape on a phone, or to portrait. */
+internal fun rotated(base: Configuration, landscape: Boolean): Configuration = Configuration(base).apply {
+    orientation = if (landscape) Configuration.ORIENTATION_LANDSCAPE else Configuration.ORIENTATION_PORTRAIT
+    screenWidthDp = if (landscape) PHONE_LONG_DP else PHONE_SHORT_DP
+    screenHeightDp = if (landscape) PHONE_SHORT_DP else PHONE_LONG_DP
+}
+
+private const val PHONE_SHORT_DP = 400
+private const val PHONE_LONG_DP = 860

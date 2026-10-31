@@ -1,6 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.content.Context
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -15,7 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,9 +35,6 @@ import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Session
 import kotlinx.coroutines.delay
 
-/** Makes the player for a recording; tests provide one that keeps hold of what it made. */
-internal val LocalVodPlayerFactory = staticCompositionLocalOf<(Context) -> ExoPlayer> { { ExoPlayer.Builder(it).build() } }
-
 /** A recording's player, and why it could not play when it could not. */
 internal class VodPlayback(val player: ExoPlayer) {
     var error by mutableStateOf<String?>(null)
@@ -54,9 +49,9 @@ internal class VodPlayback(val player: ExoPlayer) {
 @Composable
 internal fun rememberVodPlayback(session: Session, url: String, onPosition: ((Long) -> Unit)? = null): VodPlayback {
     val context = LocalContext.current
-    val newPlayer = LocalVodPlayerFactory.current
+    val newPlayer = LocalPlayerFactory.current
     val playback = remember(url) {
-        val player = newPlayer(context).apply {
+        val player = newPlayer(ExoPlayer.Builder(context)).apply {
             setMediaSource(
                 HlsMediaSource.Factory(OkHttpDataSource.Factory(session.client)).createMediaSource(MediaItem.fromUri(url)),
             )

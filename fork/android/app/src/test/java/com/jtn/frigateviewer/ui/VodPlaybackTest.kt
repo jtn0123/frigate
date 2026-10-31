@@ -1,6 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +29,7 @@ import org.robolectric.RobolectricTestRunner
 
 /** A recording's player: paused in the background and kept through changes of layout. */
 @RunWith(RobolectricTestRunner::class)
-class VodPlayerTest {
+class VodPlaybackTest {
     @get:Rule val compose = createComposeRule()
 
     @get:Rule val serverRule = MockWebServerRule()
@@ -64,7 +63,7 @@ class VodPlayerTest {
                 CompositionLocalProvider(
                     LocalConfiguration provides rotated(LocalConfiguration.current, landscape),
                     LocalLifecycleOwner provides owner,
-                    LocalVodPlayerFactory provides { context -> ExoPlayer.Builder(context).build().also(players::add) },
+                    LocalPlayerFactory provides { builder -> builder.build().also(players::add) },
                 ) { App(vm) }
             },
         ) { request ->
@@ -113,13 +112,3 @@ class VodPlayerTest {
         assertEquals(1, compose.runOnIdle { players.size })
     }
 }
-
-/** [base] turned to landscape on a phone, or to portrait. */
-internal fun rotated(base: Configuration, landscape: Boolean): Configuration = Configuration(base).apply {
-    orientation = if (landscape) Configuration.ORIENTATION_LANDSCAPE else Configuration.ORIENTATION_PORTRAIT
-    screenWidthDp = if (landscape) PHONE_LONG_DP else PHONE_SHORT_DP
-    screenHeightDp = if (landscape) PHONE_SHORT_DP else PHONE_LONG_DP
-}
-
-private const val PHONE_SHORT_DP = 400
-private const val PHONE_LONG_DP = 860

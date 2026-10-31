@@ -31,7 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,7 +55,7 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
     val landscape = isLandscape()
     ImmersiveEffect(landscape)
 
-    val grid: @Composable (Modifier) -> Unit = { modifier ->
+    val gridContent: @Composable (Modifier) -> Unit = { modifier ->
         BoxWithConstraints(modifier) {
             // Fill the space: in landscape the height decides each tile's width.
             val across = (maxWidth - GAP) / 2
@@ -70,6 +73,11 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
             }
         }
     }
+
+    // The grid moves between the two layouts rather than being made anew in each, so
+    // turning the phone does not reconnect every stream.
+    val currentGrid by rememberUpdatedState(gridContent)
+    val grid = remember { movableContentOf { modifier: Modifier -> currentGrid(modifier) } }
 
     if (landscape) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {

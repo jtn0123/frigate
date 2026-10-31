@@ -46,9 +46,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -100,7 +102,7 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
         onDispose { pip?.offer(null) }
     }
 
-    val video: @Composable (Modifier) -> Unit = { modifier ->
+    val videoContent: @Composable (Modifier) -> Unit = { modifier ->
         Box(
             modifier
                 .background(Color.Black)
@@ -165,6 +167,11 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
             }
         }
     }
+
+    // The video moves between the layouts below rather than being made anew in each, so
+    // turning the phone or entering the floating window does not reconnect the stream.
+    val currentVideo by rememberUpdatedState(videoContent)
+    val video = remember(camera.name) { movableContentOf { modifier: Modifier -> currentVideo(modifier) } }
 
     // The player fills its box, so the box takes the camera's shape, as large as fits and
     // centered on black, rather than stretching the picture to the screen's shape.
