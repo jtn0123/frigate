@@ -78,11 +78,14 @@ fun LiveVideo(
         }
     }
 
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
     // Give the network a moment before reconnecting rather than failing again at once.
+    // Not in the background, where the new player would play unseen: returning starts one.
     LaunchedEffect(retry.pendingRetry) {
         if (retry.pendingRetry) {
             delay(LiveRetry.RETRY_DELAY_MS)
-            retry.retry()
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) retry.retry()
         }
     }
 
@@ -104,7 +107,6 @@ fun LiveVideo(
     // Close the stream while the app is in the background so it stops using
     // data and battery, and reconnect on return so the picture is live again
     // rather than resuming from where it stopped.
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val currentPlayer by rememberUpdatedState(player)
     DisposableEffect(lifecycle, retry) {
         var stopped = false
