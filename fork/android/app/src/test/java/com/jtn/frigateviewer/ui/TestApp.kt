@@ -1,9 +1,15 @@
 package com.jtn.frigateviewer.ui
 
-import android.content.res.Configuration
 import android.os.Looper
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.SavedStateHandle
 import com.jtn.frigateviewer.data.MediaFiles
 import com.jtn.frigateviewer.data.ServerSettings
@@ -72,12 +78,24 @@ fun ComposeContentTestRule.awaitText(text: String, substring: Boolean = false) =
     onAllNodes(androidx.compose.ui.test.hasText(text, substring = substring)).fetchSemanticsNodes().isNotEmpty()
 }
 
-/** [base] turned to landscape on a phone, or to portrait. */
-internal fun rotated(base: Configuration, landscape: Boolean): Configuration = Configuration(base).apply {
-    orientation = if (landscape) Configuration.ORIENTATION_LANDSCAPE else Configuration.ORIENTATION_PORTRAIT
-    screenWidthDp = if (landscape) PHONE_LONG_DP else PHONE_SHORT_DP
-    screenHeightDp = if (landscape) PHONE_SHORT_DP else PHONE_LONG_DP
+/** [content] in a phone's window, held sideways when [landscape], or upright. */
+@Composable
+fun Phone(landscape: Boolean, content: @Composable () -> Unit) {
+    val (width, height) = if (landscape) PHONE_LONG to PHONE_SHORT else PHONE_SHORT to PHONE_LONG
+    Window(DpSize(width, height), content)
 }
 
-private const val PHONE_SHORT_DP = 400
-private const val PHONE_LONG_DP = 860
+/** [content] in a window of [size]. */
+@Composable
+fun Window(size: DpSize, content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    val window = object : WindowInfo {
+        override val isWindowFocused = true
+        override val containerDpSize = size
+        override val containerSize = with(density) { IntSize(size.width.roundToPx(), size.height.roundToPx()) }
+    }
+    CompositionLocalProvider(LocalWindowInfo provides window, content = content)
+}
+
+private val PHONE_SHORT = 400.dp
+private val PHONE_LONG = 860.dp

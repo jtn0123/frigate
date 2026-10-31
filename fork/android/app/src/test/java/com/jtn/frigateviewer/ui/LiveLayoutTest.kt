@@ -5,7 +5,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.media3.exoplayer.ExoPlayer
@@ -55,10 +54,9 @@ class LiveLayoutTest {
             scope,
             content = { vm ->
                 CompositionLocalProvider(
-                    LocalConfiguration provides rotated(LocalConfiguration.current, landscape),
                     LocalPip provides pip,
                     LocalPlayerFactory provides { builder -> builder.build().also(players::add) },
-                ) { App(vm) }
+                ) { Phone(landscape) { App(vm) } }
             },
         ) { request ->
             when (request.url.encodedPath) {

@@ -4,7 +4,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.lifecycle.Lifecycle
@@ -61,10 +60,9 @@ class VodPlaybackTest {
             scope,
             content = { vm ->
                 CompositionLocalProvider(
-                    LocalConfiguration provides rotated(LocalConfiguration.current, landscape),
                     LocalLifecycleOwner provides owner,
                     LocalPlayerFactory provides { builder -> builder.build().also(players::add) },
-                ) { App(vm) }
+                ) { Phone(landscape) { App(vm) } }
             },
         ) { request ->
             if (request.url.encodedPath == "/api/config") json("""{"cameras": {"driveway": {"friendly_name": "Driveway"}}}""") else null
