@@ -98,13 +98,19 @@ class DownloadHandler(http.server.BaseHTTPRequestHandler):
                 else self.server.http_url
             )
             self.send_header("Location", destination + "/artifact")
+            self.send_header("Content-Length", "0")
             self.end_headers()
         elif self.path == "/missing":
             self.send_error(404)
         else:
+            # A declared length ends the body explicitly. Without it the body ends
+            # when the connection closes, and Python closes TLS without a
+            # close_notify, which OpenSSL 3.5's curl reports as truncation (56).
+            body = b"verified artifact"
             self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(b"verified artifact")
+            self.wfile.write(body)
 
     def log_message(self, *_args):
         """Keep test output limited to assertion failures."""
