@@ -4,7 +4,10 @@ import com.jtn.frigateviewer.data.liveUrl
 import com.jtn.frigateviewer.data.reviewVodUrl
 import com.jtn.frigateviewer.data.reviews
 import com.jtn.frigateviewer.data.thumbnailUrl
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.junit4.MockWebServerRule
@@ -67,6 +70,18 @@ class FrigateApiTest {
     fun loginFailureIsAuthException() = runTest {
         server.enqueue(MockResponse.Builder().code(401).body("""{"message":"Login failed"}""").build())
         api().login("admin", "wrong")
+    }
+
+    @Test
+    fun aTimeoutCancelsTheCallInsteadOfWaitingForTheServer() = runBlocking {
+        server.enqueue(MockResponse.Builder().headersDelay(10, TimeUnit.SECONDS).body("0.17.0").build())
+        val started = System.nanoTime()
+
+        val result = withTimeoutOrNull(300) { api().version() }
+
+        val ms = (System.nanoTime() - started) / 1_000_000
+        assertNull(result)
+        assertTrue("Gave up after $ms ms", ms < 3_000)
     }
 
     @Test

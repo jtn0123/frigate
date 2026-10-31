@@ -6,7 +6,10 @@ import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -103,14 +106,35 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
     internal suspend fun getText(url: HttpUrl): String =
         call(Request.Builder().url(url).build()) { it.body.string() }
 
+    /**
+     * Runs [request] and hands a successful response to [read]. Cancelling the
+     * caller cancels the call itself, so a timeout such as the widget's really
+     * stops waiting for a slow server instead of blocking until OkHttp gives up.
+     */
     internal suspend fun <T> call(request: Request, read: (Response) -> T): T = withContext(Dispatchers.IO) {
-        client.newCall(request).execute().use { response ->
-            when {
-                response.code == HTTP_UNAUTHORIZED -> throw AuthException("Not authorized (HTTP ${response.code})")
-                response.code == HTTP_FORBIDDEN -> throw HttpException(response.code, NOT_ALLOWED)
-                !response.isSuccessful -> throw HttpException(response.code, "HTTP ${response.code} for ${request.url.encodedPath}")
-                else -> read(response)
+        val call = client.newCall(request)
+        val cancelOnCancel = launch {
+            try {
+                awaitCancellation()
+            } finally {
+                call.cancel()
             }
+        }
+        try {
+            call.execute().use { response ->
+                when {
+                    response.code == HTTP_UNAUTHORIZED -> throw AuthException("Not authorized (HTTP ${response.code})")
+                    response.code == HTTP_FORBIDDEN -> throw HttpException(response.code, NOT_ALLOWED)
+                    !response.isSuccessful -> throw HttpException(response.code, "HTTP ${response.code} for ${request.url.encodedPath}")
+                    else -> read(response)
+                }
+            }
+        } catch (e: IOException) {
+            // Cancelled with its caller: say so, rather than fail as if the network had.
+            ensureActive()
+            throw e
+        } finally {
+            cancelOnCancel.cancel()
         }
     }
 
