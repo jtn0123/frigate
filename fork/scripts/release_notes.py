@@ -68,8 +68,11 @@ TOOLING_RE = re.compile(
 )
 
 # Possessive quantifiers keep the match linear: no two of them can trade
-# characters. The text after the colon is trimmed by `ledger_text`.
-ID_RE = re.compile(r"(?P<ids>[A-Z]{1,2}\d++(?:\s*+\+\s*+[A-Z]{1,2}\d++)*+)\s*+:")
+# characters. IDs join with `+` or name a range (`I48 to I54`). The text after
+# the colon is trimmed by `ledger_text`.
+ID_RE = re.compile(
+    r"(?P<ids>[A-Z]{1,2}\d++(?:(?:\s*+\+\s*+|\s++to\s++)[A-Z]{1,2}\d++)*+)\s*+:"
+)
 RECORD_SEP = "\x1e"
 
 

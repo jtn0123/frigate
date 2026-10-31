@@ -200,6 +200,11 @@ class ReleaseNotesTest(unittest.TestCase):
     def test_ledger_prefix_splits_and_trims_the_subject(self) -> None:
         cases = {
             "UI6 + C2:  Live view": ("UI", "Live view"),
+            # a range of IDs (I67)
+            "I48 to I54: guard auto-filing": ("I", "guard auto-filing"),
+            "I48 to I54 + C2: both": ("I", "both"),
+            "I48 to: no end": ("", "I48 to: no end"),
+            "I48 tow I54: not a range": ("", "I48 tow I54: not a range"),
             "C1 :\n faster wall\n": ("C", "faster wall"),
             # A whitespace-only text kept its last character before the
             # regex was made linear, and still does.
