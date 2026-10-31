@@ -11,10 +11,11 @@ vi.mock("@/hooks/fork/use-suggestion-report", () => ({
   useSuggestionReport: () => ({ data: report, error }),
 }));
 const spotChecks: [string, boolean][] = [];
+let spotCheckResult: () => Promise<boolean> = () => Promise.resolve(true);
 vi.mock("@/hooks/fork/use-spot-check", () => ({
   useSpotCheck: () => (group: { event_id: string | null }, keep: boolean) => {
     spotChecks.push([group.event_id ?? "", keep]);
-    return Promise.resolve(true);
+    return spotCheckResult();
   },
 }));
 vi.mock("@/api/baseUrl", () => ({ baseUrl: "http://frigate/" }));
@@ -42,6 +43,7 @@ describe("SuggestionReportPage", () => {
   beforeEach(() => {
     report = undefined;
     error = undefined;
+    spotCheckResult = () => Promise.resolve(true);
   });
 
   it("shows a spinner, then the tables and disagreements", () => {
@@ -231,6 +233,55 @@ describe("SuggestionReportPage", () => {
     );
     await waitFor(() => expect(spotChecks).toHaveLength(2));
     expect(spotChecks[1]).toEqual(["evt-1", true]);
+  });
+
+  it("keeps a group's buttons off until its own spot check finishes (fork UI155)", async () => {
+    spotChecks.length = 0;
+    const releases: (() => void)[] = [];
+    spotCheckResult = () =>
+      new Promise<boolean>((resolve) => {
+        releases.push(() => resolve(true));
+      });
+    const group = (event_id: string, category: string) => ({
+      time: null,
+      event_id,
+      camera: "yard",
+      category,
+      source: "jev",
+      score: 0.9,
+      files: [`${category}.png`],
+    });
+    report = {
+      model: "vehicle_type",
+      total: 0,
+      accepted: 0,
+      rate: null,
+      sources: {},
+      classes: {},
+      cameras: {},
+      first_time: null,
+      last_time: null,
+      recent_auto_filed: [group("evt-1", "suv"), group("evt-2", "sedan")],
+    };
+    renderPage();
+    const keep = (category: string) =>
+      screen.getByRole("button", {
+        name: `classificationSuggestions.report.keepAria:{"category":"${category}","camera":"yard"}`,
+      });
+
+    fireEvent.click(keep("suv"));
+    fireEvent.click(keep("sedan"));
+    await waitFor(() => expect(spotChecks).toHaveLength(2));
+    expect(keep("suv")).toBeDisabled();
+    expect(keep("sedan")).toBeDisabled();
+
+    // the first request finishing must not re-enable the second group
+    releases[0]?.();
+    await waitFor(() => expect(keep("suv")).toBeEnabled());
+    expect(keep("sedan")).toBeDisabled();
+
+    releases[1]?.();
+    await waitFor(() => expect(keep("sedan")).toBeEnabled());
   });
 
   it("reports a failed load", () => {

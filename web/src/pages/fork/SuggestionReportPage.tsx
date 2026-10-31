@@ -334,16 +334,21 @@ function SpotCheckSection({
 }: Readonly<{ model: string; groups: AutoFiledGroup[] }>) {
   const { t } = useTranslation(["fork"]);
   const spotCheck = useSpotCheck(model);
-  const [pending, setPending] = useState<string | null>(null);
+  // one entry per group with a request in flight (UI155)
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const [removing, setRemoving] = useState<AutoFiledGroup | null>(null);
 
   const decide = async (group: AutoFiledGroup, keep: boolean) => {
     const key = `${group.event_id ?? ""}:${group.category}`;
-    setPending(key);
+    setPending((prev) => new Set(prev).add(key));
     try {
       await spotCheck(group, keep);
     } finally {
-      setPending(null);
+      setPending((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -360,7 +365,7 @@ function SpotCheckSection({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {groups.map((group) => {
           const key = `${group.event_id ?? ""}:${group.category}`;
-          const busy = pending === key;
+          const busy = pending.has(key);
           return (
             <div
               key={key}
