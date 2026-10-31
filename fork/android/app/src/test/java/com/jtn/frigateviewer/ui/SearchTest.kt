@@ -58,6 +58,8 @@ class SearchTest {
         assertEquals(midnight to now.epochSecond, filter(SearchInputs(range = SearchRange.TODAY)).let { it.after to it.before })
         assertEquals(midnight - 86_400 to midnight, filter(SearchInputs(range = SearchRange.YESTERDAY)).let { it.after to it.before })
         assertEquals(now.epochSecond - 7 * 86_400, filter(SearchInputs()).after)
+        // Zero would be read as unset, which Frigate's /api/review turns into the last 24 hours.
+        assertEquals(1L to now.epochSecond, filter(SearchInputs(range = SearchRange.ANY)).let { it.after to it.before })
         val custom = filter(SearchInputs(range = SearchRange.CUSTOM, from = LocalDate.of(2026, 10, 1), to = LocalDate.of(2026, 10, 2)))
         assertEquals(LocalDate.of(2026, 10, 1).atStartOfDay(ZoneOffset.UTC).toEpochSecond(), custom.after)
         assertEquals(LocalDate.of(2026, 10, 3).atStartOfDay(ZoneOffset.UTC).toEpochSecond(), custom.before)
