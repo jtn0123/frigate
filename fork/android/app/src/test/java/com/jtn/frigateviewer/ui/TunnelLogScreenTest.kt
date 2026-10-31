@@ -2,10 +2,13 @@ package com.jtn.frigateviewer.ui
 
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.data.ServerSettings
@@ -72,7 +75,10 @@ class TunnelLogScreenTest {
         val remote = show()
         compose.awaitText("Sent 148 bytes, received 92 bytes", substring = true)
         assertTrue(remote.log.entries.isNotEmpty())
-        compose.onNodeWithText(remote.log.entries.first().text, substring = true).assertExists()
+        // The list follows the newest entry, so the first may be scrolled out of view.
+        val first = remote.log.entries.first().text
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(first, substring = true))
+        compose.onNodeWithText(first, substring = true).assertExists()
 
         compose.runOnIdle { remote.log.add("Checked again after a network change") }
 

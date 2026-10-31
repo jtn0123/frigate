@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.ui
 
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -54,15 +55,15 @@ class LiveFeedTest {
 
     @Test
     fun aNewAlertAndActivityArriveWithoutRefreshing() {
+        val reviewFetches = AtomicInteger()
         val vm = compose.showApp(serverRule.server, temp.root, scope) { request ->
+            if (request.url.encodedPath == "/api/review") reviewFetches.incrementAndGet()
             when (request.url.encodedPath) {
                 "/api/config" -> json(config)
                 "/ws" -> MockResponse.Builder().webSocketUpgrade(frigate).build()
                 else -> null
             }
         }
-        val reviewFetches = serverRule.server.requestCount
-
         compose.awaitMain { vm.reviewById("r9") != null }
 
         compose.runOnIdle {
@@ -71,6 +72,8 @@ class LiveFeedTest {
             assertEquals(listOf("person"), vm.feed.activity["driveway"]?.objects)
         }
         compose.onNode(hasContentDescription("Driveway, Person now", substring = true)).assertExists()
-        assertTrue("Only the feed was opened", serverRule.server.requestCount <= reviewFetches + 1)
+        // Snapshots and other startup requests may still be arriving on a slow machine; what
+        // matters is that the alert came over the feed, not from fetching reviews again.
+        assertTrue("Reviews were fetched only at startup", reviewFetches.get() <= 1)
     }
 }
