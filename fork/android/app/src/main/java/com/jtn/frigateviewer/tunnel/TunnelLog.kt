@@ -23,7 +23,12 @@ class TunnelLog(
 
     private val list = mutableStateListOf<Entry>()
 
-    val entries: List<Entry> get() = list
+    /**
+     * A copy taken under the lock: the tunnel logs from other threads, so a
+     * report or test walking the live list could fail mid-way. Reading it in
+     * Compose still subscribes to changes.
+     */
+    val entries: List<Entry> get() = synchronized(list) { list.toList() }
 
     fun add(text: String) {
         val safe = redact(text)
