@@ -168,6 +168,39 @@ class TestHttpReview(BaseTestHttp):
             assert len(response_json) == 1
             assert response_json[0]["id"] == id2
 
+    def test_get_review_limit_keeps_alerts_before_newer_detections(self):
+        """Alerts sort before detections, so a limit cannot cut off an alert
+        that is older than the detections."""
+        now = datetime.now().timestamp()
+
+        with AuthTestClient(self.app) as client:
+            alert_id = "100000.alert"
+            super().insert_mock_review_segment(
+                alert_id, now, now + 2, SeverityEnum.alert
+            )
+            for i in range(1, 4):
+                super().insert_mock_review_segment(
+                    f"10000{i}.detection", now + i, now + i + 2, SeverityEnum.detection
+                )
+
+            params = {"limit": 2, "after": now - 1, "before": now + 10}
+            response = client.get("/review", params=params)
+            assert response.status_code == 200
+            ids = [item["id"] for item in response.json()]
+            # the alert first, then the newest detection
+            assert ids == [alert_id, "100003.detection"]
+
+            params["limit"] = 10
+            response = client.get("/review", params=params)
+            assert response.status_code == 200
+            ids = [item["id"] for item in response.json()]
+            assert ids == [
+                alert_id,
+                "100003.detection",
+                "100002.detection",
+                "100001.detection",
+            ]
+
     def test_get_review_with_severity_filters_no_matches(self):
         now = datetime.now().timestamp()
 

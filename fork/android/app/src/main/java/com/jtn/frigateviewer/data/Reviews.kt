@@ -9,7 +9,10 @@ import kotlinx.serialization.json.put
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-/** The review items of the last [hours], newest first, as `/api/review` lists them. */
+/**
+ * The review items of the last [hours], newest first. `/api/review` lists alerts
+ * before detections (so its limit keeps alerts), which this undoes for the day lists.
+ */
 suspend fun FrigateApi.reviews(
     severity: Severity = Severity.ALL,
     camera: String? = null,
@@ -23,7 +26,7 @@ suspend fun FrigateApi.reviews(
         .apply { severity.apiValue?.let { addQueryParameter("severity", it) } }
         .apply { camera?.let { addQueryParameter("cameras", it) } }
         .build()
-    return json.decodeFromString(getText(url))
+    return json.decodeFromString<List<ReviewItem>>(getText(url)).sortedByDescending { it.startTime }
 }
 
 /** How much motion [camera] saw in each [scaleSeconds] slice between [after] and [before] (epoch seconds). */

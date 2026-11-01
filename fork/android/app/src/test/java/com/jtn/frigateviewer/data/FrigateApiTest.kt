@@ -3,6 +3,7 @@ package com.jtn.frigateviewer.data
 import com.jtn.frigateviewer.data.liveUrl
 import com.jtn.frigateviewer.data.reviewVodUrl
 import com.jtn.frigateviewer.data.reviews
+import com.jtn.frigateviewer.data.searchReviews
 import com.jtn.frigateviewer.data.thumbnailUrl
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
@@ -214,7 +215,7 @@ class FrigateApiTest {
                     "has_been_reviewed":false,"severity":"alert",
                     "thumb_path":"/media/frigate/clips/review/thumb-front_door-r1.webp",
                     "data":{"objects":["person","person-verified"],"zones":["yard"],"audio":[],"detections":["x"]}},
-                   {"id":"r2","camera":"garage","start_time":2000.0,"end_time":null,
+                   {"id":"r2","camera":"garage","start_time":500.0,"end_time":null,
                     "has_been_reviewed":true,"severity":"detection","thumb_path":"/media/frigate/clips/review/t2.webp",
                     "data":{}}]""",
             ).build(),
@@ -237,5 +238,23 @@ class FrigateApiTest {
         )
         assertEquals("Person", reviews[0].title)
         assertEquals("Detection", reviews[1].title)
+    }
+
+    @Test
+    fun reviewListsAreNewestFirstThoughTheServerListsAlertsFirst() = runTest {
+        // /api/review sorts by severity first, so an older alert comes before newer detections
+        val body = """[{"id":"old-alert","camera":"front_door","start_time":100.0,"end_time":110.0,
+            "has_been_reviewed":false,"severity":"alert","thumb_path":"/a.webp","data":{}},
+           {"id":"new-detection","camera":"front_door","start_time":300.0,"end_time":310.0,
+            "has_been_reviewed":false,"severity":"detection","thumb_path":"/b.webp","data":{}},
+           {"id":"mid-detection","camera":"front_door","start_time":200.0,"end_time":210.0,
+            "has_been_reviewed":false,"severity":"detection","thumb_path":"/c.webp","data":{}}]"""
+        server.enqueue(MockResponse.Builder().body(body).build())
+        server.enqueue(MockResponse.Builder().body(body).build())
+        val api = api()
+        val newestFirst = listOf("new-detection", "mid-detection", "old-alert")
+
+        assertEquals(newestFirst, api.reviews().map { it.id })
+        assertEquals(newestFirst, api.searchReviews(SearchFilter(after = 0, before = 400)).map { it.id })
     }
 }

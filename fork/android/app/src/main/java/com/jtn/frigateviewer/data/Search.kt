@@ -34,10 +34,10 @@ data class TrackedObjectData(
 /** The most results one search shows; narrower filters reach further back. */
 const val SEARCH_LIMIT = 200
 
-/** Review items matching [filter], newest first. */
+/** Review items matching [filter], newest first; the server lists alerts first. */
 suspend fun FrigateApi.searchReviews(filter: SearchFilter): List<ReviewItem> {
     val url = filtered("api/review", filter).addQueryParameter("limit", SEARCH_LIMIT.toString()).build()
-    return json.decodeFromString(getText(url))
+    return json.decodeFromString<List<ReviewItem>>(getText(url)).sortedByDescending { it.startTime }
 }
 
 /** Tracked objects whose picture or description matches [SearchFilter.query]. */
