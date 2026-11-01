@@ -153,6 +153,8 @@ jobs:
     # later day publish a second latest release saying "No user-facing changes".
     if: github.ref == 'refs/heads/main' && needs.amd64.outputs.released == ''
     runs-on: ubuntu-latest
+    # Publishing takes under 20 seconds (I69).
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
