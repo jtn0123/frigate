@@ -8,8 +8,8 @@ make the entry go away.
 Rules that keep this fork rebasable (see the `next` branch):
 
 - `dev` mirrors upstream and is never committed to. Pull requests land on
-  `next`. Upstream sync prepares a reviewed integration PR; it does not
-  replace `next` directly. `main` is the release branch and only moves with
+  `next`. Upstream sync reports what upstream has that `next` lacks; upstream
+  work reaches `next` as reviewed ports, never by replacing it. `main` is the release branch and only moves with
   `make promote`. Each change uses its audit ID in its commit subject and
   ledger row; related work may share a PR.
 - A new ledger row is a file, `fork/ledger/<ID>.md`, holding one row of the
@@ -39,18 +39,25 @@ release's version for its tags and publishes nothing. A manually pushed
 `fork/*` tag builds an image of that tag, without a release.
 
 Daily (and on `workflow_dispatch`), `.github/workflows/fork-upstream-sync.yml`
-fetches `blakeblackshear/frigate` read-only, fast-forwards `origin/dev`, and
-if `next` does not already contain `upstream/dev` it rebases a copy onto
-`sync/upstream` (never `next` or `main`) with `--rebase-merges`, so pull
-request merges stay merges, and opens or updates an issue that lists the
-conflicted files, or git's error when the rebase failed without one. A new
-upstream `v*` tag after `v0.18.0` gets its own issue. Upstream's commits
-change `.github/workflows`, which `GITHUB_TOKEN` may not push, so the pushes
-use the `FORK_SYNC_TOKEN` secret (contents and workflows write; the owner
-creates it, see "Owner setup" in `fork/README.md`). Without the secret the
-run stops in its first step, and a failed run opens or updates an "Upstream
-sync failed" issue that says so and lists the steps. A `FORK_SYNC_TOKEN` push
-starts "Fork - Checks" on `sync/upstream` by itself.
+fetches `blakeblackshear/frigate` read-only and fast-forwards `origin/dev`,
+which only mirrors upstream. It no longer rebases `next` (I72): the fork's
+commits on upstream files and its hand ports of upstream pull requests made
+that rebase stop at the first of them on every run. Instead
+`fork/scripts/upstream_sync.py` keeps one "Upstream moved" issue current with
+the upstream commits `next` lacks, sorted into those `next` already has
+(`cherry-pick -x` or patch-identical), those whose upstream PR `next`'s
+commits or ledger cite, translations, and the rest, each tried as a
+cherry-pick onto `next`, plus the files a merge of `upstream/dev` would
+conflict in. Conflicts are the normal state and keep the run green; a clean
+merge is pushed to `sync/upstream` (never `next` or `main`), where it starts
+"Fork - Checks". A new upstream `v*` tag after `v0.18.0` gets its own issue.
+Upstream's commits change `.github/workflows`, which `GITHUB_TOKEN` may not
+push, so the pushes use the `FORK_SYNC_TOKEN` secret (contents and workflows
+write; the owner creates it, see "Owner setup" in `fork/README.md`). The
+first step asks the GitHub API whether that token works: a missing, expired
+or revoked token, or one without this repository, stops the run with an error
+that names the cause and opens or rewrites an "Upstream sync failed" issue
+with the steps, and a token that expires within 14 days is a warning.
 
 ## Divergences
 

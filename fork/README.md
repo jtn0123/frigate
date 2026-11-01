@@ -66,10 +66,13 @@ SonarCloud admin rights. Agents never create, read or print these tokens.
 
 ### `FORK_SYNC_TOKEN` (upstream sync)
 
-"Fork - Upstream sync" pushes upstream's commits to `dev` and `sync/upstream`.
-Those commits change `.github/workflows`, which GitHub refuses from the default
-`GITHUB_TOKEN`, so the workflow stops in its first step until this secret
-exists (I18, I27).
+"Fork - Upstream sync" pushes upstream's commits to `dev` (and a clean merge,
+if there ever is one, to `sync/upstream`). Those commits change
+`.github/workflows`, which GitHub refuses from the default `GITHUB_TOKEN`, so
+the workflow's first step asks the GitHub API whether this secret works and
+stops with an error naming the cause when it is missing, expired, revoked or
+lacks the repository (I18, I27, I72). From 14 days before the token's expiry
+the same step warns.
 
 1. GitHub > Settings > Developer settings > Personal access tokens >
    Fine-grained tokens > Generate new token.
@@ -86,12 +89,11 @@ exists (I18, I27).
 6. Actions > "Fork - Upstream sync" > Run workflow. When it is green, close the
    open "Upstream sync failed" issue.
 
-Verified 2026-09-20: the repository secret is configured and sync run
-[35564940093](https://github.com/jtn0123/frigate/actions/runs/35564940093) passed.
-The current sync token expires on **2026-10-20**; rotate it before then.
-
-When the token expires the pushes are rejected again and the same issue comes
-back: repeat the steps with a new token.
+The token configured on 2026-09-20 expired on 2026-10-20, and the next run
+(2026-11-01, issue #186) failed in the checkout. Rotate it with the steps
+above. A green run's first step prints the new expiry date; the run warns from
+14 days before it, and once it passes the same issue comes back: repeat the
+steps with a new token.
 
 ### `SONAR_TOKEN` (rotation)
 

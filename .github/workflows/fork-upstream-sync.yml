@@ -1,10 +1,12 @@
 name: Fork - Upstream sync
 
-# Read-only fetch of blakeblackshear/frigate. Fast-forwards origin/dev.
-# Never pushes next, main or tags. A clean rebase of next (where pull requests
-# land as merge commits, which the rebase keeps) onto upstream/dev is
-# force-pushed to sync/upstream only; conflicts or a failed rebase open or
-# update an issue. main follows next through `make promote`.
+# Read-only fetch of blakeblackshear/frigate. Fast-forwards origin/dev, which
+# mirrors upstream. Never pushes next, main or tags. It does not rebase next
+# (I72): it keeps one "Upstream moved" issue current with the upstream commits
+# next lacks, sorted by fork/scripts/upstream_sync.py into ported, cited,
+# translations, clean cherry-picks and conflicting ones, plus the files a merge
+# would conflict in. A clean merge of upstream/dev into next is force-pushed to
+# sync/upstream only. main follows next through `make promote`.
 
 on:
   schedule:
@@ -23,25 +25,38 @@ jobs:
   sync:
     name: Sync upstream/dev
     runs-on: ubuntu-latest
-    # Its slowest of the last 31 runs took 1.1 minutes (I69).
+    # Its slowest of the last 31 runs took 1.1 minutes (I69). The report adds
+    # about a minute: one merge-tree per upstream commit plus the whole merge
+    # (I72).
     timeout-minutes: 20
     steps:
       # GITHUB_TOKEN may not push commits that change .github/workflows, and
-      # upstream's do, so every push here needs FORK_SYNC_TOKEN. Without it the
-      # run used to fail at the first push with a raw git error; stop here
-      # instead and say what to create. The secret is only tested for
-      # emptiness, never printed. Setup steps: fork/README.md, "Owner setup".
-      - name: Require the FORK_SYNC_TOKEN secret
+      # upstream's do, so every push here needs FORK_SYNC_TOKEN. The checkout
+      # below already fetches with it, so an empty, expired or revoked token
+      # used to fail there with "could not read Username" (issue #186). Check
+      # it first with the script alone, fetched with GITHUB_TOKEN, and stop
+      # with an error that names the cause; a token that expires within 14
+      # days is a warning. The token goes only to the GitHub API and is never
+      # printed. Setup steps: fork/README.md, "Owner setup".
+      - name: Fetch the sync script
+        uses: actions/checkout@v6
+        with:
+          # The commit this run's workflow file came from, so the script and
+          # the workflow always match.
+          ref: ${{ github.sha }}
+          path: sync-tools
+          persist-credentials: false
+          sparse-checkout: fork/scripts/upstream_sync.py
+          sparse-checkout-cone-mode: false
+
+      - name: Check the FORK_SYNC_TOKEN secret
         id: token
         env:
-          HAS_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN != '' }}
+          FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
         run: |
-          if [ "$HAS_SYNC_TOKEN" = "true" ]; then
-            exit 0
-          fi
-          echo "missing=true" >>"$GITHUB_OUTPUT"
-          echo "::error title=FORK_SYNC_TOKEN is not set::Create a fine-grained personal access token for the repository $GITHUB_REPOSITORY with Contents: Read and write and Workflows: Read and write, then save it as the Actions repository secret FORK_SYNC_TOKEN (Settings > Secrets and variables > Actions). Steps: fork/README.md, Owner setup."
-          exit 1
+          # The checkout of next below empties the workspace, so keep a copy.
+          cp sync-tools/fork/scripts/upstream_sync.py "$RUNNER_TEMP/"
+          python3 "$RUNNER_TEMP/upstream_sync.py" token
 
       - uses: actions/checkout@v6
         with:
@@ -63,65 +78,63 @@ jobs:
           git fetch origin dev:refs/remotes/origin/dev || true
           git fetch origin next:refs/remotes/origin/next
 
+      # dev is a pure mirror of upstream/dev and is never committed to.
       - name: Fast-forward origin/dev
         run: |
           git checkout -B dev origin/dev
-          git merge --ff-only upstream/dev
+          if ! git merge --ff-only upstream/dev; then
+            echo "::error title=dev has diverged::origin/dev has commits that upstream/dev does not, so it cannot be fast-forwarded. dev only mirrors upstream; move those commits to a section branch and reset dev to upstream/dev."
+            exit 1
+          fi
           git push origin dev
 
-      - name: Rebase next onto upstream/dev or open an issue
+      # Rebasing next onto upstream/dev cannot work any more: hundreds of
+      # fork commits change upstream files, and the hand ports of upstream
+      # pull requests conflict with their originals, so the rebase stopped at
+      # G3, the fourth fork commit, on every run since 2026-09-21 (issue #91,
+      # I72). Upstream work reaches next as reviewed ports instead, and this
+      # step keeps the issue current: which upstream commits next lacks, which
+      # of them next already has or cites, which apply cleanly as a
+      # cherry-pick, and which files a merge of upstream/dev would conflict
+      # in. Conflicts are the normal state, so they update the issue and the
+      # job stays green. Only a clean merge is pushed, to sync/upstream.
+      - name: Report next against upstream/dev
+        id: report
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/upstream_sync.py" report \
+            --next origin/next --upstream upstream/dev \
+            --body "$RUNNER_TEMP/sync-issue.md"
+
+      - name: Push a clean merge to sync/upstream
+        if: steps.report.outputs.missing != '0' && steps.report.outputs.merge_tree != ''
+        env:
+          MERGE_TREE: ${{ steps.report.outputs.merge_tree }}
+        run: |
+          set -euo pipefail
+          MERGE=$(git commit-tree "$MERGE_TREE" -p origin/next -p upstream/dev \
+            -m "Merge upstream/dev $(git rev-parse --short upstream/dev) into next")
+          # A FORK_SYNC_TOKEN push starts Fork - Checks by itself.
+          git push --force origin "$MERGE:refs/heads/sync/upstream"
+
+      - name: Open or update the upstream issue
+        if: steps.report.outputs.missing != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          MISSING: ${{ steps.report.outputs.missing }}
+          MERGE_CONFLICTS: ${{ steps.report.outputs.merge_conflicts }}
         run: |
           set -euo pipefail
-          UPSTREAM=$(git rev-parse upstream/dev)
-          NEXT=$(git rev-parse origin/next)
-          if git merge-base --is-ancestor "$UPSTREAM" "$NEXT"; then
-            echo "next already contains upstream/dev ($UPSTREAM)"
-            exit 0
+          if [ "$MERGE_CONFLICTS" != "0" ]; then
+            echo "::notice title=Upstream sync::upstream/dev does not merge cleanly into next (${MERGE_CONFLICTS} files); the issue lists the conflicts and the commits that apply as cherry-picks"
           fi
-
-          COMMITS=$(git log --oneline "$NEXT..$UPSTREAM")
-          N=$(echo "$COMMITS" | grep -c . || true)
-          ISSUE_TITLE="Upstream moved ${N} commits"
-
-          git checkout -B sync/upstream origin/next
-          # Pull requests land on next as merge commits; keep them as merges
-          # rather than flattening each PR onto upstream/dev. Git redoes each
-          # merge, so one that needed a hand resolution conflicts again and is
-          # reported below instead of being replayed without it.
-          REBASE_LOG="$RUNNER_TEMP/rebase.log"
-          if git rebase --rebase-merges upstream/dev >"$REBASE_LOG" 2>&1; then
-            cat "$REBASE_LOG"
-            # A FORK_SYNC_TOKEN push starts Fork - Checks by itself.
-            git push --force-with-lease origin sync/upstream
-            BODY=$(printf 'upstream/dev moved %s commit(s) that are not in next.\n\n%s\n\nA rebase of next is on sync/upstream, where Fork - Checks runs.\nThis bot never pushes next, main or tags.\n' "$N" "$COMMITS")
-            EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
-            if [ -n "$EXISTING" ]; then
-              gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
-            else
-              gh issue create --title "$ISSUE_TITLE" --body "$BODY"
-            fi
+          TITLE="Upstream moved ${MISSING} commits"
+          EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --title "$TITLE" --body-file "$RUNNER_TEMP/sync-issue.md"
           else
-            cat "$REBASE_LOG"
-            CONFLICTS=$(git diff --name-only --diff-filter=U || true)
-            git rebase --abort || true
-            if [ -n "$CONFLICTS" ]; then
-              BODY=$(printf 'Could not rebase next onto upstream/dev (%s).\n\nConflicted files:\n%s\n\nUpstream commits not in next:\n%s\n' "$UPSTREAM" "$CONFLICTS" "$COMMITS")
-            else
-              # No file conflicted, so something else failed: report git's error.
-              echo "::error title=Rebase failed::git rebase failed without a conflict; see its output above"
-              # Indented four spaces, git's output renders as a code block.
-              ERROR=$(tail -n 20 "$REBASE_LOG" | sed 's/^/    /')
-              BODY=$(printf 'Could not rebase next onto upstream/dev (%s), and no file conflicted. git said:\n\n%s\n\nUpstream commits not in next:\n%s\n' "$UPSTREAM" "$ERROR" "$COMMITS")
-            fi
-            EXISTING=$(gh issue list --search "Upstream moved in:title" --state open --json number,title --jq '.[0].number // empty')
-            if [ -n "$EXISTING" ]; then
-              gh issue edit "$EXISTING" --title "$ISSUE_TITLE" --body "$BODY"
-            else
-              gh issue create --title "$ISSUE_TITLE" --body "$BODY"
-            fi
+            gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/sync-issue.md"
           fi
 
       - name: Open an issue for new upstream v* tags
@@ -153,16 +166,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TOKEN_MISSING: ${{ steps.token.outputs.missing }}
+          TOKEN_STATE: ${{ steps.token.outputs.state }}
         run: |
           set -euo pipefail
           TITLE="Upstream sync failed"
           EXISTING=$(gh issue list --search "${TITLE} in:title" --state open --json number --jq '.[0].number // empty')
-          if [ "$TOKEN_MISSING" = "true" ]; then
+          case "$TOKEN_STATE" in
+            missing) CAUSE="the Actions repository secret FORK_SYNC_TOKEN does not exist (or is empty)" ;;
+            expired) CAUSE="GitHub rejects FORK_SYNC_TOKEN (HTTP 401): the token has expired or was revoked" ;;
+            no_access) CAUSE="FORK_SYNC_TOKEN cannot read this repository: it was created without access to ${GH_REPO}" ;;
+            *) CAUSE="" ;;
+          esac
+          if [ -n "$CAUSE" ]; then
             # The cause is known, so the issue body states it. An open issue is
             # rewritten, not commented on: this repeats daily until the owner
-            # adds the secret, and one comment a day would bury the steps.
-            BODY=$(printf 'The upstream sync cannot run: the Actions repository secret FORK_SYNC_TOKEN does not exist (or is empty). Last run: %s\n\nUpstream commits change .github/workflows, and GitHub refuses a GITHUB_TOKEN push that touches workflow files, so dev stays frozen until the secret exists.\n\nOwner steps:\n1. GitHub > Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token.\n2. Resource owner: the owner of %s. Repository access: Only select repositories, %s.\n3. Repository permissions: Contents: Read and write, Workflows: Read and write. Everything else stays at No access (Metadata: Read-only is added automatically).\n4. Pick an expiry and note it, then copy the token.\n5. In %s: Settings > Secrets and variables > Actions > New repository secret, name FORK_SYNC_TOKEN, value the token.\n6. Actions > Fork - Upstream sync > Run workflow, then close this issue once the run is green.\n\nThe same steps are in fork/README.md under Owner setup.\n' "$RUN_URL" "$GH_REPO" "$GH_REPO" "$GH_REPO")
+            # fixes the secret, and one comment a day would bury the steps.
+            BODY=$(printf 'The upstream sync cannot run: %s. Last run: %s\n\nUpstream commits change .github/workflows, and GitHub refuses a GITHUB_TOKEN push that touches workflow files, so dev stays frozen until the secret holds a valid token.\n\nOwner steps:\n1. GitHub > Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token.\n2. Resource owner: the owner of %s. Repository access: Only select repositories, %s.\n3. Repository permissions: Contents: Read and write, Workflows: Read and write. Everything else stays at No access (Metadata: Read-only is added automatically).\n4. Pick an expiry and note it, then copy the token.\n5. In %s: Settings > Secrets and variables > Actions > New repository secret, name FORK_SYNC_TOKEN, value the token.\n6. Actions > Fork - Upstream sync > Run workflow, then close this issue once the run is green.\n\nThe same steps are in fork/README.md under Owner setup.\n' "$CAUSE" "$RUN_URL" "$GH_REPO" "$GH_REPO" "$GH_REPO")
             if [ -n "$EXISTING" ]; then
               gh issue edit "$EXISTING" --body "$BODY"
             else
@@ -170,7 +189,7 @@ jobs:
             fi
             exit 0
           fi
-          BODY=$(printf 'The upstream sync failed: %s\n\nThe FORK_SYNC_TOKEN secret is set, so read the failed step in the run. A rejected push usually means the token expired or lost Contents or Workflows write (GitHub refuses a push that changes .github/workflows without it); rotate it with the steps in fork/README.md under Owner setup.\n' "$RUN_URL")
+          BODY=$(printf 'The upstream sync failed: %s\n\nFORK_SYNC_TOKEN was accepted by the GitHub API, so read the failed step in the run. A rejected push usually means the token expired or lost Contents or Workflows write (GitHub refuses a push that changes .github/workflows without it); rotate it with the steps in fork/README.md under Owner setup.\n' "$RUN_URL")
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "$BODY"
           else
