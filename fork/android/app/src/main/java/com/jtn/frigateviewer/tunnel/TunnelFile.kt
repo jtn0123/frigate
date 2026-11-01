@@ -27,7 +27,25 @@ private val CONF_SUFFIX = Regex("""\.conf$""", RegexOption.IGNORE_CASE)
 fun RemoteAccess.setEnabled(enabled: Boolean) {
     val current = tunnel ?: return
     log.add(if (enabled) "Turned on in Settings" else "Turned off in Settings")
+    // Turned on again by the user: a stop outside the app no longer holds it back.
+    if (enabled) stoppedOutside = false
     scope.launch { store.saveTunnel(current.copy(enabled = enabled)) }
+}
+
+/**
+ * Starts the tunnel when the user asks in Settings: after it was turned off
+ * outside the app, or over another app's VPN that does not reach the server,
+ * which Android then turns off.
+ */
+fun RemoteAccess.startTunnel() {
+    if (status == TunnelStatus.OtherVpnInTheWay) {
+        log.add("Chose the app's tunnel in Settings, which turns the other VPN off")
+        overOtherVpn = true
+    } else {
+        log.add("Started in Settings")
+    }
+    stoppedOutside = false
+    check()
 }
 
 fun RemoteAccess.remove() {

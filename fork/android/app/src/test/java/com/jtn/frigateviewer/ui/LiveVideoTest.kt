@@ -2,6 +2,9 @@ package com.jtn.frigateviewer.ui
 
 import android.os.Looper
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -63,6 +66,31 @@ class LiveVideoTest {
         compose.runOnIdle { owner.registry.currentState = Lifecycle.State.RESUMED }
         compose.mainClock.advanceTimeByFrame()
         assertEquals("A fresh one on return", 2, compose.runOnIdle { players.size })
+    }
+
+    @Test
+    fun aNewWayToTheServerStartsTheStreamAgain() {
+        serverRule.server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = MockResponse.Builder().code(404).build()
+        }
+        val session =
+            Session(ServerSettings(baseUrl = serverRule.server.url("/").toString()), onTokenRenewed = {}, onCertificatePinned = {})
+        var route by mutableIntStateOf(0)
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalLifecycleOwner provides owner,
+                LocalPlayerFactory provides { builder -> builder.build().also(players::add) },
+            ) { LiveVideo(session, "driveway", "driveway", muted = true, route = route) }
+        }
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(1, compose.runOnIdle { players.size })
+
+        // Another VPN came up, or the tunnel answered: the stream is on the old way.
+        compose.runOnIdle { route = 1 }
+        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(2, compose.runOnIdle { players.size })
     }
 
     /** Runs the main looper, without moving the screen's clock, until the first player has failed. */

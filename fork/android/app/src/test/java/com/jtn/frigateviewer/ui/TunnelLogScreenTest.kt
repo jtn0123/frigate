@@ -1,7 +1,9 @@
 package com.jtn.frigateviewer.ui
 
+import android.app.Application
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -27,13 +29,16 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.GraphicsMode
 
 /** The Tunnel log: what the tunnel did, live, and the report to copy, over a fake tunnel. */
@@ -136,6 +141,38 @@ class TunnelLogScreenTest {
         val privateKey = config.lines().first { it.trim().startsWith("PrivateKey") }.substringAfter("=").trim()
         assertFalse(privateKey in report)
         assertFalse("PrivateKey" in report)
+    }
+
+    @Test
+    fun aQuickDoubleTapOnShareOpensOneShareSheet() {
+        show()
+        val app = shadowOf(ApplicationProvider.getApplicationContext<Application>())
+
+        compose.onNodeWithContentDescription("Share report").performClick()
+        compose.onNodeWithContentDescription("Share report").performClick()
+
+        compose.awaitMain { app.peekNextStartedActivity() != null }
+        assertEquals(Intent.ACTION_CHOOSER, app.nextStartedActivity.action)
+        // Long enough for a second report to be built and sent.
+        Thread.sleep(500)
+        compose.waitForIdle()
+        assertNull(app.nextStartedActivity)
+    }
+
+    @Test
+    fun aQuickDoubleTapOnCopyCopiesOnce() {
+        show()
+        val clipboard = ApplicationProvider.getApplicationContext<Context>().getSystemService(ClipboardManager::class.java)
+        var copies = 0
+        clipboard.addPrimaryClipChangedListener { copies++ }
+
+        compose.onNodeWithContentDescription("Copy report").performClick()
+        compose.onNodeWithContentDescription("Copy report").performClick()
+
+        compose.awaitMain { copies > 0 }
+        Thread.sleep(500)
+        compose.waitForIdle()
+        assertEquals(1, copies)
     }
 
     private companion object {
