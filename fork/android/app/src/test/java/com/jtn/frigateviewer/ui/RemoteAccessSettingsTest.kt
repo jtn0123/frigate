@@ -1,11 +1,16 @@
 package com.jtn.frigateviewer.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.TunnelSettings
 import com.jtn.frigateviewer.tunnel.FakeBackend
@@ -21,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -118,4 +124,60 @@ class RemoteAccessSettingsTest {
         compose.awaitText("Set up WireGuard")
         assertNull(runBlocking { store.tunnel.first() })
     }
+
+    @Test
+    fun theChecksIncludeAClientTheServerNoLongerKnows() {
+        val checks = noAnswerChecks("203.0.113.4" to 51820).joinToString("\n")
+        assertTrue(checks, "not deleted or re-created since" in checks)
+        assertTrue(checks, "The VPN server is on" in checks)
+    }
+
+    @Test
+    fun eachRowSaysWhatATapDoes() {
+        show(tunnel = null)
+        assertEquals("Choose the WireGuard file", clickLabel("Set up WireGuard"))
+        assertEquals("Show Tunnel log", clickLabel("Tunnel log"))
+    }
+
+    @Test
+    fun theTunnelFileRowSaysItCanBeReplacedOrRemoved() {
+        show(TunnelSettings(tunnelFile(), "home", enabled = true))
+        compose.awaitText("Tunnel file")
+        assertEquals("Replace or remove the tunnel file", clickLabel("Tunnel file"))
+    }
+
+    @Test
+    fun aFileProblemIsAnnounced() {
+        compose.setContent { ImportProblem("This is not a WireGuard configuration file.") }
+        val node = compose.onNodeWithText("This is not a WireGuard configuration file.").fetchSemanticsNode()
+        assertEquals(LiveRegionMode.Polite, node.config[SemanticsProperties.LiveRegion])
+    }
+
+    @Test
+    fun aFileFarTooBigSaysSoRatherThanUnreadable() {
+        val big = File(temp.root, "photo.jpg").apply { writeBytes(ByteArray(70 * 1024)) }
+        val tooBig = read(big) as? PickedFile.Unreadable
+        assertTrue("$tooBig", tooBig?.problem.orEmpty().startsWith("That file is too big to be a WireGuard file"))
+
+        val small = File(temp.root, "home.conf").apply { writeText(tunnelFile()) }
+        val usable = read(small) as? PickedFile.Read
+        assertTrue("$usable", usable?.text.orEmpty().startsWith("[Interface]"))
+    }
+
+    @Test
+    fun aUtf16FileFromNotepadIsRead() {
+        val text = tunnelFile()
+        val utf16 = byteArrayOf(0xFF.toByte(), 0xFE.toByte()) + text.toByteArray(Charsets.UTF_16LE)
+        assertEquals(text, decodeTunnelFile(utf16))
+        val bigEndian = byteArrayOf(0xFE.toByte(), 0xFF.toByte()) + text.toByteArray(Charsets.UTF_16BE)
+        assertEquals(text, decodeTunnelFile(bigEndian))
+        assertEquals(text, decodeTunnelFile(text.toByteArray()))
+    }
+
+    private fun read(file: File): PickedFile = runBlocking {
+        readTunnelFile(ApplicationProvider.getApplicationContext(), Uri.fromFile(file))
+    }
+
+    private fun clickLabel(text: String): String? =
+        compose.onNodeWithText(text).fetchSemanticsNode().config[SemanticsActions.OnClick].label
 }

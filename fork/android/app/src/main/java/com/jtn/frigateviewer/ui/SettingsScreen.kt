@@ -181,11 +181,18 @@ internal fun Group(title: String?, content: @Composable ColumnScope.() -> Unit) 
 
 /** An icon, a label and its value below; with [onClick], a chevron says it opens something. */
 @Composable
-internal fun Info(icon: ImageVector, label: String, value: String, onClick: (() -> Unit)? = null) {
+internal fun Info(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    onClick: (() -> Unit)? = null,
+    /** What a tap does, for TalkBack ("Double tap to …"); "Show [label]" unless the row is an action. */
+    actionLabel: String = "Show $label",
+) {
     Row(
         Modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClickLabel = "Show $label", onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClickLabel = actionLabel, onClick = onClick) else Modifier)
             .heightIn(min = 72.dp)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
