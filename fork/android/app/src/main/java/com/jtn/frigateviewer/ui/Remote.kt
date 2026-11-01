@@ -8,7 +8,7 @@ import com.jtn.frigateviewer.data.remote
 
 /**
  * Runs [block] as a [Remote]. When the server stops accepting this session
- * (an expired or revoked token, or a changed certificate)
+ * (an expired or revoked token, or a certificate the user has to check)
  * [onSessionLost] is called with the reason to show at sign-in, or null when
  * none is needed.
  */
@@ -20,6 +20,7 @@ suspend fun <T> loadRemote(onSessionLost: (String?) -> Unit, block: suspend () -
 private val Failure.signInReason: String?
     get() = when (this) {
         Failure.CertificateChanged -> CERTIFICATE_CHANGED
+        Failure.CertificateUntrusted -> CERTIFICATE_UNTRUSTED
         else -> null
     }
 
@@ -38,6 +39,7 @@ val Failure.message: String
         Failure.BadResponse -> "The server sent a reply the app cannot read. It may be a Frigate version the app does not support."
         Failure.InvalidAddress -> "Invalid server address"
         Failure.CertificateChanged -> CERTIFICATE_CHANGED
+        Failure.CertificateUntrusted -> CERTIFICATE_UNTRUSTED
         Failure.CertificateRejected ->
             "Certificate not trusted. Turn on \"Self-signed certificate\" for Frigate's default port 8971."
         is Failure.Other -> detail
@@ -48,3 +50,6 @@ fun describeError(e: Exception): String = failureOf(e).message
 
 const val CERTIFICATE_CHANGED =
     "The server's certificate changed. Sign in again to check the new one before trusting it."
+
+const val CERTIFICATE_UNTRUSTED =
+    "The server's certificate is not trusted yet. Sign in again to check it before trusting it."

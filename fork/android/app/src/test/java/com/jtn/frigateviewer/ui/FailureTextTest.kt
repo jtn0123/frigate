@@ -1,10 +1,12 @@
 package com.jtn.frigateviewer.ui
 
 import com.jtn.frigateviewer.data.AuthException
+import com.jtn.frigateviewer.data.CertificateUntrustedException
 import com.jtn.frigateviewer.data.Failure
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.InvalidAddressException
 import com.jtn.frigateviewer.data.Remote
+import javax.net.ssl.SSLHandshakeException
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerializationException
 import org.junit.Assert.assertEquals
@@ -35,8 +37,20 @@ class FailureTextTest {
         assertEquals("HTTP 500 for /api/review", Failure.Http(500, "/api/review").message)
         assertEquals("HTTP 502", Failure.Http(502, null).message)
         assertEquals(CERTIFICATE_CHANGED, Failure.CertificateChanged.message)
+        assertEquals(CERTIFICATE_UNTRUSTED, Failure.CertificateUntrusted.message)
         assertEquals(true, Failure.CertificateRejected.message.startsWith("Certificate not trusted"))
         assertEquals("odd", Remote.Failed("odd").message)
+    }
+
+    @Test
+    fun aCertificateNeverTrustedSignsOutToShowIt() = runBlocking {
+        val sessionLost = mutableListOf<String?>()
+        val failure = SSLHandshakeException("handshake").apply { initCause(CertificateUntrustedException("AA")) }
+
+        val result = loadRemote({ sessionLost += it }) { throw failure }
+
+        assertEquals(listOf<String?>(CERTIFICATE_UNTRUSTED), sessionLost)
+        assertEquals(Remote.Failed(Failure.CertificateUntrusted), result)
     }
 
     @Test

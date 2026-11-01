@@ -220,17 +220,17 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
          * without trusting it, so the user can decide whether to.
          */
         suspend fun serverCertificate(baseUrl: String): String {
-            val pin = CertificatePin(null)
+            // Trusting nothing, the handshake stops at the certificate, so nothing is sent.
+            val pin = CertificatePin("")
             val failure = try {
                 FrigateApi(buildHttpClient(null, pin), baseUrl).version()
                 null
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                // Any HTTP answer, even 401, means the handshake already happened.
                 e
             }
-            return pin.fingerprint ?: throw (failure ?: IOException("The server did not present a certificate"))
+            return pin.seen ?: throw (failure ?: IOException("The server did not present a certificate"))
         }
 
         private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject

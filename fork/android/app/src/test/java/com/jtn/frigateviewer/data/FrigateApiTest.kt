@@ -90,7 +90,7 @@ class FrigateApiTest {
         assertEquals(30_000, buildHttpClient(null, pin = null).pingIntervalMillis)
         assertEquals(
             30_000,
-            buildHttpClient(AuthToken("http://nvr.lan:5000/", "frigate_token", "t"), CertificatePin(null)).pingIntervalMillis,
+            buildHttpClient(AuthToken("http://nvr.lan:5000/", "frigate_token", "t"), CertificatePin("")).pingIntervalMillis,
         )
     }
 

@@ -25,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
 class ReviewRowTest {
     @get:Rule val compose = createComposeRule()
 
-    private val session = Session(ServerSettings(baseUrl = "http://nvr.lan:5000/"), onTokenRenewed = {}, onCertificatePinned = {})
+    private val session = Session(ServerSettings(baseUrl = "http://nvr.lan:5000/"), onTokenRenewed = {})
     private val imageLoader = ImageLoader(ApplicationProvider.getApplicationContext())
 
     private val item = ReviewItem(

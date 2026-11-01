@@ -45,13 +45,18 @@ class ResultTest {
     @Test
     fun certificateProblemsAreFoundBehindTheHandshakeFailure() {
         val changed = SSLHandshakeException("handshake").apply { initCause(CertificateChangedException("AA", "BB")) }
+        val untrusted = IOException("connect").apply {
+            addSuppressed(SSLHandshakeException("h").apply { initCause(CertificateUntrustedException("CC")) })
+        }
         assertEquals(Failure.CertificateChanged, failureOf(changed))
+        assertEquals(Failure.CertificateUntrusted, failureOf(untrusted))
     }
 
     @Test
     fun onlyAnExpiredSessionOrACertificateToCheckEndTheSession() {
         assertTrue(Failure.SessionExpired.endsSession)
         assertTrue(Failure.CertificateChanged.endsSession)
+        assertTrue(Failure.CertificateUntrusted.endsSession)
         listOf(Failure.Offline, Failure.Forbidden, Failure.BadResponse, Failure.CertificateRejected, Failure.Http(500, null))
             .forEach { assertTrue("$it", !it.endsSession) }
     }

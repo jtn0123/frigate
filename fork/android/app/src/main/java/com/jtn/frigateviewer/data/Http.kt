@@ -105,36 +105,49 @@ class CertificateChangedException(val expected: String, val actual: String) :
     CertificateException("The server's certificate changed")
 
 /**
+ * The server presented a self-signed certificate, [actual], while none is
+ * trusted for it yet, as after an install from before certificates were
+ * pinned. The user has to see and accept it first.
+ */
+class CertificateUntrustedException(val actual: String) : CertificateException("The server's certificate is not trusted yet")
+
+/**
  * The [CertificateChangedException] behind a failed connection, if that is why
  * it failed. OkHttp reports the last route it tried and attaches earlier
  * routes' failures as suppressed, so those are searched too.
  */
-fun Throwable.certificateChange(depth: Int = 0): CertificateChangedException? = when {
-    this is CertificateChangedException -> this
+fun Throwable.certificateChange(): CertificateChangedException? = findCause(CertificateChangedException::class.java)
+
+/** The [CertificateUntrustedException] behind a failed connection, found like [certificateChange]. */
+fun Throwable.untrustedCertificate(): CertificateUntrustedException? = findCause(CertificateUntrustedException::class.java)
+
+private fun <T : Throwable> Throwable.findCause(type: Class<T>, depth: Int = 0): T? = when {
+    type.isInstance(this) -> type.cast(this)
     depth > MAX_CAUSE_DEPTH -> null
-    else -> (listOfNotNull(cause) + suppressed).firstNotNullOfOrNull { it.certificateChange(depth + 1) }
+    else -> (listOfNotNull(cause) + suppressed).firstNotNullOfOrNull { it.findCause(type, depth + 1) }
 }
 
-/** How deep [certificateChange] looks; causes do not nest further than this in practice. */
+/** How deep [findCause] looks; causes do not nest further than this in practice. */
 private const val MAX_CAUSE_DEPTH = 8
 
 /**
  * Trust for a server with a self-signed certificate, such as Frigate's port
- * 8971: only the certificate with [fingerprint] is accepted. With no
- * fingerprint yet, the first certificate seen is accepted and pinned (trust
- * on first use), and [onPinned] receives it so it can be saved.
+ * 8971: only the certificate with [fingerprint] is accepted. An empty
+ * fingerprint trusts nothing: the certificate is never accepted unseen, and
+ * the connection fails with [CertificateUntrustedException] so the user can be
+ * shown it. [seen] is the last certificate presented, trusted or not.
  */
-class CertificatePin(fingerprint: String?, private val onPinned: (String) -> Unit = {}) {
-    private val pinned = AtomicReference(fingerprint?.takeIf { it.isNotEmpty() })
+class CertificatePin(val fingerprint: String) {
+    private val presented = AtomicReference<String?>()
 
-    val fingerprint: String? get() = pinned.get()
+    val seen: String? get() = presented.get()
 
     internal fun check(certificate: X509Certificate) {
         val actual = certificateFingerprint(certificate)
-        val expected = pinned.get()
+        presented.set(actual)
         when {
-            expected == null -> if (pinned.compareAndSet(null, actual)) onPinned(actual) else check(certificate)
-            !expected.equals(actual, ignoreCase = true) -> throw CertificateChangedException(expected, actual)
+            fingerprint.isEmpty() -> throw CertificateUntrustedException(actual)
+            !fingerprint.equals(actual, ignoreCase = true) -> throw CertificateChangedException(fingerprint, actual)
         }
     }
 }

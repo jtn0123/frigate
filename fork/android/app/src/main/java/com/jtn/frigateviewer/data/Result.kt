@@ -54,6 +54,9 @@ sealed interface Failure {
     /** The server's self-signed certificate differs from the one the user trusted. */
     data object CertificateChanged : Failure
 
+    /** The server's self-signed certificate was never trusted, so the user has to see it first. */
+    data object CertificateUntrusted : Failure
+
     /** The server's certificate is not one the phone trusts, and self-signed is off. */
     data object CertificateRejected : Failure
 
@@ -61,7 +64,7 @@ sealed interface Failure {
     data class Other(val detail: String) : Failure
 
     /** Whether the session cannot go on: the user has to sign in again. */
-    val endsSession: Boolean get() = this == SessionExpired || this == CertificateChanged
+    val endsSession: Boolean get() = this == SessionExpired || this == CertificateChanged || this == CertificateUntrusted
 }
 
 /** The sign-in address cannot be parsed. */
@@ -84,6 +87,7 @@ fun failureOf(e: Exception): Failure = certificateFailure(e) ?: when {
 /** The certificate problem [e] comes from, if it is one. */
 private fun certificateFailure(e: Exception): Failure? = when {
     e.certificateChange() != null -> Failure.CertificateChanged
+    e.untrustedCertificate() != null -> Failure.CertificateUntrusted
     e is SSLHandshakeException -> Failure.CertificateRejected
     else -> null
 }
