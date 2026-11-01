@@ -1,7 +1,9 @@
 package com.jtn.frigateviewer.ui
 
 import com.jtn.frigateviewer.data.CertificateChangedException
+import com.jtn.frigateviewer.data.Failure
 import com.jtn.frigateviewer.data.FrigateApi
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.Severity
 import com.jtn.frigateviewer.data.buildHttpClient
@@ -156,7 +158,7 @@ class ReviewStoreTest {
     fun showsTheErrorWhenTheFirstLoadFails() = runBlocking {
         server.enqueue(MockResponse.Builder().code(500).build())
         store.refresh(api)!!.join()
-        assertEquals(Remote.Failed("HTTP 500 for /api/review"), store.reviews)
+        assertEquals(Remote.Failed(Failure.Http(500, "/api/review")), store.reviews)
     }
 
     @Test
@@ -249,20 +251,20 @@ class LoadRemoteTest {
         val failure = IOException("connect failed").apply { addSuppressed(CertificateChangedException("AA", "BB")) }
         val result = loadRemote({ sessionLost += it }) { throw failure }
         assertEquals(listOf<String?>(CERTIFICATE_CHANGED), sessionLost)
-        assertEquals(Remote.Failed(CERTIFICATE_CHANGED), result)
+        assertEquals(Remote.Failed(Failure.CertificateChanged), result)
     }
 
     @Test
     fun anOrdinaryFailureKeepsTheSession() = runBlocking {
         val result = loadRemote({ sessionLost += it }) { throw java.net.ConnectException("refused") }
         assertTrue(sessionLost.isEmpty())
-        assertEquals(Remote.Failed("Could not connect to the server"), result)
+        assertEquals(Remote.Failed(Failure.Offline), result)
     }
 
     @Test
     fun aReplyThatIsNotFrigatesFails() = runBlocking {
         val result = loadRemote({ sessionLost += it }) { FrigateApi.parseConfig("<html>") }
-        assertTrue(result is Remote.Failed)
+        assertEquals(Remote.Failed(Failure.BadResponse), result)
         assertTrue(sessionLost.isEmpty())
     }
 

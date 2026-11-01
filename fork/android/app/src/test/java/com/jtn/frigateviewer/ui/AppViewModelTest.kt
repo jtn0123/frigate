@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.ui
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.SettingsStore

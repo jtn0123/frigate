@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.SavedStateHandle
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerSettings
 import java.io.File
 import kotlinx.coroutines.CoroutineScope

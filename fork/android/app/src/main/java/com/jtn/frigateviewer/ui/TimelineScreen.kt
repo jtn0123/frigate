@@ -46,6 +46,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.MotionBucket
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.motionActivity

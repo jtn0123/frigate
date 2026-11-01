@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.Ptz
 import com.jtn.frigateviewer.data.PtzInfo
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ptzInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

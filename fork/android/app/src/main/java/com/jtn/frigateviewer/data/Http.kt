@@ -10,16 +10,29 @@ import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 
 /**
- * The session's JWT. It is sent as Frigate's auth cookie rather than a Bearer
- * header because Frigate only renews cookie tokens: when one nears expiry the
- * response carries a fresh cookie, which replaces this one and is passed to
- * [onRenewed] so it can be saved.
+ * The session's JWT for the Frigate server at [server]. It is sent as Frigate's
+ * auth cookie rather than a Bearer header because Frigate only renews cookie
+ * tokens: when one nears expiry the response carries a fresh cookie, which
+ * replaces this one and is passed to [onRenewed] so it can be saved.
  */
-class AuthToken(val cookieName: String, initial: String, private val onRenewed: (String) -> Unit = {}) {
+class AuthToken(server: String, val cookieName: String, initial: String, private val onRenewed: (String) -> Unit = {}) {
     private val value = AtomicReference(initial)
+    private val origin = FrigateApi.normalizeBaseUrl(server).toHttpUrlOrNull()
+
+    /**
+     * Whether a request to [url] may carry the token: only one to the server
+     * itself, with the same scheme, host and port. A redirect elsewhere, or
+     * from https to plain http, does not get it.
+     */
+    internal fun belongsTo(url: HttpUrl): Boolean =
+        url.scheme == origin?.scheme && url.host == origin.host && url.port == origin.port
 
     val current: String get() = value.get()
 
@@ -56,20 +69,28 @@ fun buildHttpClient(auth: AuthToken?, pin: CertificatePin?): OkHttpClient {
         // silently (a phone changing networks, a NAT dropping it) would look open for good.
         .pingInterval(PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
         .addInterceptor { chain ->
-            val token = auth?.current.orEmpty()
-            val request = chain.request().newBuilder().apply {
-                if (auth != null && token.isNotEmpty()) header("Cookie", "${auth.cookieName}=$token")
-                // Frigate's CSRF check only needs the header to be present.
-                if (chain.request().method != "GET") header("X-CSRF-TOKEN", "1")
-            }.build()
-            val response = chain.proceed(request)
-            if (auth != null) {
-                response.headers("Set-Cookie").firstNotNullOfOrNull { cookieValue(it, auth.cookieName) }?.let(auth::renew)
-            }
-            response
+            val request = chain.request()
+            // Frigate's CSRF check only needs the header to be present.
+            chain.proceed(if (request.method != "GET") request.newBuilder().header("X-CSRF-TOKEN", "1").build() else request)
         }
+    // OkHttp asks the cookie jar on each hop of a redirect, WebSockets included, so the token goes only where it belongs.
+    if (auth != null) builder.cookieJar(TokenCookieJar(auth))
     if (pin != null) builder.trustOnly(pin)
     return builder.build()
+}
+
+/** Gives [auth]'s cookie only to its server, and takes a renewed token only from it. */
+private class TokenCookieJar(private val auth: AuthToken) : CookieJar {
+    override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        val token = auth.current
+        if (token.isEmpty() || !auth.belongsTo(url)) return emptyList()
+        return listOf(Cookie.Builder().name(auth.cookieName).value(token).hostOnlyDomain(url.host).build())
+    }
+
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        if (!auth.belongsTo(url)) return
+        cookies.firstNotNullOfOrNull { cookieValue("${it.name}=${it.value}", auth.cookieName) }?.let(auth::renew)
+    }
 }
 
 /** How often an open WebSocket is pinged; one unanswered ping closes it as failed. */
@@ -84,36 +105,49 @@ class CertificateChangedException(val expected: String, val actual: String) :
     CertificateException("The server's certificate changed")
 
 /**
+ * The server presented a self-signed certificate, [actual], while none is
+ * trusted for it yet, as after an install from before certificates were
+ * pinned. The user has to see and accept it first.
+ */
+class CertificateUntrustedException(val actual: String) : CertificateException("The server's certificate is not trusted yet")
+
+/**
  * The [CertificateChangedException] behind a failed connection, if that is why
  * it failed. OkHttp reports the last route it tried and attaches earlier
  * routes' failures as suppressed, so those are searched too.
  */
-fun Throwable.certificateChange(depth: Int = 0): CertificateChangedException? = when {
-    this is CertificateChangedException -> this
+fun Throwable.certificateChange(): CertificateChangedException? = findCause(CertificateChangedException::class.java)
+
+/** The [CertificateUntrustedException] behind a failed connection, found like [certificateChange]. */
+fun Throwable.untrustedCertificate(): CertificateUntrustedException? = findCause(CertificateUntrustedException::class.java)
+
+private fun <T : Throwable> Throwable.findCause(type: Class<T>, depth: Int = 0): T? = when {
+    type.isInstance(this) -> type.cast(this)
     depth > MAX_CAUSE_DEPTH -> null
-    else -> (listOfNotNull(cause) + suppressed).firstNotNullOfOrNull { it.certificateChange(depth + 1) }
+    else -> (listOfNotNull(cause) + suppressed).firstNotNullOfOrNull { it.findCause(type, depth + 1) }
 }
 
-/** How deep [certificateChange] looks; causes do not nest further than this in practice. */
+/** How deep [findCause] looks; causes do not nest further than this in practice. */
 private const val MAX_CAUSE_DEPTH = 8
 
 /**
  * Trust for a server with a self-signed certificate, such as Frigate's port
- * 8971: only the certificate with [fingerprint] is accepted. With no
- * fingerprint yet, the first certificate seen is accepted and pinned (trust
- * on first use), and [onPinned] receives it so it can be saved.
+ * 8971: only the certificate with [fingerprint] is accepted. An empty
+ * fingerprint trusts nothing: the certificate is never accepted unseen, and
+ * the connection fails with [CertificateUntrustedException] so the user can be
+ * shown it. [seen] is the last certificate presented, trusted or not.
  */
-class CertificatePin(fingerprint: String?, private val onPinned: (String) -> Unit = {}) {
-    private val pinned = AtomicReference(fingerprint?.takeIf { it.isNotEmpty() })
+class CertificatePin(val fingerprint: String) {
+    private val presented = AtomicReference<String?>()
 
-    val fingerprint: String? get() = pinned.get()
+    val seen: String? get() = presented.get()
 
     internal fun check(certificate: X509Certificate) {
         val actual = certificateFingerprint(certificate)
-        val expected = pinned.get()
+        presented.set(actual)
         when {
-            expected == null -> if (pinned.compareAndSet(null, actual)) onPinned(actual) else check(certificate)
-            !expected.equals(actual, ignoreCase = true) -> throw CertificateChangedException(expected, actual)
+            fingerprint.isEmpty() -> throw CertificateUntrustedException(actual)
+            !fingerprint.equals(actual, ignoreCase = true) -> throw CertificateChangedException(fingerprint, actual)
         }
     }
 }

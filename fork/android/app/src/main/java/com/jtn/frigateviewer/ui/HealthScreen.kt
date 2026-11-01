@@ -37,6 +37,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.jtn.frigateviewer.data.CameraStats
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerStats
 import com.jtn.frigateviewer.data.StorageStats
 import com.jtn.frigateviewer.data.isNewerRelease

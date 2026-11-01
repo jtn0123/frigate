@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.SEARCH_LIMIT
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.TrackedObject

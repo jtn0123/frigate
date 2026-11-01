@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import coil3.ImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

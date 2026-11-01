@@ -27,7 +27,7 @@ data class PtzInfo(val canMove: Boolean, val canZoom: Boolean, val presets: List
     val any: Boolean get() = canMove || canZoom || presets.isNotEmpty()
 }
 
-suspend fun FrigateApi.profile(): Profile = json.decodeFromString(getText(url("api/profile")))
+suspend fun FrigateApi.profile(): Profile = getJson(url("api/profile"))
 
 /**
  * The cameras this account may see, or null when the server does not say or
@@ -42,11 +42,11 @@ suspend fun FrigateApi.allowedCameras(): Set<String>? = try {
     null
 }
 
-suspend fun FrigateApi.ptzInfo(camera: String): PtzInfo {
-    val root = json.parseToJsonElement(getText(url("api/$camera/ptz/info"))).jsonObject
+suspend fun FrigateApi.ptzInfo(camera: String): PtzInfo = getBody(url("api/$camera/ptz/info")) { reply ->
+    val root = json.parseToJsonElement(reply).jsonObject
     fun strings(key: String) = (root[key] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
     val features = strings("features")
-    return PtzInfo(canMove = "pt" in features, canZoom = "zoom" in features, presets = strings("presets"))
+    PtzInfo(canMove = "pt" in features, canZoom = "zoom" in features, presets = strings("presets"))
 }
 
 /** Commands for `<camera>/ptz`; a move or zoom carries on until [STOP]. */
