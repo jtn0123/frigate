@@ -14,6 +14,7 @@ import com.jtn.frigateviewer.data.InsecureLoginException
 import com.jtn.frigateviewer.data.MediaFiles
 import com.jtn.frigateviewer.data.MotionBucket
 import com.jtn.frigateviewer.data.PtzInfo
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.Session
@@ -22,6 +23,7 @@ import com.jtn.frigateviewer.data.Severity
 import com.jtn.frigateviewer.data.SignIn
 import com.jtn.frigateviewer.data.SignInResult
 import com.jtn.frigateviewer.data.allowedCameras
+import com.jtn.frigateviewer.data.map
 import com.jtn.frigateviewer.data.motionActivity
 import com.jtn.frigateviewer.data.ptzInfo
 import com.jtn.frigateviewer.data.review

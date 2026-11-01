@@ -40,12 +40,11 @@ class SignInTest {
     @Test
     fun anUnknownCertificateIsShownBeforeAnythingIsSent() = runTest {
         useTls()
-        server.enqueue(MockResponse.Builder().code(401).build())
 
         val result = signIn.signIn(ServerSettings(), url(), "admin", "secret", selfSignedCert = true)
 
         assertEquals(SignInResult.NeedsTrust(fingerprint, changed = false), result)
-        assertEquals("Only the certificate probe reached the server", listOf("/api/version"), paths())
+        assertEquals("Reading the certificate sends nothing", emptyList<String>(), paths())
     }
 
     @Test
@@ -66,7 +65,6 @@ class SignInTest {
     @Test
     fun theSavedCertificateForThisAddressNeedsNoPrompt() = runTest {
         useTls()
-        server.enqueue(MockResponse.Builder().code(401).build())
         enqueueLoginAndConfig()
         val saved = ServerSettings(baseUrl = base(), selfSignedCert = true, certificatePin = fingerprint, gridColumns = 2)
 
@@ -75,25 +73,23 @@ class SignInTest {
         val settings = (result as SignInResult.SignedIn).settings
         assertEquals(fingerprint, settings.certificatePin)
         assertEquals("Preferences carry over", 2, settings.gridColumns)
-        assertEquals(listOf("/api/version", "/api/login", "/api/config"), paths())
+        assertEquals(listOf("/api/login", "/api/config"), paths())
     }
 
     @Test
     fun aChangedCertificateIsFlaggedAsChanged() = runTest {
         useTls()
-        server.enqueue(MockResponse.Builder().code(401).build())
         val saved = ServerSettings(baseUrl = base(), selfSignedCert = true, certificatePin = otherFingerprint)
 
         val result = signIn.signIn(saved, url(), "admin", "secret", selfSignedCert = true)
 
         assertEquals(SignInResult.NeedsTrust(fingerprint, changed = true), result)
-        assertEquals(listOf("/api/version"), paths())
+        assertEquals(emptyList<String>(), paths())
     }
 
     @Test
     fun aPinSavedForAnotherAddressDoesNotCount() = runTest {
         useTls()
-        server.enqueue(MockResponse.Builder().code(401).build())
         val saved = ServerSettings(baseUrl = "https://192.0.2.1:8971", selfSignedCert = true, certificatePin = fingerprint)
 
         val result = signIn.signIn(saved, url(), "admin", "secret", selfSignedCert = true)
@@ -140,6 +136,14 @@ class SignInTest {
     }
 
     @Test
+    fun anAddressThatCannotBeParsedIsReportedAsOne() = runTest {
+        val failure = runCatching {
+            signIn.signIn(ServerSettings(), "http://nvr:port", "", "", selfSignedCert = false)
+        }.exceptionOrNull()
+        assertTrue("Expected InvalidAddressException, got $failure", failure is InvalidAddressException)
+    }
+
+    @Test
     fun aCapitalizedSchemeIsStillPlainHttp() = runTest {
         val failure = runCatching {
             signIn.signIn(ServerSettings(), "Http://203.0.113.5:5000", "admin", "secret", selfSignedCert = false)
@@ -150,12 +154,11 @@ class SignInTest {
     @Test
     fun aCapitalizedHttpsSchemeStillAsksToTrustTheCertificate() = runTest {
         useTls()
-        server.enqueue(MockResponse.Builder().code(401).build())
 
         val result = signIn.signIn(ServerSettings(), url().replaceFirst("https", "HTTPS"), "admin", "secret", selfSignedCert = true)
 
         assertEquals(SignInResult.NeedsTrust(fingerprint, changed = false), result)
-        assertEquals(listOf("/api/version"), paths())
+        assertEquals(emptyList<String>(), paths())
     }
 
     @Test

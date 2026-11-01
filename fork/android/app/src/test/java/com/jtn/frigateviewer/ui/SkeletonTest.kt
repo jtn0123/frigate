@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import com.jtn.frigateviewer.data.Remote
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

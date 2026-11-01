@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.BuildConfig
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 
 @Composable

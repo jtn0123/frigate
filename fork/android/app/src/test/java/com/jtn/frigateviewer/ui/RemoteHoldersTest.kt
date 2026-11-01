@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.ui
 
 import com.jtn.frigateviewer.data.AuthException
 import com.jtn.frigateviewer.data.FrigateApi
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.buildHttpClient
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred

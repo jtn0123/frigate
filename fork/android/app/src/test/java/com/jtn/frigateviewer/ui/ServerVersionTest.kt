@@ -1,6 +1,7 @@
 package com.jtn.frigateviewer.ui
 
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import com.jtn.frigateviewer.data.Remote
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

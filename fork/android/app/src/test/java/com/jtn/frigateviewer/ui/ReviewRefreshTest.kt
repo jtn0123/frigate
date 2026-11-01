@@ -1,6 +1,7 @@
 package com.jtn.frigateviewer.ui
 
 import com.jtn.frigateviewer.data.FrigateApi
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.buildHttpClient
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay

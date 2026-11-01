@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.SavedStateHandle
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerSettings
 import java.io.File
 import kotlinx.coroutines.CoroutineScope

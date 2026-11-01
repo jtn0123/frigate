@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.data.Camera
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 
 /** Up to four cameras live at once, two by two, each on its lighter stream. */

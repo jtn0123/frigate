@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.CameraActivity
+import com.jtn.frigateviewer.data.Remote
+import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
 
 @OptIn(ExperimentalMaterial3Api::class)

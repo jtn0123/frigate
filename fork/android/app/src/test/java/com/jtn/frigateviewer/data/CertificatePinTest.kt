@@ -62,19 +62,27 @@ class CertificatePinTest {
     }
 
     @Test
-    fun pinsTheFirstCertificateWhenNoneIsSaved() = runTest {
+    fun trustsNothingWithoutASavedPin() = runTest {
         server.enqueue(MockResponse.Builder().body("0.17.0").build())
-        val pinned = mutableListOf<String>()
-        val pin = CertificatePin(null, pinned::add)
-        api(pin).version()
-        assertEquals(listOf(serverFingerprint), pinned)
-        assertEquals(serverFingerprint, pin.fingerprint)
+        val pin = CertificatePin("")
+        try {
+            api(pin).version()
+            fail("A self-signed certificate was trusted on first use")
+        } catch (e: IOException) {
+            val untrusted = e.untrustedCertificate()
+            assertNotNull("Expected an untrusted certificate, got $e", untrusted)
+            assertEquals(serverFingerprint, untrusted!!.actual)
+            assertEquals(null, e.certificateChange())
+        }
+        assertEquals("", pin.fingerprint)
+        assertEquals(serverFingerprint, pin.seen)
+        assertEquals("Nothing was sent", 0, server.requestCount)
     }
 
     @Test
-    fun readsTheCertificateEvenWhenLoginIsRequired() = runTest {
-        server.enqueue(MockResponse.Builder().code(401).build())
+    fun readsTheCertificateWithoutSendingAnything() = runTest {
         assertEquals(serverFingerprint, FrigateApi.serverCertificate(server.url("/").toString()))
+        assertEquals(0, server.requestCount)
     }
 
     @Test
