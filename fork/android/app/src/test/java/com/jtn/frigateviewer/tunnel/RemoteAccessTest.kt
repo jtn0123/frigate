@@ -136,12 +136,13 @@ class RemoteAccessTest {
         ),
         idleMs: Long = 60_000,
         handshakeMs: Long = 15_000,
+        reportMs: Long = 5_000,
     ): RemoteAccess {
         runBlocking {
             store.save(ServerSettings(baseUrl = "http://192.168.1.20:5000/"))
             store.saveTunnel(tunnel)
         }
-        return RemoteAccess(scope, store, backend, route, "com.jtn.frigateviewer", idleMs, handshakeMs).also { it.start() }
+        return RemoteAccess(scope, store, backend, route, "com.jtn.frigateviewer", idleMs, handshakeMs, reportMs).also { it.start() }
     }
 
     @Test
@@ -245,7 +246,7 @@ class RemoteAccessTest {
         // The log tells the story: checked, started, gave up, then answered.
         val log = remote.log.entries.map { it.text }
         assertTrue(log.any { it == "Direct check: test route: NOT_DIRECT" })
-        assertTrue(log.any { it.startsWith("Starting the tunnel to vpn.example.com:51820") })
+        assertTrue(log.any { it == "Starting the tunnel to a hostname ending .com, UDP port 51820" })
         assertTrue(log.any { it.startsWith("Gave up waiting") })
         assertTrue(log.any { it.startsWith("VPN server answered") && "received 92 bytes" in it })
     }
@@ -355,6 +356,43 @@ class RemoteAccessTest {
     }
 
     @Test
+    fun theNoAnswerMessageNamesAClientTheServerDoesNotKnow() {
+        // The server drops an unknown key's handshakes silently, which looks the same as a wrong address.
+        assertTrue("not deleted, re-created or left unsaved" in NO_ANSWER)
+        assertTrue("the VPN server is on" in NO_ANSWER)
+        assertTrue("does not block UDP" in NO_ANSWER)
+        assertTrue("turn off \"Use away from home\" to stop" in NO_ANSWER)
+    }
+
+    @Test
+    fun givingUpIsOneLineWithTheFigures() {
+        backend.answers = false
+        val remote = remote(handshakeMs = 1_200, reportMs = 400)
+        remote.foreground()
+        await { remote.log.entries.any { it.text.startsWith("Gave up") } }
+        Thread.sleep(700)
+        val log = remote.log.entries.map { it.text }
+        val gaveUp = log.indexOfFirst { it.startsWith("Gave up") }
+        assertTrue(log[gaveUp], log[gaveUp].endsWith(": sent 148 bytes, received 0 bytes. WireGuard keeps trying"))
+        assertTrue("Progress was logged before giving up", log.take(gaveUp).any { it.startsWith("No answer yet") })
+        assertFalse("No progress line repeats it", log.getOrNull(gaveUp + 1)?.startsWith("No answer yet") == true)
+    }
+
+    @Test
+    fun afterGivingUpTheWaitIsLoggedLessOften() {
+        backend.answers = false
+        val remote = remote(handshakeMs = 200, reportMs = 300)
+        remote.foreground()
+        await { remote.status is TunnelStatus.Failed }
+        // Several of the usual report intervals; the log keeps only 300 entries, which a line
+        // every few seconds for as long as the app is open would fill with this alone.
+        Thread.sleep(2_000)
+        val log = remote.log.entries.map { it.text }
+        val after = log.drop(log.indexOfFirst { it.startsWith("Gave up") } + 1)
+        assertEquals(listOf<String>(), after.filter { it.startsWith("No answer yet") })
+    }
+
+    @Test
     fun aRepeatedLineIsLoggedOnce() {
         var now = 1_000L
         val echoed = mutableListOf<String>()
@@ -416,6 +454,19 @@ class RemoteAccessTest {
         assertFalse(report, "2001:db8" in report || "fd00" in report || "0:0:0" in report)
         assertTrue(report, "Routes through the tunnel (AllowedIPs): all IPv4 traffic, all IPv6 traffic" in report)
         assertTrue(report, "Tunnel address: private …2/32, private IPv6 …2/128" in report)
+        assertTrue(report, "Starting the tunnel to public IPv6 …5, UDP port 51820" in report)
+    }
+
+    @Test
+    fun theVpnServersNameStaysOutOfTheLog() {
+        val text = tunnelFile(peer = "Endpoint = myhome.duckdns.org:51820")
+        val remote = remote(tunnel = null)
+        assertNull(runBlocking { remote.import("home.conf", text) })
+        remote.foreground()
+        await { remote.status == TunnelStatus.Connected }
+        val report = tunnelReport(remote, "http://192.168.1.20:5000/", about = listOf(), permitted = true, libraryLines = listOf())
+        assertFalse(report, "myhome" in report)
+        assertTrue(report, "server is a hostname ending .org, UDP port 51820" in report)
     }
 
     @Test
@@ -470,5 +521,70 @@ class RemoteAccessTest {
         val harmless = "permission denied  (harmless: a control socket for the official WireGuard app, which this app does not use)"
         assertTrue(lines[0], lines[0].endsWith(harmless))
         assertFalse(lines[1], "harmless" in lines[1])
+    }
+
+    @Test
+    fun aFileWithAByteOrderMarkOrWgQuickSettingsIsUsable() {
+        val withMark = "\uFEFF" + tunnelFile()
+        assertEquals(1, appOnlyTunnel(withMark, "com.jtn.frigateviewer").peers.size)
+        assertEquals("vpn.example.com:51820", tunnelEndpoint(withMark))
+        val wgQuick = tunnelFile(extraInterface = "Table = off\nPostUp = iptables -A FORWARD -j ACCEPT # a comment\nSaveConfig = true")
+        assertEquals(1, appOnlyTunnel(wgQuick.replace("\n", "\r\n"), "com.jtn.frigateviewer").peers.size)
+    }
+
+    @Test
+    fun aBadFileSaysWhatIsWrongWithoutQuotingIt() {
+        fun problem(text: String) = try {
+            appOnlyTunnel(text, "com.jtn.frigateviewer")
+            null
+        } catch (e: TunnelConfigException) {
+            e.message
+        }
+        val file = tunnelFile()
+        val key = file.lines().first { it.startsWith("PrivateKey") }
+        assertEquals("The file's [Interface] has no PrivateKey.", problem(file.replace(key, "")))
+        assertEquals("The file's [Interface] PrivateKey is not a valid WireGuard key.", problem(file.replace(key, "PrivateKey = abc")))
+        assertEquals(
+            "The file has a section WireGuard does not know, [Peers]. Only [Interface] and [Peer] are allowed.",
+            problem(file.replace("[Peer]", "[Peers]")),
+        )
+        assertEquals(
+            "The file's [Interface] has a setting WireGuard does not know: Colour.",
+            problem(tunnelFile(extraInterface = "Colour = blue")),
+        )
+        assertEquals("The file has no [Interface] section, so it is not a whole WireGuard configuration.", problem(""))
+        assertEquals("The file's [Peer] Endpoint is not valid.", problem(tunnelFile(peer = "Endpoint = vpn.example.com")))
+        // A key above the first section: the parser quotes the whole line, which must not get out.
+        val outside = problem("$key\n$file")
+        assertEquals("This is not a WireGuard configuration file.", outside)
+    }
+
+    @Test
+    fun theTunnelIsNamedAfterTheFileHoweverItIsCased() {
+        assertEquals("UDMPro-Frig", tunnelName("UDMPro-Frig.CONF"))
+        assertEquals("home", tunnelName("home.conf"))
+        assertEquals("home.conf.txt", tunnelName("home.conf.txt"))
+    }
+
+    @Test
+    fun closingSaysWhyInWords() {
+        val remote = remote()
+        remote.foreground()
+        await { remote.status == TunnelStatus.Connected }
+        remote.setEnabled(false)
+        await { remote.status == TunnelStatus.Off }
+        val log = remote.log.entries.map { it.text }
+        assertTrue(log.toString(), "Closing the tunnel: it is turned off, or the app is signed out" in log)
+        assertFalse(log.toString(), log.any { it == "Closing the tunnel: Off" })
+    }
+
+    @Test
+    fun afterTheIdleCloseItIsNotShownConnected() {
+        val remote = remote(idleMs = 50)
+        remote.foreground()
+        await { remote.status == TunnelStatus.Connected }
+        remote.background()
+        await { backend.downs == 1 }
+        await { remote.status == TunnelStatus.Checking }
     }
 }
