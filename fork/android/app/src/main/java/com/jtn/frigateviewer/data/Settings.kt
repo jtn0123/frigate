@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
@@ -57,8 +58,12 @@ class TunnelSettings(val config: String, val name: String, val enabled: Boolean)
 
 private val Context.dataStore by preferencesDataStore(name = "server")
 
-/** Saved settings; the token is encrypted with [cipher]. */
-class SettingsStore(private val dataStore: DataStore<Preferences>, private val cipher: TokenCipher) {
+/** Saved settings; the token is encrypted with [cipher], and read on [io], which tests replace to run on virtual time. */
+class SettingsStore(
+    private val dataStore: DataStore<Preferences>,
+    private val cipher: TokenCipher,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
+) {
     private object Keys {
         val baseUrl = stringPreferencesKey("base_url")
         val username = stringPreferencesKey("username")
@@ -76,7 +81,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>, private val c
         val tunnelEnabled = booleanPreferencesKey("tunnel_enabled")
     }
 
-    val settings: Flow<ServerSettings> = dataStore.data.map(::read).flowOn(Dispatchers.IO)
+    val settings: Flow<ServerSettings> = dataStore.data.map(::read).flowOn(io)
 
     suspend fun save(settings: ServerSettings) {
         dataStore.edit { p -> write(p, settings) }
@@ -131,7 +136,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>, private val c
         p[Keys.tunnelConfig]?.let(cipher::decrypt)?.takeIf { it.isNotEmpty() }?.let { config ->
             TunnelSettings(config, p[Keys.tunnelName].orEmpty(), p[Keys.tunnelEnabled] ?: true)
         }
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(io)
 
     /** Saves [tunnel] with its configuration, private key included, encrypted; null forgets it. */
     suspend fun saveTunnel(tunnel: TunnelSettings?) {

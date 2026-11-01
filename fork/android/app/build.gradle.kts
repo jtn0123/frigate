@@ -14,6 +14,8 @@ android {
     compileSdk = 37
 
     defaultConfig {
+        // The on-device smoke tests in src/androidTest, run by the Android device workflow.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         applicationId = "com.jtn.frigateviewer"
         minSdk = 29
         targetSdk = 36
@@ -108,6 +110,11 @@ dependencies {
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     debugImplementation(libs.compose.ui.test.manifest)
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
 }
 
 // Screenshot tests: the golden images are committed here, and every unit test run
@@ -123,4 +130,13 @@ detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.file("config/detekt.yml"))
     baseline = file("detekt-baseline.xml")
+}
+
+// A failing test prints its whole exception, cause and stack included, in the
+// build log, rather than only the assertion's class and line.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }

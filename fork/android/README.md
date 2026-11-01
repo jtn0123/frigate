@@ -127,6 +127,7 @@ Requires JDK 21 and the Android SDK (compileSdk 37).
 ```bash
 ./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:testDebugUnitTest    # unit tests (JVM, no device needed)
+./gradlew :app:connectedDebugAndroidTest # on-device smoke tests (a phone or emulator)
 ./gradlew :app:lintDebug
 ./gradlew spotlessApply             # format with ktlint (spotlessCheck verifies)
 ./gradlew :app:detekt               # static analysis (config/detekt.yml)
@@ -140,6 +141,12 @@ every push and pull request that changes `fork/android/`. Run it locally before 
 `app/detekt-baseline.xml`; new code is held to the rules. The check ends with the unit
 tests' line coverage, measured by Kover; there is no minimum yet.
 
+`app/src/androidTest` holds a few smoke tests that need a real device: the token
+cipher with the Android Keystore, the encrypted settings store, the VPN permission
+check, and launching to the sign-in screen. The "Fork - Android device tests"
+workflow (`.github/workflows/fork-android-device.yml`) runs them on an API 34
+emulator; it is started by hand (Actions, Run workflow), never on a pull request.
+
 ### Screenshot tests
 
 `ScreenshotTest` renders the sign-in screen, Settings, the review list and camera grid
@@ -147,7 +154,8 @@ skeletons, and an empty state on a phone-sized screen under Robolectric, with
 [Roborazzi](https://github.com/takahirom/roborazzi). The golden images are committed in
 `app/src/test/screenshots`, and every unit test run (so `scripts/check.sh` and CI too)
 compares against them and fails on a difference, leaving the new image and a diff
-(`*_actual.png`, `*_compare.png`) in `app/build/outputs/roborazzi`. After an intended
+(`*_actual.png`, `*_compare.png`) in `app/build/outputs/roborazzi`. On CI they are in the
+`android-reports` artifact of a failed run, with the test results. After an intended
 visual change, re-record them, look at the new images, and commit them:
 
 ```sh
@@ -161,11 +169,18 @@ tasks CI runs and review the diff:
 
 ```sh
 ./gradlew --write-verification-metadata sha256 spotlessCheck :app:detekt \
-    :app:testDebugUnitTest :app:koverXmlReportDebug :app:lintDebug :app:assembleDebug :app:assembleRelease
+    :app:testDebugUnitTest :app:koverXmlReportDebug :app:lintDebug :app:assembleDebug :app:assembleRelease \
+    :app:assembleDebugAndroidTest
 ```
 
 aapt2 ships one jar per platform and only the local one is downloaded, so add the
 Linux jar's sum for CI by hand from Google Maven's `aapt2-<version>-linux.jar.sha256`.
+
+CI starts with an empty Gradle cache, which fetches some files (parent POMs and BOMs)
+that a warm local cache never asks for again. Repeat the same command with
+`GRADLE_USER_HOME` set to a new empty folder and `--dry-run` added, which writes
+`gradle/verification-metadata.dryrun.xml`; keep every entry from both files in
+`verification-metadata.xml`, then delete the dry-run file.
 
 ## How it talks to Frigate
 
