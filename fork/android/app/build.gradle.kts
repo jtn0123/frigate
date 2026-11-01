@@ -21,14 +21,36 @@ android {
         versionName = "0.2.2"
     }
 
+    // Release signing: a dedicated key when its four FRIGATE_RELEASE_* values
+    // are set, as Gradle properties (~/.gradle/gradle.properties) or environment
+    // variables; otherwise this machine's debug key, as before. See the README.
+    val releaseSigning = listOf(
+        "FRIGATE_RELEASE_KEYSTORE",
+        "FRIGATE_RELEASE_KEYSTORE_PASSWORD",
+        "FRIGATE_RELEASE_KEY_ALIAS",
+        "FRIGATE_RELEASE_KEY_PASSWORD",
+    ).associateWith { providers.gradleProperty(it).orElse(providers.environmentVariable(it)).orNull }
+    val missingSigning = releaseSigning.filterValues { it.isNullOrEmpty() }.keys
+    check(missingSigning.isEmpty() || missingSigning.size == releaseSigning.size) {
+        "Release signing needs all of ${releaseSigning.keys}; missing $missingSigning"
+    }
+    if (missingSigning.isEmpty()) {
+        signingConfigs.create("release") {
+            storeFile = file(releaseSigning.getValue("FRIGATE_RELEASE_KEYSTORE")!!)
+            storePassword = releaseSigning.getValue("FRIGATE_RELEASE_KEYSTORE_PASSWORD")
+            keyAlias = releaseSigning.getValue("FRIGATE_RELEASE_KEY_ALIAS")
+            keyPassword = releaseSigning.getValue("FRIGATE_RELEASE_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Sideloaded personal app: sign release with the debug key so
-            // `assembleRelease` produces an installable APK.
-            signingConfig = signingConfigs.getByName("debug")
+            // Sideloaded personal app: without a release key, sign with the
+            // debug key so `assembleRelease` still produces an installable APK.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             // WireGuard's native library is about 3.4 MB per ABI. Only 64-bit
             // ones ship: arm64 phones, and x86_64 for emulators and ChromeOS.
             ndk { abiFilters += setOf("arm64-v8a", "x86_64") }

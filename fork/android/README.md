@@ -84,8 +84,8 @@ gives a report with WireGuard's own log lines added. It never contains the keys,
 addresses in it, IPv4 and IPv6, are cut to their kind and last number (`public …14`); host
 names are cut to their ending (`a hostname ending .org`). WireGuard's
 `UAPIOpen: mkdir /data/data/com.wireguard.android: permission denied` is harmless, and the
-report says so. Over adb,
-`adb logcat -s FrigateTunnel` shows the same steps.
+report says so. With a debug build, `adb logcat -s FrigateTunnel` shows the same
+steps; release builds keep them in the app.
 
 What the log's messages usually mean:
 
@@ -208,7 +208,42 @@ When it cannot start, the camera falls back to refreshing snapshots.
 - Plain HTTP (port 5000) is allowed because Frigate often runs that way on a LAN.
   Anything sent over it is unencrypted, so the app refuses to send a password over
   HTTP to an address that is not on a private network (or a Tailscale address).
-- Release builds are signed with this machine's debug key, so updates install over the
-  existing app only from the same machine. Keep a copy of `~/.android/debug.keystore`
-  and restore it on a new computer before building, or the phone will refuse the
-  update until the app is uninstalled (which signs you out).
+- Release builds are signed with a release key when one is set up (see "Release
+  signing" below), and otherwise with this machine's debug key. With the debug key,
+  updates install over the existing app only from the same machine: keep a copy of
+  `~/.android/debug.keystore` and restore it on a new computer before building, or the
+  phone will refuse the update until the app is uninstalled (which signs you out).
+- The tunnel log goes to the system log (`adb logcat`) only in debug builds.
+
+### Release signing
+
+A dedicated release key, kept with a backup, lets any machine you copy it to build
+updates. Create it once (keytool comes with the JDK); it asks for a password, which
+the key shares:
+
+```bash
+keytool -genkeypair -v -keystore ~/.android/frigate-release.jks -alias frigate \
+  -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Frigate Viewer"
+```
+
+Then add these four lines to `~/.gradle/gradle.properties` (outside the repository,
+so they are never committed), with the keystore's absolute path, since Gradle does
+not expand `~`:
+
+```properties
+FRIGATE_RELEASE_KEYSTORE=/absolute/path/to/.android/frigate-release.jks
+FRIGATE_RELEASE_KEYSTORE_PASSWORD=the password you chose
+FRIGATE_RELEASE_KEY_ALIAS=frigate
+FRIGATE_RELEASE_KEY_PASSWORD=the same password
+```
+
+Environment variables with the same names work too, as on CI. With none of the four
+set, `assembleRelease` signs with the debug key as before; with only some set, the
+build stops and names the missing ones. Check which key signed an APK with
+`apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk`.
+
+Android only installs an update signed with the same key as the installed app, so
+switching from the debug key to the release key needs one uninstall of the app,
+which signs you out and drops its settings and tunnel file. After that, every
+release build signed with the release key installs over it. Back up the keystore
+and its password: losing them means another uninstall.
