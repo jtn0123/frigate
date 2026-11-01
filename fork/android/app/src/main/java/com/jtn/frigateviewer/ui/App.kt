@@ -38,6 +38,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -96,7 +97,7 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
             launch { vm.feed.follow() }
             while (true) {
                 delay(60_000)
-                if (!vm.feed.connected) vm.refreshReviews()
+                if (!vm.feed.connected) vm.refreshRecentReviews()
             }
         }
     }
@@ -125,7 +126,9 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
     ShareSheet(vm.clips.share, onShown = { vm.clips.shared() })
 
     Box(Modifier.fillMaxSize()) {
-        ProvideTickingNow { Screens(vm, session, imageLoader) }
+        CompositionLocalProvider(LocalSnapshots provides vm.snapshots) {
+            ProvideTickingNow { Screens(vm, session, imageLoader) }
+        }
         SnackbarHost(
             snackbar,
             Modifier
@@ -187,7 +190,13 @@ private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: Image
             ?.let { TimelineScreen(vm, session, it, overlay.start) }
             ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.LiveGrid -> LiveGridScreen(vm, session, overlay.cameras)
-        Overlay.Health -> HealthScreen(vm)
+        Overlay.Health -> HealthScreen(
+            stats = vm.health.value,
+            cameraLabel = vm::cameraLabel,
+            onRetry = { vm.health.retry(session.api) },
+            onBack = vm.nav::back,
+            follow = { vm.health.follow(session.api, HEALTH_REFRESH_MS) },
+        )
         Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(vm, it) } ?: Unavailable(vm, source = null)
         Overlay.Search -> SearchScreen(vm, session, imageLoader)
     }

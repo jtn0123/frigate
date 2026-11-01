@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.VideocamOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -50,7 +51,25 @@ import com.jtn.frigateviewer.data.Session
 /** Up to four cameras live at once, two by two, each on its lighter stream. */
 @Composable
 fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
-    val all = (vm.cameras as? Remote.Ready)?.value.orEmpty().filter { it.enabled }
+    val cameras = vm.cameras
+    val all = (cameras as? Remote.Ready)?.value.orEmpty().filter { it.enabled }
+    if (cameras !is Remote.Ready || all.isEmpty()) {
+        // Loading, failed with a Retry, or nothing to show: said, rather than an empty sheet.
+        Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
+            DetailHeader("Live", onBack = { vm.nav.back() })
+            TabSheet {
+                RemoteContent(cameras, onRetry = vm::refreshCameras) {
+                    EmptyState(
+                        Icons.Outlined.VideocamOff,
+                        "No cameras to show",
+                        detail = "Cameras that are turned on in Frigate show here.",
+                        action = EmptyAction("Refresh") { vm.refreshCameras() },
+                    )
+                }
+            }
+        }
+        return
+    }
     val shown = liveGridCameras(all, chosen)
     var picking by rememberSaveable { mutableStateOf(false) }
     val landscape = isLandscape()

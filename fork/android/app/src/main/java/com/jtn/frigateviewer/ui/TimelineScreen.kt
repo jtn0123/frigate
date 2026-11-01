@@ -18,12 +18,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -48,13 +48,16 @@ import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.MotionBucket
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
-import com.jtn.frigateviewer.data.motionActivity
 import com.jtn.frigateviewer.data.vodUrl
 
 /**
  * A camera's last 24 hours: drag the strip to scrub, and recordings play from
  * wherever it is let go. Motion and review items are drawn along it, and the
  * playhead follows the video while it plays.
+ *
+ * The playhead moves four times a second while playing, so its time is read
+ * only where it is drawn or said (the clock, the strip, the day overview),
+ * not by this screen, which would otherwise be composed again each time.
  */
 @Composable
 fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Long) {
@@ -63,17 +66,23 @@ fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Lo
     val from = end - DAY_SECONDS
     val latest = end - LIVE_EDGE_SECONDS
     var playFrom by rememberSaveable { mutableLongStateOf(start.coerceIn(from, latest)) }
-    var at by rememberSaveable { mutableLongStateOf(playFrom) }
+    val at = rememberSaveable { mutableLongStateOf(playFrom) }
     var scrubbing by remember { mutableStateOf(false) }
-    val motion by produceState(emptyList<MotionBucket>(), camera.name, from) {
-        (vm.fetch { it.motionActivity(camera.name, from, end, MOTION_SCALE_SECONDS) } as? Remote.Ready)?.let { value = it.value }
-    }
+    val range = MotionRange(camera.name, from, end, MOTION_SCALE_SECONDS)
+    LaunchedEffect(session.api, range) { vm.motion.load(session.api, range) }
+    val motion = vm.motion[range]
+    // Oldest first, sorted once per change of the list, so neighbors are found by binary search.
     val reviews = vm.reviewsFor(camera.name)
+    val sorted = remember(reviews) { reviews.sortedBy { it.startTime } }
     val play: (Long) -> Unit = { time ->
         scrubbing = false
-        at = time.coerceIn(from, latest)
-        playFrom = at
+        at.longValue = time.coerceIn(from, latest)
+        playFrom = at.longValue
     }
+    val position = remember(at) { { at.longValue } }
+    // Only a change of whether there is one composes the buttons again, not each move of the playhead.
+    val hasPrevious by remember(sorted) { derivedStateOf { previousReview(sorted, at.longValue) != null } }
+    val hasNext by remember(sorted) { derivedStateOf { nextReview(sorted, at.longValue) != null } }
 
     PlaybackLayout(
         vm = vm,
@@ -81,37 +90,35 @@ fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Lo
         session = session,
         aspectRatio = camera.aspectRatio,
         title = camera.label,
-        onPosition = { ms -> if (!scrubbing) at = (playFrom + ms / 1000).coerceAtMost(end) },
+        onPosition = { ms -> if (!scrubbing) at.longValue = (playFrom + ms / 1000).coerceAtMost(end) },
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(formatClock(at.toDouble()), style = MaterialTheme.typography.headlineSmall.merge(Tabular))
-            Text(dayLabel(at.toDouble()), style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
-        }
+        PlayheadClock(position)
         TimelineStrip(
             from = from,
             to = end,
-            at = at,
-            motion = motion,
-            reviews = reviews,
+            at = position,
+            motion = (motion as? Remote.Ready)?.value.orEmpty(),
+            reviews = sorted,
             onScrub = {
                 scrubbing = true
-                at = it
+                at.longValue = it
             },
             onRelease = play,
         )
-        DayOverview(from, end, at, reviews, onPick = play)
-        val previous = previousReview(reviews, at)
-        val next = nextReview(reviews, at)
+        if (motion is Remote.Failed) {
+            RetryLine("Motion unavailable") { vm.motion.retry(session.api, range) }
+        }
+        DayOverview(from, end, position, sorted, onPick = play)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             FilledTonalButton(onClick = {
-                previous?.let { play(it.startTime.toLong() - EVENT_LEAD_SECONDS) }
-            }, enabled = previous != null, modifier = Modifier.weight(1f)) {
+                previousReview(sorted, at.longValue)?.let { play(it.startTime.toLong() - EVENT_LEAD_SECONDS) }
+            }, enabled = hasPrevious, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Outlined.SkipPrevious, contentDescription = null)
                 Text("Earlier event")
             }
             FilledTonalButton(onClick = {
-                next?.let { play(it.startTime.toLong() - EVENT_LEAD_SECONDS) }
-            }, enabled = next != null, modifier = Modifier.weight(1f)) {
+                nextReview(sorted, at.longValue)?.let { play(it.startTime.toLong() - EVENT_LEAD_SECONDS) }
+            }, enabled = hasNext, modifier = Modifier.weight(1f)) {
                 Text("Later event")
                 Icon(Icons.Outlined.SkipNext, contentDescription = null)
             }
@@ -119,26 +126,50 @@ fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Lo
     }
 }
 
-/** The latest item that started before [at], with a moment's leeway so it does not find the one playing. */
-internal fun previousReview(reviews: List<ReviewItem>, at: Long): ReviewItem? =
-    reviews.filter { it.startTime < at - EVENT_LEAD_SECONDS - 1 }.maxByOrNull { it.startTime }
+/** The time and day under the playhead; the only text that follows it, so the only part composed again as it moves. */
+@Composable
+private fun PlayheadClock(at: () -> Long) {
+    val time = at().toDouble()
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(formatClock(time), style = MaterialTheme.typography.headlineSmall.merge(Tabular))
+        Text(dayLabel(time), style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
+    }
+}
 
-/** The earliest item that starts after [at], skipping one [at] was just moved in front of. */
-internal fun nextReview(reviews: List<ReviewItem>, at: Long): ReviewItem? =
-    reviews.filter { it.startTime > at + EVENT_LEAD_SECONDS + 1 }.minByOrNull { it.startTime }
+/** The latest item in [sorted] (oldest first) that started before [at], with a moment's leeway so it does not find the one playing. */
+internal fun previousReview(sorted: List<ReviewItem>, at: Long): ReviewItem? {
+    val before = at - EVENT_LEAD_SECONDS - 1.0
+    return sorted.getOrNull(firstIndex(sorted) { it.startTime >= before } - 1)
+}
+
+/** The earliest item in [sorted] (oldest first) that starts after [at], skipping one [at] was just moved in front of. */
+internal fun nextReview(sorted: List<ReviewItem>, at: Long): ReviewItem? {
+    val after = at + EVENT_LEAD_SECONDS + 1.0
+    return sorted.getOrNull(firstIndex(sorted) { it.startTime > after })
+}
+
+/** The first index in [sorted] where [reached] holds, which once true stays true; the size when it never does. */
+private inline fun firstIndex(sorted: List<ReviewItem>, reached: (ReviewItem) -> Boolean): Int {
+    var low = 0
+    var high = sorted.size
+    while (low < high) {
+        val middle = (low + high) ushr 1
+        if (reached(sorted[middle])) high = middle else low = middle + 1
+    }
+    return low
+}
 
 /** A two-hour window centered on [at], dragged sideways to move through time. */
 @Composable
 private fun TimelineStrip(
     from: Long,
     to: Long,
-    at: Long,
+    at: () -> Long,
     motion: List<MotionBucket>,
     reviews: List<ReviewItem>,
     onScrub: (Long) -> Unit,
     onRelease: (Long) -> Unit,
 ) {
-    val current by rememberUpdatedState(at)
     var dragged by remember { mutableStateOf<Double?>(null) }
     val measurer = rememberTextMeasurer()
     val colors = TimelineColors(
@@ -159,41 +190,42 @@ private fun TimelineStrip(
             .background(Palette.Surface)
             .pointerInput(from, to) {
                 detectHorizontalDragGestures(
-                    onDragStart = { dragged = current.toDouble() },
+                    onDragStart = { dragged = at().toDouble() },
                     onDragEnd = { dragged?.let { onRelease(it.toLong()) } },
                     onDragCancel = { dragged?.let { onRelease(it.toLong()) } },
                 ) { change, dx ->
                     change.consume()
-                    val next = ((dragged ?: current.toDouble()) - dx * WINDOW_SECONDS / size.width)
+                    val next = ((dragged ?: at().toDouble()) - dx * WINDOW_SECONDS / size.width)
                         .coerceIn(from.toDouble(), to.toDouble())
                     dragged = next
                     onScrub(next.toLong())
                 }
             }
             .semantics {
+                val now = at()
                 contentDescription = "Timeline"
-                stateDescription = "At ${formatClock(at.toDouble())}, ${dayLabel(at.toDouble())}"
+                stateDescription = "At ${formatClock(now.toDouble())}, ${dayLabel(now.toDouble())}"
                 customActions = listOf(
                     CustomAccessibilityAction("Back 5 minutes") {
-                        onRelease(at - FIVE_MINUTES)
+                        onRelease(at() - FIVE_MINUTES)
                         true
                     },
                     CustomAccessibilityAction("Forward 5 minutes") {
-                        onRelease(at + FIVE_MINUTES)
+                        onRelease(at() + FIVE_MINUTES)
                         true
                     },
                     CustomAccessibilityAction("Back 1 hour") {
-                        onRelease(at - HOUR_SECONDS)
+                        onRelease(at() - HOUR_SECONDS)
                         true
                     },
                     CustomAccessibilityAction("Forward 1 hour") {
-                        onRelease(at + HOUR_SECONDS)
+                        onRelease(at() + HOUR_SECONDS)
                         true
                     },
                 )
             },
     ) {
-        val windowStart = at - WINDOW_SECONDS / 2.0
+        val windowStart = at() - WINDOW_SECONDS / 2.0
         val perSecond = (size.width / WINDOW_SECONDS).toFloat()
         fun x(time: Double) = ((time - windowStart) * perSecond).toFloat()
 
@@ -255,7 +287,7 @@ private fun DrawScope.drawTicks(
 
 /** All 24 hours at once, with the strip's window outlined; a tap plays from there. */
 @Composable
-private fun DayOverview(from: Long, to: Long, at: Long, reviews: List<ReviewItem>, onPick: (Long) -> Unit) {
+private fun DayOverview(from: Long, to: Long, at: () -> Long, reviews: List<ReviewItem>, onPick: (Long) -> Unit) {
     val alert = Palette.Alert
     val detection = Palette.Detection
     val window = Palette.AccentText
@@ -281,8 +313,9 @@ private fun DayOverview(from: Long, to: Long, at: Long, reviews: List<ReviewItem
                 strokeWidth = 2.dp.toPx(),
             )
         }
-        val left = x(at - WINDOW_SECONDS / 2.0).coerceAtLeast(0f)
-        val right = x(at + WINDOW_SECONDS / 2.0).coerceAtMost(size.width)
+        val now = at()
+        val left = x(now - WINDOW_SECONDS / 2.0).coerceAtLeast(0f)
+        val right = x(now + WINDOW_SECONDS / 2.0).coerceAtMost(size.width)
         drawRoundRect(
             window,
             Offset(left, 1.dp.toPx()),
