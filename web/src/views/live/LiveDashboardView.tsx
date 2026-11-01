@@ -55,6 +55,7 @@ import { BsFillCameraVideoOffFill } from "react-icons/bs";
 import { AuthContext } from "@/context/auth-state";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import KioskLaunchButton from "@/components/fork/kiosk/KioskLaunchButton";
+import { groupAudioStates } from "@/lib/fork/group-audio";
 
 type LiveDashboardViewProps = {
   cameras: CameraConfig[];
@@ -335,21 +336,12 @@ export default function LiveDashboardView({
       return;
     }
 
-    const initialAudioStates: AudioState = {};
-    const initialVolumeStates: VolumeState = {};
-
-    Object.entries(allGroupsStreamingSettings).forEach(([_, groupSettings]) => {
-      if (groupSettings) {
-        Object.entries(groupSettings).forEach(([camera, cameraSettings]) => {
-          initialAudioStates[camera] = cameraSettings.playAudio ?? false;
-          initialVolumeStates[camera] = cameraSettings.volume ?? 1;
-        });
-      }
-    });
-
-    setAudioStates(initialAudioStates);
-    setVolumeStates(initialVolumeStates);
-  }, [allGroupsStreamingSettings]);
+    // fork (UI155): only this group's settings, so another group's unmute
+    // does not carry over
+    const { audio, volume } = groupAudioStates(currentGroupStreamingSettings);
+    setAudioStates(audio);
+    setVolumeStates(volume);
+  }, [allGroupsStreamingSettings, currentGroupStreamingSettings]);
 
   const toggleAudio = (cameraName: string): void => {
     setAudioStates((prev) => ({

@@ -45,8 +45,10 @@ export function createRecordingReviewUrl(
   pathname: string,
   state: RecordingReviewLinkState,
 ): string {
-  const url = new URL(baseUrl);
-  url.pathname = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  // fork (UI155): resolve under baseUrl, since setting url.pathname dropped
+  // a base path such as Home Assistant ingress
+  const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const url = new URL(`./${pathname.replace(/^\/+/, "")}`, base);
   url.searchParams.set(
     RECORDING_REVIEW_LINK_PARAM,
     `${state.camera}_${Math.floor(state.timestamp)}`,

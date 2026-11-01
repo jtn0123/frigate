@@ -426,6 +426,11 @@ export default function NotificationsSettingsExtras({
             .post("notifications/register", {
               sub: pushSubscription,
             })
+            .then(() => {
+              toast.success(t("notification.toast.success.registered"), {
+                position: "top-center",
+              });
+            })
             .catch(() => {
               toast.error(t("notification.toast.error.registerFailed"), {
                 position: "top-center",
@@ -434,9 +439,15 @@ export default function NotificationsSettingsExtras({
               void workerRegistration.unregister();
               setRegistration(null);
             });
-          toast.success(t("notification.toast.success.registered"), {
+        })
+        // fork (UI155): a refused subscription (a bad key, a push service
+        // that is down) used to fail silently
+        .catch(() => {
+          toast.error(t("notification.toast.error.registerFailed"), {
             position: "top-center",
           });
+          void workerRegistration.unregister();
+          setRegistration(null);
         });
     },
     [addMessage, publicKey, t],

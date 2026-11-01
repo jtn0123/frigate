@@ -39,6 +39,11 @@ function camera(name: string, streams: Record<string, string>) {
 const front = camera("front", { Main: "front_main", Sub: "front_sub" });
 const back = camera("back", { Main: "back_rtsp" });
 
+// stable lists, as the views memoize theirs; a new array each render
+// would rebuild the modes on every render
+const frontAndBack = [front, back];
+const frontOnly = [front];
+
 const withAudio = {
   producers: [{ medias: ["video, recvonly, H264", "audio, recvonly, OPUS"] }],
 };
@@ -172,6 +177,69 @@ describe("useCameraLiveMode", () => {
 
     const empty = run([]);
     expect(empty.result.current.preferredLiveModes).toEqual({});
+  });
+
+  it("keeps an error fallback when the modes are rebuilt (fork UI155)", () => {
+    type Props = { metadata: Record<string, unknown> };
+    const initialProps: Props = { metadata: { front_main: withAudio } };
+    const { result, rerender } = renderHook(
+      ({ metadata }: Props) => {
+        fx.metadata = metadata;
+        return useCameraLiveMode(frontAndBack, true);
+      },
+      { initialProps },
+    );
+    expect(result.current.preferredLiveModes["front"]).toBe("mse");
+
+    act(() =>
+      result.current.setPreferredLiveModes((modes) => ({
+        ...modes,
+        front: "jsmpeg",
+      })),
+    );
+    expect(result.current.preferredLiveModes["front"]).toBe("jsmpeg");
+
+    // new stream metadata rebuilds the computed modes
+    rerender({ metadata: { front_main: withAudio, front_sub: withAudio } });
+    expect(result.current.preferredLiveModes).toEqual({
+      front: "jsmpeg",
+      back: "jsmpeg",
+    });
+  });
+
+  it("drops a fallback when the camera's stream or saved mode changes (fork UI155)", () => {
+    fx.config = {
+      go2rtc: { streams: { front_main: [], front_sub: [] } },
+      cameras: {},
+    };
+    type Props = {
+      activeStreams: Record<string, string>;
+      preferredModes?: Record<string, LivePlayerMode | undefined>;
+    };
+    const initialProps: Props = { activeStreams: { front: "front_main" } };
+    const { result, rerender } = renderHook(
+      ({ activeStreams, preferredModes }: Props) =>
+        useCameraLiveMode(frontOnly, true, activeStreams, preferredModes),
+      { initialProps },
+    );
+    const fallBack = () =>
+      act(() =>
+        result.current.setPreferredLiveModes((modes) => ({
+          ...modes,
+          front: "jsmpeg",
+        })),
+      );
+
+    fallBack();
+    rerender({ activeStreams: { front: "front_sub" } });
+    expect(result.current.preferredLiveModes["front"]).toBe("mse");
+
+    fallBack();
+    rerender({
+      activeStreams: { front: "front_sub" },
+      preferredModes: { front: "mse" },
+    });
+    expect(result.current.preferredLiveModes["front"]).toBe("mse");
   });
 
   it("resets a camera to its resolved mode", () => {

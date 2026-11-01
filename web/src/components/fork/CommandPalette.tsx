@@ -3,7 +3,6 @@ import { isApplePlatform } from "@/lib/fork/platform";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useApi } from "@/api/fork/client";
-import axios from "axios";
 import { toast } from "sonner";
 import { isDesktop } from "react-device-detect";
 import type { IconType } from "react-icons";
@@ -62,7 +61,7 @@ import {
 } from "@/lib/fork/command-items";
 import { WHATS_NEW_EVENT } from "@/lib/fork/updates";
 import { isForkEnabled } from "@/fork/flags";
-import { ReviewSegment } from "@/types/review";
+import { markAllUnreviewed } from "@/lib/fork/mark-all-reviewed";
 import { ENV } from "@/env";
 import { phoneFixes } from "@/lib/fork/phone";
 import { useApiHost } from "@/api";
@@ -160,22 +159,18 @@ function CommandPaletteInner() {
 
   const markAllReviewed = useCallback(async () => {
     try {
-      const resp = await axios.get<ReviewSegment[]>("review", {
-        params: { reviewed: 0 },
-      });
-      const ids = resp.data.filter((seg) => seg.end_time).map((seg) => seg.id);
-      if (ids.length === 0) {
+      // every unreviewed item, not only the API's default last 24 hours
+      const count = await markAllUnreviewed();
+      if (count === 0) {
         toast.info(t("commandPalette.toast.nothingToReview"), {
           position: "top-center",
         });
         return;
       }
-      await axios.post("reviews/viewed", { ids, reviewed: true });
       await mutate((key) => typeof key === "string" && key.includes("review"));
-      toast.success(
-        t("commandPalette.toast.markedReviewed", { count: ids.length }),
-        { position: "top-center" },
-      );
+      toast.success(t("commandPalette.toast.markedReviewed", { count }), {
+        position: "top-center",
+      });
     } catch {
       toast.error(t("commandPalette.toast.markFailed"), {
         position: "top-center",

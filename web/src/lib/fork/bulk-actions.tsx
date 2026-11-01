@@ -27,6 +27,18 @@ export function changedReviewIds(
     .map((review) => review.id);
 }
 
+/**
+ * How many items the Review grid's mark button changes: the finished ones not
+ * yet reviewed, which are the ones `markItemsAsReviewed` sends (UI155).
+ */
+export function markableReviewCount(
+  reviews: readonly ReviewSegment[] | null | undefined,
+): number {
+  return (reviews ?? []).filter(
+    (review) => review.end_time && !review.has_been_reviewed,
+  ).length;
+}
+
 export async function markReviewedWithUndo(
   ids: string[],
   reviewed: boolean,

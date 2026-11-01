@@ -1,5 +1,12 @@
 import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  type SetStateAction,
+} from "react";
 import useSWR from "swr";
 import { LivePlayerMode } from "@/types/live";
 import useDeferredStreamMetadata from "./use-deferred-stream-metadata";
@@ -9,6 +16,8 @@ import {
   evaluateStreamWebRTCAvailability,
   useWebRTCGloballyAvailable,
 } from "./use-webrtc-availability";
+
+type LiveModes = { [cameraName: string]: LivePlayerMode };
 
 // Shared by the initial computation and the context-menu "Reset" so the two
 // can't diverge.
@@ -94,9 +103,36 @@ export default function useCameraLiveMode(
   }, [cameras, activeStreams, globallyAvailable, globalReason, streamMetadata]);
 
   // Compute live mode states
-  const [preferredLiveModes, setPreferredLiveModes] = useState<{
-    [key: string]: LivePlayerMode;
-  }>({});
+  // fork (UI155): the computed modes and the player error fallbacks are kept
+  // apart, so rebuilding the computed ones (stream metadata arriving, a
+  // WebRTC verdict) no longer wipes a fallback and flaps a failed tile back
+  const [liveModes, setLiveModes] = useState<{
+    base: LiveModes;
+    fallbacks: LiveModes;
+  }>({ base: {}, fallbacks: {} });
+  const preferredLiveModes = useMemo(
+    () => ({ ...liveModes.base, ...liveModes.fallbacks }),
+    [liveModes],
+  );
+  // a camera's fallback lasts until its stream or saved mode changes
+  const liveModeInputs = useRef<{ [key: string]: string }>({});
+  const setPreferredLiveModes = useCallback(
+    (update: SetStateAction<LiveModes>) => {
+      setLiveModes(({ base, fallbacks }) => {
+        const current = { ...base, ...fallbacks };
+        const next = typeof update === "function" ? update(current) : update;
+        return {
+          base,
+          fallbacks: Object.fromEntries(
+            Object.entries(next).filter(
+              ([camera, mode]) => mode !== base[camera],
+            ),
+          ),
+        };
+      });
+    },
+    [],
+  );
   const [isRestreamedStates, setIsRestreamedStates] = useState<{
     [key: string]: boolean;
   }>({});
@@ -113,7 +149,8 @@ export default function useCameraLiveMode(
     const mseSupported =
       "MediaSource" in window || "ManagedMediaSource" in window;
 
-    const newPreferredLiveModes: { [key: string]: LivePlayerMode } = {};
+    const newPreferredLiveModes: LiveModes = {};
+    const newLiveModeInputs: { [key: string]: string } = {};
     const newIsRestreamedStates: { [key: string]: boolean } = {};
     const newSupportsAudioOutputStates: {
       [key: string]: { supportsAudio: boolean; cameraName: string };
@@ -125,6 +162,8 @@ export default function useCameraLiveMode(
       const isRestreamed = isRestreamedStream(config, selectedStreamName);
 
       newIsRestreamedStates[camera.name] = isRestreamed ?? false;
+      newLiveModeInputs[camera.name] =
+        `${selectedStreamName}|${preferredModes?.[camera.name] ?? ""}`;
 
       // Auto-selected default, overridden by the user's per-camera choice when viable
       // Runtime fallback (player errors) still adjusts the mode on top of this base
@@ -153,7 +192,18 @@ export default function useCameraLiveMode(
       }
     });
 
-    setPreferredLiveModes(newPreferredLiveModes);
+    const previousInputs = liveModeInputs.current;
+    liveModeInputs.current = newLiveModeInputs;
+    setLiveModes(({ fallbacks }) => ({
+      base: newPreferredLiveModes,
+      fallbacks: Object.fromEntries(
+        Object.entries(fallbacks).filter(
+          ([camera]) =>
+            newLiveModeInputs[camera] !== undefined &&
+            newLiveModeInputs[camera] === previousInputs[camera],
+        ),
+      ),
+    }));
     setIsRestreamedStates(newIsRestreamedStates);
     setSupportsAudioOutputStates(newSupportsAudioOutputStates);
   }, [
@@ -178,15 +228,21 @@ export default function useCameraLiveMode(
           : cameraName);
       const isRestreamed = isRestreamedStream(config, selectedStreamName);
 
-      setPreferredLiveModes((prevModes) => ({
-        ...prevModes,
-        [cameraName]: resolveLiveMode(
-          !!isRestreamed,
-          mseSupported,
-          webRTCUsableStates[cameraName] ?? false,
-          preferredModes?.[cameraName],
-        ),
-      }));
+      setLiveModes(({ base, fallbacks }) => {
+        const { [cameraName]: _cleared, ...rest } = fallbacks;
+        return {
+          base: {
+            ...base,
+            [cameraName]: resolveLiveMode(
+              !!isRestreamed,
+              mseSupported,
+              webRTCUsableStates[cameraName] ?? false,
+              preferredModes?.[cameraName],
+            ),
+          },
+          fallbacks: rest,
+        };
+      });
     },
     [activeStreams, cameras, config, webRTCUsableStates, preferredModes],
   );

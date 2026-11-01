@@ -44,6 +44,7 @@ import { useCameraFriendlyName } from "@/hooks/use-camera-friendly-name";
 import TriggersSemanticSearchNotice from "@/components/fork/settings/TriggersSemanticSearchNotice";
 import { useDocDomain } from "@/hooks/use-doc-domain";
 import { isDesktop } from "react-device-detect";
+import { useTimedHighlights } from "@/hooks/fork/use-timed-highlights";
 
 type ConfigSetBody = {
   requires_restart: number;
@@ -102,7 +103,12 @@ export default function TriggerView({
   const [showCreate, setShowCreate] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [selectedTrigger, setSelectedTrigger] = useState<Trigger | null>(null);
-  const [triggeredTrigger, setTriggeredTrigger] = useState<string[]>([]);
+  // fork (UI155): one highlight timeout per trigger
+  const {
+    highlighted: triggeredTrigger,
+    highlight: highlightTrigger,
+    clear: clearTriggerHighlights,
+  } = useTimedHighlights(3000);
   const [isLoading, setIsLoading] = useState(false);
 
   const cameraName = useCameraFriendlyName(selectedCamera);
@@ -138,24 +144,8 @@ export default function TriggerView({
     if (!triggers_status_ws) return;
 
     void mutate();
-
-    setTriggeredTrigger((prev) => {
-      const current = prev || [];
-      if (!current.includes(triggers_status_ws.name)) {
-        const newTriggers = [...current, triggers_status_ws.name];
-        return newTriggers;
-      }
-      return current;
-    });
-
-    const timeout = setTimeout(() => {
-      setTriggeredTrigger((prev) =>
-        (prev || []).filter((name) => name !== triggers_status_ws.name),
-      );
-    }, 3000);
-
-    return () => clearTimeout(timeout);
-  }, [triggers_status_ws, selectedCamera, mutate]);
+    highlightTrigger(triggers_status_ws.name);
+  }, [triggers_status_ws, selectedCamera, mutate, highlightTrigger]);
 
   useEffect(() => {
     document.title = t("triggers.documentTitle");
@@ -411,9 +401,9 @@ export default function TriggerView({
       setShowCreate(false);
       setShowDelete(false);
       setUnsavedChanges(false);
-      setTriggeredTrigger([]);
+      clearTriggerHighlights();
     }
-  }, [selectedCamera, setUnsavedChanges]);
+  }, [selectedCamera, setUnsavedChanges, clearTriggerHighlights]);
 
   // for adding a trigger with event id via explore context menu
 
