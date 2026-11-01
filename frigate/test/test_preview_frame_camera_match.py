@@ -11,9 +11,10 @@ from unittest.mock import patch
 from peewee import SqliteDatabase
 
 import frigate.api.preview as preview_api
+from frigate.config import FrigateConfig
 from frigate.const import PREVIEW_FRAME_TYPE
 from frigate.models import Previews
-from frigate.output.preview import is_camera_preview_frame
+from frigate.output.preview import PreviewRecorder, is_camera_preview_frame
 from frigate.test.test_export_progress import _make_exporter
 
 
@@ -116,6 +117,56 @@ class TestExportPreviewFrameSelection(_PreviewDirTestCase):
             files,
             [f"file '{os.path.join(self.preview_dir, own)}'"] * 2,
         )
+
+
+class TestPreviewRecorderStartupScan(_PreviewDirTestCase):
+    """The startup scan takes only its own camera's cached frames."""
+
+    def setUp(self):
+        super().setUp()
+        for target, value in (
+            ("CACHE_DIR", self.cache_dir),
+            ("PREVIEW_CACHE_DIR", self.preview_dir),
+            ("CLIPS_DIR", os.path.join(self.tmp_root, "clips")),
+        ):
+            patcher = patch(f"frigate.output.preview.{target}", value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        patcher = patch("frigate.output.preview.InterProcessRequestor")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_cameras_whose_names_extend_another_are_left_alone(self):
+        camera = {
+            "ffmpeg": {
+                "inputs": [{"path": "rtsp://10.0.0.1:554/video", "roles": ["detect"]}]
+            },
+            "detect": {"width": 640, "height": 360, "fps": 5},
+        }
+        config = FrigateConfig(
+            mqtt={"host": "mqtt"},
+            cameras={"cam": camera, "cam-1": camera, "cam-2": camera},
+        )
+        hour = (
+            datetime.datetime.now(datetime.UTC)
+            .replace(minute=0, second=0, microsecond=0)
+            .timestamp()
+        )
+        old = self.frame("cam", hour - 10)
+        own = self.frame("cam", hour + 1.5)
+        # "cam-1" sorts before this hour's "cam" frames and "cam-2" after,
+        # so a prefix match deleted the first and listed the second
+        other_1 = self.frame("cam-1", hour + 2.5)
+        other_2 = self.frame("cam-2", hour + 3.5)
+
+        recorder = PreviewRecorder(config.cameras["cam"])
+
+        self.assertEqual(recorder.output_frames, [hour + 1.5])
+        self.assertEqual(recorder.start_time, hour + 1.5)
+        for name, kept in ((old, False), (own, True), (other_1, True), (other_2, True)):
+            self.assertEqual(
+                os.path.exists(os.path.join(self.preview_dir, name)), kept, name
+            )
 
 
 if __name__ == "__main__":
