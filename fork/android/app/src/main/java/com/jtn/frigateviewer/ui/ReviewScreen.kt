@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -57,6 +58,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
@@ -77,25 +79,25 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(
-            title = "Review",
+            title = stringResource(R.string.rev_tab_review),
             subtitle = buildString {
                 append(
                     when {
-                        !vm.trackReviews -> "Last 24 hours"
-                        unreviewed > 0 -> "$unreviewed to review · last 24 hours"
-                        else -> "All caught up · last 24 hours"
+                        !vm.trackReviews -> stringResource(R.string.rev_last_24_hours)
+                        unreviewed > 0 -> stringResource(R.string.rev_subtitle_to_review, unreviewed)
+                        else -> stringResource(R.string.rev_subtitle_caught_up)
                     },
                 )
                 // Counts and Mark all cover only what was fetched.
-                if (vm.reviewsCapped) append(" · newest ${"%,d".format(FrigateApi.REVIEW_LIMIT)} only")
+                if (vm.reviewsCapped) append(stringResource(R.string.rev_subtitle_capped, "%,d".format(FrigateApi.REVIEW_LIMIT)))
             },
         ) {
             IconButton(onClick = { vm.nav.push(Overlay.Search) }) {
-                Icon(Icons.Outlined.Search, contentDescription = "Search older")
+                Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.rev_search_older))
             }
             if (vm.trackReviews) {
                 IconButton(onClick = { confirmMarkAll = true }, enabled = unreviewed > 0) {
-                    Icon(Icons.Outlined.DoneAll, contentDescription = "Mark all as reviewed")
+                    Icon(Icons.Outlined.DoneAll, contentDescription = stringResource(R.string.rev_mark_all))
                 }
             }
         }
@@ -104,9 +106,9 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
         val inScope = all.filter { vm.cameraFilter == null || it.camera == vm.cameraFilter }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             val options = listOf(
-                Severity.ALERT to "Alerts ${inScope.count { it.isAlert }}",
-                Severity.DETECTION to "Detections ${inScope.count { !it.isAlert }}",
-                Severity.ALL to "All ${inScope.size}",
+                Severity.ALERT to stringResource(R.string.rev_filter_alerts, inScope.count { it.isAlert }),
+                Severity.DETECTION to stringResource(R.string.rev_filter_detections, inScope.count { !it.isAlert }),
+                Severity.ALL to stringResource(R.string.rev_filter_all, inScope.size),
             )
             options.forEachIndexed { index, (severity, label) ->
                 SegmentedButton(
@@ -142,10 +144,11 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
+                val allCameras = stringResource(R.string.rev_all_cameras)
                 FilterChip(selected = vm.cameraFilter == null, onClick = {
                     if (vm.cameraFilter != null) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                     vm.cameraFilter = null
-                }, label = { Text("All cameras") }, colors = chipColors(), border = chipBorder(vm.cameraFilter == null))
+                }, label = { Text(allCameras) }, colors = chipColors(), border = chipBorder(vm.cameraFilter == null))
             }
             items(cameras, key = { it.name }) { camera ->
                 FilterChip(
@@ -174,7 +177,7 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
                                 val folded = day in collapsedDays
                                 stickyHeader(key = "day-$day") {
                                     DayHeader(
-                                        dayLabel(date, today),
+                                        dayLabel(date, today).resolve(),
                                         dayItems.size,
                                         collapsed = folded,
                                         onToggle = { collapsedDays = if (folded) collapsedDays - day else collapsedDays + day },
@@ -205,15 +208,15 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
     if (confirmMarkAll) {
         AlertDialog(
             onDismissRequest = { confirmMarkAll = false },
-            title = { Text("Mark $unreviewed as reviewed?") },
-            text = { Text("This marks everything in the current filter as reviewed on your Frigate server.") },
+            title = { Text(stringResource(R.string.rev_mark_all_title, unreviewed)) },
+            text = { Text(stringResource(R.string.rev_mark_all_detail)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmMarkAll = false
                     vm.markAllReviewed()
-                }) { Text("Mark reviewed") }
+                }) { Text(stringResource(R.string.rev_mark_reviewed)) }
             },
-            dismissButton = { TextButton(onClick = { confirmMarkAll = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmMarkAll = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -242,17 +245,18 @@ internal fun chipBorder(selected: Boolean) = FilterChipDefaults.filterChipBorder
 @Composable
 private fun DayHeader(day: String, count: Int, collapsed: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val turn by animateFloatAsState(if (collapsed) 0f else 180f, label = "chevron")
+    val state = stringResource(if (collapsed) R.string.rev_collapsed else R.string.rev_expanded)
     Row(
         modifier
             .fillMaxWidth()
             .toggleable(value = !collapsed, role = Role.Button, onValueChange = { onToggle() })
-            .semantics(mergeDescendants = true) { stateDescription = if (collapsed) "Collapsed" else "Expanded" }
+            .semantics(mergeDescendants = true) { stateDescription = state }
             .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            "$day · $count",
+            stringResource(R.string.rev_day_count, day, count),
             style = MaterialTheme.typography.labelLarge.merge(Tabular),
             color = Palette.TextSecondary,
         )
@@ -270,19 +274,19 @@ private fun DayHeader(day: String, count: Int, collapsed: Boolean, onToggle: () 
 @Composable
 private fun ReviewEmpty(vm: AppViewModel) {
     val what = when (vm.severity) {
-        Severity.ALERT -> "No alerts"
-        Severity.DETECTION -> "No detections"
-        Severity.ALL -> "Nothing to review"
+        Severity.ALERT -> stringResource(R.string.rev_empty_alerts)
+        Severity.DETECTION -> stringResource(R.string.rev_empty_detections)
+        Severity.ALL -> stringResource(R.string.rev_empty_all)
     }
     val camera = vm.cameraFilter?.let(vm::cameraLabel)
     EmptyState(
         Icons.Outlined.TaskAlt,
-        if (camera != null) "$what on $camera" else what,
-        detail = "Nothing in the last 24 hours.",
+        if (camera != null) stringResource(R.string.rev_empty_on_camera, what, camera) else what,
+        detail = stringResource(R.string.rev_empty_detail),
         tint = Palette.Ok,
         action = when {
-            camera != null -> EmptyAction("Show all cameras") { vm.cameraFilter = null }
-            vm.severity != Severity.ALL -> EmptyAction("Show everything") { vm.severity = Severity.ALL }
+            camera != null -> EmptyAction(stringResource(R.string.rev_show_all_cameras)) { vm.cameraFilter = null }
+            vm.severity != Severity.ALL -> EmptyAction(stringResource(R.string.rev_show_everything)) { vm.severity = Severity.ALL }
             else -> null
         },
     )

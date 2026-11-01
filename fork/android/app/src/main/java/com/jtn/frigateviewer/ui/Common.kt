@@ -45,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Remote
 
 @Composable
@@ -68,10 +70,10 @@ fun <T> RemoteContent(
         }
         is Remote.Failed -> EmptyState(
             Icons.Outlined.CloudOff,
-            "Couldn't load this",
-            detail = state.message,
+            stringResource(R.string.rev_load_failed),
+            detail = state.text.resolve(),
             tint = Palette.Alert,
-            action = EmptyAction("Retry", onRetry),
+            action = EmptyAction(stringResource(R.string.retry), onRetry),
         )
         is Remote.Ready -> content(state.value)
     }
@@ -88,7 +90,7 @@ fun RetryLine(text: String, modifier: Modifier = Modifier, onRetry: () -> Unit) 
             color = Palette.TextSecondary,
             modifier = Modifier.weight(1f).padding(start = 8.dp),
         )
-        TextButton(onClick = onRetry) { Text("Retry") }
+        TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
     }
 }
 
@@ -225,7 +227,7 @@ fun OverlayTag(text: String, modifier: Modifier = Modifier, color: Color = Color
 @Composable
 fun CountBadge(count: Int, color: Color, modifier: Modifier = Modifier) {
     Text(
-        if (count > 99) "99+" else count.toString(),
+        if (count > 99) stringResource(R.string.rev_badge_more, 99) else count.toString(),
         color = Color.White,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
@@ -271,7 +273,7 @@ fun DetailHeader(title: String, onBack: () -> Unit, actions: @Composable RowScop
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.rev_back))
         }
         Text(
             title,

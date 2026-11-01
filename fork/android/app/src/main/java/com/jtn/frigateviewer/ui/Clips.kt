@@ -3,6 +3,7 @@ package com.jtn.frigateviewer.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.MediaFiles
 import com.jtn.frigateviewer.data.Remote
@@ -27,7 +28,7 @@ sealed interface ClipState {
 
     data class Saved(val uri: String) : ClipState
 
-    data class Failed(val message: String) : ClipState
+    data class Failed(val message: UiText) : ClipState
 }
 
 /** Something for the share sheet. */
@@ -39,7 +40,7 @@ data class ShareRequest(val uri: String, val mime: String)
  */
 class Clips(
     private val scope: CoroutineScope,
-    private val onSessionLost: (String?) -> Unit,
+    private val onSessionLost: (UiText?) -> Unit,
     private val media: MediaFiles?,
 ) {
     var states by mutableStateOf<Map<String, ClipState>>(emptyMap())
@@ -54,7 +55,7 @@ class Clips(
         private set
 
     /** A one-time message, such as a snapshot that could not be fetched; cleared with [noticeShown]. */
-    var notice by mutableStateOf<String?>(null)
+    var notice by mutableStateOf<UiText?>(null)
         private set
 
     val available: Boolean get() = media != null
@@ -81,7 +82,7 @@ class Clips(
                 item.id,
                 when (result) {
                     is Remote.Ready -> ClipState.Saved(result.value)
-                    is Remote.Failed -> ClipState.Failed(result.message)
+                    is Remote.Failed -> ClipState.Failed(result.text)
                     Remote.Loading -> ClipState.Preparing
                 },
             )
@@ -105,7 +106,7 @@ class Clips(
                 }
                 when (result) {
                     is Remote.Ready -> share = ShareRequest(result.value, "image/jpeg")
-                    is Remote.Failed -> notice = "Could not get the snapshot (${result.message})"
+                    is Remote.Failed -> notice = uiText(R.string.clip_snapshot_failed, result.text)
                     Remote.Loading -> Unit
                 }
             } finally {

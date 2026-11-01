@@ -3,6 +3,7 @@ package com.jtn.frigateviewer.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.jtn.frigateviewer.R
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -54,40 +55,19 @@ fun formatTick(epochSeconds: Long): String {
 fun localDate(epochSeconds: Double): LocalDate = zoned(epochSeconds).toLocalDate()
 
 /** [dayLabel] of the day [epochSeconds] falls on here. */
-fun dayLabel(epochSeconds: Double, today: LocalDate = LocalDate.now()): String = dayLabel(localDate(epochSeconds), today)
+fun dayLabel(epochSeconds: Double, today: LocalDate = LocalDate.now()): UiText = dayLabel(localDate(epochSeconds), today)
 
 /** "Today", "Yesterday", "Tuesday, Oct 28", or "Tuesday, Oct 28, 2025" for a day in another year than [today]. */
-fun dayLabel(date: LocalDate, today: LocalDate = LocalDate.now()): String = when (date) {
-    today -> "Today"
-    today.minusDays(1) -> "Yesterday"
-    else -> date.format(if (date.year == today.year) dayFormat else dayYearFormat)
-}
-
-/** "just now", "4m ago", "2h ago", as of [nowMillis]. */
-fun timeAgo(epochSeconds: Double, nowMillis: Long = System.currentTimeMillis()): String {
-    val seconds = (nowMillis / 1000.0 - epochSeconds).toLong()
-    return when {
-        seconds < 60 -> "just now"
-        seconds < 3600 -> "${seconds / 60}m ago"
-        seconds < 86_400 -> "${seconds / 3600}h ago"
-        else -> "${seconds / 86_400}d ago"
-    }
-}
-
-/** "now" and "12m" within the hour of [nowMillis], then the clock time, as list rows show it. */
-fun shortTime(epochSeconds: Double, nowMillis: Long = System.currentTimeMillis()): String {
-    val seconds = (nowMillis / 1000.0 - epochSeconds).toLong()
-    return when {
-        seconds < 60 -> "now"
-        seconds < 3600 -> "${seconds / 60}m"
-        else -> formatTime(epochSeconds)
-    }
+fun dayLabel(date: LocalDate, today: LocalDate = LocalDate.now()): UiText = when (date) {
+    today -> uiText(R.string.day_today)
+    today.minusDays(1) -> uiText(R.string.day_yesterday)
+    else -> UiText.Plain(date.format(if (date.year == today.year) dayFormat else dayYearFormat))
 }
 
 /** "0:42" or "12:05"; "LIVE" while still in progress. */
-fun formatDuration(start: Double, end: Double?): String {
-    if (end == null) return "LIVE"
+fun formatDuration(start: Double, end: Double?): UiText {
+    if (end == null) return uiText(R.string.duration_live)
     // Round up so a sub-second item reads 0:01 rather than an empty 0:00.
     val seconds = kotlin.math.ceil(end - start).toLong().coerceAtLeast(1)
-    return "%d:%02d".format(seconds / 60, seconds % 60)
+    return UiText.Plain("%d:%02d".format(seconds / 60, seconds % 60))
 }

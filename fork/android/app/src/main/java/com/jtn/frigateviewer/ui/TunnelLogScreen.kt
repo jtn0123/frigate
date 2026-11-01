@@ -37,11 +37,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.jtn.frigateviewer.BuildConfig
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.tunnel.RemoteAccess
 import com.jtn.frigateviewer.tunnel.TunnelStats
 import com.jtn.frigateviewer.tunnel.tunnelReport
@@ -56,6 +59,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun TunnelLogScreen(remote: RemoteAccess, baseUrl: String, onBack: () -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -100,13 +104,13 @@ fun TunnelLogScreen(remote: RemoteAccess, baseUrl: String, onBack: () -> Unit) {
             once {
                 val text = report()
                 context.getSystemService(ClipboardManager::class.java)
-                    .setPrimaryClip(ClipData.newPlainText("Frigate tunnel report", text))
+                    .setPrimaryClip(ClipData.newPlainText(res.getString(R.string.set_log_report_title), text))
             }
         }, onShare = {
             once {
                 val send = Intent(Intent.ACTION_SEND)
                     .setType("text/plain")
-                    .putExtra(Intent.EXTRA_SUBJECT, "Frigate tunnel report")
+                    .putExtra(Intent.EXTRA_SUBJECT, res.getString(R.string.set_log_report_title))
                     .putExtra(Intent.EXTRA_TEXT, report())
                 context.startActivity(Intent.createChooser(send, null))
             }
@@ -114,7 +118,11 @@ fun TunnelLogScreen(remote: RemoteAccess, baseUrl: String, onBack: () -> Unit) {
             val cleared = remote.log.clear()
             scope.launch {
                 snackbar.currentSnackbarData?.dismiss()
-                val result = snackbar.showSnackbar("Log cleared", actionLabel = "Undo", duration = SnackbarDuration.Short)
+                val result = snackbar.showSnackbar(
+                    res.getString(R.string.set_log_cleared),
+                    actionLabel = res.getString(R.string.set_log_undo),
+                    duration = SnackbarDuration.Short,
+                )
                 if (result == SnackbarResult.ActionPerformed) remote.log.restore(cleared)
             }
         })
@@ -132,10 +140,14 @@ private fun TunnelLogContent(
     onClear: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
-        DetailHeader("Tunnel log", onBack = onBack) {
-            IconButton(enabled = !busy, onClick = onCopy) { Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy report") }
-            IconButton(enabled = !busy, onClick = onShare) { Icon(Icons.Outlined.Share, contentDescription = "Share report") }
-            IconButton(onClick = onClear) { Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clear log") }
+        DetailHeader(stringResource(R.string.set_wg_tunnel_log), onBack = onBack) {
+            IconButton(enabled = !busy, onClick = onCopy) {
+                Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.set_log_copy))
+            }
+            IconButton(enabled = !busy, onClick = onShare) {
+                Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.set_log_share))
+            }
+            IconButton(onClick = onClear) { Icon(Icons.Outlined.DeleteSweep, contentDescription = stringResource(R.string.set_log_clear)) }
         }
         TabSheet {
             val entries = remote.log.entries
@@ -151,14 +163,14 @@ private fun TunnelLogContent(
             ) {
                 item {
                     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(statusText(remote.status), style = MaterialTheme.typography.bodyLarge)
-                        Text(trafficText(remote.stats), style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary)
+                        Text(statusText(remote.status).resolve(), style = MaterialTheme.typography.bodyLarge)
+                        Text(trafficText(remote.stats).resolve(), style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary)
                     }
                 }
                 if (entries.isEmpty()) {
                     item {
                         Text(
-                            "Nothing yet. Open the app away from home, or change networks, and what the tunnel does shows here.",
+                            stringResource(R.string.set_log_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             color = Palette.TextSecondary,
                         )
@@ -176,8 +188,13 @@ private fun TunnelLogContent(
 /** How long Copy and Share stay off after one, while the share sheet opens. */
 private const val SETTLE_MS = 1_000L
 
-internal fun trafficText(stats: TunnelStats?, now: Long = System.currentTimeMillis()): String {
-    if (stats == null) return "Tunnel down"
-    val handshake = stats.lastHandshakeMs?.let { "server answered ${(now - it) / 1_000} s ago" } ?: "server has not answered"
-    return "Sent ${stats.sentBytes} bytes, received ${stats.receivedBytes} bytes · $handshake"
+internal fun trafficText(stats: TunnelStats?, now: Long = System.currentTimeMillis()): UiText {
+    if (stats == null) return uiText(R.string.tunnel_traffic_down)
+    val handshake = stats.lastHandshakeMs?.let { uiText(R.string.tunnel_traffic_answered, (now - it) / 1_000) }
+        ?: uiText(R.string.tunnel_traffic_not_answered)
+    return uiText(R.string.tunnel_traffic, bytes(stats.sentBytes), bytes(stats.receivedBytes), handshake)
 }
+
+/** "1 byte" or "2048 bytes"; a count past an Int takes the plural form of a large one. */
+private fun bytes(count: Long): UiText =
+    UiText.Plural(R.plurals.bytes_count, count.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), listOf(count))

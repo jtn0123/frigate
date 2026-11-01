@@ -35,6 +35,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -47,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.thumbnailUrl
@@ -107,7 +110,7 @@ private fun SwipeToReview(onSwipe: () -> Unit, content: @Composable () -> Unit) 
                 val tint = if (armed) MaterialTheme.colorScheme.onPrimaryContainer else Palette.TextSecondary
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Outlined.DoneAll, contentDescription = null, tint = tint)
-                    Text("Reviewed", style = MaterialTheme.typography.labelSmall, color = tint)
+                    Text(stringResource(R.string.rev_reviewed), style = MaterialTheme.typography.labelSmall, color = tint)
                 }
             }
         },
@@ -127,7 +130,8 @@ private fun ReviewRowContent(
 ) {
     // Without review tracking every item looks the same, as if none were reviewed.
     val reviewed = trackReviews && item.reviewed
-    val where = whereLine(item, cameraLabel, showCamera)
+    val where = whereLine(item, cameraLabel, showCamera).resolve()
+    val res = LocalResources.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -138,13 +142,23 @@ private fun ReviewRowContent(
             .clearAndSetSemantics {
                 role = Role.Button
                 contentDescription = buildString {
-                    val severity = if (item.isAlert) "alert" else "detection"
-                    append("${item.title} $severity, ")
+                    val severity = res.getString(if (item.isAlert) R.string.rev_row_alert else R.string.rev_row_detection)
+                    append(res.getString(R.string.rev_row_title, item.title, severity))
                     // The severity is already said; the line only names it when nothing else is known.
-                    if (where.isNotEmpty() && !where.equals(severity, ignoreCase = true)) append("$where, ")
-                    append(formatTime(item.startTime))
-                    append(if (item.isOngoing) ", in progress" else ", ${formatDuration(item.startTime, item.endTime)} long")
-                    if (trackReviews) append(if (item.reviewed) ", reviewed" else ", not reviewed")
+                    if (where.isNotEmpty() && !where.equals(severity, ignoreCase = true)) {
+                        append(res.getString(R.string.list_part, where))
+                    }
+                    append(res.getString(R.string.list_part, formatTime(item.startTime)))
+                    val length = if (item.isOngoing) {
+                        uiText(R.string.event_in_progress)
+                    } else {
+                        uiText(R.string.event_length, formatDuration(item.startTime, item.endTime))
+                    }
+                    append(res.getString(R.string.list_part, length.resolve(res)))
+                    if (trackReviews) {
+                        val state = res.getString(if (item.reviewed) R.string.rev_row_reviewed else R.string.rev_row_not_reviewed)
+                        append(res.getString(R.string.list_part, state))
+                    }
                 }
                 onClick {
                     onClick()
@@ -153,7 +167,7 @@ private fun ReviewRowContent(
                 // The swipe, for those who cannot swipe.
                 if (swipeAction != null) {
                     customActions = listOf(
-                        CustomAccessibilityAction("Mark reviewed") {
+                        CustomAccessibilityAction(res.getString(R.string.rev_mark_reviewed)) {
                             swipeAction()
                             true
                         },
@@ -179,7 +193,7 @@ private fun ReviewRowContent(
                 Modifier.align(Alignment.TopStart).padding(6.dp).border(1.5.dp, Color(0x99000000), CircleShape),
             )
             OverlayTag(
-                formatDuration(item.startTime, item.endTime),
+                formatDuration(item.startTime, item.endTime).resolve(),
                 Modifier.align(Alignment.BottomEnd).padding(4.dp),
                 color = if (item.isOngoing) Palette.Live else Color.White,
             )
@@ -195,7 +209,7 @@ private fun ReviewRowContent(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    shortTime(item.startTime, LocalNow.current),
+                    shortTime(item.startTime, LocalNow.current).resolve(),
                     style = MaterialTheme.typography.bodySmall.merge(Tabular),
                     color = Palette.TextSecondary,
                     modifier = Modifier.padding(start = 8.dp),
@@ -219,14 +233,16 @@ private fun ReviewRowContent(
  * is already on the first line, so without either it names the severity, and when the title
  * already does that it is left out.
  */
-internal fun whereLine(item: ReviewItem, cameraLabel: String, showCamera: Boolean): String {
+internal fun whereLine(item: ReviewItem, cameraLabel: String, showCamera: Boolean): UiText {
     val parts = buildList {
         if (showCamera) add(cameraLabel)
         addAll(item.data.zones.map { it.replace('_', ' ') })
     }
-    if (parts.isNotEmpty()) return parts.joinToString(" · ")
-    val severity = if (item.isAlert) "Alert" else "Detection"
-    return if (item.title.equals(severity, ignoreCase = true)) "" else severity
+    if (parts.isNotEmpty()) return UiText.Plain(parts.joinToString(" · "))
+    // The title is the server's severity word when nothing was labeled, so it is compared with that.
+    val severity = if (item.isAlert) "alert" else "detection"
+    if (item.title.equals(severity, ignoreCase = true)) return UiText.Plain("")
+    return uiText(if (item.isAlert) R.string.rev_alert else R.string.rev_detection)
 }
 
 private const val REVIEWED_ALPHA = 0.55f

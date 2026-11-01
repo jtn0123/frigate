@@ -30,10 +30,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.CameraStats
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerStats
@@ -61,7 +63,7 @@ fun HealthScreen(
     }
 
     Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
-        DetailHeader("Server health", onBack = onBack)
+        DetailHeader(stringResource(R.string.set_server_health), onBack = onBack)
         TabSheet {
             RemoteContent(stats, onRetry = onRetry) { HealthContent(cameraLabel, it) }
         }
@@ -76,44 +78,63 @@ private fun HealthContent(cameraLabel: (String) -> String, stats: ServerStats) {
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Stat("Uptime", stats.uptimeSeconds?.let(::formatUptime) ?: "—", Palette.TextPrimary, Modifier.weight(1f))
-            Stat("CPU", percent(stats.cpuPercent), loadColor(stats.cpuPercent), Modifier.weight(1f))
-            Stat("Memory", percent(stats.memoryPercent), loadColor(stats.memoryPercent), Modifier.weight(1f))
+            Stat(
+                stringResource(R.string.set_health_uptime),
+                stats.uptimeSeconds?.let { formatUptime(it).resolve() } ?: stringResource(R.string.set_no_figure),
+                Palette.TextPrimary,
+                Modifier.weight(1f),
+            )
+            Stat(
+                stringResource(R.string.set_health_cpu),
+                percent(stats.cpuPercent).resolve(),
+                loadColor(stats.cpuPercent),
+                Modifier.weight(1f),
+            )
+            Stat(
+                stringResource(R.string.set_health_memory),
+                percent(stats.memoryPercent).resolve(),
+                loadColor(stats.memoryPercent),
+                Modifier.weight(1f),
+            )
         }
         stats.version?.let { version ->
             val update = stats.latestVersion?.takeIf { isNewerRelease(it, version) }
             Text(
-                "Frigate $version" + (update?.let { " · $it available" } ?: ""),
+                update?.let { stringResource(R.string.set_health_version_update, version, it) }
+                    ?: stringResource(R.string.set_health_version, version),
                 style = MaterialTheme.typography.bodySmall,
                 color = if (update != null) Palette.AccentText else Palette.TextSecondary,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
         }
         if (stats.detectors.isNotEmpty() || stats.gpus.isNotEmpty()) {
-            Section("Detection") {
+            Section(stringResource(R.string.set_health_detection)) {
                 stats.detectors.forEach { detector ->
                     HealthRow(
                         Icons.Outlined.Speed,
                         detector.name,
-                        detector.inferenceMs?.let { "${decimal(it)} ms per frame" } ?: "No figure yet",
+                        detector.inferenceMs?.let { stringResource(R.string.set_health_inference, decimal(it)) }
+                            ?: stringResource(R.string.set_health_no_figure),
                     )
                 }
                 stats.gpus.forEach { gpu ->
                     HealthRow(
                         Icons.Outlined.Memory,
                         gpu.name,
-                        "GPU ${percent(gpu.usagePercent)}" + (gpu.memoryPercent?.let { " · memory ${percent(it)}" } ?: ""),
+                        gpu.memoryPercent?.let {
+                            stringResource(R.string.set_health_gpu_memory, percent(gpu.usagePercent).resolve(), percent(it).resolve())
+                        } ?: stringResource(R.string.set_health_gpu, percent(gpu.usagePercent).resolve()),
                     )
                 }
             }
         }
         if (stats.cameras.isNotEmpty()) {
-            Section("Cameras") {
+            Section(stringResource(R.string.set_health_cameras)) {
                 stats.cameras.forEach { CameraRow(cameraLabel(it.name), it) }
             }
         }
         if (stats.storage.isNotEmpty()) {
-            Section("Storage") {
+            Section(stringResource(R.string.set_health_storage)) {
                 stats.storage.forEach { StorageRow(it) }
             }
         }
@@ -154,12 +175,15 @@ private fun CameraRow(label: String, camera: CameraStats) {
     val offline = camera.cameraFps <= 0.0
     // An occasional dropped frame is normal; a tenth of them is worth a look.
     val dropping = camera.skippedFps > camera.cameraFps * DROPPING
+    val rates = stringResource(R.string.set_health_fps, decimal(camera.cameraFps), decimal(camera.processFps))
+    val skipped = stringResource(R.string.set_health_skipped, decimal(camera.skippedFps))
+    val detectionOff = stringResource(R.string.set_health_detection_off)
     val detail = when {
-        offline -> "No frames coming in"
+        offline -> stringResource(R.string.set_health_no_frames)
         else -> buildString {
-            append("${decimal(camera.cameraFps)} fps in · ${decimal(camera.processFps)} processed")
-            if (camera.skippedFps >= SKIPPED_SHOWN) append(" · ${decimal(camera.skippedFps)} skipped")
-            if (!camera.detectionEnabled) append(" · detection off")
+            append(rates)
+            if (camera.skippedFps >= SKIPPED_SHOWN) append(skipped)
+            if (!camera.detectionEnabled) append(detectionOff)
         }
     }
     HealthRow(
@@ -177,7 +201,7 @@ private fun StorageRow(storage: StorageStats) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(storage.mount, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Text(
-                "${size(storage.usedMb)} of ${size(storage.totalMb)}",
+                stringResource(R.string.set_health_used_of, size(storage.usedMb).resolve(), size(storage.totalMb).resolve()),
                 style = MaterialTheme.typography.bodyMedium.merge(Tabular),
                 color = Palette.TextSecondary,
             )
@@ -193,25 +217,25 @@ private fun StorageRow(storage: StorageStats) {
 }
 
 /** "3d 4h", "5h 12m" or "8m". */
-internal fun formatUptime(seconds: Long): String {
+internal fun formatUptime(seconds: Long): UiText {
     val days = seconds / 86_400
     val hours = seconds % 86_400 / 3_600
     val minutes = seconds % 3_600 / 60
     return when {
-        days > 0 -> "${days}d ${hours}h"
-        hours > 0 -> "${hours}h ${minutes}m"
-        else -> "${minutes}m"
+        days > 0 -> uiText(R.string.set_uptime_days, days, hours)
+        hours > 0 -> uiText(R.string.set_uptime_hours, hours, minutes)
+        else -> uiText(R.string.set_uptime_minutes, minutes)
     }
 }
 
 /** MiB as "512 MB", "3.4 GB" or "1.2 TB". */
-internal fun size(mb: Double): String = when {
-    mb >= MIB_PER_TIB -> "${decimal(mb / MIB_PER_TIB)} TB"
-    mb >= MIB_PER_GIB -> "${decimal(mb / MIB_PER_GIB)} GB"
-    else -> "${mb.toLong()} MB"
+internal fun size(mb: Double): UiText = when {
+    mb >= MIB_PER_TIB -> uiText(R.string.set_size_tb, decimal(mb / MIB_PER_TIB))
+    mb >= MIB_PER_GIB -> uiText(R.string.set_size_gb, decimal(mb / MIB_PER_GIB))
+    else -> uiText(R.string.set_size_mb, mb.toLong().toString())
 }
 
-private fun percent(value: Double?): String = value?.let { "${it.roundToInt()}%" } ?: "—"
+private fun percent(value: Double?): UiText = value?.let { uiText(R.string.set_percent, it.roundToInt()) } ?: uiText(R.string.set_no_figure)
 
 private fun decimal(value: Double): String = String.format(Locale.US, "%.1f", value).removeSuffix(".0")
 

@@ -120,9 +120,9 @@ class RemoteAccessSettingsTest {
 
     @Test
     fun aServerAddressTheInternetCannotReachIsCalledOut() {
-        val checks = noAnswerChecks("100.72.9.14" to 51820)
+        val checks = noAnswerChecks("100.72.9.14" to 51820).map { it.english() }
         assertTrue(checks.any { "carrier-grade NAT" in it && "The internet cannot reach it" in it })
-        assertFalse(noAnswerChecks("203.0.113.4" to 51820).any { "cannot reach" in it })
+        assertFalse(noAnswerChecks("203.0.113.4" to 51820).any { "cannot reach" in it.english() })
     }
 
     @Test
@@ -160,7 +160,7 @@ class RemoteAccessSettingsTest {
 
     @Test
     fun theChecksIncludeAClientTheServerNoLongerKnows() {
-        val checks = noAnswerChecks("203.0.113.4" to 51820).joinToString("\n")
+        val checks = noAnswerChecks("203.0.113.4" to 51820).joinToString("\n") { it.english() }
         assertTrue(checks, "not deleted or re-created since" in checks)
         assertTrue(checks, "The VPN server is on" in checks)
     }

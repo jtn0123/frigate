@@ -4,11 +4,14 @@ import android.content.Context
 import android.provider.Settings
 import androidx.core.content.edit
 import com.jtn.frigateviewer.data.AuthException
+import com.jtn.frigateviewer.data.Failure
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.Severity
 import com.jtn.frigateviewer.data.reviews
+import com.jtn.frigateviewer.ui.UiText
 import com.jtn.frigateviewer.ui.describeError
+import com.jtn.frigateviewer.ui.text
 import java.io.IOException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -27,7 +30,7 @@ sealed interface WidgetContent {
     class Ready(val frame: ByteArray?, val toReview: Int?) : WidgetContent
 
     /** [away] when the tunnel is set up: the server is only reached through it, which the widget cannot start. */
-    data class Failed(val message: String, val away: Boolean = false) : WidgetContent
+    data class Failed(val message: UiText, val away: Boolean = false) : WidgetContent
 }
 
 /** A failure while a tunnel is set up and on most likely means the phone is away from home. */
@@ -50,7 +53,7 @@ suspend fun FrigateApi.widgetContents(
     emptyList()
 } else {
     withTimeoutOrNull(timeoutMs) { loadContents(choices, settings) }
-        ?: choices.map { WidgetContent.Failed("Could not connect to the server") }
+        ?: choices.map { WidgetContent.Failed(Failure.Offline.text) }
 }
 
 private suspend fun FrigateApi.loadContents(choices: List<WidgetChoice>, settings: ServerSettings): List<WidgetContent> =

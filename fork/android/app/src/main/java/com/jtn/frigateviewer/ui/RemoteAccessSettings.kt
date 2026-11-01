@@ -28,10 +28,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.tunnel.RemoteAccess
 import com.jtn.frigateviewer.tunnel.TUNNEL_FILE_MAX_BYTES
 import com.jtn.frigateviewer.tunnel.TunnelStatus
@@ -91,15 +93,15 @@ fun RemoteAccessSettings(remote: RemoteAccess, onShowLog: () -> Unit) {
     if (tunnel == null) {
         Info(
             Icons.Outlined.VpnKey,
-            "Set up WireGuard",
-            "Import the .conf file from your WireGuard VPN server, such as a UniFi gateway's, to watch away from home.",
+            stringResource(R.string.set_wg_set_up),
+            stringResource(R.string.set_wg_set_up_detail),
             onClick = chooseFile,
-            actionLabel = "Choose the WireGuard file",
+            actionLabel = stringResource(R.string.set_wg_choose_file),
         )
     } else {
         Toggle(
-            title = "Use away from home",
-            description = statusText(remote.status),
+            title = stringResource(R.string.set_wg_use_away),
+            description = statusText(remote.status).resolve(),
             checked = tunnel.enabled,
             onChange = { on ->
                 remote.setEnabled(on)
@@ -110,61 +112,67 @@ fun RemoteAccessSettings(remote: RemoteAccess, onShowLog: () -> Unit) {
         if (remote.status == TunnelStatus.NeedsPermission) {
             Info(
                 Icons.Outlined.Shield,
-                "Allow the VPN connection",
-                "Android asks once before the app can use its tunnel.",
+                stringResource(R.string.set_wg_allow_vpn),
+                stringResource(R.string.set_wg_allow_vpn_detail),
                 onClick = ::askForPermission,
-                actionLabel = "Allow the VPN connection",
+                actionLabel = stringResource(R.string.set_wg_allow_vpn),
             )
         }
         when (remote.status) {
             TunnelStatus.OtherVpnInTheWay -> Info(
                 Icons.Outlined.VpnKey,
-                "Use the app's tunnel instead",
-                "Android runs one VPN at a time, so this turns the other VPN off.",
+                stringResource(R.string.set_wg_use_app_tunnel),
+                stringResource(R.string.set_wg_use_app_tunnel_detail),
                 onClick = remote::startTunnel,
-                actionLabel = "Use the app's tunnel instead",
+                actionLabel = stringResource(R.string.set_wg_use_app_tunnel),
             )
             TunnelStatus.StoppedOutside -> Info(
                 Icons.Outlined.VpnKey,
-                "Start the tunnel",
-                "It was turned off outside the app, so the app does not start it again by itself.",
+                stringResource(R.string.set_wg_start_tunnel),
+                stringResource(R.string.set_wg_start_tunnel_detail),
                 onClick = remote::startTunnel,
-                actionLabel = "Start the tunnel",
+                actionLabel = stringResource(R.string.set_wg_start_tunnel),
             )
             else -> Unit
         }
         (remote.status as? TunnelStatus.Failed)?.takeIf { it.noAnswer }?.let { NoAnswerChecks(tunnel.config) }
         // The server it dials, so a wrong address in the file can be spotted here.
         val endpoint = remember(tunnel.config) { tunnelEndpoint(tunnel.config) }
+        val name = tunnel.name.ifEmpty { stringResource(R.string.set_wg_imported) }
         Info(
             Icons.Outlined.Description,
-            "Tunnel file",
-            listOfNotNull(tunnel.name.ifEmpty { "Imported" }, endpoint?.let { "Server $it" }).joinToString(" · "),
+            stringResource(R.string.set_wg_tunnel_file),
+            endpoint?.let { stringResource(R.string.set_wg_file_and_server, name, stringResource(R.string.set_wg_server, it)) } ?: name,
             onClick = { managing = true },
-            actionLabel = "Replace or remove the tunnel file",
+            actionLabel = stringResource(R.string.set_wg_replace_or_remove),
         )
     }
-    Info(Icons.AutoMirrored.Outlined.ReceiptLong, "Tunnel log", "What the tunnel did, to copy or share", onClick = onShowLog)
+    Info(
+        Icons.AutoMirrored.Outlined.ReceiptLong,
+        stringResource(R.string.set_wg_tunnel_log),
+        stringResource(R.string.set_wg_tunnel_log_detail),
+        onClick = onShowLog,
+    )
     problem?.let { ImportProblem(it) }
 
     if (managing) {
         AlertDialog(
             onDismissRequest = { managing = false },
-            title = { Text("Tunnel file") },
-            text = { Text("Only this app's connections go through the tunnel. Replace it with a new file, or remove it.") },
+            title = { Text(stringResource(R.string.set_wg_tunnel_file)) },
+            text = { Text(stringResource(R.string.set_wg_manage_detail)) },
             confirmButton = {
                 TextButton(onClick = {
                     managing = false
                     chooseFile()
-                }) { Text("Replace") }
+                }) { Text(stringResource(R.string.set_wg_replace)) }
             },
             dismissButton = {
                 Row {
-                    TextButton(onClick = { managing = false }) { Text("Cancel") }
+                    TextButton(onClick = { managing = false }) { Text(stringResource(R.string.cancel)) }
                     TextButton(onClick = {
                         managing = false
                         confirmRemove = true
-                    }) { Text("Remove", color = Palette.Alert) }
+                    }) { Text(stringResource(R.string.set_wg_remove), color = Palette.Alert) }
                 }
             },
         )
@@ -173,16 +181,16 @@ fun RemoteAccessSettings(remote: RemoteAccess, onShowLog: () -> Unit) {
     if (confirmRemove) {
         AlertDialog(
             onDismissRequest = { confirmRemove = false },
-            title = { Text("Remove the tunnel file?") },
-            text = { Text("This deletes its private key from the phone. To use the tunnel again, import the file again.") },
+            title = { Text(stringResource(R.string.set_wg_remove_confirm)) },
+            text = { Text(stringResource(R.string.set_wg_remove_detail)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmRemove = false
                     problem = null
                     remote.remove()
-                }) { Text("Remove", color = Palette.Alert) }
+                }) { Text(stringResource(R.string.set_wg_remove), color = Palette.Alert) }
             },
-            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -207,41 +215,37 @@ internal fun ImportProblem(text: String) {
 private fun NoAnswerChecks(config: String) {
     val server = remember(config) { tunnelServer(config) }
     Column(Modifier.padding(start = 56.dp, end = 16.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        noAnswerChecks(server).forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary) }
+        noAnswerChecks(server).forEach { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary) }
     }
 }
 
 /** The checks, worded for the file's server [server] (host and port). */
-internal fun noAnswerChecks(server: Pair<String, Int>?): List<String> {
-    val (host, port) = server ?: return listOf("• The file names no server to connect to. Export it again.")
+internal fun noAnswerChecks(server: Pair<String, Int>?): List<UiText> {
+    val (host, port) = server ?: return listOf(uiText(R.string.set_check_no_server))
     val kind = describeHost(host)
     val unreachable = kind.contains("private") || kind.contains("carrier-grade")
-    return listOfNotNull(
-        "Things to check:",
-        "• This phone's client is on the VPN server: saved (on UniFi, Apply Changes) before the file was downloaded, " +
-            "and not deleted or re-created since. The server ignores a key it does not know without a word, " +
-            "so a re-created client needs its new file.",
-        "• The VPN server is on, and not paused or turned off on the gateway.",
-        "• The file's server is $kind." +
-            if (unreachable) " The internet cannot reach it, so export the file with your public address." else "",
-        "• UDP port $port is open to the internet. Some mobile networks block UDP: try another Wi-Fi too.",
-        "• The official WireGuard app connects with the same file. If it does not either, the cause is the server.",
+    return listOf(
+        uiText(R.string.set_check_title),
+        uiText(R.string.set_check_client),
+        uiText(R.string.set_check_server_on),
+        uiText(if (unreachable) R.string.set_check_server_unreachable else R.string.set_check_server_kind, kind),
+        uiText(R.string.set_check_udp, port),
+        uiText(R.string.set_check_official_app),
     )
 }
 
-internal fun statusText(status: TunnelStatus): String = when (status) {
-    TunnelStatus.NotSetUp, TunnelStatus.Off -> "Off. The app only connects directly."
-    TunnelStatus.NeedsPermission -> "Waiting for Android to allow the VPN connection."
-    TunnelStatus.Checking -> "Checking whether the server answers directly…"
-    TunnelStatus.Home -> "The server answers directly, so the tunnel is off."
-    TunnelStatus.OtherVpn -> "The server answers through another VPN, so the tunnel is off."
-    TunnelStatus.OtherVpnInTheWay ->
-        "Another VPN is on but does not reach the server. The app's tunnel would turn it off, so it waits for you."
-    TunnelStatus.StoppedOutside -> "The tunnel was turned off outside the app, so it stays off for now."
-    TunnelStatus.NoNetwork -> "No network. It connects when there is one."
-    TunnelStatus.Connecting -> "Away from home. Connecting…"
-    TunnelStatus.Connected -> "Away from home, connected through the tunnel."
-    is TunnelStatus.Failed -> "Not connected. ${status.message}"
+internal fun statusText(status: TunnelStatus): UiText = when (status) {
+    TunnelStatus.NotSetUp, TunnelStatus.Off -> uiText(R.string.set_status_off)
+    TunnelStatus.NeedsPermission -> uiText(R.string.set_status_needs_permission)
+    TunnelStatus.Checking -> uiText(R.string.set_status_checking)
+    TunnelStatus.Home -> uiText(R.string.set_status_home)
+    TunnelStatus.OtherVpn -> uiText(R.string.set_status_other_vpn)
+    TunnelStatus.OtherVpnInTheWay -> uiText(R.string.set_status_other_vpn_in_the_way)
+    TunnelStatus.StoppedOutside -> uiText(R.string.set_status_stopped_outside)
+    TunnelStatus.NoNetwork -> uiText(R.string.set_status_no_network)
+    TunnelStatus.Connecting -> uiText(R.string.set_status_connecting)
+    TunnelStatus.Connected -> uiText(R.string.set_status_connected)
+    is TunnelStatus.Failed -> uiText(R.string.set_status_failed, status.message)
 }
 
 /** A picked file, read, or why it could not be. */
@@ -260,16 +264,14 @@ internal suspend fun readTunnelFile(context: Context, uri: Uri): PickedFile = wi
         }.orEmpty()
         val bytes = resolver.openInputStream(uri)?.use { it.readAtMost(TUNNEL_FILE_MAX_BYTES + 1) }
         when {
-            bytes == null -> PickedFile.Unreadable(UNREADABLE)
-            bytes.size > TUNNEL_FILE_MAX_BYTES -> PickedFile.Unreadable(
-                "That file is too big to be a WireGuard file, which is a few hundred bytes. Pick the .conf file.",
-            )
+            bytes == null -> PickedFile.Unreadable(context.getString(R.string.set_wg_unreadable))
+            bytes.size > TUNNEL_FILE_MAX_BYTES -> PickedFile.Unreadable(context.getString(R.string.set_wg_too_big))
             else -> PickedFile.Read(name, decodeTunnelFile(bytes))
         }
     } catch (_: IOException) {
-        PickedFile.Unreadable(UNREADABLE)
+        PickedFile.Unreadable(context.getString(R.string.set_wg_unreadable))
     } catch (_: SecurityException) {
-        PickedFile.Unreadable(UNREADABLE)
+        PickedFile.Unreadable(context.getString(R.string.set_wg_unreadable))
     }
 }
 
@@ -284,8 +286,6 @@ internal fun decodeTunnelFile(bytes: ByteArray): String = when {
 }
 
 private fun ByteArray.startsWith(first: Int, second: Int) = size >= 2 && this[0] == first.toByte() && this[1] == second.toByte()
-
-private const val UNREADABLE = "Could not read that file."
 
 /** Up to [limit] bytes, so a huge file picked by mistake is not read whole. */
 private fun InputStream.readAtMost(limit: Int): ByteArray {

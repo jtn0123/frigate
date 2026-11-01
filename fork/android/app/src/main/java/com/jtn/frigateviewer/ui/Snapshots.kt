@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import com.jtn.frigateviewer.R
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -88,13 +89,13 @@ private suspend fun decodeFrame(bytes: ByteArray): ImageBitmap? = withContext(Di
 val LocalSnapshots = staticCompositionLocalOf<Snapshots?> { null }
 
 /** "Offline, 2m": how a picture [staleMs] out of date is marked. */
-internal fun offlineLabel(staleMs: Long): String {
+internal fun offlineLabel(staleMs: Long): UiText {
     val seconds = staleMs / 1_000
     val age = when {
-        seconds < 60 -> "${seconds}s"
-        seconds < 3_600 -> "${seconds / 60}m"
-        seconds < 86_400 -> "${seconds / 3_600}h"
-        else -> "${seconds / 86_400}d"
+        seconds < 60 -> uiText(R.string.age_seconds, seconds)
+        seconds < 3_600 -> uiText(R.string.age_minutes, seconds / 60)
+        seconds < 86_400 -> uiText(R.string.age_hours, seconds / 3_600)
+        else -> uiText(R.string.age_days, seconds / 86_400)
     }
-    return "Offline, $age"
+    return uiText(R.string.picture_offline, age)
 }

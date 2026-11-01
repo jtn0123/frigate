@@ -210,6 +210,11 @@ When it cannot start, the camera falls back to refreshing snapshots.
   dependencies and are tested on the JVM against MockWebServer. Compose components
   such as the certificate prompt and review rows are tested on the JVM too, under
   Robolectric.
+- `res/values/strings*.xml`: every user-facing text, with `<plurals>` for counts.
+  Screens read them with `stringResource`; code without a Context (failures, notices,
+  the widget's status) returns a `UiText` (`ui/UiText.kt`), which is put into words
+  where it is shown. Lint's `HardcodedText` and `SetTextI18n` are errors. The tunnel
+  log stays in English in code, since it is copied into bug reports.
 
 ## Security notes
 

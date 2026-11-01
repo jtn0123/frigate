@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.Intent
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
@@ -54,6 +57,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import coil3.ImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 import kotlinx.coroutines.delay
@@ -104,12 +108,13 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
     }
 
     val snackbar = remember { SnackbarHostState() }
+    val res = LocalResources.current
     LaunchedEffect(vm.reviewMessage) {
         vm.reviewMessage?.let { notice ->
             val undoable = notice.undoIds.isNotEmpty()
             val result = snackbar.showSnackbar(
-                notice.text,
-                actionLabel = if (undoable) "Undo" else null,
+                notice.text.resolve(res),
+                actionLabel = if (undoable) res.getString(R.string.rev_undo) else null,
                 withDismissAction = !undoable,
                 duration = if (undoable) SnackbarDuration.Short else SnackbarDuration.Long,
             )
@@ -121,7 +126,7 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
     LaunchedEffect(vm.clips.notice) {
         vm.clips.notice?.let { text ->
             vm.clips.noticeShown()
-            snackbar.showSnackbar(text, withDismissAction = true, duration = SnackbarDuration.Long)
+            snackbar.showSnackbar(text.resolve(res), withDismissAction = true, duration = SnackbarDuration.Long)
         }
     }
     ShareSheet(vm.clips.share, onShown = { vm.clips.shared() })
@@ -223,11 +228,12 @@ private fun Tabs(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
                         onClick = { vm.nav.tab = tab },
                         icon = {
                             val badge = if (tab == Tab.REVIEW && vm.trackReviews) vm.unreviewedAlerts else 0
-                            BadgedBox(badge = { if (badge > 0) Badge { Text(if (badge > 99) "99+" else "$badge") } }) {
+                            val badgeText = if (badge > 99) stringResource(R.string.rev_badge_more, 99) else "$badge"
+                            BadgedBox(badge = { if (badge > 0) Badge { Text(badgeText) } }) {
                                 Icon(tab.icon(selected), contentDescription = null)
                             }
                         },
-                        label = { Text(tab.title) },
+                        label = { Text(stringResource(tab.title)) },
                         colors = NavigationBarItemDefaults.colors(indicatorColor = Palette.Outline),
                     )
                 }
@@ -274,7 +280,7 @@ private fun ShareSheet(request: ShareRequest?, onShown: () -> Unit) {
 private fun Unavailable(vm: AppViewModel, source: Remote<*>?, onRetry: () -> Unit = {}) {
     Column(Modifier.fillMaxSize()) {
         IconButton(onClick = { vm.nav.back() }, modifier = Modifier.statusBarsPadding().padding(start = 4.dp, top = 4.dp)) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.rev_back))
         }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             when (source) {
@@ -283,20 +289,21 @@ private fun Unavailable(vm: AppViewModel, source: Remote<*>?, onRetry: () -> Uni
                 is Remote.Failed -> RemoteContent(source, onRetry = onRetry) {}
                 else -> EmptyState(
                     Icons.Outlined.EventBusy,
-                    "This is no longer available",
-                    detail = "It may have been deleted, or aged out of what the server keeps.",
-                    action = EmptyAction("Go back") { vm.nav.back() },
+                    stringResource(R.string.rev_unavailable_title),
+                    detail = stringResource(R.string.rev_unavailable_detail),
+                    action = EmptyAction(stringResource(R.string.rev_go_back)) { vm.nav.back() },
                 )
             }
         }
     }
 }
 
-private val Tab.title: String
+@get:StringRes
+private val Tab.title: Int
     get() = when (this) {
-        Tab.CAMERAS -> "Cameras"
-        Tab.REVIEW -> "Review"
-        Tab.SETTINGS -> "Settings"
+        Tab.CAMERAS -> R.string.rev_tab_cameras
+        Tab.REVIEW -> R.string.rev_tab_review
+        Tab.SETTINGS -> R.string.rev_tab_settings
     }
 
 private fun Tab.icon(selected: Boolean): ImageVector = when (this) {

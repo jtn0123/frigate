@@ -16,7 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 
 /**
@@ -41,14 +43,14 @@ fun CameraSettingsSheet(
     ) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(
-                "${camera.label} settings",
+                stringResource(R.string.cam_settings_title, camera.label),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
             if (streamNames.size > 1) {
-                SectionLabel("Video quality", Modifier.padding(start = 20.dp, end = 16.dp, top = 14.dp))
+                SectionLabel(stringResource(R.string.cam_video_quality), Modifier.padding(start = 20.dp, end = 16.dp, top = 14.dp))
                 Text(
-                    "The first stream is full resolution; the others start faster and use less data.",
+                    stringResource(R.string.cam_video_quality_detail),
                     style = MaterialTheme.typography.bodySmall,
                     color = Palette.TextSecondary,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),

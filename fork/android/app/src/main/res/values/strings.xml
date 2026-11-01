@@ -4,4 +4,166 @@
     <string name="widget_description">A camera\'s latest picture and the alerts left to review</string>
     <string name="widget_refresh">Refresh</string>
     <string name="widget_loading">Loading…</string>
+    <string name="widget_choose_camera">Choose a camera</string>
+    <string name="widget_sign_in">Sign in to Frigate</string>
+    <string name="widget_away">Away from home · Open Frigate to connect</string>
+    <!-- %1$s is why the update failed. -->
+    <string name="widget_offline">Offline · %1$s</string>
+    <string name="widget_picture_failed">Could not load the picture</string>
+    <string name="widget_picture_locked">Picture hidden while the app is locked</string>
+    <string name="widget_no_picture">No picture</string>
+    <string name="widget_badge_more">%1$d+</string>
+    <!-- %1$s is the time of the update. -->
+    <string name="widget_updated">Updated %1$s</string>
+    <string name="widget_setup_title">Widget camera</string>
+    <string name="widget_setup_subtitle">Its latest picture and the alerts to review</string>
+    <string name="widget_setup_signed_out">Not signed in</string>
+    <string name="widget_setup_signed_out_detail">Open Frigate and sign in, then add the widget again.</string>
+
+    <!-- Shared by several screens. -->
+    <string name="cancel">Cancel</string>
+    <string name="retry">Retry</string>
+    <string name="no_cameras">No cameras</string>
+    <string name="refresh">Refresh</string>
+    <!-- One more part of a spoken list, such as ", 2 alerts to review". -->
+    <string name="list_part">, %1$s</string>
+
+    <!-- The Cameras tab (ui/CamerasScreen.kt). -->
+    <string name="cameras_title">Cameras</string>
+    <!-- %1$s is the number of cameras, %2$s the alerts to review: "3 cameras · 2 alerts to review". -->
+    <string name="cameras_subtitle">%1$s · %2$s</string>
+    <string name="cameras_watch_several">Watch several live</string>
+    <string name="cameras_two_columns">Show two columns</string>
+    <string name="cameras_one_column">Show one column</string>
+    <string name="cameras_none_detail">Add cameras to Frigate\'s config, or ask an admin for access to them.</string>
+    <!-- %1$s is what was seen, %2$s how long ago: "Person · 4m ago". -->
+    <string name="camera_tile_activity">%1$s · %2$s</string>
+    <string name="camera_tile_no_activity">No activity in 24h</string>
+    <string name="camera_tile_disabled_part">, disabled</string>
+    <!-- %1$s is the offline tag in lower case: ", picture offline, 2m". -->
+    <string name="camera_tile_offline_part">, picture %1$s</string>
+    <!-- %1$s is what the camera sees: ", Person now". -->
+    <string name="camera_tile_now_part">, %1$s now</string>
+    <string name="camera_disabled">Disabled</string>
+    <string name="activity_motion">Motion</string>
+
+    <!-- Why a request failed (ui/Remote.kt). -->
+    <string name="failure_session_expired">Session expired, please sign in again</string>
+    <string name="failure_server_not_found">Server not found</string>
+    <string name="failure_offline">Could not connect to the server</string>
+    <string name="failure_timeout">The server did not answer in time</string>
+    <string name="failure_forbidden">Your account is not allowed to see or do this (HTTP 403)</string>
+    <!-- %1$s is the HTTP status code, %2$s the path. -->
+    <string name="failure_http_path">HTTP %1$s for %2$s</string>
+    <string name="failure_http">HTTP %1$d</string>
+    <string name="failure_bad_response">The server sent a reply the app cannot read. It may be a Frigate version the app does not support.</string>
+    <string name="failure_invalid_address">Invalid server address</string>
+    <string name="failure_certificate_changed">The server\'s certificate changed. Sign in again to check the new one before trusting it.</string>
+    <string name="failure_certificate_untrusted">The server\'s certificate is not trusted yet. Sign in again to check it before trusting it.</string>
+    <string name="failure_certificate_rejected">Certificate not trusted. Turn on \"Self-signed certificate\" for Frigate\'s default port 8971.</string>
+
+    <!-- Marking review items (ui/ReviewStore.kt); the last argument is why it failed. -->
+    <string name="review_mark_one_failed">Could not mark this item reviewed (%1$s)</string>
+    <string name="review_unmark_one_failed">Could not mark this item unreviewed (%1$s)</string>
+    <string name="review_mark_failed">Could not mark %1$s reviewed (%2$s)</string>
+    <string name="review_unmark_failed">Could not mark %1$s unreviewed (%2$s)</string>
+    <string name="review_marked_one">Marked reviewed</string>
+    <string name="review_marked">Marked %1$s reviewed</string>
+
+    <!-- Notices from the screens' state holders; %1$s is why it failed. -->
+    <string name="control_not_connected">Not connected to the server. Try again in a moment.</string>
+    <string name="clip_snapshot_failed">Could not get the snapshot (%1$s)</string>
+    <string name="search_open_failed">Could not open it (%1$s)</string>
+
+    <!-- How far back to search (ui/ReviewSearch.kt). -->
+    <string name="search_range_today">Today</string>
+    <string name="search_range_yesterday">Yesterday</string>
+    <string name="search_range_week">Last 7 days</string>
+    <string name="search_range_month">Last 30 days</string>
+    <string name="search_range_any">Any time</string>
+    <string name="search_range_custom">Dates…</string>
+
+    <!-- Signing in (ui/AppViewModel.kt). -->
+    <string name="login_needs_user">This server requires a login. Use port 8971 with a username.</string>
+    <string name="login_wrong_password">Wrong username or password</string>
+    <string name="login_insecure_http">%1$s is not a local address, so plain HTTP would send your password unencrypted. Use https:// instead.</string>
+
+    <!-- The app lock (ui/Unlock.kt). -->
+    <string name="unlock_prompt_title">Unlock Frigate</string>
+    <string name="unlock_prompt_subtitle">Use your fingerprint, face or screen lock</string>
+    <string name="lock_title">Frigate is locked</string>
+    <string name="lock_detail">Unlock with your fingerprint, face or screen lock.</string>
+    <string name="lock_unlock">Unlock</string>
+
+    <!-- Times and ages (ui/TimeFormat.kt), kept short for tiles and rows. -->
+    <string name="day_today">Today</string>
+    <string name="day_yesterday">Yesterday</string>
+    <string name="time_just_now">just now</string>
+    <string name="time_now">now</string>
+    <!-- %1$s is an age such as "4m". -->
+    <string name="time_ago">%1$s ago</string>
+    <string name="age_seconds">%1$ds</string>
+    <string name="age_minutes">%1$dm</string>
+    <string name="age_hours">%1$dh</string>
+    <string name="age_days">%1$dd</string>
+    <string name="duration_live">LIVE</string>
+    <!-- A picture that stopped updating; %1$s is how long ago, such as "2m". -->
+    <string name="picture_offline">Offline, %1$s</string>
+
+    <!-- The tunnel's traffic (ui/TunnelLogScreen.kt). -->
+    <string name="tunnel_traffic_down">Tunnel down</string>
+    <!-- %1$d is seconds. -->
+    <string name="tunnel_traffic_answered">server answered %1$d s ago</string>
+    <string name="tunnel_traffic_not_answered">server has not answered</string>
+    <!-- "Sent 2 bytes, received 1 byte · server answered 4 s ago". -->
+    <string name="tunnel_traffic">Sent %1$s, received %2$s · %3$s</string>
+
+    <!-- A review item's day, time and length (ui/EventScreen.kt): "Today · 9:35:12 PM · 0:12 long". -->
+    <string name="event_when">%1$s · %2$s · %3$s</string>
+    <string name="event_in_progress">in progress</string>
+    <!-- %1$s is a duration such as "0:12". -->
+    <string name="event_length">%1$s long</string>
+    <string name="clip_preparing">Frigate is preparing the clip…</string>
+    <string name="clip_saving">Saving the clip…</string>
+    <string name="clip_saved">Saved to Movies/Frigate</string>
+    <string name="clip_save_failed">Could not save the clip (%1$s)</string>
+
+    <!-- Search (ui/SearchScreen.kt). -->
+    <!-- From one day to another: "Today – Yesterday". -->
+    <string name="search_date_span">%1$s – %2$s</string>
+    <!-- %1$s is the camera, %2$s the day and %3$s the time: "Driveway · Today, 9:35 PM". -->
+    <string name="search_object_where">%1$s · %2$s, %3$s</string>
+
+    <!-- The timeline's spoken position (ui/TimelineScreen.kt): "At 9:35:12 PM, Today". -->
+    <string name="timeline_at">At %1$s, %2$s</string>
+
+    <!-- Frigate's version in Settings (ui/SettingsScreen.kt). -->
+    <string name="settings_version_checking">Checking…</string>
+    <string name="settings_version_unknown">Unknown: %1$s</string>
+
+    <!-- Counted text. -->
+    <plurals name="cameras_count">
+        <item quantity="one">%d camera</item>
+        <item quantity="other">%d cameras</item>
+    </plurals>
+    <plurals name="alerts_to_review">
+        <item quantity="one">%d alert to review</item>
+        <item quantity="other">%d alerts to review</item>
+    </plurals>
+    <plurals name="items_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <plurals name="last_minutes">
+        <item quantity="one">Last %d minute</item>
+        <item quantity="other">Last %d minutes</item>
+    </plurals>
+    <plurals name="last_hours">
+        <item quantity="one">Last %d hour</item>
+        <item quantity="other">Last %d hours</item>
+    </plurals>
+    <plurals name="bytes_count">
+        <item quantity="one">%d byte</item>
+        <item quantity="other">%d bytes</item>
+    </plurals>
 </resources>

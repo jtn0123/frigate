@@ -12,11 +12,13 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
+import com.jtn.frigateviewer.data.Failure
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.buildHttpClient
 import com.jtn.frigateviewer.ui.json
+import com.jtn.frigateviewer.ui.text
 import java.io.ByteArrayOutputStream
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
@@ -127,14 +129,14 @@ class WidgetTest {
         assertEquals("Picture hidden while the app is locked", locked.text(R.id.widget_message).text)
         assertEquals("Choose a camera", shown(null, null).text(R.id.widget_message).text)
         assertEquals("Sign in to Frigate", shown(choice, WidgetContent.SignedOut).text(R.id.widget_message).text)
-        val offline = shown(choice, WidgetContent.Failed("Server not found"))
+        val offline = shown(choice, WidgetContent.Failed(Failure.ServerNotFound.text))
         assertEquals("Offline · Server not found", offline.text(R.id.widget_status).text)
     }
 
     @Test
     fun awayFromHomeItSaysToOpenTheApp() {
         // The widget cannot bring the tunnel up itself; the app does when opened.
-        val failed = WidgetContent.Failed("Server not found")
+        val failed = WidgetContent.Failed(Failure.ServerNotFound.text)
         assertEquals(failed, failed.awayIf(tunnelOn = false))
         val away = failed.awayIf(tunnelOn = true)
         assertEquals("Away from home · Open Frigate to connect", shown(choice, away).text(R.id.widget_status).text)
@@ -155,7 +157,7 @@ class WidgetTest {
     @Test
     fun aFailureIsAFullUpdateUntilTheWidgetHasHadOne() {
         val choices = WidgetChoices(context)
-        val failed = WidgetContent.Failed("Server not found")
+        val failed = WidgetContent.Failed(Failure.ServerNotFound.text)
         assertFalse(choices.shownSinceBoot(3))
         assertFalse("Never shown: a partial update would be ignored", CameraWidget.isPartial(failed, choices.shownSinceBoot(3)))
 

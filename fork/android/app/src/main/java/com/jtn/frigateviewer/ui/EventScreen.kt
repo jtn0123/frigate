@@ -46,11 +46,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
@@ -81,7 +83,7 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
                     // Fetching the snapshot can take a moment; one tap shares it once.
                     enabled = item.id !in vm.clips.sharingSnapshots,
                 ) {
-                    Icon(Icons.Outlined.Share, contentDescription = "Share snapshot")
+                    Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.rev_share_snapshot))
                 }
                 val busy = vm.clips.states[item.id].let { it == ClipState.Preparing || it == ClipState.Downloading }
                 // An ongoing item has no end to cut the clip at yet.
@@ -89,13 +91,13 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
                     onClick = { vm.clips.save(session.api, item, vm.cameraLabel(item.camera)) },
                     enabled = !item.isOngoing && !busy,
                 ) {
-                    Icon(Icons.Outlined.Download, contentDescription = "Save clip")
+                    Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.rev_save_clip))
                 }
             }
             // With "mark reviewed when opened" on, it already is; otherwise this is the way to.
             if (vm.trackReviews && !item.reviewed) {
                 IconButton(onClick = { vm.markReviewed(item) }) {
-                    Icon(Icons.Outlined.Done, contentDescription = "Mark reviewed")
+                    Icon(Icons.Outlined.Done, contentDescription = stringResource(R.string.rev_mark_reviewed))
                 }
             }
         },
@@ -108,7 +110,7 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
                 modifier = Modifier.weight(1f),
             ) {
                 Icon(Icons.Outlined.SkipPrevious, contentDescription = null)
-                Text("Older")
+                Text(stringResource(R.string.rev_older))
             }
             OutlinedButton(
                 onClick = { newer?.let(vm::showEvent) },
@@ -116,7 +118,7 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Palette.TextPrimary),
                 modifier = Modifier.weight(1f),
             ) {
-                Text("Newer")
+                Text(stringResource(R.string.rev_newer))
                 Icon(Icons.Outlined.SkipNext, contentDescription = null)
             }
         },
@@ -124,19 +126,19 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(item.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
             if (vm.trackReviews && item.reviewed) {
-                Pill("Reviewed", Palette.TextSecondary)
+                Pill(stringResource(R.string.rev_reviewed), Palette.TextSecondary)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Pill(
-                if (item.isAlert) "Alert" else "Detection",
+                stringResource(if (item.isAlert) R.string.rev_alert else R.string.rev_detection),
                 if (item.isAlert) Palette.Alert else Palette.Detection,
                 dot = true,
             )
-            Text(eventWhen(item), style = MaterialTheme.typography.bodyMedium.merge(Tabular), color = Palette.TextSecondary)
+            Text(eventWhen(item).resolve(), style = MaterialTheme.typography.bodyMedium.merge(Tabular), color = Palette.TextSecondary)
         }
         if (item.data.zones.isNotEmpty()) {
-            SectionLabel("Zones")
+            SectionLabel(stringResource(R.string.rev_zones))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 item.data.zones.forEach { zone -> Chip(zone.replace('_', ' ')) }
             }
@@ -149,17 +151,21 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Outlined.Videocam, contentDescription = null)
-                Text("  Watch ${camera.label} live")
+                Text(stringResource(R.string.rev_watch_live, camera.label))
             }
         }
     }
 }
 
+/** "Last 15 minutes" or "Last 1 hour": how much a recording of [minutes] covers. */
+internal fun recordingLabel(minutes: Int): UiText =
+    if (minutes < 60) uiPlural(R.plurals.last_minutes, minutes) else uiPlural(R.plurals.last_hours, minutes / 60)
+
 /** A continuous stretch of recordings ending when it was opened. */
 @Composable
 fun RecordingScreen(vm: AppViewModel, session: Session, camera: Camera, minutes: Int, end: Long) {
     val start = end - minutes * 60L
-    val label = if (minutes < 60) "Last $minutes minutes" else "Last ${minutes / 60} hour${if (minutes > 60) "s" else ""}"
+    val label = recordingLabel(minutes).resolve()
     PlaybackLayout(
         vm = vm,
         url = session.api.vodUrl(camera.name, start, end),
@@ -169,8 +175,8 @@ fun RecordingScreen(vm: AppViewModel, session: Session, camera: Camera, minutes:
     ) {
         Text(label, style = MaterialTheme.typography.headlineSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Fact("From", formatClock(start.toDouble()), Modifier.weight(1f))
-            Fact("To", formatClock(end.toDouble()), Modifier.weight(1f))
+            Fact(stringResource(R.string.rev_from), formatClock(start.toDouble()), Modifier.weight(1f))
+            Fact(stringResource(R.string.rev_to), formatClock(end.toDouble()), Modifier.weight(1f))
         }
     }
 }
@@ -200,7 +206,7 @@ internal fun PlaybackLayout(
             // One row, so a long title ends short of the exit button rather than under it.
             Row(Modifier.fillMaxWidth().safeDrawingPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { vm.nav.back() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.rev_back), tint = Color.White)
                 }
                 Text(
                     title,
@@ -210,7 +216,7 @@ internal fun PlaybackLayout(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                OverlayIconButton(Icons.Filled.FullscreenExit, "Exit fullscreen") { setFullscreen(false) }
+                OverlayIconButton(Icons.Filled.FullscreenExit, stringResource(R.string.rev_exit_fullscreen)) { setFullscreen(false) }
             }
         }
         return
@@ -231,7 +237,7 @@ internal fun PlaybackLayout(
         ) {
             VodVideo(playback, Modifier.fillMaxSize())
             Box(Modifier.align(Alignment.TopEnd)) {
-                OverlayIconButton(Icons.Filled.Fullscreen, "Fullscreen") { setFullscreen(true) }
+                OverlayIconButton(Icons.Filled.Fullscreen, stringResource(R.string.rev_fullscreen)) { setFullscreen(true) }
             }
         }
         TabSheet(Modifier.padding(top = 12.dp)) {
@@ -271,16 +277,16 @@ private fun ClipStatus(state: ClipState, onShare: () -> Unit) {
         }
         Text(
             when (state) {
-                ClipState.Preparing -> "Frigate is preparing the clip…"
-                ClipState.Downloading -> "Saving the clip…"
-                is ClipState.Saved -> "Saved to Movies/Frigate"
-                is ClipState.Failed -> "Could not save the clip (${state.message})"
+                ClipState.Preparing -> stringResource(R.string.clip_preparing)
+                ClipState.Downloading -> stringResource(R.string.clip_saving)
+                is ClipState.Saved -> stringResource(R.string.clip_saved)
+                is ClipState.Failed -> stringResource(R.string.clip_save_failed, state.message.resolve())
             },
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
         )
         if (state is ClipState.Saved) {
-            TextButton(onClick = onShare) { Text("Share") }
+            TextButton(onClick = onShare) { Text(stringResource(R.string.rev_share)) }
         }
     }
 }
@@ -316,9 +322,13 @@ private fun Pill(text: String, color: Color, dot: Boolean = false) {
 }
 
 /** When an item happened and for how long, on one line: "Today · 9:35:12 PM · 0:12 long". */
-internal fun eventWhen(item: ReviewItem): String {
-    val length = if (item.isOngoing) "in progress" else "${formatDuration(item.startTime, item.endTime)} long"
-    return "${dayLabel(item.startTime)} · ${formatClock(item.startTime)} · $length"
+internal fun eventWhen(item: ReviewItem): UiText {
+    val length = if (item.isOngoing) {
+        uiText(R.string.event_in_progress)
+    } else {
+        uiText(R.string.event_length, formatDuration(item.startTime, item.endTime))
+    }
+    return uiText(R.string.event_when, dayLabel(item.startTime), formatClock(item.startTime), length)
 }
 
 private const val PILL_TINT = 0.16f

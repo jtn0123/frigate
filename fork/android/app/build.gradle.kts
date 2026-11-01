@@ -19,8 +19,8 @@ android {
         applicationId = "com.jtn.frigateviewer"
         minSdk = 29
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.2.2"
+        versionCode = 5
+        versionName = "0.2.3"
     }
 
     // Release signing: a dedicated key when its four FRIGATE_RELEASE_* values
@@ -77,6 +77,8 @@ android {
         // release; upgrades are a deliberate change, not a lint finding.
         disable += setOf("OldTargetApi", "GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
         warningsAsErrors = true
+        // Text the user reads lives in string resources (res/values/strings*.xml), never in layouts or code.
+        error += setOf("HardcodedText", "SetTextI18n")
     }
 
     // Compose UI tests run on the JVM under Robolectric, which needs the resources.

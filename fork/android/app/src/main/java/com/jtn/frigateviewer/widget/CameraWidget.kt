@@ -111,7 +111,7 @@ class CameraWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_camera)
             views.setOnClickPendingIntent(R.id.widget_refresh, refreshIntent(context, id))
             if (choice == null) {
-                views.showMessage("Choose a camera")
+                views.showMessage(context.getString(R.string.widget_choose_camera))
                 views.setOnClickPendingIntent(android.R.id.background, setupIntent(context, id))
                 return views
             }
@@ -119,34 +119,39 @@ class CameraWidget : AppWidgetProvider() {
             views.setOnClickPendingIntent(android.R.id.background, openIntent(context, id, choice.camera))
             when (content) {
                 null, WidgetContent.SignedOut -> {
-                    views.showMessage("Sign in to Frigate")
+                    views.showMessage(context.getString(R.string.widget_sign_in))
                     views.setTextViewText(R.id.widget_status, "")
                 }
                 is WidgetContent.Failed -> {
-                    val status = if (content.away) "Away from home · Open Frigate to connect" else "Offline · ${content.message}"
+                    val status = if (content.away) {
+                        context.getString(R.string.widget_away)
+                    } else {
+                        context.getString(R.string.widget_offline, content.message.resolve(context.resources))
+                    }
                     views.setTextViewText(R.id.widget_status, status)
                     // Only seen before the first picture; afterwards the message is hidden behind it.
-                    views.setTextViewText(R.id.widget_message, "Could not load the picture")
+                    views.setTextViewText(R.id.widget_message, context.getString(R.string.widget_picture_failed))
                 }
-                is WidgetContent.Ready -> views.showReady(content, settings, now)
+                is WidgetContent.Ready -> views.showReady(context, content, settings, now)
             }
             return views
         }
 
-        private fun RemoteViews.showReady(content: WidgetContent.Ready, settings: ServerSettings, now: Instant) {
+        private fun RemoteViews.showReady(context: Context, content: WidgetContent.Ready, settings: ServerSettings, now: Instant) {
             val frame = content.frame?.let(::decode)
             if (frame != null) {
                 setImageViewBitmap(R.id.widget_frame, frame)
                 setViewVisibility(R.id.widget_message, View.GONE)
             } else {
                 setImageViewBitmap(R.id.widget_frame, null)
-                showMessage(if (settings.appLock) "Picture hidden while the app is locked" else "No picture")
+                showMessage(context.getString(if (settings.appLock) R.string.widget_picture_locked else R.string.widget_no_picture))
             }
             val toReview = content.toReview ?: 0
             setViewVisibility(R.id.widget_badge, if (toReview > 0) View.VISIBLE else View.GONE)
-            setTextViewText(R.id.widget_badge, if (toReview > MAX_BADGE) "$MAX_BADGE+" else toReview.toString())
-            setContentDescription(R.id.widget_badge, "$toReview alerts to review")
-            setTextViewText(R.id.widget_status, "Updated ${clock.format(now.atZone(ZoneId.systemDefault()))}")
+            setTextViewText(R.id.widget_badge, badgeText(context, toReview))
+            setContentDescription(R.id.widget_badge, context.resources.getQuantityString(R.plurals.alerts_to_review, toReview, toReview))
+            val updated = clock.format(now.atZone(ZoneId.systemDefault()))
+            setTextViewText(R.id.widget_status, context.getString(R.string.widget_updated, updated))
         }
 
         private fun RemoteViews.showMessage(text: String) {
@@ -184,3 +189,7 @@ class CameraWidget : AppWidgetProvider() {
         private val clock = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
 }
+
+/** The badge's number, "99+" past [MAX_BADGE]. */
+private fun badgeText(context: Context, toReview: Int): String =
+    if (toReview > MAX_BADGE) context.getString(R.string.widget_badge_more, MAX_BADGE) else toReview.toString()

@@ -1,8 +1,10 @@
 package com.jtn.frigateviewer.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
@@ -22,13 +24,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /** How far back to search. */
-enum class SearchRange(val label: String) {
-    TODAY("Today"),
-    YESTERDAY("Yesterday"),
-    WEEK("Last 7 days"),
-    MONTH("Last 30 days"),
-    ANY("Any time"),
-    CUSTOM("Dates…"),
+enum class SearchRange(@param:StringRes val label: Int) {
+    TODAY(R.string.search_range_today),
+    YESTERDAY(R.string.search_range_yesterday),
+    WEEK(R.string.search_range_week),
+    MONTH(R.string.search_range_month),
+    ANY(R.string.search_range_any),
+    CUSTOM(R.string.search_range_custom),
 }
 
 /** Everything the user chose; a new value runs a new search. */
@@ -69,7 +71,7 @@ data class SearchHits(val reviews: List<ReviewItem> = emptyList(), val objects: 
  * Searching the server's whole history by date, camera, label and, with
  * semantic search on, a description. Results stay while one is opened.
  */
-class ReviewSearch(private val scope: CoroutineScope, private val onSessionLost: (String?) -> Unit) {
+class ReviewSearch(private val scope: CoroutineScope, private val onSessionLost: (UiText?) -> Unit) {
     var inputs by mutableStateOf(SearchInputs())
     var results by mutableStateOf<Remote<SearchHits>>(Remote.Loading)
         private set
@@ -77,7 +79,7 @@ class ReviewSearch(private val scope: CoroutineScope, private val onSessionLost:
         private set
 
     /** A one-time message, such as an object whose recording is gone; cleared with [noticeShown]. */
-    var notice by mutableStateOf<String?>(null)
+    var notice by mutableStateOf<UiText?>(null)
         private set
 
     private var searched: SearchInputs? = null
@@ -115,7 +117,7 @@ class ReviewSearch(private val scope: CoroutineScope, private val onSessionLost:
     fun openObject(api: FrigateApi, found: TrackedObject, open: (ReviewItem) -> Unit): Job = scope.launch {
         when (val review = loadRemote(onSessionLost) { api.reviewForObject(found.id) }) {
             is Remote.Ready -> open(review.value)
-            is Remote.Failed -> notice = "Could not open it (${review.message})"
+            is Remote.Failed -> notice = uiText(R.string.search_open_failed, review.text)
             Remote.Loading -> Unit
         }
     }

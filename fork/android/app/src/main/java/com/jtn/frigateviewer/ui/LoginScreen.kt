@@ -34,10 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.jtn.frigateviewer.R
 
 @Composable
 fun LoginScreen(vm: AppViewModel) {
@@ -65,15 +67,14 @@ fun LoginScreen(vm: AppViewModel) {
                 ) {
                     Icon(Icons.Outlined.Videocam, contentDescription = null, tint = Palette.Accent, modifier = Modifier.size(28.dp))
                 }
-                Text("Frigate", style = MaterialTheme.typography.headlineLarge)
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
                 Text(
-                    "Connect to your Frigate server. Use port 8971 with your Frigate login, " +
-                        "or port 5000 without one.",
+                    stringResource(R.string.set_login_intro),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Palette.TextSecondary,
                 )
             }
-            Group("Server") {
+            Group(stringResource(R.string.set_group_server)) {
                 OutlinedTextField(
                     value = url,
                     onValueChange = {
@@ -81,16 +82,15 @@ fun LoginScreen(vm: AppViewModel) {
                         // An error is about what was entered; editing it starts over.
                         vm.clearLoginError()
                     },
-                    label = { Text("Server address") },
+                    label = { Text(stringResource(R.string.set_login_address)) },
                     placeholder = { Text("https://192.168.1.10:8971") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
                     modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
                 )
                 Toggle(
-                    "Self-signed certificate",
-                    "For Frigate's built-in HTTPS on port 8971. You confirm the certificate once, " +
-                        "and after that only that certificate is trusted.",
+                    stringResource(R.string.set_login_self_signed),
+                    stringResource(R.string.set_login_self_signed_detail),
                     checked = selfSigned,
                     onChange = {
                         selfSigned = it
@@ -98,7 +98,7 @@ fun LoginScreen(vm: AppViewModel) {
                     },
                 )
             }
-            Group("Login") {
+            Group(stringResource(R.string.set_login_group)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = user,
@@ -106,7 +106,7 @@ fun LoginScreen(vm: AppViewModel) {
                             user = it
                             vm.clearLoginError()
                         },
-                        label = { Text("Username (optional)") },
+                        label = { Text(stringResource(R.string.set_login_username)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth(),
@@ -117,7 +117,7 @@ fun LoginScreen(vm: AppViewModel) {
                             password = it
                             vm.clearLoginError()
                         },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.set_login_password)) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -127,7 +127,7 @@ fun LoginScreen(vm: AppViewModel) {
             }
             vm.loginError?.let {
                 Text(
-                    it,
+                    it.resolve(),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 4.dp),
@@ -141,7 +141,7 @@ fun LoginScreen(vm: AppViewModel) {
                 if (vm.loggingIn) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("Connect")
+                    Text(stringResource(R.string.set_login_connect))
                 }
             }
         }
@@ -155,23 +155,17 @@ fun LoginScreen(vm: AppViewModel) {
 internal fun CertificateDialog(pending: PendingCertificate, onTrust: () -> Unit, onCancel: () -> Unit) {
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text(if (pending.changed) "Certificate changed" else "Trust this certificate?") },
+        title = { Text(stringResource(if (pending.changed) R.string.set_cert_changed else R.string.set_cert_trust_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    if (pending.changed) {
-                        "This server now presents a different certificate from the one you trusted. " +
-                            "Continue only if you replaced it, for example by reinstalling Frigate."
-                    } else {
-                        "The server uses a self-signed certificate. Check that this SHA-256 fingerprint " +
-                            "matches the one your browser shows for the server."
-                    },
+                    stringResource(if (pending.changed) R.string.set_cert_changed_detail else R.string.set_cert_trust_detail),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(pending.fingerprint, style = MonoSmall, color = Palette.TextPrimary)
             }
         },
-        confirmButton = { TextButton(onClick = onTrust) { Text("Trust") } },
-        dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = onTrust) { Text(stringResource(R.string.set_cert_trust)) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
     )
 }

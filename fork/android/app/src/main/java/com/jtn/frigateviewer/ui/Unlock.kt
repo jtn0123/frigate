@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.res.stringResource
+import com.jtn.frigateviewer.R
 
 /** The phone has a screen lock, which unlocking needs: fingerprints and faces are only offered with one. */
 fun Activity.canUnlock(): Boolean = getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
@@ -21,8 +23,8 @@ fun Activity.canUnlock(): Boolean = getSystemService(KeyguardManager::class.java
  */
 fun Activity.authenticate(onResult: (success: Boolean, reason: String?) -> Unit) {
     val builder = BiometricPrompt.Builder(this)
-        .setTitle("Unlock Frigate")
-        .setSubtitle("Use your fingerprint, face or screen lock")
+        .setTitle(getString(R.string.unlock_prompt_title))
+        .setSubtitle(getString(R.string.unlock_prompt_subtitle))
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         builder.setAllowedAuthenticators(Authenticators.BIOMETRIC_WEAK or Authenticators.DEVICE_CREDENTIAL)
     } else {
@@ -67,9 +69,9 @@ fun LockScreen(reason: String?, onUnlock: () -> Unit) {
     LaunchedEffect(Unit) { onUnlock() }
     EmptyState(
         Icons.Outlined.Lock,
-        "Frigate is locked",
-        detail = reason ?: "Unlock with your fingerprint, face or screen lock.",
+        stringResource(R.string.lock_title),
+        detail = reason ?: stringResource(R.string.lock_detail),
         tint = Palette.AccentText,
-        action = EmptyAction("Unlock", onUnlock),
+        action = EmptyAction(stringResource(R.string.lock_unlock), onUnlock),
     )
 }

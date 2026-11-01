@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A camera's screen (ui/CameraDetailScreen.kt). -->
+    <string name="cam_show_larger">Show larger</string>
+    <string name="cam_status_snapshot">SNAPSHOT</string>
+    <string name="cam_status_connecting">CONNECTING</string>
+    <string name="cam_status_live">LIVE</string>
+    <string name="cam_unmute">Unmute</string>
+    <string name="cam_mute">Mute</string>
+    <string name="cam_muted">Muted</string>
+    <string name="cam_sound_on">Sound on</string>
+    <string name="cam_picture_in_picture">Picture in picture</string>
+    <string name="cam_exit_fullscreen">Exit fullscreen</string>
+    <string name="cam_fullscreen">Fullscreen</string>
+    <string name="cam_back">Back</string>
+    <string name="cam_close">Close</string>
+    <string name="cam_settings">Camera settings</string>
+    <string name="cam_stat_alerts">Alerts</string>
+    <string name="cam_stat_detections">Detections</string>
+    <string name="cam_stat_last_activity">Last activity</string>
+    <string name="cam_stat_none">None</string>
+    <!-- %1$s is the figure's label, such as "Alerts". -->
+    <string name="cam_stat_show">Show %1$s</string>
+    <string name="cam_recordings">Recordings</string>
+    <string name="cam_timeline">Timeline</string>
+    <string name="cam_last_15_min">Last 15 min</string>
+    <string name="cam_last_hour">Last hour</string>
+    <string name="cam_last_6_hours">Last 6 hours</string>
+    <string name="cam_activity_24h">Activity · last 24 hours</string>
+    <string name="cam_all_quiet">All quiet</string>
+    <string name="cam_all_quiet_detail">Nothing happened here in the last 24 hours.</string>
+
+    <!-- A camera's settings sheet (ui/CameraSettingsSheet.kt). -->
+    <!-- %1$s is the camera's name. -->
+    <string name="cam_settings_title">%1$s settings</string>
+    <string name="cam_video_quality">Video quality</string>
+    <string name="cam_video_quality_detail">The first stream is full resolution; the others start faster and use less data.</string>
+
+    <!-- An admin's camera controls (ui/CameraControls.kt). -->
+    <string name="cam_switch_detect">Object detection</string>
+    <string name="cam_switch_detect_detail">Looks for people, cars and other objects</string>
+    <string name="cam_switch_recordings">Recording</string>
+    <string name="cam_switch_recordings_detail">Saves video to the server</string>
+    <string name="cam_switch_snapshots">Snapshots</string>
+    <string name="cam_switch_snapshots_detail">Saves a picture of each object</string>
+    <string name="cam_controls">Controls</string>
+    <string name="cam_connecting_server">Connecting to the server…</string>
+    <string name="cam_ptz_unavailable">Motor controls unavailable</string>
+    <!-- %1$s is the switch's title in lower case, %2$s the camera: "Turn off recording for Driveway?". -->
+    <string name="cam_turn_off_title">Turn off %1$s for %2$s?</string>
+    <string name="cam_turn_off_detail">This changes the camera on your Frigate server for everyone until it is turned back on.</string>
+    <string name="cam_turn_off">Turn off</string>
+    <string name="cam_tilt_up">Tilt up</string>
+    <string name="cam_tilt_down">Tilt down</string>
+    <string name="cam_pan_left">Pan left</string>
+    <string name="cam_pan_right">Pan right</string>
+    <string name="cam_zoom_in">Zoom in</string>
+    <string name="cam_zoom_out">Zoom out</string>
+
+    <!-- Several cameras live (ui/LiveGridScreen.kt). -->
+    <string name="cam_live_title">Live</string>
+    <string name="cam_live_none">No cameras to show</string>
+    <string name="cam_live_none_detail">Cameras that are turned on in Frigate show here.</string>
+    <string name="cam_live_choose">Choose cameras</string>
+    <string name="cam_live_hint">Tap a camera to open it. Each shows its lighter stream to save data.</string>
+    <!-- %1$s is the camera's name. -->
+    <string name="cam_open">Open %1$s</string>
+    <!-- %1$d is the most cameras that can be shown at once. -->
+    <string name="cam_live_choose_up_to">Choose up to %1$d</string>
+    <string name="cam_live_show">Show</string>
+
+    <!-- A camera's picture and loading shapes (ui/LiveFrame.kt, ui/Skeletons.kt). -->
+    <string name="cam_unavailable">Camera unavailable</string>
+    <string name="cam_loading">Loading</string>
+
+    <!-- Why a recording could not play (ui/VodPlayback.kt). -->
+    <string name="cam_vod_not_found">This recording is not on the server.</string>
+    <string name="cam_vod_refused">The server refused this recording.</string>
+    <string name="cam_vod_server_error">The server could not send this recording.</string>
+    <string name="cam_vod_offline">Could not connect to the server.</string>
+    <string name="cam_vod_failed">This recording could not be played.</string>
+</resources>

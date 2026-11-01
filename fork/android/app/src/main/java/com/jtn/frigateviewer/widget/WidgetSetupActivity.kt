@@ -30,9 +30,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.container
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.Remote
@@ -133,21 +135,21 @@ fun WidgetSetupScreen(
     onPick: (Camera) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader(title = "Widget camera", subtitle = "Its latest picture and the alerts to review") {
-            IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = "Cancel") }
+        ScreenHeader(title = stringResource(R.string.widget_setup_title), subtitle = stringResource(R.string.widget_setup_subtitle)) {
+            IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.cancel)) }
         }
         TabSheet {
             if (cameras == null) {
                 EmptyState(
                     Icons.AutoMirrored.Outlined.Login,
-                    "Not signed in",
-                    detail = "Open Frigate and sign in, then add the widget again.",
+                    stringResource(R.string.widget_setup_signed_out),
+                    detail = stringResource(R.string.widget_setup_signed_out_detail),
                 )
                 return@TabSheet
             }
             RemoteContent(cameras, onRetry = onRetry) { list ->
                 if (list.isEmpty()) {
-                    EmptyState(Icons.Outlined.VideocamOff, "No cameras")
+                    EmptyState(Icons.Outlined.VideocamOff, stringResource(R.string.no_cameras))
                     return@RemoteContent
                 }
                 Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding()) {

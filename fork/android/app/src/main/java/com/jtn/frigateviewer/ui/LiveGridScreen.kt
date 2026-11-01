@@ -43,8 +43,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
@@ -57,14 +59,14 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
     if (cameras !is Remote.Ready || all.isEmpty()) {
         // Loading, failed with a Retry, or nothing to show: said, rather than an empty sheet.
         Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
-            DetailHeader("Live", onBack = { vm.nav.back() })
+            DetailHeader(stringResource(R.string.cam_live_title), onBack = { vm.nav.back() })
             TabSheet {
                 RemoteContent(cameras, onRetry = vm::refreshCameras) {
                     EmptyState(
                         Icons.Outlined.VideocamOff,
-                        "No cameras to show",
-                        detail = "Cameras that are turned on in Frigate show here.",
-                        action = EmptyAction("Refresh") { vm.refreshCameras() },
+                        stringResource(R.string.cam_live_none),
+                        detail = stringResource(R.string.cam_live_none_detail),
+                        action = EmptyAction(stringResource(R.string.refresh)) { vm.refreshCameras() },
                     )
                 }
             }
@@ -104,19 +106,21 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             grid(Modifier.fillMaxSize().safeDrawingPadding())
             IconButton(onClick = { vm.nav.back() }, modifier = Modifier.safeDrawingPadding().padding(4.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cam_back), tint = Color.White)
             }
         }
     } else {
         Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
-            DetailHeader("Live", onBack = { vm.nav.back() }) {
-                IconButton(onClick = { picking = true }) { Icon(Icons.Outlined.Edit, contentDescription = "Choose cameras") }
+            DetailHeader(stringResource(R.string.cam_live_title), onBack = { vm.nav.back() }) {
+                IconButton(onClick = { picking = true }) {
+                    Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.cam_live_choose))
+                }
             }
             TabSheet {
                 grid(Modifier.fillMaxWidth().padding(12.dp))
                 Spacer(Modifier.weight(1f))
                 Text(
-                    "Tap a camera to open it. Each shows its lighter stream to save data.",
+                    stringResource(R.string.cam_live_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = Palette.TextSecondary,
                     modifier = Modifier.navigationBarsPadding().padding(20.dp),
@@ -141,11 +145,12 @@ internal fun liveGridCameras(all: List<Camera>, chosen: List<String>): List<Came
 private fun LiveTile(vm: AppViewModel, session: Session, camera: Camera, modifier: Modifier, onClick: () -> Unit) {
     var state by rememberSaveable(camera.name) { mutableStateOf(LiveState.CONNECTING) }
     val hasLive = vm.hasLiveVideo(camera)
+    val openLabel = stringResource(R.string.cam_open, camera.label)
     Box(
         modifier
             .clip(RoundedCornerShape(12.dp))
             .background(Color.Black)
-            .clickable(onClickLabel = "Open ${camera.label}", onClick = onClick),
+            .clickable(onClickLabel = openLabel, onClick = onClick),
     ) {
         // Each camera keeps its own shape inside the tile, letterboxed, rather than stretched.
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -171,7 +176,7 @@ private fun LiveTile(vm: AppViewModel, session: Session, camera: Camera, modifie
         }
         if (!hasLive || state != LiveState.PLAYING) {
             LivePill(
-                if (!hasLive || state == LiveState.FAILED) "SNAPSHOT" else "CONNECTING",
+                stringResource(if (!hasLive || state == LiveState.FAILED) R.string.cam_status_snapshot else R.string.cam_status_connecting),
                 live = false,
                 Modifier.align(Alignment.BottomStart).padding(6.dp),
             )
@@ -185,7 +190,7 @@ private fun CameraPicker(all: List<Camera>, current: List<String>, onDismiss: ()
     var selected by rememberSaveable { mutableStateOf(current) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Choose up to $MAX_LIVE") },
+        title = { Text(stringResource(R.string.cam_live_choose_up_to, MAX_LIVE)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 all.forEach { camera ->
@@ -208,8 +213,10 @@ private fun CameraPicker(all: List<Camera>, current: List<String>, onDismiss: ()
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onDone(selected) }, enabled = selected.isNotEmpty()) { Text("Show") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = { onDone(selected) }, enabled = selected.isNotEmpty()) { Text(stringResource(R.string.cam_live_show)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 

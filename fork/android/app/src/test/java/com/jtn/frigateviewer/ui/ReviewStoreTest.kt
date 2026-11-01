@@ -22,12 +22,15 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ReviewStoreTest {
     @get:Rule val serverRule = MockWebServerRule()
     private val server: MockWebServer get() = serverRule.server
 
-    private val sessionLost = mutableListOf<String?>()
+    private val sessionLost = mutableListOf<UiText?>()
     private val store = ReviewStore(CoroutineScope(Dispatchers.Unconfined)) { sessionLost += it }
     private val api by lazy { FrigateApi(buildHttpClient(null, pin = null), server.url("/").toString()) }
 
@@ -96,7 +99,7 @@ class ReviewStoreTest {
 
         assertEquals("Both alerts are unreviewed again", 2, store.unreviewedAlerts)
         assertTrue("The one reviewed before stays reviewed", store.forCamera("back").first { it.id == "a2" }.reviewed)
-        assertEquals("Could not mark 2 items reviewed (HTTP 500 for /api/reviews/viewed)", store.message?.text)
+        assertEquals("Could not mark 2 items reviewed (HTTP 500 for /api/reviews/viewed)", store.message?.text?.english())
         assertTrue(sessionLost.isEmpty())
         store.messageShown()
         assertNull(store.message)
@@ -110,7 +113,8 @@ class ReviewStoreTest {
 
         store.markReviewed(api, store.filtered.take(1), undoable = true)!!.join()
         val notice = store.message!!
-        assertEquals(ReviewNotice("Marked reviewed", setOf("a3")), notice)
+        assertEquals("Marked reviewed", notice.text.english())
+        assertEquals(setOf("a3"), notice.undoIds)
 
         store.undo(api, notice)!!.join()
 
@@ -129,7 +133,7 @@ class ReviewStoreTest {
         store.undo(api, store.message!!)!!.join()
 
         assertEquals(1, store.unreviewedAlerts)
-        assertEquals("Could not mark this item unreviewed (HTTP 500 for /api/reviews/viewed)", store.message?.text)
+        assertEquals("Could not mark this item unreviewed (HTTP 500 for /api/reviews/viewed)", store.message?.text?.english())
     }
 
     @Test
@@ -137,8 +141,8 @@ class ReviewStoreTest {
         loadSample()
         server.enqueue(MockResponse.Builder().code(401).build())
         store.markReviewed(api, store.filtered.take(1))!!.join()
-        assertEquals(listOf<String?>(null), sessionLost)
-        assertEquals("Could not mark this item reviewed (Session expired, please sign in again)", store.message?.text)
+        assertEquals(listOf<UiText?>(null), sessionLost)
+        assertEquals("Could not mark this item reviewed (Session expired, please sign in again)", store.message?.text?.english())
     }
 
     @Test
@@ -165,7 +169,7 @@ class ReviewStoreTest {
     fun anExpiredSessionSignsOut() = runBlocking {
         server.enqueue(MockResponse.Builder().code(401).build())
         store.refresh(api)!!.join()
-        assertEquals(listOf<String?>(null), sessionLost)
+        assertEquals(listOf<UiText?>(null), sessionLost)
         assertTrue(store.reviews is Remote.Failed)
     }
 
@@ -244,13 +248,13 @@ class ReviewStoreTest {
 }
 
 class LoadRemoteTest {
-    private val sessionLost = mutableListOf<String?>()
+    private val sessionLost = mutableListOf<UiText?>()
 
     @Test
     fun aChangedCertificateSignsOutWithTheReason() = runBlocking {
         val failure = IOException("connect failed").apply { addSuppressed(CertificateChangedException("AA", "BB")) }
         val result = loadRemote({ sessionLost += it }) { throw failure }
-        assertEquals(listOf<String?>(CERTIFICATE_CHANGED), sessionLost)
+        assertEquals(listOf<UiText?>(Failure.CertificateChanged.text), sessionLost)
         assertEquals(Remote.Failed(Failure.CertificateChanged), result)
     }
 

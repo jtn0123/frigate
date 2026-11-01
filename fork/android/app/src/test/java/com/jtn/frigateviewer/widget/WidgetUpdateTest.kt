@@ -5,11 +5,13 @@ import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.jtn.frigateviewer.data.Failure
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.buildHttpClient
 import com.jtn.frigateviewer.installTestContainer
 import com.jtn.frigateviewer.ui.json
+import com.jtn.frigateviewer.ui.text
 import java.util.Collections
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
@@ -98,7 +100,7 @@ class WidgetUpdateTest {
         val contents = runBlocking { api().widgetContents(cameras, ServerSettings(), timeoutMs = 400) }
         val tookMs = (System.nanoTime() - started) / 1_000_000
 
-        assertEquals(List(3) { WidgetContent.Failed("Could not connect to the server") }, contents)
+        assertEquals(List(3) { WidgetContent.Failed(Failure.Offline.text) }, contents)
         assertTrue("Took $tookMs ms", tookMs < 3_000)
     }
 

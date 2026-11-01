@@ -3,6 +3,7 @@ package com.jtn.frigateviewer.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.FeedCommands
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.Remote
@@ -16,7 +17,7 @@ import kotlinx.coroutines.launch
  * on or off, and moving PTZ cameras. Commands go over the live feed, as in
  * Frigate's web UI, so they need it open.
  */
-class CameraControl(private val scope: CoroutineScope, private val onSessionLost: (String?) -> Unit) {
+class CameraControl(private val scope: CoroutineScope, private val onSessionLost: (UiText?) -> Unit) {
     var isAdmin by mutableStateOf(false)
         private set
 
@@ -25,7 +26,7 @@ class CameraControl(private val scope: CoroutineScope, private val onSessionLost
         internal set
 
     /** A one-time message, such as a command that could not be sent; cleared with [noticeShown]. */
-    var notice by mutableStateOf<String?>(null)
+    var notice by mutableStateOf<UiText?>(null)
         private set
 
     fun loadRole(api: FrigateApi): Job = scope.launch {
@@ -40,7 +41,7 @@ class CameraControl(private val scope: CoroutineScope, private val onSessionLost
 
     private fun send(topic: String, payload: String): Boolean {
         val sent = commands?.send(topic, payload) == true
-        if (!sent) notice = "Not connected to the server. Try again in a moment."
+        if (!sent) notice = uiText(R.string.control_not_connected)
         return sent
     }
 

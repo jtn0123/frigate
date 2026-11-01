@@ -25,7 +25,7 @@ class RemoteHoldersTest {
     /** Never called: each fetch here answers from the test instead. */
     private val api = FrigateApi(buildHttpClient(null, pin = null), "http://frigate.invalid/")
 
-    private val sessionLost = mutableListOf<String?>()
+    private val sessionLost = mutableListOf<UiText?>()
 
     /** Answers in order; an exception is thrown as the request failing. */
     private class Answers(vararg answers: Any) {
@@ -82,7 +82,7 @@ class RemoteHoldersTest {
         val health = polled(Answers(AuthException("401")))
         health.retry(api)
         runCurrent()
-        assertEquals(listOf<String?>(null), sessionLost)
+        assertEquals(listOf<UiText?>(null), sessionLost)
         assertTrue(health.value is Remote.Failed)
     }
 
