@@ -1,5 +1,7 @@
 package com.jtn.frigateviewer.ui
 
+import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -35,6 +37,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowVpnService
 
 /** The Remote access rows in Settings, over a fake tunnel. */
 @RunWith(RobolectricTestRunner::class)
@@ -55,7 +59,14 @@ class RemoteAccessSettingsTest {
         scope.cancel()
     }
 
-    private fun show(tunnel: TunnelSettings?, reach: Reach = Reach.NOT_DIRECT, answers: Boolean = true): RemoteAccess {
+    private val backend = FakeBackend()
+
+    private fun show(
+        tunnel: TunnelSettings?,
+        reach: Reach = Reach.NOT_DIRECT,
+        answers: Boolean = true,
+        otherVpn: Boolean = false,
+    ): RemoteAccess {
         runBlocking {
             store.save(ServerSettings(baseUrl = "http://192.168.1.20:5000/"))
             store.saveTunnel(tunnel)
@@ -63,10 +74,10 @@ class RemoteAccessSettingsTest {
         val remote = RemoteAccess(
             main,
             store,
-            FakeBackend().also {
+            backend.also {
                 it.answers = answers
             },
-            FakeRoute(reach),
+            FakeRoute(reach, otherVpn),
             "com.jtn.frigateviewer",
             handshakeMs = 100,
         ).also { it.start() }
@@ -172,6 +183,65 @@ class RemoteAccessSettingsTest {
         val bigEndian = byteArrayOf(0xFE.toByte(), 0xFF.toByte()) + text.toByteArray(Charsets.UTF_16BE)
         assertEquals(text, decodeTunnelFile(bigEndian))
         assertEquals(text, decodeTunnelFile(text.toByteArray()))
+    }
+
+    @Test
+    fun throughAnotherVpnItSaysTheTunnelIsNotNeeded() {
+        show(TunnelSettings(tunnelFile(), "home", enabled = true), reach = Reach.DIRECT, otherVpn = true)
+        compose.awaitText("The server answers through another VPN, so the tunnel is off.")
+        compose.onNodeWithText("Use the app's tunnel instead").assertDoesNotExist()
+    }
+
+    @Test
+    fun anotherVpnInTheWayCanBeSwappedForTheTunnel() {
+        show(TunnelSettings(tunnelFile(), "home", enabled = true), otherVpn = true)
+        compose.awaitText("Another VPN is on but does not reach the server.", substring = true)
+        assertTrue(backend.ups.isEmpty())
+
+        compose.onNodeWithText("Use the app's tunnel instead").performClick()
+
+        compose.awaitText("Away from home, connected through the tunnel.")
+        assertEquals(1, backend.ups.size)
+    }
+
+    @Test
+    fun aTunnelStoppedOutsideTheAppCanBeStartedAgain() {
+        show(TunnelSettings(tunnelFile(), "home", enabled = true))
+        compose.awaitText("Away from home, connected through the tunnel.")
+        compose.runOnIdle { backend.stopOutside() }
+        compose.awaitText("The tunnel was turned off outside the app, so it stays off for now.")
+
+        compose.onNodeWithText("Start the tunnel").performClick()
+
+        compose.awaitText("Away from home, connected through the tunnel.")
+        assertEquals(2, backend.ups.size)
+    }
+
+    @Test
+    fun turningItOnWithAnotherVpnOnDoesNotAskAndroid() {
+        // Asking Android, even with the permission given, would turn the other VPN off.
+        ShadowVpnService.setPrepareResult(Intent("android.net.vpn.PREPARE"))
+        val app = shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        show(TunnelSettings(tunnelFile(), "home", enabled = false), reach = Reach.DIRECT, otherVpn = true)
+        compose.awaitText("Off. The app only connects directly.")
+
+        compose.onNodeWithText("Use away from home").performClick()
+
+        compose.awaitText("The server answers through another VPN, so the tunnel is off.")
+        assertNull(app.nextStartedActivity)
+    }
+
+    @Test
+    fun turningItOnWithoutAnotherVpnAsksAndroidOnce() {
+        ShadowVpnService.setPrepareResult(Intent("android.net.vpn.PREPARE"))
+        val app = shadowOf(ApplicationProvider.getApplicationContext<Application>())
+        show(TunnelSettings(tunnelFile(), "home", enabled = false), reach = Reach.DIRECT)
+        compose.awaitText("Off. The app only connects directly.")
+
+        compose.onNodeWithText("Use away from home").performClick()
+
+        compose.awaitMain { app.peekNextStartedActivity() != null }
+        assertEquals("android.net.vpn.PREPARE", app.nextStartedActivity.action)
     }
 
     private fun read(file: File): PickedFile = runBlocking {

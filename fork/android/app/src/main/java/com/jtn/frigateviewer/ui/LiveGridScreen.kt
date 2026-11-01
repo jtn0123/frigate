@@ -132,7 +132,14 @@ private fun LiveTile(vm: AppViewModel, session: Session, camera: Camera, modifie
             val fit = Modifier.aspectRatio(camera.aspectRatio)
             if (hasLive) {
                 // The last stream is the lighter one when a camera has two.
-                LiveVideo(session, camera.name, camera.liveStreams.values.lastOrNull() ?: camera.name, muted = true, fit) {
+                LiveVideo(
+                    session,
+                    camera.name,
+                    camera.liveStreams.values.lastOrNull() ?: camera.name,
+                    muted = true,
+                    fit,
+                    route = vm.remoteAccess?.routeChanges ?: 0,
+                ) {
                     state = it
                 }
             } else {

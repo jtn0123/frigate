@@ -3,7 +3,6 @@ package com.jtn.frigateviewer.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
-import android.net.VpnService
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +24,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -65,21 +68,37 @@ fun TunnelLogScreen(vm: AppViewModel, remote: RemoteAccess) {
             "App ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TYPE})",
             "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}",
         ),
-        permitted = VpnService.prepare(context) == null,
         libraryLines = wireGuardLines(),
     )
 
+    // Building the report takes a moment, and the share sheet another to open: a second
+    // tap meanwhile would copy twice or open a second sheet.
+    var busy by remember { mutableStateOf(false) }
+
+    fun once(action: suspend () -> Unit) {
+        if (busy) return
+        busy = true
+        scope.launch {
+            try {
+                action()
+                delay(SETTLE_MS)
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
         DetailHeader("Tunnel log", onBack = { vm.nav.back() }) {
-            IconButton(onClick = {
-                scope.launch {
+            IconButton(enabled = !busy, onClick = {
+                once {
                     val text = report()
                     context.getSystemService(ClipboardManager::class.java)
                         .setPrimaryClip(ClipData.newPlainText("Frigate tunnel report", text))
                 }
             }) { Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy report") }
-            IconButton(onClick = {
-                scope.launch {
+            IconButton(enabled = !busy, onClick = {
+                once {
                     val send = Intent(Intent.ACTION_SEND)
                         .setType("text/plain")
                         .putExtra(Intent.EXTRA_SUBJECT, "Frigate tunnel report")
@@ -124,6 +143,9 @@ fun TunnelLogScreen(vm: AppViewModel, remote: RemoteAccess) {
         }
     }
 }
+
+/** How long Copy and Share stay off after one, while the share sheet opens. */
+private const val SETTLE_MS = 1_000L
 
 internal fun trafficText(stats: TunnelStats?, now: Long = System.currentTimeMillis()): String {
     if (stats == null) return "Tunnel down"

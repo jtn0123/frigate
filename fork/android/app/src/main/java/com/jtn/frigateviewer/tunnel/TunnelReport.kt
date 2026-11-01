@@ -20,12 +20,11 @@ fun tunnelReport(
     remote: RemoteAccess,
     serverUrl: String,
     about: List<String>,
-    permitted: Boolean,
     libraryLines: List<String>,
     now: Long = System.currentTimeMillis(),
 ): String = redact(
     buildString {
-        reportBody(remote, serverUrl, about, permitted, libraryLines, now)
+        reportBody(remote, serverUrl, about, libraryLines, now)
     },
 )
 
@@ -33,7 +32,6 @@ private fun StringBuilder.reportBody(
     remote: RemoteAccess,
     serverUrl: String,
     about: List<String>,
-    permitted: Boolean,
     libraryLines: List<String>,
     now: Long,
 ) {
@@ -46,7 +44,14 @@ private fun StringBuilder.reportBody(
     appendLine(
         "Tunnel: ${if (tunnel == null) "none imported" else "\"${redact(tunnel.name)}\", turned ${if (tunnel.enabled) "on" else "off"}"}",
     )
-    appendLine("Android VPN permission: ${if (permitted) "allowed" else "not allowed"}")
+    // As last asked: asking again for the report would turn another app's VPN off.
+    val permission = when (remote.permitted) {
+        true -> "allowed"
+        false -> "not allowed"
+        null -> "not asked yet, since the tunnel has not been needed"
+    }
+    appendLine("Android VPN permission: $permission")
+    appendLine("Another app's VPN: ${if (remote.otherVpnOn) "on" else "off"}")
     appendLine("Frigate server: ${describeServer(serverUrl)}")
     tunnel?.let { tunnelSummary(it.config).forEach(::appendLine) }
     remote.stats?.let { stats ->
