@@ -58,7 +58,7 @@ class FrigateApiTest {
                 .build(),
         )
         var renewed: String? = null
-        api(AuthToken("frigate_token", "jwt1") { renewed = it }).logout()
+        api(AuthToken(server.url("/").toString(), "frigate_token", "jwt1") { renewed = it }).logout()
 
         val request = server.takeRequest()
         assertEquals("/api/logout", request.url.encodedPath)
@@ -88,7 +88,10 @@ class FrigateApiTest {
     @Test
     fun webSocketsArePingedSoADeadConnectionIsNoticed() {
         assertEquals(30_000, buildHttpClient(null, pin = null).pingIntervalMillis)
-        assertEquals(30_000, buildHttpClient(AuthToken("frigate_token", "t"), CertificatePin(null)).pingIntervalMillis)
+        assertEquals(
+            30_000,
+            buildHttpClient(AuthToken("http://nvr.lan:5000/", "frigate_token", "t"), CertificatePin(null)).pingIntervalMillis,
+        )
     }
 
     @Test
@@ -143,7 +146,7 @@ class FrigateApiTest {
     @Test
     fun sendsTokenAsCookie() = runTest {
         server.enqueue(MockResponse.Builder().body("0.17.0").build())
-        assertEquals("0.17.0", api(AuthToken("frigate_token", "tok")).version())
+        assertEquals("0.17.0", api(AuthToken(server.url("/").toString(), "frigate_token", "tok")).version())
         val request = server.takeRequest()
         assertEquals("frigate_token=tok", request.headers["Cookie"])
         assertNull(request.headers["Authorization"])
@@ -152,7 +155,7 @@ class FrigateApiTest {
     @Test
     fun adoptsRenewedTokenAndReportsIt() = runTest {
         val renewed = mutableListOf<String>()
-        val auth = AuthToken("frigate_token", "old", renewed::add)
+        val auth = AuthToken(server.url("/").toString(), "frigate_token", "old", renewed::add)
         server.enqueue(
             MockResponse.Builder()
                 .addHeader("Set-Cookie", "other=1; Path=/")
@@ -173,7 +176,7 @@ class FrigateApiTest {
 
     @Test
     fun ignoresCookieDeletion() = runTest {
-        val auth = AuthToken("frigate_token", "tok")
+        val auth = AuthToken(server.url("/").toString(), "frigate_token", "tok")
         server.enqueue(MockResponse.Builder().addHeader("Set-Cookie", "frigate_token=; Max-Age=0; Path=/").body("x").build())
         api(auth).version()
         assertEquals("tok", auth.current)

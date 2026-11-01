@@ -19,7 +19,7 @@ class Session private constructor(val settings: ServerSettings, private val auth
         settings: ServerSettings,
         onTokenRenewed: (String) -> Unit = {},
         onCertificatePinned: (String) -> Unit = {},
-    ) : this(settings, AuthToken(settings.tokenCookie, settings.token, onTokenRenewed), onCertificatePinned)
+    ) : this(settings, AuthToken(settings.baseUrl, settings.tokenCookie, settings.token, onTokenRenewed), onCertificatePinned)
 
     val api = FrigateApi(client, settings.baseUrl)
 

@@ -10,16 +10,29 @@ import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 
 /**
- * The session's JWT. It is sent as Frigate's auth cookie rather than a Bearer
- * header because Frigate only renews cookie tokens: when one nears expiry the
- * response carries a fresh cookie, which replaces this one and is passed to
- * [onRenewed] so it can be saved.
+ * The session's JWT for the Frigate server at [server]. It is sent as Frigate's
+ * auth cookie rather than a Bearer header because Frigate only renews cookie
+ * tokens: when one nears expiry the response carries a fresh cookie, which
+ * replaces this one and is passed to [onRenewed] so it can be saved.
  */
-class AuthToken(val cookieName: String, initial: String, private val onRenewed: (String) -> Unit = {}) {
+class AuthToken(server: String, val cookieName: String, initial: String, private val onRenewed: (String) -> Unit = {}) {
     private val value = AtomicReference(initial)
+    private val origin = FrigateApi.normalizeBaseUrl(server).toHttpUrlOrNull()
+
+    /**
+     * Whether a request to [url] may carry the token: only one to the server
+     * itself, with the same scheme, host and port. A redirect elsewhere, or
+     * from https to plain http, does not get it.
+     */
+    internal fun belongsTo(url: HttpUrl): Boolean =
+        url.scheme == origin?.scheme && url.host == origin.host && url.port == origin.port
 
     val current: String get() = value.get()
 
@@ -56,20 +69,28 @@ fun buildHttpClient(auth: AuthToken?, pin: CertificatePin?): OkHttpClient {
         // silently (a phone changing networks, a NAT dropping it) would look open for good.
         .pingInterval(PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
         .addInterceptor { chain ->
-            val token = auth?.current.orEmpty()
-            val request = chain.request().newBuilder().apply {
-                if (auth != null && token.isNotEmpty()) header("Cookie", "${auth.cookieName}=$token")
-                // Frigate's CSRF check only needs the header to be present.
-                if (chain.request().method != "GET") header("X-CSRF-TOKEN", "1")
-            }.build()
-            val response = chain.proceed(request)
-            if (auth != null) {
-                response.headers("Set-Cookie").firstNotNullOfOrNull { cookieValue(it, auth.cookieName) }?.let(auth::renew)
-            }
-            response
+            val request = chain.request()
+            // Frigate's CSRF check only needs the header to be present.
+            chain.proceed(if (request.method != "GET") request.newBuilder().header("X-CSRF-TOKEN", "1").build() else request)
         }
+    // OkHttp asks the cookie jar on each hop of a redirect, WebSockets included, so the token goes only where it belongs.
+    if (auth != null) builder.cookieJar(TokenCookieJar(auth))
     if (pin != null) builder.trustOnly(pin)
     return builder.build()
+}
+
+/** Gives [auth]'s cookie only to its server, and takes a renewed token only from it. */
+private class TokenCookieJar(private val auth: AuthToken) : CookieJar {
+    override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        val token = auth.current
+        if (token.isEmpty() || !auth.belongsTo(url)) return emptyList()
+        return listOf(Cookie.Builder().name(auth.cookieName).value(token).hostOnlyDomain(url.host).build())
+    }
+
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        if (!auth.belongsTo(url)) return
+        cookies.firstNotNullOfOrNull { cookieValue("${it.name}=${it.value}", auth.cookieName) }?.let(auth::renew)
+    }
 }
 
 /** How often an open WebSocket is pinged; one unanswered ping closes it as failed. */
