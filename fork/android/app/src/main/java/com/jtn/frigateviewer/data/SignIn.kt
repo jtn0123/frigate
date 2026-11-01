@@ -1,6 +1,6 @@
 package com.jtn.frigateviewer.data
 
-import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** What signing in came to. Failures are thrown: [AuthException] for a refused login. */
 sealed interface SignInResult {
@@ -36,7 +36,7 @@ class SignIn(private val certificateOf: suspend (baseUrl: String) -> String = Fr
     ): SignInResult {
         val base = FrigateApi.normalizeBaseUrl(url)
         // The parsed scheme, not the text, so no spelling of it skips a check.
-        val parsed = base.toHttpUrl()
+        val parsed = base.toHttpUrlOrNull() ?: throw InvalidAddressException()
         val host = parsed.host
         if (!parsed.isHttps && user.isNotBlank() && !isPrivateHost(host)) throw InsecureLoginException(host)
         var pin = ""

@@ -36,7 +36,7 @@ class AuthException(message: String) : IOException(message)
  * not an [AuthException]: Frigate sends it when this account may not see a
  * camera or do something, while the session itself stays good.
  */
-class HttpException(val code: Int, message: String) : IOException(message)
+class HttpException(val code: Int, message: String, val path: String? = null) : IOException(message)
 
 /** The JWT from a login and the name of the cookie Frigate delivered it in (`auth.cookie_name`). */
 data class LoginToken(val cookieName: String, val token: String)
@@ -133,7 +133,11 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
                 when {
                     response.code == HTTP_UNAUTHORIZED -> throw AuthException("Not authorized (HTTP ${response.code})")
                     response.code == HTTP_FORBIDDEN -> throw HttpException(response.code, NOT_ALLOWED)
-                    !response.isSuccessful -> throw HttpException(response.code, "HTTP ${response.code} for ${request.url.encodedPath}")
+                    !response.isSuccessful -> throw HttpException(
+                        response.code,
+                        "HTTP ${response.code} for ${request.url.encodedPath}",
+                        request.url.encodedPath,
+                    )
                     else -> read(response)
                 }
             }

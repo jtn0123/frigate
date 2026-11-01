@@ -13,6 +13,7 @@ import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.InsecureLoginException
 import com.jtn.frigateviewer.data.MediaFiles
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.Session
@@ -21,6 +22,7 @@ import com.jtn.frigateviewer.data.Severity
 import com.jtn.frigateviewer.data.SignIn
 import com.jtn.frigateviewer.data.SignInResult
 import com.jtn.frigateviewer.data.allowedCameras
+import com.jtn.frigateviewer.data.map
 import com.jtn.frigateviewer.data.review
 import com.jtn.frigateviewer.tunnel.RemoteAccess
 import java.io.IOException

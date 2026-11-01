@@ -5,9 +5,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.jtn.frigateviewer.data.FrigateApi
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.Severity
+import com.jtn.frigateviewer.data.map
 import com.jtn.frigateviewer.data.markReviewed
 import com.jtn.frigateviewer.data.reviews
 import kotlinx.coroutines.CoroutineScope

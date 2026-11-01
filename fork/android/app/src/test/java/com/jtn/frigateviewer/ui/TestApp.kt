@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.SavedStateHandle
 import com.jtn.frigateviewer.data.MediaFiles
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerSettings
 import java.io.File
 import java.time.Duration

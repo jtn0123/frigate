@@ -140,6 +140,14 @@ class SignInTest {
     }
 
     @Test
+    fun anAddressThatCannotBeParsedIsReportedAsOne() = runTest {
+        val failure = runCatching {
+            signIn.signIn(ServerSettings(), "http://nvr:port", "", "", selfSignedCert = false)
+        }.exceptionOrNull()
+        assertTrue("Expected InvalidAddressException, got $failure", failure is InvalidAddressException)
+    }
+
+    @Test
     fun aCapitalizedSchemeIsStillPlainHttp() = runTest {
         val failure = runCatching {
             signIn.signIn(ServerSettings(), "Http://203.0.113.5:5000", "admin", "secret", selfSignedCert = false)
