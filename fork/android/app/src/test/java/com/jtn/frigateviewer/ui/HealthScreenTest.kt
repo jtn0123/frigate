@@ -81,10 +81,10 @@ class HealthScreenTest {
 
     @Test
     fun uptimeAndSizesReadNaturally() {
-        assertEquals("8m", formatUptime(500))
-        assertEquals("5h 12m", formatUptime(5 * 3600 + 12 * 60))
-        assertEquals("512 MB", size(512.0))
-        assertEquals("3.5 GB", size(3.5 * 1024))
+        assertEquals("8m", formatUptime(500).english())
+        assertEquals("5h 12m", formatUptime(5 * 3600 + 12 * 60).english())
+        assertEquals("512 MB", size(512.0).english())
+        assertEquals("3.5 GB", size(3.5 * 1024).english())
     }
 
     @Test

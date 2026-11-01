@@ -25,10 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.jtn.frigateviewer.R
 
 /*
  * Grey shapes where the first load's content will be, laid out like it, so
@@ -86,8 +88,9 @@ private fun Skeleton(content: @Composable () -> Unit) {
         animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
         label = "pulse",
     )
+    val loading = stringResource(R.string.cam_loading)
     // Laid out at full height and cut off at the bottom, never squeezed into a short screen.
-    Box(Modifier.fillMaxSize().clipToBounds().alpha(pulse).clearAndSetSemantics { contentDescription = "Loading" }) {
+    Box(Modifier.fillMaxSize().clipToBounds().alpha(pulse).clearAndSetSemantics { contentDescription = loading }) {
         Box(Modifier.wrapContentHeight(Alignment.Top, unbounded = true)) { content() }
     }
 }

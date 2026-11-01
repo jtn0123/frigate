@@ -1,7 +1,9 @@
 package com.jtn.frigateviewer.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import com.jtn.frigateviewer.R
 
 /** One theme's colors, by the role each plays in the app. */
 data class ThemeColors(
@@ -32,10 +34,10 @@ data class ThemeColors(
  * Each maps canvas to the sheet, raised surface to cards, row hover to the
  * header band, and its update colors to selected filters.
  */
-enum class AppTheme(val id: String, val label: String, val colors: ThemeColors) {
+enum class AppTheme(val id: String, @param:StringRes val label: Int, val colors: ThemeColors) {
     T3_CODE(
         "t3-code",
-        "T3 Code",
+        R.string.set_theme_t3_code,
         ThemeColors(
             background = Color(0xFF0A0A0A),
             surface = Color(0xFF111111),
@@ -55,7 +57,7 @@ enum class AppTheme(val id: String, val label: String, val colors: ThemeColors) 
     ),
     T3_CHAT(
         "t3-chat",
-        "T3 Chat",
+        R.string.set_theme_t3_chat,
         ThemeColors(
             background = Color(0xFF1F1A24),
             surface = Color(0xFF2C2631),
@@ -75,7 +77,7 @@ enum class AppTheme(val id: String, val label: String, val colors: ThemeColors) 
     ),
     GROVE(
         "grove",
-        "Grove",
+        R.string.set_theme_grove,
         ThemeColors(
             background = Color(0xFF1B2821),
             surface = Color(0xFF26332C),
@@ -94,7 +96,7 @@ enum class AppTheme(val id: String, val label: String, val colors: ThemeColors) 
     ),
     OCEAN(
         "ocean",
-        "Ocean",
+        R.string.set_theme_ocean,
         ThemeColors(
             background = Color(0xFF17212B),
             surface = Color(0xFF222D38),
@@ -113,7 +115,7 @@ enum class AppTheme(val id: String, val label: String, val colors: ThemeColors) 
     ),
     EMBER(
         "ember",
-        "Ember",
+        R.string.set_theme_ember,
         ThemeColors(
             background = Color(0xFF291E1A),
             surface = Color(0xFF352925),
@@ -132,7 +134,7 @@ enum class AppTheme(val id: String, val label: String, val colors: ThemeColors) 
     ),
     IRIS(
         "iris",
-        "Iris",
+        R.string.set_theme_iris,
         ThemeColors(
             background = Color(0xFF1D1929),
             surface = Color(0xFF292434),

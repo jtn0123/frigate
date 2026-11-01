@@ -117,7 +117,7 @@ class FailureStatesTest {
         val playback = VodPlayback(player)
         compose.setContent { VodVideo(playback) }
 
-        compose.runOnIdle { playback.error = "The server could not send this recording." }
+        compose.runOnIdle { playback.error = UiText.Plain("The server could not send this recording.") }
         compose.onNodeWithText("The server could not send this recording.").assertExists()
         compose.onNodeWithText("Retry").performClick()
 
@@ -134,14 +134,14 @@ class FailureStatesTest {
 
     @Test
     fun playbackErrorsAreWordedForPeople() {
-        assertEquals("This recording is not on the server.", playbackError(httpError(404)))
-        assertEquals("The server refused this recording.", playbackError(httpError(403)))
-        assertEquals("The server could not send this recording.", playbackError(httpError(500)))
+        assertEquals("This recording is not on the server.", playbackError(httpError(404)).english())
+        assertEquals("The server refused this recording.", playbackError(httpError(403)).english())
+        assertEquals("The server could not send this recording.", playbackError(httpError(500)).english())
         assertEquals(
             "Could not connect to the server.",
-            playbackError(PlaybackException("down", IOException(), PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)),
+            playbackError(PlaybackException("down", IOException(), PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)).english(),
         )
-        val decoding = playbackError(PlaybackException("bad", null, PlaybackException.ERROR_CODE_DECODING_FAILED))
+        val decoding = playbackError(PlaybackException("bad", null, PlaybackException.ERROR_CODE_DECODING_FAILED)).english()
         assertEquals("This recording could not be played.", decoding)
         assertFalse("No raw error code names", "ERROR_CODE" in decoding)
     }

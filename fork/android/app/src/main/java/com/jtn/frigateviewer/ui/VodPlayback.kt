@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -44,7 +45,7 @@ import kotlinx.coroutines.delay
 
 /** A recording's player, and why it could not play when it could not. */
 internal class VodPlayback(val player: ExoPlayer) {
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf<UiText?>(null)
 
     /** Tries again from where it stopped. */
     fun retry() {
@@ -56,17 +57,17 @@ internal class VodPlayback(val player: ExoPlayer) {
 
 /** Why a recording could not play, in plain words rather than ExoPlayer's error code. */
 @OptIn(UnstableApi::class)
-internal fun playbackError(e: PlaybackException): String {
+internal fun playbackError(e: PlaybackException): UiText {
     val status = (e.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
     return when {
-        status == HTTP_NOT_FOUND -> "This recording is not on the server."
-        status == HTTP_UNAUTHORIZED || status == HTTP_FORBIDDEN -> "The server refused this recording."
+        status == HTTP_NOT_FOUND -> uiText(R.string.cam_vod_not_found)
+        status == HTTP_UNAUTHORIZED || status == HTTP_FORBIDDEN -> uiText(R.string.cam_vod_refused)
         status != null || e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
-            "The server could not send this recording."
+            uiText(R.string.cam_vod_server_error)
         e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
             e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||
-            e.errorCode == PlaybackException.ERROR_CODE_TIMEOUT -> "Could not connect to the server."
-        else -> "This recording could not be played."
+            e.errorCode == PlaybackException.ERROR_CODE_TIMEOUT -> uiText(R.string.cam_vod_offline)
+        else -> uiText(R.string.cam_vod_failed)
     }
 }
 
@@ -135,8 +136,8 @@ internal fun VodVideo(playback: VodPlayback, modifier: Modifier = Modifier) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(it, color = Palette.Alert, textAlign = TextAlign.Center)
-                OutlinedButton(onClick = playback::retry) { Text("Retry") }
+                Text(it.resolve(), color = Palette.Alert, textAlign = TextAlign.Center)
+                OutlinedButton(onClick = playback::retry) { Text(stringResource(R.string.retry)) }
             }
         }
     }

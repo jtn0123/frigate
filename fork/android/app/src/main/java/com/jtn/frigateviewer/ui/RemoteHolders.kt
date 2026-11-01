@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
  */
 class Polled<T>(
     private val scope: CoroutineScope,
-    private val onSessionLost: (String?) -> Unit,
+    private val onSessionLost: (UiText?) -> Unit,
     private val load: suspend (FrigateApi) -> T,
 ) {
     var value by mutableStateOf<Remote<T>>(Remote.Loading)
@@ -68,7 +68,7 @@ class Polled<T>(
  */
 class RemoteCache<K, T>(
     private val scope: CoroutineScope,
-    private val onSessionLost: (String?) -> Unit,
+    private val onSessionLost: (UiText?) -> Unit,
     private val capacity: Int = DEFAULT_CAPACITY,
     private val fetch: suspend (FrigateApi, K) -> T,
 ) {

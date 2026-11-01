@@ -8,6 +8,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.AuthException
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.InsecureLoginException
@@ -146,7 +147,7 @@ class AppViewModel(
     var serverVersion by mutableStateOf<Remote<String>>(Remote.Loading)
         private set
 
-    var loginError by mutableStateOf<String?>(null)
+    var loginError by mutableStateOf<UiText?>(null)
         private set
     var loggingIn by mutableStateOf(false)
         private set
@@ -207,12 +208,12 @@ class AppViewModel(
                 }
             } catch (_: AuthException) {
                 loginError = if (user.isBlank()) {
-                    "This server requires a login. Use port 8971 with a username."
+                    uiText(R.string.login_needs_user)
                 } else {
-                    "Wrong username or password"
+                    uiText(R.string.login_wrong_password)
                 }
             } catch (e: InsecureLoginException) {
-                loginError = e.message
+                loginError = uiText(R.string.login_insecure_http, e.host)
             } catch (e: IOException) {
                 loginError = describeError(e)
             } catch (e: IllegalArgumentException) {
@@ -440,7 +441,7 @@ class AppViewModel(
     private suspend fun <T> load(block: suspend () -> T): Remote<T> = loadRemote(::sessionLost, block)
 
     /** The server stopped accepting this session; sign in again, showing [reason] if there is one. */
-    private fun sessionLost(reason: String?) {
+    private fun sessionLost(reason: UiText?) {
         // The server already refuses the token, or its certificate changed; nothing to revoke.
         endSession()
         loginError = reason

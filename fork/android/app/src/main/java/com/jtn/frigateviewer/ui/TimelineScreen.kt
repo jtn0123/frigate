@@ -35,6 +35,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.MotionBucket
 import com.jtn.frigateviewer.data.Remote
@@ -107,7 +110,7 @@ fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Lo
             onRelease = play,
         )
         if (motion is Remote.Failed) {
-            RetryLine("Motion unavailable") { vm.motion.retry(session.api, range) }
+            RetryLine(stringResource(R.string.rev_motion_unavailable)) { vm.motion.retry(session.api, range) }
         }
         DayOverview(from, end, position, sorted, onPick = play)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -115,12 +118,12 @@ fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Lo
                 previousReview(sorted, at.longValue)?.let { play(it.startTime.toLong() - EVENT_LEAD_SECONDS) }
             }, enabled = hasPrevious, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Outlined.SkipPrevious, contentDescription = null)
-                Text("Earlier event")
+                Text(stringResource(R.string.rev_earlier_event))
             }
             FilledTonalButton(onClick = {
                 nextReview(sorted, at.longValue)?.let { play(it.startTime.toLong() - EVENT_LEAD_SECONDS) }
             }, enabled = hasNext, modifier = Modifier.weight(1f)) {
-                Text("Later event")
+                Text(stringResource(R.string.rev_later_event))
                 Icon(Icons.Outlined.SkipNext, contentDescription = null)
             }
         }
@@ -133,7 +136,7 @@ private fun PlayheadClock(at: () -> Long) {
     val time = at().toDouble()
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(formatClock(time), style = MaterialTheme.typography.headlineSmall.merge(Tabular))
-        Text(dayLabel(time), style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
+        Text(dayLabel(time).resolve(), style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
     }
 }
 
@@ -171,6 +174,7 @@ private fun TimelineStrip(
     onScrub: (Long) -> Unit,
     onRelease: (Long) -> Unit,
 ) {
+    val res = LocalResources.current
     var dragged by remember { mutableStateOf<Double?>(null) }
     val measurer = rememberTextMeasurer()
     val colors = TimelineColors(
@@ -204,22 +208,22 @@ private fun TimelineStrip(
             }
             .semantics {
                 val now = at()
-                contentDescription = "Timeline"
-                stateDescription = "At ${formatClock(now.toDouble())}, ${dayLabel(now.toDouble())}"
+                contentDescription = res.getString(R.string.rev_timeline)
+                stateDescription = res.getString(R.string.timeline_at, formatClock(now.toDouble()), dayLabel(now.toDouble()).resolve(res))
                 customActions = listOf(
-                    CustomAccessibilityAction("Back 5 minutes") {
+                    CustomAccessibilityAction(res.getString(R.string.rev_back_5_minutes)) {
                         onRelease(at() - FIVE_MINUTES)
                         true
                     },
-                    CustomAccessibilityAction("Forward 5 minutes") {
+                    CustomAccessibilityAction(res.getString(R.string.rev_forward_5_minutes)) {
                         onRelease(at() + FIVE_MINUTES)
                         true
                     },
-                    CustomAccessibilityAction("Back 1 hour") {
+                    CustomAccessibilityAction(res.getString(R.string.rev_back_1_hour)) {
                         onRelease(at() - HOUR_SECONDS)
                         true
                     },
-                    CustomAccessibilityAction("Forward 1 hour") {
+                    CustomAccessibilityAction(res.getString(R.string.rev_forward_1_hour)) {
                         onRelease(at() + HOUR_SECONDS)
                         true
                     },
@@ -292,6 +296,7 @@ private fun DayOverview(from: Long, to: Long, at: () -> Long, reviews: List<Revi
     val alert = Palette.Alert
     val detection = Palette.Detection
     val window = Palette.AccentText
+    val description = stringResource(R.string.rev_last_24_hours)
     Canvas(
         Modifier
             .fillMaxWidth()
@@ -301,7 +306,7 @@ private fun DayOverview(from: Long, to: Long, at: () -> Long, reviews: List<Revi
             .pointerInput(from, to) {
                 detectTapGestures { offset -> onPick(from + ((offset.x / size.width) * (to - from)).toLong()) }
             }
-            .semantics { contentDescription = "Last 24 hours" },
+            .semantics { contentDescription = description },
     ) {
         val span = (to - from).toFloat()
         fun x(time: Double) = ((time - from) / span * size.width).toFloat()

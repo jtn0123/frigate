@@ -73,7 +73,7 @@ class SnapshotsTest {
         now += 7_000
         advanceTimeBy(5_000)
         assertEquals(12_000L, snapshots["yard"].staleMs)
-        assertEquals("Offline, 12s", offlineLabel(12_000))
+        assertEquals("Offline, 12s", offlineLabel(12_000).english())
 
         down.set(false)
         now += 5_000
@@ -95,9 +95,9 @@ class SnapshotsTest {
 
     @Test
     fun offlineAgesReadShortly() {
-        assertEquals("Offline, 2m", offlineLabel(150_000))
-        assertEquals("Offline, 3h", offlineLabel(3 * 3_600_000L + 5))
-        assertEquals("Offline, 2d", offlineLabel(2 * 86_400_000L))
+        assertEquals("Offline, 2m", offlineLabel(150_000).english())
+        assertEquals("Offline, 3h", offlineLabel(3 * 3_600_000L + 5).english())
+        assertEquals("Offline, 2d", offlineLabel(2 * 86_400_000L).english())
     }
 
     @Test

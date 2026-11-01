@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings (ui/SettingsScreen.kt). -->
+    <string name="set_title">Settings</string>
+    <string name="set_change_server">Change server</string>
+    <string name="set_sign_out">Sign out</string>
+    <string name="set_change_server_confirm">Change server?</string>
+    <string name="set_sign_out_confirm">Sign out?</string>
+    <string name="set_sign_out_detail">Open screens close, and you sign in again to see your cameras.</string>
+    <string name="set_group_server">Server</string>
+    <string name="set_group_remote_access">Remote access</string>
+    <string name="set_group_review">Review</string>
+    <string name="set_group_security">Security</string>
+    <string name="set_group_appearance">Appearance</string>
+    <string name="set_group_about">About</string>
+    <string name="set_address">Address</string>
+    <string name="set_signed_in_as">Signed in as</string>
+    <string name="set_no_login">No login (unauthenticated port)</string>
+    <string name="set_frigate_version">Frigate version</string>
+    <string name="set_server_health">Server health</string>
+    <string name="set_server_health_detail">Uptime, load, detectors and cameras</string>
+    <string name="set_trusted_certificate">Trusted certificate</string>
+    <string name="set_certificate_detail">The server\'s certificate must match this SHA-256 fingerprint, or the app signs out.</string>
+    <string name="set_done">Done</string>
+    <string name="set_track_reviews">Track what to review</string>
+    <string name="set_track_reviews_detail">Counts, badges and Mark reviewed. Turn off to just browse.</string>
+    <string name="set_mark_on_open">Mark reviewed when opened</string>
+    <string name="set_mark_on_open_detail">Opening an alert or detection marks it reviewed on your server, like the web UI.</string>
+    <string name="set_app_version">App version</string>
+    <string name="set_live_video">Live video</string>
+    <string name="set_live_video_detail">go2rtc over Frigate\'s MSE stream, with snapshots as a fallback</string>
+    <string name="set_require_unlock">Require unlock</string>
+    <string name="set_require_unlock_detail">Ask for your fingerprint or screen lock when opening Frigate.</string>
+    <string name="set_require_unlock_unavailable">Set a screen lock in Android\'s settings to use this.</string>
+    <!-- What tapping a settings row does, for TalkBack; %1$s is the row's label: "Show Tunnel log". -->
+    <string name="set_show_row">Show %1$s</string>
+
+    <!-- Remote access (ui/RemoteAccessSettings.kt). -->
+    <string name="set_wg_set_up">Set up WireGuard</string>
+    <string name="set_wg_set_up_detail">Import the .conf file from your WireGuard VPN server, such as a UniFi gateway\'s, to watch away from home.</string>
+    <string name="set_wg_choose_file">Choose the WireGuard file</string>
+    <string name="set_wg_use_away">Use away from home</string>
+    <string name="set_wg_allow_vpn">Allow the VPN connection</string>
+    <string name="set_wg_allow_vpn_detail">Android asks once before the app can use its tunnel.</string>
+    <string name="set_wg_use_app_tunnel">Use the app\'s tunnel instead</string>
+    <string name="set_wg_use_app_tunnel_detail">Android runs one VPN at a time, so this turns the other VPN off.</string>
+    <string name="set_wg_start_tunnel">Start the tunnel</string>
+    <string name="set_wg_start_tunnel_detail">It was turned off outside the app, so the app does not start it again by itself.</string>
+    <string name="set_wg_tunnel_file">Tunnel file</string>
+    <string name="set_wg_imported">Imported</string>
+    <!-- %1$s is the server the tunnel dials, such as "vpn.example.com:51820". -->
+    <string name="set_wg_server">Server %1$s</string>
+    <!-- %1$s is the file's name and %2$s its server: "home · Server vpn.example.com:51820". -->
+    <string name="set_wg_file_and_server">%1$s · %2$s</string>
+    <string name="set_wg_replace_or_remove">Replace or remove the tunnel file</string>
+    <string name="set_wg_tunnel_log">Tunnel log</string>
+    <string name="set_wg_tunnel_log_detail">What the tunnel did, to copy or share</string>
+    <string name="set_wg_manage_detail">Only this app\'s connections go through the tunnel. Replace it with a new file, or remove it.</string>
+    <string name="set_wg_replace">Replace</string>
+    <string name="set_wg_remove">Remove</string>
+    <string name="set_wg_remove_confirm">Remove the tunnel file?</string>
+    <string name="set_wg_remove_detail">This deletes its private key from the phone. To use the tunnel again, import the file again.</string>
+    <string name="set_wg_unreadable">Could not read that file.</string>
+    <string name="set_wg_too_big">That file is too big to be a WireGuard file, which is a few hundred bytes. Pick the .conf file.</string>
+
+    <!-- What to check when the VPN server never answers (ui/RemoteAccessSettings.kt). -->
+    <string name="set_check_no_server">• The file names no server to connect to. Export it again.</string>
+    <string name="set_check_title">Things to check:</string>
+    <string name="set_check_client">• This phone\'s client is on the VPN server: saved (on UniFi, Apply Changes) before the file was downloaded, and not deleted or re-created since. The server ignores a key it does not know without a word, so a re-created client needs its new file.</string>
+    <string name="set_check_server_on">• The VPN server is on, and not paused or turned off on the gateway.</string>
+    <!-- %1$s is what kind of address the server is, such as "a public address". -->
+    <string name="set_check_server_kind">• The file\'s server is %1$s.</string>
+    <!-- %1$s is what kind of address the server is, such as "a private address". -->
+    <string name="set_check_server_unreachable">• The file\'s server is %1$s. The internet cannot reach it, so export the file with your public address.</string>
+    <!-- %1$d is the server's UDP port. -->
+    <string name="set_check_udp">• UDP port %1$d is open to the internet. Some mobile networks block UDP: try another Wi-Fi too.</string>
+    <string name="set_check_official_app">• The official WireGuard app connects with the same file. If it does not either, the cause is the server.</string>
+
+    <!-- How the tunnel stands (ui/RemoteAccessSettings.kt). -->
+    <string name="set_status_off">Off. The app only connects directly.</string>
+    <string name="set_status_needs_permission">Waiting for Android to allow the VPN connection.</string>
+    <string name="set_status_checking">Checking whether the server answers directly…</string>
+    <string name="set_status_home">The server answers directly, so the tunnel is off.</string>
+    <string name="set_status_other_vpn">The server answers through another VPN, so the tunnel is off.</string>
+    <string name="set_status_other_vpn_in_the_way">Another VPN is on but does not reach the server. The app\'s tunnel would turn it off, so it waits for you.</string>
+    <string name="set_status_stopped_outside">The tunnel was turned off outside the app, so it stays off for now.</string>
+    <string name="set_status_no_network">No network. It connects when there is one.</string>
+    <string name="set_status_connecting">Away from home. Connecting…</string>
+    <string name="set_status_connected">Away from home, connected through the tunnel.</string>
+    <!-- %1$s is why the tunnel failed, as the tunnel reported it. -->
+    <string name="set_status_failed">Not connected. %1$s</string>
+
+    <!-- The tunnel log (ui/TunnelLogScreen.kt). -->
+    <string name="set_log_copy">Copy report</string>
+    <string name="set_log_share">Share report</string>
+    <string name="set_log_clear">Clear log</string>
+    <string name="set_log_cleared">Log cleared</string>
+    <string name="set_log_undo">Undo</string>
+    <string name="set_log_empty">Nothing yet. Open the app away from home, or change networks, and what the tunnel does shows here.</string>
+    <string name="set_log_report_title">Frigate tunnel report</string>
+
+    <!-- Signing in (ui/LoginScreen.kt). -->
+    <string name="set_login_intro">Connect to your Frigate server. Use port 8971 with your Frigate login, or port 5000 without one.</string>
+    <string name="set_login_group">Login</string>
+    <string name="set_login_address">Server address</string>
+    <string name="set_login_self_signed">Self-signed certificate</string>
+    <string name="set_login_self_signed_detail">For Frigate\'s built-in HTTPS on port 8971. You confirm the certificate once, and after that only that certificate is trusted.</string>
+    <string name="set_login_username">Username (optional)</string>
+    <string name="set_login_password">Password</string>
+    <string name="set_login_connect">Connect</string>
+    <string name="set_cert_changed">Certificate changed</string>
+    <string name="set_cert_trust_title">Trust this certificate?</string>
+    <string name="set_cert_changed_detail">This server now presents a different certificate from the one you trusted. Continue only if you replaced it, for example by reinstalling Frigate.</string>
+    <string name="set_cert_trust_detail">The server uses a self-signed certificate. Check that this SHA-256 fingerprint matches the one your browser shows for the server.</string>
+    <string name="set_cert_trust">Trust</string>
+
+    <!-- Server health (ui/HealthScreen.kt). -->
+    <string name="set_health_uptime">Uptime</string>
+    <string name="set_health_cpu">CPU</string>
+    <string name="set_health_memory">Memory</string>
+    <!-- %1$s is Frigate's version. -->
+    <string name="set_health_version">Frigate %1$s</string>
+    <!-- %1$s is Frigate's version and %2$s the newer release: "Frigate 0.17.0 · 0.17.1 available". -->
+    <string name="set_health_version_update">Frigate %1$s · %2$s available</string>
+    <string name="set_health_detection">Detection</string>
+    <string name="set_health_cameras">Cameras</string>
+    <string name="set_health_storage">Storage</string>
+    <!-- %1$s is a detector's time per frame in milliseconds, such as "8.4". -->
+    <string name="set_health_inference">%1$s ms per frame</string>
+    <string name="set_health_no_figure">No figure yet</string>
+    <!-- %1$s is how busy the GPU is, such as "24%". -->
+    <string name="set_health_gpu">GPU %1$s</string>
+    <!-- %1$s is the GPU's usage and %2$s its memory use: "GPU 24% · memory 40%". -->
+    <string name="set_health_gpu_memory">GPU %1$s · memory %2$s</string>
+    <string name="set_health_no_frames">No frames coming in</string>
+    <!-- %1$s is frames per second coming in and %2$s those processed: "5.1 fps in · 5 processed". -->
+    <string name="set_health_fps">%1$s fps in · %2$s processed</string>
+    <!-- Appended to the frame rates; %1$s is frames per second skipped. -->
+    <string name="set_health_skipped">" · %1$s skipped"</string>
+    <!-- Appended to the frame rates. -->
+    <string name="set_health_detection_off">" · detection off"</string>
+    <!-- %1$s is the space used and %2$s the disk's size: "924 GB of 1 TB". -->
+    <string name="set_health_used_of">%1$s of %2$s</string>
+    <!-- Uptime: %1$d days and %2$d hours, "3d 4h". -->
+    <string name="set_uptime_days">%1$dd %2$dh</string>
+    <!-- Uptime: %1$d hours and %2$d minutes, "5h 12m". -->
+    <string name="set_uptime_hours">%1$dh %2$dm</string>
+    <!-- Uptime: %1$d minutes, "8m". -->
+    <string name="set_uptime_minutes">%1$dm</string>
+    <!-- Sizes: %1$s is a number such as "3.4" or "512". -->
+    <string name="set_size_tb">%1$s TB</string>
+    <string name="set_size_gb">%1$s GB</string>
+    <string name="set_size_mb">%1$s MB</string>
+    <!-- %1$d is a whole percentage. -->
+    <string name="set_percent">%1$d%%</string>
+
+    <!-- Theme names (ui/Themes.kt). -->
+    <string name="set_theme_t3_code">T3 Code</string>
+    <string name="set_theme_t3_chat">T3 Chat</string>
+    <string name="set_theme_grove">Grove</string>
+    <string name="set_theme_ocean">Ocean</string>
+    <string name="set_theme_ember">Ember</string>
+    <string name="set_theme_iris">Iris</string>
+    <!-- Shown for a figure Frigate did not give: a long dash. -->
+    <string name="set_no_figure">\u2014</string>
+</resources>

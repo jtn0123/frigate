@@ -41,10 +41,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.BuildConfig
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 
@@ -53,63 +55,74 @@ fun SettingsScreen(vm: AppViewModel, session: Session) {
     val settings = session.settings
     var showCertificate by rememberSaveable { mutableStateOf(false) }
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
-    val signOut = if (settings.username.isEmpty()) "Change server" else "Sign out"
+    val changesServer = settings.username.isEmpty()
+    val signOut = stringResource(if (changesServer) R.string.set_change_server else R.string.set_sign_out)
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader(title = "Settings", subtitle = null)
+        ScreenHeader(title = stringResource(R.string.set_title), subtitle = null)
         TabSheet {
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                Group("Server") {
-                    Info(Icons.Outlined.Link, "Address", settings.baseUrl.trimEnd('/'))
-                    Info(Icons.Outlined.Person, "Signed in as", settings.username.ifEmpty { "No login (unauthenticated port)" })
-                    Info(Icons.Outlined.Storage, "Frigate version", versionText(vm.serverVersion))
+                Group(stringResource(R.string.set_group_server)) {
+                    Info(Icons.Outlined.Link, stringResource(R.string.set_address), settings.baseUrl.trimEnd('/'))
+                    Info(
+                        Icons.Outlined.Person,
+                        stringResource(R.string.set_signed_in_as),
+                        settings.username.ifEmpty { stringResource(R.string.set_no_login) },
+                    )
+                    Info(Icons.Outlined.Storage, stringResource(R.string.set_frigate_version), versionText(vm.serverVersion).resolve())
                     Info(
                         Icons.Outlined.MonitorHeart,
-                        "Server health",
-                        "Uptime, load, detectors and cameras",
+                        stringResource(R.string.set_server_health),
+                        stringResource(R.string.set_server_health_detail),
                         onClick = { vm.nav.push(Overlay.Health) },
                     )
                     if (settings.certificatePin.isNotEmpty()) {
                         Info(
                             Icons.Outlined.Verified,
-                            "Trusted certificate",
+                            stringResource(R.string.set_trusted_certificate),
                             shortFingerprint(settings.certificatePin),
                             onClick = { showCertificate = true },
                         )
                     }
                 }
                 vm.remoteAccess?.let { remote ->
-                    Group("Remote access") { RemoteAccessSettings(remote, onShowLog = { vm.nav.push(Overlay.TunnelLog) }) }
+                    Group(stringResource(R.string.set_group_remote_access)) {
+                        RemoteAccessSettings(remote, onShowLog = { vm.nav.push(Overlay.TunnelLog) })
+                    }
                 }
-                Group("Review") {
+                Group(stringResource(R.string.set_group_review)) {
                     Toggle(
-                        title = "Track what to review",
-                        description = "Counts, badges and Mark reviewed. Turn off to just browse.",
+                        title = stringResource(R.string.set_track_reviews),
+                        description = stringResource(R.string.set_track_reviews_detail),
                         checked = settings.trackReviews,
                         onChange = vm::setTrackReviews,
                         icon = Icons.AutoMirrored.Outlined.PlaylistAddCheck,
                     )
                     if (settings.trackReviews) {
                         Toggle(
-                            title = "Mark reviewed when opened",
-                            description = "Opening an alert or detection marks it reviewed on your server, like the web UI.",
+                            title = stringResource(R.string.set_mark_on_open),
+                            description = stringResource(R.string.set_mark_on_open_detail),
                             checked = settings.markReviewedOnOpen,
                             onChange = vm::setMarkReviewedOnOpen,
                             icon = Icons.Outlined.DoneAll,
                         )
                     }
                 }
-                Group("Security") {
+                Group(stringResource(R.string.set_group_security)) {
                     AppLockToggle(vm)
                 }
-                Group("Appearance") {
+                Group(stringResource(R.string.set_group_appearance)) {
                     ThemePicker(selected = vm.theme, onSelect = vm::setTheme)
                 }
-                Group("About") {
-                    Info(Icons.Outlined.Info, "App version", BuildConfig.VERSION_NAME)
-                    Info(Icons.Outlined.Videocam, "Live video", "go2rtc over Frigate's MSE stream, with snapshots as a fallback")
+                Group(stringResource(R.string.set_group_about)) {
+                    Info(Icons.Outlined.Info, stringResource(R.string.set_app_version), BuildConfig.VERSION_NAME)
+                    Info(
+                        Icons.Outlined.Videocam,
+                        stringResource(R.string.set_live_video),
+                        stringResource(R.string.set_live_video_detail),
+                    )
                 }
                 Group(title = null) {
                     Row(
@@ -136,15 +149,17 @@ fun SettingsScreen(vm: AppViewModel, session: Session) {
     if (confirmSignOut) {
         AlertDialog(
             onDismissRequest = { confirmSignOut = false },
-            title = { Text("$signOut?") },
-            text = { Text("Open screens close, and you sign in again to see your cameras.") },
+            title = {
+                Text(stringResource(if (changesServer) R.string.set_change_server_confirm else R.string.set_sign_out_confirm))
+            },
+            text = { Text(stringResource(R.string.set_sign_out_detail)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmSignOut = false
                     vm.logout()
                 }) { Text(signOut, color = Palette.Alert) }
             },
-            dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -152,22 +167,22 @@ fun SettingsScreen(vm: AppViewModel, session: Session) {
         AlertDialog(
             onDismissRequest = { showCertificate = false },
             icon = { Icon(Icons.Outlined.Verified, contentDescription = null) },
-            title = { Text("Trusted certificate") },
+            title = { Text(stringResource(R.string.set_trusted_certificate)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("The server's certificate must match this SHA-256 fingerprint, or the app signs out.")
+                    Text(stringResource(R.string.set_certificate_detail))
                     Text(settings.certificatePin, style = MonoSmall, color = Palette.TextPrimary)
                 }
             },
-            confirmButton = { TextButton(onClick = { showCertificate = false }) { Text("Done") } },
+            confirmButton = { TextButton(onClick = { showCertificate = false }) { Text(stringResource(R.string.set_done)) } },
         )
     }
 }
 
-internal fun versionText(version: Remote<String>): String = when (version) {
-    Remote.Loading -> "Checking…"
-    is Remote.Ready -> version.value
-    is Remote.Failed -> "Unknown: ${version.message}"
+internal fun versionText(version: Remote<String>): UiText = when (version) {
+    Remote.Loading -> uiText(R.string.settings_version_checking)
+    is Remote.Ready -> UiText.Plain(version.value)
+    is Remote.Failed -> uiText(R.string.settings_version_unknown, version.text)
 }
 
 /** The first and last three bytes, enough to recognize a fingerprint at a glance. */
@@ -205,12 +220,13 @@ internal fun Info(
     value: String,
     onClick: (() -> Unit)? = null,
     /** What a tap does, for TalkBack ("Double tap to …"); "Show [label]" unless the row is an action. */
-    actionLabel: String = "Show $label",
+    actionLabel: String? = null,
 ) {
+    val clickLabel = actionLabel ?: stringResource(R.string.set_show_row, label)
     Row(
         Modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClickLabel = actionLabel, onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClickLabel = clickLabel, onClick = onClick) else Modifier)
             .heightIn(min = 72.dp)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -244,11 +260,11 @@ private fun AppLockToggle(vm: AppViewModel) {
     val activity = LocalActivity.current
     val available = activity?.canUnlock() == true
     Toggle(
-        title = "Require unlock",
+        title = stringResource(R.string.set_require_unlock),
         description = if (available || vm.appLock) {
-            "Ask for your fingerprint or screen lock when opening Frigate."
+            stringResource(R.string.set_require_unlock_detail)
         } else {
-            "Set a screen lock in Android's settings to use this."
+            stringResource(R.string.set_require_unlock_unavailable)
         },
         checked = vm.appLock,
         onChange = { on ->

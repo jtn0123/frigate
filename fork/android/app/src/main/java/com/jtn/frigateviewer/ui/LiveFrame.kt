@@ -16,10 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.FrigateApi
 
 /**
@@ -62,14 +64,14 @@ fun LiveFrame(
             )
             snapshot.failed -> Icon(
                 Icons.Default.VideocamOff,
-                contentDescription = "Camera unavailable",
+                contentDescription = stringResource(R.string.cam_unavailable),
                 tint = MaterialTheme.colorScheme.secondary,
             )
             else -> CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp)
         }
         // Only while the picture is meant to be refreshing: under live video it is not.
         snapshot.staleMs?.takeIf { active }?.let { stale ->
-            OverlayTag(offlineLabel(stale), Modifier.align(Alignment.Center), color = Palette.Alert)
+            OverlayTag(offlineLabel(stale).resolve(), Modifier.align(Alignment.Center), color = Palette.Alert)
         }
     }
 }

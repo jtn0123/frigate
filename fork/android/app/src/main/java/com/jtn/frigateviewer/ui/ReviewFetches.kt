@@ -37,7 +37,7 @@ internal class ReviewFetches(
     private val limit: Int,
     private val recentLimit: Int,
     private val clock: () -> Long,
-    private val onSessionLost: (String?) -> Unit,
+    private val onSessionLost: (UiText?) -> Unit,
     private val held: () -> Remote<List<ReviewItem>>,
     private val show: (Remote<List<ReviewItem>>) -> Unit,
 ) {

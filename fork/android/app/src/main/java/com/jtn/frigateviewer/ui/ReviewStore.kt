@@ -5,6 +5,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
@@ -29,7 +30,7 @@ class ReviewStore(
     private val limit: Int = FrigateApi.REVIEW_LIMIT,
     private val clock: () -> Long = System::currentTimeMillis,
     private val recentLimit: Int = RECENT_LIMIT,
-    private val onSessionLost: (String?) -> Unit,
+    private val onSessionLost: (UiText?) -> Unit,
 ) {
     var reviews by mutableStateOf<Remote<List<ReviewItem>>>(Remote.Loading)
         private set
@@ -138,13 +139,12 @@ class ReviewStore(
             val result = loadRemote(onSessionLost) { api.markReviewed(ids.toList(), reviewed) }
             // Only this mark's own entries: an undo sent meanwhile keeps its own.
             if (started == generation) ids.forEach { if (marking[it] == reviewed) marking.remove(it) }
-            val what = if (ids.size == 1) "this item" else "${ids.size} items"
             message = when {
                 result is Remote.Failed -> {
                     reviews = reviews.map { it.withReviewed(ids, !reviewed) }
-                    ReviewNotice("Could not mark $what ${if (reviewed) "reviewed" else "unreviewed"} (${result.message})")
+                    ReviewNotice(markFailed(ids.size, reviewed, result.text))
                 }
-                undoable -> ReviewNotice(if (ids.size == 1) "Marked reviewed" else "Marked $what reviewed", undoIds = ids)
+                undoable -> ReviewNotice(markedReviewed(ids.size), undoIds = ids)
                 else -> message
             }
         }
@@ -162,6 +162,18 @@ class ReviewStore(
         message = null
     }
 }
+
+/** "Could not mark this item reviewed (why)", or "2 items" for more than one. */
+private fun markFailed(count: Int, reviewed: Boolean, why: UiText): UiText = when {
+    count == 1 && reviewed -> uiText(R.string.review_mark_one_failed, why)
+    count == 1 -> uiText(R.string.review_unmark_one_failed, why)
+    reviewed -> uiText(R.string.review_mark_failed, uiPlural(R.plurals.items_count, count), why)
+    else -> uiText(R.string.review_unmark_failed, uiPlural(R.plurals.items_count, count), why)
+}
+
+/** "Marked reviewed" for one item, or "Marked 2 items reviewed". */
+private fun markedReviewed(count: Int): UiText =
+    if (count == 1) uiText(R.string.review_marked_one) else uiText(R.string.review_marked, uiPlural(R.plurals.items_count, count))
 
 private fun List<ReviewItem>.withReviewed(ids: Set<String>, reviewed: Boolean) =
     map { if (it.id in ids) it.copy(reviewed = reviewed) else it }
@@ -184,7 +196,7 @@ data class CameraSummary(val unreviewedAlerts: Int, val latest: ReviewItem?) {
 }
 
 /** Something to tell the user about marking; with [undoIds], an Undo puts those items back. */
-data class ReviewNotice(val text: String, val undoIds: Set<String> = emptySet())
+data class ReviewNotice(val text: UiText, val undoIds: Set<String> = emptySet())
 
 /** The items just older and just newer than [item] in [list], which is newest first. */
 fun adjacentReviews(list: List<ReviewItem>, item: ReviewItem): Pair<ReviewItem?, ReviewItem?> {

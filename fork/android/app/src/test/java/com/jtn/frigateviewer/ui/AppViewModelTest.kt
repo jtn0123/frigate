@@ -2,6 +2,8 @@ package com.jtn.frigateviewer.ui
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.jtn.frigateviewer.R
+import com.jtn.frigateviewer.data.Failure
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
@@ -153,7 +155,7 @@ class AppViewModelTest {
         runOnMain { vm.login(url(), "admin", "wrong", selfSignedCert = false) }
         await("login to finish") { !vm.loggingIn }
 
-        assertEquals("Wrong username or password", runOnMain { vm.loginError })
+        assertEquals(uiText(R.string.login_wrong_password), runOnMain { vm.loginError })
         assertNull(runOnMain { vm.session })
     }
 
@@ -164,7 +166,7 @@ class AppViewModelTest {
         runOnMain { vm.login("http://example.com:5000", "admin", "secret", selfSignedCert = false) }
         await("login to finish") { !vm.loggingIn }
 
-        assertTrue(runOnMain { vm.loginError }.orEmpty().contains("not a local address"))
+        assertEquals(uiText(R.string.login_insecure_http, "example.com"), runOnMain { vm.loginError })
         assertTrue("Nothing reached a server", paths.isEmpty())
     }
 
@@ -296,7 +298,7 @@ class AppViewModelTest {
 
         assertNotNull("Still signed in", runOnMain { vm.session })
         assertEquals("jwt1", runBlocking { store.settings.first() }.token)
-        assertTrue((runOnMain { vm.reviews } as Remote.Failed).message.contains("403"))
+        assertEquals(Failure.Forbidden, (runOnMain { vm.reviews } as Remote.Failed).failure)
     }
 
     @Test

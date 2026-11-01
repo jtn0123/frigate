@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
@@ -106,7 +107,7 @@ private fun ThemeSwatch(theme: AppTheme, selected: Boolean, modifier: Modifier, 
             }
         }
         Text(
-            theme.label,
+            stringResource(theme.label),
             style = MaterialTheme.typography.labelLarge,
             color = if (selected) Palette.TextPrimary else Palette.TextSecondary,
         )

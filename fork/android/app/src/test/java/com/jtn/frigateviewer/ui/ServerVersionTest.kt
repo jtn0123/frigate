@@ -52,8 +52,8 @@ class ServerVersionTest {
 
     @Test
     fun theTextForEachState() {
-        assertEquals("Checking…", versionText(Remote.Loading))
-        assertEquals("0.17.0", versionText(Remote.Ready("0.17.0")))
-        assertEquals("Unknown: Server not found", versionText(Remote.Failed("Server not found")))
+        assertEquals("Checking…", versionText(Remote.Loading).english())
+        assertEquals("0.17.0", versionText(Remote.Ready("0.17.0")).english())
+        assertEquals("Unknown: Server not found", versionText(Remote.Failed("Server not found")).english())
     }
 }

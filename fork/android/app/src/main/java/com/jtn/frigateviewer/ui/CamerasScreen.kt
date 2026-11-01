@@ -38,6 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -45,6 +47,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.CameraActivity
 import com.jtn.frigateviewer.data.Remote
@@ -58,24 +61,21 @@ fun CamerasScreen(vm: AppViewModel, session: Session) {
     val columns = session.settings.gridColumns
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(
-            title = "Cameras",
+            title = stringResource(R.string.cameras_title),
             subtitle = cameras?.let { list ->
                 val toReview = if (vm.trackReviews) vm.unreviewedAlerts else 0
-                buildString {
-                    append("${list.size} cameras")
-                    if (toReview > 0) append(" · $toReview alerts to review")
-                }
+                camerasSubtitle(list.size, toReview).resolve()
             },
         ) {
             if (cameras.orEmpty().size > 1) {
                 IconButton(onClick = { vm.nav.push(Overlay.LiveGrid()) }) {
-                    Icon(Icons.Outlined.Dashboard, contentDescription = "Watch several live")
+                    Icon(Icons.Outlined.Dashboard, contentDescription = stringResource(R.string.cameras_watch_several))
                 }
             }
             IconButton(onClick = vm::toggleGridColumns) {
                 Icon(
                     if (columns == 1) Icons.Outlined.GridView else Icons.Outlined.ViewAgenda,
-                    contentDescription = if (columns == 1) "Show two columns" else "Show one column",
+                    contentDescription = stringResource(if (columns == 1) R.string.cameras_two_columns else R.string.cameras_one_column),
                 )
             }
         }
@@ -91,9 +91,9 @@ fun CamerasScreen(vm: AppViewModel, session: Session) {
                     if (list.isEmpty()) {
                         EmptyState(
                             Icons.Outlined.VideocamOff,
-                            "No cameras",
-                            detail = "Add cameras to Frigate's config, or ask an admin for access to them.",
-                            action = EmptyAction("Refresh") { vm.refreshCameras() },
+                            stringResource(R.string.no_cameras),
+                            detail = stringResource(R.string.cameras_none_detail),
+                            action = EmptyAction(stringResource(R.string.refresh)) { vm.refreshCameras() },
                         )
                     } else {
                         BoxWithConstraints {
@@ -115,7 +115,7 @@ fun CamerasScreen(vm: AppViewModel, session: Session) {
                                         session = session,
                                         camera = camera,
                                         summary = vm.reviewSummary(camera.name),
-                                        now = vm.feed.activity[camera.name]?.let(::activityLabel),
+                                        now = vm.feed.activity[camera.name]?.let(::activityLabel)?.resolve(),
                                         compact = columns > 1,
                                         trackReviews = vm.trackReviews,
                                         onClick = { vm.nav.openCamera(camera.name) },
@@ -143,12 +143,16 @@ private fun CameraTile(
 ) {
     val toReview = if (trackReviews) summary.unreviewedAlerts else 0
     val nowMillis = LocalNow.current
-    val activity = summary.latest?.let { "${it.title} · ${timeAgo(it.startTime, nowMillis)}" } ?: "No activity in 24h"
+    val res = LocalResources.current
+    val activity = summary.latest?.let { latest ->
+        stringResource(R.string.camera_tile_activity, latest.title, timeAgo(latest.startTime, nowMillis).resolve())
+    }
+        ?: stringResource(R.string.camera_tile_no_activity)
     // Its picture is out of date, so a screen reader says so as well as the tag on it. Derived,
     // so each new picture does not compose the tile again, only a change of what is said.
     val snapshots = LocalSnapshots.current
     val offline by remember(snapshots, camera.name, camera.enabled) {
-        derivedStateOf { snapshots?.get(camera.name)?.staleMs?.takeIf { camera.enabled }?.let(::offlineLabel) }
+        derivedStateOf { snapshots?.get(camera.name)?.staleMs?.takeIf { camera.enabled }?.let { offlineLabel(it).resolve(res) } }
     }
     // Ask Frigate for frames the size the tile shows, not one size for every layout.
     var tileHeight by remember { mutableIntStateOf(0) }
@@ -166,11 +170,13 @@ private fun CameraTile(
                 role = Role.Button
                 contentDescription = buildString {
                     append(camera.label)
-                    if (!camera.enabled) append(", disabled")
-                    offline?.let { append(", picture ${it.lowercase()}") }
-                    if (now != null) append(", $now now")
-                    if (toReview > 0) append(", $toReview alerts to review")
-                    append(", $activity")
+                    if (!camera.enabled) append(res.getString(R.string.camera_tile_disabled_part))
+                    offline?.let { append(res.getString(R.string.camera_tile_offline_part, it.lowercase())) }
+                    if (now != null) append(res.getString(R.string.camera_tile_now_part, now))
+                    if (toReview > 0) {
+                        append(res.getString(R.string.list_part, res.getQuantityString(R.plurals.alerts_to_review, toReview, toReview)))
+                    }
+                    append(res.getString(R.string.list_part, activity))
                 }
                 onClick {
                     onClick()
@@ -189,7 +195,7 @@ private fun CameraTile(
                 contentScale = if (compact) ContentScale.Crop else ContentScale.Fit,
             )
         } else {
-            Text("Disabled", color = Palette.TextSecondary, modifier = Modifier.align(Alignment.Center))
+            Text(stringResource(R.string.camera_disabled), color = Palette.TextSecondary, modifier = Modifier.align(Alignment.Center))
         }
         val inset = if (compact) 6.dp else 8.dp
         if (now != null) {
@@ -230,10 +236,16 @@ private fun CameraTile(
 }
 
 /** "Person, Car" while objects are tracked, "Motion" for motion alone, or null when still. */
-internal fun activityLabel(activity: CameraActivity): String? = when {
-    activity.objects.isNotEmpty() -> activity.objects.joinToString { it.replace('_', ' ').replaceFirstChar(Char::uppercase) }
-    activity.motion -> "Motion"
+internal fun activityLabel(activity: CameraActivity): UiText? = when {
+    activity.objects.isNotEmpty() -> UiText.Plain(activity.objects.joinToString { it.replace('_', ' ').replaceFirstChar(Char::uppercase) })
+    activity.motion -> uiText(R.string.activity_motion)
     else -> null
+}
+
+/** "3 cameras · 2 alerts to review", the Cameras header's subtitle; the alerts only while there are some. */
+internal fun camerasSubtitle(cameras: Int, toReview: Int): UiText {
+    val count = uiPlural(R.plurals.cameras_count, cameras)
+    return if (toReview > 0) uiText(R.string.cameras_subtitle, count, uiPlural(R.plurals.alerts_to_review, toReview)) else count
 }
 
 /**

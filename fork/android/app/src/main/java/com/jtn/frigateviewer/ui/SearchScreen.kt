@@ -47,6 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -54,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.SEARCH_LIMIT
 import com.jtn.frigateviewer.data.Session
@@ -72,16 +76,17 @@ fun SearchScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
     LaunchedEffect(inputs) { search.run(session.api) }
     LaunchedEffect(Unit) { search.loadLabels(session.api) }
     val snackbar = remember { SnackbarHostState() }
+    val res = LocalResources.current
     LaunchedEffect(search.notice) {
         search.notice?.let {
-            snackbar.showSnackbar(it)
+            snackbar.showSnackbar(it.resolve(res))
             search.noticeShown()
         }
     }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
-            DetailHeader("Search", onBack = { vm.nav.back() })
+            DetailHeader(stringResource(R.string.rev_search), onBack = { vm.nav.back() })
             if (vm.semanticSearch) DescriptionField(inputs.query) { search.inputs = inputs.copy(query = it) }
             SearchFilters(vm, search)
             TabSheet(Modifier.padding(top = 4.dp)) {
@@ -101,14 +106,14 @@ private fun DescriptionField(submitted: String, onSearch: (String) -> Unit) {
         value = text,
         onValueChange = { text = it },
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        placeholder = { Text("Describe it, like \"white van\"") },
+        placeholder = { Text(stringResource(R.string.rev_search_placeholder)) },
         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
         trailingIcon = {
             if (text.isNotEmpty()) {
                 IconButton(onClick = {
                     text = ""
                     onSearch("")
-                }) { Icon(Icons.Outlined.Close, contentDescription = "Clear") }
+                }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.rev_clear)) }
             }
         },
         singleLine = true,
@@ -122,7 +127,11 @@ private fun SearchFilters(vm: AppViewModel, search: ReviewSearch) {
     val inputs = search.inputs
     var pickingDates by remember { mutableStateOf(false) }
     ChipRow(SearchRange.entries, selected = { it == inputs.range }, label = { range ->
-        if (range == SearchRange.CUSTOM && inputs.from != null) dateSpan(inputs.from, inputs.to ?: inputs.from) else range.label
+        if (range == SearchRange.CUSTOM && inputs.from != null) {
+            dateSpan(inputs.from, inputs.to ?: inputs.from).resolve()
+        } else {
+            stringResource(range.label)
+        }
     }) { range ->
         if (range == SearchRange.CUSTOM) pickingDates = true else search.inputs = inputs.copy(range = range)
     }
@@ -146,7 +155,7 @@ private fun SearchFilters(vm: AppViewModel, search: ReviewSearch) {
 private fun <T> Set<T>.toggle(value: T): Set<T> = if (value in this) this - value else this + value
 
 @Composable
-private fun <T> ChipRow(items: List<T>, selected: (T) -> Boolean, label: (T) -> String, onClick: (T) -> Unit) {
+private fun <T> ChipRow(items: List<T>, selected: (T) -> Boolean, label: @Composable (T) -> String, onClick: (T) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -182,11 +191,12 @@ private fun DatesDialog(onDismiss: () -> Unit, onPick: (LocalDate, LocalDate) ->
             TextButton(
                 onClick = { start?.let { onPick(day(it), day(state.selectedEndDateMillis ?: it)) } },
                 enabled = start != null,
-            ) { Text("Search") }
+            ) { Text(stringResource(R.string.rev_search)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     ) {
-        DateRangePicker(state, Modifier.weight(1f), title = { Text("Days to search", Modifier.padding(start = 24.dp, top = 16.dp)) })
+        val title = stringResource(R.string.rev_search_days)
+        DateRangePicker(state, Modifier.weight(1f), title = { Text(title, Modifier.padding(start = 24.dp, top = 16.dp)) })
     }
 }
 
@@ -198,16 +208,20 @@ private fun DatesDialog(onDismiss: () -> Unit, onPick: (LocalDate, LocalDate) ->
 internal fun isPickableDay(utcTimeMillis: Long, today: LocalDate = LocalDate.now()): Boolean =
     !Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate().isAfter(today)
 
-private fun dateSpan(from: LocalDate, to: LocalDate): String {
+private fun dateSpan(from: LocalDate, to: LocalDate): UiText {
     val first = dayLabel(from.atStartOfDay(ZoneId.systemDefault()).toEpochSecond().toDouble())
     if (from == to) return first
-    return "$first – ${dayLabel(to.atStartOfDay(ZoneId.systemDefault()).toEpochSecond().toDouble())}"
+    return uiText(R.string.search_date_span, first, dayLabel(to.atStartOfDay(ZoneId.systemDefault()).toEpochSecond().toDouble()))
 }
 
 @Composable
 private fun SearchResults(vm: AppViewModel, session: Session, imageLoader: ImageLoader, hits: SearchHits) {
     if (hits.isEmpty) {
-        EmptyState(Icons.Outlined.SearchOff, "Nothing found", detail = "Try a longer time span or fewer filters.")
+        EmptyState(
+            Icons.Outlined.SearchOff,
+            stringResource(R.string.rev_search_nothing),
+            detail = stringResource(R.string.rev_search_nothing_detail),
+        )
         return
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -216,9 +230,9 @@ private fun SearchResults(vm: AppViewModel, session: Session, imageLoader: Image
             item {
                 Text(
                     if (hits.objects.isEmpty()) {
-                        "Showing the newest $SEARCH_LIMIT. Narrow the search to reach further back."
+                        stringResource(R.string.rev_search_capped_reviews, SEARCH_LIMIT)
                     } else {
-                        "Showing the closest $SEARCH_LIMIT matches."
+                        pluralStringResource(R.plurals.rev_search_capped_objects, SEARCH_LIMIT, SEARCH_LIMIT)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = Palette.TextSecondary,
@@ -226,9 +240,9 @@ private fun SearchResults(vm: AppViewModel, session: Session, imageLoader: Image
                 )
             }
         }
-        val byDay = hits.reviews.groupBy { dayLabel(it.startTime) }
+        val byDay = hits.reviews.groupBy { localDate(it.startTime) }
         byDay.forEach { (day, items) ->
-            item(key = "day-$day") { ResultDay(day, items.size) }
+            item(key = "day-${day.toEpochDay()}") { ResultDay(dayLabel(day).resolve(), items.size) }
             items(items, key = { it.id }) { item ->
                 ReviewRow(item, vm.cameraLabel(item.camera), session, imageLoader, trackReviews = vm.trackReviews) {
                     vm.openEvent(item)
@@ -246,7 +260,7 @@ private fun SearchResults(vm: AppViewModel, session: Session, imageLoader: Image
 @Composable
 private fun ResultDay(day: String, count: Int) {
     Text(
-        "$day · $count",
+        stringResource(R.string.rev_day_count, day, count),
         style = MaterialTheme.typography.labelLarge.merge(Tabular),
         color = Palette.TextSecondary,
         modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 6.dp),
@@ -276,7 +290,7 @@ private fun ObjectRow(found: TrackedObject, cameraLabel: String, session: Sessio
                 Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Text(
-                "$cameraLabel · ${dayLabel(found.startTime)}, ${formatTime(found.startTime)}",
+                stringResource(R.string.search_object_where, cameraLabel, dayLabel(found.startTime).resolve(), formatTime(found.startTime)),
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.TextSecondary,
             )

@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -67,6 +68,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.Severity
@@ -111,10 +113,11 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                     pip?.videoBounds(Rect(box.left.toInt(), box.top.toInt(), box.right.toInt(), box.bottom.toInt()))
                 },
         ) {
+            val showLarger = stringResource(R.string.cam_show_larger)
             val media = if (zoomable) {
                 Modifier.zoomable(zoom)
             } else {
-                Modifier.clickable(interactionSource = null, indication = null, onClickLabel = "Show larger") { expanded = true }
+                Modifier.clickable(interactionSource = null, indication = null, onClickLabel = showLarger) { expanded = true }
             }
             Box(Modifier.fillMaxSize().then(media)) {
                 if (hasLive) {
@@ -134,14 +137,14 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
             // The floating window is too small for controls; it has its own.
             if (inPip) return@Box
             val status = when {
-                !hasLive || liveState == LiveState.FAILED -> "SNAPSHOT"
-                liveState == LiveState.CONNECTING -> "CONNECTING"
-                else -> "LIVE"
+                !hasLive || liveState == LiveState.FAILED -> R.string.cam_status_snapshot
+                liveState == LiveState.CONNECTING -> R.string.cam_status_connecting
+                else -> R.string.cam_status_live
             }
             // Landscape puts the back button top-left, so the status moves out of its way.
             LivePill(
-                label = status,
-                live = status == "LIVE",
+                label = stringResource(status),
+                live = status == R.string.cam_status_live,
                 modifier = Modifier
                     .align(if (landscape) Alignment.TopEnd else Alignment.TopStart)
                     .then(if (landscape) Modifier.safeDrawingPadding() else Modifier)
@@ -154,16 +157,16 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                 if (hasLive) {
                     OverlayIconButton(
                         if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                        if (muted) "Unmute" else "Mute",
-                        state = if (muted) "Muted" else "Sound on",
+                        stringResource(if (muted) R.string.cam_unmute else R.string.cam_mute),
+                        state = stringResource(if (muted) R.string.cam_muted else R.string.cam_sound_on),
                     ) { muted = !muted }
                 }
                 pip?.takeIf { hasLive && it.supported }?.let { window ->
-                    OverlayIconButton(Icons.Filled.PictureInPictureAlt, "Picture in picture") { window.enter() }
+                    OverlayIconButton(Icons.Filled.PictureInPictureAlt, stringResource(R.string.cam_picture_in_picture)) { window.enter() }
                 }
                 OverlayIconButton(
                     if (landscape) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                    if (landscape) "Exit fullscreen" else "Fullscreen",
+                    stringResource(if (landscape) R.string.cam_exit_fullscreen else R.string.cam_fullscreen),
                 ) { setFullscreen(!landscape) }
             }
         }
@@ -190,7 +193,7 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                 onClick = { vm.nav.back() },
                 modifier = Modifier.align(Alignment.TopStart).safeDrawingPadding().padding(4.dp),
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cam_back), tint = Color.White)
             }
         }
         return
@@ -204,7 +207,7 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
             DetailHeader(camera.label, onBack = { vm.nav.back() }) {
                 if (hasSettings) {
                     IconButton(onClick = { showSettings = true }) {
-                        Icon(Icons.Outlined.Tune, contentDescription = "Camera settings")
+                        Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.cam_settings))
                     }
                 }
             }
@@ -228,7 +231,7 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                     onClick = { expanded = false },
                     modifier = Modifier.align(Alignment.TopStart).safeDrawingPadding().padding(4.dp),
                 ) {
-                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cam_close), tint = Color.White)
                 }
             }
         }
@@ -262,23 +265,33 @@ private fun CameraActivity(vm: AppViewModel, session: Session, camera: Camera, i
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Stat("Alerts", events.count { it.isAlert }.toString(), Palette.Alert, Modifier.weight(1f)) {
+                Stat(
+                    stringResource(R.string.cam_stat_alerts),
+                    events.count { it.isAlert }.toString(),
+                    Palette.Alert,
+                    Modifier.weight(1f),
+                ) {
                     vm.showReviews(camera.name, Severity.ALERT)
                 }
-                Stat("Detections", events.count { !it.isAlert }.toString(), Palette.Detection, Modifier.weight(1f)) {
+                Stat(
+                    stringResource(R.string.cam_stat_detections),
+                    events.count { !it.isAlert }.toString(),
+                    Palette.Detection,
+                    Modifier.weight(1f),
+                ) {
                     vm.showReviews(camera.name, Severity.DETECTION)
                 }
                 Stat(
-                    "Last activity",
+                    stringResource(R.string.cam_stat_last_activity),
                     // "12m", "3h" or "now": a full "12m ago" does not fit a third of the width.
-                    events.maxOfOrNull { it.startTime }?.let { timeAgo(it, now).removeSuffix(" ago").replace("just now", "now") } ?: "None",
+                    events.maxOfOrNull { it.startTime }?.let { timeSince(it, now).resolve() } ?: stringResource(R.string.cam_stat_none),
                     Palette.TextPrimary,
                     Modifier.weight(1f),
                 )
             }
         }
         item {
-            SectionLabel("Recordings", Modifier.padding(start = 20.dp, end = 16.dp, top = 14.dp))
+            SectionLabel(stringResource(R.string.cam_recordings), Modifier.padding(start = 20.dp, end = 16.dp, top = 14.dp))
             // Four chips do not fit a phone's width, so the row scrolls.
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
@@ -286,27 +299,34 @@ private fun CameraActivity(vm: AppViewModel, session: Session, camera: Camera, i
             ) {
                 AssistChip(
                     onClick = { vm.nav.push(Overlay.Timeline(camera.name, System.currentTimeMillis() / 1000 - TIMELINE_START_SECONDS)) },
-                    label = { Text("Timeline") },
+                    label = { Text(stringResource(R.string.cam_timeline)) },
                     leadingIcon = { Icon(Icons.Outlined.Timeline, null, Modifier.size(AssistChipDefaults.IconSize)) },
                 )
-                listOf(15 to "Last 15 min", 60 to "Last hour", 360 to "Last 6 hours").forEach { (minutes, label) ->
+                listOf(
+                    15 to R.string.cam_last_15_min,
+                    60 to R.string.cam_last_hour,
+                    360 to R.string.cam_last_6_hours,
+                ).forEach { (minutes, label) ->
                     AssistChip(
                         onClick = { vm.nav.openRecording(camera.name, minutes) },
-                        label = { Text(label) },
+                        label = { Text(stringResource(label)) },
                         leadingIcon = { Icon(Icons.Outlined.History, null, Modifier.size(AssistChipDefaults.IconSize)) },
                     )
                 }
             }
         }
         item {
-            SectionLabel("Activity · last 24 hours", Modifier.padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 6.dp))
+            SectionLabel(
+                stringResource(R.string.cam_activity_24h),
+                Modifier.padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
+            )
         }
         if (events.isEmpty()) {
             item {
                 EmptyState(
                     Icons.Outlined.NightsStay,
-                    "All quiet",
-                    detail = "Nothing happened here in the last 24 hours.",
+                    stringResource(R.string.cam_all_quiet),
+                    detail = stringResource(R.string.cam_all_quiet_detail),
                 )
             }
         }
@@ -329,11 +349,12 @@ private fun CameraActivity(vm: AppViewModel, session: Session, camera: Camera, i
 /** A figure for the last 24 hours; tapping one with [onClick] lists its items. */
 @Composable
 internal fun Stat(label: String, value: String, color: Color, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    val showLabel = stringResource(R.string.cam_stat_show, label)
     Column(
         modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Palette.Surface)
-            .then(if (onClick != null) Modifier.clickable(onClickLabel = "Show $label", onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClickLabel = showLabel, onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
         Text(
