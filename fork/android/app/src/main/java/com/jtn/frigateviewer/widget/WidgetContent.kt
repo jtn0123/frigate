@@ -10,6 +10,10 @@ import com.jtn.frigateviewer.data.Severity
 import com.jtn.frigateviewer.data.reviews
 import com.jtn.frigateviewer.ui.describeError
 import java.io.IOException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** The camera a widget shows, with its label kept so the widget can name it while offline. */
 data class WidgetChoice(val camera: String, val label: String)
@@ -31,20 +35,58 @@ internal fun WidgetContent.awayIf(tunnelOn: Boolean): WidgetContent =
     if (this is WidgetContent.Failed && tunnelOn) copy(away = true) else this
 
 /**
- * The latest frame of [choice] and how many alerts are left to review, as the
- * app counts them. The app lock keeps the picture off the home screen.
+ * What each of [choices] shows: its camera's latest frame, and how many alerts
+ * are left to review, as the app counts them. The count is the same for every
+ * widget, so it is fetched once, and only as far as the badge goes; the frames
+ * are fetched side by side. All of it must finish within [timeoutMs], since
+ * Android allows a widget update about ten seconds in all; what does not, fails.
+ * The app lock keeps the pictures off the home screen.
  */
-suspend fun FrigateApi.widgetContent(choice: WidgetChoice, settings: ServerSettings): WidgetContent = try {
-    val frame = if (settings.appLock) null else latestFrame(choice.camera, FRAME_HEIGHT)
-    val toReview = if (settings.trackReviews) reviews(Severity.ALERT).count { !it.reviewed } else null
-    WidgetContent.Ready(frame, toReview)
-} catch (_: AuthException) {
-    WidgetContent.SignedOut
-} catch (e: IOException) {
-    WidgetContent.Failed(describeError(e))
-} catch (e: IllegalArgumentException) {
-    WidgetContent.Failed(describeError(e))
+suspend fun FrigateApi.widgetContents(
+    choices: List<WidgetChoice>,
+    settings: ServerSettings,
+    timeoutMs: Long = UPDATE_TIMEOUT_MS,
+): List<WidgetContent> = if (choices.isEmpty()) {
+    emptyList()
+} else {
+    withTimeoutOrNull(timeoutMs) { loadContents(choices, settings) }
+        ?: choices.map { WidgetContent.Failed("Could not connect to the server") }
 }
+
+private suspend fun FrigateApi.loadContents(choices: List<WidgetChoice>, settings: ServerSettings): List<WidgetContent> =
+    coroutineScope {
+        val toReview = async { attempt { if (settings.trackReviews) alertsToReview() else null } }
+        val frames = choices.map { choice ->
+            async { attempt { if (settings.appLock) null else latestFrame(choice.camera, FRAME_HEIGHT) } }
+        }
+        val count = toReview.await()
+        frames.awaitAll().map { frame ->
+            frame.failure ?: count.failure ?: WidgetContent.Ready(frame.value, count.value)
+        }
+    }
+
+/** Unreviewed alerts of the last 24 hours, up to one more than the badge shows. */
+private suspend fun FrigateApi.alertsToReview(): Int =
+    reviews(Severity.ALERT, limit = MAX_BADGE + 1, reviewed = false).count { !it.reviewed }
+
+/** A value, or what a widget shows instead when it could not be loaded. */
+private class Loaded<T>(val value: T?, val failure: WidgetContent? = null)
+
+private suspend fun <T> attempt(block: suspend () -> T): Loaded<T> = try {
+    Loaded(block())
+} catch (_: AuthException) {
+    Loaded(null, WidgetContent.SignedOut)
+} catch (e: IOException) {
+    Loaded(null, WidgetContent.Failed(describeError(e)))
+} catch (e: IllegalArgumentException) {
+    Loaded(null, WidgetContent.Failed(describeError(e)))
+}
+
+/** A broadcast receiver has about ten seconds; the HTTP client's own timeouts are longer. */
+internal const val UPDATE_TIMEOUT_MS = 8_000L
+
+/** The badge shows up to this many alerts, then "99+". */
+internal const val MAX_BADGE = 99
 
 /** Small enough for a widget bitmap and a quick download. */
 private const val FRAME_HEIGHT = 360

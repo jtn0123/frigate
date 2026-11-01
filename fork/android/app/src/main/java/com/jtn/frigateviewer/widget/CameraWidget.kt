@@ -12,9 +12,8 @@ import android.view.View
 import android.widget.RemoteViews
 import com.jtn.frigateviewer.MainActivity
 import com.jtn.frigateviewer.R
+import com.jtn.frigateviewer.container
 import com.jtn.frigateviewer.data.ServerSettings
-import com.jtn.frigateviewer.data.Session
-import com.jtn.frigateviewer.data.SettingsStore
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -24,7 +23,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * A home screen widget with one camera's latest picture and the alerts left to
@@ -53,9 +51,6 @@ class CameraWidget : AppWidgetProvider() {
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-        /** A broadcast receiver has about ten seconds; the HTTP client's own timeouts are longer. */
-        private const val UPDATE_TIMEOUT_MS = 8_000L
-
         /** Asks every placed widget, or just [ids], to update. */
         fun requestUpdate(context: Context, ids: IntArray? = null) {
             val all = ids ?: AppWidgetManager.getInstance(context)
@@ -71,21 +66,18 @@ class CameraWidget : AppWidgetProvider() {
         /** Loads and shows each of [ids]; a failure keeps the last picture and says so. */
         suspend fun update(context: Context, ids: IntArray) {
             val manager = AppWidgetManager.getInstance(context)
-            val store = SettingsStore.create(context)
+            val store = context.container.settingsStore
             val settings = store.settings.first()
-            val session = settings.takeIf { it.isConfigured && (it.token.isNotEmpty() || it.username.isEmpty()) }?.let {
-                Session.saving(it) { change -> scope.launch { store.update(change) } }
-            }
+            val session = context.container.resumeSession(settings, scope)
             val tunnelOn = store.tunnel.first()?.enabled == true
             val choices = WidgetChoices(context)
-            ids.forEach { id ->
-                val choice = choices[id]
-                val content = when {
-                    choice == null -> null
-                    session == null -> WidgetContent.SignedOut
-                    else -> withTimeoutOrNull(UPDATE_TIMEOUT_MS) { session.api.widgetContent(choice, settings) }
-                        ?: WidgetContent.Failed("Could not connect to the server")
-                }?.awayIf(tunnelOn)
+            val chosen = ids.associateWith { choices[it] }
+            val wanted = chosen.mapNotNull { (id, choice) -> choice?.let { id to it } }
+            // One load for every widget, bounded as a whole.
+            val contents = session?.api?.widgetContents(wanted.map { it.second }, settings)
+            val loaded = wanted.mapIndexed { i, (id, _) -> id to (contents?.get(i) ?: WidgetContent.SignedOut) }.toMap()
+            chosen.forEach { (id, choice) ->
+                val content = loaded[id]?.awayIf(tunnelOn)
                 val views = render(context, id, choice, content, settings)
                 if (isPartial(content, choices.shownSinceBoot(id))) {
                     manager.partiallyUpdateAppWidget(id, views)
@@ -189,7 +181,6 @@ class CameraWidget : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        private const val MAX_BADGE = 99
         private val clock = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
 }

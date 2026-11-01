@@ -2,7 +2,6 @@ package com.jtn.frigateviewer
 
 import android.content.Intent
 import android.content.res.Configuration
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,8 +16,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.jtn.frigateviewer.data.AndroidMediaFiles
-import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.ui.App
 import com.jtn.frigateviewer.ui.AppViewModel
 import com.jtn.frigateviewer.ui.FrigateTheme
@@ -26,20 +23,20 @@ import com.jtn.frigateviewer.ui.LocalPip
 import com.jtn.frigateviewer.ui.LockScreen
 import com.jtn.frigateviewer.ui.PipController
 import com.jtn.frigateviewer.ui.Tab
-import com.jtn.frigateviewer.ui.authenticate
+import com.jtn.frigateviewer.ui.hideFromRecents
 import com.jtn.frigateviewer.widget.CameraWidget
 
 class MainActivity : ComponentActivity() {
     private val pip by lazy { PipController(this) }
-    private val remoteAccess by lazy { (application as FrigateApp).remoteAccess }
+    private val remoteAccess by lazy { container.remoteAccess }
 
     private val vm: AppViewModel by viewModels {
         viewModelFactory {
             initializer {
                 AppViewModel(
                     createSavedStateHandle(),
-                    SettingsStore.create(applicationContext),
-                    media = AndroidMediaFiles(applicationContext),
+                    container.settingsStore,
+                    media = container.mediaFiles,
                     remoteAccess = remoteAccess,
                 )
             }
@@ -53,14 +50,11 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) openFromWidget(intent)
         setContent {
             FrigateTheme(vm.theme) {
-                // Recents shows a still of the app; with the lock on, it shows nothing.
-                LaunchedEffect(vm.appLock) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setRecentsScreenshotEnabled(!vm.appLock)
-                }
+                LaunchedEffect(vm.appLock) { hideFromRecents(vm.appLock) }
                 if (vm.loaded && vm.appLock && vm.lock.locked) {
                     var reason by remember { mutableStateOf<String?>(null) }
                     LockScreen(reason) {
-                        authenticate { success, why ->
+                        container.unlock(this@MainActivity) { success, why ->
                             if (success) vm.lock.unlocked() else reason = why
                         }
                     }
@@ -97,13 +91,13 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         vm.lock.onForeground()
-        remoteAccess.foreground()
+        remoteAccess?.foreground()
     }
 
     override fun onStop() {
         super.onStop()
         vm.lock.onBackground()
-        remoteAccess.background()
+        remoteAccess?.background()
         // Reviews may have been marked, so the widget's count is refreshed.
         CameraWidget.requestUpdate(applicationContext)
     }
