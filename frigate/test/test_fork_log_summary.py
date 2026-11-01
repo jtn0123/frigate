@@ -643,10 +643,10 @@ class TestSummarizeLogs(LogFiles):
         self.assertEqual(result["hours"], 24)
         self.assertFalse(result["sources"]["go2rtc"]["available"])
 
-    def test_ten_megabytes_per_log_are_summarized_quickly(self):
+    def write_noisy_logs(self, count: int) -> None:
         start = NOW - timedelta(hours=20)
         frigate, go2rtc = [], []
-        for i in range(30000):
+        for i in range(count):
             when = start + timedelta(seconds=2 * i)
             frigate.append(watchdog(when))
             frigate.append(ffmpeg_error(when))
@@ -654,15 +654,25 @@ class TestSummarizeLogs(LogFiles):
             go2rtc.append(go2rtc_producer(when, 30000 + i % 5000))
         self.write("frigate", frigate)
         self.write("go2rtc", go2rtc)
+
+    def timed_summary(self) -> tuple[float, dict]:
+        started = time.perf_counter()
+        result = self.summarize()
+        return time.perf_counter() - started, result
+
+    def test_ten_megabytes_per_log_are_summarized_quickly(self):
+        # A fixed time limit failed on a loaded CI runner under coverage
+        # (5.6 s), so compare against a tenth of the input on the same machine:
+        # linear work takes about 10 times as long, quadratic work about 100.
+        self.write_noisy_logs(3000)
+        small = min(self.timed_summary()[0] for _ in range(2))
+        self.write_noisy_logs(30000)
         megabyte = 1024 * 1024
         self.assertGreater(os.path.getsize(self.paths["go2rtc"]), 10 * megabyte)
 
-        started = time.perf_counter()
-        result = self.summarize()
-        elapsed = time.perf_counter() - started
+        elapsed, result = self.timed_summary()
 
-        # Generous for a loaded CI runner; it takes well under a second.
-        self.assertLess(elapsed, 5.0)
+        self.assertLess(elapsed, 30 * small)
         self.assertFalse(result["sources"]["frigate"]["partial"])
         self.assertTrue(result["sources"]["go2rtc"]["partial"])
         kept = result["sources"]["go2rtc"]["lines"]
