@@ -132,8 +132,30 @@ class RemoteAccessSettingsTest {
         compose.awaitText("Away from home, connected through the tunnel.")
         compose.onNodeWithText("Tunnel file").performClick()
         compose.onNodeWithText("Remove").performClick()
+        // It deletes the private key, so it asks first.
+        compose.onNodeWithText("Remove the tunnel file?").assertExists()
+        assertTrue(runBlocking { store.tunnel.first() } != null)
+        compose.onNodeWithText("Remove").performClick()
         compose.awaitText("Set up WireGuard")
         assertNull(runBlocking { store.tunnel.first() })
+    }
+
+    @Test
+    fun cancelKeepsTheFile() {
+        show(TunnelSettings(tunnelFile(), "home", enabled = true))
+        compose.awaitText("Away from home, connected through the tunnel.")
+
+        compose.onNodeWithText("Tunnel file").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("Replace").assertDoesNotExist()
+
+        compose.onNodeWithText("Tunnel file").performClick()
+        compose.onNodeWithText("Remove").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+
+        compose.onNodeWithText("Remove the tunnel file?").assertDoesNotExist()
+        compose.onNodeWithText("Tunnel file").assertExists()
+        assertEquals("home", runBlocking { store.tunnel.first() }?.name)
     }
 
     @Test

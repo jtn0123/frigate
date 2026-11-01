@@ -24,9 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,38 +41,35 @@ import com.jtn.frigateviewer.data.StorageStats
 import com.jtn.frigateviewer.data.isNewerRelease
 import java.util.Locale
 import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
 
-/** Uptime, load, detector speed and each camera's frame rates, refreshed while on screen. */
+/**
+ * Uptime, load, detector speed and each camera's frame rates. [follow] keeps
+ * [stats] fresh, and runs while the screen shows and the app is in front.
+ */
 @Composable
-fun HealthScreen(vm: AppViewModel) {
-    var stats by remember { mutableStateOf<Remote<ServerStats>>(Remote.Loading) }
-    var attempt by remember { mutableStateOf(0) }
+fun HealthScreen(
+    stats: Remote<ServerStats>,
+    cameraLabel: (String) -> String,
+    onRetry: () -> Unit,
+    onBack: () -> Unit,
+    follow: suspend () -> Unit = {},
+) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(attempt) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                val next = vm.fetch { it.stats() }
-                // A failed refresh keeps the last figures rather than blanking the screen.
-                if (next is Remote.Ready || stats !is Remote.Ready) stats = next
-                delay(HEALTH_REFRESH_MS)
-            }
-        }
+    val currentFollow by rememberUpdatedState(follow)
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { currentFollow() }
     }
 
     Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
-        DetailHeader("Server health", onBack = { vm.nav.back() })
+        DetailHeader("Server health", onBack = onBack)
         TabSheet {
-            RemoteContent(stats, onRetry = {
-                stats = Remote.Loading
-                attempt++
-            }) { HealthContent(vm, it) }
+            RemoteContent(stats, onRetry = onRetry) { HealthContent(cameraLabel, it) }
         }
     }
 }
 
 @Composable
-private fun HealthContent(vm: AppViewModel, stats: ServerStats) {
+private fun HealthContent(cameraLabel: (String) -> String, stats: ServerStats) {
     // A few dozen rows at most, so one scrolling column rather than a lazy list.
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
         Row(
@@ -114,7 +109,7 @@ private fun HealthContent(vm: AppViewModel, stats: ServerStats) {
         }
         if (stats.cameras.isNotEmpty()) {
             Section("Cameras") {
-                stats.cameras.forEach { CameraRow(vm.cameraLabel(it.name), it) }
+                stats.cameras.forEach { CameraRow(cameraLabel(it.name), it) }
             }
         }
         if (stats.storage.isNotEmpty()) {
@@ -223,7 +218,7 @@ private fun decimal(value: Double): String = String.format(Locale.US, "%.1f", va
 @Composable
 private fun loadColor(percent: Double?): Color = if ((percent ?: 0.0) >= HIGH_LOAD) Palette.Alert else Palette.TextPrimary
 
-private const val HEALTH_REFRESH_MS = 15_000L
+internal const val HEALTH_REFRESH_MS = 15_000L
 private const val HIGH_LOAD = 85.0
 private const val DROPPING = 0.1
 private const val SKIPPED_SHOWN = 0.05

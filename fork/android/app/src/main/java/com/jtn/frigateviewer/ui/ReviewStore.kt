@@ -1,5 +1,6 @@
 package com.jtn.frigateviewer.ui
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,15 +21,17 @@ import kotlinx.coroutines.launch
  * Review items from the last 24 hours. Everything is fetched at once and the
  * filters apply locally, so switching them is instant. It holds no Android
  * types, so it is unit tested on the JVM.
+ * [refresh] fetches the whole list and [refreshRecent] only what changed
+ * lately; [ReviewFetches] says how the two keep it right.
  */
 class ReviewStore(
     private val scope: CoroutineScope,
     private val limit: Int = FrigateApi.REVIEW_LIMIT,
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val recentLimit: Int = RECENT_LIMIT,
     private val onSessionLost: (String?) -> Unit,
 ) {
     var reviews by mutableStateOf<Remote<List<ReviewItem>>>(Remote.Loading)
-        private set
-    var refreshing by mutableStateOf(false)
         private set
     var severity by mutableStateOf(Severity.ALERT)
     var cameraFilter by mutableStateOf<String?>(null)
@@ -52,40 +55,50 @@ class ReviewStore(
     /** The server had at least as many items as were asked for, so older ones may be missing. */
     val capped by derivedStateOf { all.size >= limit }
 
+    /** Each camera's items, newest first, worked out once per change of the list rather than once per reader. */
+    private val byCamera by derivedStateOf { all.groupBy { it.camera } }
+
+    /**
+     * What each camera's tile shows. A change to one camera's items leaves the
+     * others' summaries equal, so their tiles are not drawn again.
+     */
+    val summaries by derivedStateOf { byCamera.mapValues { (_, items) -> CameraSummary.of(items) } }
+
     fun byId(id: String): ReviewItem? = all.firstOrNull { it.id == id }
 
-    fun forCamera(camera: String): List<ReviewItem> = all.filter { it.camera == camera }
+    fun forCamera(camera: String): List<ReviewItem> = byCamera[camera].orEmpty()
 
-    /** The running refresh, cancelled by [reset]. */
-    private var running: Job? = null
+    /** Marks sent to the server and not yet answered: a fetch meanwhile may still have the old state. */
+    private val marking = mutableMapOf<String, Boolean>()
 
-    /** Counts [reset]s, so a refresh from before one leaves the new session's list and flag alone. */
+    /** Counts [reset]s, so a mark from before one leaves the new session's alone. */
     private var generation = 0
+
+    private val fetches = ReviewFetches(
+        scope,
+        limit = limit,
+        recentLimit = recentLimit,
+        clock = clock,
+        onSessionLost = onSessionLost,
+        held = { reviews },
+        show = { reviews = it.map { list -> list.withMarks(marking) } },
+    )
+
+    val refreshing: Boolean get() = fetches.refreshing
 
     /** Forgets the list and stops a refresh still running, for a new session. */
     fun reset() {
         generation++
-        running?.cancel()
-        running = null
-        refreshing = false
+        fetches.reset()
+        marking.clear()
         reviews = Remote.Loading
     }
 
-    /** Fetches the list; null when a refresh is already running. */
-    fun refresh(api: FrigateApi): Job? {
-        if (refreshing) return null
-        refreshing = true
-        val started = generation
-        return scope.launch {
-            try {
-                val result = loadRemote(onSessionLost) { api.reviews(limit = limit) }
-                // Keep showing the last good list when a background refresh fails.
-                if (started == generation && (result is Remote.Ready || reviews !is Remote.Ready)) reviews = result
-            } finally {
-                if (started == generation) refreshing = false
-            }
-        }.also { running = it }
-    }
+    /** Fetches the whole list; null when a whole fetch is already running. */
+    fun refresh(api: FrigateApi): Job? = fetches.refresh(api)
+
+    /** Catches up with what changed lately; see [ReviewFetches.refreshRecent]. */
+    fun refreshRecent(api: FrigateApi): Job? = fetches.refreshRecent(api)
 
     /**
      * Adds or updates an item the server just reported. An update keeps the
@@ -118,13 +131,17 @@ class ReviewStore(
         if (notice.undoIds.isEmpty()) null else mark(api, notice.undoIds, reviewed = false, undoable = false)
 
     private fun mark(api: FrigateApi, ids: Set<String>, reviewed: Boolean, undoable: Boolean): Job {
-        setReviewed(ids, reviewed)
+        reviews = reviews.map { it.withReviewed(ids, reviewed) }
+        ids.forEach { marking[it] = reviewed }
+        val started = generation
         return scope.launch {
             val result = loadRemote(onSessionLost) { api.markReviewed(ids.toList(), reviewed) }
+            // Only this mark's own entries: an undo sent meanwhile keeps its own.
+            if (started == generation) ids.forEach { if (marking[it] == reviewed) marking.remove(it) }
             val what = if (ids.size == 1) "this item" else "${ids.size} items"
             message = when {
                 result is Remote.Failed -> {
-                    setReviewed(ids, !reviewed)
+                    reviews = reviews.map { it.withReviewed(ids, !reviewed) }
                     ReviewNotice("Could not mark $what ${if (reviewed) "reviewed" else "unreviewed"} (${result.message})")
                 }
                 undoable -> ReviewNotice(if (ids.size == 1) "Marked reviewed" else "Marked $what reviewed", undoIds = ids)
@@ -144,9 +161,25 @@ class ReviewStore(
     fun messageShown() {
         message = null
     }
+}
 
-    private fun setReviewed(ids: Set<String>, reviewed: Boolean) {
-        reviews = reviews.map { list -> list.map { if (it.id in ids) it.copy(reviewed = reviewed) else it } }
+private fun List<ReviewItem>.withReviewed(ids: Set<String>, reviewed: Boolean) =
+    map { if (it.id in ids) it.copy(reviewed = reviewed) else it }
+
+/** These items with each mark still on its way to the server shown as sent, not as the server last had it. */
+internal fun List<ReviewItem>.withMarks(marking: Map<String, Boolean>): List<ReviewItem> = if (marking.isEmpty()) {
+    this
+} else {
+    map { item -> marking[item.id]?.takeIf { it != item.reviewed }?.let { item.copy(reviewed = it) } ?: item }
+}
+
+/** What a camera's tile shows of its last 24 hours. */
+@Immutable
+data class CameraSummary(val unreviewedAlerts: Int, val latest: ReviewItem?) {
+    companion object {
+        val NONE = CameraSummary(0, null)
+
+        fun of(items: List<ReviewItem>) = CameraSummary(items.count { it.isAlert && !it.reviewed }, items.maxByOrNull { it.startTime })
     }
 }
 

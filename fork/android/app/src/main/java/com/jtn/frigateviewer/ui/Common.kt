@@ -35,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -73,6 +74,21 @@ fun <T> RemoteContent(
             action = EmptyAction("Retry", onRetry),
         )
         is Remote.Ready -> content(state.value)
+    }
+}
+
+/** One line saying a part of a screen did not load, such as a timeline's motion, with a Retry button. */
+@Composable
+fun RetryLine(text: String, modifier: Modifier = Modifier, onRetry: () -> Unit) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = Palette.Alert, modifier = Modifier.size(18.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextSecondary,
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
+        )
+        TextButton(onClick = onRetry) { Text("Retry") }
     }
 }
 

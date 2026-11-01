@@ -10,9 +10,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jtn.frigateviewer.data.AuthException
 import com.jtn.frigateviewer.data.Camera
-import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.InsecureLoginException
 import com.jtn.frigateviewer.data.MediaFiles
+import com.jtn.frigateviewer.data.MotionBucket
+import com.jtn.frigateviewer.data.PtzInfo
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
@@ -23,6 +24,8 @@ import com.jtn.frigateviewer.data.SignIn
 import com.jtn.frigateviewer.data.SignInResult
 import com.jtn.frigateviewer.data.allowedCameras
 import com.jtn.frigateviewer.data.map
+import com.jtn.frigateviewer.data.motionActivity
+import com.jtn.frigateviewer.data.ptzInfo
 import com.jtn.frigateviewer.data.review
 import com.jtn.frigateviewer.tunnel.RemoteAccess
 import java.io.IOException
@@ -59,6 +62,8 @@ class AppViewModel(
     media: MediaFiles? = null,
     /** The WireGuard tunnel used away from home; null where there is none, as in tests. */
     val remoteAccess: RemoteAccess? = null,
+    /** Each camera's latest picture. */
+    val snapshots: Snapshots = Snapshots(),
 ) : ViewModel() {
 
     /** False until settings load, so the login screen does not flash on start. */
@@ -105,6 +110,9 @@ class AppViewModel(
     val reviewsCapped get() = reviewStore.capped
     val reviewMessage get() = reviewStore.message
 
+    /** Each camera's unreviewed count and latest item, worked out once per change of the list. */
+    fun reviewSummary(camera: String): CameraSummary = reviewStore.summaries[camera] ?: CameraSummary.NONE
+
     fun reviewMessageShown() = reviewStore.messageShown()
 
     /** Clips being saved and snapshots being shared. */
@@ -119,6 +127,17 @@ class AppViewModel(
 
     /** Searching past the last 24 hours; kept while its results are opened. */
     val search = ReviewSearch(sessionScope, onSessionLost = ::sessionLost)
+
+    /** The server's health, refreshed while its screen is open. */
+    val health = Polled(sessionScope, onSessionLost = ::sessionLost) { it.stats() }
+
+    /** Each camera's motion for a timeline's day. */
+    val motion = RemoteCache<MotionRange, List<MotionBucket>>(sessionScope, onSessionLost = ::sessionLost) { api, range ->
+        api.motionActivity(range.camera, range.from, range.to, range.scaleSeconds)
+    }
+
+    /** What each PTZ camera's motor can do. */
+    val ptz = RemoteCache<String, PtzInfo>(sessionScope, onSessionLost = ::sessionLost) { api, camera -> api.ptzInfo(camera) }
 
     /** go2rtc streams; null when unknown, in which case live video is attempted anyway. */
     private var liveStreams by mutableStateOf<Set<String>?>(null)
@@ -157,7 +176,7 @@ class AppViewModel(
                     session?.client?.connectionPool?.evictAll()
                     if (serverVersion is Remote.Failed) loadVersion()
                     refreshCameras()
-                    refreshReviews()
+                    refreshRecentReviews()
                 }
             }
         }
@@ -243,6 +262,10 @@ class AppViewModel(
             clips.reset()
             search.reset()
             controls.reset()
+            health.reset()
+            motion.reset()
+            ptz.reset()
+            snapshots.reset()
             nav.clear()
             nav.tab = Tab.CAMERAS
         }
@@ -310,12 +333,18 @@ class AppViewModel(
         api = { session?.api },
         onReview = reviewStore::upsert,
         onCommands = { controls.commands = it },
-        onReconnect = ::refreshReviews,
+        onReconnect = ::refreshRecentReviews,
         onSessionLost = { sessionLost(null) },
     )
 
+    /** Fetches the whole review list, as pull to refresh and Retry do. */
     fun refreshReviews() {
         session?.api?.let(reviewStore::refresh)
+    }
+
+    /** Catches up with reviews changed lately, after a reconnect or while the live feed is down. */
+    fun refreshRecentReviews() {
+        session?.api?.let(reviewStore::refreshRecent)
     }
 
     fun hasLiveVideo(camera: Camera): Boolean = liveStreams?.contains(camera.primaryStream) ?: true
@@ -410,13 +439,6 @@ class AppViewModel(
 
     private suspend fun <T> load(block: suspend () -> T): Remote<T> = loadRemote(::sessionLost, block)
 
-    /** Runs a request for a screen's own data, signing out like any other request when the session is refused. */
-    suspend fun <T> fetch(block: suspend (FrigateApi) -> T): Remote<T> {
-        val current = session ?: return Remote.Failed("Not signed in")
-        // A screen's request can outlive its session; only the session it was made in may be ended by it.
-        return loadRemote({ reason -> if (session?.client === current.client) sessionLost(reason) }) { block(current.api) }
-    }
-
     /** The server stopped accepting this session; sign in again, showing [reason] if there is one. */
     private fun sessionLost(reason: String?) {
         // The server already refuses the token, or its certificate changed; nothing to revoke.
@@ -424,3 +446,6 @@ class AppViewModel(
         loginError = reason
     }
 }
+
+/** A camera's motion between [from] and [to] (epoch seconds), in slices of [scaleSeconds]. */
+data class MotionRange(val camera: String, val from: Long, val to: Long, val scaleSeconds: Int)

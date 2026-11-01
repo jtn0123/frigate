@@ -68,12 +68,19 @@ class CameraControlsTest {
         }
     }
 
+    /** The camera's motor info does not load while this is set. */
+    @Volatile private var ptzFails = false
+
     private fun show(role: String): AppViewModel {
         val vm = compose.showApp(serverRule.server, temp.root, scope) { request ->
             when (request.url.encodedPath) {
                 "/api/config" -> json(config)
                 "/api/profile" -> json("""{"username": "someone", "role": "$role"}""")
-                "/api/porch/ptz/info" -> json("""{"name": "porch", "features": ["pt", "zoom"], "presets": ["gate", "street"]}""")
+                "/api/porch/ptz/info" -> if (ptzFails) {
+                    json("{}", code = 500)
+                } else {
+                    json("""{"name": "porch", "features": ["pt", "zoom"], "presets": ["gate", "street"]}""")
+                }
                 "/ws" -> MockResponse.Builder().webSocketUpgrade(frigate).build()
                 else -> null
             }
@@ -150,6 +157,22 @@ class CameraControlsTest {
 
         awaitSent("porch/ptz=STOP")
         assertEquals(listOf("porch/ptz=MOVE_LEFT", "porch/ptz=STOP"), sent.toList())
+    }
+
+    @Test
+    fun motorControlsThatDoNotLoadSaySoAndRetry() {
+        ptzFails = true
+        val vm = show("admin")
+        compose.awaitMain { vm.controls.isAdmin }
+        openSettings()
+        compose.awaitText("Motor controls unavailable")
+        scrollTo("Motor controls unavailable")
+
+        ptzFails = false
+        compose.onNodeWithText("Retry").performClick()
+
+        compose.awaitMain { compose.onAllNodes(hasContentDescription("Tilt down")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Motor controls unavailable").assertDoesNotExist()
     }
 
     @Test
