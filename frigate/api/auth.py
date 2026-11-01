@@ -573,8 +573,16 @@ def create_encoded_jwt(user, role, expiration, secret, jti=None):
     return jwt.encode({"alg": "HS256"}, claims, secret)
 
 
+def is_secure_request(request: Request) -> bool:
+    """Check the cookie setting and nginx's forwarded scheme for HTTPS."""
+    # nginx sets X-Forwarded-Proto to its own scheme, replacing any client value
+    return (
+        request.app.frigate_config.auth.cookie_secure
+        or request.headers.get("x-forwarded-proto") == "https"
+    )
+
+
 def set_jwt_cookie(response: Response, cookie_name, encoded_jwt, max_age, secure):
-    # TODO: ideally this would set secure as well, but that requires TLS
     # SameSite is intentionally left unset (browsers default to Lax). Setting
     # SameSite=Lax/Strict would stop the cookie from being sent in cross-origin
     # iframes, breaking embedded views such as the Home Assistant Frigate card.
@@ -863,7 +871,6 @@ def auth(request: Request):
     fail_response.headers["location"] = _LOGIN_PATH
 
     JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
-    JWT_COOKIE_SECURE = request.app.frigate_config.auth.cookie_secure
     JWT_REFRESH = request.app.frigate_config.auth.refresh_time
     JWT_SESSION_LENGTH = request.app.frigate_config.auth.session_length
 
@@ -968,7 +975,7 @@ def auth(request: Request):
                 JWT_COOKIE_NAME,
                 new_encoded_jwt,
                 JWT_SESSION_LENGTH,
-                JWT_COOKIE_SECURE,
+                is_secure_request(request),
             )
 
         success_response.headers["remote-user"] = user
@@ -1073,7 +1080,6 @@ def login(request: Request, body: AppPostLoginBody):
         return JSONResponse(content={"message": "Login failed"}, status_code=401)
 
     JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
-    JWT_COOKIE_SECURE = request.app.frigate_config.auth.cookie_secure
     JWT_SESSION_LENGTH = request.app.frigate_config.auth.session_length
     user = body.user
     password = body.password
@@ -1089,13 +1095,15 @@ def login(request: Request, body: AppPostLoginBody):
 
     password_hash = db_user.password_hash
     if verify_password(password, password_hash):
-        role = getattr(db_user, "role", "viewer")
-        config_roles_set = set(request.app.frigate_config.auth.roles.keys())
-        if role not in config_roles_set:
+        role = db_user.role
+        if role not in request.app.frigate_config.auth.roles:
             logger.warning(
-                f"User {db_user.username} has an invalid role {role}, falling back to 'viewer'."
+                "Login refused for user '%s' with role '%s', which is not in the config",
+                user,
+                role,
             )
-            role = "viewer"
+            failed_logins.record(user, time.time(), known=True)
+            return failed_response()
         expiration = int(time.time()) + JWT_SESSION_LENGTH
         # fork E26: each login is a session that can be listed and revoked
         jti = start_session(request, user, expiration, get_remote_addr(request))
@@ -1108,7 +1116,7 @@ def login(request: Request, body: AppPostLoginBody):
             JWT_COOKIE_NAME,
             encoded_jwt,
             JWT_SESSION_LENGTH,
-            JWT_COOKIE_SECURE,
+            is_secure_request(request),
         )
         # Clear admin_first_time_login flag after successful admin login so the
         # UI stops showing the first-time login documentation link.
@@ -1281,7 +1289,6 @@ async def update_password(
     # If user changed their own password, issue a new JWT to keep them logged in
     if current_username == username:
         JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
-        JWT_COOKIE_SECURE = request.app.frigate_config.auth.cookie_secure
         JWT_SESSION_LENGTH = request.app.frigate_config.auth.session_length
 
         expiration = int(time.time()) + JWT_SESSION_LENGTH
@@ -1298,7 +1305,7 @@ async def update_password(
             JWT_COOKIE_NAME,
             encoded_jwt,
             JWT_SESSION_LENGTH,
-            JWT_COOKIE_SECURE,
+            is_secure_request(request),
         )
 
     return response

@@ -893,16 +893,16 @@ class TestLogin(_AuthHttpTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(self.app.frigate_config.auth.admin_first_time_login)
 
-    def test_unknown_role_falls_back_to_viewer(self):
+    def test_unknown_role_is_refused(self):
+        # E33: falling back to viewer would open every camera to the user
         self._add_user("bob", role="retired")
 
         with self.assertLogs("frigate.api.auth", level="WARNING"):
             response = self._login("bob")
 
-        claims = jwt.decode(
-            response.cookies.get("frigate_token"), self.app.jwt_token
-        ).claims
-        self.assertEqual(claims["role"], "viewer")
+        self.assertEqual(response.status_code, 401)
+        self.assertIsNone(response.cookies.get("frigate_token"))
+        self.failed_logins.record.assert_called_once()
 
     def test_failed_logins(self):
         self._add_user("bob", role="garage")

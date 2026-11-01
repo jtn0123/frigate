@@ -712,11 +712,12 @@ def role_changed(user: User, role: str, roles: Collection[str]) -> bool:
 
     A refresh copies the token's role, so without this a token from before a
     role change would carry the old role for as long as it kept refreshing.
-    The account's role is resolved the way login resolves it: one missing
-    from the config signs in as viewer.
+    Login refuses an account whose role is missing from the config (E33), so
+    a token that an older login issued as viewer for such an account counts
+    as changed too, rather than keeping viewer's access to every camera.
     """
-    current = user.role if user.role in roles else "viewer"
-    return current != role
+    current = str(user.role)
+    return current not in roles or current != role
 
 
 def end_current_session(request: Request) -> None:
