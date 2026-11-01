@@ -37,7 +37,6 @@ export default defineConfig({
       },
       "/live": {
         target: `ws://${proxyHost}`,
-        changeOrigin: true,
         ws: true,
       },
     },

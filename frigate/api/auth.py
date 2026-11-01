@@ -55,6 +55,7 @@ from frigate.fork.sessions import (
 from frigate.models import User
 from frigate.notices import raise_notice
 from frigate.util.admin_password import remove_admin_password
+from frigate.util.origin import origin_allowed
 
 _CONFIG_AUTH = "config/auth"
 _AUTHENTICATION_REQUIRED = "Authentication required"
@@ -572,8 +573,16 @@ def create_encoded_jwt(user, role, expiration, secret, jti=None):
     return jwt.encode({"alg": "HS256"}, claims, secret)
 
 
+def is_secure_request(request: Request) -> bool:
+    """Check the cookie setting and nginx's forwarded scheme for HTTPS."""
+    # nginx sets X-Forwarded-Proto to its own scheme, replacing any client value
+    return (
+        request.app.frigate_config.auth.cookie_secure
+        or request.headers.get("x-forwarded-proto") == "https"
+    )
+
+
 def set_jwt_cookie(response: Response, cookie_name, encoded_jwt, max_age, secure):
-    # TODO: ideally this would set secure as well, but that requires TLS
     # SameSite is intentionally left unset (browsers default to Lax). Setting
     # SameSite=Lax/Strict would stop the cookie from being sent in cross-origin
     # iframes, breaking embedded views such as the Home Assistant Frigate card.
@@ -791,6 +800,17 @@ def auth(request: Request):
 
     success_response = Response("", status_code=202)
 
+    original_url = request.headers.get("x-original-url")
+
+    if _is_cross_origin_stream_request(original_url, request):
+        logger.warning(
+            "Rejected cross-origin request: origin=%s, host=%s, x-forwarded-host=%s",
+            request.headers.get("origin"),
+            request.headers.get("x-original-host"),
+            request.headers.get("x-forwarded-host"),
+        )
+        return Response("", status_code=403)
+
     # dont require auth if the request is on the internal port
     # this header is set by Frigate's nginx proxy, so it cant be spoofed.
     # the port is the boot-time snapshot rather than the live config value:
@@ -814,7 +834,6 @@ def auth(request: Request):
         logger.debug("X-Proxy-Secret header does not match configured secret value")
         return fail_response
 
-    original_url = request.headers.get("x-original-url")
     frigate_config = request.app.frigate_config
 
     # if auth is disabled, just apply the proxy header map and return success
@@ -852,7 +871,6 @@ def auth(request: Request):
     fail_response.headers["location"] = _LOGIN_PATH
 
     JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
-    JWT_COOKIE_SECURE = request.app.frigate_config.auth.cookie_secure
     JWT_REFRESH = request.app.frigate_config.auth.refresh_time
     JWT_SESSION_LENGTH = request.app.frigate_config.auth.session_length
 
@@ -957,7 +975,7 @@ def auth(request: Request):
                 JWT_COOKIE_NAME,
                 new_encoded_jwt,
                 JWT_SESSION_LENGTH,
-                JWT_COOKIE_SECURE,
+                is_secure_request(request),
             )
 
         success_response.headers["remote-user"] = user
@@ -1062,7 +1080,6 @@ def login(request: Request, body: AppPostLoginBody):
         return JSONResponse(content={"message": "Login failed"}, status_code=401)
 
     JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
-    JWT_COOKIE_SECURE = request.app.frigate_config.auth.cookie_secure
     JWT_SESSION_LENGTH = request.app.frigate_config.auth.session_length
     user = body.user
     password = body.password
@@ -1078,13 +1095,15 @@ def login(request: Request, body: AppPostLoginBody):
 
     password_hash = db_user.password_hash
     if verify_password(password, password_hash):
-        role = getattr(db_user, "role", "viewer")
-        config_roles_set = set(request.app.frigate_config.auth.roles.keys())
-        if role not in config_roles_set:
+        role = db_user.role
+        if role not in request.app.frigate_config.auth.roles:
             logger.warning(
-                f"User {db_user.username} has an invalid role {role}, falling back to 'viewer'."
+                "Login refused for user '%s' with role '%s', which is not in the config",
+                user,
+                role,
             )
-            role = "viewer"
+            failed_logins.record(user, time.time(), known=True)
+            return failed_response()
         expiration = int(time.time()) + JWT_SESSION_LENGTH
         # fork E26: each login is a session that can be listed and revoked
         jti = start_session(request, user, expiration, get_remote_addr(request))
@@ -1097,7 +1116,7 @@ def login(request: Request, body: AppPostLoginBody):
             JWT_COOKIE_NAME,
             encoded_jwt,
             JWT_SESSION_LENGTH,
-            JWT_COOKIE_SECURE,
+            is_secure_request(request),
         )
         # Clear admin_first_time_login flag after successful admin login so the
         # UI stops showing the first-time login documentation link.
@@ -1270,7 +1289,6 @@ async def update_password(
     # If user changed their own password, issue a new JWT to keep them logged in
     if current_username == username:
         JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
-        JWT_COOKIE_SECURE = request.app.frigate_config.auth.cookie_secure
         JWT_SESSION_LENGTH = request.app.frigate_config.auth.session_length
 
         expiration = int(time.time()) + JWT_SESSION_LENGTH
@@ -1287,7 +1305,7 @@ async def update_password(
             JWT_COOKIE_NAME,
             encoded_jwt,
             JWT_SESSION_LENGTH,
-            JWT_COOKIE_SECURE,
+            is_secure_request(request),
         )
 
     return response
@@ -1438,6 +1456,21 @@ def _is_go2rtc_stream_proxy_request(path: str, request: Request) -> bool:
 
     normalized = normalize_request_path(path)
     return any(normalized.startswith(p) for p in GO2RTC_STREAM_PROXY_PATHS)
+
+
+def _is_cross_origin_stream_request(original_url: str | None, request: Request) -> bool:
+    # the internal port grants admin, so a browser on another site must be
+    # stopped before that early return
+    upgrade = request.headers.get("x-original-upgrade", "").lower()
+    path = split_request_uri(original_url or "")[0]
+    if upgrade != "websocket" and not _is_go2rtc_stream_proxy_request(path, request):
+        return False
+
+    return not origin_allowed(
+        request.headers.get("origin"),
+        request.headers.get("x-original-host"),
+        request.headers.get("x-forwarded-host"),
+    )
 
 
 def deny_response_for_go2rtc_stream(
