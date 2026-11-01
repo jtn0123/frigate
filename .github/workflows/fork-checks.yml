@@ -2,11 +2,13 @@ name: Fork - Checks
 
 # Same gates as upstream's pull_request.yml, run on pushes to next (where pull
 # requests land) and main (the release branch), with dependency caching and a
-# thin backend test image instead of a full devcontainer build. Web and Python
-# lint and E2E jobs run only when their files changed, except that a push to
-# next always runs the web jobs (Sonar's branch gate needs the browser coverage;
-# see fork/scripts/ci-changes.sh). Both coverage suites run
-# on every revision so Sonar never mixes reports from different commits.
+# thin backend test image instead of a full devcontainer build. Each job runs
+# only when files it covers changed (fork/scripts/ci-changes.sh): a pull request
+# that changes only the Android app, the ledger or Markdown skips the backend
+# suite and Sonar (I69). Every push runs the backend and both coverage suites,
+# and a push to next also runs the web jobs, since Sonar's branch gate judges
+# the whole branch. Whenever Sonar runs, both coverage suites ran on the same
+# revision, so it never mixes reports from different commits.
 # "Checks passed" includes the Sonar quality gate for trusted revisions.
 
 on:
@@ -64,6 +66,8 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       python: ${{ steps.filter.outputs.python }}
+      backend: ${{ steps.filter.outputs.backend }}
+      coverage: ${{ steps.filter.outputs.coverage }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -118,6 +122,8 @@ jobs:
   web_unit:
     name: Web - Unit tests + production build
     needs: changes
+    # Also on backend-only changes: Sonar needs this revision's web coverage.
+    if: needs.changes.outputs.coverage == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -262,9 +268,11 @@ jobs:
       - run: python3 fork/scripts/lock-audit.py
       - run: python3 -m unittest discover -s fork/scripts -p "test_*.py"
 
+  # Also on web-only changes: Sonar needs this revision's Python coverage.
   python_tests:
     name: Python - mypy, API spec, unittest
     needs: changes
+    if: needs.changes.outputs.coverage == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -295,7 +303,7 @@ jobs:
   audio_companion:
     name: Audio companion - actual image and offline startup
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
