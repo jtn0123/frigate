@@ -38,6 +38,7 @@ import com.jtn.frigateviewer.tunnel.describeHost
 import com.jtn.frigateviewer.tunnel.import
 import com.jtn.frigateviewer.tunnel.remove
 import com.jtn.frigateviewer.tunnel.setEnabled
+import com.jtn.frigateviewer.tunnel.startTunnel
 import com.jtn.frigateviewer.tunnel.tunnelEndpoint
 import com.jtn.frigateviewer.tunnel.tunnelServer
 import java.io.ByteArrayOutputStream
@@ -60,8 +61,13 @@ fun RemoteAccessSettings(remote: RemoteAccess, onShowLog: () -> Unit) {
 
     val allow = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { remote.check() }
 
-    /** Asks Android for the VPN connection if it has not allowed it yet; it asks once. */
+    /**
+     * Asks Android for the VPN connection if it has not allowed it yet; it asks
+     * once. Not while another app's VPN is on: asking hands the VPN to this app
+     * and turns that one off, so it is asked when the tunnel is needed instead.
+     */
     fun askForPermission() {
+        if (remote.otherVpnOn) return remote.check()
         val request = VpnService.prepare(context)
         if (request != null) allow.launch(request) else remote.check()
     }
@@ -107,6 +113,23 @@ fun RemoteAccessSettings(remote: RemoteAccess, onShowLog: () -> Unit) {
                 onClick = ::askForPermission,
                 actionLabel = "Allow the VPN connection",
             )
+        }
+        when (remote.status) {
+            TunnelStatus.OtherVpnInTheWay -> Info(
+                Icons.Outlined.VpnKey,
+                "Use the app's tunnel instead",
+                "Android runs one VPN at a time, so this turns the other VPN off.",
+                onClick = remote::startTunnel,
+                actionLabel = "Use the app's tunnel instead",
+            )
+            TunnelStatus.StoppedOutside -> Info(
+                Icons.Outlined.VpnKey,
+                "Start the tunnel",
+                "It was turned off outside the app, so the app does not start it again by itself.",
+                onClick = remote::startTunnel,
+                actionLabel = "Start the tunnel",
+            )
+            else -> Unit
         }
         (remote.status as? TunnelStatus.Failed)?.takeIf { it.noAnswer }?.let { NoAnswerChecks(tunnel.config) }
         // The server it dials, so a wrong address in the file can be spotted here.
@@ -191,6 +214,10 @@ internal fun statusText(status: TunnelStatus): String = when (status) {
     TunnelStatus.NeedsPermission -> "Waiting for Android to allow the VPN connection."
     TunnelStatus.Checking -> "Checking whether the server answers directly…"
     TunnelStatus.Home -> "The server answers directly, so the tunnel is off."
+    TunnelStatus.OtherVpn -> "The server answers through another VPN, so the tunnel is off."
+    TunnelStatus.OtherVpnInTheWay ->
+        "Another VPN is on but does not reach the server. The app's tunnel would turn it off, so it waits for you."
+    TunnelStatus.StoppedOutside -> "The tunnel was turned off outside the app, so it stays off for now."
     TunnelStatus.NoNetwork -> "No network. It connects when there is one."
     TunnelStatus.Connecting -> "Away from home. Connecting…"
     TunnelStatus.Connected -> "Away from home, connected through the tunnel."

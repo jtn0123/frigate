@@ -11,8 +11,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,7 +46,9 @@ import kotlinx.coroutines.delay
  * The latest snapshot shows immediately and stays underneath until the first
  * video frame renders, so the view is never an empty black box. If the
  * stream cannot start after a couple of retries the snapshot keeps refreshing
- * instead, and [onState] reports FAILED so the caller can say so.
+ * instead, and [onState] reports FAILED so the caller can say so. When
+ * [route] changes, as when the tunnel or another VPN comes up or goes down,
+ * the stream starts again on the new way to the server, with every retry.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -54,10 +58,19 @@ fun LiveVideo(
     stream: String,
     muted: Boolean,
     modifier: Modifier = Modifier,
+    route: Int = 0,
     onState: (LiveState) -> Unit = {},
 ) {
     val context = LocalContext.current
     val retry = remember(stream) { LiveRetry() }
+    // The open stream, or the one that gave up, was on the old way to the server.
+    var streamRoute by remember(stream) { mutableIntStateOf(route) }
+    LaunchedEffect(route) {
+        if (route != streamRoute) {
+            streamRoute = route
+            retry.resumed()
+        }
+    }
     val state = retry.state
     val newPlayer = LocalPlayerFactory.current
 

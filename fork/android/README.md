@@ -52,11 +52,30 @@ directly, and only for the app's own connections (the rest of the phone is untou
 2. Copy the file to the phone, then in the app open **Settings > Remote access > Set up
    WireGuard** and pick it. Android asks once to allow the VPN connection.
 
-Each time the app comes to the front, and when the phone changes network, it tries the
-server directly over Wi-Fi or mobile data. If that works the tunnel stays off; if not it
-comes up, with Android's key icon in the status bar. It closes a minute after the app
-leaves the screen. The home screen widget uses the tunnel only while it is up. The
-server address should be one the VPN routes to, such as its LAN address.
+Each time the app comes to the front, and when the phone changes network (a VPN coming up
+or going down included), it tries the server the way its own connections go without the
+tunnel: over Wi-Fi or mobile data, or through another app's VPN while one is on. If that
+works the tunnel stays off; if not it comes up, with Android's key icon in the status bar.
+It closes a minute after the app leaves the screen. The home screen widget uses the tunnel
+only while it is up. The server address should be one the VPN routes to, such as its LAN
+address.
+
+**Another VPN app** (UniFi Teleport in WiFiman, Tailscale, the official WireGuard app):
+Android runs one VPN at a time, so the app's tunnel and the other VPN cannot both be on.
+
+- When the other VPN reaches the server, the app uses it and leaves its tunnel off
+  ("The server answers through another VPN"). This works whether the other VPN was on
+  before the app opened or is turned on while it is open: Android then stops the app's
+  tunnel, and the app switches to the other VPN and reloads, rather than starting its
+  tunnel again.
+- When the other VPN is on but does not reach the server, the app does not turn it off by
+  itself. Settings says so and offers **Use the app's tunnel instead**.
+- When the other VPN is turned off again, the app's tunnel takes over.
+- The app asks Android for its VPN permission only when its tunnel is actually needed,
+  since asking hands the VPN to this app and turns another app's VPN off.
+- If the tunnel is turned off outside the app, as in Android's VPN settings, the app does
+  not start it again by itself: **Start the tunnel** in Settings does, and so does opening
+  the app again after a minute away.
 
 When it does not connect, **Settings > Remote access > Tunnel log** shows each step: the
 direct check (which network, how long, what failed), the tunnel starting, and the bytes
@@ -72,6 +91,11 @@ What the log's messages usually mean:
 
 - **"Direct check: answered over Wi-Fi"** and the tunnel stays off: you are home, or the
   server address is reachable from where you are. Nothing to fix.
+- **"Direct check: answered through another VPN"**, then **"Reached through another VPN"**:
+  a VPN app such as Teleport reaches the server, so the tunnel stays off. Nothing to fix.
+- **"Another VPN is on and does not reach the server"**: that VPN does not route to the
+  server's address. Turn it off, fix its routes, or choose **Use the app's tunnel
+  instead** in Settings.
 - **"No answer yet … sent N bytes, received 0 bytes"**: the phone sends handshakes and the
   VPN server never replies. Check, in order:
   1. This phone's client is on the server: saved before the file was downloaded (on UniFi,
@@ -87,8 +111,8 @@ What the log's messages usually mean:
      another Wi-Fi too.
   4. The official WireGuard app with the same file. If it does not connect either, the
      cause is the server or the network, not this app.
-- **"Tunnel did not start: Android did not start the VPN"**: another VPN app is on. Only
-  one VPN runs at a time.
+- **"Tunnel did not start: Android did not start the VPN"**: another VPN app is on, possibly
+  set as always-on in Android's VPN settings. Only one VPN runs at a time.
 - **"received" grows but the cameras do not load**: the tunnel works but does not route
   to the server. The file's AllowedIPs must cover the server's address (the UniFi default,
   all traffic, does).

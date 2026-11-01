@@ -125,6 +125,7 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                         muted = muted,
                         onState = { liveState = it },
                         modifier = Modifier.fillMaxSize(),
+                        route = vm.remoteAccess?.routeChanges ?: 0,
                     )
                 } else {
                     LiveFrame(session.api, camera.name, intervalMs = 1_000, height = 720, modifier = Modifier.fillMaxSize())
