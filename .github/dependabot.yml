@@ -81,6 +81,20 @@ updates:
       security:
         applies-to: security-updates
         patterns: ["*"]
+  - package-ecosystem: "gradle"
+    directory: "/fork/android"
+    schedule:
+      interval: daily
+    # fork: the Android viewer's version catalog (gradle/libs.versions.toml).
+    # Same policy as the image: security fixes only, one grouped PR. Gradle
+    # checks every download against gradle/verification-metadata.xml, so a
+    # security PR fails "Fork - Android" until that file is regenerated for the
+    # new versions (fork/android/README.md, Build).
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
