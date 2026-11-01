@@ -1,6 +1,7 @@
 package com.jtn.frigateviewer.widget
 
 import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,12 +33,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import com.jtn.frigateviewer.container
 import com.jtn.frigateviewer.data.Camera
-import com.jtn.frigateviewer.data.Session
-import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.ui.AppTheme
 import com.jtn.frigateviewer.ui.EmptyState
 import com.jtn.frigateviewer.ui.FrigateTheme
+import com.jtn.frigateviewer.ui.LockScreen
 import com.jtn.frigateviewer.ui.Remote
 import com.jtn.frigateviewer.ui.RemoteContent
 import com.jtn.frigateviewer.ui.ScreenHeader
@@ -46,33 +47,65 @@ import com.jtn.frigateviewer.ui.loadRemote
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/** Picks the camera for a new widget, or a different one for a placed widget. */
+/**
+ * Picks the camera for a new widget, or a different one for a placed widget.
+ * Android lets any app open it, so it only acts for one of this app's widgets,
+ * and with the app lock on it lists nothing until unlocked.
+ */
 class WidgetSetupActivity : ComponentActivity() {
     private var cameras by mutableStateOf<Remote<List<Camera>>?>(Remote.Loading)
     private var theme by mutableStateOf(AppTheme.Default)
+
+    /** Null until the settings are read; true while the app lock waits to be unlocked. */
+    private var locked by mutableStateOf<Boolean?>(null)
+    private var lockReason by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         // Backing out leaves no widget behind.
         setResult(RESULT_CANCELED, result(id))
-        if (id == AppWidgetManager.INVALID_APPWIDGET_ID) {
+        if (!isOwnWidget(id)) {
             finish()
             return
         }
         enableEdgeToEdge()
-        load()
+        lifecycleScope.launch {
+            val settings = container.settingsStore.settings.first()
+            theme = AppTheme.byId(settings.theme)
+            locked = settings.appLock
+            if (!settings.appLock) load()
+        }
         setContent {
             FrigateTheme(theme) {
                 // The surface gives text the theme's color, as in the app.
                 Surface(Modifier.fillMaxSize()) {
-                    WidgetSetupScreen(cameras, onRetry = ::load, onClose = ::finish) { camera ->
-                        WidgetChoices(this).set(id, WidgetChoice(camera.name, camera.label))
-                        CameraWidget.requestUpdate(applicationContext, intArrayOf(id))
-                        setResult(RESULT_OK, result(id))
-                        finish()
+                    when (locked) {
+                        null -> Unit
+                        true -> LockScreen(lockReason, ::unlock)
+                        false -> WidgetSetupScreen(cameras, onRetry = ::load, onClose = ::finish) { camera ->
+                            WidgetChoices(this).set(id, WidgetChoice(camera.name, camera.label))
+                            CameraWidget.requestUpdate(applicationContext, intArrayOf(id))
+                            setResult(RESULT_OK, result(id))
+                            finish()
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    /** Whether [id] is a widget of this app's [CameraWidget], not another app's or a made-up one. */
+    private fun isOwnWidget(id: Int): Boolean = id != AppWidgetManager.INVALID_APPWIDGET_ID &&
+        AppWidgetManager.getInstance(this).getAppWidgetInfo(id)?.provider == ComponentName(this, CameraWidget::class.java)
+
+    private fun unlock() {
+        container.unlock(this) { success, why ->
+            if (success) {
+                locked = false
+                load()
+            } else {
+                lockReason = why
             }
         }
     }
@@ -80,14 +113,10 @@ class WidgetSetupActivity : ComponentActivity() {
     private fun load() {
         cameras = Remote.Loading
         lifecycleScope.launch {
-            val store = SettingsStore.create(applicationContext)
-            val settings = store.settings.first()
-            theme = AppTheme.byId(settings.theme)
-            cameras = if (settings.isConfigured && (settings.token.isNotEmpty() || settings.username.isEmpty())) {
-                val session = Session.saving(settings) { change -> lifecycleScope.launch { store.save(change(store.settings.first())) } }
-                loadRemote(onSessionLost = {}) { session.api.config().cameras.filter { it.enabled }.sortedBy { it.order } }
-            } else {
-                null
+            val session = container.resumeSession(container.settingsStore.settings.first(), lifecycleScope)
+            cameras = session?.let {
+                loadRemote(onSessionLost = {
+                }) { it.api.config().cameras.filter { camera -> camera.enabled }.sortedBy { camera -> camera.order } }
             }
         }
     }

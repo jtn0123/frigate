@@ -12,12 +12,14 @@ import okhttp3.RequestBody.Companion.toRequestBody
 /**
  * The review items of the last [hours], newest first. `/api/review` lists alerts
  * before detections (so its limit keeps alerts), which this undoes for the day lists.
+ * With [reviewed] set, only the items the user has (true) or has not (false) reviewed.
  */
 suspend fun FrigateApi.reviews(
     severity: Severity = Severity.ALL,
     camera: String? = null,
     hours: Int = 24,
     limit: Int = REVIEW_LIMIT,
+    reviewed: Boolean? = null,
 ): List<ReviewItem> {
     val after = System.currentTimeMillis() / 1000 - hours * 3600L
     val url = base.newBuilder().addPathSegments("api/review")
@@ -25,6 +27,7 @@ suspend fun FrigateApi.reviews(
         .addQueryParameter("after", after.toString())
         .apply { severity.apiValue?.let { addQueryParameter("severity", it) } }
         .apply { camera?.let { addQueryParameter("cameras", it) } }
+        .apply { reviewed?.let { addQueryParameter("reviewed", if (it) "1" else "0") } }
         .build()
     return json.decodeFromString<List<ReviewItem>>(getText(url)).sortedByDescending { it.startTime }
 }

@@ -39,6 +39,12 @@ data class ServerSettings(
 ) {
     val isConfigured: Boolean get() = baseUrl.isNotBlank()
 
+    /**
+     * A session can start from these settings without signing in: a server is
+     * saved, with a token, or with no login at all (port 5000).
+     */
+    val canResume: Boolean get() = isConfigured && (token.isNotEmpty() || username.isEmpty())
+
     companion object {
         const val DEFAULT_TOKEN_COOKIE = "frigate_token"
     }

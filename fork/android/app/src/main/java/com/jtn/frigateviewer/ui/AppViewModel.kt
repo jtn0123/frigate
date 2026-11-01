@@ -139,7 +139,7 @@ class AppViewModel(
             store.encryptLegacyToken()
             val settings = store.settings.first()
             savedSettings = settings
-            if (settings.isConfigured && (settings.token.isNotEmpty() || settings.username.isEmpty())) {
+            if (settings.canResume) {
                 startSession(settings)
             }
             loaded = true

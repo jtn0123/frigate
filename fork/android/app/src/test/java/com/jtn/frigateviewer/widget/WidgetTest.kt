@@ -72,7 +72,7 @@ class WidgetTest {
 
     @Test
     fun loadsTheFrameAndCountsAlertsLeftToReview() {
-        val content = runBlocking { api().widgetContent(choice, ServerSettings()) } as WidgetContent.Ready
+        val content = runBlocking { api().widgetContents(listOf(choice), ServerSettings()).single() } as WidgetContent.Ready
         assertArrayEquals(jpeg, content.frame)
         assertEquals(2, content.toReview)
         assertTrue(paths.any { it.startsWith("/api/review?") && "severity=alert" in it })
@@ -80,22 +80,24 @@ class WidgetTest {
 
     @Test
     fun theAppLockKeepsThePictureOffTheHomeScreen() {
-        val content = runBlocking { api().widgetContent(choice, ServerSettings(appLock = true)) } as WidgetContent.Ready
+        val content = runBlocking { api().widgetContents(listOf(choice), ServerSettings(appLock = true)).single() } as WidgetContent.Ready
         assertNull(content.frame)
         assertTrue(paths.none { "latest.jpg" in it })
     }
 
     @Test
     fun noCountWhenReviewsAreNotTracked() {
-        val content = runBlocking { api().widgetContent(choice, ServerSettings(trackReviews = false)) } as WidgetContent.Ready
+        val content = runBlocking {
+            api().widgetContents(listOf(choice), ServerSettings(trackReviews = false)).single()
+        } as WidgetContent.Ready
         assertNull(content.toReview)
         assertTrue(paths.none { it.startsWith("/api/review") })
     }
 
     @Test
     fun anExpiredSessionAndAServerErrorAreTold() {
-        assertEquals(WidgetContent.SignedOut, runBlocking { api(code = 401).widgetContent(choice, ServerSettings()) })
-        assertTrue(runBlocking { api(code = 500).widgetContent(choice, ServerSettings()) } is WidgetContent.Failed)
+        assertEquals(WidgetContent.SignedOut, runBlocking { api(code = 401).widgetContents(listOf(choice), ServerSettings()).single() })
+        assertTrue(runBlocking { api(code = 500).widgetContents(listOf(choice), ServerSettings()).single() } is WidgetContent.Failed)
     }
 
     private fun shown(choice: WidgetChoice?, content: WidgetContent?, settings: ServerSettings = ServerSettings()): View =

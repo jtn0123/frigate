@@ -6,6 +6,7 @@ import android.hardware.biometrics.BiometricManager.Authenticators
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
+import android.view.WindowManager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.runtime.Composable
@@ -43,6 +44,21 @@ fun Activity.authenticate(onResult: (success: Boolean, reason: String?) -> Unit)
             }
         },
     )
+}
+
+/**
+ * Keeps the app's content out of Recents while [hidden], as when the app lock
+ * is on. Android 13 and later show a blank card; before that only
+ * `FLAG_SECURE` hides it, which also blocks screenshots of the app.
+ */
+fun Activity.hideFromRecents(hidden: Boolean) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        setRecentsScreenshotEnabled(!hidden)
+    } else if (hidden) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    } else {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
 }
 
 /** Covers the app until it is unlocked, asking once on its own when it appears. */
