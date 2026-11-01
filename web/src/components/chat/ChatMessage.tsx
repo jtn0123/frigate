@@ -18,6 +18,18 @@ import { cn } from "@/lib/utils";
 import { ChatAttachmentChip } from "@/components/chat/ChatAttachmentChip";
 import { parseAttachedEvent } from "@/utils/chatUtil";
 import type { ChatStats, ShowStatsMode } from "@/types/chat";
+import { baseUrl } from "@/api/baseUrl";
+
+// Assistant output can carry prompt-injected URLs, and the browser fetches
+// images without a click, so only same-origin images render.
+function isSameOrigin(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return new URL(url, baseUrl).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
 
 type MessageBubbleProps = {
   messageRole: "user" | "assistant";
@@ -223,6 +235,27 @@ export function MessageBubble({
                     {...props}
                   />
                 ),
+                img: ({ node: _n, src, alt, ...props }) =>
+                  typeof src === "string" && isSameOrigin(src) ? (
+                    <img src={src} alt={alt} {...props} />
+                  ) : (
+                    <>{alt}</>
+                  ),
+                a: ({ node: _n, href, children, ...props }) =>
+                  isSameOrigin(href) ? (
+                    <a href={href} {...props}>
+                      {children}
+                    </a>
+                  ) : (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    >
+                      {children}
+                    </a>
+                  ),
               }}
             >
               {content}
