@@ -8,6 +8,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -88,7 +90,8 @@ class TunnelLogScreenTest {
         // The list follows the newest entry, so the first may be scrolled out of view.
         val first = remote.log.entries.first().text
         compose.onNode(hasScrollAction()).performScrollToNode(hasText(first, substring = true))
-        compose.onNodeWithText(first, substring = true).assertExists()
+        // A slow runner can see a network change, so the same check may be logged twice.
+        compose.onAllNodesWithText(first, substring = true).onFirst().assertExists()
 
         compose.runOnIdle { remote.log.add("Checked again after a network change") }
 
