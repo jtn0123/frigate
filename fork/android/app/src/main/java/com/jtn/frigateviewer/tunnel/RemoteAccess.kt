@@ -58,6 +58,8 @@ class RemoteAccess(
     internal val packageName: String,
     private val idleMs: Long = IDLE_MS,
     private val handshakeMs: Long = HANDSHAKE_MS,
+    /** How often the wait for the server's answer is logged; less often once it has given up. */
+    private val reportMs: Long = REPORT_MS,
     /** What it did and why, to show and share when it does not work. */
     val log: TunnelLog = TunnelLog(),
 ) {
@@ -135,7 +137,13 @@ class RemoteAccess(
         idleJob = scope.launch {
             delay(idleMs)
             checkJob?.cancel()
-            changing.withLock { close("the app has been in the background ${idleMs / MS_PER_S} s") }
+            changing.withLock {
+                close("the app has been in the background ${idleMs / MS_PER_S} s")
+                // Not left saying it is connected, or still waiting, through a tunnel that is down.
+                if (status is TunnelStatus.Connected || status is TunnelStatus.Connecting || status is TunnelStatus.Failed) {
+                    status = TunnelStatus.Checking
+                }
+            }
         }
     }
 
@@ -157,7 +165,7 @@ class RemoteAccess(
         tunnel = saved
         val blocked = blocked(saved, url, backend::hasPermission)
         if (saved == null || blocked != null) {
-            close("${blocked ?: TunnelStatus.NotSetUp}")
+            close(closeReason(blocked ?: TunnelStatus.NotSetUp))
             status = blocked ?: TunnelStatus.NotSetUp
             if (status != previousBlock && status == TunnelStatus.NeedsPermission) log.add("Waiting for Android's VPN permission")
             previousBlock = status
@@ -179,7 +187,7 @@ class RemoteAccess(
 
     private suspend fun connect(saved: TunnelSettings): TunnelStatus {
         if (upWith != saved.config || !answered) status = TunnelStatus.Connecting
-        if (upWith != saved.config) log.add("Starting the tunnel to ${tunnelEndpoint(saved.config)?.let(::maskAddresses)}")
+        if (upWith != saved.config) log.add("Starting the tunnel to ${maskedEndpoints(saved.config)}")
         try {
             setUp(saved.config)
         } catch (e: TunnelConfigException) {
@@ -202,16 +210,24 @@ class RemoteAccess(
     private suspend fun awaitAnswer(): TunnelStatus {
         val started = System.currentTimeMillis()
         var reported = started
+        var every = reportMs
+        var gaveUp = false
         log.add("Tunnel up, waiting for the VPN server to answer")
         while (refreshStats()?.lastHandshakeMs == null) {
             val now = System.currentTimeMillis()
-            if (now - started > handshakeMs && status !is TunnelStatus.Failed) {
+            val waited = (now - started) / MS_PER_S
+            if (!gaveUp && now - started > handshakeMs) {
+                gaveUp = true
                 status = TunnelStatus.Failed(NO_ANSWER, noAnswer = true)
-                log.add("Gave up waiting after ${handshakeMs / MS_PER_S} s; WireGuard keeps trying")
-            }
-            if (now - reported >= REPORT_MS) {
+                // One line with the figures, not a progress line after it saying the same. The wait
+                // then goes on as long as the app is open, so it is logged less often from here, or
+                // its lines would push the start of the story out of the log.
+                log.add("Gave up waiting after $waited s: ${stats.describe()}. WireGuard keeps trying")
                 reported = now
-                log.add("No answer yet after ${(now - started) / MS_PER_S} s: ${stats.describe()}")
+                every = reportMs * QUIET_FACTOR
+            } else if (now - reported >= every) {
+                reported = now
+                log.add("No answer yet after $waited s: ${stats.describe()}")
             }
             delay(POLL_MS)
         }
@@ -248,9 +264,29 @@ class RemoteAccess(
         const val POLL_MS = 500L
         const val REPORT_MS = 5_000L
         const val MS_PER_S = 1_000L
-        const val NO_ANSWER = "The VPN server did not answer. Check the file's Endpoint: it must be your home's public address, " +
-            "and its UDP port must be open to the internet."
+
+        /** How many times less often the wait is logged once it has given up. */
+        const val QUIET_FACTOR = 12
     }
+}
+
+/**
+ * Shown when the tunnel runs but its server never answers. WireGuard servers
+ * drop handshakes from a key they do not know without a word, so silence
+ * means a missing client as often as a wrong address.
+ */
+internal const val NO_ANSWER = "The VPN server did not answer. WireGuard servers ignore a phone they do not know, so " +
+    "check that this phone's client is still on the server: not deleted, re-created or left unsaved since the file " +
+    "was downloaded, and that the VPN server is on. Then check the file's Endpoint is your home's public address, " +
+    "its UDP port is open to the internet, and this network does not block UDP. It keeps trying; turn off " +
+    "\"Use away from home\" to stop."
+
+/** Why the tunnel is closed when it cannot be used, in words for the log. */
+private fun closeReason(status: TunnelStatus): String = when (status) {
+    TunnelStatus.NotSetUp -> "the tunnel file was removed"
+    TunnelStatus.Off -> "it is turned off, or the app is signed out"
+    TunnelStatus.NeedsPermission -> "Android no longer allows the VPN connection"
+    else -> "$status"
 }
 
 /** Why the tunnel cannot be used at all, or null when it can. */

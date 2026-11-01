@@ -39,6 +39,16 @@ internal fun connectToAny(addresses: List<InetAddress>, budgetMs: Int, connect: 
 
 private const val NANOS_PER_MS = 1_000_000L
 
+/**
+ * What [e] says went wrong reaching [host], for the log: the host's name is
+ * cut to its ending, as an address is to its kind, since a lookup failure
+ * quotes the whole name.
+ */
+internal fun failureDetail(e: IOException, host: String): String {
+    val message = e.message.orEmpty().let { if (host.isEmpty()) it else it.replace(host, maskHost(host), ignoreCase = true) }
+    return "${e::class.simpleName}: ${maskAddresses(message)}"
+}
+
 /** Whether the server answers without the tunnel, as it does on the home network. */
 enum class Reach { DIRECT, NOT_DIRECT, NO_NETWORK }
 
@@ -92,7 +102,7 @@ class AndroidDirectRoute(context: Context) : DirectRoute {
                     }
                     ""
                 } catch (e: IOException) {
-                    "${e::class.simpleName}: ${maskAddresses(e.message.orEmpty())}"
+                    failureDetail(e, url.host)
                 }
             }
         } ?: "no answer in $PROBE_MS ms"

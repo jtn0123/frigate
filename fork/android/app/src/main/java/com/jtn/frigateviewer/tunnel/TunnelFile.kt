@@ -14,10 +14,15 @@ suspend fun RemoteAccess.import(name: String, text: String): String? {
         log.add("Imported file \"$name\" not used: ${e.message}")
         return e.message
     }
-    log.add("Imported file \"$name\": server is ${tunnelEndpoint(text)?.let(::maskAddresses)}")
-    store.saveTunnel(TunnelSettings(text, name.removeSuffix(".conf"), enabled = true))
+    log.add("Imported file \"$name\": server is ${maskedEndpoints(text)}")
+    store.saveTunnel(TunnelSettings(text, tunnelName(name), enabled = true))
     return null
 }
+
+/** The file's name without its `.conf`, however the file app cased it, as "Home.CONF". */
+internal fun tunnelName(fileName: String): String = fileName.replace(CONF_SUFFIX, "")
+
+private val CONF_SUFFIX = Regex("""\.conf$""", RegexOption.IGNORE_CASE)
 
 fun RemoteAccess.setEnabled(enabled: Boolean) {
     val current = tunnel ?: return
