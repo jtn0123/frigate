@@ -38,10 +38,13 @@ concurrency:
 env:
   DEFAULT_PYTHON: "3.11"
 
+# Every job has a timeout of at least twice its slowest run in the last 60 (I69),
+# so a hung step fails in minutes instead of holding a runner for six hours.
 jobs:
   secrets_scan:
     name: Secrets - gitleaks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       GITLEAKS_VERSION: 8.30.1
       GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
@@ -63,6 +66,7 @@ jobs:
   changes:
     name: Changed areas
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       web: ${{ steps.filter.outputs.web }}
       python: ${{ steps.filter.outputs.python }}
@@ -84,6 +88,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
@@ -125,6 +130,7 @@ jobs:
     # Also on backend-only changes: Sonar needs this revision's web coverage.
     if: needs.changes.outputs.coverage == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
@@ -150,6 +156,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -171,6 +178,7 @@ jobs:
     name: Web - E2E (${{ matrix.shard }}/3)
     needs: web_build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -235,6 +243,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -274,6 +283,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.coverage == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
@@ -285,13 +295,6 @@ jobs:
       - run: fork/scripts/py-checks.sh
         env:
           COVERAGE_XML: coverage-py/coverage.xml
-      - name: Non-root NVR startup, recording, playback, and shutdown
-        run: |
-          docker build --target nginx -f docker/main/Dockerfile -t frigate-nginx-check .
-          docker build -f fork/Dockerfile.rootless-test --build-arg BASE=frigate-fork-test -t frigate-rootless-check .
-          python3 fork/scripts/test_rootless_runtime.py frigate-rootless-check
-      - name: Audio companion unit tests
-        run: docker run --rm -v "$PWD/fork/audio_trial:/opt/frigate/fork/audio_trial:ro" frigate-fork-test discover -s fork/audio_trial -v
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -299,6 +302,31 @@ jobs:
           if-no-files-found: error
           path: coverage-py/coverage.xml
           retention-days: 7
+
+  # Its own runner, beside the unit tests rather than after them: building
+  # nginx from source and starting the NVR took 2 to 3 minutes of python_tests'
+  # critical path (I69). It builds the same test image from the same commit.
+  python_runtime:
+    name: Python - non-root NVR runtime
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: make version
+      - name: Load shared runtime base
+        run: grep '^FORK_RUNTIME_BASE=' fork/runtime-base.env >> "$GITHUB_ENV"
+      - run: docker build -f fork/Dockerfile.test --build-arg BASE="${FORK_RUNTIME_BASE}" -t frigate-fork-test .
+      - name: Non-root NVR startup, recording, playback, and shutdown
+        run: |
+          docker build --target nginx -f docker/main/Dockerfile -t frigate-nginx-check .
+          docker build -f fork/Dockerfile.rootless-test --build-arg BASE=frigate-fork-test -t frigate-rootless-check .
+          python3 fork/scripts/test_rootless_runtime.py frigate-rootless-check
+      - name: Audio companion unit tests
+        run: docker run --rm -v "$PWD/fork/audio_trial:/opt/frigate/fork/audio_trial:ro" frigate-fork-test discover -s fork/audio_trial -v
 
   audio_companion:
     name: Audio companion - actual image and offline startup
@@ -445,8 +473,9 @@ jobs:
     name: Checks passed
     if: always()
     needs:
-      [secrets_scan, changes, web_lint, web_unit, web_build, web_e2e, python_checks, python_tests, audio_companion, sonar]
+      [secrets_scan, changes, web_lint, web_unit, web_build, web_e2e, python_checks, python_tests, python_runtime, audio_companion, sonar]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       # Skipped jobs are fine (their files did not change); failed or
       # cancelled ones are not.

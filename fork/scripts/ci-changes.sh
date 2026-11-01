@@ -6,7 +6,7 @@
 #   web=       the web lint and E2E jobs
 #   python=    the light Python job: ruff, fork mypy and the fork/scripts tests
 #   backend=   the jobs that build backend images beside the coverage suite:
-#              the audio companion
+#              the non-root NVR runtime check and the audio companion
 #   coverage=  the two coverage suites (web unit tests; the test image's mypy,
 #              API spec and unittest job) and the Sonar scan they feed. True
 #              whenever web or backend is, since Sonar needs both reports.
