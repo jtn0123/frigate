@@ -26,7 +26,7 @@ suspend fun FrigateApi.reviews(
         .apply { severity.apiValue?.let { addQueryParameter("severity", it) } }
         .apply { camera?.let { addQueryParameter("cameras", it) } }
         .build()
-    return json.decodeFromString<List<ReviewItem>>(getText(url)).sortedByDescending { it.startTime }
+    return getBody(url) { json.decodeFromString<List<ReviewItem>>(it).sortedByDescending { item -> item.startTime } }
 }
 
 /** How much motion [camera] saw in each [scaleSeconds] slice between [after] and [before] (epoch seconds). */
@@ -37,7 +37,7 @@ suspend fun FrigateApi.motionActivity(camera: String, after: Long, before: Long,
         .addQueryParameter("before", before.toString())
         .addQueryParameter("scale", scaleSeconds.toString())
         .build()
-    return json.decodeFromString(getText(url))
+    return getJson(url)
 }
 
 /** Marks [ids] reviewed, or unreviewed again with [reviewed] false. */
