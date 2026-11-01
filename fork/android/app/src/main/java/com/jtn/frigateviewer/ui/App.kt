@@ -129,25 +129,30 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
         CompositionLocalProvider(LocalSnapshots provides vm.snapshots) {
             ProvideTickingNow { Screens(vm, session, imageLoader) }
         }
-        SnackbarHost(
+        AppSnackbarHost(
             snackbar,
             Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 // Clear the bottom bar on the tabs.
                 .padding(bottom = if (vm.nav.overlays.isEmpty()) 80.dp else 0.dp),
-        ) { data ->
-            // A floating, rounded toast like T3 Code's, lifted off the sheet.
-            Snackbar(
-                data,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-                shape = RoundedCornerShape(26.dp),
-                containerColor = Palette.SurfaceHigh,
-                contentColor = Palette.TextPrimary,
-                actionColor = Palette.AccentText,
-                dismissActionContentColor = Palette.TextSecondary,
-            )
-        }
+        )
+    }
+}
+
+/** A floating, rounded toast like T3 Code's, lifted off the sheet. */
+@Composable
+internal fun AppSnackbarHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
+    SnackbarHost(state, modifier) { data ->
+        Snackbar(
+            data,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            shape = RoundedCornerShape(26.dp),
+            containerColor = Palette.SurfaceHigh,
+            contentColor = Palette.TextPrimary,
+            actionColor = Palette.AccentText,
+            dismissActionContentColor = Palette.TextSecondary,
+        )
     }
 }
 
@@ -197,7 +202,8 @@ private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: Image
             onBack = vm.nav::back,
             follow = { vm.health.follow(session.api, HEALTH_REFRESH_MS) },
         )
-        Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(vm, it) } ?: Unavailable(vm, source = null)
+        Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(it, vm.savedSettings.baseUrl, onBack = vm.nav::back) }
+            ?: Unavailable(vm, source = null)
         Overlay.Search -> SearchScreen(vm, session, imageLoader)
     }
 }

@@ -43,8 +43,16 @@ class TunnelLog(
         if (added) echo(safe)
     }
 
-    fun clear() {
-        synchronized(list) { list.clear() }
+    /** Empties the log, returning what it held so [restore] can put it back. */
+    fun clear(): List<Entry> = synchronized(list) { list.toList().also { list.clear() } }
+
+    /** Puts [cleared] back before anything logged since, keeping the newest [capacity]. */
+    fun restore(cleared: List<Entry>) {
+        if (cleared.isEmpty()) return
+        synchronized(list) {
+            list.addAll(0, cleared)
+            if (list.size > capacity) list.removeRange(0, list.size - capacity)
+        }
     }
 
     private companion object {
