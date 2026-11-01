@@ -46,6 +46,9 @@ internal fun tunnelFile(
 internal class FakeBackend : TunnelBackend {
     var permitted = true
     var failure: String? = null
+
+    /** What the failure was caused by, as the library would say it. */
+    var cause: Throwable? = null
     val ups = CopyOnWriteArrayList<Config>()
     var downs = 0
 
@@ -55,7 +58,7 @@ internal class FakeBackend : TunnelBackend {
     override fun hasPermission() = permitted
 
     override suspend fun up(config: Config) {
-        failure?.let { throw TunnelException(it) }
+        failure?.let { throw TunnelException(it, cause) }
         ups += config
     }
 
@@ -261,7 +264,7 @@ class RemoteAccessTest {
         assertFalse("192.168.1.20" in report)
         assertTrue("VPN server 1: a carrier-grade NAT address (…14), not reachable from the internet, UDP port 51820" in report)
         assertTrue("Frigate server: http, port 5000, a private IPv4 address (…20)" in report)
-        assertTrue("Routes through the tunnel (AllowedIPs): public …0/0" in report)
+        assertTrue("Routes through the tunnel (AllowedIPs): all IPv4 traffic" in report)
         assertTrue("Traffic: sent 148 bytes, received 92 bytes" in report)
     }
 
@@ -349,5 +352,123 @@ class RemoteAccessTest {
         assertNull(runBlocking { remote.import("home.conf", tunnelFile()) })
         await { remote.status == TunnelStatus.Connected }
         assertEquals("home", remote.tunnel?.name)
+    }
+
+    @Test
+    fun aRepeatedLineIsLoggedOnce() {
+        var now = 1_000L
+        val echoed = mutableListOf<String>()
+        val log = TunnelLog(clock = { now }, echo = { echoed += it })
+        log.add("Networks changed")
+        log.add("Networks changed")
+        assertEquals(1, log.entries.size)
+        log.add("Direct check: no answer")
+        log.add("Networks changed")
+        assertEquals(3, log.entries.size)
+        now += 5_000
+        log.add("Networks changed")
+        assertEquals(4, log.entries.size)
+        assertEquals(4, echoed.size)
+    }
+
+    @Test
+    fun theLogHidesKeysAndAddressesWhoeverWritesIt() {
+        val key = KeyPair().privateKey.toBase64()
+        val log = TunnelLog()
+        log.add("from 203.0.113.4 and 2001:db8::5 with $key")
+        assertEquals("from public …4 and public IPv6 …5 with (key hidden)", log.entries.single().text)
+    }
+
+    @Test
+    fun aStartFailuresDetailIsMasked() {
+        backend.failure = "The tunnel did not start."
+        backend.cause = IllegalStateException("bind to 203.0.113.4:51820 failed")
+        val remote = remote()
+        remote.foreground()
+        await { remote.status is TunnelStatus.Failed }
+        val line = remote.log.entries.first { it.text.startsWith("Tunnel did not start") }.text
+        assertFalse(line, "203.0.113.4" in line)
+        assertTrue(line, "public …4:51820" in line)
+    }
+
+    @Test
+    fun ipv6AddressesAreMaskedToo() {
+        assertEquals("private IPv6 …2/128", maskAddresses("fd00:0:0:0:0:0:0:2/128"))
+        assertEquals("[public IPv6 …5]:51820", maskAddresses("[2001:db8::5]:51820"))
+        assertEquals("link-local IPv6 …1", maskAddresses("fe80::1"))
+        // Times and hardware addresses look alike but are not addresses.
+        assertEquals("at 17:31:09.123", maskAddresses("at 17:31:09.123"))
+        assertEquals("aa:bb:cc:dd:ee:ff", maskAddresses("aa:bb:cc:dd:ee:ff"))
+        assertEquals("a public IPv6 address (…5)", describeHost("2001:db8::5"))
+        assertEquals("a private IPv6 address (…7)", describeHost("[fd12::7]"))
+    }
+
+    @Test
+    fun theReportMasksIpv6AndSaysWhatRoutesEverything() {
+        val text = tunnelFile(peer = "Endpoint = [2001:db8::5]:51820\nAllowedIPs = ::/0").replace(
+            "Address = 192.168.2.2/32",
+            "Address = 192.168.2.2/32, fd00::2/128",
+        )
+        val remote = remote(tunnel = TunnelSettings(text, "home", enabled = true))
+        remote.foreground()
+        await { remote.status == TunnelStatus.Connected }
+        val report = tunnelReport(remote, "http://192.168.1.20:5000/", about = listOf(), permitted = true, libraryLines = listOf())
+        assertFalse(report, "2001:db8" in report || "fd00" in report || "0:0:0" in report)
+        assertTrue(report, "Routes through the tunnel (AllowedIPs): all IPv4 traffic, all IPv6 traffic" in report)
+        assertTrue(report, "Tunnel address: private …2/32, private IPv6 …2/128" in report)
+    }
+
+    @Test
+    fun aLookupFailureDoesNotQuoteTheServersName() {
+        val detail = failureDetail(java.net.UnknownHostException("Unable to resolve host \"frigate.example.com\""), "frigate.example.com")
+        assertEquals("UnknownHostException: Unable to resolve host \"a hostname ending .com\"", detail)
+        assertEquals(
+            "ConnectException: failed to connect to private …80 (port 8971)",
+            failureDetail(java.net.ConnectException("failed to connect to 192.168.1.80 (port 8971)"), "192.168.1.80"),
+        )
+    }
+
+    @Test
+    fun theReportRedactsTheNameAndWireGuardsLines() {
+        val key = KeyPair().publicKey.toBase64()
+        val remote = remote(tunnel = TunnelSettings(tunnelFile(), "203.0.113.9", enabled = true))
+        remote.foreground()
+        await { remote.status == TunnelStatus.Connected }
+        val report = tunnelReport(
+            remote,
+            "http://192.168.1.20:5000/",
+            about = listOf(),
+            permitted = true,
+            libraryLines = listOf("peer $key at 203.0.113.4"),
+        )
+        assertFalse(report, key in report || "203.0.113" in report)
+        assertTrue(report, "Tunnel: \"public …9\", turned on" in report)
+    }
+
+    @Test
+    fun theReportSaysTheStatusInWords() {
+        backend.answers = false
+        val remote = remote(handshakeMs = 200)
+        remote.foreground()
+        await { remote.status is TunnelStatus.Failed }
+        val report = tunnelReport(remote, "http://192.168.1.20:5000/", about = listOf(), permitted = true, libraryLines = listOf())
+        assertFalse(report, "Failed(message=" in report)
+        assertTrue(report, "Status: Failed, the VPN server never answered. The VPN server did not answer." in report)
+    }
+
+    @Test
+    fun theHarmlessWireGuardErrorSaysSo() {
+        val lines = libraryReportLines(
+            listOf(
+                "10-31 17:31:09.100 E/WireGuard/GoBackend/frigate( 123): " +
+                    "UAPIOpen: mkdir /data/data/com.wireguard.android: permission denied",
+                "10-31 17:31:09.200 D/WireGuard/GoBackend/frigate( 123): peer(abcd…wxyz) - Sending handshake initiation",
+                "10-31 17:31:09.300 D/WireGuard/GoBackend/frigate( 123): Routine: worker 3 - started",
+            ),
+        )
+        assertEquals(2, lines.size)
+        val harmless = "permission denied  (harmless: a control socket for the official WireGuard app, which this app does not use)"
+        assertTrue(lines[0], lines[0].endsWith(harmless))
+        assertFalse(lines[1], "harmless" in lines[1])
     }
 }

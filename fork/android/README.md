@@ -62,7 +62,10 @@ When it does not connect, **Settings > Remote access > Tunnel log** shows each s
 direct check (which network, how long, what failed), the tunnel starting, and the bytes
 sent and received while it waits for the VPN server to answer. **Copy** or **Share**
 gives a report with WireGuard's own log lines added. It never contains the keys, and
-addresses in it are cut to their kind and last number (`public …14`). Over adb,
+addresses in it, IPv4 and IPv6, are cut to their kind and last number (`public …14`); host
+names are cut to their ending (`a hostname ending .org`). WireGuard's
+`UAPIOpen: mkdir /data/data/com.wireguard.android: permission denied` is harmless, and the
+report says so. Over adb,
 `adb logcat -s FrigateTunnel` shows the same steps.
 
 What the log's messages usually mean:
@@ -71,8 +74,11 @@ What the log's messages usually mean:
   server address is reachable from where you are. Nothing to fix.
 - **"No answer yet … sent N bytes, received 0 bytes"**: the phone sends handshakes and the
   VPN server never replies. Check, in order:
-  1. The client was saved on the server before the file was downloaded (on UniFi,
-     **Apply Changes** after **Add Client**). An unsaved client's key is ignored silently.
+  1. This phone's client is on the server: saved before the file was downloaded (on UniFi,
+     **Apply Changes** after **Add Client**), and not deleted or re-created since. A
+     WireGuard server ignores a key it does not know without a word, so a re-created client
+     needs its new file. On UniFi, the client list's **Active Clients** stays 0. Check the
+     VPN server is on, too.
   2. The report's "VPN server" line. "a private IPv4 address" or "a carrier-grade NAT
      address" cannot be reached from the internet: your gateway is behind another router
      or your ISP's NAT. Forward the UDP port on the router in front, or use a different

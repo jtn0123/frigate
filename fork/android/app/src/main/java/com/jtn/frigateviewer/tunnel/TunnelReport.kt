@@ -12,7 +12,9 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 /**
  * A plain-text account of the tunnel to copy or share when it does not
  * work: its settings as kinds of address rather than the addresses, its
- * status and traffic, the log, and WireGuard's own lines. Never the keys.
+ * status and traffic, the log, and WireGuard's own lines. Never the keys:
+ * the whole text goes through [redact] last, so nothing key- or
+ * address-shaped gets out whatever a line was built from.
  */
 fun tunnelReport(
     remote: RemoteAccess,
@@ -21,14 +23,29 @@ fun tunnelReport(
     permitted: Boolean,
     libraryLines: List<String>,
     now: Long = System.currentTimeMillis(),
-): String = buildString {
+): String = redact(
+    buildString {
+        reportBody(remote, serverUrl, about, permitted, libraryLines, now)
+    },
+)
+
+private fun StringBuilder.reportBody(
+    remote: RemoteAccess,
+    serverUrl: String,
+    about: List<String>,
+    permitted: Boolean,
+    libraryLines: List<String>,
+    now: Long,
+) {
     val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
     appendLine("Frigate tunnel report, ${time.format(Date(now))}")
     about.forEach(::appendLine)
     appendLine()
-    appendLine("Status: ${remote.status}")
+    appendLine("Status: ${describeStatus(remote.status)}")
     val tunnel = remote.tunnel
-    appendLine("Tunnel: ${if (tunnel == null) "none imported" else "\"${tunnel.name}\", turned ${if (tunnel.enabled) "on" else "off"}"}")
+    appendLine(
+        "Tunnel: ${if (tunnel == null) "none imported" else "\"${redact(tunnel.name)}\", turned ${if (tunnel.enabled) "on" else "off"}"}",
+    )
     appendLine("Android VPN permission: ${if (permitted) "allowed" else "not allowed"}")
     appendLine("Frigate server: ${describeServer(serverUrl)}")
     tunnel?.let { tunnelSummary(it.config).forEach(::appendLine) }
@@ -45,6 +62,20 @@ fun tunnelReport(
         appendLine("WireGuard:")
         libraryLines.forEach(::appendLine)
     }
+}
+
+/** [status] for the report: a failure in words, the others by name. */
+private fun describeStatus(status: TunnelStatus): String = when {
+    status is TunnelStatus.Failed && status.noAnswer -> "Failed, the VPN server never answered. ${status.message}"
+    status is TunnelStatus.Failed -> "Failed. ${status.message}"
+    else -> "$status"
+}
+
+/** What one AllowedIPs entry sends through the tunnel: everything, for the usual default routes. */
+internal fun describeRoute(route: String): String = when (route) {
+    "0.0.0.0/0" -> "all IPv4 traffic"
+    "::/0", "0:0:0:0:0:0:0:0/0" -> "all IPv6 traffic"
+    else -> maskAddresses(route)
 }
 
 /** The server address as a kind of address, scheme and port, without the address. */
@@ -78,7 +109,7 @@ private fun tunnelSummary(config: String): List<String> {
             add(
                 "VPN server ${index + 1}: " + (endpoint?.let { "${describeHost(it.host)}, UDP port ${it.port}" } ?: "no Endpoint"),
             )
-            add("  Routes through the tunnel (AllowedIPs): ${peer.allowedIps.joinToString { maskAddresses(it.toString()) }}")
+            add("  Routes through the tunnel (AllowedIPs): ${peer.allowedIps.joinToString { describeRoute(it.toString()) }}")
             add("  Keepalive: ${peer.persistentKeepalive.map { "$it s" }.orElse("off")}")
             add("  Preshared key: ${if (peer.preSharedKey.isPresent) "set" else "none"}")
         }
@@ -98,11 +129,27 @@ suspend fun wireGuardLines(limit: Int = LIBRARY_LINES): List<String> = withConte
         val process = ProcessBuilder(command).redirectErrorStream(true).start()
         val lines = process.inputStream.bufferedReader().use { it.readLines() }
         process.waitFor()
-        lines.filter { "WireGuard" in it && !WORKER.containsMatchIn(it) }.map(::maskAddresses).takeLast(limit)
+        libraryReportLines(lines, limit)
     } catch (e: IOException) {
         listOf("Could not read WireGuard's log: ${e::class.simpleName}")
     }
 }
+
+/**
+ * WireGuard's lines as the report shows them: without worker noise, with
+ * keys and addresses cut, and with the errors known to be harmless saying so.
+ */
+internal fun libraryReportLines(lines: List<String>, limit: Int = LIBRARY_LINES): List<String> = lines
+    .filter { "WireGuard" in it && !WORKER.containsMatchIn(it) }
+    .map { line -> redact(line) + if ("UAPIOpen" in line) UAPI_HARMLESS else "" }
+    .takeLast(limit)
+
+/**
+ * WireGuard's library tries to open a control socket in the official
+ * WireGuard app's folder, which this app may not write to. The tunnel does
+ * not use it, so the error changes nothing.
+ */
+private const val UAPI_HARMLESS = "  (harmless: a control socket for the official WireGuard app, which this app does not use)"
 
 private val WORKER = Regex("""worker \d+ - (started|stopped)""")
 private const val LIBRARY_LINES = 120
