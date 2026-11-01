@@ -38,6 +38,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -53,6 +54,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import coil3.ImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -96,7 +98,7 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
             launch { vm.feed.follow() }
             while (true) {
                 delay(60_000)
-                if (!vm.feed.connected) vm.refreshReviews()
+                if (!vm.feed.connected) vm.refreshRecentReviews()
             }
         }
     }
@@ -125,26 +127,33 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
     ShareSheet(vm.clips.share, onShown = { vm.clips.shared() })
 
     Box(Modifier.fillMaxSize()) {
-        ProvideTickingNow { Screens(vm, session, imageLoader) }
-        SnackbarHost(
+        CompositionLocalProvider(LocalSnapshots provides vm.snapshots) {
+            ProvideTickingNow { Screens(vm, session, imageLoader) }
+        }
+        AppSnackbarHost(
             snackbar,
             Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 // Clear the bottom bar on the tabs.
                 .padding(bottom = if (vm.nav.overlays.isEmpty()) 80.dp else 0.dp),
-        ) { data ->
-            // A floating, rounded toast like T3 Code's, lifted off the sheet.
-            Snackbar(
-                data,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-                shape = RoundedCornerShape(26.dp),
-                containerColor = Palette.SurfaceHigh,
-                contentColor = Palette.TextPrimary,
-                actionColor = Palette.AccentText,
-                dismissActionContentColor = Palette.TextSecondary,
-            )
-        }
+        )
+    }
+}
+
+/** A floating, rounded toast like T3 Code's, lifted off the sheet. */
+@Composable
+internal fun AppSnackbarHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
+    SnackbarHost(state, modifier) { data ->
+        Snackbar(
+            data,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            shape = RoundedCornerShape(26.dp),
+            containerColor = Palette.SurfaceHigh,
+            contentColor = Palette.TextPrimary,
+            actionColor = Palette.AccentText,
+            dismissActionContentColor = Palette.TextSecondary,
+        )
     }
 }
 
@@ -187,8 +196,15 @@ private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: Image
             ?.let { TimelineScreen(vm, session, it, overlay.start) }
             ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
         is Overlay.LiveGrid -> LiveGridScreen(vm, session, overlay.cameras)
-        Overlay.Health -> HealthScreen(vm)
-        Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(vm, it) } ?: Unavailable(vm, source = null)
+        Overlay.Health -> HealthScreen(
+            stats = vm.health.value,
+            cameraLabel = vm::cameraLabel,
+            onRetry = { vm.health.retry(session.api) },
+            onBack = vm.nav::back,
+            follow = { vm.health.follow(session.api, HEALTH_REFRESH_MS) },
+        )
+        Overlay.TunnelLog -> vm.remoteAccess?.let { TunnelLogScreen(it, vm.savedSettings.baseUrl, onBack = vm.nav::back) }
+            ?: Unavailable(vm, source = null)
         Overlay.Search -> SearchScreen(vm, session, imageLoader)
     }
 }

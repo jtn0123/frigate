@@ -12,6 +12,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 /**
  * The review items of the last [hours], newest first. `/api/review` lists alerts
  * before detections (so its limit keeps alerts), which this undoes for the day lists.
+ * With [after] (epoch seconds), only items still going on or ended after it.
  * With [reviewed] set, only the items the user has (true) or has not (false) reviewed.
  */
 suspend fun FrigateApi.reviews(
@@ -19,9 +20,10 @@ suspend fun FrigateApi.reviews(
     camera: String? = null,
     hours: Int = 24,
     limit: Int = REVIEW_LIMIT,
+    after: Long? = null,
     reviewed: Boolean? = null,
 ): List<ReviewItem> {
-    val after = System.currentTimeMillis() / 1000 - hours * 3600L
+    val after = after ?: (System.currentTimeMillis() / 1000 - hours * 3600L)
     val url = base.newBuilder().addPathSegments("api/review")
         .addQueryParameter("limit", limit.toString())
         .addQueryParameter("after", after.toString())
@@ -29,7 +31,7 @@ suspend fun FrigateApi.reviews(
         .apply { camera?.let { addQueryParameter("cameras", it) } }
         .apply { reviewed?.let { addQueryParameter("reviewed", if (it) "1" else "0") } }
         .build()
-    return json.decodeFromString<List<ReviewItem>>(getText(url)).sortedByDescending { it.startTime }
+    return getBody(url) { json.decodeFromString<List<ReviewItem>>(it).sortedByDescending { item -> item.startTime } }
 }
 
 /** How much motion [camera] saw in each [scaleSeconds] slice between [after] and [before] (epoch seconds). */
@@ -40,7 +42,7 @@ suspend fun FrigateApi.motionActivity(camera: String, after: Long, before: Long,
         .addQueryParameter("before", before.toString())
         .addQueryParameter("scale", scaleSeconds.toString())
         .build()
-    return json.decodeFromString(getText(url))
+    return getJson(url)
 }
 
 /** Marks [ids] reviewed, or unreviewed again with [reviewed] false. */

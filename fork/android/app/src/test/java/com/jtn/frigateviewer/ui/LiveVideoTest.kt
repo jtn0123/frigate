@@ -47,7 +47,7 @@ class LiveVideoTest {
             override fun dispatch(request: RecordedRequest): MockResponse = MockResponse.Builder().code(404).build()
         }
         val session =
-            Session(ServerSettings(baseUrl = serverRule.server.url("/").toString()), onTokenRenewed = {}, onCertificatePinned = {})
+            Session(ServerSettings(baseUrl = serverRule.server.url("/").toString()), onTokenRenewed = {})
         // Time stands still unless the test moves it, so the reconnect's wait cannot pass unseen.
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -74,7 +74,7 @@ class LiveVideoTest {
             override fun dispatch(request: RecordedRequest): MockResponse = MockResponse.Builder().code(404).build()
         }
         val session =
-            Session(ServerSettings(baseUrl = serverRule.server.url("/").toString()), onTokenRenewed = {}, onCertificatePinned = {})
+            Session(ServerSettings(baseUrl = serverRule.server.url("/").toString()), onTokenRenewed = {})
         var route by mutableIntStateOf(0)
         compose.mainClock.autoAdvance = false
         compose.setContent {

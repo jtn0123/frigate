@@ -21,7 +21,7 @@ import org.junit.Test
 class MseStreamTest {
     @get:Rule val serverRule = MockWebServerRule()
 
-    private val client = buildHttpClient(AuthToken("frigate_token", "tok"), pin = null)
+    private val client by lazy { buildHttpClient(AuthToken(serverRule.server.url("/").toString(), "frigate_token", "tok"), pin = null) }
 
     private fun liveUrl() = FrigateApi(client, serverRule.server.url("/").toString()).liveUrl("front_door")
 

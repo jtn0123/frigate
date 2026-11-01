@@ -13,9 +13,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.FrigateApi
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.buildHttpClient
-import com.jtn.frigateviewer.ui.Remote
 import com.jtn.frigateviewer.ui.json
 import java.io.ByteArrayOutputStream
 import java.time.Instant

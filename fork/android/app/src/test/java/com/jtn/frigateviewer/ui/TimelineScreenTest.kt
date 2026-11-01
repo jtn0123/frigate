@@ -20,6 +20,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -123,5 +124,25 @@ class TimelineScreenTest {
         assertEquals(200.0, nextReview(items, 150)!!.startTime, 0.0)
         assertNull(nextReview(items, 200))
         assertNull("Not the one it is waiting to start", nextReview(items, 195))
+    }
+
+    @Test
+    fun neighborsAreFoundWithoutWalkingTheWholeList() {
+        val items = (0 until 10_000).map {
+            ReviewItem(id = "$it", camera = "c", startTime = it * 100.0, severity = "alert", thumbPath = "")
+        }
+        var reads = 0
+        val counting = object : AbstractList<ReviewItem>() {
+            override val size = items.size
+
+            override fun get(index: Int): ReviewItem {
+                reads++
+                return items[index]
+            }
+        }
+
+        assertEquals("4999", previousReview(counting, 500_000)?.id)
+        assertEquals("5001", nextReview(counting, 500_000)?.id)
+        assertTrue("A binary search, not a filter of every item, at each step: $reads reads", reads < 64)
     }
 }

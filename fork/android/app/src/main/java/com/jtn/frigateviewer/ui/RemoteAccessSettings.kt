@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
@@ -58,6 +59,7 @@ fun RemoteAccessSettings(remote: RemoteAccess, onShowLog: () -> Unit) {
     val scope = rememberCoroutineScope()
     var problem by rememberSaveable { mutableStateOf<String?>(null) }
     var managing by rememberSaveable { mutableStateOf(false) }
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
 
     val allow = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { remote.check() }
 
@@ -157,12 +159,30 @@ fun RemoteAccessSettings(remote: RemoteAccess, onShowLog: () -> Unit) {
                 }) { Text("Replace") }
             },
             dismissButton = {
+                Row {
+                    TextButton(onClick = { managing = false }) { Text("Cancel") }
+                    TextButton(onClick = {
+                        managing = false
+                        confirmRemove = true
+                    }) { Text("Remove", color = Palette.Alert) }
+                }
+            },
+        )
+    }
+
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove the tunnel file?") },
+            text = { Text("This deletes its private key from the phone. To use the tunnel again, import the file again.") },
+            confirmButton = {
                 TextButton(onClick = {
-                    managing = false
+                    confirmRemove = false
                     problem = null
                     remote.remove()
                 }) { Text("Remove", color = Palette.Alert) }
             },
+            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
         )
     }
 }

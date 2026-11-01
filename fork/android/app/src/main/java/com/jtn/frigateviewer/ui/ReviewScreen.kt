@@ -58,6 +58,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import com.jtn.frigateviewer.data.FrigateApi
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.Severity
 import java.time.Instant

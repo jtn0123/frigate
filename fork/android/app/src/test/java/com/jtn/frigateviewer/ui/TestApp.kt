@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.SavedStateHandle
 import com.jtn.frigateviewer.data.MediaFiles
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerSettings
 import java.io.File
 import java.time.Duration
@@ -37,6 +38,7 @@ fun ComposeContentTestRule.showApp(
     saved: SavedStateHandle = SavedStateHandle(),
     settings: (ServerSettings) -> ServerSettings = { it },
     media: MediaFiles? = null,
+    snapshots: Snapshots = Snapshots(),
     content: @Composable (AppViewModel) -> Unit = { App(it) },
     routes: (RecordedRequest) -> MockResponse? = { null },
 ): AppViewModel {
@@ -50,7 +52,7 @@ fun ComposeContentTestRule.showApp(
     }
     val settingsStore = testSettingsStore(File(folder, "server.preferences_pb"), scope)
     runBlocking { settingsStore.save(settings(ServerSettings(baseUrl = server.url("/").toString()))) }
-    val vm = AppViewModel(saved, settingsStore, media = media)
+    val vm = AppViewModel(saved, settingsStore, media = media, snapshots = snapshots)
     setContent { content(vm) }
     awaitMain { vm.cameras !is Remote.Loading && vm.reviews !is Remote.Loading }
     return vm

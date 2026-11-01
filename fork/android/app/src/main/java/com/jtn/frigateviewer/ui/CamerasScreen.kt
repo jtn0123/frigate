@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.CameraActivity
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
 
@@ -112,7 +114,7 @@ fun CamerasScreen(vm: AppViewModel, session: Session) {
                                     CameraTile(
                                         session = session,
                                         camera = camera,
-                                        events = vm.reviewsFor(camera.name),
+                                        summary = vm.reviewSummary(camera.name),
                                         now = vm.feed.activity[camera.name]?.let(::activityLabel),
                                         compact = columns > 1,
                                         trackReviews = vm.trackReviews,
@@ -132,17 +134,22 @@ fun CamerasScreen(vm: AppViewModel, session: Session) {
 private fun CameraTile(
     session: Session,
     camera: Camera,
-    events: List<ReviewItem>,
+    summary: CameraSummary,
     /** What the camera sees right now, such as "Person" or "Motion", from the live feed. */
     now: String?,
     compact: Boolean,
     trackReviews: Boolean,
     onClick: () -> Unit,
 ) {
-    val toReview = if (trackReviews) events.count { it.isAlert && !it.reviewed } else 0
-    val latest = events.maxByOrNull { it.startTime }
+    val toReview = if (trackReviews) summary.unreviewedAlerts else 0
     val nowMillis = LocalNow.current
-    val activity = latest?.let { "${it.title} · ${timeAgo(it.startTime, nowMillis)}" } ?: "No activity in 24h"
+    val activity = summary.latest?.let { "${it.title} · ${timeAgo(it.startTime, nowMillis)}" } ?: "No activity in 24h"
+    // Its picture is out of date, so a screen reader says so as well as the tag on it. Derived,
+    // so each new picture does not compose the tile again, only a change of what is said.
+    val snapshots = LocalSnapshots.current
+    val offline by remember(snapshots, camera.name, camera.enabled) {
+        derivedStateOf { snapshots?.get(camera.name)?.staleMs?.takeIf { camera.enabled }?.let(::offlineLabel) }
+    }
     // Ask Frigate for frames the size the tile shows, not one size for every layout.
     var tileHeight by remember { mutableIntStateOf(0) }
     Box(
@@ -160,6 +167,7 @@ private fun CameraTile(
                 contentDescription = buildString {
                     append(camera.label)
                     if (!camera.enabled) append(", disabled")
+                    offline?.let { append(", picture ${it.lowercase()}") }
                     if (now != null) append(", $now now")
                     if (toReview > 0) append(", $toReview alerts to review")
                     append(", $activity")

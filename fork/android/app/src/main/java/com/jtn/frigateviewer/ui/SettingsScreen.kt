@@ -45,12 +45,15 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.BuildConfig
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 
 @Composable
 fun SettingsScreen(vm: AppViewModel, session: Session) {
     val settings = session.settings
     var showCertificate by rememberSaveable { mutableStateOf(false) }
+    var confirmSignOut by rememberSaveable { mutableStateOf(false) }
+    val signOut = if (settings.username.isEmpty()) "Change server" else "Sign out"
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(title = "Settings", subtitle = null)
         TabSheet {
@@ -112,7 +115,7 @@ fun SettingsScreen(vm: AppViewModel, session: Session) {
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable(role = Role.Button, onClick = vm::logout)
+                            .clickable(role = Role.Button) { confirmSignOut = true }
                             .heightIn(min = 56.dp)
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -120,7 +123,7 @@ fun SettingsScreen(vm: AppViewModel, session: Session) {
                     ) {
                         Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null, tint = Palette.Alert)
                         Text(
-                            if (settings.username.isEmpty()) "Change server" else "Sign out",
+                            signOut,
                             style = MaterialTheme.typography.bodyLarge,
                             color = Palette.Alert,
                         )
@@ -128,6 +131,21 @@ fun SettingsScreen(vm: AppViewModel, session: Session) {
                 }
             }
         }
+    }
+
+    if (confirmSignOut) {
+        AlertDialog(
+            onDismissRequest = { confirmSignOut = false },
+            title = { Text("$signOut?") },
+            text = { Text("Open screens close, and you sign in again to see your cameras.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmSignOut = false
+                    vm.logout()
+                }) { Text(signOut, color = Palette.Alert) }
+            },
+            dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } },
+        )
     }
 
     if (showCertificate) {

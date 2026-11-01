@@ -6,10 +6,12 @@ import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +23,9 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -46,11 +52,12 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** What the tunnel did, live, with its traffic, to copy or share as a report. */
+/** What the tunnel did, live, with its traffic, to copy or share as a report about the server at [baseUrl]. */
 @Composable
-fun TunnelLogScreen(vm: AppViewModel, remote: RemoteAccess) {
+fun TunnelLogScreen(remote: RemoteAccess, baseUrl: String, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(remote) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -63,7 +70,7 @@ fun TunnelLogScreen(vm: AppViewModel, remote: RemoteAccess) {
 
     suspend fun report(): String = tunnelReport(
         remote,
-        vm.savedSettings.baseUrl,
+        baseUrl,
         about = listOf(
             "App ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TYPE})",
             "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}",
@@ -88,25 +95,47 @@ fun TunnelLogScreen(vm: AppViewModel, remote: RemoteAccess) {
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
+        TunnelLogContent(remote, busy, onBack, onCopy = {
+            once {
+                val text = report()
+                context.getSystemService(ClipboardManager::class.java)
+                    .setPrimaryClip(ClipData.newPlainText("Frigate tunnel report", text))
+            }
+        }, onShare = {
+            once {
+                val send = Intent(Intent.ACTION_SEND)
+                    .setType("text/plain")
+                    .putExtra(Intent.EXTRA_SUBJECT, "Frigate tunnel report")
+                    .putExtra(Intent.EXTRA_TEXT, report())
+                context.startActivity(Intent.createChooser(send, null))
+            }
+        }, onClear = {
+            val cleared = remote.log.clear()
+            scope.launch {
+                snackbar.currentSnackbarData?.dismiss()
+                val result = snackbar.showSnackbar("Log cleared", actionLabel = "Undo", duration = SnackbarDuration.Short)
+                if (result == SnackbarResult.ActionPerformed) remote.log.restore(cleared)
+            }
+        })
+        AppSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+    }
+}
+
+@Composable
+private fun TunnelLogContent(
+    remote: RemoteAccess,
+    busy: Boolean,
+    onBack: () -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onClear: () -> Unit,
+) {
     Column(Modifier.fillMaxSize().background(Palette.Chrome)) {
-        DetailHeader("Tunnel log", onBack = { vm.nav.back() }) {
-            IconButton(enabled = !busy, onClick = {
-                once {
-                    val text = report()
-                    context.getSystemService(ClipboardManager::class.java)
-                        .setPrimaryClip(ClipData.newPlainText("Frigate tunnel report", text))
-                }
-            }) { Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy report") }
-            IconButton(enabled = !busy, onClick = {
-                once {
-                    val send = Intent(Intent.ACTION_SEND)
-                        .setType("text/plain")
-                        .putExtra(Intent.EXTRA_SUBJECT, "Frigate tunnel report")
-                        .putExtra(Intent.EXTRA_TEXT, report())
-                    context.startActivity(Intent.createChooser(send, null))
-                }
-            }) { Icon(Icons.Outlined.Share, contentDescription = "Share report") }
-            IconButton(onClick = { remote.log.clear() }) { Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clear log") }
+        DetailHeader("Tunnel log", onBack = onBack) {
+            IconButton(enabled = !busy, onClick = onCopy) { Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy report") }
+            IconButton(enabled = !busy, onClick = onShare) { Icon(Icons.Outlined.Share, contentDescription = "Share report") }
+            IconButton(onClick = onClear) { Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clear log") }
         }
         TabSheet {
             val entries = remote.log.entries

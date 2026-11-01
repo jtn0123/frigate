@@ -28,14 +28,16 @@ class SessionTest {
     }
 
     @Test
-    fun theFirstCertificateIsSavedWhenNoneWasPinned() = runTest {
+    fun aSelfSignedServerWithNoSavedPinIsNotTrustedSilently() = runTest {
         val cert = HeldCertificate.Builder().commonName("frigate.local").build()
         server.useHttps(HandshakeCertificates.Builder().heldCertificate(cert).build().sslSocketFactory())
         server.enqueue(MockResponse.Builder().body("0.17.0").build())
         var saved = ServerSettings(baseUrl = server.url("/").toString(), selfSignedCert = true)
 
-        Session.saving(saved) { change -> saved = change(saved) }.api.version()
+        val result = remote { Session.saving(saved) { change -> saved = change(saved) }.api.version() }
 
-        assertEquals(certificateFingerprint(cert.certificate), saved.certificatePin)
+        assertEquals(Remote.Failed(Failure.CertificateUntrusted), result)
+        assertEquals("No certificate is saved unseen", "", saved.certificatePin)
+        assertEquals("Nothing was sent", 0, server.requestCount)
     }
 }

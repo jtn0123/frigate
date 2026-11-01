@@ -3,9 +3,12 @@ package com.jtn.frigateviewer.ui
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -27,17 +30,44 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.ui.PlayerView
 import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Session
+import java.net.HttpURLConnection.HTTP_FORBIDDEN
+import java.net.HttpURLConnection.HTTP_NOT_FOUND
+import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import kotlinx.coroutines.delay
 
 /** A recording's player, and why it could not play when it could not. */
 internal class VodPlayback(val player: ExoPlayer) {
     var error by mutableStateOf<String?>(null)
+
+    /** Tries again from where it stopped. */
+    fun retry() {
+        error = null
+        player.prepare()
+        player.play()
+    }
+}
+
+/** Why a recording could not play, in plain words rather than ExoPlayer's error code. */
+@OptIn(UnstableApi::class)
+internal fun playbackError(e: PlaybackException): String {
+    val status = (e.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+    return when {
+        status == HTTP_NOT_FOUND -> "This recording is not on the server."
+        status == HTTP_UNAUTHORIZED || status == HTTP_FORBIDDEN -> "The server refused this recording."
+        status != null || e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
+            "The server could not send this recording."
+        e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+            e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||
+            e.errorCode == PlaybackException.ERROR_CODE_TIMEOUT -> "Could not connect to the server."
+        else -> "This recording could not be played."
+    }
 }
 
 /**
@@ -64,7 +94,7 @@ internal fun rememberVodPlayback(session: Session, url: String, onPosition: ((Lo
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
-                playback.error = "This recording could not be played (${e.errorCodeName})"
+                playback.error = playbackError(e)
             }
         }
         player.addListener(listener)
@@ -100,7 +130,14 @@ internal fun VodVideo(playback: VodPlayback, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxSize(),
         )
         playback.error?.let {
-            Text(it, color = Palette.Alert, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
+            Column(
+                Modifier.align(Alignment.Center).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(it, color = Palette.Alert, textAlign = TextAlign.Center)
+                OutlinedButton(onClick = playback::retry) { Text("Retry") }
+            }
         }
     }
 }

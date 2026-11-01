@@ -35,11 +35,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.jtn.frigateviewer.container
 import com.jtn.frigateviewer.data.Camera
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.ui.AppTheme
 import com.jtn.frigateviewer.ui.EmptyState
 import com.jtn.frigateviewer.ui.FrigateTheme
 import com.jtn.frigateviewer.ui.LockScreen
-import com.jtn.frigateviewer.ui.Remote
 import com.jtn.frigateviewer.ui.RemoteContent
 import com.jtn.frigateviewer.ui.ScreenHeader
 import com.jtn.frigateviewer.ui.TabSheet

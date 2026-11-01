@@ -31,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -51,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.Ptz
 import com.jtn.frigateviewer.data.PtzInfo
+import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ptzInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -70,8 +70,9 @@ fun CameraControls(vm: AppViewModel, camera: Camera) {
     val control = vm.controls
     val state = vm.feed.activity[camera.name]?.switches.orEmpty()
     var confirming by remember { mutableStateOf<CameraSwitch?>(null) }
-    val ptz by produceState<PtzInfo?>(null, camera.name, camera.onvif) {
-        if (camera.onvif) value = (vm.fetch { it.ptzInfo(camera.name) } as? Remote.Ready)?.value
+    val api = vm.session?.api
+    LaunchedEffect(api, camera.name, camera.onvif) {
+        if (camera.onvif && api != null) vm.ptz.load(api, camera.name)
     }
     LaunchedEffect(control.notice) {
         if (control.notice != null) {
@@ -104,7 +105,15 @@ fun CameraControls(vm: AppViewModel, camera: Camera) {
                 },
             )
         }
-        ptz?.takeIf { it.any }?.let { PtzPad(it) { command -> control.ptz(camera.name, command) } }
+        if (camera.onvif) {
+            when (val ptz = vm.ptz[camera.name]) {
+                is Remote.Ready -> ptz.value.takeIf { it.any }?.let { PtzPad(it) { command -> control.ptz(camera.name, command) } }
+                is Remote.Failed -> RetryLine("Motor controls unavailable", Modifier.padding(start = 20.dp, end = 8.dp)) {
+                    api?.let { vm.ptz.retry(it, camera.name) }
+                }
+                Remote.Loading -> Unit
+            }
+        }
         control.notice?.let {
             Text(
                 it,

@@ -36,14 +36,13 @@ suspend fun FrigateApi.startExport(camera: String, start: Long, end: Long, name:
         put("name", name)
     }.toString().toRequestBody("application/json".toMediaType())
     val request = Request.Builder().url(url("api/export/$camera/start/$start/end/$end")).post(body).build()
-    val reply = call(request) { it.body.string() }
-    val id = (json.parseToJsonElement(reply).jsonObject["export_id"] as? JsonPrimitive)?.contentOrNull
+    val id = call(request) { (json.parseToJsonElement(it.body.string()).jsonObject["export_id"] as? JsonPrimitive)?.contentOrNull }
     return id ?: throw IOException("The server did not start the export")
 }
 
 /** The export, or null while the server has not listed it yet. */
 suspend fun FrigateApi.exportInfo(id: String): ExportInfo? =
-    json.decodeFromString<List<ExportInfo>>(getText(url("api/exports"))).firstOrNull { it.id == id }
+    getBody(url("api/exports")) { reply -> json.decodeFromString<List<ExportInfo>>(reply).firstOrNull { it.id == id } }
 
 /** Where export job [id] is, from `/api/jobs/export/<id>`; only what the app reads. */
 @Serializable
@@ -56,7 +55,7 @@ internal data class ExportJob(val status: String = "", @SerialName("error_messag
  * without the route, or a job dropped a few seconds after it finished.
  */
 internal suspend fun FrigateApi.exportJob(id: String): ExportJob? = try {
-    json.decodeFromString<ExportJob>(getText(url("api/jobs/export/$id")))
+    getJson<ExportJob>(url("api/jobs/export/$id"))
 } catch (e: HttpException) {
     if (e.code != HTTP_NOT_FOUND) throw e
     null

@@ -36,7 +36,7 @@ class AuthException(message: String) : IOException(message)
  * not an [AuthException]: Frigate sends it when this account may not see a
  * camera or do something, while the session itself stays good.
  */
-class HttpException(val code: Int, message: String) : IOException(message)
+class HttpException(val code: Int, message: String, val path: String? = null) : IOException(message)
 
 /** The JWT from a login and the name of the cookie Frigate delivered it in (`auth.cookie_name`). */
 data class LoginToken(val cookieName: String, val token: String)
@@ -84,11 +84,11 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
             .close()
     }
 
-    suspend fun version(): String = getText("api/version").trim()
+    suspend fun version(): String = getBody(url("api/version")) { it.trim() }
 
-    suspend fun config(): ServerConfig = parseConfig(getText("api/config"))
+    suspend fun config(): ServerConfig = getBody(url("api/config"), ::parseConfig)
 
-    suspend fun stats(): ServerStats = parseStats(getText("api/stats"))
+    suspend fun stats(): ServerStats = getBody(url("api/stats"), ::parseStats)
 
     /** One JPEG frame of the camera's current view. */
     suspend fun latestFrame(camera: String, height: Int): ByteArray {
@@ -104,10 +104,15 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
 
     internal fun url(path: String): HttpUrl = base.newBuilder().addPathSegments(path).build()
 
-    internal suspend fun getText(path: String): String = getText(url(path))
+    /**
+     * Fetches [url] and hands its body to [parse] on the same IO thread, so
+     * decoding a large reply never runs on the caller's dispatcher (often Main).
+     */
+    internal suspend fun <T> getBody(url: HttpUrl, parse: (String) -> T): T =
+        call(Request.Builder().url(url).build()) { parse(it.body.string()) }
 
-    internal suspend fun getText(url: HttpUrl): String =
-        call(Request.Builder().url(url).build()) { it.body.string() }
+    /** The JSON at [url], decoded as [T] like [getBody]. */
+    internal suspend inline fun <reified T> getJson(url: HttpUrl): T = getBody(url) { json.decodeFromString<T>(it) }
 
     /**
      * Runs [request] and hands a successful response to [read]. Cancelling the
@@ -128,7 +133,11 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
                 when {
                     response.code == HTTP_UNAUTHORIZED -> throw AuthException("Not authorized (HTTP ${response.code})")
                     response.code == HTTP_FORBIDDEN -> throw HttpException(response.code, NOT_ALLOWED)
-                    !response.isSuccessful -> throw HttpException(response.code, "HTTP ${response.code} for ${request.url.encodedPath}")
+                    !response.isSuccessful -> throw HttpException(
+                        response.code,
+                        "HTTP ${response.code} for ${request.url.encodedPath}",
+                        request.url.encodedPath,
+                    )
                     else -> read(response)
                 }
             }
@@ -211,17 +220,17 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
          * without trusting it, so the user can decide whether to.
          */
         suspend fun serverCertificate(baseUrl: String): String {
-            val pin = CertificatePin(null)
+            // Trusting nothing, the handshake stops at the certificate, so nothing is sent.
+            val pin = CertificatePin("")
             val failure = try {
                 FrigateApi(buildHttpClient(null, pin), baseUrl).version()
                 null
             } catch (e: CancellationException) {
                 throw e
             } catch (e: IOException) {
-                // Any HTTP answer, even 401, means the handshake already happened.
                 e
             }
-            return pin.fingerprint ?: throw (failure ?: IOException("The server did not present a certificate"))
+            return pin.seen ?: throw (failure ?: IOException("The server did not present a certificate"))
         }
 
         private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject

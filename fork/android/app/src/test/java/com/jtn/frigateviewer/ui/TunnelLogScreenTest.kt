@@ -15,7 +15,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
-import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.TunnelSettings
@@ -76,8 +75,7 @@ class TunnelLogScreenTest {
         val remote = RemoteAccess(main, store, FakeBackend(), FakeRoute(Reach.NOT_DIRECT), "com.jtn.frigateviewer", handshakeMs = 100)
             .also { it.start() }
         remote.foreground()
-        val vm = AppViewModel(SavedStateHandle(), store, remoteAccess = remote)
-        compose.setContent { TunnelLogScreen(vm, remote) }
+        compose.setContent { TunnelLogScreen(remote, "http://192.168.1.20:5000/", onBack = {}) }
         compose.awaitText("Away from home, connected through the tunnel.")
         return remote
     }
@@ -125,6 +123,20 @@ class TunnelLogScreenTest {
         compose.awaitText("Nothing yet.", substring = true)
         compose.onNodeWithText(first, substring = true).assertDoesNotExist()
         assertTrue(remote.log.entries.isEmpty())
+    }
+
+    @Test
+    fun undoPutsAClearedLogBack() {
+        val remote = show()
+        val before = remote.log.entries.map { it.text }
+
+        compose.onNodeWithContentDescription("Clear log").performClick()
+        compose.awaitText("Log cleared")
+        compose.runOnIdle { remote.log.add("Logged after clearing") }
+        compose.onNodeWithText("Undo").performClick()
+
+        compose.awaitMain { remote.log.entries.size == before.size + 1 }
+        assertEquals("The old entries come back before the new one", before + "Logged after clearing", remote.log.entries.map { it.text })
     }
 
     @Test
