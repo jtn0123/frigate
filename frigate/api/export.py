@@ -10,7 +10,7 @@ from collections import deque
 from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import quote
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfoNotFoundError
 
 import psutil
 from fastapi import APIRouter, Depends, Query, Request
@@ -80,7 +80,7 @@ from frigate.record.export import (
 )
 from frigate.util.identifiers import random_id as generate_id
 from frigate.util.path import sanitize_contained_path
-from frigate.util.time import get_normalized_tz_name, is_current_hour
+from frigate.util.time import get_timezone, is_current_hour
 
 _EXPORT_CASE_NOT_FOUND = "Export case not found"
 _EXPORT_QUEUE_FULL_ERROR = (
@@ -497,7 +497,7 @@ def _archive_entry(
     tz = None
     if tz_name:
         try:
-            tz = ZoneInfo(get_normalized_tz_name(tz_name))
+            tz = get_timezone(tz_name)
         except (ValueError, ZoneInfoNotFoundError):
             pass
 
