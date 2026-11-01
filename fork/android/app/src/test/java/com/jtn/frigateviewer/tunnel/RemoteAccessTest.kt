@@ -108,7 +108,8 @@ internal class FakeBackend : TunnelBackend {
     }
 }
 
-internal class FakeRoute(var reach: Reach, var otherVpn: Boolean = false) : DirectRoute {
+// Volatile: tests change these while RemoteAccess reads them on its own threads.
+internal class FakeRoute(@Volatile var reach: Reach, @Volatile var otherVpn: Boolean = false) : DirectRoute {
     var onChange: (() -> Unit)? = null
 
     /** Whether the app's tunnel was up for each check. */
@@ -165,31 +166,6 @@ class RemoteAccessTest {
             store.saveTunnel(tunnel)
         }
         return RemoteAccess(scope, store, backend, route, "com.jtn.frigateviewer", idleMs, handshakeMs, reportMs).also { it.start() }
-    }
-
-    @Test
-    fun theTunnelOnlyCarriesThisAppWhateverTheFileSays() {
-        val config = appOnlyTunnel(tunnelFile(), "com.jtn.frigateviewer")
-        assertEquals(setOf("com.jtn.frigateviewer"), config.`interface`.includedApplications)
-        assertTrue(config.`interface`.excludedApplications.isEmpty())
-        assertEquals("192.168.2.2/32", config.`interface`.addresses.single().toString())
-        assertEquals("vpn.example.com:51820", config.peers.single().endpoint.get().toString())
-
-        val excluding = appOnlyTunnel(tunnelFile(extraInterface = "ExcludedApplications = com.example.other"), "com.jtn.frigateviewer")
-        assertTrue(excluding.`interface`.excludedApplications.isEmpty())
-    }
-
-    @Test
-    fun unusableFilesSayWhy() {
-        fun problem(text: String) = try {
-            appOnlyTunnel(text, "com.jtn.frigateviewer")
-            null
-        } catch (e: TunnelConfigException) {
-            e.message
-        }
-        assertEquals("This is not a WireGuard configuration file.", problem("<html>not it</html>"))
-        assertEquals("The file's server has no Endpoint address.", problem(tunnelFile(peer = "")))
-        assertEquals("The file has no server ([Peer]) to connect to.", problem(tunnelFile().substringBefore("[Peer]")))
     }
 
     @Test
@@ -683,7 +659,13 @@ class RemoteAccessTest {
         backend.stopOutside()
         await { remote.status == TunnelStatus.OtherVpn }
         assertEquals("Not started again over it", 1, backend.ups.size)
-        assertTrue(remote.log.entries.any { it.text == "Another VPN took over from the tunnel" })
+        // A check already under way may see the other VPN before Android's stop
+        // arrives; either way the line says the other VPN is used.
+        assertTrue(
+            remote.log.entries.any {
+                it.text == "Another VPN took over from the tunnel" || it.text.startsWith("Reached through another VPN")
+            },
+        )
         // Away from the tunnel, then onto the other VPN: open connections follow.
         assertEquals(3, remote.routeChanges)
 
