@@ -105,6 +105,8 @@ class RemoteAccess(
     private val reportMs: Long = REPORT_MS,
     /** What it did and why, to show and share when it does not work. */
     val log: TunnelLog = TunnelLog(),
+    /** The time in milliseconds, for how long the server's answer has been awaited; tests pass virtual time. */
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     var status by mutableStateOf<TunnelStatus>(TunnelStatus.NotSetUp)
         private set
@@ -319,14 +321,14 @@ class RemoteAccess(
      * check on a network change picks the same wait up where it was.
      */
     private suspend fun awaitAnswer(): TunnelStatus {
-        val started = waitingSince ?: System.currentTimeMillis().also {
+        val started = waitingSince ?: clock().also {
             waitingSince = it
             log.add("Tunnel up, waiting for the VPN server to answer")
         }
-        var reported = System.currentTimeMillis()
+        var reported = clock()
         var every = if (gaveUp) reportMs * QUIET_FACTOR else reportMs
         while (refreshStats()?.lastHandshakeMs == null) {
-            val now = System.currentTimeMillis()
+            val now = clock()
             val waited = (now - started) / MS_PER_S
             if (!gaveUp && now - started > handshakeMs) {
                 gaveUp = true
@@ -343,7 +345,7 @@ class RemoteAccess(
             }
             delay(POLL_MS)
         }
-        log.add("VPN server answered after ${(System.currentTimeMillis() - started) / MS_PER_S} s: ${stats.describe()}")
+        log.add("VPN server answered after ${(clock() - started) / MS_PER_S} s: ${stats.describe()}")
         answered = true
         waitingSince = null
         gaveUp = false

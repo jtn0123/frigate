@@ -1,157 +1,42 @@
 package com.jtn.frigateviewer.tunnel
 
 import com.jtn.frigateviewer.data.ServerSettings
+import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.data.TunnelSettings
 import com.jtn.frigateviewer.ui.testSettingsStore
-import com.wireguard.config.Config
 import com.wireguard.crypto.KeyPair
 import java.io.File
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
-import org.junit.After
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** A tunnel file like UniFi's, with keys made for the test and documentation addresses. */
-internal fun tunnelFile(
-    extraInterface: String = "IncludedApplications = com.example.other",
-    peer: String = "Endpoint = vpn.example.com:51820",
-): String = """
-    [Interface]
-    PrivateKey = ${KeyPair().privateKey.toBase64()}
-    Address = 192.168.2.2/32
-    DNS = 192.168.2.1
-    $extraInterface
-
-    [Peer]
-    PublicKey = ${KeyPair().publicKey.toBase64()}
-    AllowedIPs = 0.0.0.0/0
-    $peer
-""".trimIndent()
-
-/** Records what the tunnel was asked to do. */
-internal class FakeBackend : TunnelBackend {
-    var permitted = true
-
-    /** How often Android was asked for the VPN permission, which on a phone turns another app's VPN off. */
-    val permissionAsks = AtomicInteger()
-    var failure: String? = null
-
-    /** How long starting takes, without giving way to cancellation, as WireGuard's library does. */
-    var upMs = 0L
-
-    /** What the failure was caused by, as the library would say it. */
-    var cause: Throwable? = null
-    val ups = CopyOnWriteArrayList<Config>()
-    var downs = 0
-
-    /** Whether the VPN server answers the tunnel's handshake. */
-    var answers = true
-
-    override fun hasPermission(): Boolean {
-        permissionAsks.incrementAndGet()
-        return permitted
-    }
-
-    override suspend fun up(config: Config) {
-        failure?.let { throw TunnelException(it, cause) }
-        withContext(Dispatchers.IO) {
-            Thread.sleep(upMs)
-            ups += config
-        }
-    }
-
-    override suspend fun down() {
-        downs++
-    }
-
-    private var onStopped: () -> Unit = {}
-
-    override fun watchStops(onStopped: () -> Unit) {
-        this.onStopped = onStopped
-    }
-
-    /** The VPN goes down without the app asking, as when Android revokes it. */
-    fun stopOutside() {
-        downs++
-        onStopped()
-    }
-
-    override suspend fun stats(): TunnelStats {
-        val up = ups.size > downs
-        return TunnelStats(
-            sentBytes = if (up) 148 else 0,
-            receivedBytes = if (up &&
-                answers
-            ) {
-                92
-            } else {
-                0
-            },
-            lastHandshakeMs = if (up && answers) 1L else null,
-        )
-    }
-}
-
-// Volatile: tests change these while RemoteAccess reads them on its own threads.
-internal class FakeRoute(@Volatile var reach: Reach, @Volatile var otherVpn: Boolean = false) : DirectRoute {
-    var onChange: (() -> Unit)? = null
-
-    /** Whether the app's tunnel was up for each check. */
-    val checkedWithTunnel = CopyOnWriteArrayList<Boolean>()
-
-    override suspend fun check(baseUrl: String, ownTunnelUp: Boolean): Probe {
-        checkedWithTunnel += ownTunnelUp
-        return Probe(reach, "test route: $reach${if (otherVpn) " through another VPN" else ""}", otherVpn)
-    }
-
-    override fun otherVpnOn(ownTunnelUp: Boolean) = otherVpn
-
-    override fun watch(onChange: () -> Unit): AutoCloseable {
-        this.onChange = onChange
-        return AutoCloseable { this.onChange = null }
-    }
-}
-
-/** Waits in real time, since the store writes on its own threads. */
-internal fun await(timeoutMs: Long = 5_000, condition: () -> Boolean) {
-    val end = System.currentTimeMillis() + timeoutMs
-    while (!condition()) {
-        if (System.currentTimeMillis() > end) fail("Timed out waiting")
-        Thread.sleep(10)
-    }
-}
-
 @RunWith(RobolectricTestRunner::class)
 class RemoteAccessTest {
     @get:Rule val temp = TemporaryFolder()
 
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private val store by lazy { testSettingsStore(File(temp.root, "server.preferences_pb"), scope) }
+    private var made: SettingsStore? = null
+
+    /** The store on the test's dispatcher, reads included, closed with the test's background scope. */
+    private val TestScope.store: SettingsStore
+        get() = made ?: testSettingsStore(
+            File(temp.root, "server.preferences_pb"),
+            backgroundScope,
+            StandardTestDispatcher(testScheduler),
+        ).also { made = it }
     private val backend = FakeBackend()
     private val route = FakeRoute(Reach.NOT_DIRECT)
 
-    @After
-    fun tearDown() {
-        scope.cancel()
-    }
-
-    private fun remote(
+    private suspend fun TestScope.remote(
         tunnel: TunnelSettings? = TunnelSettings(
             tunnelFile(),
             "home",
@@ -161,91 +46,102 @@ class RemoteAccessTest {
         handshakeMs: Long = 15_000,
         reportMs: Long = 5_000,
     ): RemoteAccess {
-        runBlocking {
-            store.save(ServerSettings(baseUrl = "http://192.168.1.20:5000/"))
-            store.saveTunnel(tunnel)
-        }
-        return RemoteAccess(scope, store, backend, route, "com.jtn.frigateviewer", idleMs, handshakeMs, reportMs).also { it.start() }
+        store.save(ServerSettings(baseUrl = "http://192.168.1.20:5000/"))
+        store.saveTunnel(tunnel)
+        // The log and the wait for an answer both on virtual time.
+        val clock = { testScheduler.currentTime }
+        return RemoteAccess(
+            backgroundScope,
+            store,
+            backend,
+            route,
+            "com.jtn.frigateviewer",
+            idleMs,
+            handshakeMs,
+            reportMs,
+            log = TunnelLog(clock = clock),
+            clock = clock,
+        ).also { it.start() }
     }
 
     @Test
-    fun theFileIsSavedEncryptedAndNeverPrinted() {
+    fun theFileIsSavedEncryptedAndNeverPrinted() = runTest {
         val text = tunnelFile()
-        runBlocking { store.saveTunnel(TunnelSettings(text, "home", enabled = true)) }
+        store.saveTunnel(TunnelSettings(text, "home", enabled = true))
         val key = text.lines().first { it.startsWith("PrivateKey") }.substringAfter("= ")
         val onDisk = File(temp.root, "server.preferences_pb").readBytes().decodeToString()
         assertFalse(key in onDisk)
-        val saved = runBlocking { store.tunnel.first() }!!
+        val saved = store.tunnel.first()!!
         assertEquals(text, saved.config)
         assertFalse(key in saved.toString())
 
-        runBlocking { store.saveTunnel(null) }
-        assertNull(runBlocking { store.tunnel.first() })
+        store.saveTunnel(null)
+        assertNull(store.tunnel.first())
     }
 
     @Test
-    fun awayFromHomeTheTunnelComesUpOnceAndClosesBackHome() {
+    fun awayFromHomeTheTunnelComesUpOnceAndClosesBackHome() = runTest {
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         assertEquals(1, backend.ups.size)
         assertEquals(setOf("com.jtn.frigateviewer"), backend.ups.single().`interface`.includedApplications)
         assertEquals(1, remote.routeChanges)
 
         // Another network while still away: the running tunnel is kept.
         remote.check()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         assertEquals(1, backend.ups.size)
 
         route.reach = Reach.DIRECT
         route.onChange!!()
-        await { remote.status == TunnelStatus.Home }
-        assertEquals(1, backend.downs)
+        advanceUntil { remote.status == TunnelStatus.Home }
+        assertEquals(1, backend.downs.get())
         assertEquals(2, remote.routeChanges)
     }
 
     @Test
-    fun aVpnStoppedOutsideTheAppIsNotShownConnectedNorStartedAgainUnasked() {
+    fun aVpnStoppedOutsideTheAppIsNotShownConnectedNorStartedAgainUnasked() = runTest {
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
 
         // Stopped from outside (another VPN app, or the system's VPN settings): it is not
         // assumed still running, the lost route is reported, and it is not started again
         // over the user's choice.
         backend.stopOutside()
-        await { remote.status == TunnelStatus.StoppedOutside }
+        advanceUntil { remote.status == TunnelStatus.StoppedOutside }
         assertEquals(1, backend.ups.size)
         assertTrue(remote.log.entries.any { it.text == "The VPN was turned off outside the app" })
         assertEquals("The lost route is reported", 2, remote.routeChanges)
 
         // Started again from Settings.
         remote.startTunnel()
-        await { backend.ups.size == 2 && remote.status == TunnelStatus.Connected }
+        advanceUntil { backend.ups.size == 2 && remote.status == TunnelStatus.Connected }
 
         // Stopped again along with the app's VPN permission: starting it asks for the permission.
         backend.permitted = false
         backend.stopOutside()
-        await { remote.status == TunnelStatus.StoppedOutside }
+        advanceUntil { remote.status == TunnelStatus.StoppedOutside }
         remote.startTunnel()
-        await { remote.status == TunnelStatus.NeedsPermission }
+        advanceUntil { remote.status == TunnelStatus.NeedsPermission }
         assertEquals(2, backend.ups.size)
     }
 
     @Test
-    fun aServerThatNeverAnswersIsReportedNotConnected() {
+    fun aServerThatNeverAnswersIsReportedNotConnected() = runTest {
         backend.answers = false
         val remote = remote(handshakeMs = 200)
         remote.foreground()
-        await { remote.status == TunnelStatus.Connecting }
-        await { remote.status is TunnelStatus.Failed }
+        advanceUntil { remote.status == TunnelStatus.Connecting }
+        advanceUntil { remote.status is TunnelStatus.Failed }
         assertTrue((remote.status as TunnelStatus.Failed).message.startsWith("The VPN server did not answer."))
         // Nothing moves to a tunnel that carries nothing.
         assertEquals(0, remote.routeChanges)
 
         // WireGuard keeps trying; once the server answers, it is used.
         backend.answers = true
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         assertEquals(1, remote.routeChanges)
 
         // The log tells the story: checked, started, gave up, then answered.
@@ -257,11 +153,11 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun theReportGivesKindsOfAddressAndNeverTheKey() {
+    fun theReportGivesKindsOfAddressAndNeverTheKey() = runTest {
         val text = tunnelFile(peer = "Endpoint = 100.72.9.14:51820")
         val remote = remote(tunnel = TunnelSettings(text, "home", enabled = true))
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         val report =
             tunnelReport(remote, "http://192.168.1.20:5000/", about = listOf("App test"), libraryLines = listOf())
         val key = text.lines().first { it.startsWith("PrivateKey") }.substringAfter("= ")
@@ -288,75 +184,75 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun atHomeTheTunnelStaysDown() {
+    fun atHomeTheTunnelStaysDown() = runTest {
         route.reach = Reach.DIRECT
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.Home }
+        advanceUntil { remote.status == TunnelStatus.Home }
         assertTrue(backend.ups.isEmpty())
         assertEquals(0, remote.routeChanges)
     }
 
     @Test
-    fun turningItOffClosesTheTunnel() {
+    fun turningItOffClosesTheTunnel() = runTest {
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         remote.setEnabled(false)
-        await { remote.status == TunnelStatus.Off }
-        assertEquals(1, backend.downs)
-        assertFalse(runBlocking { store.tunnel.first() }!!.enabled)
+        advanceUntil { remote.status == TunnelStatus.Off }
+        assertEquals(1, backend.downs.get())
+        assertFalse(store.tunnel.first()!!.enabled)
     }
 
     @Test
-    fun withoutAndroidsPermissionNothingStarts() {
+    fun withoutAndroidsPermissionNothingStarts() = runTest {
         backend.permitted = false
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.NeedsPermission }
+        advanceUntil { remote.status == TunnelStatus.NeedsPermission }
         assertTrue(backend.ups.isEmpty())
 
         backend.permitted = true
         remote.check()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
     }
 
     @Test
-    fun aFailedStartIsShownAndTriedAgainLater() {
+    fun aFailedStartIsShownAndTriedAgainLater() = runTest {
         backend.failure = "Could not look up the VPN server's address."
         val remote = remote()
         remote.foreground()
-        await { remote.status is TunnelStatus.Failed }
+        advanceUntil { remote.status is TunnelStatus.Failed }
         assertEquals("Could not look up the VPN server's address.", (remote.status as TunnelStatus.Failed).message)
 
         backend.failure = null
         route.onChange!!()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
     }
 
     @Test
-    fun theTunnelClosesAfterTheAppHasBeenAwayAWhile() {
+    fun theTunnelClosesAfterTheAppHasBeenAwayAWhile() = runTest {
         val remote = remote(idleMs = 50)
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         remote.background()
         assertNull(route.onChange)
-        await { backend.downs == 1 }
+        advanceUntil { backend.downs.get() == 1 }
 
         remote.foreground()
-        await { backend.ups.size == 2 }
+        advanceUntil { backend.ups.size == 2 }
     }
 
     @Test
-    fun importingChecksTheFileBeforeSavingIt() {
+    fun importingChecksTheFileBeforeSavingIt() = runTest {
         val remote = remote(tunnel = null)
         remote.foreground()
-        await { remote.status == TunnelStatus.NotSetUp }
-        assertEquals("This is not a WireGuard configuration file.", runBlocking { remote.import("notes.txt", "hello") })
-        assertNull(runBlocking { store.tunnel.first() })
+        advanceUntil { remote.status == TunnelStatus.NotSetUp }
+        assertEquals("This is not a WireGuard configuration file.", remote.import("notes.txt", "hello"))
+        assertNull(store.tunnel.first())
 
-        assertNull(runBlocking { remote.import("home.conf", tunnelFile()) })
-        await { remote.status == TunnelStatus.Connected }
+        assertNull(remote.import("home.conf", tunnelFile()))
+        advanceUntil { remote.status == TunnelStatus.Connected }
         assertEquals("home", remote.tunnel?.name)
     }
 
@@ -370,12 +266,12 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun givingUpIsOneLineWithTheFigures() {
+    fun givingUpIsOneLineWithTheFigures() = runTest {
         backend.answers = false
         val remote = remote(handshakeMs = 1_200, reportMs = 400)
         remote.foreground()
-        await { remote.log.entries.any { it.text.startsWith("Gave up") } }
-        Thread.sleep(700)
+        advanceUntil { remote.log.entries.any { it.text.startsWith("Gave up") } }
+        elapse(700)
         val log = remote.log.entries.map { it.text }
         val gaveUp = log.indexOfFirst { it.startsWith("Gave up") }
         assertTrue(log[gaveUp], log[gaveUp].endsWith(": sent 148 bytes, received 0 bytes. WireGuard keeps trying"))
@@ -384,14 +280,14 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun afterGivingUpTheWaitIsLoggedLessOften() {
+    fun afterGivingUpTheWaitIsLoggedLessOften() = runTest {
         backend.answers = false
         val remote = remote(handshakeMs = 200, reportMs = 300)
         remote.foreground()
-        await { remote.status is TunnelStatus.Failed }
+        advanceUntil { remote.status is TunnelStatus.Failed }
         // Several of the usual report intervals; the log keeps only 300 entries, which a line
         // every few seconds for as long as the app is open would fill with this alone.
-        Thread.sleep(2_000)
+        elapse(2_000)
         val log = remote.log.entries.map { it.text }
         val after = log.drop(log.indexOfFirst { it.startsWith("Gave up") } + 1)
         assertEquals(listOf<String>(), after.filter { it.startsWith("No answer yet") })
@@ -423,12 +319,12 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun aStartFailuresDetailIsMasked() {
+    fun aStartFailuresDetailIsMasked() = runTest {
         backend.failure = "The tunnel did not start."
         backend.cause = IllegalStateException("bind to 203.0.113.4:51820 failed")
         val remote = remote()
         remote.foreground()
-        await { remote.status is TunnelStatus.Failed }
+        advanceUntil { remote.status is TunnelStatus.Failed }
         val line = remote.log.entries.first { it.text.startsWith("Tunnel did not start") }.text
         assertFalse(line, "203.0.113.4" in line)
         assertTrue(line, "public …4:51820" in line)
@@ -447,14 +343,14 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun theReportMasksIpv6AndSaysWhatRoutesEverything() {
+    fun theReportMasksIpv6AndSaysWhatRoutesEverything() = runTest {
         val text = tunnelFile(peer = "Endpoint = [2001:db8::5]:51820\nAllowedIPs = ::/0").replace(
             "Address = 192.168.2.2/32",
             "Address = 192.168.2.2/32, fd00::2/128",
         )
         val remote = remote(tunnel = TunnelSettings(text, "home", enabled = true))
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         val report = tunnelReport(remote, "http://192.168.1.20:5000/", about = listOf(), libraryLines = listOf())
         assertFalse(report, "2001:db8" in report || "fd00" in report || "0:0:0" in report)
         assertTrue(report, "Routes through the tunnel (AllowedIPs): all IPv4 traffic, all IPv6 traffic" in report)
@@ -463,12 +359,12 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun theVpnServersNameStaysOutOfTheLog() {
+    fun theVpnServersNameStaysOutOfTheLog() = runTest {
         val text = tunnelFile(peer = "Endpoint = myhome.duckdns.org:51820")
         val remote = remote(tunnel = null)
-        assertNull(runBlocking { remote.import("home.conf", text) })
+        assertNull(remote.import("home.conf", text))
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         val report = tunnelReport(remote, "http://192.168.1.20:5000/", about = listOf(), libraryLines = listOf())
         assertFalse(report, "myhome" in report)
         assertTrue(report, "server is a hostname ending .org, UDP port 51820" in report)
@@ -485,11 +381,11 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun theReportRedactsTheNameAndWireGuardsLines() {
+    fun theReportRedactsTheNameAndWireGuardsLines() = runTest {
         val key = KeyPair().publicKey.toBase64()
         val remote = remote(tunnel = TunnelSettings(tunnelFile(), "203.0.113.9", enabled = true))
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         val report = tunnelReport(
             remote,
             "http://192.168.1.20:5000/",
@@ -501,11 +397,11 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun theReportSaysTheStatusInWords() {
+    fun theReportSaysTheStatusInWords() = runTest {
         backend.answers = false
         val remote = remote(handshakeMs = 200)
         remote.foreground()
-        await { remote.status is TunnelStatus.Failed }
+        advanceUntil { remote.status is TunnelStatus.Failed }
         val report = tunnelReport(remote, "http://192.168.1.20:5000/", about = listOf(), libraryLines = listOf())
         assertFalse(report, "Failed(message=" in report)
         assertTrue(report, "Status: Failed, the VPN server never answered. The VPN server did not answer." in report)
@@ -571,35 +467,35 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun closingSaysWhyInWords() {
+    fun closingSaysWhyInWords() = runTest {
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         remote.setEnabled(false)
-        await { remote.status == TunnelStatus.Off }
+        advanceUntil { remote.status == TunnelStatus.Off }
         val log = remote.log.entries.map { it.text }
         assertTrue(log.toString(), "Closing the tunnel: it is turned off, or the app is signed out" in log)
         assertFalse(log.toString(), log.any { it == "Closing the tunnel: Off" })
     }
 
     @Test
-    fun afterTheIdleCloseItIsNotShownConnected() {
+    fun afterTheIdleCloseItIsNotShownConnected() = runTest {
         val remote = remote(idleMs = 50)
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         remote.background()
-        await { backend.downs == 1 }
-        await { remote.status == TunnelStatus.Checking }
+        advanceUntil { backend.downs.get() == 1 }
+        advanceUntil { remote.status == TunnelStatus.Checking }
     }
 
     @Test
-    fun throughAnotherVpnTheTunnelStaysOffAndAndroidIsNotAsked() {
+    fun throughAnotherVpnTheTunnelStaysOffAndAndroidIsNotAsked() = runTest {
         // UniFi Teleport, Tailscale or the WireGuard app is on and reaches the server.
         route.reach = Reach.DIRECT
         route.otherVpn = true
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.OtherVpn }
+        advanceUntil { remote.status == TunnelStatus.OtherVpn }
         assertTrue(backend.ups.isEmpty())
         // Asking Android for the VPN permission would hand the VPN to this app and turn that one off.
         assertEquals(0, backend.permissionAsks.get())
@@ -607,57 +503,57 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun androidIsAskedForThePermissionOnlyWhenTheTunnelIsNeeded() {
+    fun androidIsAskedForThePermissionOnlyWhenTheTunnelIsNeeded() = runTest {
         route.reach = Reach.DIRECT
         val remote = remote()
         // In the background nothing is checked, and Android is not asked either.
         remote.check()
-        Thread.sleep(200)
+        elapse(200)
         remote.foreground()
-        await { remote.status == TunnelStatus.Home }
+        advanceUntil { remote.status == TunnelStatus.Home }
         assertEquals(0, backend.permissionAsks.get())
         assertNull(remote.permitted)
 
         route.reach = Reach.NOT_DIRECT
         route.onChange!!()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         assertEquals(1, backend.permissionAsks.get())
         assertEquals(true, remote.permitted)
     }
 
     @Test
-    fun anotherVpnThatDoesNotReachTheServerIsNotTurnedOffUnasked() {
+    fun anotherVpnThatDoesNotReachTheServerIsNotTurnedOffUnasked() = runTest {
         route.otherVpn = true
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.OtherVpnInTheWay }
+        advanceUntil { remote.status == TunnelStatus.OtherVpnInTheWay }
         assertTrue(backend.ups.isEmpty())
         assertEquals(0, backend.permissionAsks.get())
         assertTrue(remote.log.entries.any { it.text.startsWith("Another VPN is on and does not reach the server") })
 
         // Another check changes nothing, and does not log it again.
         route.onChange!!()
-        Thread.sleep(1_300)
+        elapse(1_300)
         assertEquals(TunnelStatus.OtherVpnInTheWay, remote.status)
         assertEquals(1, remote.log.entries.count { it.text.startsWith("Another VPN is on") })
 
         // The user chooses the tunnel, which Android lets turn the other VPN off.
         remote.startTunnel()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         assertEquals(1, backend.ups.size)
     }
 
     @Test
-    fun aVpnTakingOverFromTheTunnelIsUsedNotFought() {
+    fun aVpnTakingOverFromTheTunnelIsUsedNotFought() = runTest {
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
 
         // Teleport is turned on: Android stops the app's tunnel, and the server answers through it.
         route.reach = Reach.DIRECT
         route.otherVpn = true
         backend.stopOutside()
-        await { remote.status == TunnelStatus.OtherVpn }
+        advanceUntil { remote.status == TunnelStatus.OtherVpn }
         assertEquals("Not started again over it", 1, backend.ups.size)
         // A check already under way may see the other VPN before Android's stop
         // arrives; either way the line says the other VPN is used.
@@ -673,35 +569,35 @@ class RemoteAccessTest {
         route.reach = Reach.NOT_DIRECT
         route.otherVpn = false
         route.onChange!!()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         assertEquals(2, backend.ups.size)
     }
 
     @Test
-    fun turningAnotherVpnOnWhileTheTunnelFailsReloadsOverIt() {
+    fun turningAnotherVpnOnWhileTheTunnelFailsReloadsOverIt() = runTest {
         backend.answers = false
         val remote = remote(handshakeMs = 200)
         remote.foreground()
-        await { remote.status is TunnelStatus.Failed }
+        advanceUntil { remote.status is TunnelStatus.Failed }
         assertEquals(0, remote.routeChanges)
 
         route.reach = Reach.DIRECT
         route.otherVpn = true
         backend.stopOutside()
-        await { remote.status == TunnelStatus.OtherVpn }
+        advanceUntil { remote.status == TunnelStatus.OtherVpn }
         // What failed is loaded again, now through the other VPN.
         assertEquals(1, remote.routeChanges)
     }
 
     @Test
-    fun aNetworkChangeWhileWaitingKeepsTheWaitGoing() {
+    fun aNetworkChangeWhileWaitingKeepsTheWaitGoing() = runTest {
         backend.answers = false
         val remote = remote(handshakeMs = 1_500)
         remote.foreground()
-        await { remote.log.entries.any { it.text.startsWith("Tunnel up") } }
-        Thread.sleep(600)
+        advanceUntil { remote.log.entries.any { it.text.startsWith("Tunnel up") } }
+        elapse(600)
         remote.check()
-        await { remote.status is TunnelStatus.Failed }
+        advanceUntil { remote.status is TunnelStatus.Failed }
 
         val log = remote.log.entries
         assertEquals(log.map { it.text }.toString(), 1, log.count { it.text.startsWith("Tunnel up") })
@@ -710,58 +606,58 @@ class RemoteAccessTest {
 
         // Once given up, another check leaves it shown as failed rather than connecting again.
         remote.check()
-        Thread.sleep(300)
+        elapse(300)
         assertTrue("${remote.status}", remote.status is TunnelStatus.Failed)
-        assertEquals(1, log.count { it.text.startsWith("Gave up") })
+        assertEquals(1, remote.log.entries.count { it.text.startsWith("Gave up") })
     }
 
     @Test
-    fun afterNoNetworkTheWaitStartsAgain() {
+    fun afterNoNetworkTheWaitStartsAgain() = runTest {
         backend.answers = false
         val remote = remote(handshakeMs = 200)
         remote.foreground()
-        await { remote.status is TunnelStatus.Failed }
+        advanceUntil { remote.status is TunnelStatus.Failed }
 
         route.reach = Reach.NO_NETWORK
         remote.check()
-        await { remote.status == TunnelStatus.NoNetwork }
+        advanceUntil { remote.status == TunnelStatus.NoNetwork }
         route.reach = Reach.NOT_DIRECT
         remote.check()
-        await { remote.status == TunnelStatus.Connecting }
+        advanceUntil { remote.status == TunnelStatus.Connecting }
         assertEquals(2, remote.log.entries.count { it.text.startsWith("Tunnel up") })
     }
 
     @Test
-    fun aCheckCancelledWhileTheTunnelStartsStillClosesItLater() {
+    fun aCheckCancelledWhileTheTunnelStartsStillClosesItLater() = runTest {
         backend.upMs = 500
         val remote = remote()
         remote.foreground()
-        await { remote.log.entries.any { it.text.startsWith("Starting the tunnel") } }
+        advanceUntil { remote.log.entries.any { it.text.startsWith("Starting the tunnel") } }
         // Home again while it is still starting: the newer check cancels the one starting it.
         route.reach = Reach.DIRECT
         remote.check()
-        await { remote.status == TunnelStatus.Home }
-        await { backend.downs == 1 }
+        advanceUntil { remote.status == TunnelStatus.Home }
+        advanceUntil { backend.downs.get() == 1 }
         assertEquals(1, backend.ups.size)
     }
 
     @Test
-    fun theCheckKnowsWhetherTheTunnelIsUp() {
+    fun theCheckKnowsWhetherTheTunnelIsUp() = runTest {
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         remote.check()
-        await { route.checkedWithTunnel.size >= 2 }
+        advanceUntil { route.checkedWithTunnel.size >= 2 }
         assertEquals(listOf(false, true), route.checkedWithTunnel.take(2))
     }
 
     @Test
-    fun theReportSaysWhatItKnowsWithoutAskingAndroid() {
+    fun theReportSaysWhatItKnowsWithoutAskingAndroid() = runTest {
         route.reach = Reach.DIRECT
         route.otherVpn = true
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.OtherVpn }
+        advanceUntil { remote.status == TunnelStatus.OtherVpn }
         val report = tunnelReport(remote, "http://192.168.1.20:5000/", about = listOf(), libraryLines = listOf())
         assertTrue(report, "Android VPN permission: not asked yet, since the tunnel has not been needed" in report)
         assertTrue(report, "Another app's VPN: on" in report)
@@ -770,30 +666,30 @@ class RemoteAccessTest {
     }
 
     @Test
-    fun turningItOnAgainAfterAStopOutsideStartsIt() {
+    fun turningItOnAgainAfterAStopOutsideStartsIt() = runTest {
         val remote = remote()
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         backend.stopOutside()
-        await { remote.status == TunnelStatus.StoppedOutside }
+        advanceUntil { remote.status == TunnelStatus.StoppedOutside }
         remote.setEnabled(false)
-        await { remote.status == TunnelStatus.Off }
+        advanceUntil { remote.status == TunnelStatus.Off }
         remote.setEnabled(true)
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         assertEquals(2, backend.ups.size)
     }
 
     @Test
-    fun aStopOutsideIsForgottenAfterAWhileInTheBackground() {
+    fun aStopOutsideIsForgottenAfterAWhileInTheBackground() = runTest {
         val remote = remote(idleMs = 50)
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
         backend.stopOutside()
-        await { remote.status == TunnelStatus.StoppedOutside }
+        advanceUntil { remote.status == TunnelStatus.StoppedOutside }
         remote.background()
-        Thread.sleep(200)
+        elapse(200)
         remote.foreground()
-        await { remote.status == TunnelStatus.Connected }
+        advanceUntil { remote.status == TunnelStatus.Connected }
     }
 
     @Test
