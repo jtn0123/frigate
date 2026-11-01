@@ -69,9 +69,11 @@ TOOLING_RE = re.compile(
 
 # Possessive quantifiers keep the match linear: no two of them can trade
 # characters. IDs join with `+` or name a range (`I48 to I54`). The text after
-# the colon is trimmed by `ledger_text`.
+# the colon is trimmed by `ledger_text`. Each repeat is an atomic group:
+# Python 3.11.2 (the image's) keeps a failed iteration's partial match under a
+# bare possessive repeat, so `I48 to:` would wrongly match `I48 to`.
 ID_RE = re.compile(
-    r"(?P<ids>[A-Z]{1,2}\d++(?:(?:\s*+\+\s*+|\s++to\s++)[A-Z]{1,2}\d++)*+)\s*+:"
+    r"(?P<ids>[A-Z]{1,2}\d++(?>(?:\s*+\+\s*+|\s++to\s++)[A-Z]{1,2}\d++)*+)\s*+:"
 )
 RECORD_SEP = "\x1e"
 
