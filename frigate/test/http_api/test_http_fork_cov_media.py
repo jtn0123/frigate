@@ -771,6 +771,35 @@ class TestPreviews(_MediaHttpTestCase):
         assert cmd[cmd.index("-t") + 1] == "10.0"
         assert cmd[cmd.index("-i") + 1] == "/media/previews/p1.mp4"
 
+    def test_hourly_preview_is_the_earliest_and_never_seeks_negative(self):
+        # B36: with no order the later preview could win, and its negative
+        # offset wrapped (-5 % 60 is 55) to a seek into the wrong second
+        Previews.insert(
+            id="p_late",
+            camera="front_door",
+            path="/media/previews/p_late.mp4",
+            start_time=self.start_ts + 5,
+            end_time=self.start_ts + 3605,
+            duration=3600,
+        ).execute()
+        ffmpeg = Mock(return_value=Mock(returncode=0, stdout=b"GIF89a"))
+
+        with patch("frigate.api.media.sp.run", ffmpeg):
+            with AuthTestClient(self.app) as client:
+                late_only = client.get(self._url("gif"))
+            late_cmd = ffmpeg.call_args.args[0]
+
+            self._preview()
+            with AuthTestClient(self.app) as client:
+                both = client.get(self._url("gif"))
+            both_cmd = ffmpeg.call_args.args[0]
+
+        assert late_only.status_code == 200
+        assert late_cmd[late_cmd.index("-ss") + 1] == "00:0:0"
+        assert both.status_code == 200
+        assert both_cmd[both_cmd.index("-i") + 1] == "/media/previews/p1.mp4"
+        assert both_cmd[both_cmd.index("-ss") + 1] == "00:2:5"
+
     def test_mp4_from_hourly_preview(self):
         self._preview()
 

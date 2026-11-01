@@ -78,7 +78,10 @@ if command -v uvx >/dev/null; then ruff=(uvx -q "ruff@${ruff_version}"); else ru
 py_files='^(frigate|migrations|docker|fork/(scripts|audio_trial|monitoring|benchmarks))/.*\.py$|^[^/]+\.py$'
 # The same paths CI lints and tests (I17): one list, in fork/scripts/targets.sh.
 read -r -a py_lint_targets < <(fork/scripts/targets.sh py-lint)
-py_gates='^fork/scripts/[^/]+\.py$|^(frigate|migrations|docker|fork/(audio_trial|monitoring|benchmarks))/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|runtime-base\.env|requirements-dev\.lock|scripts/(targets|py-checks)\.sh|scripts/dev-lock-check\.py)$|^docs/static/frigate-api\.yaml$'
+py_gates='^fork/scripts/[^/]+\.py$|^(frigate|migrations|docker|fork/(audio_trial|monitoring|benchmarks))/|^[^/]+\.py$|^(Makefile|pyproject\.toml)$|^fork/(Dockerfile\.test|runtime-base\.env|requirements-dev\.lock|requirements-runtime-[a-z0-9]+\.lock|scripts/(targets|py-checks)\.sh|scripts/dev-lock-check\.py)$|^docs/static/frigate-api\.yaml$'
+# The scripts tests (gate_scripts) cover the shell gates (test_ci_changes.py)
+# and the ledger rows (test_ledger.py) as well as the Python scripts.
+scripts_gates='^fork/(scripts|ledger)/'
 e2e_args=()
 
 # ---- gates: gate_<name> runs one check; its output goes to the gate's log ----
@@ -191,10 +194,10 @@ host=(lint typecheck ratchet vitest i18n ruff mypy_fork gitleaks)
 docker_lane=()
 e2e_lane=()
 if [[ "$mode" == fast ]]; then
-  if touches '^fork/scripts/.*\.py$'; then
+  if touches "$scripts_gates"; then
     host+=(scripts)
   else
-    skip scripts "no fork/scripts Python changes"
+    skip scripts "no fork/scripts or fork/ledger changes"
   fi
   if touches '^web/e2e/'; then
     e2e_args=(--only-changed="$base")

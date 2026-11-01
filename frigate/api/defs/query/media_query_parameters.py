@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Extension(str, Enum):
@@ -38,8 +38,9 @@ class MediaEventsSnapshotQueryParams(BaseModel):
 
 
 class MediaMjpegFeedQueryParams(BaseModel):
-    fps: int = 3
-    height: int = 360
+    # the stream sleeps 1 / fps and scales by height, so neither may be 0
+    fps: int = Field(3, ge=1, le=30)
+    height: int = Field(360, ge=16)
     bbox: int | None = None
     timestamp: int | None = None
     zones: int | None = None

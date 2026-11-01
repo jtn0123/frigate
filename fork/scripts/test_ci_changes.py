@@ -51,6 +51,20 @@ def jobs_for(changed: str) -> dict[str, str]:
     return dict(line.split("=", 1) for line in result.stdout.split())
 
 
+def check_pattern(name: str) -> str:
+    """Return a path pattern check.sh assigns to `name`."""
+    check = SCRIPT.with_name("check.sh").read_text()
+    return re.search(rf"^{name}='([^']+)'$", check, re.MULTILINE).group(1)
+
+
+def matches(path: str, pattern: str) -> bool:
+    """Whether the extended regex `pattern` selects `path`, as touches does."""
+    selected = subprocess.run(
+        ["bash", "-c", '[[ "$1" =~ $2 ]]', "selector", path, pattern], check=False
+    )
+    return selected.returncode == 0
+
+
 class TestCiChanges(unittest.TestCase):
     def test_fast_gate_includes_runtime_scripts_and_benchmarks(self):
         check = SCRIPT.with_name("check.sh").read_text()
@@ -104,6 +118,29 @@ class TestCiChanges(unittest.TestCase):
         self.assertEqual(
             jobs_for("fork/ledger/B10.md"), {"web": "false", "python": "true"}
         )
+
+    def test_a_runtime_lock_runs_the_python_suites(self):
+        # I67: the test image installs these locks, so a change can break
+        # the backend tests, in CI and in make check-fast
+        gate = check_pattern("py_gates")
+        for arch in ("amd64", "arm64"):
+            path = f"fork/requirements-runtime-{arch}.lock"
+            with self.subTest(path=path):
+                self.assertEqual(jobs_for(path), {"web": "false", "python": "true"})
+                self.assertTrue(matches(path, gate))
+
+    def test_fast_mode_runs_the_scripts_tests_for_shell_scripts_and_ledgers(self):
+        # I67: test_ci_changes.py tests the shell gates and test_ledger.py the
+        # rows, so changing either alone must still run the scripts tests
+        gate = check_pattern("scripts_gates")
+        for path in (
+            "fork/scripts/ci-changes.sh",
+            "fork/scripts/ledger.py",
+            "fork/ledger/B10.md",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(matches(path, gate))
+        self.assertFalse(matches("fork/README.md", gate))
 
     def test_web_sources_run_the_web_suites_only(self):
         self.assertEqual(

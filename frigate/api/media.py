@@ -1048,10 +1048,15 @@ def vod_hour_no_timezone(year_month: str, day: int, hour: int, camera_name: str)
 )
 def vod_hour(year_month: str, day: int, hour: int, camera_name: str, tz_name: str):
     parts = year_month.split("-")
-    start_date = (
-        datetime(int(parts[0]), int(parts[1]), day, hour, tzinfo=UTC)
-        - datetime.now(get_timezone(tz_name.replace(",", "/"))).utcoffset()
-    )
+    # the requested date's own offset, so an hour across a DST change is
+    # right; in UTC so the hour added below is an hour of real time
+    start_date = datetime(
+        int(parts[0]),
+        int(parts[1]),
+        day,
+        hour,
+        tzinfo=get_timezone(tz_name.replace(",", "/")),
+    ).astimezone(UTC)
     end_date = start_date + timedelta(hours=1) - timedelta(milliseconds=1)
     start_ts = start_date.timestamp()
     end_ts = end_date.timestamp()
@@ -1067,7 +1072,9 @@ def vod_hour(year_month: str, day: int, hour: int, camera_name: str, tz_name: st
 async def vod_event(
     request: Request,
     event_id: str,
-    padding: int = Query(0, description="Padding to apply to the vod."),
+    # a negative padding shrinks the window to nothing, and the 404 that
+    # follows would clear has_clip on an event whose clip exists
+    padding: int = Query(0, ge=0, le=3600, description="Padding to apply to the vod."),
 ):
     try:
         event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
@@ -1722,6 +1729,8 @@ async def preview_gif(
                 | ((start_ts > Previews.start_time) & (end_ts < Previews.end_time))
             )
             .where(Previews.camera == camera_name)
+            # the earliest overlapping preview, the one that holds start_ts
+            .order_by(Previews.start_time.asc())
             .limit(1)
         )
         try:
@@ -1732,7 +1741,9 @@ async def preview_gif(
                 status_code=404,
             )
 
-        diff = start_ts - preview.start_time
+        # a preview that starts after start_ts is read from its beginning; a
+        # negative diff wrapped to the wrong second (-30 % 60 is 30)
+        diff = max(start_ts - preview.start_time, 0)
         minutes = int(diff / 60)
         seconds = int(diff % 60)
         config: FrigateConfig = request.app.frigate_config
@@ -1893,6 +1904,8 @@ async def preview_mp4(
                 | ((start_ts > Previews.start_time) & (end_ts < Previews.end_time))
             )
             .where(Previews.camera == camera_name)
+            # the earliest overlapping preview, the one that holds start_ts
+            .order_by(Previews.start_time.asc())
             .limit(1)
         )
         try:
@@ -1906,7 +1919,9 @@ async def preview_mp4(
                 status_code=404,
             )
 
-        diff = start_ts - preview.start_time
+        # a preview that starts after start_ts is read from its beginning; a
+        # negative diff wrapped to the wrong second (-30 % 60 is 30)
+        diff = max(start_ts - preview.start_time, 0)
         minutes = int(diff / 60)
         seconds = int(diff % 60)
         config: FrigateConfig = request.app.frigate_config

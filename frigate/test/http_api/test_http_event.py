@@ -419,7 +419,9 @@ class TestHttpApp(BaseTestHttp):
             # evening event is excluded
             events = client.get(
                 "/events",
-                params={"time_range": "00:00,18:00"},
+                # 00:00 would match the evening event at midnight: the start
+                # minute is included (fork B36)
+                params={"time_range": "06:00,18:00"},
             ).json()
             assert events
             assert len(events) == 1

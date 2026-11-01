@@ -51,8 +51,10 @@ INTERNAL_PATTERNS = (
 )
 
 # Grade-report categories that never change what a user sees: architecture,
-# docs, developer tooling, and fork scaffolding.
-INTERNAL_IDS = {"A", "H", "I", "S"}
+# docs and fork scaffolding. "I" is not one: since I41 it also names features
+# (classification suggestions, camera health), and its tooling commits are
+# caught by INTERNAL_PATTERNS or folded by TOOLING_RE.
+INTERNAL_IDS = {"A", "H", "S"}
 
 SECTIONS = ("New", "Fixes and improvements", "Security", "Dependencies")
 
@@ -66,8 +68,13 @@ TOOLING_RE = re.compile(
 )
 
 # Possessive quantifiers keep the match linear: no two of them can trade
-# characters. The text after the colon is trimmed by `ledger_text`.
-ID_RE = re.compile(r"(?P<ids>[A-Z]{1,2}\d++(?:\s*+\+\s*+[A-Z]{1,2}\d++)*+)\s*+:")
+# characters. IDs join with `+` or name a range (`I48 to I54`). The text after
+# the colon is trimmed by `ledger_text`. Each repeat is an atomic group:
+# Python 3.11.2 (the image's) keeps a failed iteration's partial match under a
+# bare possessive repeat, so `I48 to:` would wrongly match `I48 to`.
+ID_RE = re.compile(
+    r"(?P<ids>[A-Z]{1,2}\d++(?>(?:\s*+\+\s*+|\s++to\s++)[A-Z]{1,2}\d++)*+)\s*+:"
+)
 RECORD_SEP = "\x1e"
 
 
