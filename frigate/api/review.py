@@ -151,10 +151,12 @@ def review(
     elif reviewed == 1:
         review_query = review_query.where(UserReviewStatus.has_been_reviewed == True)
 
-    # Apply ordering and limit
+    # Apply ordering and limit. One order_by call: a chained second call
+    # replaces the first, which let the limit cut alerts off
     review_query = (
-        review_query.order_by(ReviewSegment.severity.asc())
-        .order_by(ReviewSegment.start_time.desc())
+        review_query.order_by(
+            ReviewSegment.severity.asc(), ReviewSegment.start_time.desc()
+        )
         .limit(limit)
         .dicts()
         .iterator()
