@@ -7,7 +7,8 @@ export const getUnitSize = (MB: number) => {
 };
 
 export const getUnitSizeFromBytes = (bytes: number) => {
-  if (bytes === null || isNaN(bytes) || bytes < 0) return "Invalid number";
+  if (bytes === null || Number.isNaN(bytes) || bytes < 0)
+    return "Invalid number";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(2)} KiB`;
 

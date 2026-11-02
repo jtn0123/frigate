@@ -148,6 +148,7 @@ class TestSyncResult(unittest.TestCase):
             files_checked=3,
             orphans_found=2,
             orphans_deleted=1,
+            bytes_reclaimed=4096,
             orphan_paths=["/a"],
             aborted=True,
             error="boom",
@@ -159,10 +160,21 @@ class TestSyncResult(unittest.TestCase):
                 "files_checked": 3,
                 "orphans_found": 2,
                 "orphans_deleted": 1,
+                "bytes_reclaimed": 4096,
                 "aborted": True,
                 "error": "boom",
             },
         )
+
+
+class TestFileSize(unittest.TestCase):
+    def test_reads_size_and_treats_unreadable_files_as_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "clip.mp4"
+            path.write_bytes(b"12345")
+
+            self.assertEqual(media._file_size(str(path)), 5)
+            self.assertEqual(media._file_size(str(path) + ".missing"), 0)
 
 
 class TestRemoveEmptyDirectories(unittest.TestCase):
@@ -305,6 +317,7 @@ class TestSyncRecordings(MediaTestBase):
         result = sync_recordings(force=True)
         self.assertFalse(result.aborted)
         self.assertEqual(result.orphans_deleted, 3)
+        self.assertEqual(result.bytes_reclaimed, 12)
         self.assertFalse(any(path.exists() for path in orphans))
 
     def test_unlink_failure_is_logged_and_not_counted(self) -> None:
@@ -319,7 +332,21 @@ class TestSyncRecordings(MediaTestBase):
 
         self.assertEqual(result.orphans_found, 1)
         self.assertEqual(result.orphans_deleted, 0)
+        self.assertEqual(result.bytes_reclaimed, 0)
         self.assertIsNone(result.error)
+
+    def test_dry_run_reports_the_space_orphan_files_hold(self) -> None:
+        for index in range(3):
+            self.add_recording(f"r{index}", self.record_dir / f"{index}.mp4")
+        orphan = touch(self.record_dir / "orphan.mp4", old=True)
+        orphan.write_bytes(b"x" * 1500)
+        os.utime(orphan, (OLD, OLD))
+
+        result = sync_recordings(dry_run=True)
+
+        self.assertEqual(result.orphans_found, 1)
+        self.assertEqual(result.bytes_reclaimed, 1500)
+        self.assertTrue(orphan.exists())
 
     def test_limited_only_scans_recent_hours(self) -> None:
         now = datetime.datetime.now().astimezone(datetime.UTC)
@@ -397,10 +424,12 @@ class TestSyncEventSnapshots(MediaTestBase):
 
         dry = sync_event_snapshots(dry_run=True)
         self.assertEqual(sorted(dry.orphan_paths), sorted([str(stale), str(orphan)]))
+        self.assertEqual(dry.bytes_reclaimed, 8)
         self.assertTrue(stale.exists())
 
         result = sync_event_snapshots()
         self.assertEqual(result.orphans_deleted, 2)
+        self.assertEqual(result.bytes_reclaimed, 8)
         self.assertFalse(stale.exists())
         self.assertFalse(orphan.exists())
         self.assertTrue((self.clips_dir / "front-legacy.jpg").exists())
@@ -458,10 +487,12 @@ class TestSyncEventThumbnails(MediaTestBase):
 
         dry = sync_event_thumbnails(dry_run=True)
         self.assertEqual(sorted(dry.orphan_paths), sorted([str(inline), str(missing)]))
+        self.assertEqual(dry.bytes_reclaimed, 8)
         self.assertTrue(inline.exists())
 
         result = sync_event_thumbnails()
         self.assertEqual(result.orphans_deleted, 2)
+        self.assertEqual(result.bytes_reclaimed, 8)
         self.assertFalse(inline.exists())
         self.assertFalse(missing.exists())
         self.assertTrue(other_cam.exists())
@@ -514,10 +545,13 @@ class TestSyncReviewThumbnails(MediaTestBase):
 
     def test_dry_run_then_delete(self) -> None:
         orphan = touch(self.review_dir / "thumb-front-gone.webp")
-        self.assertTrue(sync_review_thumbnails(dry_run=True).orphans_found == 1)
+        dry = sync_review_thumbnails(dry_run=True)
+        self.assertEqual(dry.orphans_found, 1)
+        self.assertEqual(dry.bytes_reclaimed, 4)
         self.assertTrue(orphan.exists())
         result = sync_review_thumbnails()
         self.assertEqual(result.orphans_deleted, 1)
+        self.assertEqual(result.bytes_reclaimed, 4)
         self.assertFalse(orphan.exists())
 
     def test_safety_threshold_and_force(self) -> None:
@@ -564,9 +598,13 @@ class TestSyncPreviews(MediaTestBase):
 
     def test_dry_run_then_delete(self) -> None:
         orphan = touch(self.previews_dir / "front" / "gone.mp4")
-        self.assertEqual(sync_previews(dry_run=True).orphans_found, 1)
+        dry = sync_previews(dry_run=True)
+        self.assertEqual(dry.orphans_found, 1)
+        self.assertEqual(dry.bytes_reclaimed, 4)
         self.assertTrue(orphan.exists())
-        self.assertEqual(sync_previews().orphans_deleted, 1)
+        result = sync_previews()
+        self.assertEqual(result.orphans_deleted, 1)
+        self.assertEqual(result.bytes_reclaimed, 4)
         self.assertFalse(orphan.exists())
 
     def test_safety_threshold_and_force(self) -> None:
@@ -627,9 +665,11 @@ class TestSyncExports(MediaTestBase):
         thumb = touch(self.export_thumb_dir / "gone.jpg")
         dry = sync_exports(dry_run=True)
         self.assertEqual(dry.orphan_paths, [str(video), str(thumb)])
+        self.assertEqual(dry.bytes_reclaimed, 8)
         self.assertTrue(video.exists())
         result = sync_exports()
         self.assertEqual(result.orphans_deleted, 2)
+        self.assertEqual(result.bytes_reclaimed, 8)
         self.assertFalse(video.exists())
         self.assertFalse(thumb.exists())
 
@@ -666,6 +706,7 @@ class TestMediaSyncResultsAndReport(unittest.TestCase):
                 files_checked=10,
                 orphans_found=2,
                 orphans_deleted=1,
+                bytes_reclaimed=2048,
                 orphan_paths=["/rec/a.mp4"],
                 orphan_db_paths=["/rec/b.mp4"],
             ),
@@ -674,6 +715,7 @@ class TestMediaSyncResultsAndReport(unittest.TestCase):
                 files_checked=5,
                 orphans_found=1,
                 orphans_deleted=1,
+                bytes_reclaimed=100,
                 orphan_paths=["/prev/p.mp4"],
                 aborted=True,
                 error="x",
@@ -685,6 +727,7 @@ class TestMediaSyncResultsAndReport(unittest.TestCase):
         self.assertEqual(self.results.total_files_checked, 16)
         self.assertEqual(self.results.total_orphans_found, 3)
         self.assertEqual(self.results.total_orphans_deleted, 2)
+        self.assertEqual(self.results.total_bytes_reclaimed, 2148)
         data = self.results.to_dict()
         self.assertEqual(set(data), {"recordings", "previews", "exports", "totals"})
         self.assertEqual(
@@ -693,13 +736,19 @@ class TestMediaSyncResultsAndReport(unittest.TestCase):
                 "files_checked": 5,
                 "orphans_found": 1,
                 "orphans_deleted": 1,
+                "bytes_reclaimed": 100,
                 "aborted": True,
                 "error": "x",
             },
         )
         self.assertEqual(
             data["totals"],
-            {"files_checked": 16, "orphans_found": 3, "orphans_deleted": 2},
+            {
+                "files_checked": 16,
+                "orphans_found": 3,
+                "orphans_deleted": 2,
+                "bytes_reclaimed": 2148,
+            },
         )
 
     def test_empty_results(self) -> None:
@@ -707,7 +756,14 @@ class TestMediaSyncResultsAndReport(unittest.TestCase):
         self.assertEqual(empty.total_files_checked, 0)
         self.assertEqual(
             empty.to_dict(),
-            {"totals": {"files_checked": 0, "orphans_found": 0, "orphans_deleted": 0}},
+            {
+                "totals": {
+                    "files_checked": 0,
+                    "orphans_found": 0,
+                    "orphans_deleted": 0,
+                    "bytes_reclaimed": 0,
+                }
+            },
         )
 
     def test_write_orphan_report(self) -> None:
