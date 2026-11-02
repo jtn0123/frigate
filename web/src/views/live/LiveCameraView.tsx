@@ -522,6 +522,13 @@ export default function LiveCameraView({
     }
   }, [webRTCVerdictPending]);
 
+  const toggleMic = () => {
+    setMic(!mic);
+    if (!mic && !audio) {
+      setAudio(true);
+    }
+  };
+
   useKeyboardListener(["m", "t", "Escape"], (key, modifiers) => {
     if (!modifiers.down) {
       return true;
@@ -536,7 +543,7 @@ export default function LiveCameraView({
         break;
       case "t":
         if (supports2WayTalk && talkState === "available") {
-          setMic(!mic);
+          toggleMic();
           return true;
         }
         break;
@@ -810,12 +817,7 @@ export default function LiveCameraView({
                 Icon={mic ? FaMicrophone : FaMicrophoneSlash}
                 isActive={mic}
                 title={micTitle}
-                onClick={() => {
-                  setMic(!mic);
-                  if (!mic && !audio) {
-                    setAudio(true);
-                  }
-                }}
+                onClick={toggleMic}
                 disabled={!cameraEnabled || debug || talkState !== "available"}
               />
             )}
