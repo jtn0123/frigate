@@ -39,7 +39,9 @@ test.describe("Detection models Settings @high", () => {
     await frigateApp.goto("/settings?page=systemDetectorsAndModel");
     const pageRoot = frigateApp.page.locator("#pageRoot");
 
-    await expect(pageRoot).toContainText("All cameras");
+    await expect(
+      pageRoot.getByText("Default", { exact: true }).first(),
+    ).toBeVisible();
     await expect(
       pageRoot.getByRole("button", { name: "Add model" }),
     ).toBeVisible();
@@ -52,7 +54,7 @@ test.describe("Detection models Settings @high", () => {
       configSchema: CONFIG_SCHEMA,
       config: {
         plus: { enabled: true },
-        models: [{ scene: "all", devices: ["cpu"], plus: PLUS_MODEL }],
+        models: [{ scene: "default", devices: ["cpu"], plus: PLUS_MODEL }],
       },
     });
     await frigateApp.page.route("**/api/plus/models", (route) =>
@@ -65,9 +67,12 @@ test.describe("Detection models Settings @high", () => {
     );
     await frigateApp.page.getByRole("button", { name: "Change model" }).click();
 
-    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
-      "All cameras",
-    );
+    await expect(
+      frigateApp.page
+        .locator("#pageRoot")
+        .getByText("Default", { exact: true })
+        .first(),
+    ).toBeVisible();
     await expect(
       frigateApp.page.getByRole("heading", { name: "Frigate+ Settings" }),
     ).toBeHidden();
@@ -95,7 +100,7 @@ test.describe("Detection models Settings @high", () => {
         section: "Detection models",
       });
 
-      const model = page.getByText("All cameras", { exact: true }).first();
+      const model = page.getByText("Default", { exact: true }).first();
       await expectWithinPhoneWidth(model);
       await expectWithinPhoneWidth(
         page.getByRole("button", { name: "Add model" }),

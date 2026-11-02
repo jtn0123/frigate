@@ -227,7 +227,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "all", devices: ["edgetpu:pci"] },
+      { scene: "default", devices: ["edgetpu:pci"] },
     ]);
     await openPage(frigateApp);
 
@@ -244,7 +244,7 @@ test.describe("Detection models settings @high @mobile", () => {
   }) => {
     await installRoutes(
       frigateApp.page,
-      [{ scene: "all", devices: ["onnx"] }],
+      [{ scene: "default", devices: ["onnx"] }],
       false,
       [PLUS_MODEL],
       ONNX_GPU_HARDWARE,
@@ -556,7 +556,7 @@ test.describe("Detection models settings @high @mobile", () => {
     // fork: the saved model comes back with its resolved cache path
     await installRoutes(frigateApp.page, [
       {
-        scene: "all",
+        scene: "default",
         devices: ["openvino:GPU.0"],
         path: "/config/model_cache/abc123",
         plus: PLUS_MODEL,
@@ -612,7 +612,13 @@ test.describe("Detection models settings @high @mobile", () => {
   }) => {
     await installRoutes(
       frigateApp.page,
-      [{ scene: "all", devices: ["openvino:GPU.0"], path: "/config/a.onnx" }],
+      [
+        {
+          scene: "default",
+          devices: ["openvino:GPU.0"],
+          path: "/config/a.onnx",
+        },
+      ],
       true,
       [
         PLUS_MODEL,
