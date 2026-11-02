@@ -10,9 +10,9 @@ packaging==26.3 \
     # via
     #   scikit-build
     #   wheel
-scikit-build==0.18.1 \
-    --hash=sha256:a4152ac5a084d499c28a7797be0628d8366c336e2fb0e1a063eb32e55efcb8e7 \
-    --hash=sha256:a6860e300f6807e76f21854163bdb9db16afc74eadf34bd6a9947d3fdfcd725a
+scikit-build==0.19.1 \
+    --hash=sha256:a4fa78a7222ca40d5e8bae6700514bbf7efea4346efd9fc1f8cfca837cd1de71 \
+    --hash=sha256:b9a8d07fca2d5d10d93220bc57a685161d72af1fc76285d55c564ddaa862e584
     # via -r docker/main/requirements.txt
 setuptools==84.1.0 \
     --hash=sha256:23657205b63d4d31395ab917815247f694aafad28cd21316bf5fd45a51048ea0 \
