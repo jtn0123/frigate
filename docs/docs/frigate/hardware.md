@@ -341,7 +341,7 @@ The inference time of a rk3588 with all 3 cores enabled is typically 25-30 ms fo
 | ---------------- | ----------------------------------- |
 | yolov9-tiny      | ~ 4 ms                              |
 
-### AMD Ryzen AI / XDNA2
+### AMD Ryzen AI / XDNA2 {#amd-xdna2}
 
 Frigate supports AMD XDNA2 NPUs through the community-maintained
 frigate-xdna ZMQ sidecar. It works with stock Frigate and supports
