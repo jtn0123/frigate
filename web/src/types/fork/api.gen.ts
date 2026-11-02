@@ -4899,9 +4899,13 @@ export interface components {
             /** Models */
             models: components["schemas"]["AIModelStatus"][];
             /** Audio */
-            audio: Record<string, never>;
+            audio: {
+                [key: string]: unknown;
+            };
             /** Shared Gpus */
-            shared_gpus: Record<string, never>;
+            shared_gpus: {
+                [key: string]: unknown;
+            };
             /** Source Updated */
             source_updated?: number | null;
             /**
@@ -4913,7 +4917,9 @@ export interface components {
              * Server
              * @default {}
              */
-            server: Record<string, never>;
+            server: {
+                [key: string]: unknown;
+            };
             /**
              * History Status
              * @default unavailable
@@ -4959,7 +4965,9 @@ export interface components {
             /** Update Topic */
             update_topic?: string | null;
             /** Config Data */
-            config_data?: Record<string, never> | null;
+            config_data?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Skip Save
              * @default false
@@ -5487,7 +5495,9 @@ export interface components {
              * Tool Calls
              * @description For assistant messages replayed from prior turns, the OpenAI-format tool calls the model previously requested. Replaying these verbatim keeps the conversation prefix byte-for-byte identical so the model server's prompt cache hits on follow-up turns.
              */
-            tool_calls?: Record<string, never>[] | null;
+            tool_calls?: {
+                [key: string]: unknown;
+            }[] | null;
         };
         /**
          * ClassAcceptanceModel
@@ -5903,7 +5913,9 @@ export interface components {
             /** Model Type */
             model_type: string | null;
             /** Data */
-            data: Record<string, never>;
+            data: {
+                [key: string]: unknown;
+            };
         };
         /**
          * EventSuggestionModel
@@ -5977,7 +5989,9 @@ export interface components {
              * Draw
              * @default {}
              */
-            draw: Record<string, never> | null;
+            draw: {
+                [key: string]: unknown;
+            } | null;
             /** Pre Capture */
             pre_capture?: number | null;
         };
@@ -6160,7 +6174,9 @@ export interface components {
              * Results
              * @description Result metadata for completed jobs
              */
-            results?: Record<string, never> | null;
+            results?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Current Step
              * @description Current execution step (queued, preparing, encoding, encoding_retry, finalizing)
@@ -6474,7 +6490,9 @@ export interface components {
             /** Base Url */
             base_url?: string | null;
             /** Provider Options */
-            provider_options?: Record<string, never>;
+            provider_options?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * GenAIProviderEnum
@@ -7338,7 +7356,9 @@ export interface components {
              * Sub
              * @description The browser's push subscription, as PushSubscription.toJSON() gives it
              */
-            sub: Record<string, never>;
+            sub: {
+                [key: string]: unknown;
+            };
         };
         /**
          * SessionPushResponse
@@ -7730,7 +7750,9 @@ export interface components {
             /** Tool Name */
             tool_name: string;
             /** Arguments */
-            arguments: Record<string, never>;
+            arguments: {
+                [key: string]: unknown;
+            };
         };
         /**
          * TrainingGapModel
@@ -7899,7 +7921,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -8846,7 +8870,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -8881,7 +8907,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -9015,7 +9043,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -9330,7 +9360,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -9366,7 +9398,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -9402,7 +9436,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -9437,7 +9473,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -9504,7 +9542,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -10970,7 +11010,9 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    [key: string]: unknown;
+                };
             };
         };
         responses: {
@@ -12480,7 +12522,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -12516,7 +12560,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -12548,7 +12594,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -12579,7 +12627,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -13853,7 +13903,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
                 };
             };
             /** @description Validation Error */
