@@ -10,6 +10,11 @@ variable "WEB_ASSETS_IMAGE" { default = "" }
 target "_cache" {
   cache-from = [for ref in split(",", RUNTIME_CACHE_FROM) : "type=registry,ref=${ref}"]
 }
+# The dependency image's deps stage carries upstream's source label (#24674);
+# the published images come from this repository.
+target "_fork-image" {
+  labels = { "org.opencontainers.image.source" = "https://github.com/jtn0123/frigate" }
+}
 target "rootfs" {
   inherits = ["_cache"]
   dockerfile = "docker/fork-rootfs.Dockerfile"
@@ -18,7 +23,7 @@ target "rootfs" {
   contexts = { web-build = "docker-image://${WEB_ASSETS_IMAGE}" }
 }
 target "amd64" {
-  inherits = ["_cache"]
+  inherits = ["_cache", "_fork-image"]
   dockerfile = "docker/fork-runtime.Dockerfile"
   target = "image"
   platforms = ["linux/amd64"]
@@ -27,7 +32,7 @@ target "amd64" {
   cache-to = ["type=registry,ref=${CACHE}-app-amd64,mode=max,compression=zstd,compression-level=3"]
 }
 target "rocm" {
-  inherits = ["_cache"]
+  inherits = ["_cache", "_fork-image"]
   dockerfile = "docker/fork-runtime.Dockerfile"
   target = "image"
   platforms = ["linux/amd64"]

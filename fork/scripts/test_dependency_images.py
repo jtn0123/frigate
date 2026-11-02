@@ -275,6 +275,12 @@ class TestDependencyImages(unittest.TestCase):
             )
             self.assertEqual(targets[name]["contexts"]["rootfs"], "target:rootfs")
             self.assertEqual(targets[name]["platforms"], ["linux/amd64"])
+            # The deps stage labels upstream's repository; the published
+            # images must name the fork's instead.
+            self.assertEqual(
+                targets[name]["labels"]["org.opencontainers.image.source"],
+                "https://github.com/jtn0123/frigate",
+            )
 
     def test_registry_error_is_not_treated_as_missing_dependencies(self):
         for error in (b"unauthorized", b"connection refused", b"429 Too Many Requests"):
