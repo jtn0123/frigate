@@ -178,9 +178,7 @@ export default function MediaSyncSettingsView() {
                     {t("maintenance.sync.startTime")}:
                   </span>
                   <span className="font-mono">
-                    {formatUnixTimestampToDateTime(
-                      currentJob?.start_time ?? "-",
-                    )}
+                    {formatUnixTimestampToDateTime(currentJob.start_time)}
                   </span>
                 </div>
               )}
@@ -190,7 +188,7 @@ export default function MediaSyncSettingsView() {
                     {t("maintenance.sync.endTime")}:
                   </span>
                   <span className="font-mono">
-                    {formatUnixTimestampToDateTime(currentJob?.end_time)}
+                    {formatUnixTimestampToDateTime(currentJob.end_time)}
                   </span>
                 </div>
               )}
@@ -257,7 +255,7 @@ export default function MediaSyncSettingsView() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">
-                                    {currentJob?.dry_run
+                                    {currentJob.dry_run
                                       ? t(
                                           "maintenance.sync.resultsFields.spaceToReclaim",
                                         )
@@ -340,7 +338,7 @@ export default function MediaSyncSettingsView() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">
-                              {currentJob?.dry_run
+                              {currentJob.dry_run
                                 ? t(
                                     "maintenance.sync.resultsFields.spaceToReclaim",
                                   )
