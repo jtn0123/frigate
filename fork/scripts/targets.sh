@@ -43,6 +43,7 @@ py_script_tests=(
   test_ledger.py
   test_runtime_lock.py
   test_e2e_port.py
+  test_unittest_shard.py
 )
 
 main() {

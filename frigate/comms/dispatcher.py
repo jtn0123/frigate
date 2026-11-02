@@ -449,7 +449,14 @@ class Dispatcher:
         ):
             recording_policy_changed(self.config)
         for comm in self.comms:
-            comm.publish(topic, payload, retain)
+            try:
+                comm.publish(topic, payload, retain)
+            except Exception:
+                logger.exception(
+                    "Error publishing %s to %s",
+                    topic.replace("\r", "\\r").replace("\n", "\\n"),
+                    type(comm).__name__,
+                )
 
     def publish_local(self, topic: str, payload: Any) -> None:
         """Publish to every communicator except MQTT.
@@ -460,7 +467,14 @@ class Dispatcher:
             if isinstance(comm, MqttClient):
                 continue
 
-            comm.publish(topic, payload, False)
+            try:
+                comm.publish(topic, payload, False)
+            except Exception:
+                logger.exception(
+                    "Error publishing %s to %s",
+                    topic.replace("\r", "\\r").replace("\n", "\\n"),
+                    type(comm).__name__,
+                )
 
     def _publish_notices(self) -> None:
         if self.notice_registry is None:

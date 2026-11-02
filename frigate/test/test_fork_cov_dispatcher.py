@@ -175,6 +175,28 @@ class TestDispatcherWiring(DispatcherTestCase):
         mqtt.publish.assert_not_called()
         self.assertEqual(self.published("notices"), [("[]", False)])
 
+    def test_publish_failure_log_cannot_forge_a_line(self) -> None:
+        """A CR/LF in a failing topic stays on one escaped log line."""
+        failing = MagicMock(spec=Communicator)
+        failing.publish.side_effect = RuntimeError("boom")
+        self.dispatcher.comms.insert(0, failing)
+        topic = "front_door/x\r\nERROR forged entry"
+
+        for publish in (
+            lambda: self.dispatcher.publish(topic, "on"),
+            lambda: self.dispatcher.publish_local(topic, "on"),
+        ):
+            with self.assertLogs("frigate.comms.dispatcher", level="ERROR") as logs:
+                publish()
+
+            message = logs.records[0].getMessage()
+            self.assertNotIn("\n", message)
+            self.assertNotIn("\r", message)
+            self.assertIn("front_door/x\\r\\nERROR forged entry", message)
+
+        # The failing communicator does not stop delivery to the others.
+        self.assertEqual(self.published(topic), [("on", False), ("on", False)])
+
     def test_publish_notices_without_registry_is_a_no_op(self) -> None:
         self.dispatcher._publish_notices()
         self.assertEqual(self.published("notices"), [])
