@@ -564,6 +564,11 @@ test.describe("Face Library: return from Explore @high", () => {
       new RegExp(`/explore\\?event_id=${GROUPED_EVENT_ID}`),
     );
 
+    // The URL changes before Explore renders: Explore is lazy, and the router
+    // keeps showing the face library until it commits. The collection page
+    // there has its own "Go back" button in the same spot, and a click on it
+    // only closes that page. Wait for the library to unmount first.
+    await expect(card).toBeHidden({ timeout: 5_000 });
     const back = frigateApp.page.getByRole("button", { name: "Go back" });
     await expect(back).toBeVisible({ timeout: 5_000 });
     await back.click();
