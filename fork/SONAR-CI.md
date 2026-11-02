@@ -12,7 +12,9 @@ fails `Checks passed`. No token or failed tests means no successful scan.
 
 The scanner uses the full repository as its source scope, with tests classified
 separately. Generated declarations and version metadata are excluded from
-coverage. Untested production code remains visible. Frontend coverage is
+coverage, and so is the documentation site's own code (`docs/src/**`,
+`docs/docusaurus.config.ts`; B39): it has no test runner in this repository,
+so its new lines could never count as covered. Its issues are still analyzed. Untested production code remains visible. Frontend coverage is
 Vitest's report merged with the coverage the Playwright suite measures in the
 browser (`web/scripts/fork/merge-browser-coverage.mjs`, run by the `sonar` job
 when all three E2E shards uploaded coverage, whether or not they passed; I63). The browser share is the larger one: without it the
