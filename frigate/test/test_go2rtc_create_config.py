@@ -13,12 +13,12 @@ from ruamel.yaml import YAML
 
 from frigate.util.config import resolve_ffmpeg_path
 
-_REPO_SCRIPT = (
+# Always the checkout's copy: the base image's /usr/local/go2rtc copy is the
+# released script, so testing it would pass or fail regardless of this tree.
+SCRIPT = (
     Path(__file__).resolve().parents[2]
     / "docker/main/rootfs/usr/local/go2rtc/create_config.py"
 )
-_IMAGE_SCRIPT = Path("/usr/local/go2rtc/create_config.py")
-SCRIPT = _REPO_SCRIPT if _REPO_SCRIPT.is_file() else _IMAGE_SCRIPT
 
 DEFAULT_FFMPEG = resolve_ffmpeg_path("default", "ffmpeg")
 
