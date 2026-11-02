@@ -8,98 +8,44 @@
  * `pages/Settings.tsx` maps these keys onto the components that render them.
  */
 
+/** The words of a space-separated string literal, as a union of literals. */
+type Words<S extends string> = S extends `${infer Head} ${infer Rest}`
+  ? Head | Words<Rest>
+  : S;
+
+/**
+ * One menu group. Its views are written as one space-separated string so the
+ * index stays a short table instead of long uniform lists (UI156).
+ */
+function viewGroup<const Label extends string, const Views extends string>(
+  label: Label,
+  views: Views,
+): { label: Label; views: Words<Views>[] } {
+  return { label, views: views.split(" ") as Words<Views>[] };
+}
+
 export const settingsViewGroups = [
-  {
-    label: "general",
-    views: ["uiSettings"],
-  },
-  {
-    label: "globalConfig",
-    views: [
-      "profiles",
-      "cameraManagement",
-      "globalDetect",
-      "globalObjects",
-      "globalMotion",
-      "globalFfmpeg",
-      "globalRecording",
-      "globalSnapshots",
-      "globalReview",
-      "globalAudioEvents",
-      "globalLivePlayback",
-      "globalTimestampStyle",
-    ],
-  },
-  {
-    label: "cameras",
-    views: [
-      "cameraDetect",
-      "cameraObjects",
-      "cameraMotion",
-      "motionTuner",
-      "cameraFfmpeg",
-      "cameraRecording",
-      "cameraSnapshots",
-      "masksAndZones",
-      "cameraReview",
-      "cameraAudioEvents",
-      "cameraAudioTranscription",
-      "cameraBirdseye",
-      "cameraLivePlayback",
-      "cameraNotifications",
-      "cameraFaceRecognition",
-      "cameraLpr",
-      "cameraOnvif",
-      "cameraMqttConfig",
-      "cameraTimestampStyle",
-    ],
-  },
-  {
-    label: "enrichments",
-    views: [
-      "integrationSemanticSearch",
-      "integrationGenerativeAi",
-      "integrationFaceRecognition",
-      "integrationLpr",
-      "integrationObjectClassification",
-      "triggers",
-      "integrationAudioTranscription",
-    ],
-  },
-  {
-    label: "system",
-    views: [
-      "systemGo2rtcStreams",
-      "systemDetectorsAndModel",
-      "systemDatabase",
-      "systemMqtt",
-      "systemBirdseye",
-      "systemTls",
-      "systemAuthentication",
-      "systemNetworking",
-      "systemProxy",
-      "systemUi",
-      "systemLogging",
-      "systemEnvironmentVariables",
-      "systemTelemetry",
-    ],
-  },
-  {
-    label: "users",
-    views: ["users", "roles"],
-  },
-  {
-    label: "notifications",
-    views: ["notifications"],
-  },
-  {
-    label: "frigateplus",
-    views: ["frigateplus"],
-  },
-  {
-    label: "maintenance",
-    views: ["mediaSync", "regionGrid"],
-  },
+  viewGroup("general", "uiSettings"),
+  viewGroup(
+    "globalConfig",
+    "profiles cameraManagement globalDetect globalObjects globalMotion globalFfmpeg globalRecording globalSnapshots globalReview globalAudioEvents globalLivePlayback globalTimestampStyle",
+  ),
+  viewGroup(
+    "cameras",
+    "cameraDetect cameraObjects cameraMotion motionTuner cameraFfmpeg cameraRecording cameraSnapshots masksAndZones cameraReview cameraAudioEvents cameraAudioTranscription cameraBirdseye cameraLivePlayback cameraNotifications cameraFaceRecognition cameraLpr cameraOnvif cameraMqttConfig cameraTimestampStyle",
+  ),
+  viewGroup(
+    "enrichments",
+    "integrationSemanticSearch integrationGenerativeAi integrationFaceRecognition integrationLpr integrationObjectClassification triggers integrationAudioTranscription",
+  ),
+  viewGroup(
+    "system",
+    "systemGo2rtcStreams systemDetectorsAndModel systemDatabase systemMqtt systemBirdseye systemTls systemAuthentication systemNetworking systemProxy systemUi systemLogging systemEnvironmentVariables systemTelemetry",
+  ),
+  viewGroup("users", "users roles"),
+  viewGroup("notifications", "notifications"),
+  viewGroup("frigateplus", "frigateplus"),
+  viewGroup("maintenance", "mediaSync regionGrid"),
 ] as const;
 
 /** `enrichments` and `debug` are reachable in the UI but have no menu entry. */
