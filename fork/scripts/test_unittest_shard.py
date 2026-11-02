@@ -209,6 +209,18 @@ class TestRunShards(unittest.TestCase):
             self.assertEqual(shard.main([*argv, "--start", str(self.suite.root)]), 0)
         self.assertEqual(json.loads(path.read_text())["ran"], 7)
 
+    def test_a_manifest_outside_the_temp_dir_is_refused(self):
+        outside = Path(__file__).resolve().parent / "manifest-outside.json"
+        with self.assertRaises(ValueError):
+            shard.run_shard(0, 1, outside, str(self.suite.root))
+        self.assertFalse(outside.exists())
+
+    def test_a_manifest_escaping_the_temp_dir_is_refused(self):
+        # Enough ".." always reaches /, whatever the temp dir's depth.
+        escaping = self.suite.root.joinpath(*[".."] * 40, "manifest.json")
+        with self.assertRaises(ValueError):
+            shard.run_shard(0, 1, escaping, str(self.suite.root))
+
     def test_class_fixtures_run_once_per_shard(self):
         fixture = self.suite.root / self.suite.package / "test_fixture.py"
         tests = "".join(f"    def test_{i}(self):\n        pass\n\n" for i in range(4))

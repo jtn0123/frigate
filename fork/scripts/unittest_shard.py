@@ -27,6 +27,7 @@ import hashlib
 import json
 import os
 import sys
+import tempfile
 import time
 import unittest
 import warnings
@@ -92,8 +93,23 @@ class TimedResult(unittest.TextTestResult):
         self.module_seconds[module] = self.module_seconds.get(module, 0.0) + elapsed
 
 
+def in_temp_dir(path: Path) -> Path:
+    """`path` resolved, refusing anything outside the system temp directory.
+
+    Shards write their manifests to /tmp/cov in their containers. A manifest
+    path that resolves elsewhere is a mistake, and must not overwrite a file
+    in the tree.
+    """
+    base = os.path.realpath(tempfile.gettempdir())
+    target = os.path.realpath(path)
+    if os.path.commonpath([base, target]) != base:
+        raise ValueError(f"manifest {path} is outside {base}")
+    return Path(target)
+
+
 def run_shard(index: int, count: int, manifest: Path, start: str = ".") -> int:
     """Run shard `index` of `count` and write its manifest; 0 when it passed."""
+    manifest = in_temp_dir(manifest)
     # Import as `python3 -m unittest` does: from the working directory first,
     # not from this script's directory, so a test imports what it would there.
     if sys.path and Path(sys.path[0]).resolve() == Path(__file__).resolve().parent:
