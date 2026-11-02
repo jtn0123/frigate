@@ -7,9 +7,9 @@ from unittest.mock import patch
 
 import ruamel.yaml
 
-from frigate.config.env import FRIGATE_ENV_VARS
 from frigate.models import Event, Recordings, ReviewSegment
 from frigate.test.http_api.base_http_test import AuthTestClient, BaseTestHttp
+from frigate.util.env import FRIGATE_ENV_VARS
 
 # shape of the source in GHSA-qjjw-3v66-279f, with the payload replaced
 _INJECTED_SRC = "ffmpeg:#input='-f''h264''-i''data:placeholder''-c''copy'"

@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfoNotFoundError
 
 from pathvalidate import sanitize_filename
@@ -1070,7 +1070,10 @@ class RecordingExporter(threading.Thread):
             except DoesNotExist:
                 return ""
 
-            diff = max(0.0, float(self.start_time) - float(preview.start_time))
+            # start_time is a DateTimeField holding a unix timestamp
+            diff = max(
+                0.0, float(self.start_time) - float(cast(Any, preview.start_time))
+            )
             ffmpeg_cmd = [
                 "/usr/lib/ffmpeg/8.0/bin/ffmpeg",  # hardcode path for exports thumbnail due to missing libwebp support
                 "-hide_banner",

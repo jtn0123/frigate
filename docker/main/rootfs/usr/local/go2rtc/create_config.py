@@ -10,7 +10,6 @@ from typing import Any
 from ruamel.yaml import YAML
 
 sys.path.insert(0, "/opt/frigate")
-from frigate.config.env import apply_config_env_vars, substitute_frigate_vars
 from frigate.const import BIRDSEYE_PIPE
 from frigate.ffmpeg_presets import parse_preset_hardware_acceleration_encode
 from frigate.util.atomic import write_private_file
@@ -19,6 +18,7 @@ from frigate.util.config import (
     is_valid_ffmpeg_path,
     resolve_ffmpeg_path,
 )
+from frigate.util.env import apply_config_env_vars, substitute_frigate_vars
 from frigate.util.live_streams import raw_transcode_streams
 from frigate.util.services import (
     apply_go2rtc_ffmpeg_config,

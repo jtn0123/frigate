@@ -578,7 +578,8 @@ class TestIntelGpuStats(unittest.TestCase):
 
 
 class TestNpuAndEmbeddedStats(unittest.TestCase):
-    NPU = "/sys/devices/pci0000:00/0000:00:0b.0/power/runtime_active_time"
+    # B42 (upstream #23761): the NPU is found through its accel device
+    NPU = "/sys/class/accel/accel0/device/power/runtime_active_time"
 
     def _openvino(self, values, times):
         reads = iter(values)
@@ -592,6 +593,8 @@ class TestNpuAndEmbeddedStats(unittest.TestCase):
 
         with (
             patch("builtins.open", _open),
+            patch(f"{MOD}.glob.glob", return_value=["/sys/class/accel/accel0"]),
+            patch(f"{MOD}.os.readlink", return_value="/sys/bus/pci/drivers/intel_vpu"),
             patch(f"{MOD}.time.sleep"),
             patch(f"{MOD}.time.time", side_effect=list(times)),
         ):
