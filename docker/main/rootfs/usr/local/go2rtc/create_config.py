@@ -186,6 +186,13 @@ if transcoded_streams:
         go2rtc_config["streams"] = {}
 
     for name, source in transcoded_streams.items():
+        # the source embeds a stream name, which can carry a ${VAR} expansion
+        if is_restricted_go2rtc_source(source):
+            print(
+                f"[ERROR] Transcoded stream '{name}' uses a restricted source (${{VAR}}) which is disabled by default for security. "
+                f"Set GO2RTC_ALLOW_ARBITRARY_EXEC=true to enable arbitrary exec sources."
+            )
+            continue
         go2rtc_config["streams"].setdefault(name, source)
 
 # add birdseye restream stream if enabled
