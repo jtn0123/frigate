@@ -92,12 +92,14 @@ export default function GPUInfoDialog({
   );
 
   const onCopyInfo = wrapAsync(async () => {
-    copy(
+    const copied = await copy(
       JSON.stringify(gpuType == "vainfo" ? vainfo : nvinfo)
         .replace(/\\t/g, "\t")
         .replace(/\\n/g, "\n"),
     );
-    toast.success(t("general.hardwareInfo.gpuInfo.toast.success"));
+    if (copied) {
+      toast.success(t("general.hardwareInfo.gpuInfo.toast.success"));
+    }
   });
 
   const title =

@@ -104,10 +104,11 @@ function ConfigEditor() {
       return;
     }
 
-    copy(editorRef.current.getValue());
-    toast.success(t("toast.success.copyToClipboard"), {
-      position: "top-center",
-    });
+    if (await copy(editorRef.current.getValue())) {
+      toast.success(t("toast.success.copyToClipboard"), {
+        position: "top-center",
+      });
+    }
   }, [editorRef, t]);
 
   const handleSaveOnly = useCallback(async () => {

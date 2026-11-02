@@ -86,11 +86,13 @@ export function MessageBubble({
   const handleCopy = useCallback(() => {
     const text = content?.trim() || "";
     if (!text) return;
-    if (copy(text)) {
-      setCopied(true);
-      toast.success(t("button.copiedToClipboard", { ns: "common" }));
-      setTimeout(() => setCopied(false), 2000);
-    }
+    void copy(text).then((copied) => {
+      if (copied) {
+        setCopied(true);
+        toast.success(t("button.copiedToClipboard", { ns: "common" }));
+        setTimeout(() => setCopied(false), 2000);
+      }
+    });
   }, [content, t]);
 
   const handleEditClick = () => {

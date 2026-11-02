@@ -9,9 +9,12 @@ export function shareOrCopy(url: string, title?: string) {
       title: title,
     });
   } else {
-    copy(url);
-    toast.success(t("toast.copyUrlToClipboard", { ns: "common" }), {
-      position: "top-center",
+    void copy(url).then((copied) => {
+      if (copied) {
+        toast.success(t("toast.copyUrlToClipboard", { ns: "common" }), {
+          position: "top-center",
+        });
+      }
     });
   }
 }

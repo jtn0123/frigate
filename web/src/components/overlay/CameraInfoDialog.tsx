@@ -70,13 +70,15 @@ export default function CameraInfoDialog({
   }, []);
 
   const onCopyFfprobe = async () => {
-    copy(
+    const copied = await copy(
       JSON.stringify({
         ffprobe: ffprobeInfo,
         keyframe_analysis: keyframeInfo,
       }),
     );
-    toast.success(t("cameras.toast.success.copyToClipboard"));
+    if (copied) {
+      toast.success(t("cameras.toast.success.copyToClipboard"));
+    }
   };
 
   function gcd(a: number, b: number): number {

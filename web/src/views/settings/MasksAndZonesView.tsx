@@ -229,16 +229,21 @@ export default function MasksAndZonesView({
     (index: number) => {
       if (allPolygons && scaledWidth && scaledHeight) {
         const poly = allPolygons[index];
-        copy(
+        void copy(
           interpolatePoints(poly.points, scaledWidth, scaledHeight, 1, 1)
             .map((point) => `${point[0]},${point[1]}`)
             .join(","),
-        );
-        toast.success(
-          t("masksAndZones.toast.success.copyCoordinates", {
-            polyName: poly.name,
-          }),
-        );
+        ).then((copied) => {
+          if (copied) {
+            toast.success(
+              t("masksAndZones.toast.success.copyCoordinates", {
+                polyName: poly.name,
+              }),
+            );
+          } else {
+            toast.error(t("masksAndZones.toast.error.copyCoordinatesFailed"));
+          }
+        });
       } else {
         toast.error(t("masksAndZones.toast.error.copyCoordinatesFailed"));
       }
