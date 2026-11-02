@@ -72,11 +72,11 @@ export function validateModelScenes(
   );
 
   if (!scenes.includes(DEFAULT_SCENE)) {
-    errors.addError?.(t("models.defaultRequired", { ns: "config/validation" }));
+    errors.addError(t("models.defaultRequired", { ns: "config/validation" }));
   }
 
   if (new Set(scenes).size !== scenes.length) {
-    errors.addError?.(t("models.sceneDuplicate", { ns: "config/validation" }));
+    errors.addError(t("models.sceneDuplicate", { ns: "config/validation" }));
   }
 
   // detector and path -> the scene of the first model using them
@@ -107,7 +107,7 @@ export function validateModelScenes(
       return;
     }
 
-    errors.addError?.(
+    errors.addError(
       t("models.sameModel", {
         ns: "config/validation",
         scene: getSceneLabel(t, other),
