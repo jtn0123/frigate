@@ -56,14 +56,25 @@ test.describe("Masonry live grid @critical", () => {
       timeout: 10_000,
     });
 
-    const { front_door: landscape, backyard: portrait } = await cameraBoxes(
-      frigateApp.page,
-      ["front_door", "backyard"] as const,
-      "card",
-    );
+    // The reloaded grid can paint the stored bucketed layout for a moment
+    // before it reads the setting and regenerates, so wait for the shapes
+    // to settle rather than measuring that first frame.
+    const ratios = async () => {
+      const { front_door: landscape, backyard: portrait } = await cameraBoxes(
+        frigateApp.page,
+        ["front_door", "backyard"] as const,
+        "card",
+      );
+      return {
+        landscape: landscape.w / landscape.h,
+        portrait: portrait.w / portrait.h,
+      };
+    };
 
-    expect(landscape.w / landscape.h).toBeCloseTo(16 / 9, 1);
-    expect(portrait.w / portrait.h).toBeCloseTo(9 / 16, 1);
+    await expect
+      .poll(async () => (await ratios()).portrait)
+      .toBeCloseTo(9 / 16, 1);
+    expect((await ratios()).landscape).toBeCloseTo(16 / 9, 1);
   });
 
   test("dragging a tile does not shove other tiles far away", async ({
