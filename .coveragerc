@@ -5,6 +5,7 @@ source =
     frigate
     migrations
     testing-scripts
+    docker/main/rootfs/usr/local/nginx
     fork/scripts
     fork/benchmarks
     fork/audio_trial

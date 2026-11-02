@@ -105,6 +105,16 @@ class TestOriginAllowed(unittest.TestCase):
         }
         self.assertTrue(ws_origin_allowed(environ))
 
+    def test_unparseable_origin_rejected(self):
+        # urlsplit raises ValueError on an unclosed IPv6 bracket
+        self.assertFalse(origin_allowed("http://[::1", "[::1]", None))
+
+    def test_unparseable_host_does_not_match(self):
+        self.assertFalse(origin_allowed("http://frigate.lan", "[frigate.lan", None))
+        self.assertTrue(
+            origin_allowed("http://frigate.lan", "[frigate.lan", "frigate.lan")
+        )
+
 
 class TestOriginCheckedWebSocketApplication(unittest.TestCase):
     def test_cross_origin_handshake_gets_403(self):
