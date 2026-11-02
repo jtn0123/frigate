@@ -8,7 +8,8 @@
  * failures are simulated by aborting the lazy page chunk request.
  */
 
-import { test, expect } from "../../fixtures/frigate-test";
+import { test, expect, type FrigateApp } from "../../fixtures/frigate-test";
+import { BASE_STATS } from "../../fixtures/mock-data/stats";
 
 const MALFORMED_EXPORTS = "**/api/exports**";
 
@@ -59,7 +60,12 @@ test.describe("Route error boundary @high", () => {
     await frigateApp.page.route(MALFORMED_EXPORTS, (route) =>
       route.fulfill({ json: { unexpected: true } }),
     );
+    // the report reads the version from the stats the chrome fetched
+    const statsLoaded = frigateApp.page.waitForResponse((response) =>
+      new URL(response.url()).pathname.endsWith("/api/stats"),
+    );
     await frigateApp.goto("/export");
+    await statsLoaded;
 
     const panel = frigateApp.page.getByTestId("fork-error-boundary");
     await expect(panel).toBeVisible({ timeout: 10_000 });
@@ -70,6 +76,8 @@ test.describe("Route error boundary @high", () => {
       navigator.clipboard.readText(),
     );
     expect(clipboard).toContain("Frigate UI error report");
+    // UI156 (upstream #24255): the version comes first
+    expect(clipboard).toContain("Version: 0.15.0-test");
     expect(clipboard).toContain("is not a function");
     expect(clipboard).toContain("/export");
   });
@@ -136,5 +144,89 @@ test.describe("Route error boundary - chunk load failure @high", () => {
     await expect(panel).toBeVisible({ timeout: 10_000 });
     await expect(panel.getByText("Update available")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Reload" })).toBeVisible();
+  });
+});
+
+/**
+ * UI156 (upstream #24255): each piece of chrome has its own boundary, so a
+ * throw in one leaves the others, and the page, in place. `useStats` runs
+ * `Object.entries(stats.detectors)` and only the status bar and bottom bar
+ * call it, so null detectors throw in exactly one chrome component.
+ */
+async function breakStatsChrome(app: FrigateApp) {
+  await app.page.route("**/api/stats", (route) =>
+    route.fulfill({ json: { ...BASE_STATS, detectors: null } }),
+  );
+}
+
+test.describe("Route error boundary - chrome failure @high", () => {
+  test.use({
+    expectedErrors: [
+      /is not a function|Cannot convert undefined or null to object|An error occurred in the|The above error occurred/,
+    ],
+  });
+
+  test("a thrown status bar leaves the sidebar usable", async ({
+    frigateApp,
+  }) => {
+    test.skip(frigateApp.isMobile, "The status bar is desktop chrome");
+    await breakStatsChrome(frigateApp);
+    await frigateApp.goto("/");
+
+    const strip = frigateApp.page.getByTestId("fork-error-boundary-chrome");
+    await expect(strip).toBeVisible({ timeout: 10_000 });
+    await expect(strip).toHaveCount(1);
+    await expect(strip).toContainText("Part of the interface stopped working");
+    await expect(strip.getByRole("button", { name: "Reload" })).toBeVisible();
+
+    await expect(frigateApp.page.locator("aside")).toBeVisible();
+    await expect(
+      frigateApp.page.locator('a[href="/review"]').first(),
+    ).toBeVisible();
+    await expect(
+      frigateApp.page.getByTestId("fork-error-boundary"),
+    ).toHaveCount(0);
+  });
+
+  test("the strip stays put across navigation without remounting the sidebar", async ({
+    frigateApp,
+  }) => {
+    test.skip(frigateApp.isMobile, "The status bar is desktop chrome");
+    await breakStatsChrome(frigateApp);
+    await frigateApp.goto("/");
+    await expect(
+      frigateApp.page.getByTestId("fork-error-boundary-chrome"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The sidebar keeps its DOM node: the reset no longer remounts the tree
+    await frigateApp.page
+      .locator("aside")
+      .evaluate((node) => node.setAttribute("data-ui156", "kept"));
+    await frigateApp.page.locator('a[href="/review"]').first().click();
+    await expect(frigateApp.page).toHaveURL(/\/review/);
+    await expect(frigateApp.page.locator("aside")).toHaveAttribute(
+      "data-ui156",
+      "kept",
+    );
+    // the status bar throws again on the new route and is caught again
+    await expect(
+      frigateApp.page.getByTestId("fork-error-boundary-chrome"),
+    ).toHaveCount(1);
+  });
+
+  test("a thrown bottom bar keeps the page", async ({ frigateApp }) => {
+    test.skip(!frigateApp.isMobile, "The bottom bar is phone chrome");
+    await breakStatsChrome(frigateApp);
+    await frigateApp.goto("/");
+
+    await expect(
+      frigateApp.page.getByTestId("fork-error-boundary-chrome"),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      frigateApp.page.getByTestId("fork-error-boundary"),
+    ).toHaveCount(0);
+    await expect(
+      frigateApp.page.locator("[data-camera='front_door']"),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });

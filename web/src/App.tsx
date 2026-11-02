@@ -129,10 +129,17 @@ function DefaultAppView({
 
   return (
     <div className="size-full overflow-hidden">
+      {/* fork (C1, UI156): one boundary per piece, as upstream #24255 does */}
       <RouteErrorBoundary variant="chrome">
         {isDesktop && <Sidebar />}
+      </RouteErrorBoundary>
+      <RouteErrorBoundary variant="chrome">
         {isDesktop && <Statusbar />}
+      </RouteErrorBoundary>
+      <RouteErrorBoundary variant="chrome">
         {isMobile && <Bottombar />}
+      </RouteErrorBoundary>
+      <RouteErrorBoundary variant="chrome">
         <CommandPaletteGate />
       </RouteErrorBoundary>
       <div
