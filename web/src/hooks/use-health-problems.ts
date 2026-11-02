@@ -115,9 +115,10 @@ export function useHealthProblems(
           time: formatTime(notice.acknowledged_at),
         });
       } else {
-        meta = t("health.notices.firstSeen", {
+        meta = t("health.notices.occurred", {
           ns: "views/system",
           time: formatTime(notice.first_seen),
+          lastTime: formatTime(notice.last_seen),
           count: notice.count,
         });
       }
