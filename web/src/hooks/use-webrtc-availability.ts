@@ -136,6 +136,11 @@ export function useWebRTCGloballyAvailable(
     () => config !== undefined && isWebRTCConfigured(config.go2rtc.webrtc),
     [config],
   );
+  // nothing set at all: go2rtc's default candidates only got a probe, so its
+  // failure means the setup is missing rather than broken
+  const defaultsOnly =
+    config?.go2rtc.webrtc?.candidates == null &&
+    (config?.go2rtc.webrtc?.ice_servers?.length ?? 0) === 0;
 
   const testStreams = useMemo(
     () => webRTCProbeStreams(config?.go2rtc.streams, preferredStream),
@@ -221,10 +226,13 @@ export function useWebRTCGloballyAvailable(
       return { globallyAvailable: false, globalReason: "checking" };
     }
     if (probe.state === "fail") {
-      return { globallyAvailable: false, globalReason: "unreachable" };
+      return {
+        globallyAvailable: false,
+        globalReason: defaultsOnly ? "not-configured" : "unreachable",
+      };
     }
     return { globallyAvailable: true, globalReason: null };
-  }, [browserOk, configured, probe]);
+  }, [browserOk, configured, defaultsOnly, probe]);
 
   return availability;
 }
