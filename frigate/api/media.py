@@ -67,6 +67,7 @@ from frigate.util.recording_coverage import (
     known_video_codecs,
     manifest_intervals,
     plan_clip,
+    recording_overlap,
     resolve_coverage,
     stream_media_summary,
 )
@@ -365,10 +366,7 @@ def get_snapshot_from_recording(
                 Recordings.path,
                 Recordings.start_time,
             )
-            .where(
-                (frame_time >= Recordings.start_time)
-                & (frame_time <= Recordings.end_time)
-            )
+            .where(recording_overlap(frame_time, frame_time))
             .where(Recordings.camera == camera_name)
             .order_by(Recordings.stream_type.asc(), Recordings.start_time.desc())
             .limit(1)
@@ -384,10 +382,7 @@ def get_snapshot_from_recording(
                     Recordings.path,
                     Recordings.start_time,
                 )
-                .where(
-                    (frame_time >= Recordings.start_time)
-                    & (frame_time <= Recordings.end_time)
-                )
+                .where(recording_overlap(frame_time, frame_time))
                 .where(Recordings.camera == camera_name)
                 .order_by(Recordings.stream_type.asc(), Recordings.start_time.desc())
                 .limit(1)
@@ -445,9 +440,7 @@ async def submit_recording_snapshot_to_plus(
             Recordings.path,
             Recordings.start_time,
         )
-        .where(
-            (frame_time >= Recordings.start_time) & (frame_time <= Recordings.end_time)
-        )
+        .where(recording_overlap(frame_time, frame_time))
         .where(Recordings.camera == camera_name)
         .order_by(Recordings.stream_type.asc(), Recordings.start_time.desc())
         .limit(1)
