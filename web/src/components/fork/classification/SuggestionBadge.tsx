@@ -233,7 +233,7 @@ export default function SuggestionBadge({
     const current = acceptRef.current;
     const next = current ? nextAccept(current) : null;
     setPending(true);
-    let filed = false;
+    let filed: boolean;
     try {
       filed = await confirmSuggestion(eventId, files, suggestion);
     } finally {

@@ -1,4 +1,4 @@
-// ESLint 9 flat config. Replaces .eslintrc.cjs and keeps its intent:
+// ESLint 10 flat config. Replaces .eslintrc.cjs and keeps its intent:
 //   - react-hooks rules and no-console are errors
 //   - unused vars/args/caught errors are allowed when prefixed with "_"
 //   - prettier disagreements are errors (they were warnings before)

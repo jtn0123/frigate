@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Recording } from "@/types/record";
-import { PreviewController } from "../PreviewPlayer";
+import { PreviewController } from "../PreviewController";
 import { DynamicVideoController } from "./DynamicVideoController";
 
 class StubPreviewController extends PreviewController {

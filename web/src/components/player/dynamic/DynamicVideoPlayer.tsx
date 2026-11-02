@@ -16,7 +16,8 @@ import {
   RecordingCoverage,
 } from "@/types/record";
 import { Preview } from "@/types/preview";
-import PreviewPlayer, { PreviewController } from "../PreviewPlayer";
+import PreviewPlayer from "../PreviewPlayer";
+import { PreviewController } from "../PreviewController";
 import { usePreviewForTimeRange } from "@/hooks/use-camera-previews";
 import { isCurrentOrPreviousHour } from "@/utils/dateUtil";
 import { DynamicVideoController } from "./DynamicVideoController";

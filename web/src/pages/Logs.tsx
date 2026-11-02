@@ -409,9 +409,12 @@ function Logs() {
       .get<{ lines?: string[] }>(`logs/${logService}`, {
         params: { start: hasFilter ? 0 : -100 },
       })
-      .then((response) => {
+      .then(async (response) => {
         const lines = response.data.lines;
-        if (Array.isArray(lines) && copy(filterLines(lines).join("\n"))) {
+        if (
+          Array.isArray(lines) &&
+          (await copy(filterLines(lines).join("\n")))
+        ) {
           toast.success(t("logs.copy.success"));
         } else {
           toast.error(t("logs.copy.error"));

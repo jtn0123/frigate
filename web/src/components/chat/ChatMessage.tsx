@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
-import copy from "copy-to-clipboard";
+import { copyThen } from "@/lib/fork/clipboard";
 import { toast } from "sonner";
 import { FaCopy, FaPencilAlt } from "react-icons/fa";
 import { FaArrowUpLong } from "react-icons/fa6";
@@ -86,11 +86,11 @@ export function MessageBubble({
   const handleCopy = useCallback(() => {
     const text = content?.trim() || "";
     if (!text) return;
-    if (copy(text)) {
+    void copyThen(text, () => {
       setCopied(true);
       toast.success(t("button.copiedToClipboard", { ns: "common" }));
       setTimeout(() => setCopied(false), 2000);
-    }
+    });
   }, [content, t]);
 
   const handleEditClick = () => {
