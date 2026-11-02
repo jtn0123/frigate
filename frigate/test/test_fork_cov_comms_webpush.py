@@ -92,6 +92,14 @@ class _FrozenDatetime(datetime.datetime):
         return cls.fromtimestamp(cls.current, tz)
 
 
+class _FrozenTime:
+    """Stands in for webpush's time module, whose monotonic() drives cooldowns."""
+
+    @staticmethod
+    def monotonic() -> float:
+        return _FrozenDatetime.current
+
+
 class WebPushTestBase(unittest.TestCase):
     def setUp(self) -> None:
         self.db = SqliteExtDatabase(":memory:")
@@ -124,6 +132,7 @@ class WebPushTestBase(unittest.TestCase):
             patch.object(webpush_module, "ConfigSubscriber"),
             patch.object(webpush_module, "CameraConfigUpdateSubscriber"),
             patch.object(webpush_module.datetime, "datetime", _FrozenDatetime),
+            patch.object(webpush_module, "time", _FrozenTime),
         ]
         mocks = [p.start() for p in patches]
         for p in patches:
@@ -373,7 +382,7 @@ class TestSendAlert(WebPushTestBase):
         self.client.send_alert(_review(state="update"))
         self.assertEqual(self._sent(), [])
         # the cooldown timestamps are untouched because nothing was sent
-        self.assertEqual(self.client.last_notification_time, 0)
+        self.assertEqual(self.client.last_notification_time, float("-inf"))
 
     def test_global_and_camera_cooldowns(self) -> None:
         self.client.config.notifications.cooldown = 60
@@ -542,7 +551,9 @@ class TestPublish(WebPushTestBase):
         }
         self.client.publish("other", "")
         self.assertEqual(self.client.suspended_cameras["new_cam"], 0)
-        self.assertEqual(self.client.last_camera_notification_time["new_cam"], 0)
+        self.assertEqual(
+            self.client.last_camera_notification_time["new_cam"], float("-inf")
+        )
 
 
 class TestNotificationWorker(WebPushTestBase):
