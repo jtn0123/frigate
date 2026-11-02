@@ -35,7 +35,7 @@ def _run_one_pass(offset_seconds: int, now: datetime) -> MagicMock:
         patch.object(detect, "CameraConfigUpdateSubscriber") as subscriber,
         patch.object(detect, "get_min_region_size", return_value=160),
         patch.object(detect, "get_tomorrow_at_time", return_value=REBUILD_AT),
-        patch.object(detect.random, "randrange", return_value=offset_seconds),
+        patch.object(detect.secrets, "randbelow", return_value=offset_seconds),
         patch.object(detect, "datetime", _FakeDatetime),
     ):
         subscriber.return_value.check_for_updates.return_value = {}
@@ -70,7 +70,7 @@ class TestRegionGridStagger(unittest.TestCase):
         requestor.send_data.assert_called_once()
 
     def test_offset_is_drawn_from_the_first_hour(self):
-        with patch.object(detect.random, "randrange", return_value=0) as draw:
+        with patch.object(detect.secrets, "randbelow", return_value=0) as draw:
             with (
                 patch.object(detect, "CameraConfigUpdateSubscriber"),
                 patch.object(detect, "get_min_region_size", return_value=160),

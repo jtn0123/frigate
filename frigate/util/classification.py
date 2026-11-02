@@ -756,7 +756,7 @@ def collect_object_classification_examples(
     # events when the selected ones have no image on disk
     selected_ids = {e.id for e in selected_events}
     remaining_events = [e for e in events if e.id not in selected_ids]
-    random.shuffle(remaining_events)
+    random.SystemRandom().shuffle(remaining_events)
     thumbnails = _extract_event_thumbnails(
         selected_events + remaining_events, temp_dir, target_count=100
     )
@@ -846,7 +846,7 @@ def _select_balanced_events(
 
     # groups are ordered oldest first, so truncating unshuffled keeps only the
     # oldest events, which are the least likely to still have images on disk
-    random.shuffle(selected)
+    random.SystemRandom().shuffle(selected)
 
     return selected[:target_count]
 

@@ -2,7 +2,7 @@
 
 import logging
 import queue
-import random
+import secrets
 import threading
 import time
 from collections import deque
@@ -256,7 +256,7 @@ def process_frames(
     exit_on_empty: bool = False,
 ):
     # cameras share one dispatcher, so stagger the daily grid rebuilds
-    region_update_offset = timedelta(seconds=random.randrange(3600))
+    region_update_offset = timedelta(seconds=secrets.randbelow(3600))
     next_region_update = get_tomorrow_at_time(2) + region_update_offset
     config_subscriber = CameraConfigUpdateSubscriber(
         None,
