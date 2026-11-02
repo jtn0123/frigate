@@ -30,7 +30,7 @@ class TestEdgeTpuModelValidation(TestCase):
                     patch.object(edgetpu_tfl, "load_delegate"),
                     patch.object(edgetpu_tfl, "Interpreter", return_value=interpreter),
                     self.assertRaisesRegex(
-                        ValueError, "YOLO model must have 2 or 3 output tensors"
+                        ValueError, "output tensors in YOLO model.*expecting 2 or 3"
                     ),
                 ):
                     edgetpu_tfl.EdgeTpuTfl(config)
