@@ -185,6 +185,9 @@ function ConfigEditor() {
         language: "yaml",
         model: modelRef.current,
         scrollBeyondLastLine: false,
+        // Keep the textarea input. CommandMenu doesn't treat EditContext's
+        // host div as a text field, so "/" would open the menu.
+        editContext: false,
         // fork: wrap lines and drop the minimap and gutters on phones
         ...(phoneFixes && isMobile ? phoneEditorOptions : {}),
       });
