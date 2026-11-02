@@ -34,8 +34,9 @@ COPY FORK.md /opt/frigate/FORK.md
 COPY fork/ledger /opt/frigate/fork/ledger
 COPY .coveragerc /opt/frigate/.coveragerc
 COPY testing-scripts /opt/frigate/testing-scripts
-# Run in-process by its tests so coverage measures it (E33)
+# Run in-process by their tests so coverage measures them (E33, E32)
 COPY docker/main/rootfs/usr/local/nginx/get_nginx_settings.py /opt/frigate/docker/main/rootfs/usr/local/nginx/
+COPY docker/main/rootfs/usr/local/go2rtc/create_config.py /opt/frigate/docker/main/rootfs/usr/local/go2rtc/
 # Drop the base image's sources first: an upstream file this tree renamed or
 # deleted would otherwise linger and be type checked and imported (D55).
 RUN rm -rf /opt/frigate/frigate /opt/frigate/migrations
