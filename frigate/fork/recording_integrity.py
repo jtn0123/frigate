@@ -43,6 +43,9 @@ class RecordingIntegrity:
     video_start: float = 0.0
     # Nonzero offsets remain unverified until a normalized copy passes the probe.
     video_seek_offset: float = 0.0
+    # Summed audio sample durations of the first audio stream (B43, upstream
+    # #24793); None when the file has no audio or its packets are unusable.
+    audio_seconds: float | None = None
 
     @property
     def video_verified(self) -> bool:
@@ -226,7 +229,24 @@ def inspect_recording(
         audio_present,
         max(0.0, intervals[0][0]),
         seek_offset,
+        _audio_seconds(streams, data),
     )
+
+
+def _audio_seconds(streams: list[dict[str, Any]], data: dict[str, Any]) -> float | None:
+    """Sum the first audio stream's sample durations, as nginx-vod counts them.
+
+    nginx-vod ignores edit lists, so it plays late-starting audio from zero.
+    A playback range whose clip starts at or past this length has no audio
+    track to nginx-vod, which then fails the whole sequence.
+    """
+    audio = [stream for stream in streams if stream.get("codec_type") == "audio"]
+    if not audio:
+        return None
+    intervals = _packet_intervals(_packets(data, audio[0]["index"]))
+    if intervals is None:
+        return None
+    return sum(right - left for left, right in intervals)
 
 
 class ProbeLimitError(ValueError):

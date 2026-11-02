@@ -16,7 +16,7 @@ const PLUS_SUPPLIED_FIELDS = [
   "model_type",
 ];
 
-type SavedModel = Pick<DetectionModelConfig, "path" | "plus">;
+export type SavedModel = Pick<DetectionModelConfig, "path" | "plus">;
 type PendingModel = Record<string, unknown> & { path?: unknown };
 
 /**
@@ -25,7 +25,7 @@ type PendingModel = Record<string, unknown> & { path?: unknown };
  * /api/config with the path resolved to a local cache file, so it is matched
  * to the saved model with the same path that carries Frigate+ metadata.
  */
-function plusModelIdFor(
+export function plusModelIdFor(
   model: PendingModel,
   savedModels: readonly SavedModel[],
 ): string | undefined {

@@ -340,7 +340,7 @@ class TestPtzMotionEstimator(unittest.TestCase):
         self.assertEqual(mask[0, 0], 1)
         self.assertEqual(mask.max(), 1)
         transform.rel_to_abs.assert_called_once_with([[0, 0]])
-        self.frame_manager.close.assert_called_once_with("frame")
+        self.frame_manager.close.assert_not_called()
 
     def test_estimator_failure_returns_none(self) -> None:
         estimator = self._estimator()
@@ -355,7 +355,7 @@ class TestPtzMotionEstimator(unittest.TestCase):
 
         self.assertIsNone(result)
         self.assertIn("couldn't get transformations", logs.output[0])
-        self.frame_manager.close.assert_called_once_with("frame")
+        self.frame_manager.close.assert_not_called()
 
     def test_non_finite_transform_requests_reset(self) -> None:
         estimator = self._estimator()

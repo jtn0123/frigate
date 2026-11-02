@@ -115,11 +115,12 @@ class TestOutputProcessShutdownDrain(unittest.TestCase):
         ):
             process.run()
 
+        # B43 (upstream #24644): readers keep frames mapped, so the drain no
+        # longer maps and closes each leftover frame, removed camera or not
         frame_manager = frames.return_value
-        frame_manager.get.assert_called_once_with(
-            "front_frame", config.cameras["front"].frame_shape_yuv
-        )
-        frame_manager.close.assert_called_once_with("front_frame")
+        frame_manager.get.assert_not_called()
+        frame_manager.close.assert_not_called()
+        self.assertEqual(detections.check_for_update.call_count, 3)
         detections.stop.assert_called_once()
 
 

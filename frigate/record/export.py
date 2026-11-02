@@ -24,6 +24,7 @@ from frigate.const import (
     CACHE_DIR,
     CLIPS_DIR,
     EXPORT_DIR,
+    EXPORT_STAGING_DIR,
     MAX_PLAYLIST_SECONDS,
     PREVIEW_FRAME_TYPE,
     STREAM_TYPE_MAIN,
@@ -43,6 +44,7 @@ from frigate.util.recording_coverage import (
     known_video_codecs,
     manifest_intervals,
     realized_timeline,
+    recording_overlap,
     resolve_coverage,
     stream_media_summary,
 )
@@ -512,7 +514,7 @@ class RecordingExporter(threading.Thread):
         )
 
     def _staged_run_path(self, index: int) -> str:
-        return os.path.join(CACHE_DIR, f"export_stage_{self.export_id}_{index}.mp4")
+        return os.path.join(EXPORT_STAGING_DIR, f"{self.export_id}_{index}.mp4")
 
     def _probe_stream_resolution(self, run: StreamRun) -> tuple[int, int] | None:
         """Probe one recording from a run for its resolution.
@@ -667,6 +669,17 @@ class RecordingExporter(threading.Thread):
 
         for index, run in enumerate(runs):
             dest = self._staged_run_path(index)
+
+            try:
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+            except OSError:
+                logger.exception(
+                    "Failed to create staging directory for export %s",
+                    self.export_id,
+                )
+                self._cleanup_staged_runs()
+                return False
+
             weight = 100.0 * run.duration / total_duration
             base = 100.0 * completed / total_duration
 
@@ -714,14 +727,7 @@ class RecordingExporter(threading.Thread):
                 Recordings.start_time,
                 Recordings.end_time,
             )
-            .where(
-                Recordings.start_time.between(self.start_time, self.end_time)
-                | Recordings.end_time.between(self.start_time, self.end_time)
-                | (
-                    (self.start_time > Recordings.start_time)
-                    & (self.end_time < Recordings.end_time)
-                )
-            )
+            .where(recording_overlap(self.start_time, self.end_time))
             .where(
                 (Recordings.camera == self.camera)
                 & (Recordings.stream_type == stream_type)

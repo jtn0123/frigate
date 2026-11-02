@@ -24,6 +24,19 @@ class CoverageInterval:
     sub: Any | None
 
 
+def recording_overlap(after: float, before: float) -> Any:
+    """Match recordings overlapping [after, before] as a bounded index range.
+
+    Segments never reach MAX_SEGMENT_DURATION, so the start_time lower bound
+    drops no rows and keeps SQLite from walking the camera's whole history.
+    """
+    return (
+        (Recordings.start_time <= before)
+        & (Recordings.end_time >= after)
+        & (Recordings.start_time >= after - MAX_SEGMENT_DURATION)
+    )
+
+
 def _rows_query(camera: str, after: float, before: float, stream_type: str) -> Any:
     return (
         Recordings.select(
@@ -37,6 +50,7 @@ def _rows_query(camera: str, after: float, before: float, stream_type: str) -> A
             Recordings.video_codec,
             Recordings.segment_size,
             Recordings.keyframes,
+            Recordings.audio_duration,
         )
         .where(
             (Recordings.camera == camera)
@@ -240,11 +254,12 @@ def coverage_spans(intervals: list[CoverageInterval]) -> list[dict[str, Any]]:
 def stream_has_audio(intervals: list[CoverageInterval], main: bool) -> bool:
     """Whether a stream is audio-bearing over a coverage window.
 
-    A stream counts as audio-bearing unless EVERY one of its rows reports
-    has_audio False; NULL (legacy or undetermined) counts as audio.
+    A stream counts as audio-bearing only when one of its rows is known
+    to carry audio. A NULL row (legacy, or a segment ffprobe could not
+    read) proves nothing either way.
     """
     return any(
-        row is not None and row.has_audio is not False
+        row is not None and row.has_audio is True
         for row in ((interval.main if main else interval.sub) for interval in intervals)
     )
 
@@ -377,13 +392,26 @@ class ClipPlan:
     first_key_frame_offset_ms: int = 0
 
 
-def plan_clip(row: Any, start: float, end: float) -> ClipPlan:
+def sequence_needs_audio(spans: list[list[Any]]) -> bool:
+    """Whether nginx-vod will require every clip in these spans to carry audio.
+
+    A range mixing audio-bearing and audio-less rows is served video-only,
+    and a single clip has nothing to mismatch against.
+    """
+    return len(spans) > 1 and all(row.has_audio is not False for row, *_ in spans)
+
+
+def plan_clip(
+    row: Any, start: float, end: float, needs_audio: bool = False
+) -> ClipPlan:
     """Plan one nginx-vod clip for a recording row trimmed to [start, end).
 
     The single source of truth for clip realization: the vod mapping
     builder emits exactly this plan and the coverage timelines report it
     to the frontend, so the playhead model matches the playlist by
     construction rather than accumulating drift at each hand-off.
+
+    needs_audio comes from sequence_needs_audio for the clip's range.
     """
     min_duration_ms = 100  # Minimum 100ms to ensure at least one video frame
     max_duration_ms = MAX_SEGMENT_DURATION * 1000
@@ -431,6 +459,22 @@ def plan_clip(row: Any, start: float, end: float) -> ClipPlan:
             "VOD: skipping recording %s - resulting duration %sms too short",
             row.path,
             duration,
+        )
+        return ClipPlan(None, 0, True)
+
+    # audio cut short by a camera dropout can end before the clip starts.
+    # nginx-vod then counts no audio track in this clip and fails the whole
+    # sequence on the track count mismatch
+    if (
+        needs_audio
+        and row.has_audio
+        and row.audio_duration is not None
+        and (clip_from or 0) >= int(row.audio_duration * 1000)
+    ):
+        logger.debug(
+            "VOD: skipping recording %s - no audio after %sms",
+            row.path,
+            clip_from or 0,
         )
         return ClipPlan(None, 0, True)
 
@@ -482,14 +526,17 @@ def realized_timeline(
     so summing durations reproduces playlist time exactly. A span whose
     clip is skipped reports duration 0.
     """
+    spans = build_spans(intervals, stream)
+    needs_audio = sequence_needs_audio(spans)
+
     return [
         {
             "start_time": span_start,
             "end_time": span_end,
             "duration": plan.duration_ms,
         }
-        for row, span_start, span_end, _ in build_spans(intervals, stream)
-        for plan in (plan_clip(row, span_start, span_end),)
+        for row, span_start, span_end, _ in spans
+        for plan in (plan_clip(row, span_start, span_end, needs_audio),)
     ]
 
 

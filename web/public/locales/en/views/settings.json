@@ -1033,7 +1033,8 @@
     "title": "Users",
     "management": {
       "title": "User Management",
-      "desc": "Manage this Frigate instance's user accounts."
+      "desc": "Manage this Frigate instance's user accounts.",
+      "authDisabled": "Built-in authentication is disabled. These accounts are only used to log in once it's enabled."
     },
     "addUser": "Add User",
     "updatePassword": "Reset Password",
@@ -1303,6 +1304,7 @@
       "loadingAvailableModels": "Loading available models…",
       "selectModel": "Select a model",
       "noModelsAvailable": "No models available",
+      "showIncompatible": "Show incompatible models",
       "filter": {
         "ariaLabel": "Filter models by type",
         "baseModels": "Base Models",
@@ -1923,6 +1925,10 @@
       "saved": "Saved"
     }
   },
+  "notificationTtl": {
+    "immediate": "Immediate",
+    "reliable": "Reliable"
+  },
   "retainMode": {
     "all": "All",
     "motion": "Motion",
@@ -1987,6 +1993,9 @@
       "allNonAlertDetections": "All non-alert activity will be included as detections.",
       "genaiImageSourceRecordingsRecordDisabled": "Image source is set to 'recordings', but recording is disabled. Frigate will fall back to preview images."
     },
+    "live": {
+      "noGo2rtcStream": "Live view for this camera is using a basic player with a lower frame rate and no audio. Set up a go2rtc stream for this camera to get smoother video and audio."
+    },
     "audio": {
       "noAudioRole": "No streams have the audio role defined. You must enable the audio role for audio detection to function."
     },
@@ -2032,7 +2041,8 @@
       "profileBaseDisabled": "Recording is disabled in this camera's base config, so enabling it in a profile has no effect. Enable recording in the base config and use a profile to disable it instead."
     },
     "notifications": {
-      "profileBaseDisabled": "No cameras have notifications enabled in their base config, so enabling them in a profile has no effect. Enable notifications in the base config of at least one camera."
+      "profileBaseDisabled": "No cameras have notifications enabled in their base config, so enabling them in a profile has no effect. Enable notifications in the base config of at least one camera.",
+      "ttlDelay": "Notifications can arrive up to 30 seconds late and still link to the live view after the review item has ended."
     },
     "birdseye": {
       "objectTrackingDetectDisabled": "Birdseye includes tracked objects, but object detection is disabled for this camera. The camera will not appear in Birdseye.",
@@ -2077,7 +2087,7 @@
       "unrecognized": "This model is configured for hardware that was not found on this system: {{devices}}",
       "description": "The hardware this model runs its detection on.",
       "detectorCountDescription": "How many detection processes to run on this hardware. More detectors keep up with more cameras, at the cost of extra device memory.",
-      "unitsDescription": "Each unit runs its own detection process. A unit already used by another model can not be selected."
+      "unitsDescription": "Each unit runs its own detection process. A unit that can't be shared, such as a Coral, can only be used by one model."
     },
     "tabs": {
       "plus": "Frigate+",

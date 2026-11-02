@@ -7,7 +7,6 @@ from typing import Any
 from cryptography.hazmat.primitives import serialization
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from peewee import DoesNotExist
 from py_vapid import Vapid01, utils
 
 from frigate.api.auth import allow_any_authenticated
@@ -110,18 +109,24 @@ def register_notifications(request: Request, body: dict = None):
             status_code=400,
         )
 
-    try:
-        User.update(notification_tokens=User.notification_tokens.append(sub)).where(
-            User.username == username
-        ).execute()
-        # fork E27: tied to this sign-in, so signing the device out stops it
-        link_registered_push(request, username, sub)
-        return JSONResponse(
-            content=({"success": True, "message": "Successfully saved token."}),
-            status_code=200,
+    updated = (
+        User.update(notification_tokens=User.notification_tokens.append(sub))
+        .where(User.username == username)
+        .execute()
+    )
+
+    if not updated:
+        logger.warning(
+            "Rejected notification registration for unknown user %s", username
         )
-    except DoesNotExist:
         return JSONResponse(
             content=({"success": False, "message": "Could not find user."}),
             status_code=404,
         )
+
+    # fork E27: tied to this sign-in, so signing the device out stops it
+    link_registered_push(request, username, sub)
+    return JSONResponse(
+        content=({"success": True, "message": "Successfully saved token."}),
+        status_code=200,
+    )

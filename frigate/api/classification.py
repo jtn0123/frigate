@@ -1,5 +1,6 @@
 """Object classification APIs."""
 
+import asyncio
 import datetime
 import logging
 import os
@@ -50,6 +51,9 @@ _WEBP_EXTENSION = ".webp"
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.classification])
+
+# concurrent collections for one model share its temp and train directories
+example_collection_lock = asyncio.Lock()
 
 
 def invalid_name_response(value: str) -> JSONResponse:
@@ -1312,7 +1316,10 @@ async def generate_object_examples(request: Request, body: GenerateObjectExample
     if model_name is None:
         return invalid_name_response(body.model_name)
 
-    collect_object_classification_examples(model_name, body.label)
+    async with example_collection_lock:
+        await asyncio.to_thread(
+            collect_object_classification_examples, model_name, body.label
+        )
 
     return JSONResponse(
         content={"success": True, "message": "Example generation completed"},

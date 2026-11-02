@@ -612,11 +612,17 @@ class _DelegatingFrameManager(FrameManager):
     def write(self, name):
         return super().write(name)
 
-    def get(self, name, timeout_ms=0):
-        return super().get(name, timeout_ms)
+    def get(self, name, shape, frame_time=None):
+        return super().get(name, shape, frame_time)
+
+    def frame_times(self, camera):
+        return super().frame_times(camera)
 
     def close(self, name):
         return super().close(name)
+
+    def close_camera(self, camera):
+        return super().close_camera(camera)
 
     def delete(self, name):
         return super().delete(name)
@@ -632,8 +638,10 @@ class TestFrameManagers(unittest.TestCase):
         manager = _DelegatingFrameManager()
         self.assertIsNone(manager.create("a", 1))
         self.assertIsNone(manager.write("a"))
-        self.assertIsNone(manager.get("a"))
+        self.assertIsNone(manager.get("a", (1,)))
+        self.assertIsNone(manager.frame_times("cam"))
         self.assertIsNone(manager.close("a"))
+        self.assertIsNone(manager.close_camera("cam"))
         self.assertIsNone(manager.delete("a"))
         self.assertIsNone(manager.cleanup())
 

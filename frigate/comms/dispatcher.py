@@ -219,7 +219,11 @@ class Dispatcher:
             self.audio_activity.expire_all(payload)
 
         def handle_update_event_description() -> None:
-            event: Event = Event.get(Event.id == payload["id"])
+            event: Event | None = Event.get_or_none(Event.id == payload["id"])
+
+            if event is None:
+                return
+
             cast(dict, event.data)["description"] = payload["description"]
             event.save()
             # fork (I43): draft a class for it in the background while it is fresh

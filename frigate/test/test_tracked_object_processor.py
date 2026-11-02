@@ -181,7 +181,7 @@ class TestTrackedObjectProcessor(unittest.TestCase):
         self.assertEqual(
             [event["type"] for event in self.mqtt_events()], ["new", "end"]
         )
-        ended = self.events[-1][-1]
+        ended = self.events[-1][4]
         self.assertEqual(ended["end_time"], 102)
         self.assertFalse(ended["false_positive"])
         self.assertFalse(ended["has_clip"])
@@ -220,9 +220,9 @@ class TestTrackedObjectProcessor(unittest.TestCase):
         )
         self.assertEqual(self.events[0][1], EventStateEnum.start)
         self.assertEqual(self.events[-1][1], EventStateEnum.end)
-        self.assertTrue(self.events[-1][-1]["false_positive"])
-        self.assertFalse(self.events[-1][-1]["has_clip"])
-        self.assertFalse(self.events[-1][-1]["has_snapshot"])
+        self.assertTrue(self.events[-1][4]["false_positive"])
+        self.assertFalse(self.events[-1][4]["has_clip"])
+        self.assertFalse(self.events[-1][4]["has_snapshot"])
         self.assertEqual(self.mqtt_events(), [])
 
     def test_zone_inertia_entry_exit_and_retained_media(self):
@@ -242,7 +242,7 @@ class TestTrackedObjectProcessor(unittest.TestCase):
         self.assertEqual(objects[4]["current_zones"], [])
         self.assertEqual(objects[4]["entered_zones"], ["entry"])
         self.assertFalse(objects[1]["has_clip"])
-        ended = self.events[-1][-1]
+        ended = self.events[-1][4]
         self.assertTrue(ended["has_clip"])
         self.assertTrue(ended["has_snapshot"])
         self.assertTrue((self.media_directory / "front/100-person.webp").is_file())

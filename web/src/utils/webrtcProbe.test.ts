@@ -59,7 +59,9 @@ it.each(["connected", "completed"])(
   "caches success after ICE becomes %s",
   async (state) => {
     const result = probeWebRTCAvailability(["front"], []);
-    expect(probeWebRTCAvailability(["other"], [])).toBe(result);
+    expect(probeWebRTCAvailability(["front"], [])).toBe(result);
+    // another stream waits on the running probe rather than starting one
+    const other = probeWebRTCAvailability(["other"], []);
     Socket.latest.dispatchEvent(new Event("open"));
     await vi.advanceTimersByTimeAsync(0);
     expect(Socket.latest.send).toHaveBeenCalledWith(
@@ -93,6 +95,8 @@ it.each(["connected", "completed"])(
     Peer.latest.iceConnectionState = state;
     Peer.latest.oniceconnectionstatechange?.();
     expect(await result).toEqual({ ok: true });
+    expect(await other).toEqual({ ok: true });
+    expect(Socket.urls).toHaveLength(1);
     Socket.latest.dispatchEvent(new Event("error"));
     expect(Peer.latest.close).toHaveBeenCalledTimes(1);
     expect(Socket.latest.close).toHaveBeenCalledTimes(1);
@@ -200,17 +204,17 @@ it("treats a go2rtc error reply as an unavailable stream and tries the next", as
 });
 it("reports the stream error without waiting for the timeout", async () => {
   const result = probeWebRTCAvailability(["a", "b", "c", "d"], [], 60_000);
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     reply({ type: "error", value: "source offline" });
     await vi.advanceTimersByTimeAsync(0);
   }
   expect(await result).toEqual({
     ok: false,
     streamError: true,
-    detail: "go2rtc stream c unavailable: source offline",
+    detail: "go2rtc stream d unavailable: source offline",
   });
-  // Capped so a config full of offline streams cannot stall the verdict.
-  expect(Socket.urls).toHaveLength(3);
+  // every refused stream is tried, since a refusal answers at once (#24498)
+  expect(Socket.urls).toHaveLength(4);
 });
 it("reports when there is no stream to probe", async () => {
   expect(await probeWebRTCAvailability([], [])).toEqual({
@@ -246,4 +250,27 @@ it("turns a thrown peer connection into an expiring failure", async () => {
   expect(await failed).toEqual({ ok: false, detail: "no peer" });
   await vi.advanceTimersByTimeAsync(PROBE_FAILURE_TTL_MS);
   expect(probeWebRTCAvailability(["front"], [])).not.toBe(failed);
+});
+it("reuses a failure only for probes that start from the same stream", async () => {
+  const failed = probeWebRTCAvailability(["front"], [], 50);
+  await vi.advanceTimersByTimeAsync(50);
+  expect(await failed).toMatchObject({ ok: false });
+  expect(probeWebRTCAvailability(["front"], [])).toBe(failed);
+
+  // a timed out stream says nothing about the next camera viewed (#24498)
+  const other = probeWebRTCAvailability(["back"], []);
+  expect(other).not.toBe(failed);
+  expect(Socket.urls.at(-1)).toContain("src=back");
+  connect();
+  expect(await other).toEqual({ ok: true });
+});
+it("re-probes from its own stream when a running probe fails", async () => {
+  const running = probeWebRTCAvailability(["front"], [], 50);
+  const waiting = probeWebRTCAvailability(["back", "front"], [], 50);
+  await vi.advanceTimersByTimeAsync(50);
+  expect(await running).toMatchObject({ ok: false });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(Socket.urls.at(-1)).toContain("src=back");
+  connect();
+  expect(await waiting).toEqual({ ok: true });
 });

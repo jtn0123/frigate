@@ -13,6 +13,7 @@ from peewee import fn
 from frigate.const import CLIPS_DIR
 from frigate.embeddings import EmbeddingsContext
 from frigate.models import Event, Recordings, ReviewSegment, Timeline, UserReviewStatus
+from frigate.util.recording_coverage import recording_overlap
 
 logger = logging.getLogger(__name__)
 
@@ -176,14 +177,7 @@ def _recordings_for_reviews(review_ids: list[str]) -> dict[str, str]:
     for part in chunked(reviews, REVIEW_RANGE_CHUNK_SIZE):
         clauses = [
             (Recordings.camera == review["camera"])
-            & (
-                Recordings.start_time.between(review["start_time"], review["end_time"])
-                | Recordings.end_time.between(review["start_time"], review["end_time"])
-                | (
-                    (review["start_time"] > Recordings.start_time)
-                    & (review["end_time"] < Recordings.end_time)
-                )
-            )
+            & recording_overlap(review["start_time"], review["end_time"])
             for review in part
         ]
         query = (

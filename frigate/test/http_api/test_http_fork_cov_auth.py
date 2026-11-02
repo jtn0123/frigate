@@ -842,13 +842,12 @@ class TestSessionEndpoints(_AuthHttpTestCase):
 
 
 class TestLoginRateLimitKey(_AuthHttpTestCase):
-    auth_options = {
-        "failed_login_rate_limit": "100/minute",
-        "trusted_proxies": ["not-an-ip"],
-    }
+    auth_options = {"failed_login_rate_limit": "100/minute"}
 
     def test_login_with_bad_proxy_config_and_forwarding(self):
-        # B26: the rate limit key function crashed the login request
+        # B26: the rate limit key function crashed the login request. B43:
+        # the config now rejects the entry at load, so set it past validation
+        self.app.frigate_config.auth.trusted_proxies = ["not-an-ip"]
         self._add_user("bob", role="garage")
         # an earlier app in this process may have turned the shared limiter off
         enabled = patch.object(auth_api.limiter, "enabled", True)
