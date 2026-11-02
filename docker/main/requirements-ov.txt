@@ -1,8 +1,7 @@
 # Used only by the ov-converter build stage to convert the bundled
-# ssdlite_mobilenet_v2 model. It deliberately tracks a newer OpenVINO than
-# the runtime pin in requirements-wheels.txt: the converter needs the
-# current model conversion API, while the runtime stays on the release the
-# detector plugins and their wheels are validated against. IR files are
-# forward compatible, so a newer converter is safe for the older runtime.
+# ssdlite_mobilenet_v2 model. The floor tracks the runtime pin in
+# requirements-wheels.txt (upstream #24628): the converter needs the current
+# model conversion API, and IR files are forward compatible, so a converter at
+# or above the runtime release is safe.
 numpy
-openvino >= 2026.2.0
+openvino >= 2026.4.1
