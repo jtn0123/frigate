@@ -9,6 +9,7 @@ import tempfile
 import unittest
 import uuid
 from pathlib import Path
+from unittest import mock
 
 SPEC = importlib.util.spec_from_file_location(
     "unittest_shard", Path(__file__).with_name("unittest_shard.py")
@@ -220,6 +221,16 @@ class TestRunShards(unittest.TestCase):
         escaping = self.suite.root.joinpath(*[".."] * 40, "manifest.json")
         with self.assertRaises(ValueError):
             shard.run_shard(0, 1, escaping, str(self.suite.root))
+
+    def test_a_shard_that_cannot_exist_is_refused_before_it_runs(self):
+        path = self.suite.root / "manifest.json"
+        for index, count in [(0, 0), (1, 1), (-1, 2)]:
+            with self.subTest(index=index, count=count):
+                with mock.patch.object(shard, "discover") as discover:
+                    with self.assertRaises(ValueError):
+                        shard.run_shard(index, count, path, str(self.suite.root))
+                discover.assert_not_called()
+                self.assertFalse(path.exists())
 
     def test_class_fixtures_run_once_per_shard(self):
         fixture = self.suite.root / self.suite.package / "test_fixture.py"

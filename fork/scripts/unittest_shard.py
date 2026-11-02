@@ -56,12 +56,23 @@ def discover(start: str = ".") -> list[unittest.TestCase]:
     return list(leaves(unittest.TestLoader().discover(start)))
 
 
-def dealt(total: int, index: int, count: int) -> range:
-    """The positions of the tests shard `index` of `count` runs."""
+def shard_numbers(index: int, count: int) -> tuple[int, int]:
+    """`index` and `count` as integers, refusing a shard that cannot exist.
+
+    They come from the command line and go into the manifest, so they are
+    converted and range checked before anything uses them.
+    """
+    index, count = int(index), int(count)
     if count < 1:
         raise ValueError("shard count must be at least 1")
     if not 0 <= index < count:
         raise ValueError(f"shard index {index} is outside 0..{count - 1}")
+    return index, count
+
+
+def dealt(total: int, index: int, count: int) -> range:
+    """The positions of the tests shard `index` of `count` runs."""
+    index, count = shard_numbers(index, count)
     return range(index, total, count)
 
 
@@ -102,13 +113,14 @@ def in_temp_dir(path: Path) -> Path:
     """
     base = os.path.realpath(tempfile.gettempdir())
     target = os.path.realpath(path)
-    if os.path.commonpath([base, target]) != base:
+    if not target.startswith(base + os.sep):
         raise ValueError(f"manifest {path} is outside {base}")
     return Path(target)
 
 
 def run_shard(index: int, count: int, manifest: Path, start: str = ".") -> int:
     """Run shard `index` of `count` and write its manifest; 0 when it passed."""
+    index, count = shard_numbers(index, count)
     manifest = in_temp_dir(manifest)
     # Import as `python3 -m unittest` does: from the working directory first,
     # not from this script's directory, so a test imports what it would there.
