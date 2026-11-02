@@ -36,8 +36,10 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * Cmd/Ctrl+K toggles the palette anywhere. "/" opens it when no text field
- * is focused (so typing in inputs and the config editor is unaffected).
+ * Cmd/Ctrl+K toggles the palette, and "/" opens it, outside a text field, so
+ * typing in inputs and the config editor is unaffected. Monaco reads Ctrl+K
+ * as the start of a chord, so the palette leaves it to a focused field
+ * (from upstream #24256), except to close the palette from its own input.
  */
 export function useCommandPaletteShortcuts() {
   useEffect(() => {
@@ -47,6 +49,7 @@ export function useCommandPaletteShortcuts() {
         !e.altKey &&
         e.key.toLowerCase() === "k"
       ) {
+        if (!paletteOpen && isTypingTarget(e.target)) return;
         e.preventDefault();
         setCommandPaletteOpen(!paletteOpen);
         return;
