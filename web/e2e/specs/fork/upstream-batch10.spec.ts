@@ -4,6 +4,9 @@
  *
  * - #24659: a repeated notice shows when it last occurred, and the Explore
  *   detail menu stops retrying a review lookup that 404s.
+ * - #24684: with built-in auth disabled, Settings > Users notes that the
+ *   accounts only apply once it is enabled and hides Add User and Reset
+ *   Password.
  */
 
 import { test, expect } from "../../fixtures/frigate-test";
@@ -74,5 +77,46 @@ test.describe("Explore detail menu review lookup (B43, #24659) @medium", () => {
     // SWR's first error retry fires 2.5 to 7.5 seconds after the failure
     await page.waitForTimeout(9_000);
     expect(lookups).toBe(1);
+  });
+});
+
+test.describe("Users settings with auth disabled (B43, #24684) @medium", () => {
+  const USERS = [
+    { username: "admin", role: "admin" },
+    { username: "alice", role: "viewer" },
+  ];
+
+  test("hides account actions and explains why", async ({ frigateApp }) => {
+    await frigateApp.installDefaults({
+      config: { auth: { enabled: false } },
+      users: USERS,
+    });
+    await frigateApp.goto("/settings?page=users");
+
+    const { page } = frigateApp;
+    await expect(
+      page.getByText("Built-in authentication is disabled."),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: "Add User" })).toHaveCount(0);
+    await expect(page.getByText("alice")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Reset Password|Password/ }),
+    ).toHaveCount(0);
+  });
+
+  test("keeps account actions when auth is enabled", async ({ frigateApp }) => {
+    await frigateApp.installDefaults({
+      config: { auth: { enabled: true } },
+      users: USERS,
+    });
+    await frigateApp.goto("/settings?page=users");
+
+    const { page } = frigateApp;
+    await expect(page.getByRole("button", { name: "Add User" })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText("Built-in authentication is disabled."),
+    ).toHaveCount(0);
   });
 });

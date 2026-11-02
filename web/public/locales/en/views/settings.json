@@ -1033,7 +1033,8 @@
     "title": "Users",
     "management": {
       "title": "User Management",
-      "desc": "Manage this Frigate instance's user accounts."
+      "desc": "Manage this Frigate instance's user accounts.",
+      "authDisabled": "Built-in authentication is disabled. These accounts are only used to log in once it's enabled."
     },
     "addUser": "Add User",
     "updatePassword": "Reset Password",
