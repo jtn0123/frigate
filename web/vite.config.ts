@@ -5,50 +5,9 @@ import react from "@vitejs/plugin-react";
 import monacoEditorPlugin from "vite-plugin-monaco-editor";
 // @ts-expect-error -- plain ESM helper shared with the e2e CSP check (E6)
 import { cspHeaders } from "./scripts/fork/csp-header.mjs";
+import { vendorChunkGroups } from "./scripts/fork/vendor-chunks.mjs";
 
 const proxyHost = process.env.PROXY_HOST || "localhost:5000";
-
-/** The npm package a module id belongs to, or undefined for app code. */
-function packageName(id: string): string | undefined {
-  if (!id.includes("node_modules")) {
-    return undefined;
-  }
-  const pkg = id.split("node_modules/").pop()?.split("/") ?? [];
-  return pkg[0]?.startsWith("@") ? `${pkg[0]}/${pkg[1]}` : pkg[0];
-}
-
-function inPackages(...names: string[]) {
-  return (id: string) => names.includes(packageName(id) ?? "");
-}
-
-// Highest priority first; see the codeSplitting comment below.
-const vendorChunks: [string, (id: string) => boolean][] = [
-  [
-    "vendor-react",
-    (id) =>
-      id.includes("vite/preload-helper") ||
-      inPackages(
-        "react",
-        "react-dom",
-        "react-router",
-        "react-router-dom",
-        "@remix-run/router",
-        "scheduler",
-      )(id),
-  ],
-  ["vendor-radix", (id) => packageName(id)?.startsWith("@radix-ui/") ?? false],
-  ["vendor-charts", inPackages("apexcharts", "react-apexcharts")],
-  ["vendor-monaco", inPackages("monaco-editor", "monaco-yaml")],
-  ["vendor-hls", inPackages("hls.js")],
-  ["vendor-konva", inPackages("konva", "react-konva")],
-  ["vendor-motion", inPackages("framer-motion", "motion-dom", "motion-utils")],
-  [
-    "vendor-i18n",
-    (id) =>
-      (packageName(id)?.startsWith("i18next") ?? false) ||
-      inPackages("react-i18next")(id),
-  ],
-];
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -94,18 +53,9 @@ export default defineConfig({
       },
       output: {
         keepNames: true,
-        // Named vendor chunks so a release that touches app code does not
-        // invalidate the cached framework and library bundles. A Rolldown
-        // group also captures what its modules import, so the groups go in
-        // priority order: react is claimed before the chart, motion and
-        // canvas groups could take it along, and the preload helper before
-        // the editor group could, which would make those chunks eager.
+        // Named vendor chunks in priority order (F18, see the helper).
         codeSplitting: {
-          groups: vendorChunks.map(([name, test], index) => ({
-            name,
-            test,
-            priority: vendorChunks.length - index,
-          })),
+          groups: vendorChunkGroups(),
         },
       },
     },
