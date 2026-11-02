@@ -7,9 +7,12 @@
  * - #24684: with built-in auth disabled, Settings > Users notes that the
  *   accounts only apply once it is enabled and hides Add User and Reset
  *   Password.
+ * - #24829: the global notifications ttl sits under Advanced Settings, warns
+ *   when set to Reliable, and is hidden on the camera form.
  */
 
 import { test, expect } from "../../fixtures/frigate-test";
+import { installSettingsConfigRoutes } from "../../helpers/settings-config-routes";
 
 const NOW = Math.floor(Date.now() / 1000);
 
@@ -71,11 +74,15 @@ test.describe("Explore detail menu review lookup (B43, #24659) @medium", () => {
       return route.fulfill({ status: 404, json: { success: false } });
     });
 
-    await frigateApp.goto("/explore?event_id=event-person-001");
+    await frigateApp.goto("/explore?labels=person");
+    const firstResult = page.locator("[data-start]").first();
+    await expect(firstResult).toBeVisible({ timeout: 10_000 });
+    await firstResult.click();
     await expect.poll(() => lookups, { timeout: 15_000 }).toBeGreaterThan(0);
 
-    // SWR's first error retry fires 2.5 to 7.5 seconds after the failure
-    await page.waitForTimeout(9_000);
+    // The app's onErrorRetry (C17 read-retry.ts) waits 5 or 10 seconds,
+    // depending on the key's jitter, before the first retry of a read
+    await page.waitForTimeout(11_000);
     expect(lookups).toBe(1);
   });
 });
@@ -118,5 +125,49 @@ test.describe("Users settings with auth disabled (B43, #24684) @medium", () => {
     await expect(
       page.getByText("Built-in authentication is disabled."),
     ).toHaveCount(0);
+  });
+});
+
+test.describe("Notification TTL setting (B43, #24829) @medium", () => {
+  test("global ttl is an advanced setting that warns when reliable", async ({
+    frigateApp,
+  }) => {
+    const { page } = frigateApp;
+    await frigateApp.installDefaults({
+      config: { notifications: { enabled: true, ttl: "reliable" } },
+    });
+    await installSettingsConfigRoutes(page);
+    await frigateApp.goto("/settings?page=notifications");
+
+    await expect(page.getByText("Notification TTL")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: /Advanced Settings/ })
+      .first()
+      .click();
+    await expect(page.getByText("Notification TTL").first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText("Notifications can arrive up to 30 seconds late"),
+    ).toBeVisible();
+  });
+
+  test("the camera form does not offer ttl", async ({ frigateApp }) => {
+    const { page } = frigateApp;
+    await frigateApp.installDefaults({
+      config: {
+        notifications: { enabled: true },
+        cameras: { front_door: { notifications: { enabled: true } } },
+      },
+    });
+    await installSettingsConfigRoutes(page);
+    await frigateApp.goto(
+      "/settings?page=cameraNotifications&camera=front_door",
+    );
+
+    await expect(page.locator("#pageRoot")).toBeVisible({ timeout: 10_000 });
+    const advanced = page.getByRole("button", { name: /Advanced Settings/ });
+    if ((await advanced.count()) > 0) await advanced.first().click();
+    await expect(page.getByText("Notification TTL")).toHaveCount(0);
   });
 });

@@ -37,6 +37,7 @@
     "enabled": false,
     "email": null,
     "cooldown": 0,
+    "ttl": "immediate",
     "quiet_hours": [],
     "enabled_in_config": false
   },
@@ -351,6 +352,7 @@
         "enabled": false,
         "email": null,
         "cooldown": 0,
+        "ttl": "immediate",
         "quiet_hours": [],
         "enabled_in_config": false
       },
@@ -607,6 +609,7 @@
         "enabled": false,
         "email": null,
         "cooldown": 0,
+        "ttl": "immediate",
         "quiet_hours": [],
         "enabled_in_config": false
       },
@@ -863,6 +866,7 @@
         "enabled": false,
         "email": null,
         "cooldown": 0,
+        "ttl": "immediate",
         "quiet_hours": [],
         "enabled_in_config": false
       },
