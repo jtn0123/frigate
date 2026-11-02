@@ -356,8 +356,8 @@ describe("ExportContent export tab", () => {
   });
 
   it("counts elapsed hours across a DST change (fork UI155)", () => {
-    const zone = process.env.TZ;
-    process.env.TZ = "America/New_York";
+    const zone = process.env["TZ"];
+    process.env["TZ"] = "America/New_York";
     try {
       // 07:00 EST on the US fall-back day; a day of wall-clock hours earlier
       // is 25 elapsed hours back
@@ -378,7 +378,7 @@ describe("ExportContent export tab", () => {
       if (zone === undefined) {
         Reflect.deleteProperty(process.env, "TZ");
       } else {
-        process.env.TZ = zone;
+        process.env["TZ"] = zone;
       }
     }
   });
