@@ -3,14 +3,16 @@ import type { TFunction } from "i18next";
 import { describe, expect, it, vi } from "vitest";
 import { validateModelScenes } from "../models";
 
-const t = ((key: string, options?: Record<string, string>) =>
+const t = ((key: string, options?: { scene?: string; other?: string }) =>
   options?.scene
     ? `${key}:${options.scene}:${options.other}`
-    : key) as unknown as TFunction;
+    : key) as TFunction;
+
+const errors = (value: unknown) => value as FormValidation;
 
 function validate(formData: unknown): string[] {
   const addError = vi.fn<(message: string) => void>();
-  validateModelScenes(formData, { addError } as unknown as FormValidation, t);
+  validateModelScenes(formData, errors({ addError }), t);
   return addError.mock.calls.map(([message]) => message);
 }
 

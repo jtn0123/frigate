@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { WidgetProps } from "@rjsf/utils";
+import { getDefaultRegistry } from "@rjsf/core";
+import { createSchemaUtils, type WidgetProps } from "@rjsf/utils";
+import validator from "@rjsf/validator-ajv8";
 import { beforeAll, expect, it, vi } from "vitest";
 import { SelectWidget } from "../SelectWidget";
 
@@ -37,7 +39,11 @@ function open(options: WidgetProps["options"]) {
         onChange: vi.fn(),
         onBlur: vi.fn(),
         onFocus: vi.fn(),
-      } as unknown as WidgetProps)}
+        registry: {
+          ...getDefaultRegistry(),
+          schemaUtils: createSchemaUtils(validator, {}),
+        },
+      } satisfies WidgetProps)}
     />,
   );
   fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });

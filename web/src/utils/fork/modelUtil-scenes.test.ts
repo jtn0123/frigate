@@ -7,16 +7,17 @@ import {
   getSceneLabel,
 } from "@/utils/modelUtil";
 
-const t = ((key: string) => key) as unknown as TFunction;
+const t = ((key: string) => key) as TFunction;
+const cfg = (value: unknown) => value as FrigateConfig;
 
 const config = (
   scenes: (string | undefined)[],
   detectScene?: string,
 ): FrigateConfig =>
-  ({
+  cfg({
     models: scenes.map((scene) => ({ scene })),
     detect: detectScene ? { scene: detectScene } : {},
-  }) as unknown as FrigateConfig;
+  });
 
 describe("getSceneLabel", () => {
   it("translates the default scene and an unnamed one", () => {

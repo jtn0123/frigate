@@ -48,7 +48,7 @@ async function installRoutes(
   );
 }
 
-test.describe("camera detect scene @medium", () => {
+test.describe("camera detect scene @medium @mobile", () => {
   test("is hidden when there is only one model", async ({ frigateApp }) => {
     await installRoutes(frigateApp.page, [
       { scene: "default", devices: ["cpu"] },

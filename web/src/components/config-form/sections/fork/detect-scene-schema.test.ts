@@ -5,12 +5,14 @@ import type { HiddenFieldContext } from "@/types/configForm";
 import type { FrigateConfig } from "@/types/frigateConfig";
 import { modifySchemaForSection } from "../section-special-cases";
 
+const cfg = (value: unknown) => value as FrigateConfig;
+
 const ctx = (scenes: string[], cameraScene?: string): HiddenFieldContext =>
   ({
-    fullConfig: {
+    fullConfig: cfg({
       models: scenes.map((scene) => ({ scene })),
       detect: {},
-    } as unknown as FrigateConfig,
+    }),
     fullCameraConfig: cameraScene
       ? ({ detect: { scene: cameraScene } } as FrigateConfig["cameras"][string])
       : undefined,
@@ -29,7 +31,7 @@ describe("detect scene choices", () => {
       "camera",
       schema,
       ctx(["default", "thermal"]),
-    ) as { properties: Record<string, RJSFSchema> };
+    ) as { properties: { scene: RJSFSchema; fps: RJSFSchema } };
 
     expect(result.properties.scene.enum).toEqual(["default", "thermal"]);
     expect(result.properties.fps).toEqual({ type: "integer" });
