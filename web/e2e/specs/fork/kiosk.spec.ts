@@ -85,6 +85,22 @@ async function openKiosk(frigateApp: FrigateApp, query: string) {
   await expect(frigateApp.page.getByTestId("kiosk")).toBeVisible();
 }
 
+/**
+ * Resolve once the page has run the tasks queued so far, and the promise
+ * callbacks they started. A message channel is used because Playwright's
+ * clock fakes timers and animation frames, but not message events.
+ */
+async function afterPendingTasks(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = () => resolve();
+        channel.port2.postMessage(null);
+      }),
+  );
+}
+
 function stage(page: Page) {
   return page.getByTestId("kiosk-stage");
 }
@@ -366,8 +382,14 @@ test.describe("Wall display @high", () => {
     });
     await page.clock.fastForward(590_000);
     expect(reads).toBe(0);
+    const firstRead = page.waitForResponse(/\/api\/profile$/);
     await page.clock.fastForward(10_000);
-    await expect.poll(() => reads).toBe(1);
+    // SWR arms the next interval only once this read has resolved in the
+    // page, so moving the clock while the response is still on its way skips
+    // a timer that does not exist yet.
+    await (await firstRead).finished();
+    await afterPendingTasks(page);
+    expect(reads).toBe(1);
     await page.clock.fastForward(600_000);
     await expect.poll(() => reads).toBe(2);
   });

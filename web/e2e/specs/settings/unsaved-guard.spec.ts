@@ -124,6 +124,11 @@ test.describe("Masks and zones unsaved changes @high", () => {
     const { page } = frigateApp;
     await recordConfigSet(page);
     await frigateApp.goto("/settings?page=masksAndZones");
+    // Settings strips `?page=` with a router navigation of its own a moment
+    // after it opens. React Router clears a blocked navigation whenever
+    // another one completes, so a click on Export blocked before that strip
+    // landed was silently dropped, with no prompt and no navigation.
+    await expect(page).toHaveURL(/\/settings$/);
     await page.getByRole("button", { name: "Add Zone" }).click();
     await expect(page.getByRole("heading", { name: "Add Zone" })).toBeVisible();
 

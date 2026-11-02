@@ -117,14 +117,19 @@ async function chooseImportFile(page: Page, payload: unknown) {
 }
 
 async function confirmImport(page: Page) {
+  // The dialog opens only once the chosen file has been read, and until then
+  // a bare "Import" name also matches the page's own "Import Settings"
+  // button. Clicking that one opens the file picker instead, and the test
+  // then waits for a reload that never comes, so press the dialog's button.
+  const confirm = page
+    .getByRole("dialog", { name: "Import Settings" })
+    .getByRole("button", { name: "Import", exact: true });
+  await expect(confirm).toBeVisible();
   // Import triggers a real window.location.reload(), not a client-side
   // route change, so #pageRoot is already present and waiting for it
   // alone can race the navigation. Wait for the "load" event first so
   // the evaluate() calls below run against the post-reload document.
-  await Promise.all([
-    page.waitForEvent("load"),
-    page.getByRole("button", { name: "Import" }).click(),
-  ]);
+  await Promise.all([page.waitForEvent("load"), confirm.click()]);
   await page.waitForSelector("#pageRoot");
 }
 

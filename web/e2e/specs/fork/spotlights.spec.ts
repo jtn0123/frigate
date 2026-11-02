@@ -424,17 +424,27 @@ test.describe("Spotlights @high", () => {
     await expect(more).toHaveCount(0);
 
     // another group starts back at one page
+    // Each chip is a URL change the router applies a moment after the click.
+    // Waiting for the chip itself to turn on or off keeps the next click from
+    // landing first: its handler would still toggle from the old group. Both
+    // groups show 24 cards at one page, so the count alone cannot tell.
     await chip("unreviewed").click();
+    await expect(chip("unreviewed")).toHaveAttribute("aria-pressed", "true");
     await expect(cards).toHaveCount(24);
 
     // the rest of the visit, newest first, one tap from History
     await chip("unreviewed").click();
+    await expect(chip("all")).toHaveAttribute("aria-pressed", "true");
     const toggle = repeats.getByTestId("spotlight-repeats");
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     const rows = repeats.getByTestId("spotlight-repeat");
     await expect(rows).toHaveCount(SPOTLIGHT_REPEATS - 1);
     await expect(rows.first()).toHaveAttribute("data-review-id", "repeat-1");
+    // the open list can cover the card's mark button, so close it first
+    await page.keyboard.press("Escape");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(rows).toHaveCount(0);
 
     // marking the card marks the whole visit
     const viewed = await recordViewed(frigateApp);
