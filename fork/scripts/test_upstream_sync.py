@@ -336,6 +336,35 @@ class TestMainReport(unittest.TestCase):
         self.assertIn("merge_tree=mergetree\n", outputs)
         self.assertIn("merge_conflicts=0\n", outputs)
 
+    def test_a_body_outside_the_temp_dir_is_refused(self):
+        run, _ = fake_git(merge_rc=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = Path(__file__).resolve().parent / "body-outside.md"
+            # Enough ".." always reaches /, whatever the temp dir's depth.
+            escaping = os.path.join(tmp, *[".."] * 40, "body.md")
+            for body in (str(outside), escaping, tmp):
+                with self.subTest(body=body):
+                    with (
+                        mock.patch.dict(os.environ, {"RUNNER_TEMP": tmp}, clear=True),
+                        mock.patch.object(_MODULE, "_git", run),
+                        self.assertRaises(ValueError),
+                    ):
+                        _MODULE.main(["report", "--body", body])
+            self.assertFalse(outside.exists())
+            self.assertFalse(os.path.exists(os.path.join(os.sep, "body.md")))
+
+    def test_the_body_goes_in_runner_temp_when_it_is_set(self):
+        run, _ = fake_git(merge_rc=0)
+        with tempfile.TemporaryDirectory() as runner_temp:
+            body = os.path.join(runner_temp, "sync-issue.md")
+            with (
+                mock.patch.dict(os.environ, {"RUNNER_TEMP": runner_temp}, clear=True),
+                mock.patch.object(_MODULE, "_git", run),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                self.assertEqual(_MODULE.main(["report", "--body", body]), 0)
+            self.assertIn("has 6 commit(s)", Path(body).read_text())
+
     def test_token_command_dispatches(self):
         with mock.patch.object(_MODULE, "main_token", return_value=1) as token:
             self.assertEqual(_MODULE.main(["token"]), 1)

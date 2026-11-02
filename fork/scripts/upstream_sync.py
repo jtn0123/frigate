@@ -30,6 +30,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable, Sequence
@@ -432,10 +433,25 @@ def main_token(today: date | None = None) -> int:
     return 1 if check.fatal else 0
 
 
+def in_temp_dir(path: str) -> Path:
+    """`path` resolved, refusing anything outside the job's temp directory.
+
+    The workflow writes the issue body to $RUNNER_TEMP (the system temp
+    directory elsewhere). A body path that resolves outside it is a mistake,
+    and must not overwrite a file in the checkout.
+    """
+    base = os.path.realpath(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir())
+    target = os.path.realpath(path)
+    if not target.startswith(base + os.sep):
+        raise ValueError(f"issue body {path} is outside {base}")
+    return Path(target)
+
+
 def main_report(args: argparse.Namespace) -> int:
     """Write the sync issue body and the merge result for the workflow."""
+    body = in_temp_dir(args.body)
     report = build_report(_git, args.next, args.upstream)
-    Path(args.body).write_text(fit_body(report), encoding="utf-8")
+    body.write_text(fit_body(report), encoding="utf-8")
     print(
         json.dumps(
             {
@@ -467,7 +483,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = sub.add_parser("report", help="describe next against upstream")
     report.add_argument("--next", default="origin/next")
     report.add_argument("--upstream", default="upstream/dev")
-    report.add_argument("--body", required=True, help="where to write the issue body")
+    report.add_argument(
+        "--body", required=True, help="where to write the issue body, in $RUNNER_TEMP"
+    )
     args = parser.parse_args(argv)
     if args.command == "token":
         return main_token()
