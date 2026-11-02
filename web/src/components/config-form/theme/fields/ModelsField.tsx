@@ -41,6 +41,10 @@ import { DetectionHardware } from "@/types/hardware";
 import { summarizeDevices } from "@/utils/detectionHardware";
 import { HardwarePicker } from "./HardwarePicker";
 import { ModelSourcePicker } from "./ModelSourcePicker";
+import {
+  plusModelIdFor,
+  type SavedModel,
+} from "@/lib/fork/settings-save-plus-models";
 
 type DetectionModel = {
   scene?: string;
@@ -59,6 +63,16 @@ const CUSTOM_MODEL_FIELDS = [
   "input_dtype",
   "model_type",
 ];
+
+/**
+ * The fields a model can edit. A Frigate+ model's size, format, type, and
+ * labels come from its model info, so only its path stays editable.
+ */
+const editableFields = (
+  model: DetectionModel,
+  savedModels: readonly SavedModel[],
+): string[] =>
+  plusModelIdFor(model, savedModels) ? ["path"] : CUSTOM_MODEL_FIELDS;
 
 /** The detector a model runs on, which is the prefix of its device strings. */
 const detectorForModel = (model: DetectionModel): string | undefined =>
@@ -469,8 +483,8 @@ export function ModelsField(props: Readonly<FieldProps>) {
                     detector={detectorForModel(model)}
                     disabled={disabled || readonly}
                     onPathChange={(path) => updateModel(index, { path })}
-                    customFields={CUSTOM_MODEL_FIELDS.map((fieldName) =>
-                      renderField(index, fieldName),
+                    customFields={editableFields(model, savedModels ?? []).map(
+                      (fieldName) => renderField(index, fieldName),
                     )}
                   />
                 </CardContent>

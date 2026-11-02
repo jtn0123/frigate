@@ -352,7 +352,9 @@ function PreviewVideoPlayer({
           {t("noPreviewFoundFor", { cameraName: cameraName })}
         </div>
       )}
-      {firstLoad && <Skeleton className="absolute aspect-video size-full" />}
+      {firstLoad && (
+        <Skeleton className="absolute aspect-video size-full rounded-lg md:rounded-2xl" />
+      )}
     </div>
   );
 }
@@ -579,7 +581,9 @@ function PreviewFramesPlayer({
           {t("noPreviewFoundFor", { cameraName: cameraName })}
         </div>
       )}
-      {firstLoad && <Skeleton className="absolute aspect-video size-full" />}
+      {firstLoad && (
+        <Skeleton className="absolute aspect-video size-full rounded-lg md:rounded-2xl" />
+      )}
     </div>
   );
 }

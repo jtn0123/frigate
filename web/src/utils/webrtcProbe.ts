@@ -6,7 +6,8 @@ import { baseUrl } from "@/api/baseUrl";
  * connection can actually be established (validates candidates, port 8555
  * reachability, and STUN/TURN end-to-end). A success is cached for the page
  * session; a failure only for PROBE_FAILURE_TTL_MS, so a slow or offline
- * moment does not disable WebRTC until reload.
+ * moment does not disable WebRTC until reload, and only for probes that start
+ * from the same stream.
  */
 
 export type WebRTCProbeResult = {
@@ -19,11 +20,9 @@ export type WebRTCProbeResult = {
 /** How long a failed probe is reused before the next caller re-probes. */
 export const PROBE_FAILURE_TTL_MS = 30_000;
 
-/** Streams tried per probe when go2rtc reports the earlier ones unavailable. */
-const MAX_PROBE_STREAMS = 3;
-
 let cachedProbe: {
   promise: Promise<WebRTCProbeResult>;
+  firstStream: string | undefined;
   failedAt: number | null;
 } | null = null;
 
@@ -152,7 +151,9 @@ async function runProbes(
     ok: false,
     detail: "no go2rtc stream to probe",
   };
-  for (const stream of testStreams.slice(0, MAX_PROBE_STREAMS)) {
+  // no cap: go2rtc refuses an offline stream quickly, and a stream that hangs
+  // still ends the probe at its timeout
+  for (const stream of testStreams) {
     result = await runProbe(stream, iceServers, timeoutMs);
     if (!result.streamError) {
       return result;
@@ -170,14 +171,27 @@ export function probeWebRTCAvailability(
   iceServers: RTCIceServer[],
   timeoutMs: number = 5000,
 ): Promise<WebRTCProbeResult> {
-  if (
-    cachedProbe &&
-    (cachedProbe.failedAt === null ||
-      Date.now() - cachedProbe.failedAt < PROBE_FAILURE_TTL_MS)
-  ) {
-    return cachedProbe.promise;
+  const firstStream = testStreams[0];
+  if (cachedProbe) {
+    const { promise, failedAt } = cachedProbe;
+    if (
+      cachedProbe.firstStream === firstStream &&
+      (failedAt === null || Date.now() - failedAt < PROBE_FAILURE_TTL_MS)
+    ) {
+      return promise;
+    }
+    // a pass from any stream proves the connection, but another stream's
+    // failure says nothing about this one
+    if (failedAt === null) {
+      return promise.then((result) =>
+        result.ok
+          ? result
+          : probeWebRTCAvailability(testStreams, iceServers, timeoutMs),
+      );
+    }
   }
   const entry: NonNullable<typeof cachedProbe> = {
+    firstStream,
     promise: runProbes(testStreams, iceServers, timeoutMs).then(
       (result) => {
         if (!result.ok) entry.failedAt = Date.now();

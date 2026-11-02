@@ -133,7 +133,9 @@ export default function EventMenu({
           <DropdownMenuItem
             className="cursor-pointer"
             onSelect={() => {
-              void navigate(`/explore?event_id=${event.id}`);
+              void navigate(`/explore?event_id=${event.id}`, {
+                state: { canGoBack: true },
+              });
             }}
           >
             {t("details.item.button.viewInExplore")}
@@ -175,6 +177,7 @@ export default function EventMenu({
                 else
                   void navigate(
                     `/explore?search_type=similarity&event_id=${event.id}`,
+                    { state: { canGoBack: true } },
                   );
               }}
             >

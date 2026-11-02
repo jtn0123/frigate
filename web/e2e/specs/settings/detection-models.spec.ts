@@ -66,6 +66,27 @@ const HAILO_PLUS_MODELS = [
   },
 ];
 
+// a migrated `type: onnx` detector is the bare "onnx", and a Ryzen iGPU is
+// always probed alongside an NVIDIA card
+const ONNX_GPU_HARDWARE = [
+  {
+    key: "onnx:nvidia",
+    detector: "onnx",
+    name: "NVIDIA GeForce RTX 3060",
+    units: [{ device: "onnx:0", label: "NVIDIA GeForce RTX 3060" }],
+    count: 1,
+    unlimited: true,
+  },
+  {
+    key: "onnx:amd",
+    detector: "onnx",
+    name: "AMD GPU",
+    units: [{ device: "onnx", label: "renderD128" }],
+    count: 1,
+    unlimited: true,
+  },
+];
+
 const HAILO_HARDWARE = [
   {
     key: "hailo",
@@ -84,7 +105,7 @@ async function installRoutes(
   models: Model[],
   plusEnabled = false,
   plusModels: unknown[] = [PLUS_MODEL],
-  hailoHardware = false,
+  hardware?: unknown[],
 ) {
   const config = configFactory({
     models,
@@ -107,9 +128,9 @@ async function installRoutes(
     route.fulfill({ json: plusModels }),
   );
 
-  if (hailoHardware) {
+  if (hardware) {
     await page.route("**/api/hardware/probe**", (route) =>
-      route.fulfill({ json: HAILO_HARDWARE }),
+      route.fulfill({ json: hardware }),
     );
   }
   await page.route("**/api/config/set", async (route) => {
@@ -202,6 +223,39 @@ test.describe("Detection models settings @high @mobile", () => {
     ).not.toBeChecked();
   });
 
+  test("a device without an index selects the first unit", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(frigateApp.page, [
+      { scene: "all", devices: ["edgetpu:pci"] },
+    ]);
+    await openPage(frigateApp);
+
+    await expect(
+      frigateApp.page.locator("#models-0-edgetpu\\:pci\\:0"),
+    ).toBeChecked();
+    await expect(
+      frigateApp.page.locator("#models-0-edgetpu\\:pci\\:1"),
+    ).not.toBeChecked();
+  });
+
+  test("a migrated onnx device resolves to the NVIDIA GPU", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(
+      frigateApp.page,
+      [{ scene: "all", devices: ["onnx"] }],
+      false,
+      [PLUS_MODEL],
+      ONNX_GPU_HARDWARE,
+    );
+    await openPage(frigateApp);
+
+    await expect(frigateApp.page.locator("#pageRoot")).toContainText(
+      "NVIDIA GeForce RTX 3060 \u2022 3 cameras",
+    );
+  });
+
   test("a unit claimed by another model cannot be picked", async ({
     frigateApp,
   }) => {
@@ -215,6 +269,23 @@ test.describe("Detection models settings @high @mobile", () => {
     await expect(
       frigateApp.page.locator("#models-0-edgetpu\\:pci\\:1").first(),
     ).toBeDisabled();
+  });
+
+  test("shareable hardware another model uses can still be picked", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(frigateApp.page, [
+      { scene: "all", devices: ["openvino:GPU.0"] },
+      { scene: "outdoor", devices: ["openvino:GPU.1"] },
+    ]);
+    await openPage(frigateApp);
+
+    await expect(
+      frigateApp.page.locator("#models-0-openvino\\:GPU\\.1").first(),
+    ).toBeEnabled();
+    await expect(frigateApp.page.locator("#pageRoot")).not.toContainText(
+      "used by outdoor",
+    );
   });
 
   test("adding a model appends a card with an unused scene", async ({
@@ -302,6 +373,86 @@ test.describe("Detection models settings @high @mobile", () => {
     expect(saves.at(-1)?.config_data?.models?.[0].path).toBe("plus://abc123");
   });
 
+  test("saving a Frigate+ model keeps its reference without the Frigate+ fields", async ({
+    frigateApp,
+  }) => {
+    // the backend fills these in from the Frigate+ model info when it loads
+    const saves = await installRoutes(
+      frigateApp.page,
+      [
+        {
+          scene: "all",
+          devices: ["openvino:GPU.0"],
+          path: "plus://abc123",
+          plus: PLUS_MODEL,
+          width: 320,
+          height: 320,
+          input_tensor: "nchw",
+          input_dtype: "float",
+          model_type: "yolo-generic",
+        },
+      ],
+      true,
+    );
+    await openPage(frigateApp);
+
+    await frigateApp.page.locator("#models-0-openvino\\:GPU\\.1").click();
+    await frigateApp.page.getByRole("button", { name: /^Save$/ }).click();
+    await expect.poll(() => saves.length).toBeGreaterThan(0);
+
+    const model = saves.at(-1)?.config_data?.models?.[0];
+    expect(model?.path).toBe("plus://abc123");
+    expect(model?.devices).toEqual(["openvino:GPU.0", "openvino:GPU.1"]);
+    expect(model).not.toHaveProperty("width");
+    expect(model).not.toHaveProperty("input_tensor");
+    expect(model).not.toHaveProperty("model_type");
+    // a leftover dtype from a custom model must not override the int default
+    expect(model).not.toHaveProperty("input_dtype");
+  });
+
+  test("a Frigate+ model only shows its path without a Frigate+ API key", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(frigateApp.page, [
+      {
+        scene: "all",
+        devices: ["openvino:GPU.0"],
+        path: "plus://abc123",
+        width: 320,
+        height: 320,
+      },
+    ]);
+    await openPage(frigateApp);
+
+    const root = frigateApp.page.locator("#pageRoot");
+    await expect(root).toContainText("Custom object detector model path");
+    await expect(root).not.toContainText("Object detection model input width");
+    await expect(root).not.toContainText(
+      "Label map for custom object detector",
+    );
+  });
+
+  test("a saved Frigate+ model only shows its path without a Frigate+ API key", async ({
+    frigateApp,
+  }) => {
+    // fork: the saved model comes back with its resolved cache path
+    await installRoutes(frigateApp.page, [
+      {
+        scene: "all",
+        devices: ["openvino:GPU.0"],
+        path: "/config/model_cache/abc123",
+        plus: PLUS_MODEL,
+        width: 320,
+        height: 320,
+      },
+    ]);
+    await openPage(frigateApp);
+
+    const root = frigateApp.page.locator("#pageRoot");
+    await expect(root).toContainText("Custom object detector model path");
+    await expect(root).not.toContainText("Object detection model input width");
+  });
+
   test("a Frigate+ Hailo model is listed by the device it was built for", async ({
     frigateApp,
   }) => {
@@ -312,7 +463,7 @@ test.describe("Detection models settings @high @mobile", () => {
       [{ scene: "all", devices: ["hailo:PCIe"], path: "/config/custom.hef" }],
       true,
       HAILO_PLUS_MODELS,
-      true,
+      HAILO_HARDWARE,
     );
     await openPage(frigateApp);
 
@@ -329,6 +480,43 @@ test.describe("Detection models settings @high @mobile", () => {
     // ruled out here
     await expect(options.first()).not.toHaveAttribute("aria-disabled", "true");
     await expect(options.last()).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  // fork B43: upstream #24684 has no test for the toggle
+  test("incompatible Frigate+ models stay hidden until the toggle is on", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(
+      frigateApp.page,
+      [{ scene: "all", devices: ["openvino:GPU.0"], path: "/config/a.onnx" }],
+      true,
+      [
+        PLUS_MODEL,
+        {
+          ...PLUS_MODEL,
+          id: "tpu1",
+          name: "edgetpu-s",
+          supportedDetectors: ["edgetpu"],
+        },
+      ],
+    );
+    await openPage(frigateApp);
+
+    await frigateApp.page.getByRole("tab", { name: "Frigate+" }).click();
+    const toggle = frigateApp.page.getByRole("switch", {
+      name: "Show incompatible models",
+    });
+    await expect(toggle).toBeVisible();
+
+    await frigateApp.page.getByRole("combobox").last().click();
+    await expect(frigateApp.page.getByRole("option")).toHaveCount(1);
+    await frigateApp.page.keyboard.press("Escape");
+
+    await toggle.click();
+    await frigateApp.page.getByRole("combobox").last().click();
+    const options = frigateApp.page.getByRole("option");
+    await expect(options).toHaveCount(2);
+    await expect(options.last()).toHaveAttribute("aria-disabled", "true");
   });
 
   test("a freshly opened page is not reported as modified", async ({
