@@ -482,6 +482,43 @@ test.describe("Detection models settings @high @mobile", () => {
     await expect(options.last()).not.toHaveAttribute("aria-disabled", "true");
   });
 
+  // fork B43: upstream #24684 has no test for the toggle
+  test("incompatible Frigate+ models stay hidden until the toggle is on", async ({
+    frigateApp,
+  }) => {
+    await installRoutes(
+      frigateApp.page,
+      [{ scene: "all", devices: ["openvino:GPU.0"], path: "/config/a.onnx" }],
+      true,
+      [
+        PLUS_MODEL,
+        {
+          ...PLUS_MODEL,
+          id: "tpu1",
+          name: "edgetpu-s",
+          supportedDetectors: ["edgetpu"],
+        },
+      ],
+    );
+    await openPage(frigateApp);
+
+    await frigateApp.page.getByRole("tab", { name: "Frigate+" }).click();
+    const toggle = frigateApp.page.getByRole("switch", {
+      name: "Show incompatible models",
+    });
+    await expect(toggle).toBeVisible();
+
+    await frigateApp.page.getByRole("combobox").last().click();
+    await expect(frigateApp.page.getByRole("option")).toHaveCount(1);
+    await frigateApp.page.keyboard.press("Escape");
+
+    await toggle.click();
+    await frigateApp.page.getByRole("combobox").last().click();
+    const options = frigateApp.page.getByRole("option");
+    await expect(options).toHaveCount(2);
+    await expect(options.last()).toHaveAttribute("aria-disabled", "true");
+  });
+
   test("a freshly opened page is not reported as modified", async ({
     frigateApp,
   }) => {
