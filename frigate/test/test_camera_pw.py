@@ -1,13 +1,31 @@
 """Test camera user and password cleanup."""
 
+import random
+import re
 import time
 import unittest
 
+from frigate.const import REGEX_CREDENTIAL_QUERY_KEY
 from frigate.util.builtin import (
+    _mask_url_userinfo,
     clean_camera_user_pass,
     escape_special_characters,
     is_masked_camera_path,
 )
+
+# The single-regex form of the userinfo mask, kept here as an oracle for the
+# linear scanner in frigate.util.builtin. Group 1 is the userinfo and group 2 the
+# rest of the URL.
+_USERINFO_ORACLE = r"://((?:[^\s/?#:\[\]]*:(?:(?!://)\S)*|[^\s/?#]+))@((?:(?!://)\S)*)"
+
+
+def _oracle_mask_userinfo(line: str) -> str:
+    def mask(match: re.Match[str]) -> str:
+        if re.search(REGEX_CREDENTIAL_QUERY_KEY, match.group(1)):
+            return "://*:*@"
+        return f"://*:*@{match.group(2)}"
+
+    return re.sub(_USERINFO_ORACLE, mask, line)
 
 
 class TestUserPassCleanup(unittest.TestCase):
@@ -136,4 +154,19 @@ class TestUserPassMasking(unittest.TestCase):
         start = time.perf_counter()
         clean_camera_user_pass("rtsp://u:p" * 20000)
         clean_camera_user_pass("rtsp://" + "a." * 40000)
+        self.assertLess(time.perf_counter() - start, 1)
+
+    def test_userinfo_scanner_matches_regex_form(self):
+        """The linear scanner masks exactly what the regex form masks."""
+        rng = random.Random(24719)
+        alphabet = ["://", ":", "/", "?", "#", "@", "[", "]", " ", "\t", "a", "b", "&"]
+        for _ in range(5000):
+            line = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 24)))
+            with self.subTest(line=line):
+                self.assertEqual(_mask_url_userinfo(line), _oracle_mask_userinfo(line))
+
+    def test_repeated_scheme_separators_mask_in_linear_time(self):
+        start = time.perf_counter()
+        clean_camera_user_pass("://:" * 50000)
+        clean_camera_user_pass("rtsp://" + "u:p@" * 20000 + "://" * 20000)
         self.assertLess(time.perf_counter() - start, 1)

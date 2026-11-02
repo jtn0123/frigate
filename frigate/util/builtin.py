@@ -26,7 +26,6 @@ from frigate.const import (
     REGEX_CREDENTIAL_QUERY_PARAM,
     REGEX_MASKED_CREDENTIAL,
     REGEX_RTSP_CAMERA_USER_PASS,
-    REGEX_URL_USERINFO,
     STREAM_TYPE_MAIN,
     STREAM_TYPE_SUB,
 )
@@ -124,17 +123,65 @@ def deep_merge(dct1: dict, dct2: dict, override=False, merge_lists=False) -> dic
 def clean_camera_user_pass(line: str) -> str:
     """Mask URL userinfo and credential query parameters in line."""
 
-    line = re.sub(REGEX_URL_USERINFO, _mask_userinfo, line)
+    line = _mask_url_userinfo(line)
     return re.sub(REGEX_CREDENTIAL_QUERY_PARAM, r"\1*", line)
 
 
-def _mask_userinfo(match: re.Match[str]) -> str:
+# A URL runs to the next whitespace or the next "://".
+_URL_END = re.compile(r"\s|://")
+_USERINFO_DELIMITER = re.compile(r"[\s/?#:\[\]]")
+_AUTHORITY_END = re.compile(r"[\s/?#]")
+
+
+def _mask_url_userinfo(line: str) -> str:
+    # Scanned without a backtracking regex so log lines stay linear in length.
+    parts: list[str] = []
+    copied = 0
+    start = line.find("://")
+    while start != -1:
+        userinfo_start = start + 3
+        at = _userinfo_end(line, userinfo_start)
+        if at is None:
+            start = line.find("://", userinfo_start)
+            continue
+
+        url_end = _url_end(line, at + 1)
+        parts.append(line[copied:start])
+        parts.append(_mask_userinfo(line[userinfo_start:at], line[at + 1 : url_end]))
+        copied = url_end
+        start = line.find("://", url_end)
+
+    parts.append(line[copied:])
+    return "".join(parts)
+
+
+def _url_end(line: str, pos: int) -> int:
+    end = _URL_END.search(line, pos)
+    return end.start() if end else len(line)
+
+
+def _userinfo_end(line: str, pos: int) -> int | None:
+    # A "user:" userinfo may hold "/", "#" or "@" in the password, so it runs to
+    # the last "@" before the URL ends. Anything else stops at the authority end.
+    delimiter = _USERINFO_DELIMITER.search(line, pos)
+    if delimiter is not None and delimiter.group() == ":":
+        colon = delimiter.start()
+        at = line.rfind("@", colon + 1, _url_end(line, colon + 1))
+        if at != -1:
+            return at
+
+    authority_end = _AUTHORITY_END.search(line, pos)
+    at = line.rfind("@", pos, authority_end.start() if authority_end else len(line))
+    return at if at > pos else None
+
+
+def _mask_userinfo(userinfo: str, rest: str) -> str:
     # A credential key in the userinfo means a query password holds "@" or a
     # password holds a query key. Neither split is safe, so mask the whole URL.
-    if re.search(REGEX_CREDENTIAL_QUERY_KEY, match.group(1)):
+    if re.search(REGEX_CREDENTIAL_QUERY_KEY, userinfo):
         return "://*:*@"
 
-    return f"://*:*@{match.group(2)}"
+    return f"://*:*@{rest}"
 
 
 def is_masked_camera_path(path: str) -> bool:

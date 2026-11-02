@@ -453,7 +453,9 @@ class Dispatcher:
                 comm.publish(topic, payload, retain)
             except Exception:
                 logger.exception(
-                    "Error publishing %s to %s", topic, type(comm).__name__
+                    "Error publishing %s to %s",
+                    topic.replace("\r", "\\r").replace("\n", "\\n"),
+                    type(comm).__name__,
                 )
 
     def publish_local(self, topic: str, payload: Any) -> None:
@@ -469,7 +471,9 @@ class Dispatcher:
                 comm.publish(topic, payload, False)
             except Exception:
                 logger.exception(
-                    "Error publishing %s to %s", topic, type(comm).__name__
+                    "Error publishing %s to %s",
+                    topic.replace("\r", "\\r").replace("\n", "\\n"),
+                    type(comm).__name__,
                 )
 
     def _publish_notices(self) -> None:
