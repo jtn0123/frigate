@@ -154,9 +154,13 @@ test.describe("Route error boundary - chunk load failure @high", () => {
  * call it, so null detectors throw in exactly one chrome component.
  */
 async function breakStatsChrome(app: FrigateApp) {
+  const broken = { ...BASE_STATS, detectors: null };
   await app.page.route("**/api/stats", (route) =>
-    route.fulfill({ json: { ...BASE_STATS, detectors: null } }),
+    route.fulfill({ json: broken }),
   );
+  // The live stats frame wins over the REST read in useAutoFrigateStats, so
+  // when the default frame (with detectors) arrived first nothing threw.
+  await app.ws.install(app.page, broken);
 }
 
 test.describe("Route error boundary - chrome failure @high", () => {
