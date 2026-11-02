@@ -227,7 +227,7 @@ test.describe("Detection models settings @high @mobile", () => {
     frigateApp,
   }) => {
     await installRoutes(frigateApp.page, [
-      { scene: "default", devices: ["edgetpu:pci"] },
+      { scene: "all", devices: ["edgetpu:pci"] },
     ]);
     await openPage(frigateApp);
 
@@ -244,7 +244,7 @@ test.describe("Detection models settings @high @mobile", () => {
   }) => {
     await installRoutes(
       frigateApp.page,
-      [{ scene: "default", devices: ["onnx"] }],
+      [{ scene: "all", devices: ["onnx"] }],
       false,
       [PLUS_MODEL],
       ONNX_GPU_HARDWARE,

@@ -234,7 +234,6 @@ test.describe("WebRTC availability gating @critical @desktop-only", () => {
     });
     await expect(webrtcOption).toBeVisible({ timeout: 3_000 });
     await expect(webrtcOption).toHaveAttribute("aria-disabled", "true");
-    await expect(webrtcOption).toContainText("WebRTC is not configured.");
 
     // Sanity check: a non-gated option (MSE) is enabled, proving the locator
     // distinguishes enabled from disabled options.

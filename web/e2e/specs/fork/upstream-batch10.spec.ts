@@ -32,7 +32,7 @@ const REPEATED_NOTICE = {
   muted_at: null,
 };
 
-test.describe("Notices show their last occurrence (B43, #24659) @medium", () => {
+test.describe("Notices show their last occurrence (B43, #24659) @medium @mobile", () => {
   test("a repeated notice names its last time and count", async ({
     frigateApp,
   }) => {
@@ -74,6 +74,7 @@ test.describe("Explore detail menu review lookup (B43, #24659) @medium", () => {
       return route.fulfill({ status: 404, json: { success: false } });
     });
 
+    await page.clock.install();
     await frigateApp.goto("/explore?labels=person");
     const firstResult = page.locator("[data-start]").first();
     await expect(firstResult).toBeVisible({ timeout: 10_000 });
@@ -81,8 +82,11 @@ test.describe("Explore detail menu review lookup (B43, #24659) @medium", () => {
     await expect.poll(() => lookups, { timeout: 15_000 }).toBeGreaterThan(0);
 
     // The app's onErrorRetry (C17 read-retry.ts) waits 5 or 10 seconds,
-    // depending on the key's jitter, before the first retry of a read
-    await page.waitForTimeout(11_000);
+    // depending on the key's jitter, before the first retry of a read, so
+    // 30 seconds covers it. A later request then flushes any retry the
+    // timers sent before the count is read.
+    await page.clock.runFor(30_000);
+    await page.evaluate(() => fetch("/api/version").then((res) => res.status));
     expect(lookups).toBe(1);
   });
 });
@@ -166,8 +170,11 @@ test.describe("Notification TTL setting (B43, #24829) @medium", () => {
     );
 
     await expect(page.locator("#pageRoot")).toBeVisible({ timeout: 10_000 });
-    const advanced = page.getByRole("button", { name: /Advanced Settings/ });
-    if ((await advanced.count()) > 0) await advanced.first().click();
+    // ttl is the only advanced notifications field, so with it hidden the
+    // camera form has no Advanced Settings section at all
+    await expect(
+      page.getByRole("button", { name: /Advanced Settings/ }),
+    ).toHaveCount(0);
     await expect(page.getByText("Notification TTL")).toHaveCount(0);
   });
 });
