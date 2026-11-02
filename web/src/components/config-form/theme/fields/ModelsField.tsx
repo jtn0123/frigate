@@ -213,7 +213,7 @@ export function ModelsField(props: Readonly<FieldProps>) {
       const target = scene ?? DEFAULT_SCENE;
 
       return Object.values(cameras).filter(
-        (camera) => servingScene(camera?.detect?.scene, modelScenes) === target,
+        (camera) => servingScene(camera.detect.scene, modelScenes) === target,
       ).length;
     },
     [cameras, models],
