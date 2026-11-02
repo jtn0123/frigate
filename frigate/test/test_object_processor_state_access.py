@@ -27,6 +27,7 @@ def _processor(**states) -> TrackedObjectProcessor:
     processor.detection_publisher = MagicMock()
     processor.ongoing_manual_events = {}
     processor.frame_manager = MagicMock()
+    processor.birdseye_yuv_shape = (720 * 3 // 2, 1280)
     return processor
 
 

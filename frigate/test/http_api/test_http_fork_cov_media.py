@@ -167,6 +167,18 @@ class TestLatestFrame(_MediaHttpTestCase):
         assert _decode(response.content).shape == (20, 40, 3)
         processor.get_current_frame.assert_called_once_with("birdseye")
 
+    def test_birdseye_restream_without_a_frame_is_an_error(self):
+        # B43 (upstream #24704): a missing frame raised in cvtColor
+        self.minimal_config["birdseye"] = {"enabled": True, "restream": True}
+        self.app = super().create_app()
+        self.live_frame(None)
+
+        with AuthTestClient(self.app) as client:
+            response = client.get("/birdseye/latest.jpg")
+
+        assert response.status_code == 500
+        assert response.json()["success"] is False
+
     def test_birdseye_without_restream_is_404(self):
         with AuthTestClient(self.app) as client:
             response = client.get("/birdseye/latest.jpg")
