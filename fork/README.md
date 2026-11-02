@@ -21,10 +21,12 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
   unittest includes the `audio_trial` and `monitoring` suites, as in CI.
 - `scripts/sonar-token-expiry.py` warns in CI before the `SONAR_TOKEN` secret
   expires (date in `sonar-token.env`; tests: `scripts/test_sonar_token_expiry.py`).
-- `scripts/ci-changes.sh` tells "Fork - Checks" whether web or Python files
-  changed, so docs-only pull requests skip both suites. A push to `next`
-  always runs the web jobs: Sonar's branch gate needs their browser coverage
-  (see `SONAR-CI.md`).
+- `scripts/ci-changes.sh` tells "Fork - Checks" which suites a change needs:
+  web, the light Python job (which alone checks the ledger), the backend
+  suite, and the two coverage suites with the Sonar scan. Docs-only and
+  Android-only pull requests skip all but the light job. Every push runs the
+  backend and coverage suites, and a push to `next` also runs the web jobs:
+  Sonar's branch gate needs their browser coverage (see `SONAR-CI.md`).
 - `scripts/wt.sh` creates a section worktree with node_modules and its own e2e
   port (`make wt NAME=<name>`).
 - `scripts/e2e-port.py` reserves ports 4190-4299 under a shared Git lock,
