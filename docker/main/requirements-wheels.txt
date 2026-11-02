@@ -22,11 +22,11 @@ pandas == 2.2.*
 peewee == 3.17.*
 peewee_migrate == 1.14.*
 psutil == 7.1.*
-pydantic == 2.10.*
+pydantic == 2.14.*
 py3nvml @ https://github.com/fbcotter/py3nvml/archive/0545dfd39858c1552aaabc52ea3fbcb7f5714853.zip
 pytz == 2025.*
 pyzmq == 26.2.*
-ruamel.yaml == 0.18.*
+ruamel.yaml == 0.19.*
 tzlocal == 5.2
 requests == 2.34.2
 types-requests == 2.32.*
@@ -41,14 +41,14 @@ numpy == 1.26.*
 opencv-contrib-python-headless == 4.11.0.*
 scipy == 1.16.*
 # OpenVino & ONNX
-openvino == 2025.4.*
-onnxruntime == 1.30.*
+openvino == 2026.4.*
+onnxruntime == 1.31.*
 # Embeddings
 transformers == 5.17.0
 # Generative AI
-google-genai == 1.58.*
+google-genai == 2.34.*
 ollama == 0.6.*
-openai == 1.65.*
+openai == 3.36.*
 # push notifications
 py-vapid == 1.9.6
 pywebpush == 2.0.*
@@ -58,7 +58,7 @@ shapely == 2.0.*
 rapidfuzz==3.12.*
 # HailoRT Wheels
 appdirs==1.4.*
-argcomplete==2.0.*
+argcomplete==3.7.*
 contextlib2==0.6.*
 distlib==0.4.*
 filelock==4.2.1
@@ -75,7 +75,7 @@ tflite_runtime @ https://github.com/frigate-nvr/TFlite-builds/releases/download/
 tflite_runtime @ https://github.com/feranick/TFlite-builds/releases/download/v2.17.1/tflite_runtime-2.17.1-cp311-cp311-linux_aarch64.whl; platform_machine == 'aarch64'
 # audio transcription
 sherpa-onnx==1.12.*
-faster-whisper==1.1.*
+faster-whisper==1.2.*
 librosa==0.11.*
 soundfile==0.13.*
 # Memory profiling
