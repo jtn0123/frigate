@@ -406,7 +406,7 @@ def get_remote_addr(request: Request):
     trusted_proxies = []
     for proxy in request.app.frigate_config.auth.trusted_proxies:
         try:
-            network = ipaddress.ip_network(proxy)
+            network = ipaddress.ip_network(proxy, strict=False)
         except ValueError:
             logger.warning(f"Unable to parse trusted network: {proxy}")
             continue
