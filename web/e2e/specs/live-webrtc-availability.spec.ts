@@ -170,6 +170,9 @@ test.describe("Two-way talk over WebRTC @critical", () => {
     await expect(mic).toHaveAttribute("aria-disabled", "true");
     await expect(mic).toHaveAttribute("aria-pressed", "false");
     await expect.poll(() => probed).toBe(true);
+    // the talk hotkey is held too, or the mic would show as on (#24498)
+    await page.keyboard.press("t");
+    await expect(mic).toHaveAttribute("aria-pressed", "false");
     await expect(
       page.getByRole("button", { name: /requires WebRTC/ }),
     ).toHaveCount(0);

@@ -535,7 +535,7 @@ export default function LiveCameraView({
         }
         break;
       case "t":
-        if (supports2WayTalk) {
+        if (supports2WayTalk && talkState === "available") {
           setMic(!mic);
           return true;
         }
