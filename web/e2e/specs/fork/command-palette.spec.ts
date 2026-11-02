@@ -233,26 +233,33 @@ test.describe("Command palette @high", () => {
     await expect(option(frigateApp, "Backyard")).toHaveCount(0);
   });
 
-  test("the config editor keeps Ctrl+K and slash", async ({ frigateApp }) => {
-    test.skip(frigateApp.isMobile, "Keyboard shortcuts are desktop input");
-    await frigateApp.installDefaults({ configRaw: "mqtt:\n  host: mqtt\n" });
-    await frigateApp.goto("/config");
-    const editor = frigateApp.page.locator(".monaco-editor").first();
-    await expect(editor).toBeVisible({ timeout: 15_000 });
+  test(
+    "the config editor keeps Ctrl+K and slash",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.installDefaults({ configRaw: "mqtt:\n  host: mqtt\n" });
+      await frigateApp.goto("/config");
+      const editor = frigateApp.page.locator(".monaco-editor").first();
+      await expect(editor).toBeVisible({ timeout: 15_000 });
 
-    await editor.click();
-    await frigateApp.page.keyboard.type("/comment");
-    await expect
-      .poll(() => getMonacoVisibleText(frigateApp.page), { timeout: 10_000 })
-      .toContain("/comment");
-    await expect(frigateApp.page.getByTestId("command-palette")).toHaveCount(0);
+      await editor.click();
+      await frigateApp.page.keyboard.type("/comment");
+      await expect
+        .poll(() => getMonacoVisibleText(frigateApp.page), { timeout: 10_000 })
+        .toContain("/comment");
+      await expect(frigateApp.page.getByTestId("command-palette")).toHaveCount(
+        0,
+      );
 
-    // Ctrl+K starts a chord in Monaco, so the palette leaves it alone.
-    // Escape cancels the pending chord.
-    await frigateApp.page.keyboard.press("Control+k");
-    await expect(frigateApp.page.getByTestId("command-palette")).toHaveCount(0);
-    await frigateApp.page.keyboard.press("Escape");
-  });
+      // Ctrl+K starts a chord in Monaco, so the palette leaves it alone.
+      // Escape cancels the pending chord.
+      await frigateApp.page.keyboard.press("Control+k");
+      await expect(frigateApp.page.getByTestId("command-palette")).toHaveCount(
+        0,
+      );
+      await frigateApp.page.keyboard.press("Escape");
+    },
+  );
 
   test(
     "the Settings drawer opens the palette on a phone @mobile",

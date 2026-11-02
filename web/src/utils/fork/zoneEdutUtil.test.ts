@@ -4,8 +4,10 @@ import type { CameraConfig } from "@/types/frigateConfig";
 
 // Only the sections zoneReferenceUpdates reads; the rest of a camera's
 // config does not matter to it.
+const asCamera = (value: unknown) => value as CameraConfig;
+
 function camera(extra: Record<string, unknown> = {}): CameraConfig {
-  return {
+  return asCamera({
     review: {
       alerts: { required_zones: ["driveway"] },
       detections: { required_zones: [] },
@@ -15,7 +17,7 @@ function camera(extra: Record<string, unknown> = {}): CameraConfig {
     mqtt: { required_zones: ["driveway"] },
     onvif: { autotracking: { required_zones: [] } },
     ...extra,
-  } as unknown as CameraConfig;
+  });
 }
 
 describe("zoneReferenceUpdates", () => {
@@ -96,7 +98,7 @@ describe("zoneReferenceUpdates", () => {
       camera({ profiles: { "2": { zones: { driveway: { inertia: 3 } } } } }),
       "driveway",
     );
-    const profiles = updates.profiles as Record<string, unknown>;
+    const profiles = updates["profiles"] as Record<string, unknown>;
     expect(Array.isArray(profiles)).toBe(false);
     expect(profiles["2"]).toEqual({ zones: { driveway: null } });
   });

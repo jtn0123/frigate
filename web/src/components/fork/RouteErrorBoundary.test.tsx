@@ -92,7 +92,7 @@ describe("RouteErrorBoundary", () => {
     await act(async () => {
       fireEvent.click(screen.getByText("errorBoundary.copyDetails"));
     });
-    const report = writeText.mock.calls[0][0] as string;
+    const report = String(writeText.mock.calls.at(0)?.at(0));
     expect(report.split("\n").slice(0, 2)).toEqual([
       "Frigate UI error report",
       "Version: 0.17.0-abc",
@@ -111,6 +111,8 @@ describe("RouteErrorBoundary", () => {
     await act(async () => {
       fireEvent.click(screen.getByText("errorBoundary.copyDetails"));
     });
-    expect(writeText.mock.calls[0][0]).toContain("Version: unknown");
+    expect(String(writeText.mock.calls.at(0)?.at(0))).toContain(
+      "Version: unknown",
+    );
   });
 });

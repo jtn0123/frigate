@@ -92,6 +92,14 @@ async function openZoneAction(
   await row.getByLabel(action, { exact: true }).click();
 }
 
+/** The one config/set request a save sent. */
+function only(requests: ConfigSetRequest[]): ConfigSetRequest {
+  expect(requests).toHaveLength(1);
+  const [request] = requests;
+  if (!request) throw new Error("no config/set request");
+  return request;
+}
+
 /** The decoded query of a plain (non-rename) save. */
 function query(request: ConfigSetRequest) {
   return new URL(request.url).searchParams;
@@ -114,14 +122,14 @@ test.describe("zone rename and delete @medium @mobile", () => {
     await frigateApp.page.getByRole("button", { name: "Save" }).click();
 
     await expect.poll(() => requests.length).toBe(1);
-    const params = query(requests[0]);
+    const params = query(only(requests));
     expect(params.get("cameras.front_door.zones.driveway.friendly_name")).toBe(
       "Main Driveway",
     );
     expect([...params.keys()].some((key) => key.includes("front_drive"))).toBe(
       false,
     );
-    expect(requests[0].body).toMatchObject({ requires_restart: 0 });
+    expect(only(requests).body).toMatchObject({ requires_restart: 0 });
   });
 
   test("turning speed estimation on and off sends no distances delete", async ({
@@ -147,7 +155,7 @@ test.describe("zone rename and delete @medium @mobile", () => {
     await frigateApp.page.getByRole("button", { name: "Save" }).click();
 
     await expect.poll(() => requests.length).toBe(1);
-    const keys = [...query(requests[0]).keys()];
+    const keys = [...query(only(requests)).keys()];
     expect(keys).toContain("cameras.front_door.zones.driveway.coordinates");
     expect(keys.filter((key) => /distances|speed_threshold/.test(key))).toEqual(
       [],
@@ -167,8 +175,9 @@ test.describe("zone rename and delete @medium @mobile", () => {
     await frigateApp.page.getByRole("button", { name: "Save" }).click();
 
     await expect.poll(() => requests.length).toBe(1);
-    expect(new URL(requests[0].url).search).toBe("");
-    expect(requests[0].body).toMatchObject({
+    const request = only(requests);
+    expect(new URL(request.url).search).toBe("");
+    expect(request.body).toMatchObject({
       requires_restart: 1,
       update_topic: "config/cameras/front_door/zones",
       config_data: {
@@ -221,8 +230,9 @@ test.describe("zone rename and delete @medium @mobile", () => {
       .click();
 
     await expect.poll(() => requests.length).toBe(1);
-    expect(new URL(requests[0].url).search).toBe("");
-    expect(requests[0].body).toEqual({
+    const request = only(requests);
+    expect(new URL(request.url).search).toBe("");
+    expect(request.body).toEqual({
       requires_restart: 1,
       update_topic: "config/cameras/front_door/zones",
       config_data: {
