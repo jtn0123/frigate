@@ -57,6 +57,7 @@
         "recording_video_integrity": "A saved recording's video timing could not be verified. Its coverage was withheld; inspect the recording logs.",
         "recording_audio_integrity": "A saved recording had missing or invalid audio timing. Verified video coverage was kept; inspect the recording logs.",
         "shm_too_low": "/dev/shm allocation ({{total}} MB) should be increased to at least {{min}} MB",
+        "object_processing_behind": "Tracked object processing could not keep up, so camera frames were dropped. Check CPU utilization, and whether CPU limits or pinning on the container or VM are leaving Frigate too little CPU",
         "failed_login_one": "Failed login attempt for {{user}}",
         "failed_login_other": "Failed login attempts for {{user}}",
         "update_available": "Frigate {{version}} is available"

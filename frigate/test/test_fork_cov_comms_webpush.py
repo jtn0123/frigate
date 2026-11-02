@@ -141,9 +141,10 @@ class WebPushTestBase(unittest.TestCase):
         self.db.close()
 
     @staticmethod
-    def _pusher(sub: dict[str, Any]) -> MagicMock:
+    def _pusher(sub: dict[str, Any], requests_session: Any = None) -> MagicMock:
         pusher = MagicMock()
         pusher.subscription_info = sub
+        pusher.requests_session = requests_session
         pusher.send.return_value = MagicMock(status_code=201)
         return pusher
 
@@ -160,6 +161,11 @@ class TestConstruction(WebPushTestBase):
         self.assertEqual(self.thread_cls.return_value.start.call_count, 2)
         self.assertEqual(len(client.web_pushers["admin"]), 2)
         self.assertEqual(len(client.web_pushers["viewer"]), 1)
+        # every pusher sends through the session that never follows redirects
+        for pusher in client.web_pushers["admin"]:
+            self.assertIsInstance(
+                pusher.requests_session, webpush_module._NoRedirectSession
+            )
         self.assertEqual(
             client.user_cameras["admin"], {"front_door", "back_yard", "garage"}
         )

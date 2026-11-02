@@ -294,18 +294,19 @@ class TestSessionLifecycle(_SessionsTestCase):
         self.assertEqual(response.status_code, 401)
         self.assertNotIn("set-cookie", response.headers)
 
-    def test_refresh_keeps_a_role_missing_from_the_config_as_viewer(self):
-        # login signs a role the config lacks in as viewer; refresh agrees
-        User.update(role="retired").where(User.username == "bob").execute()
+    def test_refresh_refuses_a_viewer_token_for_a_role_missing_from_the_config(self):
+        # logins before E33 signed a role the config lacks in as viewer, which
+        # sees every camera; refresh no longer keeps such a token going
         jti = self._claims(self._login("bob"))["jti"]
+        User.update(role="retired").where(User.username == "bob").execute()
         expiring = create_encoded_jwt(
             "bob", "viewer", int(time.time()) + 60, self.app.jwt_token, jti=jti
         )
 
         response = self._auth(expiring)
 
-        self.assertEqual(response.status_code, 202)
-        self.assertIn("frigate_token", response.cookies)
+        self.assertEqual(response.status_code, 401)
+        self.assertNotIn("set-cookie", response.headers)
 
     def test_token_without_a_session_is_still_accepted(self):
         legacy = self._legacy_token("bob", "garage", 3600)

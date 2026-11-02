@@ -38,16 +38,30 @@ class WatchdogChecksTests(unittest.TestCase):
             terminate=False, lines=["decoder failed"]
         )
 
-    def test_overflow_requires_three_ticks(self):
+    def test_overflow_requires_three_retry_intervals(self):
+        # upstream #24753: camera_fps averages the last 10s, so a burst of
+        # buffered frames stays over the limit for several 1s ticks; three
+        # ticks restarted ffmpeg after 3 seconds instead of 3 retry intervals
         dog = watchdog([])
         dog.camera_fps.value = 15
-        for _ in range(2):
+        for _ in range(3 * dog.sleeptime - 1):
             self.assertFalse(dog._check_detect_process(START.timestamp(), True))
+        dog.reset_capture_thread.assert_not_called()
         self.assertTrue(dog._check_detect_process(START.timestamp(), True))
         dog.reset_capture_thread.assert_called_once_with(
             drain_output=False, cause="exceeded the fps limit"
         )
         self.assertEqual(dog.fps_overflow_count, 0)
+
+    def test_overflow_waits_for_backoff_without_resetting_the_count(self):
+        dog = watchdog([])
+        dog.camera_fps.value = 15
+        for _ in range(3 * dog.sleeptime):
+            self.assertFalse(dog._check_detect_process(START.timestamp(), False))
+        dog.reset_capture_thread.assert_not_called()
+        self.assertEqual(dog.fps_overflow_count, 3 * dog.sleeptime)
+        self.assertTrue(dog._check_detect_process(START.timestamp(), True))
+        dog.reset_capture_thread.assert_called_once()
 
     def test_stale_capture_obeys_backoff(self):
         dog = watchdog([])
