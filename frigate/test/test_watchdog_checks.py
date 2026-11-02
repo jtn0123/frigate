@@ -72,6 +72,17 @@ class WatchdogChecksTests(unittest.TestCase):
             cause="no frames for 20 seconds"
         )
 
+    def test_stale_capture_logs_only_when_restarting(self):
+        # B43 (upstream #24790): a stuck capture logged every tick until the
+        # retry interval allowed the restart
+        dog = watchdog([])
+        dog.logger = MagicMock()
+        for tick in range(21, 25):
+            dog._check_detect_process(START.timestamp() + tick, False)
+        dog.logger.info.assert_not_called()
+        dog._check_detect_process(START.timestamp() + 25, True)
+        dog.logger.info.assert_called_once()
+
     def test_record_grace_boundaries_and_stall_reason_priority(self):
         dog = watchdog([])
         dog.record_enable_time = START

@@ -533,7 +533,7 @@ class TestUpdateExistingSegment(MaintainerTestCase):
         self.assertEqual(segment.zones, ["porch"])
         self.assertTrue(segment.has_frame)
         self.assertEqual(json.loads(self.sent("reviews")[0])["type"], "update")
-        self.maintainer.frame_manager.close.assert_called_once_with("frame")
+        self.maintainer.frame_manager.close.assert_not_called()
 
     def test_detection_activity_extends_detection_time(self) -> None:
         segment = self.segment(SeverityEnum.detection)

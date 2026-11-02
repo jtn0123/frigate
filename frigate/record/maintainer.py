@@ -1199,6 +1199,9 @@ class RecordingMaintainer(threading.Thread):
                         cache_path,
                         exc_info=True,
                     )
+                # B43 (upstream #24704): the return below skips the pop at the
+                # end, which left every kept segment's entry in the cache
+                self.end_time_cache.pop(cache_path, None)
 
                 rand_id = generate_id(6)
 
@@ -1230,6 +1233,10 @@ class RecordingMaintainer(threading.Thread):
                         integrity.audio_seconds if has_audio else None
                     ),
                 }
+            else:
+                # B43 (upstream #24704): the segment was already saved, so drop
+                # the leftover cache file instead of probing it every pass
+                self.drop_segment(cache_path)
         except Exception:
             logger.error(f"Unable to store recording segment {cache_path}")
             logger.exception("Failed to synchronize recordings")

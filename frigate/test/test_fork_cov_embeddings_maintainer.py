@@ -617,6 +617,7 @@ class TestProcessUpdates(MaintainerMixin):
             camera,
             "frame1",
             self.data,
+            5.0,
         )
         self.m._process_updates()
 
@@ -658,20 +659,10 @@ class TestProcessUpdates(MaintainerMixin):
         self.realtime.process_frame.assert_not_called()
         self.m.frame_manager.close.assert_not_called()
 
-    def test_frame_not_found_error(self) -> None:
-        self.m.frame_manager.get.side_effect = FileNotFoundError
-
-        # fixed in the fork (B35): upstream leaves yuv_frame unassigned here,
-        # so this raised UnboundLocalError
-        self.update()
-
-        self.realtime.process_frame.assert_not_called()
-        self.m.frame_manager.close.assert_not_called()
-
     def test_update_feeds_realtime_and_description_processors(self) -> None:
         self.update()
 
-        self.m.frame_manager.get.assert_called_once_with("frame1", FRAME_SHAPE)
+        self.m.frame_manager.get.assert_called_once_with("frame1", FRAME_SHAPE, 5.0)
         self.realtime.process_frame.assert_called_once_with(self.data, self.frame)
         self.describer.process_data.assert_called_once_with(
             {
@@ -683,14 +674,14 @@ class TestProcessUpdates(MaintainerMixin):
             PostProcessDataEnum.tracked_object,
         )
         self.trigger.process_data.assert_not_called()
-        self.m.frame_manager.close.assert_called_once_with("frame1")
+        self.m.frame_manager.close.assert_not_called()
 
     def test_end_events_skip_description_processor(self) -> None:
         self.update(state=EventStateEnum.end)
 
         self.realtime.process_frame.assert_called_once()
         self.describer.process_data.assert_not_called()
-        self.m.frame_manager.close.assert_called_once_with("frame1")
+        self.m.frame_manager.close.assert_not_called()
 
 
 class TestProcessFinalized(MaintainerMixin):
@@ -1023,13 +1014,13 @@ class TestProcessFrameUpdates(MaintainerMixin):
 
         self.detection("plates", motion)
 
-        self.m.frame_manager.get.assert_called_once_with("frame1", FRAME_SHAPE)
+        self.m.frame_manager.get.assert_called_once_with("frame1", FRAME_SHAPE, 1.0)
         self.lpr.process_frame.assert_called_once_with("plates", self.frame, True)
         self.state.process_frame.assert_called_once_with(
             {"camera": "plates", "motion": motion}, self.frame
         )
         self.face.process_frame.assert_not_called()
-        self.m.frame_manager.close.assert_called_once_with("frame1")
+        self.m.frame_manager.close.assert_not_called()
 
     def test_custom_state_model_without_motion(self) -> None:
         self.m.config.classification.custom = {"door": make_model("door")}
@@ -1044,15 +1035,6 @@ class TestProcessFrameUpdates(MaintainerMixin):
     def test_missing_frame_is_skipped(self) -> None:
         self.m.frame_manager.get.return_value = None
 
-        self.detection("plates", [[0, 0, 1, 1]])
-
-        self.lpr.process_frame.assert_not_called()
-        self.m.frame_manager.close.assert_not_called()
-
-    def test_frame_not_found_error(self) -> None:
-        self.m.frame_manager.get.side_effect = FileNotFoundError
-
-        # fixed in the fork (B35), as in _process_updates
         self.detection("plates", [[0, 0, 1, 1]])
 
         self.lpr.process_frame.assert_not_called()

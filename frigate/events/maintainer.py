@@ -91,10 +91,10 @@ class EventProcessor(threading.Thread):
         while not self.stop_event.is_set():
             update = self.event_receiver.check_for_update(timeout=1)
 
-            if update == None:
+            if update is None:
                 continue
 
-            source_type, event_type, camera, _, event_data = update  # type: ignore[misc]
+            source_type, event_type, camera, _, event_data, _ = update
 
             logger.debug(
                 f"Event received: {source_type} {event_type} {camera} {event_data['id']}"

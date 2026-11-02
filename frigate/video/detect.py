@@ -2,10 +2,11 @@
 
 import logging
 import queue
+import random
 import threading
 import time
 from collections import deque
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from multiprocessing import Queue
 from multiprocessing.synchronize import Event as MpEvent
 from typing import Any
@@ -254,7 +255,9 @@ def process_frames(
     region_grid: list[list[dict[str, Any]]],
     exit_on_empty: bool = False,
 ):
-    next_region_update = get_tomorrow_at_time(2)
+    # cameras share one dispatcher, so stagger the daily grid rebuilds
+    region_update_offset = timedelta(seconds=random.randrange(3600))
+    next_region_update = get_tomorrow_at_time(2) + region_update_offset
     config_subscriber = CameraConfigUpdateSubscriber(
         None,
         {camera_config.name: camera_config},
@@ -343,7 +346,7 @@ def process_frames(
             if updated_grid:
                 region_grid = updated_grid
 
-            next_region_update = get_tomorrow_at_time(2)
+            next_region_update = get_tomorrow_at_time(2) + region_update_offset
 
         try:
             if exit_on_empty:
@@ -542,7 +545,6 @@ def process_frames(
         # debug
         # add to the queue if not full
         if detected_objects_queue.full():
-            frame_manager.close(frame_name)
             dropped_frames.dropped(time.monotonic())
             continue
         else:
@@ -559,7 +561,6 @@ def process_frames(
                 )
             )
             camera_metrics.detection_fps.value = object_detector.fps.eps()
-            frame_manager.close(frame_name)
 
     motion_detector.stop()
     requestor.stop()

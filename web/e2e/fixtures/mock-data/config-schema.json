@@ -2777,6 +2777,7 @@
         "expire_interval": {
           "default": 60,
           "description": "Minutes between cleanup passes that remove expired recording segments.",
+          "minimum": 1,
           "title": "Record cleanup interval",
           "type": "integer"
         },
