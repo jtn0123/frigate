@@ -3,10 +3,10 @@
 import logging
 import operator
 import os
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from functools import reduce
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from peewee import fn
 
@@ -157,14 +157,18 @@ def _recordings_for_reviews(review_ids: list[str]) -> dict[str, str]:
     reviews: list[dict[str, Any]] = []
 
     for ids in chunked(review_ids):
+        # the peewee stubs type .dicts() rows as model instances
         reviews.extend(
-            ReviewSegment.select(
-                ReviewSegment.camera,
-                ReviewSegment.start_time,
-                ReviewSegment.end_time,
+            cast(
+                Iterable[dict[str, Any]],
+                ReviewSegment.select(
+                    ReviewSegment.camera,
+                    ReviewSegment.start_time,
+                    ReviewSegment.end_time,
+                )
+                .where(ReviewSegment.id << ids)
+                .dicts(),
             )
-            .where(ReviewSegment.id << ids)
-            .dicts()
         )
 
     recordings: dict[str, str] = {}
@@ -187,7 +191,7 @@ def _recordings_for_reviews(review_ids: list[str]) -> dict[str, str]:
             .where(reduce(operator.or_, clauses))
             .tuples()
         )
-        recordings.update(dict(query))
+        recordings.update(dict(cast(Iterable[tuple[str, str]], query)))
 
     return recordings
 

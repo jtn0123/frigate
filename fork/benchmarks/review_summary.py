@@ -155,8 +155,9 @@ def measure_case(
         params: Sequence[object] | None = None,
         commit: bool | None = None,
     ) -> Any:
+        # commit is a no-op in peewee 3.17 and gone from the 4.0 stubs
         queries.append((sql, params))
-        return execute(sql, params, commit)
+        return execute(sql, params)
 
     with patch.object(db, "execute_sql", side_effect=capture):
         request()

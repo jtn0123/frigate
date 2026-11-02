@@ -40,8 +40,8 @@ def rename_export_file(export: Export, name: str) -> JSONResponse:
                 status_code=500,
             )
 
-    export.name = name  # type: ignore[assignment]
-    export.video_path = new_path  # type: ignore[assignment]
+    export.name = name
+    export.video_path = new_path
 
     try:
         export.save()

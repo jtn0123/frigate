@@ -27,6 +27,7 @@ import time
 import weakref
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, cast
 
 from fastapi import Request
@@ -311,7 +312,9 @@ class SessionStore:
                     )
                 }
                 changed = {
-                    str(user.username): int(user.password_changed_at.timestamp())
+                    str(user.username): int(
+                        cast(datetime, user.password_changed_at).timestamp()
+                    )
                     for user in User.select(
                         User.username, User.password_changed_at
                     ).where(User.password_changed_at.is_null(False))
@@ -467,10 +470,10 @@ class SessionStore:
         return SessionInfo(
             id=session_id,
             username=str(row.username),
-            created_at=cast(float, row.created_at),
+            created_at=row.created_at,
             # the table lags memory by up to LAST_SEEN_WRITE_INTERVAL
-            last_seen=max(cast(float, row.last_seen), self._seen.get(session_id, 0.0)),
-            expires_at=cast(float, row.expires_at),
+            last_seen=max(row.last_seen, self._seen.get(session_id, 0.0)),
+            expires_at=row.expires_at,
             user_agent=str(row.user_agent or ""),
             ip=str(row.ip or ""),
         )
