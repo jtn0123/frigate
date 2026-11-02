@@ -1,4 +1,4 @@
-import copy from "copy-to-clipboard";
+import { copyThen } from "@/lib/fork/clipboard";
 import { t } from "i18next";
 import { toast } from "sonner";
 
@@ -9,9 +9,10 @@ export function shareOrCopy(url: string, title?: string) {
       title: title,
     });
   } else {
-    copy(url);
-    toast.success(t("toast.copyUrlToClipboard", { ns: "common" }), {
-      position: "top-center",
-    });
+    void copyThen(url, () =>
+      toast.success(t("toast.copyUrlToClipboard", { ns: "common" }), {
+        position: "top-center",
+      }),
+    );
   }
 }

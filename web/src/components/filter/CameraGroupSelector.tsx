@@ -932,7 +932,11 @@ export function CameraGroupEdit({
 
   const luIcons = useLuIcons();
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<
+    z.input<typeof formSchema>,
+    unknown,
+    z.output<typeof formSchema>
+  >({
     resolver: zodResolver(formSchema),
     mode: "onSubmit",
     defaultValues: {

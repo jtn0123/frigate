@@ -13,7 +13,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import copy from "copy-to-clipboard";
+import { copyThen } from "@/lib/fork/clipboard";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -229,15 +229,18 @@ export default function MasksAndZonesView({
     (index: number) => {
       if (allPolygons && scaledWidth && scaledHeight) {
         const poly = allPolygons[index];
-        copy(
+        void copyThen(
           interpolatePoints(poly.points, scaledWidth, scaledHeight, 1, 1)
             .map((point) => `${point[0]},${point[1]}`)
             .join(","),
-        );
-        toast.success(
-          t("masksAndZones.toast.success.copyCoordinates", {
-            polyName: poly.name,
-          }),
+          () =>
+            toast.success(
+              t("masksAndZones.toast.success.copyCoordinates", {
+                polyName: poly.name,
+              }),
+            ),
+          () =>
+            toast.error(t("masksAndZones.toast.error.copyCoordinatesFailed")),
         );
       } else {
         toast.error(t("masksAndZones.toast.error.copyCoordinatesFailed"));

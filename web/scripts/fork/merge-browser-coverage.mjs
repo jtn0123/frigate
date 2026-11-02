@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Merge browser execution coverage with Vitest using original source locations. */
 import { readFile, readdir, writeFile } from "node:fs/promises";
-import { resolve, dirname, sep } from "node:path";
+import { basename, resolve, dirname, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { mergeProcessCovs } from "@bcoe/v8-coverage";
 import { convert } from "ast-v8-to-istanbul";
@@ -11,12 +11,18 @@ import libReport from "istanbul-lib-report";
 import reports from "istanbul-reports";
 import { creditFoldedStatements } from "./browser-coverage-statements.mjs";
 
+const ROLLDOWN_RUNTIME = /^rolldown-runtime-[\w-]+\.js$/;
+
 /**
  * Istanbul coverage for one built asset (`converted`) and the statements its
  * minified code folded together (`folded`); both empty when it maps no app
  * source.
  */
 async function convertAsset(entry, asset, baseline) {
+  // Rolldown writes its module runtime helpers to a chunk of their own with
+  // no source map; it holds no app source, so it has nothing to map.
+  if (ROLLDOWN_RUNTIME.test(basename(asset)))
+    return { converted: {}, folded: [] };
   const sourceMap = JSON.parse(await readFile(asset + ".map", "utf8"));
   if (!sourceMap.sources.some((source) => source.includes("/src/")))
     return { converted: {}, folded: [] };

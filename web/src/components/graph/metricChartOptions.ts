@@ -39,7 +39,8 @@ export function createMetricChartOptions({
       enabled: false,
     },
     tooltip: {
-      theme,
+      // apexcharts 8 accepts only the two concrete themes
+      theme: theme === "dark" ? "dark" : "light",
     },
     markers: {
       size: 0,

@@ -690,7 +690,7 @@ export function ExportContent({
     (option: ExportOption) => {
       setSelectedOption(option);
 
-      let start = 0;
+      let start: number;
 
       // fork (UI155): elapsed hours, not wall-clock ones, so a DST change
       // does not stretch or shrink the range

@@ -121,3 +121,40 @@ it("rejects missing source maps so a mismatched build cannot pass", async () => 
   await rm(join(root, "dist/assets/app.js.map"));
   await expect(mergeBrowserCoverage(root)).rejects.toThrow("ENOENT");
 });
+it("accepts the map-less Rolldown runtime chunk next to mapped app code", async () => {
+  const { root, code } = await fixture();
+  await capture(root, code);
+  const runtime = "var e=Object.create;\n";
+  await writeFile(
+    join(root, "dist/assets/rolldown-runtime-B8BYMn-z.js"),
+    runtime,
+  );
+  await writeFile(
+    join(root, "coverage-browser/runtime.json"),
+    JSON.stringify({
+      result: [
+        {
+          scriptId: "2",
+          url: "/assets/rolldown-runtime-B8BYMn-z.js",
+          functions: [
+            {
+              functionName: "",
+              isBlockCoverage: true,
+              ranges: [{ startOffset: 0, endOffset: runtime.length, count: 1 }],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  expect(await mergeBrowserCoverage(root)).toEqual({
+    tests: 2,
+    mappedFiles: 1,
+  });
+});
+it("still rejects other chunks that lack a source map", async () => {
+  const { root, code } = await fixture();
+  await capture(root, code, "/assets/rolldown-runtime.js");
+  await writeFile(join(root, "dist/assets/rolldown-runtime.js"), code);
+  await expect(mergeBrowserCoverage(root)).rejects.toThrow("ENOENT");
+});

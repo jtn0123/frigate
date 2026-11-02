@@ -74,7 +74,7 @@ export default function AutoUpdatingCameraImage({
   const [isCached, setIsCached] = useState(false);
 
   const cacheKey = useMemo(() => {
-    let baseParam = "";
+    let baseParam: string;
 
     if (periodicCache && !isCached) {
       const date = new Date(key);

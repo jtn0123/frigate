@@ -143,7 +143,7 @@ export default function EnrichmentMetrics({
         isSpeed = false;
       }
 
-      let categoryName = "";
+      let categoryName: string;
       // Get translated category name
       if (categoryKey.endsWith("_classification")) {
         const name = categoryKey.replace("_classification", "");

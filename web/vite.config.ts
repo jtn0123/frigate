@@ -1,10 +1,11 @@
-/// <reference types="vitest" />
+/// <reference types="vitest/config" />
 import path, { resolve } from "path";
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import monacoEditorPlugin from "vite-plugin-monaco-editor";
 // @ts-expect-error -- plain ESM helper shared with the e2e CSP check (E6)
 import { cspHeaders } from "./scripts/fork/csp-header.mjs";
+import { vendorChunkGroups } from "./scripts/fork/vendor-chunks.mjs";
 
 const proxyHost = process.env.PROXY_HOST || "localhost:5000";
 
@@ -41,67 +42,20 @@ export default defineConfig({
       },
     },
   },
-  esbuild: {
-    keepNames: true,
-  },
   build: {
     sourcemap: process.env.E2E_COVERAGE === "1",
     // Only the monaco editor chunk legitimately exceeds this.
     chunkSizeWarningLimit: 900,
-    rollupOptions: {
+    rolldownOptions: {
       input: {
-        main: resolve(__dirname, "index.html"),
-        login: resolve(__dirname, "login.html"),
+        main: resolve(import.meta.dirname, "index.html"),
+        login: resolve(import.meta.dirname, "login.html"),
       },
       output: {
-        // Named vendor chunks so a release that touches app code does not
-        // invalidate the cached framework and library bundles.
-        manualChunks(id) {
-          if (!id.includes("node_modules")) {
-            return;
-          }
-          const pkg = id.split("node_modules/").pop()?.split("/") ?? [];
-          const name = pkg[0]?.startsWith("@") ? `${pkg[0]}/${pkg[1]}` : pkg[0];
-          if (!name) {
-            return;
-          }
-          if (
-            [
-              "react",
-              "react-dom",
-              "react-router",
-              "react-router-dom",
-              "@remix-run/router",
-              "scheduler",
-            ].includes(name)
-          ) {
-            return "vendor-react";
-          }
-          if (name.startsWith("@radix-ui/")) {
-            return "vendor-radix";
-          }
-          if (name === "apexcharts" || name === "react-apexcharts") {
-            return "vendor-charts";
-          }
-          if (name === "monaco-editor" || name === "monaco-yaml") {
-            return "vendor-monaco";
-          }
-          if (name === "hls.js") {
-            return "vendor-hls";
-          }
-          if (name === "konva" || name === "react-konva") {
-            return "vendor-konva";
-          }
-          if (
-            name === "framer-motion" ||
-            name === "motion-dom" ||
-            name === "motion-utils"
-          ) {
-            return "vendor-motion";
-          }
-          if (name.startsWith("i18next") || name === "react-i18next") {
-            return "vendor-i18n";
-          }
+        keepNames: true,
+        // Named vendor chunks in priority order (F18, see the helper).
+        codeSplitting: {
+          groups: vendorChunkGroups(),
         },
       },
     },
@@ -115,10 +69,10 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
       // second module id for the full lucide set, see src/components/icons/luIcons.ts
       "react-icons-lu-all": path.resolve(
-        __dirname,
+        import.meta.dirname,
         "node_modules/react-icons/lu/index.js",
       ),
     },
@@ -130,13 +84,16 @@ export default defineConfig({
       {
         find: /^monaco-editor$/,
         replacement: path.resolve(
-          __dirname,
+          import.meta.dirname,
           "node_modules/monaco-editor/esm/vs/editor/editor.main.js",
         ),
       },
       {
         find: "testing-library",
-        replacement: path.resolve(__dirname, "./__test__/testing-library.js"),
+        replacement: path.resolve(
+          import.meta.dirname,
+          "./__test__/testing-library.js",
+        ),
       },
     ],
     setupFiles: ["./__test__/test-setup.ts"],

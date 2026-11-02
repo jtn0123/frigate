@@ -74,7 +74,7 @@ function HistoryChart({
       },
       tooltip: {
         x: {
-          formatter: (value) => formatTime(value / 1000, false),
+          formatter: (value) => formatTime(Number(value) / 1000, false),
         },
       },
       legend: { show: true, position: "bottom" },
