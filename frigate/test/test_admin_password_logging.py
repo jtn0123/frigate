@@ -65,6 +65,8 @@ class TestAdminPasswordLogging(unittest.TestCase):
             patch("frigate.app.save_admin_password") as save,
         ):
             user.select.return_value.count.return_value = 1
+            # the existing admin already has a password hash
+            user.select.return_value.where.return_value.exists.return_value = False
             FrigateApp.init_auth(app)
             save.assert_not_called()
 
