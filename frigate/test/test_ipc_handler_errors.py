@@ -36,8 +36,9 @@ class TestInterProcessHandlerErrors(unittest.TestCase):
                 raise ValueError("handler failed")
             return value
 
-        # subscribe starts the reader thread
+        # the dispatcher starts the reader thread once wiring is done
         self.communicator.subscribe(dispatcher)
+        self.communicator.start()
 
         with self.assertLogs("frigate.comms.inter_process", level="ERROR"):
             self.requestor.send_json(("boom", None))

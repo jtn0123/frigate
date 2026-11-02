@@ -6,10 +6,11 @@ from enum import Enum
 from typing import ClassVar
 
 import requests
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.fields import PrivateAttr
 
 from frigate.const import DEFAULT_ATTRIBUTE_LABEL_MAP, MODEL_CACHE_DIR
+from frigate.fork.legacy_scene import read_legacy_scene
 from frigate.plus import PlusApi, load_plus_model_info
 from frigate.util.builtin import generate_color_palette, load_labels
 
@@ -47,22 +48,19 @@ class ModelTypeEnum(str, Enum):
     yologeneric = "yolo-generic"
 
 
-class SceneEnum(str, Enum):
-    """The camera environment a detection model is intended for."""
-
-    all = "all"
-    indoor = "indoor"
-    outdoor = "outdoor"
-    indoor_thermal = "indoor_thermal"
-    outdoor_thermal = "outdoor_thermal"
+# the scene of the model used by cameras that don't name one
+DEFAULT_SCENE = "default"
+SCENE_PATTERN = r"^[A-Za-z0-9_-]+$"
 
 
 class ModelConfig(BaseModel):
-    scene: SceneEnum = Field(
-        default=SceneEnum.all,
+    scene: str = Field(
+        default=DEFAULT_SCENE,
+        pattern=SCENE_PATTERN,
         title="Model scene",
-        description="The camera environment this model is used for. Cameras select a model by setting detect.scene to a matching value, and 'all' is used by any camera that does not set one.",
+        description="A name for the camera environment this model is used for, such as 'thermal'. Cameras select a model by setting detect.scene to a matching value, and the 'default' model is used by any camera that does not set one.",
     )
+
     devices: list[str] = Field(
         default_factory=list,
         title="Detection hardware",
@@ -124,6 +122,12 @@ class ModelConfig(BaseModel):
     _all_attribute_logos: list[str] = PrivateAttr()
     _model_hash: str = PrivateAttr()
     _plus_id: str | None = PrivateAttr(default=None)
+
+    # fork (B44): B18 saved the catch-all scene as 'all'
+    @field_validator("scene", mode="before")
+    @classmethod
+    def accept_legacy_scene(cls, value: object) -> object:
+        return read_legacy_scene(value)
 
     @property
     def merged_labelmap(self) -> dict[int, str]:

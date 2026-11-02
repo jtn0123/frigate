@@ -215,8 +215,8 @@
         },
         "failed_login_rate_limit": {
           "anyOf": [{ "type": "string" }, { "type": "null" }],
-          "default": null,
-          "description": "Rate limiting rules for failed login attempts to reduce brute-force attacks.",
+          "default": "10/minute;100/hour",
+          "description": "Rate limiting rules for failed login attempts. Defaults to 10 failures per minute and 100 per hour per client IP. Successful logins do not consume the limit. Set null to disable.",
           "title": "Failed login limits"
         },
         "trusted_proxies": {
@@ -249,6 +249,59 @@
         }
       },
       "title": "AuthConfig",
+      "type": "object"
+    },
+    "AutoFileSuggestionsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "File a train image into its dataset class without review when the local text match and Jev name the same class and people have kept that class's drafts often enough. Auto-filed images never count toward that rate.",
+          "title": "Auto-file sure drafts",
+          "type": "boolean"
+        },
+        "min_kept_rate": {
+          "default": 0.9,
+          "description": "The share of a class's drafts people filed unchanged before it may be auto-filed.",
+          "maximum": 1.0,
+          "minimum": 0.5,
+          "title": "Minimum kept rate",
+          "type": "number"
+        },
+        "min_drafts": {
+          "default": 20,
+          "description": "How many drafts of a class people must have reviewed before it may be auto-filed.",
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Minimum reviewed drafts",
+          "type": "integer"
+        },
+        "camera_cooldown": {
+          "default": 7200,
+          "description": "Seconds to wait before auto-filing the same class from the same camera again, so a regular visitor or a parked car does not fill a class with near-identical images (I48).",
+          "maximum": 604800,
+          "minimum": 0,
+          "title": "Same camera cooldown",
+          "type": "integer"
+        },
+        "per_camera_daily_limit": {
+          "default": 10,
+          "description": "Most groups of one class auto-filed from one camera per day (I48).",
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Per camera daily limit",
+          "type": "integer"
+        },
+        "max_model_score": {
+          "default": 0.9,
+          "description": "Skip train images the trained model already scored at or above this as the drafted class. They teach it nothing new (I49). Images under 100 pixels on a side are always skipped (I50), and a class is never auto-filed past three times the smallest class (I51).",
+          "maximum": 1.0,
+          "minimum": 0.5,
+          "title": "Skip sure images",
+          "type": "number"
+        }
+      },
+      "title": "AutoFileSuggestionsConfig",
       "type": "object"
     },
     "BirdClassificationConfig": {
@@ -1042,9 +1095,37 @@
           "description": "Configuration for custom classification models used for objects or state detection.",
           "title": "Custom Classification Models",
           "type": "object"
+        },
+        "suggestions": {
+          "$ref": "#/$defs/ClassificationSuggestionsConfig",
+          "description": "Suggest dataset classes for train images from event descriptions.",
+          "title": "Classification suggestions"
         }
       },
       "title": "ClassificationConfig",
+      "type": "object"
+    },
+    "ClassificationSuggestionsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Show a suggested class on the train grid of custom classification models, read locally from each event's description. Nothing leaves Frigate unless Jev is enabled.",
+          "title": "Suggest classes from descriptions",
+          "type": "boolean"
+        },
+        "jev": {
+          "$ref": "#/$defs/JevSuggestionsConfig",
+          "description": "Optional Jev text extraction through TypeSafe or OpenRouter.",
+          "title": "Jev"
+        },
+        "auto_file": {
+          "$ref": "#/$defs/AutoFileSuggestionsConfig",
+          "description": "File drafts that text and Jev agree on, once a class has earned it.",
+          "title": "Auto-file"
+        }
+      },
+      "title": "ClassificationSuggestionsConfig",
       "type": "object"
     },
     "ColorConfig": {
@@ -1222,10 +1303,11 @@
           "title": "Detect width"
         },
         "scene": {
-          "$ref": "#/$defs/SceneEnum",
-          "default": "all",
-          "description": "The environment this camera looks at, used to pick which of the configured models runs on it. Cameras left on 'all' run the model configured with a scene of 'all'.",
-          "title": "Detect scene"
+          "default": "default",
+          "description": "The environment this camera looks at, used to pick which of the configured models runs on it. Cameras left on 'default' run the model configured with a scene of 'default'.",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Detect scene",
+          "type": "string"
         },
         "fps": {
           "default": 5,
@@ -1739,6 +1821,15 @@
           "description": "Source of images sent to GenAI ('preview' or 'recordings'); 'recordings' uses higher quality frames but more tokens.",
           "title": "Review image source"
         },
+        "max_frames": {
+          "anyOf": [
+            { "maximum": 28, "minimum": 2, "type": "integer" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "description": "Maximum images per review description (2 to 28). Unset preserves the context, duration, and frame-mode limits. Lower values reduce AI work and visual temporal detail while keeping the first and last available frames.",
+          "title": "Maximum review images"
+        },
         "additional_concerns": {
           "default": [],
           "description": "A list of additional concerns or notes the GenAI should consider when evaluating activity on this camera.",
@@ -1852,6 +1943,66 @@
       "enum": ["nchw", "nhwc", "hwnc", "hwcn"],
       "title": "InputTensorEnum",
       "type": "string"
+    },
+    "JevSuggestionsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Send the description text of train images to Jev for a class suggestion, directly through TypeSafe or through OpenRouter. Needs TYPESAFE_API_KEY, OPENROUTER_API_KEY or FRIGATE_JEV_API_KEY in the environment. Only the text is sent: no images, camera names, ids or timestamps.",
+          "title": "Ask Jev",
+          "type": "boolean"
+        },
+        "provider": {
+          "default": "auto",
+          "description": "Where Jev is asked. auto picks OpenRouter for a FRIGATE_JEV_API_KEY starting with sk-or- and TypeSafe for any other, then TypeSafe for TYPESAFE_API_KEY and OpenRouter for OPENROUTER_API_KEY.",
+          "enum": ["auto", "typesafe", "openrouter"],
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "description": "The Jev model to ask. Empty means jev-1.13.0 on TypeSafe and typesafe/jev-1.13 on OpenRouter, the version the draft thresholds were measured on.",
+          "title": "Jev model"
+        },
+        "url": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "description": "Where requests are posted. Empty means the provider's own endpoint. Set it to route through a gateway.",
+          "title": "Decisions URL"
+        },
+        "daily_request_limit": {
+          "default": 200,
+          "description": "Maximum provider requests per UTC day, counted across restarts. Answers are cached, so a description is only ever sent once.",
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Daily request limit",
+          "type": "integer"
+        },
+        "background": {
+          "default": true,
+          "description": "Ask Jev for a class as soon as each description is written, so the train grid finds the answer already cached and the daily limit is spread over the day. Off means Jev is only asked while the train grid is open.",
+          "title": "Ask as descriptions arrive",
+          "type": "boolean"
+        },
+        "cameras": {
+          "description": "Only send descriptions from these cameras. Empty means every camera.",
+          "items": { "type": "string" },
+          "title": "Cameras",
+          "type": "array"
+        },
+        "timeout": {
+          "default": 20,
+          "description": "Seconds to wait for one Jev answer.",
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Request timeout",
+          "type": "integer"
+        }
+      },
+      "title": "JevSuggestionsConfig",
+      "type": "object"
     },
     "LicensePlateRecognitionConfig": {
       "additionalProperties": false,
@@ -2047,10 +2198,11 @@
       "additionalProperties": false,
       "properties": {
         "scene": {
-          "$ref": "#/$defs/SceneEnum",
-          "default": "all",
-          "description": "The camera environment this model is used for. Cameras select a model by setting detect.scene to a matching value, and 'all' is used by any camera that does not set one.",
-          "title": "Model scene"
+          "default": "default",
+          "description": "A name for the camera environment this model is used for, such as 'thermal'. Cameras select a model by setting detect.scene to a matching value, and the 'default' model is used by any camera that does not set one.",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model scene",
+          "type": "string"
         },
         "devices": {
           "description": "Hardware this model runs on, as '<detector>' or '<detector>:<device>' (for example 'edgetpu:pci:0' or 'openvino:GPU'). Listing the same device more than once runs additional inference processes on it.",
@@ -2650,7 +2802,7 @@
         "default_role": {
           "anyOf": [{ "type": "string" }, { "type": "null" }],
           "default": "viewer",
-          "description": "Default role assigned to proxy-authenticated users when no role mapping applies.",
+          "description": "Default role assigned to proxy-authenticated users when no role mapping applies. Set to 'none' to deny access to unmapped users.",
           "title": "Default role"
         },
         "separator": {
@@ -2878,7 +3030,7 @@
         "days": {
           "default": 0,
           "description": "Days to retain recordings.",
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Retention days",
           "type": "number"
         }
@@ -2999,7 +3151,7 @@
         "days": {
           "default": 10,
           "description": "Number of days to retain recordings of detection events.",
-          "minimum": 0.0,
+          "minimum": 0,
           "title": "Retention days",
           "type": "number"
         },
@@ -3012,12 +3164,6 @@
       },
       "title": "ReviewRetainConfig",
       "type": "object"
-    },
-    "SceneEnum": {
-      "description": "The camera environment a detection model is intended for.",
-      "enum": ["all", "indoor", "outdoor", "indoor_thermal", "outdoor_thermal"],
-      "title": "SceneEnum",
-      "type": "string"
     },
     "SemanticSearchConfig": {
       "additionalProperties": false,
@@ -3586,7 +3732,7 @@
       "title": "UI"
     },
     "models": {
-      "description": "Object detection models and the hardware each one runs on. Cameras pick a model by matching their detect.scene against a model's scene.",
+      "description": "Object detection models and the hardware each one runs on. Cameras pick a model by matching their detect.scene against a model's scene, falling back to the 'default' model.",
       "items": { "$ref": "#/$defs/ModelConfig" },
       "title": "Detection models",
       "type": "array"

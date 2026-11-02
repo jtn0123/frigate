@@ -2,22 +2,25 @@
 
 import base64
 import binascii
-import io
 import json
 import logging
 import time
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import numpy as np
 from httpx import RemoteProtocolError, TimeoutException
 from ollama import AsyncClient as OllamaAsyncClient
 from ollama import Client as ApiClient
 from ollama import ResponseError
-from PIL import Image
 
 from frigate.config import GenAIProviderEnum
 from frigate.genai import GenAIClient, register_genai_provider
-from frigate.genai.utils import interleave_images, parse_tool_calls_from_message
+from frigate.genai.utils import (
+    interleave_images,
+    parse_tool_calls_from_message,
+    to_jpeg,
+)
 from frigate.stats.generation_metrics import record_generation_metrics
 from frigate.stats.generation_requests import generation_request
 
@@ -129,24 +132,38 @@ class OllamaClient(GenAIClient):
 
     provider: ApiClient | None
     provider_options: dict[str, Any]
+    _capabilities_cache: list[str] | None = None
     _supports_thinking_cache: bool | None = None
-    _image_token_cache: dict[tuple[int, int], int]
-    _text_baseline_tokens: int | None
+
+    def _model_capabilities(self) -> list[str] | None:
+        """Capabilities Ollama reports for the configured model, or None when
+        they could not be fetched. Only successful lookups are cached."""
+        if self._capabilities_cache is not None:
+            return self._capabilities_cache
+        if self.provider is None:
+            return None
+        try:
+            response = self.provider.show(self.genai_config.model)
+        except Exception as e:
+            logger.debug("Failed to query Ollama model capabilities: %s", e)
+            return None
+        self._capabilities_cache = list(response.get("capabilities") or [])
+        return self._capabilities_cache
 
     @property
     def supports_toggleable_thinking(self) -> bool:
         if self._supports_thinking_cache is not None:
             return self._supports_thinking_cache
-        if self.provider is None:
+        capabilities = self._model_capabilities()
+        if capabilities is None:
             return False
-        try:
-            response = self.provider.show(self.genai_config.model)
-            capabilities = response.get("capabilities") or []
-            self._supports_thinking_cache = "thinking" in capabilities
-        except Exception as e:
-            logger.debug("Failed to query Ollama model capabilities: %s", e)
-            self._supports_thinking_cache = False
+        self._supports_thinking_cache = "thinking" in capabilities
         return self._supports_thinking_cache
+
+    @property
+    def supports_embeddings(self) -> bool:
+        """Whether Ollama reports the configured model as an embedding model."""
+        return "embedding" in (self._model_capabilities() or [])
 
     def _auth_headers(self) -> dict | None:
         if self.genai_config.api_key:
@@ -156,8 +173,6 @@ class OllamaClient(GenAIClient):
 
     def _init_provider(self) -> ApiClient | None:
         """Initialize the client."""
-        self._image_token_cache = {}
-        self._text_baseline_tokens = None
         self.provider_options = {
             **self.LOCAL_OPTIMIZED_OPTIONS,
             **self.genai_config.provider_options,
@@ -337,82 +352,92 @@ class OllamaClient(GenAIClient):
             self.genai_config.provider_options.get("options", {}).get("num_ctx", 4096)
         )
 
-    def estimate_image_tokens(self, width: int, height: int) -> float:
-        """Measure the model's image-token cost at the requested dimensions.
+    def _count_prompt_tokens(self, image: bytes | None) -> int | None:
+        """Send a 1-token chat request and return Ollama's prompt_eval_count.
 
-        Vision models served by Ollama resize images to their own patch grid, so
-        the base pixel heuristic can be far off: qwen3-vl spends ~1,055 tokens on
-        a 320x180 preview frame where the heuristic predicts 46, and review
-        summaries then overflow the context window. The cost depends only on the
-        dimensions and the loaded model, so it is cached per (width, height).
-        Falls back to the base heuristic if Ollama cannot be reached.
+        Reuses the description request options so the probe runs with the same
+        num_ctx; a different value would make Ollama reload the model.
         """
         if self.provider is None:
-            return super().estimate_image_tokens(width, height)
+            return None
 
-        cached = self._image_token_cache.get((width, height))
-        if cached is not None:
-            return cached
+        message: dict[str, Any] = {"role": "user", "content": "."}
+
+        if image is not None:
+            message["images"] = [image]
+
+        request_params = self._build_request_params(
+            [message], None, None, enable_thinking=False
+        )
+        request_params["options"] = {
+            **(request_params.get("options") or {}),
+            "num_predict": 1,
+        }
+        response = self.provider.chat(**request_params)
+        count = response.get("prompt_eval_count")
+        return int(count) if count is not None else None
+
+    def embed(
+        self,
+        texts: list[str] | None = None,
+        images: list[bytes] | None = None,
+    ) -> list[np.ndarray]:
+        """Generate embeddings via Ollama's /api/embed endpoint.
+
+        Each text is a plain string in `input` and each image is an
+        ``{"image": <base64>}`` item. Image input requires Ollama 0.40.1 or
+        newer and a model with a vision encoder (e.g. embeddinggemma-2:440m).
+        """
+        if self.provider is None:
+            logger.warning(
+                "Ollama provider has not been initialized. Check your Ollama configuration."
+            )
+            return []
+
+        texts = texts or []
+        images = images or []
+        if not texts and not images:
+            return []
+
+        inputs: list[str | dict[str, str]] = list(texts)
+        for img in images:
+            jpeg_bytes = to_jpeg(img)
+            to_encode = jpeg_bytes if jpeg_bytes is not None else img
+            inputs.append({"image": base64.b64encode(to_encode).decode("utf-8")})
+
+        payload: dict[str, Any] = {"model": self.genai_config.model, "input": inputs}
+        for key in ("options", "keep_alive"):
+            if key in self.genai_config.provider_options:
+                payload[key] = self.genai_config.provider_options[key]
 
         try:
-            baseline = self._probe_baseline_tokens()
-            with_image = self._probe_prompt_tokens(self._probe_image(width, height))
-            tokens = max(1, with_image - baseline)
-        except Exception as e:
-            logger.debug(
-                "Ollama image-token probe failed for %dx%d (%s); using heuristic",
-                width,
-                height,
-                e,
+            # The ollama SDK's embed() validates input as strings only, so
+            # image items have to bypass it and post the JSON directly.
+            response = self.provider._request_raw("POST", "/api/embed", json=payload)
+            body = response.json()
+        except (
+            TimeoutException,
+            ResponseError,
+            RemoteProtocolError,
+            ConnectionError,
+            ValueError,
+        ) as e:
+            logger.warning("Ollama embeddings error: %s", str(e))
+            return []
+
+        vectors = body.get("embeddings") if isinstance(body, dict) else None
+        if not isinstance(vectors, list):
+            logger.warning("Ollama embeddings returned unexpected format")
+            return []
+
+        if len(vectors) != len(inputs):
+            logger.warning(
+                "Ollama returned %d embeddings for %d inputs",
+                len(vectors),
+                len(inputs),
             )
-            return super().estimate_image_tokens(width, height)
 
-        self._image_token_cache[(width, height)] = tokens
-        logger.debug(
-            "Ollama model '%s' uses ~%d tokens for %dx%d images",
-            self.genai_config.model,
-            tokens,
-            width,
-            height,
-        )
-        return tokens
-
-    def _probe_baseline_tokens(self) -> int:
-        """Return prompt tokens for a minimal text-only request, cached after the first call."""
-        if self._text_baseline_tokens is None:
-            self._text_baseline_tokens = self._probe_prompt_tokens(None)
-        return self._text_baseline_tokens
-
-    @staticmethod
-    def _probe_image(width: int, height: int) -> bytes:
-        """Return a synthetic JPEG of the given dimensions."""
-        img = Image.new("RGB", (width, height), (128, 128, 128))
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=60)
-        return buf.getvalue()
-
-    def _probe_prompt_tokens(self, image: bytes | None) -> int:
-        """Generate one token and return Ollama's reported prompt_eval_count.
-
-        Uses the same merged options as _send, so the probe reuses the loaded
-        model (same num_ctx and keep_alive) instead of forcing a reload.
-        """
-        if self.provider is None:
-            raise RuntimeError("Ollama provider is not initialized")
-
-        options = {**self.provider_options, **self.genai_config.runtime_options}
-        options["options"] = {**options.get("options", {}), "num_predict": 1}
-        options.pop("format", None)
-        if self.supports_toggleable_thinking:
-            options["think"] = False
-
-        result = self.provider.generate(
-            self.genai_config.model,
-            ".",
-            images=[image] if image else None,
-            **options,
-        )
-        return int(result["prompt_eval_count"])
+        return [np.asarray(v, dtype=np.float32).flatten() for v in vectors]
 
     def _build_request_params(
         self,

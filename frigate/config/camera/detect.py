@@ -1,6 +1,7 @@
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from frigate.detectors.detector_config import SceneEnum
+from frigate.detectors.detector_config import DEFAULT_SCENE, SCENE_PATTERN
+from frigate.fork.legacy_scene import read_legacy_scene
 
 from ..base import FrigateBaseModel
 
@@ -62,11 +63,13 @@ class DetectConfig(FrigateBaseModel):
         title="Detect width",
         description="Width (pixels) of frames used for the detect stream; leave empty to use the native stream resolution.",
     )
-    scene: SceneEnum = Field(
-        default=SceneEnum.all,
+    scene: str = Field(
+        default=DEFAULT_SCENE,
+        pattern=SCENE_PATTERN,
         title="Detect scene",
-        description="The environment this camera looks at, used to pick which of the configured models runs on it. Cameras left on 'all' run the model configured with a scene of 'all'.",
+        description="The environment this camera looks at, used to pick which of the configured models runs on it. Cameras left on 'default' run the model configured with a scene of 'default'.",
     )
+
     fps: int = Field(
         default=5,
         title="Detect FPS",
@@ -93,6 +96,12 @@ class DetectConfig(FrigateBaseModel):
         title="Annotation offset",
         description="Milliseconds to shift detect annotations to better align timeline bounding boxes with recordings; can be positive or negative.",
     )
+
+    # fork (B44): B18 saved the catch-all scene as 'all'
+    @field_validator("scene", mode="before")
+    @classmethod
+    def accept_legacy_scene(cls, value: object) -> object:
+        return read_legacy_scene(value)
 
     @model_validator(mode="after")
     def validate_dimensions(self) -> "DetectConfig":

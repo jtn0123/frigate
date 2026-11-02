@@ -313,7 +313,7 @@ describe("getSectionConfig", () => {
 
 describe("hidden fields and attribute labels", () => {
   const config = cfg({
-    models: [{ scene: "all", all_attributes: ["face", "license_plate"] }],
+    models: [{ scene: "default", all_attributes: ["face", "license_plate"] }],
     objects: { track: ["person", "face"] },
     cameras: {
       lpr_cam: { type: "lpr", objects: { track: ["license_plate"] } },

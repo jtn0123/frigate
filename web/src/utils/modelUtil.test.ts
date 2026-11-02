@@ -7,12 +7,12 @@ import {
   isAttributeLabel,
   isAttributeOfLabel,
 } from "./modelUtil";
-it("selects scene-specific, all-scene and first models in fallback order", () => {
+it("selects scene-specific, default and first models in fallback order", () => {
   const config = createConfigFixture();
   const base = config.models[0];
   config.models = [
     { ...base, scene: "vehicles" },
-    { ...base, scene: "all" },
+    { ...base, scene: "default" },
   ];
   config.cameras.front_door.detect.scene = "vehicles";
   expect(getModelForCamera(config, "front_door")).toBe(config.models[0]);

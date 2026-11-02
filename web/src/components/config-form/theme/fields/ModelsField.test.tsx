@@ -34,10 +34,7 @@ const SCHEMA: RJSFSchema = {
   items: {
     type: "object",
     properties: {
-      scene: {
-        type: "string",
-        enum: ["all", "indoor", "outdoor", "indoor_thermal", "outdoor_thermal"],
-      },
+      scene: { type: "string", default: "default" },
       path: { type: "string" },
       width: { type: "integer" },
     },
@@ -107,11 +104,18 @@ it("keeps a custom model on the custom tab after the Frigate+ model before it is
   render(
     <Harness
       initial={[
-        { scene: "all", path: "/config/model_cache/plus/abc", devices: [] },
+        { scene: "default", path: "/config/model_cache/plus/abc", devices: [] },
         { scene: "indoor", path: "/config/custom.onnx", devices: [] },
       ]}
       fullConfig={{
-        models: [{ scene: "all", plus: { id: "abc" } }, { scene: "indoor" }],
+        models: [
+          {
+            scene: "default",
+            path: "/config/model_cache/plus/abc",
+            plus: { id: "abc" },
+          },
+          { scene: "indoor", path: "/config/custom.onnx" },
+        ],
         cameras: {},
       }}
       onSaved={onSaved}
@@ -143,7 +147,7 @@ it("gives a model added after a delete its own card", () => {
   render(
     <Harness
       initial={[
-        { scene: "all", devices: [] },
+        { scene: "default", devices: [] },
         { scene: "indoor", devices: [] },
       ]}
       fullConfig={{ cameras: {} }}
@@ -157,8 +161,8 @@ it("gives a model added after a delete its own card", () => {
   );
 
   expect(onSaved).toHaveBeenLastCalledWith([
-    { scene: "all", devices: [] },
-    expect.objectContaining({ scene: "indoor", devices: [] }),
+    { scene: "default", devices: [] },
+    expect.objectContaining({ scene: "", devices: [] }),
   ]);
   expect(screen.getAllByRole("button", { name: "button.delete" })).toHaveLength(
     2,
@@ -176,11 +180,11 @@ it("counts cameras whose scene matches a model exactly", () => {
   render(
     <Harness
       initial={[
-        { scene: "all", devices: [] },
+        { scene: "default", devices: [] },
         { scene: "indoor", devices: [] },
       ]}
       fullConfig={{
-        cameras: cameras(["indoor", "indoor", undefined, "all"]),
+        cameras: cameras(["indoor", "indoor", undefined, "default"]),
       }}
     />,
   );
@@ -191,11 +195,11 @@ it("counts cameras whose scene matches a model exactly", () => {
   ]);
 });
 
-it("counts cameras whose scene has no model toward the all model", () => {
+it("counts cameras whose scene has no model toward the default model", () => {
   render(
     <Harness
       initial={[
-        { scene: "all", devices: [] },
+        { scene: "default", devices: [] },
         { scene: "indoor", devices: [] },
       ]}
       fullConfig={{
@@ -204,12 +208,12 @@ it("counts cameras whose scene has no model toward the all model", () => {
     />,
   );
 
-  const [allCard, indoorCard] = cardCountText();
-  expect(allCard).toBe("detectionModels.cameras:3");
+  const [defaultCard, indoorCard] = cardCountText();
+  expect(defaultCard).toBe("detectionModels.cameras:3");
   expect(indoorCard).toBe("detectionModels.cameras:1");
 });
 
-it("treats a model without a scene as the all model", () => {
+it("treats a model without a scene as the default model", () => {
   render(
     <Harness
       initial={[{ devices: [] }]}
@@ -222,7 +226,7 @@ it("treats a model without a scene as the all model", () => {
   expect(cardCountText()).toEqual(["detectionModels.cameras:2"]);
 });
 
-it("attributes unmatched cameras to no model when there is no all model", () => {
+it("attributes unmatched cameras to no model when there is no default model", () => {
   render(
     <Harness
       initial={[

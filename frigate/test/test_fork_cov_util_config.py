@@ -849,7 +849,7 @@ class TestMigrateModelsEdges(unittest.TestCase):
     def test_null_detector_entry_is_a_cpu_detector(self) -> None:
         migrated = migrate_models({"detectors": {"cpu1": None}, "model": None})
 
-        self.assertEqual(migrated["models"], [{"scene": "all", "devices": ["cpu"]}])
+        self.assertEqual(migrated["models"], [{"scene": "default", "devices": ["cpu"]}])
         self.assertNotIn("model", migrated)
 
     def test_unknown_detector_type_is_treated_as_shareable(self) -> None:
@@ -1177,7 +1177,7 @@ class TestMigrateFrigateConfigFile(unittest.TestCase):
             migrated["models"],
             [
                 {
-                    "scene": "all",
+                    "scene": "default",
                     "path": "/edgetpu.tflite",
                     "devices": ["edgetpu:usb"],
                 }

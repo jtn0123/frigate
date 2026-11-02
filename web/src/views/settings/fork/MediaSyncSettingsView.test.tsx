@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   post: vi.fn<(url: string, body: unknown) => Promise<unknown>>(),
   toastSuccess: vi.fn<(message: string) => void>(),
   toastError: vi.fn<(message: string) => void>(),
+  job: undefined as unknown,
 }));
 
 vi.mock("react-i18next", async (importOriginal) => ({
@@ -29,7 +30,7 @@ vi.mock("sonner", () => ({
   },
 }));
 vi.mock("@/api/ws", () => ({
-  useJobStatus: () => ({ payload: undefined }),
+  useJobStatus: () => ({ payload: h.job }),
 }));
 vi.mock("@/hooks/use-doc-domain", () => ({
   useDocDomain: () => ({ getLocaleDocUrl: (path: string) => path }),
@@ -58,6 +59,7 @@ describe("MediaSyncSettingsView (fork UI155)", () => {
     h.post.mockReset();
     h.toastSuccess.mockReset();
     h.toastError.mockReset();
+    h.job = undefined;
   });
 
   it("says a sync is already running when the server answers 409", async () => {
@@ -85,5 +87,43 @@ describe("MediaSyncSettingsView (fork UI155)", () => {
     await waitFor(() =>
       expect(h.toastSuccess).toHaveBeenCalledWith("maintenance.sync.started"),
     );
+  });
+
+  it.each([
+    [true, "maintenance.sync.resultsFields.spaceToReclaim"],
+    [false, "maintenance.sync.resultsFields.spaceReclaimed"],
+  ])("shows the space a finished sync freed (dry run %s)", (dryRun, label) => {
+    const stats = {
+      files_checked: 4,
+      orphans_found: 2,
+      orphans_deleted: dryRun ? 0 : 2,
+      bytes_reclaimed: 1536,
+      aborted: false,
+      error: null,
+    };
+    h.job = {
+      id: "job1",
+      job_type: "media_sync",
+      status: "success",
+      dry_run: dryRun,
+      results: {
+        previews: stats,
+        totals: {
+          files_checked: 4,
+          orphans_found: 2,
+          orphans_deleted: stats.orphans_deleted,
+          bytes_reclaimed: 3 * 1048576,
+        },
+      },
+    };
+    render(
+      <MemoryRouter>
+        <MediaSyncSettingsView />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText(label)).toHaveLength(2);
+    expect(screen.getByText("1.50 KiB")).toBeTruthy();
+    expect(screen.getByText("3.00 MiB")).toBeTruthy();
   });
 });
