@@ -206,6 +206,49 @@ class TestCameraWatchdogStreamHealth(unittest.TestCase):
             is None
         )
 
+    def test_shared_sub_goes_offline_with_detect(self):
+        """B42 (upstream #24544): the sub stream recorded by the detect
+        process reports offline with detect, not once its segments go stale."""
+        watchdog = self._build_watchdog()
+        watchdog.detect_process_records_sub = True
+        watchdog.reset_capture_thread = MagicMock()
+        now = datetime.now().astimezone(UTC)
+        watchdog.latest_cache_segment_time[STREAM_TYPE_SUB] = now.timestamp()
+        watchdog.latest_valid_segment_time[STREAM_TYPE_SUB] = now.timestamp()
+
+        watchdog._send_detect_status("online", 100.0)
+        assert watchdog._check_shared_sub_stream(100.0, True) is False
+        watchdog._send_detect_status("offline", 101.0)
+        assert watchdog._check_shared_sub_stream(101.0, True) is False
+
+        watchdog.requestor.send_data.assert_any_call(
+            "front_door/status/record_sub", "online"
+        )
+        assert watchdog.requestor.send_data.call_args_list[-1].args == (
+            "front_door/status/record_sub",
+            "offline",
+        )
+        watchdog.reset_capture_thread.assert_not_called()
+
+    def test_stale_shared_sub_restarts_detect_while_detect_is_online(self):
+        watchdog = self._build_watchdog()
+        watchdog.detect_process_records_sub = True
+        watchdog.reset_capture_thread = MagicMock()
+        stale = (datetime.now().astimezone(UTC) - timedelta(hours=1)).timestamp()
+        watchdog.latest_cache_segment_time[STREAM_TYPE_SUB] = stale
+        watchdog.latest_valid_segment_time[STREAM_TYPE_SUB] = stale
+        watchdog._send_detect_status("online", 100.0)
+
+        assert watchdog._check_shared_sub_stream(100.0, False) is False
+        watchdog.reset_capture_thread.assert_not_called()
+
+        assert watchdog._check_shared_sub_stream(100.0, True) is True
+        watchdog.reset_capture_thread.assert_called_once_with()
+        assert watchdog.requestor.send_data.call_args_list[-1].args == (
+            "front_door/status/record_sub",
+            "offline",
+        )
+
     def test_detect_reset_leaves_sub_alone_when_not_shared(self):
         watchdog = self._build_watchdog()
         watchdog.detect_process_records_sub = False

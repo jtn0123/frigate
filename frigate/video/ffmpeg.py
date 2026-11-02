@@ -635,6 +635,27 @@ class CameraWatchdog(threading.Thread):
         )
         _send_roles_offline(self, process["roles"], now.timestamp())
 
+    def _check_shared_sub_stream(self, now: float, can_restart: bool) -> bool:
+        """Report the sub stream the detect process records, True if restarted."""
+        now_utc = datetime.now().astimezone(UTC)
+        stale_reason = self._stream_staleness(STREAM_TYPE_SUB, now_utc)
+
+        if self._last_detect_status == "offline":
+            # B42 (upstream #24544): the sub stream is down whenever the detect
+            # process is, so it goes offline with detect instead of going stale
+            self._send_record_status(STREAM_TYPE_SUB, "offline", now)
+        elif stale_reason is None:
+            self._send_record_status(STREAM_TYPE_SUB, "online", now)
+        elif can_restart:
+            self.logger.error(
+                f"{stale_reason} for {self.config.name} (sub, shared with detect) in the last {self.record_stale_threshold[STREAM_TYPE_SUB]}s. Restarting ffmpeg..."
+            )
+            self._send_record_status(STREAM_TYPE_SUB, "offline", now)
+            self.reset_capture_thread()
+            return True
+
+        return False
+
     def _check_record_processes(self, now: float, can_restart: bool = True) -> bool:
         """Check each recording stream and retain restart logging and grace."""
         restarted = False
@@ -790,21 +811,9 @@ class CameraWatchdog(threading.Thread):
             if (
                 self.detect_process_records_sub
                 and self.config.record.stream_enabled(STREAM_TYPE_SUB)
-                and self.capture_thread is not None
-                and self.capture_thread.is_alive()
+                and self._check_shared_sub_stream(now, can_restart)
             ):
-                now_utc = datetime.now().astimezone(UTC)
-                stale_reason = self._stream_staleness(STREAM_TYPE_SUB, now_utc)
-
-                if stale_reason is None:
-                    self._send_record_status(STREAM_TYPE_SUB, "online", now)
-                elif can_restart:
-                    self.logger.error(
-                        f"{stale_reason} for {self.config.name} (sub, shared with detect) in the last {self.record_stale_threshold[STREAM_TYPE_SUB]}s. Restarting ffmpeg..."
-                    )
-                    self._send_record_status(STREAM_TYPE_SUB, "offline", now)
-                    self.reset_capture_thread()
-                    last_restart_time = now
+                last_restart_time = now
 
             # Prune expired reconnect timestamps
             now = datetime.now().timestamp()
