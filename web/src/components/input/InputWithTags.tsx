@@ -265,9 +265,9 @@ export default function InputWithTags({
         type == "max_speed"
       ) {
         const newFilters = { ...filters };
-        let timestamp = 0;
-        let score = 0;
-        let speed = 0;
+        let timestamp: number;
+        let score: number;
+        let speed: number;
 
         switch (type) {
           case "before":

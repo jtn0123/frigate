@@ -4,9 +4,8 @@ import DebugReplayDialog from "@/components/overlay/DebugReplayDialog";
 import ExportDialog from "@/components/overlay/ExportDialog";
 import ActionsDropdown from "@/components/overlay/ActionsDropdown";
 import { wrapAsync } from "@/utils/promise";
-import PreviewPlayer, {
-  PreviewController,
-} from "@/components/player/PreviewPlayer";
+import PreviewPlayer from "@/components/player/PreviewPlayer";
+import { PreviewController } from "@/components/player/PreviewController";
 import type { PlaybackControllerLike } from "@/lib/fork/synced-playback";
 import DynamicVideoPlayer from "@/components/player/dynamic/DynamicVideoPlayer";
 import QualitySelector from "@/components/player/QualitySelector";
