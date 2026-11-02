@@ -1226,6 +1226,9 @@ class RecordingMaintainer(threading.Thread):
                     Recordings.audio_codec.name: audio_codec,
                     Recordings.video_codec.name: video_codec,
                     Recordings.keyframes.name: verified_keyframes,
+                    Recordings.audio_duration.name: (
+                        integrity.audio_seconds if has_audio else None
+                    ),
                 }
         except Exception:
             logger.error(f"Unable to store recording segment {cache_path}")

@@ -46,6 +46,7 @@ class CoverageDbTestCase(unittest.TestCase):
         has_audio=None,
         segment_size=0,
         keyframes=None,
+        audio_duration=None,
     ):
         Recordings.create(
             id=id,
@@ -61,6 +62,7 @@ class CoverageDbTestCase(unittest.TestCase):
             has_audio=has_audio,
             segment_size=segment_size,
             keyframes=keyframes,
+            audio_duration=audio_duration,
         )
 
 
@@ -421,3 +423,92 @@ class TestVodManifestKeyFrames(CoverageDbTestCase):
         self._insert("m1", 1000.0, 1010.0, "main")
         clips = self._clips(1000.0, 1010.0)
         assert clips[0]["keyFrameDurations"] == [10000]
+
+
+class TestVodAudioCutShort(CoverageDbTestCase):
+    """A clip whose audio ends before its clipFrom has no audio track to nginx-vod."""
+
+    KEYFRAMES = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000]
+
+    def _insert_pair(self, first_audio_duration):
+        # the first row's audio dropped out; the range starts 5s into it
+        for id, start, audio_duration in (
+            ("m1", 1000.0, first_audio_duration),
+            ("m2", 1010.0, 10.0),
+        ):
+            self._insert(
+                id,
+                start,
+                start + 10.0,
+                "main",
+                has_audio=True,
+                audio_codec="aac",
+                audio_rate=16000,
+                keyframes=self.KEYFRAMES,
+                audio_duration=audio_duration,
+            )
+
+    def _clips(self, start, end):
+        response = _vod_response("front_door", start, end)
+        return json.loads(response.body)["sequences"][0]["clips"]
+
+    def test_clip_past_audio_end_is_skipped(self):
+        self._insert_pair(2.112)
+        clips = self._clips(1005.0, 1020.0)
+        assert [c["path"] for c in clips] == ["/tmp/m2.mp4"]
+        timeline = realized_timeline(
+            resolve_coverage("front_door", 1005.0, 1020.0), None
+        )
+        assert [t["duration"] for t in timeline] == [0, 10000]
+
+    def test_clip_with_audio_left_is_kept(self):
+        # nginx-vod keeps the track while any sample lies past clipFrom
+        self._insert_pair(5.001)
+        clips = self._clips(1005.0, 1020.0)
+        assert clips[0]["clipFrom"] == 5000
+        assert len(clips) == 2
+
+    def test_clip_starting_on_audio_end_is_skipped(self):
+        self._insert_pair(5.0)
+        clips = self._clips(1005.0, 1020.0)
+        assert len(clips) == 1
+
+    def test_legacy_row_is_kept(self):
+        self._insert_pair(None)
+        clips = self._clips(1005.0, 1020.0)
+        assert len(clips) == 2
+
+    def test_video_only_range_keeps_clip(self):
+        # a video-only sub row serves the whole range without audio, so
+        # nginx-vod never compares audio tracks
+        self._insert(
+            "m1",
+            1000.0,
+            1010.0,
+            "main",
+            has_audio=True,
+            audio_codec="aac",
+            audio_rate=16000,
+            keyframes=self.KEYFRAMES,
+            audio_duration=2.112,
+        )
+        self._insert(
+            "s1", 1010.0, 1020.0, "sub", has_audio=False, keyframes=self.KEYFRAMES
+        )
+        clips = self._clips(1005.0, 1020.0)
+        assert [c["path"] for c in clips] == ["/tmp/m1.mp4", "/tmp/s1.mp4"]
+        assert all(c["tracks"] == "v" for c in clips)
+        timeline = realized_timeline(
+            resolve_coverage("front_door", 1005.0, 1020.0), None
+        )
+        assert timeline[0]["duration"] > 0
+
+    def test_sole_clip_is_kept(self):
+        # alone in its sequence the clip plays video-only, so keep it
+        self._insert_pair(2.112)
+        clips = self._clips(1005.0, 1009.0)
+        assert clips[0]["path"] == "/tmp/m1.mp4"
+        timeline = realized_timeline(
+            resolve_coverage("front_door", 1005.0, 1009.0), None
+        )
+        assert timeline[0]["duration"] > 0

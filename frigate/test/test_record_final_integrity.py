@@ -422,6 +422,28 @@ class TestFinalRecordingIntegrity(unittest.IsolatedAsyncioTestCase):
                 json.dumps(event, allow_nan=False)
         self.assertEqual(Recordings.select().count(), 0)
 
+    async def test_audio_cut_short_stores_its_audio_duration(self):
+        # B43 (upstream #24793): playback skips clips that start past this
+        self.probe = media_probe(10, 0)
+        self.probe["packets"] = self.probe["packets"][:-1] + [
+            {
+                "stream_index": 1,
+                "pts_time": str(index * 0.064),
+                "dts_time": str(index * 0.064),
+                "duration_time": "0.064",
+            }
+            for index in range(33)
+        ]
+        await self.save_and_register(10, has_audio=True)
+        row = Recordings.get()
+        self.assertTrue(row.has_audio)
+        self.assertAlmostEqual(row.audio_duration, 2.112)
+
+    async def test_video_only_recording_has_no_audio_duration(self):
+        self.probe = media_probe(10)
+        await self.save_and_register(10)
+        self.assertIsNone(Recordings.get().audio_duration)
+
     async def test_valid_short_video_is_preserved_without_fragment_alarm(self):
         self.probe = media_probe(0.48)
         row = await self.save_and_register(0.48)

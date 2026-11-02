@@ -78,6 +78,30 @@ class TestRecordingPacketIntegrity(unittest.TestCase):
         self.assertEqual(result.audio_status, "ok")
         self.assertTrue(result.audio_present)
 
+    def test_audio_seconds_sums_the_first_audio_stream(self):
+        # B43 (upstream #24793): a camera audio dropout ends the track early
+        data = media_probe(10, 0)
+        data["streams"].append({"index": 2, "codec_type": "audio"})
+        data["packets"] = data["packets"][:-1] + [
+            {
+                "stream_index": stream,
+                "pts_time": str(index * 0.064),
+                "dts_time": str(index * 0.064),
+                "duration_time": "0.064",
+            }
+            for stream, count in ((1, 33), (2, 157))
+            for index in range(count)
+        ]
+        result = inspect_recording(data, 10)
+        self.assertTrue(result.video_verified)
+        self.assertAlmostEqual(result.audio_seconds, 2.112)
+
+    def test_audio_seconds_unknown_without_usable_audio(self):
+        self.assertIsNone(inspect_recording(media_probe(10), 10).audio_seconds)
+        data = media_probe(10, 0)
+        data["packets"][-1]["duration_time"] = "N/A"
+        self.assertIsNone(inspect_recording(data, 10).audio_seconds)
+
     def test_one_audio_packet_cannot_claim_a_complete_ten_second_track(self):
         result = inspect_recording(media_probe(10, 0), 10)
         self.assertTrue(result.video_verified)
