@@ -1,72 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  type ZoneRenameSource,
   queryToConfigData,
-  zoneRename,
+  zoneKeyIsWritten,
   zoneRenameConfigData,
 } from "./zone-rename";
-
-function camera(extra: Partial<ZoneRenameSource> = {}): ZoneRenameSource {
-  return {
-    review: {
-      alerts: { required_zones: ["driveway"] },
-      detections: { required_zones: [] },
-    },
-    objects: { genai: { required_zones: [] } },
-    snapshots: { required_zones: ["driveway", "porch"] },
-    mqtt: { required_zones: ["driveway"] },
-    onvif: { autotracking: { required_zones: [] } },
-    ...extra,
-  };
-}
-
-describe("zoneRename", () => {
-  it("moves the name in every required_zones list that has it", () => {
-    expect(zoneRename("front", camera(), "driveway", "front_drive")).toEqual({
-      cameras: {
-        front: {
-          review: { alerts: { required_zones: ["front_drive"] } },
-          snapshots: { required_zones: ["front_drive", "porch"] },
-          mqtt: { required_zones: ["front_drive"] },
-        },
-      },
-    });
-  });
-
-  it("leaves a zone no list names alone", () => {
-    expect(zoneRename("front", camera(), "yard", "garden")).toEqual({});
-  });
-
-  it("moves profile overrides under the new name", () => {
-    const override = { coordinates: "0,0,1,0,1,1", objects: ["car"] };
-    const rename = zoneRename(
-      "front",
-      camera({
-        profiles: {
-          armed: { zones: { driveway: override } },
-          away: { zones: { porch: { objects: ["person"] } } },
-        },
-      }),
-      "driveway",
-      "front_drive",
-    );
-
-    expect(rename).toMatchObject({
-      cameras: {
-        front: {
-          profiles: {
-            armed: { zones: { driveway: null, front_drive: override } },
-          },
-        },
-      },
-    });
-    expect(JSON.stringify(rename)).not.toContain("away");
-  });
-
-  it("does nothing without a camera config", () => {
-    expect(zoneRename("front", undefined, "driveway", "x")).toEqual({});
-  });
-});
 
 describe("queryToConfigData", () => {
   it("reads values the way config/set reads its query string", () => {
@@ -104,7 +41,15 @@ describe("zoneRenameConfigData", () => {
     const data = zoneRenameConfigData(
       "cameras.front.zones.driveway",
       `${zone}.coordinates=0,0,1,0,1,1&${zone}.enabled=True`,
-      zoneRename("front", camera(), "driveway", "front_drive"),
+      {
+        cameras: {
+          front: {
+            review: { alerts: { required_zones: ["front_drive"] } },
+            snapshots: { required_zones: ["front_drive", "porch"] },
+            mqtt: { required_zones: ["front_drive"] },
+          },
+        },
+      },
     );
 
     expect(data).toEqual({
@@ -195,23 +140,24 @@ describe("prototype pollution guard (E17)", () => {
       },
     });
   });
+});
 
-  it("does not move a zone to or from an unsafe name", () => {
-    const profiles = { night: { zones: { driveway: { inertia: 5 } } } };
-    const data = zoneRename(
-      "front",
-      camera({ profiles }),
-      "driveway",
-      "__proto__",
-    );
-    expect(Object.getOwnPropertyNames(Object.prototype)).not.toContain(
-      "inertia",
-    );
-    expect(polluted()["inertia"]).toBeUndefined();
-    expect(data).toMatchObject({
-      cameras: {
-        front: { profiles: { night: { zones: { driveway: null } } } },
-      },
-    });
+describe("zoneKeyIsWritten", () => {
+  it("is true only for a non-empty saved value", () => {
+    const zone = {
+      objects: ["car"],
+      distances: [],
+      speed_threshold: null,
+      inertia: 0,
+    };
+    expect(zoneKeyIsWritten(zone, "objects")).toBe(true);
+    expect(zoneKeyIsWritten(zone, "inertia")).toBe(true);
+    expect(zoneKeyIsWritten(zone, "distances")).toBe(false);
+    expect(zoneKeyIsWritten(zone, "speed_threshold")).toBe(false);
+    expect(zoneKeyIsWritten(zone, "friendly_name")).toBe(false);
+  });
+
+  it("is false without a saved zone", () => {
+    expect(zoneKeyIsWritten(undefined, "objects")).toBe(false);
   });
 });

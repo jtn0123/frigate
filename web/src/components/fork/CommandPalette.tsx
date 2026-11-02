@@ -49,6 +49,7 @@ import { useRestart } from "@/api/ws";
 import { useTheme } from "@/context/theme-provider";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
+import { useHasFullCameraAccess } from "@/hooks/use-has-full-camera-access";
 import useGlobalMutation from "@/hooks/use-global-mutate";
 import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 import {
@@ -58,6 +59,7 @@ import {
 import {
   SETTINGS_SECTIONS,
   VIEWER_SETTINGS_SECTIONS,
+  visibleCameraGroups,
 } from "@/lib/fork/command-items";
 import { WHATS_NEW_EVENT } from "@/lib/fork/updates";
 import { isForkEnabled } from "@/fork/flags";
@@ -115,6 +117,7 @@ function CommandPaletteInner() {
     revalidateOnFocus: false,
   });
   const allowedCameras = useAllowedCameras();
+  const hasFullCameraAccess = useHasFullCameraAccess();
   const apiHost = useApiHost();
   const timezone = useTimezone(config);
   const timeFormat = useTimeFormat(config);
@@ -322,12 +325,18 @@ function CommandPaletteInner() {
       );
     }
 
-    for (const groupName of Object.keys(config?.camera_groups ?? {})) {
+    // UI156 (upstream #24256): only groups holding a camera this user may
+    // see, searchable by those cameras
+    for (const { name: groupName, cameras } of visibleCameraGroups(
+      config?.camera_groups,
+      allowedCameras,
+      hasFullCameraAccess,
+    )) {
       list.push({
         id: `group:${groupName}`,
         group: "cameraGroups",
         label: groupName,
-        keywords: ["group", "cameras"],
+        keywords: ["group", "cameras", ...cameras],
         icon: LuLayers,
         run: go(`/?group=${encodeURIComponent(groupName)}`),
       });
@@ -397,6 +406,7 @@ function CommandPaletteInner() {
     isAdmin,
     config,
     allowedCameras,
+    hasFullCameraAccess,
     toggleTheme,
     markAllReviewed,
   ]);

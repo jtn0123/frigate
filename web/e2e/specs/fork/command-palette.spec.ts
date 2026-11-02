@@ -8,7 +8,11 @@
 
 import { test, expect } from "../../fixtures/frigate-test";
 import type { FrigateApp } from "../../fixtures/frigate-test";
-import { viewerProfile } from "../../fixtures/mock-data/profile";
+import {
+  restrictedProfile,
+  viewerProfile,
+} from "../../fixtures/mock-data/profile";
+import { getMonacoVisibleText } from "../../helpers/monaco";
 import { openPaletteOnPhone } from "../../helpers/phone-palette";
 
 async function openPalette(frigateApp: FrigateApp) {
@@ -199,6 +203,63 @@ test.describe("Command palette @high", () => {
     await expect(option(frigateApp, "Motion tuner")).toHaveCount(0);
     await expect(option(frigateApp, "UI settings")).toHaveCount(1);
   });
+
+  // UI156 (upstream #24256): groups follow the cameras a role may see
+  test("a custom role only reaches groups holding its cameras", async ({
+    frigateApp,
+  }) => {
+    await frigateApp.installDefaults({
+      profile: restrictedProfile(["garage"], { role: "restricted" }),
+    });
+    await frigateApp.goto("/");
+    await openPalette(frigateApp);
+
+    const input = frigateApp.page.locator("[cmdk-input]");
+    const group = (name: string) =>
+      frigateApp.page.locator(`[cmdk-item][data-value="group:${name}"]`);
+
+    // a group is found by the name of a camera in it
+    await input.fill("garage");
+    await expect(option(frigateApp, "Garage").first()).toBeVisible();
+    await expect(group("default")).toHaveCount(1);
+
+    // "outdoor" holds no camera this role may see
+    await input.fill("outdoor");
+    await expect(group("outdoor")).toHaveCount(0);
+
+    // nor does a hidden camera's name bring a group up
+    await input.fill("backyard");
+    await expect(group("default")).toHaveCount(0);
+    await expect(option(frigateApp, "Backyard")).toHaveCount(0);
+  });
+
+  test(
+    "the config editor keeps Ctrl+K and slash",
+    { tag: "@desktop-only" },
+    async ({ frigateApp }) => {
+      await frigateApp.installDefaults({ configRaw: "mqtt:\n  host: mqtt\n" });
+      await frigateApp.goto("/config");
+      const editor = frigateApp.page.locator(".monaco-editor").first();
+      await expect(editor).toBeVisible({ timeout: 15_000 });
+
+      await editor.click();
+      await frigateApp.page.keyboard.type("/comment");
+      await expect
+        .poll(() => getMonacoVisibleText(frigateApp.page), { timeout: 10_000 })
+        .toContain("/comment");
+      await expect(frigateApp.page.getByTestId("command-palette")).toHaveCount(
+        0,
+      );
+
+      // Ctrl+K starts a chord in Monaco, so the palette leaves it alone.
+      // Escape cancels the pending chord.
+      await frigateApp.page.keyboard.press("Control+k");
+      await expect(frigateApp.page.getByTestId("command-palette")).toHaveCount(
+        0,
+      );
+      await frigateApp.page.keyboard.press("Escape");
+    },
+  );
 
   test(
     "the Settings drawer opens the palette on a phone @mobile",

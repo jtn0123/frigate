@@ -6,6 +6,10 @@
  * screen. This boundary renders a translated recovery panel instead and is
  * reset whenever the route changes so navigating away clears the error.
  *
+ * UI156 reconciles it with upstream's boundaries (#24255): the reset no
+ * longer remounts the guarded tree on every navigation, the report names the
+ * Frigate version, and App.tsx gives each piece of chrome its own boundary.
+ *
  * Gated by the `errorBoundary` fork flag: when the flag is off the children
  * are rendered directly and upstream behaviour is unchanged.
  */
@@ -19,10 +23,13 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useInRouterContext, useLocation } from "react-router-dom";
+import { useSWRConfig } from "swr";
 import { LuCopy, LuRotateCw, LuTriangleAlert } from "react-icons/lu";
 import { Button } from "@/components/ui/button";
 import Heading from "@/components/ui/heading";
 import { isForkEnabled } from "@/fork/flags";
+import { swrKey } from "@/api/fork/client";
+import type { FrigateStats } from "@/types/stats";
 import { cn } from "@/lib/utils";
 
 type Variant = "page" | "chrome";
@@ -67,9 +74,15 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-function buildDetails(error: unknown, info: ErrorInfo | null): string {
+function buildDetails(
+  error: unknown,
+  info: ErrorInfo | null,
+  version: string | undefined,
+): string {
+  // Version first, so a pasted report can be triaged on its own (#24255).
   const lines = [
     `Frigate UI error report`,
+    `Version: ${version || "unknown"}`,
     `Time: ${new Date().toISOString()}`,
     `URL: ${window.location.href}`,
     `User agent: ${navigator.userAgent}`,
@@ -90,8 +103,21 @@ type ErrorPanelProps = {
   variant: Variant;
 };
 
+/**
+ * The running version, read from the stats the status bar and bottom bar
+ * already fetched. Only the cache is read: a failed page should not start a
+ * request, and a public share page is not signed in to make one.
+ */
+function useCachedVersion(): string | undefined {
+  const { cache } = useSWRConfig();
+  const stats = cache.get(swrKey("/stats") as string)?.data as
+    FrigateStats | undefined;
+  return stats?.service.version;
+}
+
 function ErrorPanel({ error, info, variant }: Readonly<ErrorPanelProps>) {
   const { t } = useTranslation(["fork"]);
+  const version = useCachedVersion();
   const [copied, setCopied] = useState(false);
   const chunk = isChunkLoadError(error);
   const message = errorMessage(error);
@@ -99,7 +125,7 @@ function ErrorPanel({ error, info, variant }: Readonly<ErrorPanelProps>) {
   const reload = () => window.location.reload();
 
   const copyDetails = async () => {
-    const details = buildDetails(error, info);
+    const details = buildDetails(error, info, version);
     try {
       await navigator.clipboard.writeText(details);
       setCopied(true);
@@ -186,17 +212,48 @@ type BoundaryProps = {
   variant: Variant;
 };
 
+type ResettableProps = BoundaryProps & {
+  /** A new value clears a caught error; the route's pathname in the app. */
+  resetToken: string;
+};
+
 type BoundaryState = {
   error: unknown;
   info: ErrorInfo | null;
   hasError: boolean;
+  token: string;
 };
 
-class Boundary extends Component<BoundaryProps, BoundaryState> {
-  override state: BoundaryState = { error: null, info: null, hasError: false };
+class Boundary extends Component<ResettableProps, BoundaryState> {
+  override state: BoundaryState = {
+    error: null,
+    info: null,
+    hasError: false,
+    token: this.props.resetToken,
+  };
 
   static getDerivedStateFromError(error: unknown): Partial<BoundaryState> {
     return { error, hasError: true };
+  }
+
+  // Ported from upstream #24255 (4861a668b): keying the boundary on the
+  // route remounted everything under it (the sidebar, the status bar, the
+  // palette) on every navigation. Dropping the error when the token changes
+  // keeps them mounted, and doing it here rather than in componentDidUpdate
+  // never paints the stale panel again.
+  static getDerivedStateFromProps(
+    props: ResettableProps,
+    state: BoundaryState,
+  ): Partial<BoundaryState> | null {
+    if (props.resetToken === state.token) {
+      return null;
+    }
+    return {
+      token: props.resetToken,
+      error: null,
+      info: null,
+      hasError: false,
+    };
   }
 
   override componentDidCatch(_error: unknown, info: ErrorInfo) {
@@ -219,15 +276,19 @@ class Boundary extends Component<BoundaryProps, BoundaryState> {
   }
 }
 
-/** Remounts the boundary on every route change so stale errors clear. */
-function RouteKeyedBoundary(props: Readonly<BoundaryProps>) {
-  const location = useLocation();
-  return <Boundary key={location.pathname} {...props} />;
+/** Clears a caught error on every route change so stale errors go away. */
+function RouteResetBoundary(props: Readonly<BoundaryProps>) {
+  const { pathname } = useLocation();
+  return <Boundary resetToken={pathname} {...props} />;
 }
 
 function KeyedBoundary(props: Readonly<BoundaryProps>) {
   const inRouter = useInRouterContext();
-  return inRouter ? <RouteKeyedBoundary {...props} /> : <Boundary {...props} />;
+  return inRouter ? (
+    <RouteResetBoundary {...props} />
+  ) : (
+    <Boundary resetToken="" {...props} />
+  );
 }
 
 export default function RouteErrorBoundary({
