@@ -595,10 +595,10 @@ class CameraWatchdog(threading.Thread):
         elif now - self.capture_thread.current_frame.value > 20:
             self._send_detect_status("offline", now)
             self.camera_fps.value = 0
-            self.logger.info(
-                f"No frames received from {self.config.name} in 20 seconds. Exiting ffmpeg..."
-            )
             if can_restart:
+                self.logger.info(
+                    f"No frames received from {self.config.name} in 20 seconds. Exiting ffmpeg..."
+                )
                 self.reset_capture_thread(cause="no frames for 20 seconds")
                 return True
         else:
