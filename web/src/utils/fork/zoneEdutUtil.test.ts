@@ -1,79 +1,126 @@
-import { describe, expect, it } from "vitest";
-import { removeRequiredZoneQuery, reviewQueries } from "@/utils/zoneEdutUtil";
+import { afterEach, describe, expect, it } from "vitest";
+import { zoneReferenceUpdates } from "@/utils/zoneEdutUtil";
+import type { CameraConfig } from "@/types/frigateConfig";
 
-// callers can pass a missing list from an unset config
-const asZones = (value: unknown) => value as string[];
-const noZones = asZones(undefined);
+// Only the sections zoneReferenceUpdates reads; the rest of a camera's
+// config does not matter to it.
+function camera(extra: Record<string, unknown> = {}): CameraConfig {
+  return {
+    review: {
+      alerts: { required_zones: ["driveway"] },
+      detections: { required_zones: [] },
+    },
+    objects: { genai: { required_zones: [] } },
+    snapshots: { required_zones: ["driveway", "porch"] },
+    mqtt: { required_zones: ["driveway"] },
+    onvif: { autotracking: { required_zones: [] } },
+    ...extra,
+  } as unknown as CameraConfig;
+}
 
-describe("removeRequiredZoneQuery", () => {
-  it("leaves sections without the zone untouched", () => {
-    expect(
-      removeRequiredZoneQuery("yard", "front", "snapshots", ["porch"]),
-    ).toBe("");
-    expect(removeRequiredZoneQuery("yard", "front", "snapshots", noZones)).toBe(
-      "",
-    );
+describe("zoneReferenceUpdates", () => {
+  it("moves the name in every required_zones list that has it", () => {
+    expect(zoneReferenceUpdates(camera(), "driveway", "front_drive")).toEqual({
+      review: { alerts: { required_zones: ["front_drive"] } },
+      snapshots: { required_zones: ["front_drive", "porch"] },
+      mqtt: { required_zones: ["front_drive"] },
+    });
   });
 
-  it("rebuilds the remaining zones", () => {
+  it("drops the name when there is no new one, keeping emptied lists", () => {
+    expect(zoneReferenceUpdates(camera(), "driveway")).toEqual({
+      review: { alerts: { required_zones: [] } },
+      snapshots: { required_zones: ["porch"] },
+      mqtt: { required_zones: [] },
+    });
+  });
+
+  it("leaves a zone no list names alone", () => {
+    expect(zoneReferenceUpdates(camera(), "yard", "garden")).toEqual({});
+  });
+
+  it("does not list a zone twice when the new name is already there", () => {
     expect(
-      removeRequiredZoneQuery("yard", "front", "objects.genai", [
+      zoneReferenceUpdates(
+        camera({ mqtt: { required_zones: ["driveway", "porch"] } }),
+        "driveway",
         "porch",
-        "yard",
-        "drive",
-      ]),
-    ).toBe(
-      "&cameras.front.objects.genai.required_zones=porch" +
-        "&cameras.front.objects.genai.required_zones=drive",
-    );
-  });
-
-  it("deletes the key when the last zone is removed", () => {
-    expect(removeRequiredZoneQuery("yard", "front", "mqtt", ["yard"])).toBe(
-      "&cameras.front.mqtt.required_zones",
-    );
-  });
-});
-
-describe("reviewQueries", () => {
-  it("adds the zone to both alerts and detections", () => {
-    expect(reviewQueries("yard", true, true, "front", ["porch"], [])).toEqual({
-      alertQueries:
-        "&cameras.front.review.alerts.required_zones=porch" +
-        "&cameras.front.review.alerts.required_zones=yard",
-      detectionQueries: "&cameras.front.review.detections.required_zones=yard",
-    });
-  });
-
-  it("removes the zone and keeps the other required zones", () => {
-    expect(
-      reviewQueries(
-        "yard",
-        false,
-        false,
-        "front",
-        ["yard", "porch"],
-        ["porch", "yard"],
       ),
-    ).toEqual({
-      alertQueries: "&cameras.front.review.alerts.required_zones=porch",
-      detectionQueries: "&cameras.front.review.detections.required_zones=porch",
+    ).toMatchObject({ mqtt: { required_zones: ["porch"] } });
+  });
+
+  it("reads the base config while a profile is active", () => {
+    // the active profile's lists are merged into the top level sections
+    const updates = zoneReferenceUpdates(
+      camera({
+        snapshots: { required_zones: ["porch"] },
+        base_config: { snapshots: { required_zones: ["driveway"] } },
+      }),
+      "driveway",
+      "front_drive",
+    );
+    expect(updates).toMatchObject({
+      snapshots: { required_zones: ["front_drive"] },
     });
   });
 
-  it("resets a list that only held the removed zone", () => {
-    expect(
-      reviewQueries("yard", false, false, "front", ["yard"], ["yard"]),
-    ).toEqual({
-      alertQueries: "&cameras.front.review.alerts",
-      detectionQueries: "&cameras.front.review.detections",
+  it("moves profile zone overrides and the lists a profile overrides", () => {
+    const override = { coordinates: "0,0,1,0,1,1", objects: ["car"] };
+    const updates = zoneReferenceUpdates(
+      camera({
+        profiles: {
+          armed: {
+            zones: { driveway: override },
+            review: { alerts: { required_zones: ["driveway", "porch"] } },
+          },
+          away: { zones: { porch: { objects: ["person"] } } },
+        },
+      }),
+      "driveway",
+      "front_drive",
+    );
+
+    expect(updates).toMatchObject({
+      profiles: {
+        armed: {
+          zones: { driveway: null, front_drive: override },
+          review: { alerts: { required_zones: ["front_drive", "porch"] } },
+        },
+      },
     });
+    expect(JSON.stringify(updates)).not.toContain("away");
   });
 
-  it("emits nothing for lists that never had the zone", () => {
-    expect(reviewQueries("yard", false, false, "front", noZones, [])).toEqual({
-      alertQueries: "",
-      detectionQueries: "",
+  it("keeps a numeric profile name an object key", () => {
+    const updates = zoneReferenceUpdates(
+      camera({ profiles: { "2": { zones: { driveway: { inertia: 3 } } } } }),
+      "driveway",
+    );
+    const profiles = updates.profiles as Record<string, unknown>;
+    expect(Array.isArray(profiles)).toBe(false);
+    expect(profiles["2"]).toEqual({ zones: { driveway: null } });
+  });
+
+  describe("prototype pollution guard (E17)", () => {
+    afterEach(() => {
+      delete (Object.prototype as Record<string, unknown>)["inertia"];
+    });
+
+    it("does not move a zone to an unsafe name", () => {
+      const updates = zoneReferenceUpdates(
+        camera({
+          profiles: { night: { zones: { driveway: { inertia: 5 } } } },
+        }),
+        "driveway",
+        "__proto__",
+      );
+      expect(Object.getOwnPropertyNames(Object.prototype)).not.toContain(
+        "inertia",
+      );
+      expect(({} as Record<string, unknown>)["inertia"]).toBeUndefined();
+      expect(updates).toMatchObject({
+        profiles: { night: { zones: { driveway: null } } },
+      });
     });
   });
 });

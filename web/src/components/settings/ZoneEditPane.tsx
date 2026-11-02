@@ -13,14 +13,15 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FrigateConfig } from "@/types/frigateConfig";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ZoneFormValuesType, Polygon } from "@/types/canvas";
-import { zoneRename, zoneRenameConfigData } from "@/lib/fork/zone-rename";
+import { zoneKeyIsWritten, zoneRenameConfigData } from "@/lib/fork/zone-rename";
+import { zoneReferenceUpdates } from "@/utils/zoneEdutUtil";
 import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import PolygonEditControls from "./PolygonEditControls";
@@ -37,6 +38,7 @@ import { useDocDomain } from "@/hooks/use-doc-domain";
 import { getTranslatedLabel } from "@/utils/i18n";
 import NameAndIdFields from "../input/NameAndIdFields";
 import { useZoneState } from "@/api/ws";
+import { StatusBarMessagesContext } from "@/context/statusbar-context";
 import { cn } from "@/lib/utils";
 import ZoneShapeFields from "@/components/fork/settings/ZoneShapeFields";
 import {
@@ -80,6 +82,7 @@ export default function ZoneEditPane({
   const { getLocaleDocUrl } = useDocDomain();
   const { data: config, mutate: updateConfig } =
     useSWR<FrigateConfig>("config");
+  const statusBar = useContext(StatusBarMessagesContext);
 
   const cameras = useMemo(() => {
     if (!config) {
@@ -106,29 +109,9 @@ export default function ZoneEditPane({
 
   const isExistingZone = !!polygon && polygon.name.length > 0;
 
-  const idDisabled = useMemo(() => {
-    if (!isExistingZone || !polygon) {
-      return false;
-    }
-    if (editingProfile) {
-      return true;
-    }
-    const cam = config?.cameras[polygon.camera];
-    if (!cam) {
-      return false;
-    }
-    const inRequiredZones =
-      cam.review.alerts.required_zones.includes(polygon.name) ||
-      cam.review.detections.required_zones.includes(polygon.name) ||
-      cam.objects.genai.required_zones.includes(polygon.name) ||
-      cam.snapshots.required_zones.includes(polygon.name) ||
-      cam.mqtt.required_zones.includes(polygon.name) ||
-      cam.onvif.autotracking.required_zones.includes(polygon.name);
-    const hasProfileOverride = Object.values(cam.profiles ?? {}).some(
-      (profile) => profile?.zones && polygon.name in profile.zones,
-    );
-    return inRequiredZones || hasProfileOverride;
-  }, [config, polygon, editingProfile, isExistingZone]);
+  // UI156 (upstream #24376): a rename moves every reference to the zone, so
+  // only a profile zone, which overrides a base zone by name, keeps its id
+  const idDisabled = isExistingZone && !!editingProfile;
 
   const cameraConfig = useMemo(() => {
     if (polygon?.camera && config) {
@@ -408,11 +391,33 @@ export default function ZoneEditPane({
         : `cameras.${polygon.camera}.zones.${polygon.name}`;
 
       const renamingZone = zoneName != polygon.name && polygon.name != "";
-      // Lists and profile overrides that name the zone follow it (UI66)
-      const rename =
-        renamingZone && !editingProfile
-          ? zoneRename(polygon.camera, cameraConfig, polygon.name, zoneName)
-          : undefined;
+      // Lists and profile overrides that name the zone follow it (UI66).
+      // UI156 (upstream #24376): read from the base config when a profile is
+      // active, and move the lists inside profile overrides too.
+      const references =
+        renamingZone && !editingProfile && cameraConfig
+          ? zoneReferenceUpdates(cameraConfig, polygon.name, zoneName)
+          : {};
+      // Processes other than object tracking only reload these on restart
+      const needsRestart = Object.keys(references).length > 0;
+      const moves: Record<string, unknown> = {
+        cameras: { [polygon.camera]: { ...references } },
+      };
+      if (renamingZone && !editingProfile) {
+        // The form has no filters field, so carry the old zone's over
+        const baseZones = (cameraConfig?.base_config?.zones ??
+          cameraConfig?.zones) as
+          Record<string, { filters?: Record<string, unknown> }> | undefined;
+        const filters = baseZones?.[polygon.name]?.filters;
+        if (filters && Object.keys(filters).length > 0) {
+          moves.cameras = {
+            [polygon.camera]: {
+              ...references,
+              zones: { [zoneName]: { filters } },
+            },
+          };
+        }
+      }
 
       const coordinates = flattenPoints(
         interpolatePoints(polygon.points, scaledWidth, scaledHeight, 1, 1),
@@ -428,8 +433,22 @@ export default function ZoneEditPane({
           return element === objects[index];
         });
 
+      // UI156 (upstream #24376): config/set fails to delete a key the YAML
+      // lacks, so a delete goes only to a key the saved zone holds. A rename
+      // writes a new zone, which holds none.
+      const writtenZone = (
+        renamingZone
+          ? undefined
+          : editingProfile
+            ? cameraConfig?.profiles?.[editingProfile]?.zones?.[polygon.name]
+            : (cameraConfig?.base_config?.zones ?? cameraConfig?.zones)?.[
+                polygon.name
+              ]
+      ) as Record<string, unknown> | undefined;
+      const canRemove = (key: string) => zoneKeyIsWritten(writtenZone, key);
+
       // deleting objects
-      if (!objectQueries && !same_objects && !renamingZone) {
+      if (!objectQueries && !same_objects && canRemove("objects")) {
         objectQueries = `&${pathPrefix}.objects`;
       }
 
@@ -447,14 +466,14 @@ export default function ZoneEditPane({
       const distances = [lineA, lineB, lineC, lineD].filter(Boolean).join(",");
       if (speedEstimation) {
         distancesQuery = `&${pathPrefix}.distances=${distances}`;
-      } else if (distances != "") {
+      } else if (canRemove("distances")) {
         distancesQuery = `&${pathPrefix}.distances`;
       }
 
       let speedThresholdQuery = "";
       if (speed_threshold >= 0 && speedEstimation) {
         speedThresholdQuery = `&${pathPrefix}.speed_threshold=${speed_threshold}`;
-      } else if (resolvedZoneData?.speed_threshold) {
+      } else if (canRemove("speed_threshold")) {
         speedThresholdQuery = `&${pathPrefix}.speed_threshold`;
       }
 
@@ -491,9 +510,9 @@ export default function ZoneEditPane({
       // rejected write leaves the zone as it was
       const request = renamingZone
         ? axios.put("config/set", {
-            requires_restart: 0,
+            requires_restart: needsRestart ? 1 : 0,
             update_topic: updateTopic,
-            config_data: zoneRenameConfigData(oldPathPrefix, zoneQuery, rename),
+            config_data: zoneRenameConfigData(oldPathPrefix, zoneQuery, moves),
           })
         : axios.put(`config/set?${zoneQuery}`, {
             requires_restart: 0,
@@ -503,14 +522,26 @@ export default function ZoneEditPane({
       request
         .then((res) => {
           if (res.status === 200) {
-            toast.success(
-              t("masksAndZones.zones.toast.success", {
-                zoneName: friendly_name || zoneName,
-              }),
-              {
+            if (needsRestart) {
+              statusBar?.addMessage(
+                "config_restart_required",
+                t("configForm.restartRequiredFooter"),
+                undefined,
+                "config_restart_required",
+              );
+              toast.success(t("toast.successRestartRequired"), {
                 position: "top-center",
-              },
-            );
+              });
+            } else {
+              toast.success(
+                t("masksAndZones.zones.toast.success", {
+                  zoneName: friendly_name || zoneName,
+                }),
+                {
+                  position: "top-center",
+                },
+              );
+            }
             void updateConfig();
             // Only publish WS state for base config when zone has a name and
             // wasn't renamed (the hook is bound to the old name).
@@ -559,6 +590,7 @@ export default function ZoneEditPane({
       sendZoneState,
       editingProfile,
       resolvedZoneData,
+      statusBar,
     ],
   );
 
@@ -654,6 +686,7 @@ export default function ZoneEditPane({
             nameDescription={t("masksAndZones.zones.name.tips")}
             placeholderName={t("masksAndZones.zones.name.inputPlaceHolder")}
             idDisabled={idDisabled}
+            autoFillId={!isExistingZone}
           />
           <FormField
             control={form.control}

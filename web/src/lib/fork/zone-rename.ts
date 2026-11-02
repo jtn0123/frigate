@@ -11,21 +11,13 @@
  * left the camera without the zone. `config/set` applies a whole `config_data`
  * body before it validates, so the delete, the new zone and every moved name
  * now go in one body, and a rejected write changes nothing (UI74).
+ *
+ * The moved names now come from upstream's `zoneReferenceUpdates` in
+ * `utils/zoneEdutUtil.ts` (#24376), which the delete in `PolygonItem` uses
+ * too (UI156). This module keeps the single-body rename.
  */
 
 type ConfigData = Record<string, unknown>;
-
-type ZoneNames = { required_zones: unknown };
-
-/** The parts of a camera's config that name its zones; a `CameraConfig` fits. */
-export type ZoneRenameSource = {
-  review: { alerts: ZoneNames; detections: ZoneNames };
-  objects: { genai: ZoneNames };
-  snapshots: ZoneNames;
-  mqtt: ZoneNames;
-  onvif: { autotracking: ZoneNames };
-  profiles?: Record<string, { zones?: Record<string, unknown> }>;
-};
 
 function isRecord(value: unknown): value is ConfigData {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -106,64 +98,10 @@ export function queryToConfigData(query: string): ConfigData {
   return data;
 }
 
-// The backend accepts a bare string for some of these, so check at runtime.
-function isZoneList(value: unknown): value is string[] {
-  return Array.isArray(value);
-}
-
-function requiredZoneLists(camera: ZoneRenameSource): [string, unknown][] {
-  return [
-    ["review.alerts", camera.review.alerts.required_zones],
-    ["review.detections", camera.review.detections.required_zones],
-    ["objects.genai", camera.objects.genai.required_zones],
-    ["snapshots", camera.snapshots.required_zones],
-    ["mqtt", camera.mqtt.required_zones],
-    ["onvif.autotracking", camera.onvif.autotracking.required_zones],
-  ];
-}
-
-/**
- * `config_data` moving the zone's name in every required_zones list and
- * profile override of a base-config camera that names it.
- */
-export function zoneRename(
-  cameraName: string,
-  camera: ZoneRenameSource | undefined,
-  oldName: string,
-  newName: string,
-): ConfigData {
-  const data: ConfigData = {};
-  if (!camera) return data;
-
-  for (const [section, zones] of requiredZoneLists(camera)) {
-    if (!isZoneList(zones) || !zones.includes(oldName)) continue;
-    const renamed = new Set(
-      zones.map((zone) => (zone === oldName ? newName : zone)),
-    );
-    setPath(
-      data,
-      ["cameras", cameraName, ...section.split("."), "required_zones"],
-      [...renamed],
-    );
-  }
-
-  for (const [profile, profileConfig] of Object.entries(
-    camera.profiles ?? {},
-  )) {
-    const override = profileConfig.zones?.[oldName];
-    if (override === undefined) continue;
-    const zones = ["cameras", cameraName, "profiles", profile, "zones"];
-    setPath(data, [...zones, oldName], null);
-    setPath(data, [...zones, newName], override);
-  }
-
-  return data;
-}
-
 /**
  * The whole rename as one `config_data`: delete the zone at `oldPath`, write
- * `zoneQuery` (the editor's query string for the new zone), then apply the
- * moved names from `zoneRename`.
+ * `zoneQuery` (the editor's query string for the new zone), then apply
+ * `moves`, the moved names and the carried-over filters.
  */
 export function zoneRenameConfigData(
   oldPath: string,
@@ -175,4 +113,21 @@ export function zoneRenameConfigData(
   mergeInto(data, queryToConfigData(zoneQuery));
   mergeInto(data, moves);
   return data;
+}
+
+/**
+ * Whether a zone's saved config holds `key`, so a save may delete it.
+ *
+ * `config/set` fails to delete a key the YAML lacks, so a delete is only sent
+ * for a key known to be written (ported from upstream #24376, UI156). The
+ * base zone comes back from the API with defaults filled in, so only a
+ * non-empty value proves the key is in the YAML; a profile override holds
+ * only the keys set in it.
+ */
+export function zoneKeyIsWritten(
+  zone: Record<string, unknown> | undefined,
+  key: string,
+): boolean {
+  const value = zone?.[key];
+  return value != null && !(Array.isArray(value) && value.length === 0);
 }
