@@ -116,7 +116,13 @@ SUPPORTED_RK_SOCS = ["rk3562", "rk3566", "rk3568", "rk3576", "rk3588"]
 
 REGEX_CAMERA_NAME = r"^[a-zA-Z0-9_-]+$"
 REGEX_RTSP_CAMERA_USER_PASS = r":\/\/[a-zA-Z0-9_-]+:[\S]+@"
-REGEX_HTTP_CAMERA_USER_PASS = r"user=[a-zA-Z0-9_-]+&password=[\S]+"
+_CREDENTIAL_QUERY_KEYS = (
+    r"(?:user(?:name)?|usr|login|pass(?:word|wd)?|pwd"
+    r"|(?:[a-z_]*_)?token|(?:[a-z_]*_)?secret|client_private|api_?key)"
+)
+REGEX_CREDENTIAL_QUERY_KEY = rf"(?i)[?&]{_CREDENTIAL_QUERY_KEYS}="
+REGEX_CREDENTIAL_QUERY_PARAM = rf"(?i)([?&]{_CREDENTIAL_QUERY_KEYS}=)[^&\s]*"
+REGEX_MASKED_CREDENTIAL = rf"(?i)://\*:\*@|[?&]{_CREDENTIAL_QUERY_KEYS}=\*(?![^&\s])"
 REGEX_JSON = re.compile(r"^\s*\{")
 
 # Known Driver Names

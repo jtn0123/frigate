@@ -605,13 +605,14 @@ class TestJobRegistry(unittest.TestCase):
         runner_cls.assert_called_once()
         self.assertIs(runner_cls.call_args.args[2], cancel_event)
         runner_cls.return_value.start.assert_called_once()
-        self.assertIs(job_manager.get_current_job("motion_search"), job)
+        # the shared job manager kept every finished job forever (upstream #24717)
+        self.assertIsNone(job_manager.get_current_job("motion_search"))
         self.assertIs(get_motion_search_job(job_id), job)
 
-    def test_get_falls_back_to_manager_and_none(self):
+    def test_get_ignores_the_manager_and_returns_none(self):
         job = MotionSearchJob(camera="front")
         job_manager.set_current_job(job)
-        self.assertIs(get_motion_search_job(job.id), job)
+        self.assertIsNone(get_motion_search_job(job.id))
         self.assertIsNone(get_motion_search_job("nope"))
 
     def test_cancel_unknown_and_finished_jobs(self):
