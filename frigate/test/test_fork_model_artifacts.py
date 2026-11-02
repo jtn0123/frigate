@@ -30,7 +30,7 @@ class TestPinnedJinaConstructors(unittest.TestCase):
         module = JinaV1ImageEmbedding.__module__
         with (
             patch(f"{module}.verify_artifact") as verify,
-            patch(f"{module}.CLIPImageProcessor.from_pretrained") as load,
+            patch(f"{module}.CLIPImageProcessorPil.from_pretrained") as load,
             patch(f"{module}.get_optimized_runner") as runner,
         ):
             model._load_model_and_utils()
