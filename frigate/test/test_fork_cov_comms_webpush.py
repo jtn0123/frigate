@@ -157,6 +157,9 @@ class TestConstruction(WebPushTestBase):
     def test_init_loads_pushers_and_user_cameras(self) -> None:
         client = self.make_client()
 
+        # the worker threads wait for start(), once the dispatcher is wired
+        self.thread_cls.assert_not_called()
+        client.start()
         self.assertEqual(self.thread_cls.call_count, 2)
         self.assertEqual(self.thread_cls.return_value.start.call_count, 2)
         self.assertEqual(len(client.web_pushers["admin"]), 2)
@@ -182,8 +185,14 @@ class TestConstruction(WebPushTestBase):
 
     def test_stop_joins_notification_thread(self) -> None:
         client = self.make_client()
+        client.start()
         client.stop()
         client.notification_thread.join.assert_called_once()
+
+    def test_stop_before_start_has_no_thread_to_join(self) -> None:
+        client = self.make_client()
+        client.stop()
+        self.assertIsNone(client.notification_thread)
 
     def test_user_camera_access_unknown_user(self) -> None:
         client = self.make_client()

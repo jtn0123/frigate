@@ -497,6 +497,8 @@ class TestRealWebsocket(_SessionsTestCase):
         # a bound method, as the dispatcher's is: a plain function would be
         # bound to the handler class that keeps it
         cls.ws_client.subscribe(_Receiver(cls.received, cls.got_message).receive)
+        # the dispatcher starts the server once wiring is done
+        cls.ws_client.start()
 
     @classmethod
     def tearDownClass(cls):
