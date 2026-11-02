@@ -11,7 +11,7 @@ import ActivityIndicator from "../indicators/activity-indicator";
 import KeyframeAnalysisSection from "./KeyframeAnalysisSection";
 import { Ffprobe, KeyframeAnalysis } from "@/types/stats";
 import { Button } from "../ui/button";
-import copy from "copy-to-clipboard";
+import { copyThen } from "@/lib/fork/clipboard";
 import { CameraConfig } from "@/types/frigateConfig";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -69,17 +69,14 @@ export default function CameraInfoDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onCopyFfprobe = async () => {
-    const copied = await copy(
+  const onCopyFfprobe = () =>
+    copyThen(
       JSON.stringify({
         ffprobe: ffprobeInfo,
         keyframe_analysis: keyframeInfo,
       }),
+      () => toast.success(t("cameras.toast.success.copyToClipboard")),
     );
-    if (copied) {
-      toast.success(t("cameras.toast.success.copyToClipboard"));
-    }
-  };
 
   function gcd(a: number, b: number): number {
     return b === 0 ? a : gcd(b, a % b);

@@ -10,7 +10,7 @@ import {
 import ActivityIndicator from "../indicators/activity-indicator";
 import { GpuInfo, Nvinfo, Vainfo } from "@/types/stats";
 import { Button } from "../ui/button";
-import copy from "copy-to-clipboard";
+import { copyThen } from "@/lib/fork/clipboard";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
@@ -91,16 +91,14 @@ export default function GPUInfoDialog({
     showGpuInfo && gpuType == "nvinfo" ? "nvinfo" : null,
   );
 
-  const onCopyInfo = wrapAsync(async () => {
-    const copied = await copy(
+  const onCopyInfo = wrapAsync(() =>
+    copyThen(
       JSON.stringify(gpuType == "vainfo" ? vainfo : nvinfo)
         .replace(/\\t/g, "\t")
         .replace(/\\n/g, "\n"),
-    );
-    if (copied) {
-      toast.success(t("general.hardwareInfo.gpuInfo.toast.success"));
-    }
-  });
+      () => toast.success(t("general.hardwareInfo.gpuInfo.toast.success")),
+    ),
+  );
 
   const title =
     gpuType == "vainfo"

@@ -8,7 +8,7 @@ import Heading from "@/components/ui/heading";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { Button } from "@/components/ui/button";
 import axios, { AxiosError } from "axios";
-import copy from "copy-to-clipboard";
+import { copyThen } from "@/lib/fork/clipboard";
 import { useTheme } from "@/context/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
@@ -104,11 +104,11 @@ function ConfigEditor() {
       return;
     }
 
-    if (await copy(editorRef.current.getValue())) {
+    await copyThen(editorRef.current.getValue(), () =>
       toast.success(t("toast.success.copyToClipboard"), {
         position: "top-center",
-      });
-    }
+      }),
+    );
   }, [editorRef, t]);
 
   const handleSaveOnly = useCallback(async () => {
