@@ -23,6 +23,8 @@ jobs:
   sync:
     name: Sync upstream/dev
     runs-on: ubuntu-latest
+    # Its slowest of the last 31 runs took 1.1 minutes (I69).
+    timeout-minutes: 20
     steps:
       # GITHUB_TOKEN may not push commits that change .github/workflows, and
       # upstream's do, so every push here needs FORK_SYNC_TOKEN. Without it the

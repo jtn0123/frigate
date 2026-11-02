@@ -1,7 +1,11 @@
 # Sonar coverage and quality gate
 
 `Fork - Checks` generates Python XML and frontend LCOV coverage for the same
-revision on every run. Lint and browser checks retain their change filters.
+revision whenever the scan runs: on every push, and on every pull request that
+changes a file Sonar analyzes. A pull request made only of Sonar's exclusions
+(`fork/android/**`, images) and Markdown, such as an Android change with its
+ledger row, skips both coverage suites and the scan (I69). Lint and browser
+checks retain their change filters.
 The scan downloads both artifacts, rejects empty reports or unresolved source
 paths, then waits up to ten minutes for Sonar's quality gate. A failed gate
 fails `Checks passed`. No token or failed tests means no successful scan.
