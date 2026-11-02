@@ -659,16 +659,6 @@ class TestProcessUpdates(MaintainerMixin):
         self.realtime.process_frame.assert_not_called()
         self.m.frame_manager.close.assert_not_called()
 
-    def test_frame_not_found_error(self) -> None:
-        self.m.frame_manager.get.side_effect = FileNotFoundError
-
-        # fixed in the fork (B35): upstream leaves yuv_frame unassigned here,
-        # so this raised UnboundLocalError
-        self.update()
-
-        self.realtime.process_frame.assert_not_called()
-        self.m.frame_manager.close.assert_not_called()
-
     def test_update_feeds_realtime_and_description_processors(self) -> None:
         self.update()
 
@@ -1045,15 +1035,6 @@ class TestProcessFrameUpdates(MaintainerMixin):
     def test_missing_frame_is_skipped(self) -> None:
         self.m.frame_manager.get.return_value = None
 
-        self.detection("plates", [[0, 0, 1, 1]])
-
-        self.lpr.process_frame.assert_not_called()
-        self.m.frame_manager.close.assert_not_called()
-
-    def test_frame_not_found_error(self) -> None:
-        self.m.frame_manager.get.side_effect = FileNotFoundError
-
-        # fixed in the fork (B35), as in _process_updates
         self.detection("plates", [[0, 0, 1, 1]])
 
         self.lpr.process_frame.assert_not_called()
