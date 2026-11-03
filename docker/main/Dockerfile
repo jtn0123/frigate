@@ -30,7 +30,7 @@ RUN sh -c "$BASE_HOOK"
 FROM slim-base AS wget
 ARG DEBIAN_FRONTEND
 RUN apt-get update \
-    && apt-get install -y ca-certificates curl wget xz-utils \
+    && apt-get install -y --no-install-recommends ca-certificates curl wget xz-utils \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /rootfs
 
@@ -94,7 +94,7 @@ ARG DEBIAN_FRONTEND
 # Install OpenVINO for model conversion
 COPY docker/main/requirements-ov.lock /requirements-ov.lock
 RUN apt-get -qq update \
-    && apt-get -qq install -y wget curl ca-certificates python3 python3-distutils \
+    && apt-get -qq install -y --no-install-recommends ca-certificates curl python3 python3-distutils wget \
     && curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
     && sed -i 's/args.append("setuptools")/args.append("setuptools==84.1.0")/' get-pip.py \
     && python3 get-pip.py "pip" \
