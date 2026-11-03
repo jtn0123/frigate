@@ -48,7 +48,7 @@ runs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
       with:
-        buildkit-config-inline: ${{ inputs.buildkit-config }}
+        buildkitd-config-inline: ${{ inputs.buildkit-config }}
     - name: Log in to the Container registry
       uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
       with:
