@@ -31,6 +31,44 @@ type WebRtcPlayerProps = {
   onMicrophoneError?: (error: TwoWayTalkError) => void;
 };
 
+type VideoStats = {
+  bytesReceived: number;
+  timestamp: number;
+  roundTripTime: number;
+  framesReceived: number;
+  framesDropped: number;
+  framesDecoded: number;
+  freezeSeconds: number | undefined;
+};
+
+// fork: the inbound video and connected candidate pair figures of one
+// getStats() report, kept out of the sampling loop
+function readVideoStats(report: RTCStatsReport): VideoStats {
+  const stats: VideoStats = {
+    bytesReceived: 0,
+    timestamp: 0,
+    roundTripTime: 0,
+    framesReceived: 0,
+    framesDropped: 0,
+    framesDecoded: 0,
+    freezeSeconds: undefined,
+  };
+  report.forEach((stat) => {
+    if (stat.type === "inbound-rtp" && stat.kind === "video") {
+      stats.bytesReceived = stat.bytesReceived;
+      stats.timestamp = stat.timestamp;
+      stats.framesReceived = stat.framesReceived;
+      stats.framesDropped = stat.framesDropped;
+      stats.framesDecoded = stat.framesDecoded;
+      stats.freezeSeconds = stat.totalFreezesDuration as number | undefined;
+    }
+    if (stat.type === "candidate-pair" && stat.state === "succeeded") {
+      stats.roundTripTime = stat.currentRoundTripTime;
+    }
+  });
+  return stats;
+}
+
 export default function WebRtcPlayer({
   className,
   camera,
@@ -160,7 +198,7 @@ export default function WebRtcPlayer({
           ? await navigator.mediaDevices.getUserMedia(constraints)
           : await navigator.mediaDevices.getDisplayMedia(constraints);
       return stream.getTracks();
-    } catch (e) {
+    } catch {
       return [];
     }
   }
@@ -399,28 +437,15 @@ export default function WebRtcPlayer({
     const interval = setInterval(
       wrapAsync(async () => {
         if (pcRef.current && videoRef.current && !videoRef.current.paused) {
-          const report = await pcRef.current.getStats();
-          let bytesReceived = 0;
-          let timestamp = 0;
-          let roundTripTime = 0;
-          let framesReceived = 0;
-          let framesDropped = 0;
-          let framesDecoded = 0;
-          let freezeSeconds: number | undefined;
-
-          report.forEach((stat) => {
-            if (stat.type === "inbound-rtp" && stat.kind === "video") {
-              bytesReceived = stat.bytesReceived;
-              timestamp = stat.timestamp;
-              framesReceived = stat.framesReceived;
-              framesDropped = stat.framesDropped;
-              framesDecoded = stat.framesDecoded;
-              freezeSeconds = stat.totalFreezesDuration as number | undefined;
-            }
-            if (stat.type === "candidate-pair" && stat.state === "succeeded") {
-              roundTripTime = stat.currentRoundTripTime;
-            }
-          });
+          const {
+            bytesReceived,
+            timestamp,
+            roundTripTime,
+            framesReceived,
+            framesDropped,
+            framesDecoded,
+            freezeSeconds,
+          } = readVideoStats(await pcRef.current.getStats());
 
           const timeDiff = (timestamp - lastTimestamp) / 1000; // in seconds
 

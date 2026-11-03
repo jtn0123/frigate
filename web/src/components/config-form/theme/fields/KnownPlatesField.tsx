@@ -323,9 +323,9 @@ export function KnownPlatesField(props: FieldProps) {
   );
 
   // fork (UI155): a second unnamed entry would replace the first one's plates
-  const hasUnnamedEntry = Object.prototype.hasOwnProperty.call(data, "");
+  const hasUnnamedEntry = Object.hasOwn(data, "");
   const handleAddEntry = useCallback(() => {
-    if (Object.prototype.hasOwnProperty.call(data, "")) return;
+    if (Object.hasOwn(data, "")) return;
     const next = { ...data, "": [""] };
     onChange(next, fieldPath);
   }, [data, fieldPath, onChange]);

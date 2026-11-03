@@ -695,7 +695,8 @@ function Logs() {
               scrolledUpRef.current = false;
             }}
           >
-            {loadError ? (
+            {/* fork: a failed load offers a retry in place of the list */}
+            {Boolean(loadError) && (
               <ErrorState
                 className="m-auto"
                 error={loadError}
@@ -706,9 +707,11 @@ function Logs() {
                 }
                 onRetry={retryLogs}
               />
-            ) : isLoading ? (
+            )}
+            {!loadError && isLoading && (
               <ActivityIndicator className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
-            ) : (
+            )}
+            {!loadError && !isLoading && (
               <>
                 {follow && !logSettings.disableStreaming && (
                   <div className="absolute right-1 top-3">

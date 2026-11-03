@@ -558,6 +558,8 @@ function Exports() {
     setExportToAssign(undefined);
   }, []);
 
+  const fetchError = exportsError || casesError;
+
   return (
     <div className="flex size-full flex-col gap-2 overflow-hidden px-1 pt-2 md:p-2">
       <Toaster closeButton={true} />
@@ -854,14 +856,16 @@ function Exports() {
         )}
       </div>
 
-      {exportsError || casesError ? (
+      {/* fork: a failed fetch offers a retry in place of the lists */}
+      {fetchError && (
         <ErrorState
-          error={exportsError || casesError}
+          error={fetchError}
           onRetry={wrapAsync(() =>
             Promise.all([updateExports(), updateCases()]),
           )}
         />
-      ) : selectedCase ? (
+      )}
+      {!fetchError && selectedCase && (
         <CaseView
           contentRef={contentRef}
           selectedCase={selectedCase}
@@ -880,7 +884,8 @@ function Exports() {
           onRemoveFromCase={wrapAsync(handleRemoveExportFromCase)}
           onAddExport={() => setCaseForAddExport(selectedCase)}
         />
-      ) : (
+      )}
+      {!fetchError && !selectedCase && (
         <AllExportsView
           contentRef={contentRef}
           search={search}

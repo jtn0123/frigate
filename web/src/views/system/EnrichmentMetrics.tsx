@@ -182,10 +182,11 @@ export default function EnrichmentMetrics({
         )}
       >
         {/* fork (UI116): stats without an embeddings section left the tab
-            blank; say why instead */}
-        {statsHistory.length != 0 && groupedEnrichmentMetrics.length === 0 ? (
+            blank; say why instead (the map below then renders nothing) */}
+        {statsHistory.length != 0 && groupedEnrichmentMetrics.length === 0 && (
           <EnrichmentsEmptyState />
-        ) : statsHistory.length != 0 ? (
+        )}
+        {statsHistory.length != 0 ? (
           <>
             {groupedEnrichmentMetrics.map((group) => (
               <div

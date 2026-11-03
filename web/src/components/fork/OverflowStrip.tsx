@@ -33,7 +33,7 @@ export type OverflowStripRowProps = {
 };
 
 type OverflowStripProps = {
-  className?: string | undefined;
+  className?: string;
   items: ReactNode[];
   activeIndex?: number;
   gapClassName?: string;
@@ -54,7 +54,7 @@ function unlabeled(items: ReactNode[]): ReactNode[] {
   return Children.toArray(items).map((item) =>
     isValidElement(item)
       ? cloneElement(
-          item as ReactElement<{ "aria-label"?: string | undefined }>,
+          item as ReactElement<{ "aria-label": string | undefined }>,
           {
             "aria-label": undefined,
           },

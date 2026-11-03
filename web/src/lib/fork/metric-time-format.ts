@@ -15,7 +15,7 @@ export function metricTimeFormatKey(
   timeFormat: string,
 ): string {
   const first = updateTimes[0];
-  const last = updateTimes[updateTimes.length - 1];
+  const last = updateTimes.at(-1);
 
   return first !== undefined && last !== undefined && last - first > DATED_SPAN
     ? "time.formattedTimestampMonthDay"

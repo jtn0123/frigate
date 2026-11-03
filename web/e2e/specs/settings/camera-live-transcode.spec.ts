@@ -294,9 +294,8 @@ test.describe("live stream order and transcoded streams @medium", () => {
 });
 
 // fork: phones reorder through Auto order rather than dragging
-test.describe("live stream order on phones @medium @mobile", () => {
-  test.skip(({ frigateApp }) => !frigateApp.isMobile, "phone layout");
-
+// @mobile-only keeps it to the mobile project, so no runtime skip is needed
+test.describe("live stream order on phones @medium @mobile-only", () => {
   test("auto order sorts the streams", async ({ frigateApp }) => {
     await installRoutes(frigateApp.page, {
       bitrates: { front_door_main: 4000, front_door_sub: 800 },

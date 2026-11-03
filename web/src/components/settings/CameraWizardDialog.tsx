@@ -329,7 +329,12 @@ export default function CameraWizardDialog({
                         ),
                     );
 
-                    void Promise.allSettled(updatePromises).then(() => {
+                    // fork: chained rather than nested; the second handler
+                    // still covers only the config save, as the catch did
+                    return Promise.allSettled(updatePromises);
+                  })
+                  .then(
+                    () => {
                       toast.success(
                         t("cameraWizard.save.success", {
                           cameraName: friendlyName || finalCameraName,
@@ -338,19 +343,19 @@ export default function CameraWizardDialog({
                       );
                       void updateConfig();
                       onClose();
-                    });
-                  })
-                  .catch(() => {
-                    // log the error but don't fail the entire save
-                    toast.warning(
-                      t("cameraWizard.save.failure", {
-                        cameraName: friendlyName || finalCameraName,
-                      }),
-                      { position: "top-center" },
-                    );
-                    void updateConfig();
-                    onClose();
-                  });
+                    },
+                    () => {
+                      // log the error but don't fail the entire save
+                      toast.warning(
+                        t("cameraWizard.save.failure", {
+                          cameraName: friendlyName || finalCameraName,
+                        }),
+                        { position: "top-center" },
+                      );
+                      void updateConfig();
+                      onClose();
+                    },
+                  );
               } else {
                 // No valid streams found
                 toast.success(

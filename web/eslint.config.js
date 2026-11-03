@@ -5,6 +5,7 @@
 //   - dist, *.d.ts and the vendored src/components/ui are not linted
 // jsx-a11y recommended rules are errors (C9); see jsxA11yStillWarn below.
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
@@ -41,7 +42,7 @@ const jsxA11yRules = Object.fromEntries(
     ]),
 );
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: [
       "dist/**",

@@ -19,7 +19,7 @@ export const DEVICE_ID_STORAGE_KEY = "frigateDeviceId";
 function mintId(): string {
   const c = globalThis.crypto;
   if (typeof c.randomUUID === "function") {
-    return c.randomUUID().replace(/-/g, "").slice(0, 12);
+    return c.randomUUID().replaceAll("-", "").slice(0, 12);
   }
   return Array.from(c.getRandomValues(new Uint8Array(6)), (byte) =>
     byte.toString(16).padStart(2, "0"),

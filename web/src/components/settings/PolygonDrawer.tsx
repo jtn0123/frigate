@@ -37,6 +37,13 @@ type PolygonDrawerProps = {
   exclusion?: boolean;
 };
 
+// fork: on a phone the grab area is 44 px across (radius 6 plus half the hit
+// stroke), up from about 22 px; the first point stays a little larger
+function pointHitStrokeWidth(index: number): number {
+  if (phoneTouch) return index === 0 ? 36 : 32;
+  return index === 0 ? 12 : 9;
+}
+
 export default function PolygonDrawer({
   stageRef,
   points,
@@ -236,11 +243,7 @@ export default function PolygonDrawer({
             stroke={colorString(true)}
             fill="#ffffff"
             strokeWidth={3}
-            // fork: on a phone the grab area is 44 px across (radius 6 plus
-            // half the hit stroke), up from about 22 px
-            hitStrokeWidth={
-              phoneTouch ? (index === 0 ? 36 : 32) : index === 0 ? 12 : 9
-            }
+            hitStrokeWidth={pointHitStrokeWidth(index)}
             onMouseOver={handleMouseOverPoint}
             onMouseOut={handleMouseOutPoint}
             draggable={isActive}

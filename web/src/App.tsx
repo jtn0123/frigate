@@ -127,6 +127,13 @@ function DefaultAppView({
     );
   }
 
+  // fork: phoneShell reserves insets in a tab and stays compact in landscape
+  const pwaPageRoot =
+    "bottom-[calc(3rem+env(safe-area-inset-bottom))] left-0 pt-[env(safe-area-inset-top)] md:bottom-[calc(4rem+env(safe-area-inset-bottom))] landscape:pl-[env(safe-area-inset-left)] landscape:pr-[env(safe-area-inset-right)]";
+  const mobilePageRoot =
+    phoneShell?.pageRoot ??
+    (isPWA ? pwaPageRoot : "bottom-12 left-0 md:bottom-16");
+
   return (
     <div className="size-full overflow-hidden">
       {/* fork (C1, UI156): one boundary per piece, as upstream #24255 does */}
@@ -146,13 +153,7 @@ function DefaultAppView({
         id="pageRoot"
         className={cn(
           "absolute right-0 top-0 overflow-hidden",
-          isMobile
-            ? // fork: phoneShell reserves insets in a tab and stays compact in landscape
-              (phoneShell?.pageRoot ??
-                (isPWA
-                  ? "bottom-[calc(3rem+env(safe-area-inset-bottom))] left-0 pt-[env(safe-area-inset-top)] md:bottom-[calc(4rem+env(safe-area-inset-bottom))] landscape:pl-[env(safe-area-inset-left)] landscape:pr-[env(safe-area-inset-right)]"
-                  : "bottom-12 left-0 md:bottom-16"))
-            : "bottom-8 left-[52px]",
+          isMobile ? mobilePageRoot : "bottom-8 left-[52px]",
         )}
       >
         <RouteSuspense fallback={<PageLoading />}>

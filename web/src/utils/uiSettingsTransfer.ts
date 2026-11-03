@@ -528,7 +528,7 @@ export async function applyImportPayload(
             layout !== undefined &&
             !(
               viewport === getViewportClass() &&
-              Object.prototype.hasOwnProperty.call(file.sections.layouts, group)
+              Object.hasOwn(file.sections.layouts, group)
             )
           ) {
             writes.push(

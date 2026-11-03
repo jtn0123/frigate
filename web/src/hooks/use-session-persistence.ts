@@ -19,7 +19,7 @@ export function useSessionPersistence<S>(
         window.sessionStorage.setItem(key, JSON.stringify(defaultValue));
         return defaultValue;
       }
-    } catch (err) {
+    } catch {
       return defaultValue;
     }
   });
