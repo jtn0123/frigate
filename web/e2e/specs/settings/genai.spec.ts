@@ -74,6 +74,17 @@ function roleSwitch(page: Page, role: string) {
   return page.locator(`#root_${ENTRY}_roles-${role}`);
 }
 
+/**
+ * Pick a provider and wait for its listbox to unmount. Radix keeps the select
+ * content mounted through its exit animation and then focuses the trigger, so
+ * a popover opened before that would see focus move outside it and close.
+ */
+async function pickProvider(page: Page, name: string) {
+  await page.locator(`#root_${ENTRY}_provider`).click();
+  await page.getByRole("option", { name, exact: true }).click();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+}
+
 test.describe("genai provider settings @medium @mobile", () => {
   test("a saved role the provider cannot confirm stays and is not dirty", async ({
     frigateApp,
@@ -142,21 +153,16 @@ test.describe("genai provider settings @medium @mobile", () => {
     await frigateApp.goto(SETTINGS_URL);
 
     const model = frigateApp.page.locator(`#root_${ENTRY}_model`);
-    const provider = frigateApp.page.locator(`#root_${ENTRY}_provider`);
     await expect(model).toHaveText("gpt-4o");
 
-    await provider.click();
-    await frigateApp.page.getByRole("option", { name: "llamacpp" }).click();
+    await pickProvider(frigateApp.page, "llamacpp");
     await model.click();
     await frigateApp.page.getByRole("option", { name: "qwen3" }).click();
     await expect(model).toHaveText("qwen3");
 
     // the model picked for llamacpp must not carry over to openai, and the
     // saved one isn't filled back in since the endpoint may have changed
-    await provider.click();
-    await frigateApp.page
-      .getByRole("option", { name: "openai", exact: true })
-      .click();
+    await pickProvider(frigateApp.page, "openai");
 
     await expect(model).toHaveText(MODEL_PLACEHOLDER);
   });
