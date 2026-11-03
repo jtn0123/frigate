@@ -22,7 +22,7 @@ runs:
       run: python3 -u fork/scripts/smoke_build_graph.py --root "$BENCH_ROOT/graph-smoke" --context frigate-github-bench > "$BENCH_ROOT/graph-smoke.log" 2>&1
     - name: Preserve graph preflight
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: benchmark-${{ github.run_id }}-p${{ inputs.parallelism }}-preflight
         path: |
@@ -41,7 +41,7 @@ runs:
           --seed-caches "$BENCH_ROOT/seed-caches.json" --buildkit-image "$BUILDKIT_IMAGE" --parallelism "$MAX_PARALLELISM"
     - name: Save shared-zstd cold checkpoint
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: benchmark-${{ github.run_id }}-p${{ inputs.parallelism }}-shared-zstd-cold
         path: |
@@ -67,7 +67,7 @@ runs:
       run: python3 fork/scripts/benchmark_smoke.py "$BENCH_ROOT/shared-zstd" shared-zstd
     - name: Save shared-zstd app-change checkpoint
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: benchmark-${{ github.run_id }}-p${{ inputs.parallelism }}-shared-zstd-app-change
         path: |
@@ -95,7 +95,7 @@ runs:
           --seed-caches "$BENCH_ROOT/seed-caches.json" --buildkit-image "$BUILDKIT_IMAGE" --parallelism "$MAX_PARALLELISM"
     - name: Save dependency-images cold checkpoint
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: benchmark-${{ github.run_id }}-p${{ inputs.parallelism }}-dependency-images-cold
         path: |
@@ -123,7 +123,7 @@ runs:
       run: python3 fork/scripts/benchmark_smoke.py "$BENCH_ROOT/dependency-images" dependency-images
     - name: Save dependency-images app-change checkpoint
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: benchmark-${{ github.run_id }}-p${{ inputs.parallelism }}-dependency-images-app-change
         path: |
@@ -150,7 +150,7 @@ runs:
       run: touch "$BENCH_ROOT/stop-monitor"
     - name: Preserve comparison
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: benchmark-${{ github.run_id }}-p${{ inputs.parallelism }}-summary
         path: |
