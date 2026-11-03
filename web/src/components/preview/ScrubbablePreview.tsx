@@ -211,7 +211,7 @@ export function VideoPreview({
   }, [playerRef]);
 
   const onProgressHover = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: React.MouseEvent<HTMLElement>) => {
       if (!sliderRef.current) {
         return;
       }
@@ -405,7 +405,7 @@ export function InProgressPreview({
   );
 
   const onProgressHover = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: React.MouseEvent<HTMLElement>) => {
       if (!sliderRef.current || !previewFrames) {
         return;
       }
