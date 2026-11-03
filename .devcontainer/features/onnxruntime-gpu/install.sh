@@ -7,9 +7,9 @@ VERSION=${VERSION}
 python3 -m pip config set global.break-system-packages true
 # if VERSION == "latest" or VERSION is empty, install the latest version
 if [ "$VERSION" == "latest" ] || [ -z "$VERSION" ]; then
-    python3 -m pip install onnxruntime-gpu
+    python3 -m pip install --only-binary :all: onnxruntime-gpu
 else
-    python3 -m pip install onnxruntime-gpu==$VERSION
+    python3 -m pip install --only-binary :all: "onnxruntime-gpu==$VERSION"
 fi
 
 echo "Done!"
