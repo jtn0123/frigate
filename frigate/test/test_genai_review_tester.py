@@ -16,7 +16,10 @@ import numpy as np
 
 from frigate import genai
 from frigate.config.camera.genai import GenAIProviderEnum
-from frigate.genai.prompts import REVIEW_RESPONSE_STYLES
+from frigate.genai.prompts import (
+    REVIEW_RESPONSE_STYLES,
+    get_review_field_guidelines,
+)
 
 _SCRIPT = Path(__file__).resolve().parents[2] / "testing-scripts/genai_review_tester.py"
 _SPEC = importlib.util.spec_from_file_location("genai_review_tester_module", _SCRIPT)
@@ -339,9 +342,11 @@ class TestExamplesAndFrames(_TempExamplesMixin):
         cv2.imwrite(str(example / "1.png"), np.zeros((4, 4, 3), dtype=np.uint8))
 
         with patch("sys.stdout", new_callable=io.StringIO) as out:
-            frames = tester.load_frames(example)
+            frames, captions = tester.load_frames(example)
 
         self.assertEqual(len(frames), 4)
+        # no frame has a caption, so plain frames are sent
+        self.assertIsNone(captions)
         # the png is decoded and re-encoded as a jpeg
         self.assertTrue(frames[0].startswith(b"\xff\xd8"))
         self.assertEqual(frames[1:], [b"jpg-2", b"jpg-10", b"jpg-cover"])
@@ -352,23 +357,58 @@ class TestExamplesAndFrames(_TempExamplesMixin):
         cv2.imwrite(str(example / "0.png"), np.zeros((4, 4, 3), dtype=np.uint8))
 
         with patch.object(cv2, "imencode", return_value=(False, None)):
-            self.assertEqual(tester.load_frames(example), [])
+            self.assertEqual(tester.load_frames(example), ([], None))
+
+    # B45 (upstream #24854): annotated frame mode saves <index>.txt captions
+    def test_load_frames_returns_captions_when_every_frame_has_one(self):
+        example = self.make_example("ex")
+        (example / "2.jpg").write_bytes(b"jpg-2")
+        (example / "2.txt").write_text("caption 2")
+        (example / "1.jpg").write_bytes(b"jpg-1")
+        (example / "1.txt").write_text("caption 1")
+
+        frames, captions = tester.load_frames(example)
+
+        self.assertEqual(frames, [b"jpg-1", b"jpg-2"])
+        self.assertEqual(captions, ["caption 1", "caption 2"])
+
+    def test_load_frames_drops_captions_when_a_frame_lacks_one(self):
+        example = self.make_example("ex")
+        (example / "1.jpg").write_bytes(b"jpg-1")
+        (example / "1.txt").write_text("caption 1")
+        (example / "2.jpg").write_bytes(b"jpg-2")
+
+        frames, captions = tester.load_frames(example)
+
+        self.assertEqual(frames, [b"jpg-1", b"jpg-2"])
+        self.assertIsNone(captions)
 
 
 class TestApplyStyle(unittest.TestCase):
-    def test_default_style_leaves_prompt_unchanged(self):
-        self.assertEqual(tester.apply_style(SAVED_PROMPT, "default"), SAVED_PROMPT)
+    # B45 (upstream #24854): every field line is rebuilt from the current
+    # guidance, so "default" restores the default text on any saved prompt
+    def test_default_style_restores_the_current_guidance(self):
+        styled = tester.apply_style(SAVED_PROMPT, "default")
 
-    def test_preset_replaces_user_facing_guidance_only(self):
+        self.assertTrue(styled.startswith("Header line\n"))
+        for field_name, guidance in get_review_field_guidelines("default").items():
+            self.assertIn(f"- `{field_name}`: {guidance}", styled)
+        self.assertNotIn("base ", styled)
+
+    def test_preset_applies_its_overrides_over_the_default_guidance(self):
         styled = tester.apply_style(SAVED_PROMPT, "concise")
         concise = REVIEW_RESPONSE_STYLES["concise"]
+        default = get_review_field_guidelines("default")
 
         self.assertIn(f"- `scene`: {concise['scene']}", styled)
         self.assertIn(f"- `title`: {concise['title']}", styled)
         self.assertIn(f"- `shortSummary`: {concise['shortSummary']}", styled)
-        self.assertIn("- `observations`: base observations", styled)
-        self.assertIn("- `potential_threat_level`: base threat", styled)
-        self.assertNotIn("base scene", styled)
+        self.assertIn(f"- `observations`: {default['observations']}", styled)
+        self.assertIn(
+            f"- `potential_threat_level`: {default['potential_threat_level']}",
+            styled,
+        )
+        self.assertNotIn("base ", styled)
 
     def test_handles_the_legacy_typed_guidance_format(self):
         legacy = "- `scene` (string): old\n- `title` (string): old\n"
@@ -417,7 +457,7 @@ class TestFollowupLoop(unittest.TestCase):
             patch("builtins.input", side_effect=["what?", "which animal?", ""]),
             patch("sys.stdout", new_callable=io.StringIO) as out,
         ):
-            tester.followup_loop(client, "BASE", [b"f"])
+            tester.followup_loop(client, "BASE", [b"f"], ["c"])
 
         self.assertEqual(client._send.call_count, 2)
         # a failed answer does not enter the transcript
@@ -426,6 +466,10 @@ class TestFollowupLoop(unittest.TestCase):
         self.assertNotIn("what?", second_prompt)
         self.assertTrue(second_prompt.endswith("Question: which animal?"))
         self.assertEqual(client._send.call_args_list[1].args[1], [b"f"])
+        # the frame captions go with every question
+        self.assertEqual(
+            client._send.call_args_list[1].kwargs, {"image_captions": ["c"]}
+        )
         self.assertIn("No response from provider", out.getvalue())
         self.assertIn("It was a cat.", out.getvalue())
 
@@ -437,7 +481,7 @@ class TestFollowupLoop(unittest.TestCase):
             patch("builtins.input", side_effect=["q1", "q2", EOFError]),
             patch("sys.stdout", new_callable=io.StringIO),
         ):
-            tester.followup_loop(client, "BASE", [])
+            tester.followup_loop(client, "BASE", [], None)
 
         second_prompt = client._send.call_args_list[1].args[0]
         self.assertIn("Question: q1\n\nYour answer:\nfirst answer", second_prompt)
@@ -452,14 +496,14 @@ class TestRunExample(_TempExamplesMixin):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def _run(self, selections, client=None, frames=None):
+    def _run(self, selections, client=None, frames=None, captions=None):
         with (
             patch.object(tester, "select_option", side_effect=selections),
             patch.object(tester, "build_client", return_value=client) as build,
             patch.object(
                 tester,
                 "load_frames",
-                return_value=[b"f1", b"f2"] if frames is None else frames,
+                return_value=([b"f1", b"f2"] if frames is None else frames, captions),
             ),
             patch.object(tester, "followup_loop") as followup,
         ):
@@ -517,18 +561,35 @@ class TestRunExample(_TempExamplesMixin):
         prompt, frames, response_format = client._send.call_args.args
         self.assertIn(REVIEW_RESPONSE_STYLES["concise"]["scene"], prompt)
         self.assertEqual(frames, [b"f1", b"f2"])
+        self.assertEqual(client._send.call_args.kwargs, {"image_captions": None})
         schema = response_format["json_schema"]["schema"]
         # the saved prompt did not ask for other concerns
         self.assertNotIn("other_concerns", schema["properties"])
-        self.assertIn("style=concise", self.out.getvalue())
+        self.assertIn("style=concise, captions=no", self.out.getvalue())
         self.assertIn('"title": "Delivery"', self.out.getvalue())
 
-        followup_client, transcript, followup_frames = followup.call_args.args
+        followup_client, transcript, followup_frames, followup_captions = (
+            followup.call_args.args
+        )
         self.assertIs(followup_client, client)
         self.assertTrue(
             transcript.endswith('\n\nYour analysis:\n{"title": "Delivery"}')
         )
         self.assertEqual(followup_frames, [b"f1", b"f2"])
+        self.assertIsNone(followup_captions)
+
+    def test_sends_captions_to_the_model_and_followups(self):
+        self.make_example("ex")
+        client = MagicMock()
+        client._send.return_value = "{}"
+
+        _, followup = self._run([0, 0], client=client, captions=["c1", "c2"])
+
+        self.assertEqual(
+            client._send.call_args.kwargs, {"image_captions": ["c1", "c2"]}
+        )
+        self.assertIn("captions=yes", self.out.getvalue())
+        self.assertEqual(followup.call_args.args[3], ["c1", "c2"])
 
     def test_keeps_other_concerns_when_the_prompt_asked_for_them(self):
         self.make_example("ex", prompt=SAVED_PROMPT + "- `other_concerns`: list\n")

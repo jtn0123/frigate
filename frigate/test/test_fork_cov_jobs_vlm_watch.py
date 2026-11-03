@@ -29,6 +29,10 @@ class FakeClock:
     def time(self) -> float:
         return self.now
 
+    def monotonic(self) -> float:
+        # B45 (upstream #24864): the job's deadlines run on the monotonic clock
+        return self.now
+
 
 def _detection(camera: str, objects: list[dict[str, Any]] | None) -> tuple:
     return ("video", (camera, "frame", 0.0, objects, [], []))

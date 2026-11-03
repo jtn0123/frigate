@@ -924,6 +924,37 @@ class TestRun(ExportTestCase):
         ffmpeg.assert_not_called()
         self.assertEqual(Export.select().count(), 0)
 
+    def test_unexpected_error_discards_export_and_reraises(self) -> None:
+        exporter = self.exporter(playback_source=PlaybackSourceEnum.preview)
+
+        with (
+            patch.object(
+                RecordingExporter,
+                "get_preview_export_command",
+                return_value=(["ffmpeg", "/out.mp4"], []),
+            ),
+            patch.object(
+                export_module,
+                "run_ffmpeg_with_progress",
+                side_effect=RuntimeError("boom"),
+            ),
+            self.assertRaises(RuntimeError),
+        ):
+            exporter.run()
+
+        self.assertEqual(Export.select().count(), 0)
+
+    def test_discard_skips_an_empty_thumbnail_path(self) -> None:
+        exporter = self.exporter()
+        video = os.path.join(self.exports, "partial.mp4")
+        with open(video, "wb") as f:
+            f.write(b"partial")
+
+        # Path("") is the working directory, which unlink would fail on
+        exporter._discard_failed_export(video, "")
+
+        self.assertFalse(os.path.exists(video))
+
     def test_staged_export_merges_and_cleans_up(self) -> None:
         steps: list[str] = []
         exporter = self.exporter(on_progress=lambda s, p: steps.append(s))
@@ -950,7 +981,8 @@ class TestRun(ExportTestCase):
         self.assertFalse(os.path.exists(staged))
         self.assertEqual(exporter.staged_runs, [])
 
-    def test_missing_rows_leave_export_in_progress(self) -> None:
+    def test_missing_rows_discard_the_export(self) -> None:
+        # B45 (upstream #24846): the row used to stay in progress until a restart
         exporter = self.exporter(playback_source=PlaybackSourceEnum.preview)
 
         with (
@@ -964,7 +996,7 @@ class TestRun(ExportTestCase):
             exporter.run()
 
         ffmpeg.assert_not_called()
-        self.assertTrue(Export.get(Export.id == exporter.export_id).in_progress)
+        self.assertEqual(Export.select().count(), 0)
 
 
 class TestMigrateExports(ExportTestCase):
