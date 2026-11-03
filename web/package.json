@@ -28,7 +28,7 @@
     "bundle:budget": "node scripts/fork/bundle-budget.mjs"
   },
   "dependencies": {
-    "@cycjimmy/jsmpeg-player": "^6.1.6",
+    "@cycjimmy/jsmpeg-player": "^6.1.8",
     "@hookform/resolvers": "^6.0.2",
     "@radix-ui/react-alert-dialog": "^1.2.1",
     "@radix-ui/react-aspect-ratio": "^1.2.0",
