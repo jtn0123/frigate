@@ -69,14 +69,16 @@ TOOLING_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Possessive quantifiers keep the match linear: no two of them can trade
-# characters. IDs join with `+` or name a range (`I48 to I54`). The text after
-# the colon is trimmed by `ledger_text`. Each repeat is an atomic group:
-# Python 3.11.2 (the image's) keeps a failed iteration's partial match under a
-# bare possessive repeat, so `I48 to:` would wrongly match `I48 to`.
-ID_RE = re.compile(
-    r"(?P<ids>[A-Z]{1,2}\d++(?>(?:\s*+\+\s*+|\s++to\s++)[A-Z]{1,2}\d++)*+)\s*+:"
-)
+# A subject's leading IDs are one ID, then any number of joins each followed
+# by an ID, then a colon. IDs join with `+` or name a range (`I48 to I54`).
+# `ledger_ids` walks these pieces in turn instead of one combined pattern.
+# Possessive quantifiers keep each piece linear, and a join only counts when
+# an ID follows it, so `I48 to:` is not an ID list (an earlier combined regex
+# had to use atomic groups for that on Python 3.11.2). The text after the
+# colon is trimmed by `ledger_text`.
+ID_RE = re.compile(r"[A-Z]{1,2}\d++")
+ID_JOIN_RE = re.compile(r"\s*+\+\s*+|\s++to\s++")
+ID_END_RE = re.compile(r"\s*+:")
 RECORD_SEP = "\x1e"
 
 
@@ -180,13 +182,32 @@ def upstream_label(ref: str, upstream: str, cwd: str | None = None) -> str:
     return upstream_base.label(ref, upstream, cwd=cwd)
 
 
+def ledger_ids(subject: str) -> tuple[str, int] | None:
+    """The leading ID list of `subject` and the index after its colon.
+
+    None when the subject does not start with IDs and a colon.
+    """
+    first = ID_RE.match(subject)
+    if first is None:
+        return None
+    end = first.end()
+    while (join := ID_JOIN_RE.match(subject, end)) and (
+        following := ID_RE.match(subject, join.end())
+    ):
+        end = following.end()
+    colon = ID_END_RE.match(subject, end)
+    if colon is None:
+        return None
+    return subject[:end], colon.end()
+
+
 def ledger_prefix(subject: str) -> tuple[str, str]:
     """Split `UI6 + C2: text` into ("UI", "text"); no ID gives ("", subject)."""
-    match = ID_RE.match(subject)
-    text = ledger_text(subject[match.end() :]) if match else None
-    if match is None or text is None:
+    ids = ledger_ids(subject)
+    text = ledger_text(subject[ids[1] :]) if ids else None
+    if ids is None or text is None:
         return "", subject
-    letters = re.match(r"[A-Z]+", match.group("ids"))
+    letters = re.match(r"[A-Z]+", ids[0])
     return (letters.group(0) if letters else ""), text
 
 

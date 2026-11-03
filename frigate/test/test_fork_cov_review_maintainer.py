@@ -395,7 +395,7 @@ class MaintainerTestCase(ClipsDirMixin):
         maintainer.config_subscriber.check_for_updates.return_value = {}
         return maintainer
 
-    def sent_topics(self) -> list[str]:
+    def _sent_topics(self) -> list[str]:
         return [c.args[0] for c in self.maintainer.requestor.send_data.call_args_list]
 
     def sent(self, topic: str) -> list[Any]:
@@ -441,7 +441,7 @@ class TestPublishing(MaintainerTestCase):
         self.maintainer._publish_segment_start(segment)
 
         self.assertEqual(
-            self.sent_topics(),
+            self._sent_topics(),
             [UPSERT_REVIEW_SEGMENT, "reviews", f"{CAMERA}/review_status"],
         )
         update = json.loads(self.sent("reviews")[0])
@@ -487,7 +487,7 @@ class TestPublishing(MaintainerTestCase):
 class TestForciblyEnd(MaintainerTestCase):
     def test_no_segment_returns_none(self) -> None:
         self.assertIsNone(self.maintainer.forcibly_end_segment(CAMERA))
-        self.assertNotIn("reviews", self.sent_topics())
+        self.assertNotIn("reviews", self._sent_topics())
 
     def test_ends_segment(self) -> None:
         segment = self.segment(SeverityEnum.detection)
@@ -551,7 +551,7 @@ class TestUpdateExistingSegment(MaintainerTestCase):
         self.assertEqual(segment.detections["car1"], "car")
         self.assertEqual(segment.zones, ["yard"])
         # nothing new to show, so nothing is published
-        self.assertNotIn("reviews", self.sent_topics())
+        self.assertNotIn("reviews", self._sent_topics())
 
     def test_sub_labels_are_recorded(self) -> None:
         segment = self.segment(SeverityEnum.detection)
@@ -622,7 +622,7 @@ class TestUpdateExistingSegment(MaintainerTestCase):
         )
 
         self.assertEqual(segment.severity, SeverityEnum.alert)
-        self.assertNotIn("reviews", self.sent_topics())
+        self.assertNotIn("reviews", self._sent_topics())
 
     def test_vanished_frame_skips_publish(self) -> None:
         segment = self.segment(SeverityEnum.detection)
@@ -632,7 +632,7 @@ class TestUpdateExistingSegment(MaintainerTestCase):
             segment, "frame", 20.0, [tracked(frame_time=20.0)]
         )
 
-        self.assertNotIn("reviews", self.sent_topics())
+        self.assertNotIn("reviews", self._sent_topics())
 
     def test_idle_segment_saves_full_frame_once(self) -> None:
         segment = self.segment(SeverityEnum.detection)
@@ -843,7 +843,7 @@ class TestCheckIfNewSegment(MaintainerTestCase):
         self.maintainer.check_if_new_segment(CAMERA, "frame", 10.0, [tracked()])
 
         self.assertIsNotNone(self.maintainer.active_review_segments[CAMERA])
-        self.assertNotIn("reviews", self.sent_topics())
+        self.assertNotIn("reviews", self._sent_topics())
 
     def test_vanished_frame_keeps_segment_unpublished(self) -> None:
         self.maintainer.frame_manager.get.side_effect = FileNotFoundError
@@ -851,7 +851,7 @@ class TestCheckIfNewSegment(MaintainerTestCase):
         self.maintainer.check_if_new_segment(CAMERA, "frame", 10.0, [tracked()])
 
         self.assertIsNotNone(self.maintainer.active_review_segments[CAMERA])
-        self.assertNotIn("reviews", self.sent_topics())
+        self.assertNotIn("reviews", self._sent_topics())
 
 
 def video(frame_time: float, objects: list, camera: str = CAMERA) -> tuple:

@@ -14,7 +14,8 @@ from unittest import mock
 SPEC = importlib.util.spec_from_file_location(
     "unittest_shard", Path(__file__).with_name("unittest_shard.py")
 )
-assert SPEC and SPEC.loader
+assert SPEC is not None
+assert SPEC.loader is not None
 shard = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(shard)
 

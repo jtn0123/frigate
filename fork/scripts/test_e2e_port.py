@@ -73,8 +73,9 @@ class TestPreviewPort(unittest.TestCase):
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             listener.listen()
+            occupied = listener.getsockname()[1]
             with self.assertRaises(RuntimeError):
-                PORT.reserve(self.other, requested=listener.getsockname()[1])
+                PORT.reserve(self.other, requested=occupied)
 
     def test_a_wildcard_listener_is_occupied(self):
         # I67: on macOS a loopback probe with SO_REUSEADDR binds beside a

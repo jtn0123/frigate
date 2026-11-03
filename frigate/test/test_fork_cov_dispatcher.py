@@ -148,7 +148,7 @@ class DispatcherTestCase(unittest.TestCase):
     def published(self, topic: str) -> list[tuple[object, bool]]:
         return [(p, r) for t, p, r in self.comm.messages if t == topic]
 
-    def update_enums(self) -> list[CameraConfigUpdateEnum]:
+    def _update_enums(self) -> list[CameraConfigUpdateEnum]:
         return [
             c.args[0].update_type
             for c in self.config_updater.publish_update.call_args_list
@@ -548,7 +548,7 @@ class TestToggleHandlers(DispatcherTestCase):
         self.assertTrue(camera.detect.enabled)
         self.assertTrue(camera.motion.enabled)
         self.assertEqual(
-            self.update_enums(),
+            self._update_enums(),
             [CameraConfigUpdateEnum.motion, CameraConfigUpdateEnum.detect],
         )
         self.assertEqual(self.published("front_door/motion/state"), [("ON", True)])
@@ -626,7 +626,8 @@ class TestToggleHandlers(DispatcherTestCase):
                 "motion threshold: high",
             ],
         )
-        self.assertEqual((motion.contour_area, motion.threshold), before)
+        after = (motion.contour_area, motion.threshold)
+        self.assertEqual(after, before)
         self.config_updater.publish_update.assert_not_called()
 
     def test_ptz_autotracker(self) -> None:
@@ -648,7 +649,9 @@ class TestToggleHandlers(DispatcherTestCase):
         self.dispatcher._receive("front_door/ptz_autotracker/set", "OFF")
         self.assertFalse(camera.onvif.autotracking.enabled)
         self.assertEqual(metrics.start_time.value, 0)
-        self.assertEqual(self.update_enums(), [CameraConfigUpdateEnum.autotracking] * 2)
+        self.assertEqual(
+            self._update_enums(), [CameraConfigUpdateEnum.autotracking] * 2
+        )
 
     def test_audio_toggle_and_gate(self) -> None:
         audio = self.config.cameras["front_door"].audio
@@ -672,7 +675,7 @@ class TestToggleHandlers(DispatcherTestCase):
         self.dispatcher._receive("front_door/audio_transcription/set", "OFF")
         self.assertFalse(transcription.live_enabled)
         self.assertEqual(
-            self.update_enums(), [CameraConfigUpdateEnum.audio_transcription] * 2
+            self._update_enums(), [CameraConfigUpdateEnum.audio_transcription] * 2
         )
 
     def test_recordings_toggle_and_gate(self) -> None:
@@ -704,7 +707,7 @@ class TestToggleHandlers(DispatcherTestCase):
         self.assertFalse(birdseye.enabled)
         self.dispatcher._receive("front_door/birdseye/set", "ON")
         self.assertTrue(birdseye.enabled)
-        self.assertEqual(self.update_enums(), [CameraConfigUpdateEnum.birdseye] * 2)
+        self.assertEqual(self._update_enums(), [CameraConfigUpdateEnum.birdseye] * 2)
 
     def test_birdseye_modes_rejected_when_birdseye_off(self) -> None:
         self.config.cameras["front_door"].birdseye.enabled = False
@@ -731,7 +734,7 @@ class TestToggleHandlers(DispatcherTestCase):
         self.dispatcher._receive("front_door/review_detections/set", "ON")
         self.assertFalse(review.alerts.enabled)
         self.assertFalse(review.detections.enabled)
-        self.assertEqual(self.update_enums(), [CameraConfigUpdateEnum.review] * 4)
+        self.assertEqual(self._update_enums(), [CameraConfigUpdateEnum.review] * 4)
 
     def test_genai_description_toggles(self) -> None:
         camera = self.config.cameras["front_door"]
@@ -752,7 +755,7 @@ class TestToggleHandlers(DispatcherTestCase):
         self.assertFalse(camera.objects.genai.enabled)
         self.assertFalse(camera.review.genai.enabled)
         self.assertEqual(
-            self.update_enums(),
+            self._update_enums(),
             [
                 CameraConfigUpdateEnum.object_genai,
                 CameraConfigUpdateEnum.review_genai,
@@ -825,7 +828,7 @@ class TestMaskAndZoneHandlers(DispatcherTestCase):
         self.dispatcher._receive("front_door/motion_mask/porch/set", "OFF")
         motion = self.config.cameras["front_door"].motion
         self.assertFalse(motion.mask["porch"].enabled)
-        self.assertEqual(self.update_enums(), [CameraConfigUpdateEnum.motion])
+        self.assertEqual(self._update_enums(), [CameraConfigUpdateEnum.motion])
         self.assertEqual(
             self.published("front_door/motion_mask/porch/state"), [("OFF", True)]
         )
@@ -844,7 +847,7 @@ class TestMaskAndZoneHandlers(DispatcherTestCase):
         self.dispatcher._receive("front_door/object_mask/street/set", "OFF")
         objects = self.config.cameras["front_door"].objects
         self.assertFalse(objects.mask["street"].enabled)
-        self.assertEqual(self.update_enums(), [CameraConfigUpdateEnum.objects])
+        self.assertEqual(self._update_enums(), [CameraConfigUpdateEnum.objects])
         self.assertEqual(
             self.published("front_door/object_mask/street/state"), [("OFF", True)]
         )
@@ -876,7 +879,7 @@ class TestMaskAndZoneHandlers(DispatcherTestCase):
         self.assertFalse(zones["driveway"].enabled)
         self.dispatcher._receive("front_door/zone/driveway/set", "ON")
         self.assertTrue(zones["driveway"].enabled)
-        self.assertEqual(self.update_enums(), [CameraConfigUpdateEnum.zones] * 2)
+        self.assertEqual(self._update_enums(), [CameraConfigUpdateEnum.zones] * 2)
         self.assertEqual(
             self.published("front_door/zone/driveway/state"),
             [("OFF", True), ("ON", True)],

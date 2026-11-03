@@ -176,6 +176,18 @@ class TestRedact(unittest.TestCase):
     def test_dangling_userinfo_is_cut_up_to_the_last_at(self):
         self.assertEqual(redact("x pa@ss@host y"), "x host y")
         self.assertEqual(redact("x @host y"), "x @host y")
+        self.assertEqual(redact("x @@host y"), "x host y")
+        self.assertEqual(redact("a@b@.x"), "b@.x")
+        self.assertEqual(redact("a@.x"), "a@.x")
+
+    def test_long_tokens_with_at_signs_are_redacted_quickly(self):
+        # A backtracking `\S+@` pattern rescans a token for every "@" that
+        # has no host after it; the token scan visits each character once.
+        started = time.perf_counter()
+        self.assertEqual(redact("x" * 50000 + "@."), "x" * 50000 + "@.")
+        self.assertEqual(redact("a@" * 25000 + "host"), "host")
+        self.assertEqual(redact("a@." * 25000), "a@." * 25000)
+        self.assertLess(time.perf_counter() - started, 1.0)
 
     def test_long_runs_without_a_match_are_redacted_quickly(self):
         # The previous patterns backtracked over these in quadratic time.

@@ -171,13 +171,14 @@ class TestStateProcessorInit(_ProcessorTestBase):
         )
 
     def test_missing_name_raises(self):
+        args = (
+            _frigate_config(),
+            CustomClassificationConfig(),
+            MagicMock(),
+            _metrics(),
+        )
         with self.assertRaises(ValueError):
-            CustomStateClassificationProcessor(
-                _frigate_config(),
-                CustomClassificationConfig(),
-                MagicMock(),
-                _metrics(),
-            )
+            CustomStateClassificationProcessor(*args)
 
     def test_without_model_files_leaves_interpreter_unset(self):
         proc = CustomStateClassificationProcessor(
@@ -502,14 +503,15 @@ class TestObjectProcessor(_ProcessorTestBase):
         return ("classify", object_id, CAMERA, ts, resized, crop)
 
     def test_missing_name_raises(self):
+        args = (
+            _frigate_config(),
+            CustomClassificationConfig(),
+            MagicMock(),
+            MagicMock(),
+            _metrics(),
+        )
         with self.assertRaises(ValueError):
-            CustomObjectClassificationProcessor(
-                _frigate_config(),
-                CustomClassificationConfig(),
-                MagicMock(),
-                MagicMock(),
-                _metrics(),
-            )
+            CustomObjectClassificationProcessor(*args)
 
     def test_build_detector_with_and_without_model(self):
         proc = self._make(with_model=False, metrics=None)

@@ -891,11 +891,12 @@ class TestHttpEventsBulkDelete(BaseTestHttp):
         with open(snapshot, "w") as f:
             f.write("x")
 
+        events = list(Event.select())
         with (
             patch.object(Event, "delete", side_effect=OperationalError("locked")),
             self.assertRaises(OperationalError),
         ):
-            delete_events_data(list(Event.select()), None)
+            delete_events_data(events, None)
 
         assert os.path.exists(snapshot)
         assert Event.select().count() == 1

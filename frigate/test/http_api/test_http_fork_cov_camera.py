@@ -588,12 +588,11 @@ class TestConnectOnvifCamera(_CameraHttpTestCase):
         with patch.object(camera_api, "ONVIFCamera", side_effect=cameras):
             import asyncio
 
+            pending = camera_api._connect_onvif_camera(
+                "10.0.0.7", 80, "", "", None, "basic"
+            )
             with self.assertRaises(Fault) as raised:
-                asyncio.run(
-                    camera_api._connect_onvif_camera(
-                        "10.0.0.7", 80, "", "", None, "basic"
-                    )
-                )
+                asyncio.run(pending)
         assert raised.exception is first
 
 

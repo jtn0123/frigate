@@ -208,14 +208,16 @@ class TestEmbeddingsInit(ModelPatchMixin):
         )
 
     def test_genai_provider_without_manager_raises(self) -> None:
+        config = make_config(model="my_provider")
         with self.assertRaisesRegex(ValueError, "no embeddings client"):
-            self.make(make_config(model="my_provider"))
+            self.make(config)
 
     def test_genai_provider_without_embeddings_client_raises(self) -> None:
         manager = SimpleNamespace(embeddings_client=None)
+        config = make_config(model="my_provider")
 
         with self.assertRaises(ValueError):
-            self.make(make_config(model="my_provider"), genai_manager=manager)
+            self.make(config, genai_manager=manager)
 
     def test_genai_provider_wraps_client(self) -> None:
         client = MagicMock()

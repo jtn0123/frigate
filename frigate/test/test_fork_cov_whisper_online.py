@@ -88,8 +88,9 @@ class TestASRBase(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             ASRBase("en")
         base = object.__new__(ASRBase)
+        audio = _audio(0.1)
         with self.assertRaises(NotImplementedError):
-            base.transcribe(_audio(0.1))
+            base.transcribe(audio)
         with self.assertRaises(NotImplementedError):
             base.use_vad()
 
@@ -677,14 +678,12 @@ class TestMainEntryPoint(unittest.TestCase):
         return out.getvalue()
 
     def test_offline_and_comp_unaware_conflict_exits(self):
+        fake = self._fake_faster_whisper()
         with (
             self.assertRaises(SystemExit) as ctx,
             self.assertLogs("__main__", level="ERROR") as logs,
         ):
-            self._run(
-                ["--offline", "--comp_unaware", "--log-level", "CRITICAL"],
-                self._fake_faster_whisper(),
-            )
+            self._run(["--offline", "--comp_unaware", "--log-level", "CRITICAL"], fake)
         self.assertEqual(ctx.exception.code, 1)
         self.assertIn("not both", logs.output[0])
 
