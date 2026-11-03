@@ -19,7 +19,8 @@ RUN pip3 install --break-system-packages -q --require-hashes --only-binary :all:
 # Exercise every runtime dependency at the reviewed image versions, rather
 # than retaining stale dependencies from the released upstream base (F12).
 COPY fork/requirements-runtime-${TARGETARCH}.lock /tmp/runtime.lock
-RUN pip3 install --break-system-packages -q --require-hashes --only-binary :all: --no-cache-dir --no-deps -r /tmp/runtime.lock
+RUN pip3 install --break-system-packages -q --require-hashes --only-binary :all: \
+  --no-cache-dir --no-deps -r /tmp/runtime.lock
 COPY fork/scripts /opt/frigate/fork/scripts
 # Data files the scripts read next to themselves: the reviewed advisory list
 # (lock-audit.py) and the coverage floors (sonar-coverage-check.py).

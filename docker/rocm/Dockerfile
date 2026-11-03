@@ -12,18 +12,22 @@ FROM wget AS rocm
 ARG ROCM
 
 RUN apt update -qq && \
-    apt install -y wget gpg && \
+    apt install -y --no-install-recommends gpg wget && \
     curl --proto '=https' --proto-redir '=https' -fsSL --output rocm.deb https://repo.radeon.com/amdgpu-install/7.2.3/ubuntu/jammy/amdgpu-install_7.2.3.70203-1_all.deb && \
-    apt install -y ./rocm.deb && \
+    apt install -y --no-install-recommends ./rocm.deb && \
     apt update && \
-    apt install -qq -y rocm
+    apt install -qq -y --no-install-recommends rocm
 
-RUN mkdir -p /opt/rocm-dist/opt/rocm-$ROCM/lib
-RUN cd /opt/rocm-$ROCM/lib && \
-    cp -dpr libMIOpen*.so* libamd*.so* libhip*.so* libhsa*.so* libmigraphx*.so* librocm*.so* librocblas*.so* libroctracer*.so* librocsolver*.so* librocfft*.so* librocprofiler*.so* libroctx*.so*  librocroller.so* /opt/rocm-dist/opt/rocm-$ROCM/lib/ && \
-    mkdir -p /opt/rocm-dist/opt/rocm-$ROCM/lib/migraphx/lib && \
-    cp -dpr migraphx/lib/* /opt/rocm-dist/opt/rocm-$ROCM/lib/migraphx/lib
-RUN cd /opt/rocm-dist/opt/ && ln -s rocm-$ROCM rocm
+RUN mkdir -p "/opt/rocm-dist/opt/rocm-$ROCM/lib"
+WORKDIR /opt/rocm-$ROCM/lib
+RUN cp -dpr \
+        libMIOpen*.so* libamd*.so* libhip*.so* libhsa*.so* libmigraphx*.so* \
+        librocm*.so* librocblas*.so* libroctracer*.so* librocsolver*.so* \
+        librocfft*.so* librocprofiler*.so* libroctx*.so* librocroller.so* \
+        "/opt/rocm-dist/opt/rocm-$ROCM/lib/" && \
+    mkdir -p "/opt/rocm-dist/opt/rocm-$ROCM/lib/migraphx/lib" && \
+    cp -dpr migraphx/lib/* "/opt/rocm-dist/opt/rocm-$ROCM/lib/migraphx/lib"
+RUN ln -s "rocm-$ROCM" /opt/rocm-dist/opt/rocm
 
 RUN mkdir -p /opt/rocm-dist/etc/ld.so.conf.d/
 RUN echo /opt/rocm/lib|tee /opt/rocm-dist/etc/ld.so.conf.d/rocm.conf
@@ -94,7 +98,7 @@ ARG HSA_OVERRIDE_GFX_VERSION
 ENV HSA_OVERRIDE_GFX_VERSION=$HSA_OVERRIDE_GFX_VERSION
 
 #######################################################################
-FROM rocm-prelim-hsa-override$HSA_OVERRIDE as rocm-runtime
+FROM rocm-prelim-hsa-override$HSA_OVERRIDE AS rocm-runtime
 
 FROM rocm-runtime AS rocm-deps
 
