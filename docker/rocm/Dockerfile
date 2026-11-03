@@ -45,7 +45,7 @@ RUN echo "deb https://deb.debian.org/debian trixie main" > /etc/apt/sources.list
 WORKDIR /opt/frigate
 
 ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
-    https://bootstrap.pypa.io/get-pip.py get-pip.py
+    https://raw.githubusercontent.com/pypa/get-pip/af54dfe793b24685f8dc4ebba0630d9f2d77653c/public/get-pip.py get-pip.py
 RUN sed -i 's/args.append("setuptools")/args.append("setuptools==84.1.0")/' get-pip.py \
     && python3 get-pip.py "pip" --break-system-packages
 RUN python3 -m pip config set global.break-system-packages true

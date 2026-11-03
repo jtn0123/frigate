@@ -198,7 +198,7 @@ RUN apt-get -qq update \
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
 ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
-    https://bootstrap.pypa.io/get-pip.py get-pip.py
+    https://raw.githubusercontent.com/pypa/get-pip/af54dfe793b24685f8dc4ebba0630d9f2d77653c/public/get-pip.py get-pip.py
 RUN sed -i 's/args.append("setuptools")/args.append("setuptools==84.1.0")/' get-pip.py \
     && python3 get-pip.py "pip"
 
@@ -292,7 +292,7 @@ ENV DEFAULT_FFMPEG_VERSION="8.0"
 ENV INCLUDED_FFMPEG_VERSIONS="${DEFAULT_FFMPEG_VERSION}:7.0:5.0"
 
 ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
-    https://bootstrap.pypa.io/get-pip.py get-pip.py
+    https://raw.githubusercontent.com/pypa/get-pip/af54dfe793b24685f8dc4ebba0630d9f2d77653c/public/get-pip.py get-pip.py
 RUN sed -i 's/args.append("setuptools")/args.append("setuptools==84.1.0")/' get-pip.py \
     && python3 get-pip.py "pip"
 
