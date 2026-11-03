@@ -96,7 +96,7 @@ jobs:
       - uses: ./.github/actions/fork-web-setup
       # eslint (content strategy) and tsc (content hashes) both key their
       # caches on file contents, so a cache from an earlier commit is safe.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: web/.cache
           key: web-lint-cache-${{ github.sha }}
@@ -143,7 +143,7 @@ jobs:
         working-directory: ./web
       - run: npm run bundle:budget
         working-directory: ./web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: web-coverage
@@ -168,7 +168,7 @@ jobs:
         env:
           E2E_COVERAGE: "1"
           E2E_STRICT_ERRORS: "1"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: e2e-dist
           path: web/dist
@@ -188,7 +188,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/fork-web-setup
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: e2e-dist
           path: web/dist
@@ -219,14 +219,14 @@ jobs:
           node scripts/fork/e2e-flaky-report.mjs e2e-report
           ${{ (github.event_name == 'push' && github.ref == 'refs/heads/next') && '--strict' || '' }}
         working-directory: ./web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: browser-coverage-${{ matrix.shard }}
           path: web/coverage-browser
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-${{ matrix.shard }}
@@ -295,7 +295,7 @@ jobs:
       - run: fork/scripts/py-checks.sh
         env:
           COVERAGE_XML: coverage-py/coverage.xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: python-coverage
@@ -374,11 +374,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: web-coverage
           path: web/coverage
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-coverage
           path: coverage-py
@@ -391,7 +391,7 @@ jobs:
       # already fails "Checks passed". Merging only on success let one flaky
       # retry on next drop all browser coverage, so the gate also failed on
       # coverage (I63). Browser coverage is used whenever every shard sent it.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: needs.web_e2e.result == 'success' || needs.web_e2e.result == 'failure'
         with:
           pattern: browser-coverage-*
@@ -414,7 +414,7 @@ jobs:
           fi
       - uses: ./.github/actions/fork-web-setup
         if: steps.browser.outputs.complete == 'true'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: steps.browser.outputs.complete == 'true'
         with:
           name: e2e-dist
