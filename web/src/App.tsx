@@ -29,7 +29,7 @@ import CommandPaletteGate from "@/components/fork/CommandPaletteGate";
 import { isPublicSharePath } from "@/lib/fork/share-path";
 import { isKioskPath } from "@/lib/fork/kiosk";
 import { isForkEnabled } from "@/fork/flags";
-import { phoneShell } from "@/lib/fork/phone-shell";
+import { mobilePageRootClass, phoneShell } from "@/lib/fork/phone-shell";
 import { allowAndroidPageZoom } from "@/lib/fork/viewport-zoom";
 
 allowAndroidPageZoom();
@@ -146,12 +146,9 @@ function DefaultAppView({
         id="pageRoot"
         className={cn(
           "absolute right-0 top-0 overflow-hidden",
+          // fork: phoneShell reserves insets in a tab and stays compact in landscape
           isMobile
-            ? // fork: phoneShell reserves insets in a tab and stays compact in landscape
-              (phoneShell?.pageRoot ??
-                (isPWA
-                  ? "bottom-[calc(3rem+env(safe-area-inset-bottom))] left-0 pt-[env(safe-area-inset-top)] md:bottom-[calc(4rem+env(safe-area-inset-bottom))] landscape:pl-[env(safe-area-inset-left)] landscape:pr-[env(safe-area-inset-right)]"
-                  : "bottom-12 left-0 md:bottom-16"))
+            ? mobilePageRootClass(phoneShell, Boolean(isPWA))
             : "bottom-8 left-[52px]",
         )}
       >

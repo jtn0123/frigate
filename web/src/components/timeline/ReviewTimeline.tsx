@@ -22,6 +22,7 @@ import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { isForkEnabled } from "@/fork/flags";
 import { phoneTouch } from "@/lib/fork/phone";
 import {
+  handlebarWidthClass,
   snapMaxDistance,
   snapToNearestEvent,
   stepToEvent,
@@ -535,19 +536,11 @@ export function ReviewTimeline({
                     }`}
                   >
                     <div
-                      className={`mx-auto rounded-full bg-destructive ${
-                        dense
-                          ? scrubberEnabled
-                            ? "w-16 md:w-24"
-                            : "w-12 md:w-20"
-                          : segmentDuration < 60
-                            ? scrubberEnabled
-                              ? "w-[96px]"
-                              : "w-[80px]"
-                            : scrubberEnabled
-                              ? "w-24"
-                              : "w-20"
-                      } ${scrubberEnabled ? "h-8" : "h-5"} ${isDraggingHandlebar && isMobile ? "fixed left-1/2 top-[18px] z-20 h-[30px] w-auto -translate-x-1/2 transform bg-destructive/80 px-3" : "static"} flex items-center justify-center`}
+                      className={`mx-auto rounded-full bg-destructive ${handlebarWidthClass(
+                        dense,
+                        segmentDuration,
+                        scrubberEnabled,
+                      )} ${scrubberEnabled ? "h-8" : "h-5"} ${isDraggingHandlebar && isMobile ? "fixed left-1/2 top-[18px] z-20 h-[30px] w-auto -translate-x-1/2 transform bg-destructive/80 px-3" : "static"} flex items-center justify-center`}
                     >
                       <div
                         ref={handlebarTimeRef}

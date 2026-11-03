@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { IconType } from "react-icons";
-import { IconName, isLuIconName, useLuIcons } from "./luIcons";
+import { isLuIconName, useLuIcons } from "./luIcons";
 import ActivityIndicator from "../indicators/activity-indicator";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,7 +15,7 @@ import { Button } from "../ui/button";
 
 import { useTranslation } from "react-i18next";
 
-export type { IconName };
+export type { IconName } from "./luIcons";
 
 export type IconElement = {
   name?: string;

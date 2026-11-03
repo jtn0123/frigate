@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import type { ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
+import type { ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
 import { copyThen } from "@/lib/fork/clipboard";
@@ -29,6 +31,25 @@ function isSameOrigin(url: string | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+// fork: a module-level renderer, so React keeps the same component between
+// renders; the link text stays a child for jsx-a11y
+function MarkdownLink({
+  node: _n,
+  href,
+  children,
+  ...props
+}: ComponentPropsWithoutRef<"a"> & ExtraProps) {
+  return isSameOrigin(href) ? (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ) : (
+    <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+      {children}
+    </a>
+  );
 }
 
 type MessageBubbleProps = {
@@ -241,21 +262,7 @@ export function MessageBubble({
                   ) : (
                     <>{alt}</>
                   ),
-                a: ({ node: _n, href, children, ...props }) =>
-                  isSameOrigin(href) ? (
-                    <a href={href} {...props}>
-                      {children}
-                    </a>
-                  ) : (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    >
-                      {children}
-                    </a>
-                  ),
+                a: MarkdownLink,
               }}
             >
               {content}

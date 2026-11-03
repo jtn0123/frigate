@@ -139,9 +139,7 @@ function buildAttributeFilterSchema(
         .properties
     : undefined;
 
-  const minScoreSchema = props?.min_score
-    ? props.min_score
-    : { type: "number" };
+  const minScoreSchema = props?.min_score ?? { type: "number" };
 
   const flattenToNumber = (src: RJSFSchema | undefined): RJSFSchema => {
     if (!src) return { type: "number" };
@@ -211,9 +209,7 @@ function modifyObjectsSchema(
   )
     ? (schema as { properties: Record<string, RJSFSchema> }).properties
     : undefined;
-  const filtersSchema = schemaProperties?.filters
-    ? schemaProperties.filters
-    : undefined;
+  const filtersSchema = schemaProperties?.filters;
   if (!filtersSchema) return schema;
 
   const filterEntrySchema = isJsonObject(

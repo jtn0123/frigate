@@ -479,9 +479,9 @@ describe("Step2StateArea", () => {
     const { container } = render(
       <Step2StateArea onNext={vi.fn()} onBack={vi.fn()} />,
     );
-    expect(container.querySelector(".flex-col.gap-4.overflow-hidden")).not.toBe(
-      null,
-    );
-    expect(container.querySelector(".w-full.bg-secondary")).not.toBe(null);
+    expect(
+      container.querySelector(".flex-col.gap-4.overflow-hidden"),
+    ).not.toBeNull();
+    expect(container.querySelector(".w-full.bg-secondary")).not.toBeNull();
   });
 });

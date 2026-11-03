@@ -245,9 +245,7 @@ export default function Events() {
   useSearchEffect("group", (reviewGroup) => {
     if (config && reviewGroup && reviewGroup != "default") {
       // fork (UI93): a saved link can name a group that no longer exists
-      if (
-        !Object.prototype.hasOwnProperty.call(config.camera_groups, reviewGroup)
-      ) {
+      if (!Object.hasOwn(config.camera_groups, reviewGroup)) {
         return true;
       }
       const group = config.camera_groups[reviewGroup];
@@ -736,6 +734,15 @@ export default function Events() {
       );
     }
   } else {
+    // fork: a failed review fetch offers a retry instead of an empty timeline
+    if (!motionSearchCamera && reviewsError) {
+      return (
+        <ErrorState
+          error={reviewsError}
+          onRetry={wrapAsync(() => updateSegments())}
+        />
+      );
+    }
     return motionSearchCamera ? (
       !config || !selectedMotionSearchCamera ? (
         <ActivityIndicator />
@@ -753,11 +760,6 @@ export default function Events() {
           onBack={closeMotionSearch}
         />
       )
-    ) : reviewsError ? (
-      <ErrorState
-        error={reviewsError}
-        onRetry={wrapAsync(() => updateSegments())}
-      />
     ) : (
       <EventView
         reviewItems={reviewItems}

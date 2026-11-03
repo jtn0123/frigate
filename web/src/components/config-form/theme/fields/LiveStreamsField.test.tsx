@@ -125,7 +125,9 @@ describe("LiveStreamsField", () => {
         },
       },
     );
-    expect(screen.getByText("configForm.liveStreams.transcodedBadge"));
+    expect(
+      screen.getByText("configForm.liveStreams.transcodedBadge"),
+    ).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(autoOrder());

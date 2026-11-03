@@ -71,7 +71,7 @@ export async function detectReolinkCamera(
     }
 
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

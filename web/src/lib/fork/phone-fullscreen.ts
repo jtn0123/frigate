@@ -43,3 +43,17 @@ const rail = [
 
 export const phoneFullscreenRail: string | undefined =
   phoneFixes && isMobile ? rail : undefined;
+
+/**
+ * The fullscreen controls container: the phone rail when there is one,
+ * otherwise upstream's corner placement.
+ */
+export function fullscreenControlsClass(
+  phoneRail: string | undefined,
+  mobile: boolean,
+): string {
+  if (phoneRail) return phoneRail;
+  return mobile
+    ? "absolute right-32 top-1 z-40 landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto"
+    : "absolute right-32 top-1 z-40 ";
+}

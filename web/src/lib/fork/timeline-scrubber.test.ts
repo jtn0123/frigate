@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   eventTimesFromItems,
   FOLLOW_EDGE_MARGIN,
+  handlebarWidthClass,
   isSegmentWellInView,
   scrollSegmentIntoView,
   SNAP_SEGMENTS,
@@ -190,5 +191,22 @@ describe("scrollSegmentIntoView", () => {
     const { el, scrollTo } = rail(0);
     scrollSegmentIntoView(el, 2, 8, false, "smooth");
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+  });
+});
+
+describe("handlebarWidthClass", () => {
+  it("sizes the dense pill", () => {
+    expect(handlebarWidthClass(true, 30, true)).toBe("w-16 md:w-24");
+    expect(handlebarWidthClass(true, 30, false)).toBe("w-12 md:w-20");
+  });
+
+  it("sizes the pill for short segments", () => {
+    expect(handlebarWidthClass(false, 30, true)).toBe("w-[96px]");
+    expect(handlebarWidthClass(false, 30, false)).toBe("w-[80px]");
+  });
+
+  it("sizes the pill for minute segments and longer", () => {
+    expect(handlebarWidthClass(false, 60, true)).toBe("w-24");
+    expect(handlebarWidthClass(false, 60, false)).toBe("w-20");
   });
 });

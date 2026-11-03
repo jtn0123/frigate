@@ -51,3 +51,17 @@ export const phoneShell: PhoneShellClasses | undefined = phoneFixes
       ),
     }
   : undefined;
+
+/**
+ * `#pageRoot` on a phone or tablet: the shell's classes when the flag is on,
+ * otherwise upstream's (insets only in an installed PWA).
+ */
+export function mobilePageRootClass(
+  shell: PhoneShellClasses | undefined,
+  pwa: boolean,
+): string {
+  if (shell) return shell.pageRoot;
+  return pwa
+    ? "bottom-[calc(3rem+env(safe-area-inset-bottom))] left-0 pt-[env(safe-area-inset-top)] md:bottom-[calc(4rem+env(safe-area-inset-bottom))] landscape:pl-[env(safe-area-inset-left)] landscape:pr-[env(safe-area-inset-right)]"
+    : "bottom-12 left-0 md:bottom-16";
+}

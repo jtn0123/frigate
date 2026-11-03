@@ -41,10 +41,10 @@ export function appendHistory(
   history: AIModelsResponse[],
   sample: AIModelsResponse,
 ): AIModelsResponse[] {
+  const latest = history.at(-1);
   if (
     !Number.isFinite(sample.updated) ||
-    (history.length > 0 &&
-      sample.updated <= history[history.length - 1].updated)
+    (latest !== undefined && sample.updated <= latest.updated)
   )
     return history;
   return [

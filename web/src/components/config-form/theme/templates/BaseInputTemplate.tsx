@@ -25,7 +25,8 @@ export function BaseInputTemplate(props: WidgetProps) {
     const val = e.target.value;
     if (inputType === "number") {
       const num = Number.parseFloat(val);
-      onChange(val === "" ? undefined : Number.isNaN(num) ? undefined : num);
+      // parseFloat("") is NaN, so an empty field also clears the value
+      onChange(Number.isNaN(num) ? undefined : num);
     } else {
       onChange(val === "" ? undefined : val);
     }

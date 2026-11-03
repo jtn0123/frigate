@@ -418,6 +418,10 @@ export default function UiSettingsView() {
         ]),
   ];
 
+  const naturalAspectAction = naturalAspect
+    ? t("button.disable", { ns: "common" })
+    : t("button.enable", { ns: "common" });
+
   return (
     <div className="flex size-full flex-col">
       <div className="scrollbar-container mb-2 flex h-full w-full flex-col overflow-y-auto pb-2">
@@ -650,9 +654,7 @@ export default function UiSettingsView() {
         }
         action={
           confirmClear === "naturalAspect"
-            ? naturalAspect
-              ? t("button.disable", { ns: "common" })
-              : t("button.enable", { ns: "common" })
+            ? naturalAspectAction
             : t(`confirmClear.${confirmClear ?? "layouts"}.action`, {
                 ns: "fork",
               })

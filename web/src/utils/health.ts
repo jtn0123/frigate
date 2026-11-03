@@ -197,7 +197,7 @@ export function detectionRows({
     }
 
     const missingRunner = modelRunners.some(
-      (name) => !Object.prototype.hasOwnProperty.call(stats.detectors, name),
+      (name) => !Object.hasOwn(stats.detectors, name),
     );
 
     if (missingRunner) {

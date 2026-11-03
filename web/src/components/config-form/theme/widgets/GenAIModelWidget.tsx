@@ -82,8 +82,10 @@ export function GenAIModelWidget(props: WidgetProps) {
 
   // Build a fingerprint from the saved config's provider + base_url so the
   // SWR key changes (and models are refetched) whenever those fields are saved.
+  const savedBaseUrl =
+    typeof savedEntry?.base_url === "string" ? savedEntry.base_url : "";
   const configFingerprint = savedEntry
-    ? `${savedProvider ?? ""}|${typeof savedEntry.base_url === "string" ? savedEntry.base_url : ""}`
+    ? `${savedProvider ?? ""}|${savedBaseUrl}`
     : "";
 
   const { data: allModels, mutate: mutateModels } = useSWR<GenAIModelsResponse>(

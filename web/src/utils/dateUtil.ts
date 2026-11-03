@@ -224,7 +224,7 @@ export const formatUnixTimestampToDateTime = (
     }
 
     return formattedDateTime;
-  } catch (error) {
+  } catch {
     return "Invalid time";
   }
 };

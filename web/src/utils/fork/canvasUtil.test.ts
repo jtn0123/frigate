@@ -176,8 +176,8 @@ describe("snapPointToLines", () => {
   });
 
   it("ignores unfinished polygons", () => {
-    expect(snapPointToLines([5, 1], [polygon(square.points, false)], 2)).toBe(
-      null,
-    );
+    expect(
+      snapPointToLines([5, 1], [polygon(square.points, false)], 2),
+    ).toBeNull();
   });
 });

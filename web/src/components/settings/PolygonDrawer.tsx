@@ -17,6 +17,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import Konva from "konva";
 import { Vector2d } from "konva/lib/types";
 import { phoneTouch } from "@/lib/fork/phone";
+import { pointHitStrokeWidth } from "@/lib/fork/phone-target";
 import { exclusionShapeProps } from "@/lib/fork/exclusion-fill";
 
 type PolygonDrawerProps = {
@@ -236,11 +237,7 @@ export default function PolygonDrawer({
             stroke={colorString(true)}
             fill="#ffffff"
             strokeWidth={3}
-            // fork: on a phone the grab area is 44 px across (radius 6 plus
-            // half the hit stroke), up from about 22 px
-            hitStrokeWidth={
-              phoneTouch ? (index === 0 ? 36 : 32) : index === 0 ? 12 : 9
-            }
+            hitStrokeWidth={pointHitStrokeWidth(index, phoneTouch)}
             onMouseOver={handleMouseOverPoint}
             onMouseOut={handleMouseOutPoint}
             draggable={isActive}
