@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { WidgetProps } from "@rjsf/utils";
+import { getDefaultRegistry } from "@rjsf/core";
+import { createSchemaUtils, type WidgetProps } from "@rjsf/utils";
+import validator from "@rjsf/validator-ajv8";
 import { describe, expect, it, vi } from "vitest";
 import { BaseInputTemplate } from "./BaseInputTemplate";
 
@@ -9,6 +11,8 @@ function renderInput(type: string | undefined, value: unknown) {
     <BaseInputTemplate
       {...({
         id: "field",
+        name: "field",
+        label: "Field",
         type,
         value,
         onChange,
@@ -16,7 +20,11 @@ function renderInput(type: string | undefined, value: unknown) {
         onFocus: vi.fn(),
         schema: { title: "Field" },
         options: {},
-      } as unknown as WidgetProps)}
+        registry: {
+          ...getDefaultRegistry(),
+          schemaUtils: createSchemaUtils(validator, {}),
+        },
+      } satisfies WidgetProps)}
     />,
   );
   return { onChange, input: screen.getByLabelText("Field") };

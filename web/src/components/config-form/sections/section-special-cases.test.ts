@@ -93,14 +93,14 @@ describe("modifySchemaForSection objects", () => {
       filters: { type: "object", additionalProperties: filterConfig },
     },
   };
-  const ctx = () =>
-    ({
-      fullConfig: {
-        models: [{ all_attributes: ["face"] }],
-        objects: { track: ["face", "person"] },
-      },
-      level: "global",
-    }) as unknown as HiddenFieldContext;
+  const fullConfig: unknown = {
+    models: [{ all_attributes: ["face"] }],
+    objects: { track: ["face", "person"] },
+  };
+  const ctx = (): HiddenFieldContext => ({
+    fullConfig: fullConfig as FrigateConfig,
+    level: "global",
+  });
 
   it("promotes tracked labels, keeping the model's min_score for attributes", () => {
     const result = modifySchemaForSection(
