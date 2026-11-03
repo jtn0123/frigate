@@ -169,8 +169,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IMAGE: ${{ needs.amd64.outputs.image }}
         run: |
-          PREVIOUS="$(gh release list -R "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
-            --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          # The newest fork/* release; android-v* viewer releases are not server ones.
+          PREVIOUS="$(python3 fork/scripts/previous_release.py --repo "$GITHUB_REPOSITORY")"
           python3 fork/scripts/release_notes.py --ref "$GITHUB_SHA" --upstream origin/dev \
             --image "$IMAGE" ${PREVIOUS:+--previous "$PREVIOUS"} > notes.md
           cat notes.md

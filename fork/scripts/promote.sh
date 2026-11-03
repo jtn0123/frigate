@@ -30,6 +30,7 @@ for arg in "$@"; do
   esac
 done
 repo="jtn0123/frigate"
+scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(git rev-parse --show-toplevel)"
 
 git fetch -q --tags origin main next dev
@@ -74,8 +75,8 @@ if [[ "$checks" != "completed/success" ]]; then
   exit 1
 fi
 
-previous="$(gh release list -R "$repo" --exclude-drafts --exclude-pre-releases \
-  --limit 1 --json tagName --jq '.[0].tagName // empty')"
+# The newest fork/* release: android-v* viewer releases are not server ones.
+previous="$(python3 "$scripts/previous_release.py" --repo "$repo")"
 echo "Promoting next ${next:0:9} over main ${main:0:9}. Release notes preview:"
 echo
 python3 fork/scripts/release_notes.py --ref origin/next --upstream origin/dev \
