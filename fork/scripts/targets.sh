@@ -31,6 +31,7 @@ py_script_tests=(
   test_sonar_coverage.py
   test_release_notes.py
   test_previous_release.py
+  test_upstream_base.py
   test_lock_audit.py
   test_audio_lock.py
   test_benchmark_guards.py

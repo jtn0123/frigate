@@ -58,7 +58,8 @@ class PromoteTest(unittest.TestCase):
         self.git("push", "-q", "--tags", "origin", "dev", "next", "next:main")
         # promote.sh previews the notes with the promoted repository's copy.
         (self.repo / "fork" / "scripts").mkdir(parents=True)
-        shutil.copy(SCRIPTS / "release_notes.py", self.repo / "fork" / "scripts")
+        for script in ("release_notes.py", "upstream_base.py"):
+            shutil.copy(SCRIPTS / script, self.repo / "fork" / "scripts")
 
     def tearDown(self) -> None:
         self._tmp.cleanup()

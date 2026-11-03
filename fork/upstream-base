@@ -1,0 +1,6 @@
+# The newest upstream release whose commits next has in full, as ports
+# (cherry-pick -x) or citing commits. Builds and release notes are labeled with
+# it when it is newer than what git describe finds (I78). Move it only after
+# the "Upstream moved" issue, run against that release's tag, lists none of
+# its commits as missing. See fork/scripts/upstream_base.py.
+v0.18.2
