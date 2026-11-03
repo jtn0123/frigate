@@ -101,7 +101,10 @@ import { cn } from "@/lib/utils";
 import { phoneFixes } from "@/lib/fork/phone";
 import { resolveCameraName } from "@/hooks/use-camera-friendly-name";
 import { fullscreenPortalContainer } from "@/lib/fork/fullscreen";
-import { phoneFullscreenRail } from "@/lib/fork/phone-fullscreen";
+import {
+  fullscreenControlsClass,
+  phoneFullscreenRail,
+} from "@/lib/fork/phone-fullscreen";
 import PhoneBoxesToggle from "@/components/fork/PhoneBoxesToggle";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
 
@@ -681,11 +684,6 @@ export default function LiveCameraView({
     micTitle = t("twoWayTalk.enable", { ns: "views/live" });
   }
 
-  // fork: phones get one frosted rail of matching controls
-  const fullscreenControlsClass =
-    phoneFullscreenRail ??
-    `absolute right-32 top-1 z-40 ${isMobile ? "landscape:bottom-1 landscape:left-2 landscape:right-auto landscape:top-auto" : ""}`;
-
   return (
     <TransformWrapper
       minScale={1.0}
@@ -705,7 +703,8 @@ export default function LiveCameraView({
         <div
           className={
             fullscreen
-              ? fullscreenControlsClass
+              ? // fork: phones get one frosted rail of matching controls
+                fullscreenControlsClass(phoneFullscreenRail, isMobile)
               : `flex h-12 w-full flex-row items-center justify-between ${isMobile ? "landscape:h-full landscape:w-12 landscape:flex-col" : ""}`
           }
         >

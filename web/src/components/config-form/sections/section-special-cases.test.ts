@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { FrigateConfig } from "@/types/frigateConfig";
 import { buildConfigDataForPath, buildOverrides } from "@/utils/configUtil";
-import { sanitizeOverridesForSection } from "./section-special-cases";
+import type { HiddenFieldContext } from "@/types/configForm";
+import type { RJSFSchema } from "@rjsf/utils";
+import {
+  modifySchemaForSection,
+  sanitizeOverridesForSection,
+} from "./section-special-cases";
 
 // /api/config serves a Frigate+ model with its path resolved to the cache file
 // and its input shape filled from the Frigate+ model info
@@ -71,5 +76,70 @@ describe("sanitizeOverridesForSection", () => {
         { scene: "default", path: "plus://picked", width: 320 },
       ]),
     ).toEqual([{ scene: "default", path: "plus://picked" }]);
+  });
+});
+
+describe("modifySchemaForSection objects", () => {
+  const filterConfig: RJSFSchema = {
+    type: "object",
+    properties: {
+      min_score: { type: "number", default: 0.5 },
+      min_area: { anyOf: [{ type: "integer" }, { type: "number" }] },
+    },
+  };
+  const objectsSchema: RJSFSchema = {
+    type: "object",
+    properties: {
+      filters: { type: "object", additionalProperties: filterConfig },
+    },
+  };
+  const ctx = () =>
+    ({
+      fullConfig: {
+        models: [{ all_attributes: ["face"] }],
+        objects: { track: ["face", "person"] },
+      },
+      level: "global",
+    }) as unknown as HiddenFieldContext;
+
+  it("promotes tracked labels, keeping the model's min_score for attributes", () => {
+    const result = modifySchemaForSection(
+      "objects",
+      "global",
+      objectsSchema,
+      ctx(),
+    );
+    const filters = (result?.properties?.filters as RJSFSchema).properties!;
+    expect(Object.keys(filters)).toEqual(["face", "person"]);
+    const face = filters.face as RJSFSchema;
+    expect(face.properties?.min_score).toEqual({
+      type: "number",
+      default: 0.5,
+    });
+    expect(face.properties?.min_area).toEqual({ type: "number" });
+    expect((filters.person as RJSFSchema).title).toBe("person");
+  });
+
+  it("falls back to a plain number when the filter schema has no min_score", () => {
+    const schema: RJSFSchema = {
+      type: "object",
+      properties: {
+        filters: {
+          type: "object",
+          additionalProperties: { type: "object", properties: {} },
+        },
+      },
+    };
+    const result = modifySchemaForSection("objects", "global", schema, ctx());
+    const face = (result?.properties?.filters as RJSFSchema).properties!
+      .face as RJSFSchema;
+    expect(face.properties?.min_score).toEqual({ type: "number" });
+  });
+
+  it("leaves a schema without filters unchanged", () => {
+    const schema: RJSFSchema = { type: "object", properties: {} };
+    expect(modifySchemaForSection("objects", "global", schema, ctx())).toBe(
+      schema,
+    );
   });
 });

@@ -176,3 +176,14 @@ export function scrollSegmentIntoView(
     behavior,
   });
 }
+
+/** The handlebar pill's width class; the scrubber widens it at every zoom. */
+export function handlebarWidthClass(
+  dense: boolean,
+  segmentDuration: number,
+  scrubberEnabled: boolean,
+): string {
+  if (dense) return scrubberEnabled ? "w-16 md:w-24" : "w-12 md:w-20";
+  if (segmentDuration < 60) return scrubberEnabled ? "w-[96px]" : "w-[80px]";
+  return scrubberEnabled ? "w-24" : "w-20";
+}

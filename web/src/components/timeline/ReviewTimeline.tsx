@@ -22,6 +22,7 @@ import { TooltipPortal } from "@radix-ui/react-tooltip";
 import { isForkEnabled } from "@/fork/flags";
 import { phoneTouch } from "@/lib/fork/phone";
 import {
+  handlebarWidthClass,
   snapMaxDistance,
   snapToNearestEvent,
   stepToEvent,
@@ -57,17 +58,6 @@ export type ReviewTimelineProps = {
   eventTimes?: number[];
   children: ReactNode;
 };
-
-// fork: the scrubber widens the handlebar pill at every zoom level
-function handlebarWidthClass(
-  dense: boolean,
-  segmentDuration: number,
-  scrubberEnabled: boolean,
-): string {
-  if (dense) return scrubberEnabled ? "w-16 md:w-24" : "w-12 md:w-20";
-  if (segmentDuration < 60) return scrubberEnabled ? "w-[96px]" : "w-[80px]";
-  return scrubberEnabled ? "w-24" : "w-20";
-}
 
 export function ReviewTimeline({
   timelineRef,

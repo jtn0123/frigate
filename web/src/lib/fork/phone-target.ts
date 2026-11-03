@@ -28,3 +28,13 @@ export function phoneTargetClass(size: ButtonSize): string | undefined {
 export const phoneHitArea: string | undefined = phoneTouch
   ? "relative after:absolute after:-inset-3.5 after:content-['']"
   : undefined;
+
+/**
+ * Hit stroke of a polygon point. On a phone the grab area is 44 px across
+ * (radius 6 plus half the hit stroke), up from about 22 px; the first point
+ * stays a little larger.
+ */
+export function pointHitStrokeWidth(index: number, touch: boolean): number {
+  if (touch) return index === 0 ? 36 : 32;
+  return index === 0 ? 12 : 9;
+}
