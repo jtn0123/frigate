@@ -805,12 +805,12 @@ class _LprProcessTestCase(_ProcessorTestCase):
         data.update(extra)
         return data
 
-    def published_update(self) -> dict[str, Any]:
+    def _published_update(self) -> dict[str, Any]:
         topic, payload = self.proc.requestor.send_data.call_args[0]
         self.assertEqual(topic, "tracked_object_update")
         return json.loads(payload)
 
-    def track_license_plates(self) -> None:
+    def _track_license_plates(self) -> None:
         objects = self.config.cameras[CAMERA].objects
         self.set_attr(objects, "track", ["person", "car", "license_plate"])
 
@@ -882,7 +882,7 @@ class TestLprProcessManualDetection(_LprProcessTestCase):
         self.assertEqual(args[:2], (CAMERA, "car1"))
         self.assertEqual(args[2].shape, (80, 200, 3))
 
-        update = self.published_update()
+        update = self._published_update()
         self.assertEqual(update["type"], "lpr")
         self.assertEqual(update["plate"], "ABC123")
         self.assertIsNone(update["name"])
@@ -916,14 +916,14 @@ class TestLprProcessManualDetection(_LprProcessTestCase):
         self.assertEqual(topic, EventMetadataTypeEnum.sub_label.value)
         self.assertEqual(payload[:2], ("car1", "Bob"))
         self.assertAlmostEqual(payload[2], 0.95)
-        self.assertEqual(self.published_update()["name"], "Bob")
+        self.assertEqual(self._published_update()["name"], "Bob")
 
     def test_known_plate_matches_by_edit_distance(self) -> None:
         self.proc.lpr_config = self.config.lpr.model_copy(
             update={"known_plates": {"Bob": ["ABC124"]}}
         )
         self.proc.lpr_process(self.car(), self.frame)
-        self.assertEqual(self.published_update()["name"], "Bob")
+        self.assertEqual(self._published_update()["name"], "Bob")
 
     def test_invalid_known_plate_regex_logs_error(self) -> None:
         self.proc.lpr_config = self.config.lpr.model_copy(
@@ -931,7 +931,7 @@ class TestLprProcessManualDetection(_LprProcessTestCase):
         )
         with self.assertLogs(MIXIN, level="ERROR"):
             self.proc.lpr_process(self.car(), self.frame)
-        self.assertIsNone(self.published_update()["name"])
+        self.assertIsNone(self._published_update()["name"])
 
     def test_no_text_returns(self) -> None:
         self.proc._process_license_plate.return_value = ([], [], [])
@@ -969,13 +969,13 @@ class TestLprProcessManualDetection(_LprProcessTestCase):
             "plates": [_variant("XYZ789", 0.99), _variant("XYZ789", 0.98)],
         }
         self.proc.lpr_process(self.car(), self.frame)
-        self.assertEqual(self.published_update()["plate"], "XYZ789")
+        self.assertEqual(self._published_update()["plate"], "XYZ789")
 
 
 class TestLprProcessAttributes(_LprProcessTestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.track_license_plates()
+        self._track_license_plates()
 
     def test_car_without_attributes_returns(self) -> None:
         self.proc.lpr_process(self.car(current_attributes=[]), self.frame)
@@ -998,7 +998,7 @@ class TestLprProcessAttributes(_LprProcessTestCase):
 
         frame = self.proc._process_license_plate.call_args[0][2]
         self.assertEqual(frame.shape, (48, 96, 3))
-        self.assertEqual(self.published_update()["plate_box"], [16, 8, 64, 32])
+        self.assertEqual(self._published_update()["plate_box"], [16, 8, 64, 32])
         self.proc._detect_license_plate.assert_not_called()
 
     def test_dedicated_plate_object_uses_own_box(self) -> None:
@@ -1010,8 +1010,8 @@ class TestLprProcessAttributes(_LprProcessTestCase):
             "box": (20, 10, 60, 30),
         }
         self.proc.lpr_process(obj, self.frame)
-        self.assertEqual(self.published_update()["id"], "lp1")
-        self.assertEqual(self.published_update()["plate_box"], [16, 8, 64, 32])
+        self.assertEqual(self._published_update()["id"], "lp1")
+        self.assertEqual(self._published_update()["plate_box"], [16, 8, 64, 32])
 
     def test_small_plate_box_returns(self) -> None:
         attributes = [{"label": "license_plate", "score": 0.8, "box": (1, 1, 2, 2)}]
@@ -1031,7 +1031,7 @@ class TestLprProcessAttributes(_LprProcessTestCase):
     def test_dedicated_camera_with_plus_model_keeps_fixed_id(self) -> None:
         self.proc._detect_license_plate.return_value = (10, 10, 50, 30)
         self.proc.lpr_process(CAMERA, self.frame, dedicated_lpr=True)  # type: ignore[arg-type]
-        self.assertEqual(self.published_update()["id"], "dedicated-lpr")
+        self.assertEqual(self._published_update()["id"], "dedicated-lpr")
         self.proc.event_metadata_publisher.publish.assert_not_called()
         topics = [c[0][1] for c in self.proc.sub_label_publisher.publish.call_args_list]
         self.assertNotIn(EventMetadataTypeEnum.save_lpr_snapshot.value, topics)
@@ -1070,7 +1070,7 @@ class TestLprProcessDedicated(_LprProcessTestCase):
         self.assertNotIn("obj_data", stored)
         self.assertEqual(self.proc.camera_current_cars[CAMERA], [event_id])
 
-        update = self.published_update()
+        update = self._published_update()
         self.assertEqual(update["id"], event_id)
         self.assertEqual(update["plate_box"], [10, 10, 50, 30])
 

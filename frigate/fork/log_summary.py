@@ -86,9 +86,13 @@ _SECRET_PAIR = re.compile(
     r"(?=[\w.\-]*?(?:user|pass|pwd|token|secret|auth|key|credential))"
     r"([\w.\-]*+)=\S++"
 )
-# What is left of "user:pa ss@host" once the URL itself is gone. A match can
-# only start a whitespace-separated token, which keeps the search linear.
-_DANGLING_USERINFO = re.compile(r"(?<!\S)\S+@(?=[\w\[])")
+# What is left of "user:pa ss@host" once the URL itself is gone: a
+# whitespace-separated token loses everything up to its last "@" that has at
+# least one character before it and a host character after it. Each token is
+# taken whole and its "@" positions are scanned once, so the work is linear
+# (one `\S+@` pattern would backtrack over every token without such an "@").
+_TOKEN = re.compile(r"\S++")
+_USERINFO_END = re.compile(r"@(?=[\w\[])")
 _REDACTED_URL = "<redacted>"
 
 
@@ -116,8 +120,18 @@ def redact(message: str) -> str:
     if "=" in text:
         text = _SECRET_PAIR.sub(r"\1\2=*", text)
     if "@" in text:
-        text = _DANGLING_USERINFO.sub("", text)
+        text = _TOKEN.sub(_drop_dangling_userinfo, text)
     return text
+
+
+def _drop_dangling_userinfo(match: re.Match[str]) -> str:
+    token = match.group(0)
+    if "@" not in token:
+        return token
+    cut = 0
+    for end in _USERINFO_END.finditer(token, 1):
+        cut = end.end()
+    return token[cut:]
 
 
 def _redact_url(match: re.Match[str]) -> str:

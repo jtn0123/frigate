@@ -350,8 +350,9 @@ class TestUpdateYaml(unittest.TestCase):
 
     def test_bulk_update_missing_file_is_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
+            missing = os.path.join(directory, "missing.yml")
             with self.assertRaises(FileNotFoundError):
-                update_yaml_file_bulk(os.path.join(directory, "missing.yml"), {"a": 1})
+                update_yaml_file_bulk(missing, {"a": 1})
 
     def test_bulk_update_with_list_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

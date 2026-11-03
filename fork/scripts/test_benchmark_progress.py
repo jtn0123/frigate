@@ -178,7 +178,7 @@ class TestBenchmarkProgress(unittest.TestCase):
             with patch.dict(os.environ, {"BENCHMARK_REFERENCE": str(reference)}):
                 benchmark.measure([sys.executable, "-c", script], directory, log)
             saved = json.loads(log.with_suffix(".timing.json").read_text())
-            self.assertEqual(["amd64-image"], list(saved["milestones"]))
+            self.assertEqual(list(saved["milestones"]), ["amd64-image"])
             self.assertGreater(
                 saved["milestone_time_reduction_percent"]["amd64-image"], 90
             )
@@ -191,7 +191,7 @@ class TestBenchmarkProgress(unittest.TestCase):
             report = {"milestones": {}, "milestone_time_reduction_percent": {}}
             benchmark._record_milestones(report, {}, log, 10.0)
             benchmark._record_milestones(report, {}, log, 20.0)
-            self.assertEqual({"rocm-image": 10.0}, report["milestones"])
+            self.assertEqual(report["milestones"], {"rocm-image": 10.0})
             self.assertIsNone(report["milestone_time_reduction_percent"]["rocm-image"])
 
     def test_baseline_that_did_not_succeed_gives_no_milestone_time(self):
@@ -233,8 +233,8 @@ class TestBenchmarkProgress(unittest.TestCase):
                     log,
                 )
             saved = json.loads(log.with_suffix(".timing.json").read_text())
-            self.assertEqual("disk", saved["error"])
-            self.assertEqual("failed", saved["status"])
+            self.assertEqual(saved["error"], "disk")
+            self.assertEqual(saved["status"], "failed")
 
     def test_build_past_the_time_limit_is_stopped(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -288,7 +288,7 @@ class TestBenchmarkProgress(unittest.TestCase):
             ):
                 benchmark.main()
             result = json.loads((output / "results.json").read_text())
-            self.assertEqual({"earlier", "cold"}, set(result["phases"]))
+            self.assertEqual(set(result["phases"]), {"earlier", "cold"})
             cold = result["phases"]["cold"]
-            self.assertEqual({"deps": 3}, cold["dependency_build"])
-            self.assertEqual(["application"], list(cold["logs"]))
+            self.assertEqual(cold["dependency_build"], {"deps": 3})
+            self.assertEqual(list(cold["logs"]), ["application"])

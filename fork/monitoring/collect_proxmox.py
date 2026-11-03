@@ -224,12 +224,7 @@ def ollama_service_identity(ct: str) -> tuple[int, Path] | None:
     )
     if len(raw) > 4096:
         raise ValueError("Service identity exceeds collection bound")
-    state = {
-        key: value
-        for key, value in (
-            line.split("=", 1) for line in raw.splitlines() if "=" in line
-        )
-    }
+    state = dict(line.split("=", 1) for line in raw.splitlines() if "=" in line)
     if state.get("ActiveState") in {"inactive", "failed"}:
         return None
     control_group = Path(state.get("ControlGroup", ""))

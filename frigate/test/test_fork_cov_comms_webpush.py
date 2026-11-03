@@ -124,7 +124,6 @@ class WebPushTestBase(unittest.TestCase):
             ],
         )
 
-        _FrozenDatetime.current = NOW
         patches = [
             patch.object(webpush_module.threading, "Thread"),
             patch.object(webpush_module, "Vapid01"),
@@ -133,6 +132,7 @@ class WebPushTestBase(unittest.TestCase):
             patch.object(webpush_module, "CameraConfigUpdateSubscriber"),
             patch.object(webpush_module.datetime, "datetime", _FrozenDatetime),
             patch.object(webpush_module, "time", _FrozenTime),
+            patch.object(_FrozenDatetime, "current", NOW),
         ]
         mocks = [p.start() for p in patches]
         for p in patches:
@@ -230,8 +230,8 @@ class TestRegistrations(WebPushTestBase):
         self.assertEqual(sign.call_count, 2)
 
         # after the refresh deadline passes the claims are signed again
-        _FrozenDatetime.current = NOW + 7200
-        client.check_registrations()
+        with patch.object(_FrozenDatetime, "current", NOW + 7200):
+            client.check_registrations()
         self.assertEqual(sign.call_count, 4)
 
     def test_cleanup_registrations_drops_expired_tokens(self) -> None:

@@ -18,18 +18,21 @@ def api_routes(app: FastAPI) -> Iterator[APIRoute]:
     for route in app.routes:
         if isinstance(route, APIRoute):
             yield route
+        elif not isinstance(route, APIWebSocketRoute):
+            yield from _included_routes(route)
+
+
+def _included_routes(route: object) -> Iterator[APIRoute]:
+    """Yield the effective API routes of one router inclusion."""
+    contexts = getattr(route, "effective_route_contexts", None)
+    if not callable(contexts):
+        if type(route).__module__.startswith("fastapi."):
+            raise RuntimeError("Unsupported FastAPI route representation")
+        return
+    for context in contexts():
+        if not isinstance(context.original_route, APIRoute):
             continue
-        if isinstance(route, APIWebSocketRoute):
-            continue
-        contexts = getattr(route, "effective_route_contexts", None)
-        if not callable(contexts):
-            if type(route).__module__.startswith("fastapi."):
-                raise RuntimeError("Unsupported FastAPI route representation")
-            continue
-        for context in contexts():
-            if not isinstance(context.original_route, APIRoute):
-                continue
-            effective = copy(context.original_route)
-            for name in ("path", "path_format", "methods", "dependant", "endpoint"):
-                setattr(effective, name, getattr(context, name))
-            yield effective
+        effective = copy(context.original_route)
+        for name in ("path", "path_format", "methods", "dependant", "endpoint"):
+            setattr(effective, name, getattr(context, name))
+        yield effective

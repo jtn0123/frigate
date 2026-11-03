@@ -172,4 +172,4 @@ class TestConfigPersistence(unittest.TestCase):
                 self.assertEqual(self.path.read_text(), self.original)
             self.assertEqual(raw.result(timeout=2).status_code, 200)
             bulk.result(timeout=2)
-        self.assertTrue(os.path.getsize(self.path) > 12)
+        self.assertGreater(os.path.getsize(self.path), 12)

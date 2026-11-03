@@ -192,7 +192,7 @@ class CameraMaintainer(threading.Thread):
         """Fork (SV12): start a capture process again when it died or hung."""
         if not self.capture_supervisor.due():
             return
-        for camera, process in list(self.capture_processes.items()):
+        for camera, process in self.capture_processes.items():
             config = self.config.cameras.get(camera)
             metrics = self.camera_metrics.get(camera)
             if config is None or metrics is None or self.stop_event.is_set():

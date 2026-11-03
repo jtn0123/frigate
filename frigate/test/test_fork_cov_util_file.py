@@ -274,8 +274,9 @@ class TestFileLock(unittest.TestCase):
         second = FileLock(self.path, poll_interval=0.01)
         self.assertFalse(second.acquire(timeout=0.05))
         self.assertIsNone(second._fd)
+        immediate = FileLock(self.path, timeout=0)
         with self.assertRaises(TimeoutError):
-            FileLock(self.path, timeout=0).__enter__()
+            immediate.__enter__()
         # a zero poll interval reaches the timeout inside the retry handler
         third = FileLock(self.path, poll_interval=0)
         with (

@@ -194,9 +194,10 @@ class TestJwtSecret(unittest.TestCase):
         os.rmdir(self.config_dir)
 
     def test_environment_variable_wins(self):
-        os.environ[JWT_SECRET_ENV_VAR] = "short"
-
-        with self.assertLogs("frigate.api.auth", level="WARNING") as logs:
+        with (
+            patch.dict(os.environ, {JWT_SECRET_ENV_VAR: "short"}),
+            self.assertLogs("frigate.api.auth", level="WARNING") as logs,
+        ):
             secret = get_jwt_secret()
 
         self.assertEqual(secret, "short")
@@ -358,8 +359,9 @@ class TestRoleGates(unittest.TestCase):
 
         for headers in ({}, {"remote-user": "anonymous", "remote-role": "viewer"}):
             with self.subTest(headers=headers):
+                pending = checker(_request(headers))
                 with self.assertRaises(HTTPException) as ctx:
-                    _run(checker(_request(headers)))
+                    _run(pending)
                 self.assertEqual(ctx.exception.status_code, 401)
 
     def test_admin_by_default_exemptions(self):
@@ -383,8 +385,9 @@ class TestRoleGates(unittest.TestCase):
         admin = _request({"remote-role": "admin"}, self.config, path="/config/set")
         self.assertIsNone(_run(checker(admin)))
 
+        pending = checker(_request(viewer, self.config, path="/config/set"))
         with self.assertRaises(HTTPException) as ctx:
-            _run(checker(_request(viewer, self.config, path="/config/set")))
+            _run(pending)
         self.assertEqual(ctx.exception.status_code, 403)
 
     def test_admin_by_default_ignores_camera_named_like_a_namespace(self):
@@ -408,8 +411,9 @@ class TestRoleGates(unittest.TestCase):
                     route_path=route_path,
                     path_params=path_params,
                 )
+                pending = checker(request)
                 with self.assertRaises(HTTPException) as ctx:
-                    _run(checker(request))
+                    _run(pending)
                 self.assertEqual(ctx.exception.status_code, 403)
 
     def test_admin_by_default_fails_closed_without_a_config(self):
@@ -422,8 +426,9 @@ class TestRoleGates(unittest.TestCase):
         )
         request.app = SimpleNamespace()
 
+        pending = checker(request)
         with self.assertRaises(HTTPException):
-            _run(checker(request))
+            _run(pending)
 
     def test_resolve_role_without_a_role_header(self):
         proxy = FrigateConfig(**_config_dict()).proxy
@@ -471,13 +476,15 @@ class TestCameraGates(unittest.TestCase):
             _run(require_camera_access("front_door", self._req("garage")))
         )
 
+        pending = require_camera_access("back_yard", self._req("garage"))
         with self.assertRaises(HTTPException) as denied:
-            _run(require_camera_access("back_yard", self._req("garage")))
+            _run(pending)
         self.assertEqual(denied.exception.status_code, 403)
         self.assertIn("['front_door']", denied.exception.detail)
 
+        pending = require_camera_access("front_door", self._req())
         with self.assertRaises(HTTPException) as anonymous:
-            _run(require_camera_access("front_door", self._req()))
+            _run(pending)
         self.assertEqual(anonymous.exception.status_code, 401)
         self.assertEqual(anonymous.exception.detail, "No authorization headers.")
 
@@ -493,12 +500,14 @@ class TestCameraGates(unittest.TestCase):
             _run(require_go2rtc_stream_access("front_door", self._req("garage")))
         )
 
+        pending = require_go2rtc_stream_access("back_yard", self._req("garage"))
         with self.assertRaises(HTTPException) as denied:
-            _run(require_go2rtc_stream_access("back_yard", self._req("garage")))
+            _run(pending)
         self.assertEqual(denied.exception.status_code, 403)
 
+        pending = require_go2rtc_stream_access("front_sub", self._req())
         with self.assertRaises(HTTPException) as anonymous:
-            _run(require_go2rtc_stream_access("front_sub", self._req()))
+            _run(pending)
         self.assertEqual(anonymous.exception.status_code, 401)
 
     def test_allowed_cameras_for_filter(self):
@@ -518,8 +527,9 @@ class TestCameraGates(unittest.TestCase):
             _run(require_full_camera_access(request, ["front_door", "back_yard"]))
         )
 
+        pending = require_full_camera_access(request, ["front_door"])
         with self.assertRaises(HTTPException) as ctx:
-            _run(require_full_camera_access(request, ["front_door"]))
+            _run(pending)
         self.assertEqual(ctx.exception.status_code, 403)
 
     def test_go2rtc_proxy_paths(self):

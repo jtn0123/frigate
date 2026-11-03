@@ -759,9 +759,9 @@ class TestMasks(unittest.TestCase):
         self.assertEqual(int(multi[5, 5]), 255)
 
     def test_add_mask_rejects_absolute_coordinates(self) -> None:
-        with self.assertRaises(Exception) as ctx:
-            add_mask("0,0,100,0,100,100", np.zeros((10, 10), np.uint8))
-        self.assertIn("relative coordinates", str(ctx.exception))
+        mask = np.zeros((10, 10), np.uint8)
+        with self.assertRaisesRegex(Exception, "relative coordinates"):
+            add_mask("0,0,100,0,100,100", mask)
 
 
 class TestFfmpegSnapshot(unittest.TestCase):

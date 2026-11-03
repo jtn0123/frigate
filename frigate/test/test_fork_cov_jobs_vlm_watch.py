@@ -433,8 +433,9 @@ class TestJobRegistry(unittest.TestCase):
         runner_cls.return_value.start.assert_called_once()
         cancel_event = runner_cls.call_args.kwargs["cancel_event"]
 
+        second_runner = MagicMock()
         with self.assertRaises(RuntimeError):
-            self._start(MagicMock())
+            self._start(second_runner)
 
         self.assertTrue(stop_vlm_watch_job())
         self.assertTrue(cancel_event.is_set())
@@ -449,9 +450,10 @@ class TestJobRegistry(unittest.TestCase):
         self.assertEqual(get_vlm_watch_job().labels, [])
 
     def test_stop_without_cancel_event(self):
-        vw._current_job = VLMWatchJob(status=JobStatusTypesEnum.running)
-        self.assertTrue(stop_vlm_watch_job())
-        self.assertEqual(vw._current_job.status, JobStatusTypesEnum.cancelled)
+        job = VLMWatchJob(status=JobStatusTypesEnum.running)
+        with patch.object(vw, "_current_job", job):
+            self.assertTrue(stop_vlm_watch_job())
+        self.assertEqual(job.status, JobStatusTypesEnum.cancelled)
 
 
 if __name__ == "__main__":
