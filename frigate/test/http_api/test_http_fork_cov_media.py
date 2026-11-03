@@ -808,6 +808,9 @@ class TestPreviews(_MediaHttpTestCase):
 
         assert late_only.status_code == 200
         assert late_cmd[late_cmd.index("-ss") + 1] == "00:0:0"
+        # B45 (upstream #24846): read from the preview's start, so the clip
+        # still ends at end_ts
+        assert late_cmd[late_cmd.index("-t") + 1] == "5.0"
         assert both.status_code == 200
         assert both_cmd[both_cmd.index("-i") + 1] == "/media/previews/p1.mp4"
         assert both_cmd[both_cmd.index("-ss") + 1] == "00:2:5"
@@ -831,6 +834,30 @@ class TestPreviews(_MediaHttpTestCase):
             "/cache/preview_front_door_"
         )
         assert ffmpeg.call_args.args[0][-1].startswith(self.tmp_dir)
+
+    def test_mp4_from_a_later_preview_ends_at_end_ts(self):
+        Previews.insert(
+            id="p_late",
+            camera="front_door",
+            path="/media/previews/p_late.mp4",
+            start_time=self.start_ts + 5,
+            end_time=self.start_ts + 3605,
+            duration=3600,
+        ).execute()
+
+        def run(cmd, **_kwargs):
+            with open(cmd[-1], "wb") as f:
+                f.write(b"MP4DATA")
+            return Mock(returncode=0)
+
+        with patch("frigate.api.media.sp.run", side_effect=run) as ffmpeg:
+            with AuthTestClient(self.app) as client:
+                response = client.get(self._url("mp4"))
+
+        assert response.status_code == 200
+        cmd = ffmpeg.call_args.args[0]
+        assert cmd[cmd.index("-ss") + 1] == "00:0:0"
+        assert cmd[cmd.index("-t") + 1] == "5.0"
 
     def test_hourly_preview_missing_or_failing(self):
         with AuthTestClient(self.app) as client:

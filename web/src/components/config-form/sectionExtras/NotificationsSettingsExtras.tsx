@@ -438,6 +438,7 @@ export default function NotificationsSettingsExtras({
               void pushSubscription.unsubscribe();
               void workerRegistration.unregister();
               setRegistration(null);
+              removeMessage("notification_settings", "registration");
             });
         })
         // fork (UI155): a refused subscription (a bad key, a push service
@@ -448,9 +449,10 @@ export default function NotificationsSettingsExtras({
           });
           void workerRegistration.unregister();
           setRegistration(null);
+          removeMessage("notification_settings", "registration");
         });
     },
-    [addMessage, publicKey, t],
+    [addMessage, removeMessage, publicKey, t],
   );
 
   useEffect(() => {

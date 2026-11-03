@@ -1743,7 +1743,8 @@ async def preview_gif(
 
         # a preview that starts after start_ts is read from its beginning; a
         # negative diff wrapped to the wrong second (-30 % 60 is 30)
-        diff = max(start_ts - preview.start_time, 0)
+        clip_start = max(start_ts, preview.start_time)
+        diff = clip_start - preview.start_time
         minutes = int(diff / 60)
         seconds = int(diff % 60)
         config: FrigateConfig = request.app.frigate_config
@@ -1755,7 +1756,7 @@ async def preview_gif(
             "-ss",
             f"00:{minutes}:{seconds}",
             "-t",
-            f"{end_ts - start_ts}",
+            f"{end_ts - clip_start}",
             "-i",
             preview.path,
             "-r",
@@ -1921,7 +1922,8 @@ async def preview_mp4(
 
         # a preview that starts after start_ts is read from its beginning; a
         # negative diff wrapped to the wrong second (-30 % 60 is 30)
-        diff = max(start_ts - preview.start_time, 0)
+        clip_start = max(start_ts, preview.start_time)
+        diff = clip_start - preview.start_time
         minutes = int(diff / 60)
         seconds = int(diff % 60)
         config: FrigateConfig = request.app.frigate_config
@@ -1934,7 +1936,7 @@ async def preview_mp4(
             "-ss",
             f"00:{minutes}:{seconds}",
             "-t",
-            f"{end_ts - start_ts}",
+            f"{end_ts - clip_start}",
             "-i",
             preview.path,
             "-r",

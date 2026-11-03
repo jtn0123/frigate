@@ -29,6 +29,23 @@ class FakeDatetime(datetime):
         return cls.current if tz is None else cls.current.astimezone(tz)
 
 
+class FakeTime:
+    """Stands in for ffmpeg's time module, so the watchdog's monotonic clock
+    follows the same hand-moved clock as FakeDatetime (B45)."""
+
+    @staticmethod
+    def monotonic():
+        return FakeDatetime.current.timestamp()
+
+    @staticmethod
+    def time():
+        return FakeDatetime.current.timestamp()
+
+    @staticmethod
+    def sleep(_seconds):
+        return None
+
+
 class FakeStopEvent:
     """Runs the watchdog loop once per step, moving the clock by that step."""
 
@@ -85,6 +102,9 @@ def watchdog(steps, stale_age=1000):
         ),
         camera_fps=SimpleNamespace(value=5),
         fps_overflow_count=0,
+        # frames stopped changing at START
+        last_frame_value=START.timestamp(),
+        last_frame_change=START.timestamp(),
         _crash_logged=None,
         ffmpeg_other_processes=[
             {
@@ -112,6 +132,7 @@ def watchdog(steps, stale_age=1000):
     for name in (
         "_drain_segment_updates",
         "_check_detect_process",
+        "_no_frames_received",
         "_check_record_processes",
         "_stream_staleness",
         "_grant_restart_grace",
@@ -130,9 +151,9 @@ class TestRecordRestartThrash(unittest.TestCase):
         patcher = patch("frigate.video.ffmpeg.datetime", FakeDatetime)
         patcher.start()
         self.addCleanup(patcher.stop)
-        sleep_patcher = patch("frigate.video.ffmpeg.time.sleep")
-        sleep_patcher.start()
-        self.addCleanup(sleep_patcher.stop)
+        time_patcher = patch("frigate.video.ffmpeg.time", FakeTime)
+        time_patcher.start()
+        self.addCleanup(time_patcher.stop)
         starter = patch("frigate.video.ffmpeg.start_or_restart_ffmpeg")
         self.start_ffmpeg = starter.start()
         # A restarted process is running, so the watchdog's exit branch
@@ -183,6 +204,24 @@ class TestRecordRestartThrash(unittest.TestCase):
         self.assertEqual(self.start_ffmpeg.call_count, 2)
         logpipe.dump.assert_called_once()
         logpipe.deque.clear.assert_called_once()
+
+    def test_a_hwaccel_retry_does_not_block_later_restarts(self):
+        # B45 (upstream #24864): the loop paces restarts on the monotonic
+        # clock, so the fork's hwaccel retry (D30) must record its restart on
+        # that clock too. A wall clock time there is far ahead of monotonic
+        # time and kept every later restart waiting for its backoff.
+        with patch.object(
+            FakeTime,
+            "monotonic",
+            staticmethod(lambda: FakeDatetime.current.timestamp() - 1e9),
+        ):
+            dog = watchdog([95, 20, 1, 1])
+            dog._hwaccel_fallback_expired = MagicMock(side_effect=[True] + [False] * 9)
+
+            CameraWatchdog.run(dog)
+
+        dog.reset_capture_thread.assert_called_once_with(cause="hwaccel retry")
+        self.assertEqual(self.start_ffmpeg.call_count, 1)
 
     def test_healthy_segments_never_restart_the_record_process(self):
         dog = watchdog([95, 1, 1, 1, 1], stale_age=0)

@@ -7,6 +7,7 @@ import logging
 import os
 import queue
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from multiprocessing.synchronize import Event as MpEvent
@@ -189,11 +190,13 @@ class WebPushClient(Communicator):
         }
         self.suspension_broadcaster: Callable[[str, Any, bool], None] | None = None
         self.config_lock = threading.Lock()
+        # monotonic times, so a backward wall clock step can't hold every
+        # notification in cooldown. -inf means none has been sent yet
         self.last_camera_notification_time: dict[str, float] = {
-            c.name: 0  # type: ignore[misc]
+            c.name: float("-inf")  # type: ignore[misc]
             for c in self.config.cameras.values()
         }
-        self.last_notification_time: float = 0
+        self.last_notification_time: float = float("-inf")
         self.user_cameras: dict[str, set[str]] = {}
         self.notification_queue: queue.Queue[PushNotification] = queue.Queue()
         self.notification_thread: threading.Thread | None = None
@@ -353,7 +356,7 @@ class WebPushClient(Communicator):
             if "add" in updates:
                 for camera in updates["add"]:
                     self.suspended_cameras[camera] = 0
-                    self.last_camera_notification_time[camera] = 0
+                    self.last_camera_notification_time[camera] = float("-inf")
 
                 self._refresh_user_cameras()
 
@@ -512,7 +515,7 @@ class WebPushClient(Communicator):
         return camera in allowed
 
     def _within_cooldown(self, camera: str) -> bool:
-        now = datetime.datetime.now().timestamp()
+        now = time.monotonic()
         if now - self.last_notification_time < self.config.notifications.cooldown:
             logger.debug(
                 f"Skipping notification for {camera} - in global cooldown period"
@@ -557,7 +560,7 @@ class WebPushClient(Communicator):
         camera_name: str = getattr(
             self.config.cameras[camera], "friendly_name", None
         ) or titlecase(camera.replace("_", " "))
-        current_time = datetime.datetime.now().timestamp()
+        current_time = time.monotonic()
 
         if self._within_cooldown(camera):
             return
@@ -670,7 +673,7 @@ class WebPushClient(Communicator):
         camera_name: str = getattr(
             self.config.cameras[camera], "friendly_name", None
         ) or titlecase(camera.replace("_", " "))
-        current_time = datetime.datetime.now().timestamp()
+        current_time = time.monotonic()
 
         if self._within_cooldown(camera):
             return
