@@ -103,8 +103,9 @@ jobs:
           elif [[ "${GITHUB_REF}" == refs/tags/fork/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/fork/}"
           else
-            # The upstream tag this build sits on, e.g. 0.18.0-20260911.42
-            BASE_TAG="$(git describe --tags --match 'v*' --abbrev=0 "$(git merge-base HEAD origin/dev)")"
+            # The upstream release this build is based on, e.g. 0.18.2-20261103.55:
+            # by history, or fork/upstream-base once next has ported a newer one (I78)
+            BASE_TAG="$(python3 fork/scripts/upstream_base.py --upstream origin/dev --tag)"
             VERSION="${BASE_TAG#v}-$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}"
           fi
           TAGS="${IMAGE}:${SHORT_SHA}-amd64,${IMAGE}:${VERSION}"

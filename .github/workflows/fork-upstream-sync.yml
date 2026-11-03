@@ -144,11 +144,11 @@ jobs:
         run: |
           set -euo pipefail
           # Only tags that contain the fork base, excluding the base itself, so
-          # the first run does not file issues for every historical v*. Move
-          # BASE when next is rebased onto a newer upstream release (it matches
-          # FORK_TEST_BASE in the Makefile).
+          # the first run does not file issues for every historical v*. BASE is
+          # the release fork/upstream-base names: the newest one next has
+          # ported in full (I78).
           git fetch --tags --force origin || true
-          BASE=v0.18.0
+          BASE="$(grep -m1 -E '^v[0-9]+\.[0-9]+\.[0-9]+$' fork/upstream-base)"
           git rev-parse "$BASE" >/dev/null
           git tag -l 'v*' | while read -r TAG; do
             [ "$TAG" = "$BASE" ] && continue

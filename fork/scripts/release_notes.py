@@ -28,6 +28,8 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 
+import upstream_base
+
 # Files that never reach the image, or only shape how the fork is developed.
 INTERNAL_PATTERNS = (
     "fork/*",
@@ -174,9 +176,8 @@ def fork_commits(ref: str, upstream: str, cwd: str | None = None) -> list[Commit
 
 
 def upstream_label(ref: str, upstream: str, cwd: str | None = None) -> str:
-    """The upstream tag `ref` is based on, with a `-N-g<sha>` suffix past it."""
-    base = git("merge-base", ref, upstream, cwd=cwd).strip()
-    return git("describe", "--tags", "--match", "v*", base, cwd=cwd).strip()
+    """The upstream release `ref` is based on (upstream_base.py, I78)."""
+    return upstream_base.label(ref, upstream, cwd=cwd)
 
 
 def ledger_prefix(subject: str) -> tuple[str, str]:
