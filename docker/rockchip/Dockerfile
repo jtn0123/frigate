@@ -6,7 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Globally set pip break-system-packages option to avoid having to specify it every time
 ARG PIP_BREAK_SYSTEM_PACKAGES=1
 
-FROM wheels as rk-wheels
+FROM wheels AS rk-wheels
 COPY docker/main/requirements-wheels.txt /requirements-wheels.txt
 COPY docker/rockchip/requirements-wheels-rk.txt /requirements-wheels-rk.txt
 RUN sed -i "/https:\/\//d" /requirements-wheels.txt

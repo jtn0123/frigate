@@ -13,7 +13,7 @@ if [[ $arch == "aarch64" ]]; then
     echo "Detected OS codename: $os_codename"
 fi
 
-if [ "$os_codename" = "trixie" ]; then
+if [[ "$os_codename" = "trixie" ]]; then
     sudo apt install -y dkms
 fi
 
@@ -28,7 +28,7 @@ sudo make install
 # Load the Hailo PCI driver
 sudo modprobe hailo_pci
 
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
   echo "Unable to load hailo_pci module, common reasons for this are:"
   echo "- Key was rejected by service: Secure Boot is enabling disallowing install."
   echo "- Permissions are not setup correctly."
@@ -40,7 +40,7 @@ cd ../../
 ./download_firmware.sh
 
 # verify the firmware folder is present
-if [ ! -d /lib/firmware/hailo ]; then
+if [[ ! -d /lib/firmware/hailo ]]; then
   sudo mkdir /lib/firmware/hailo
 fi
 sudo mv hailo8_fw.*.bin /lib/firmware/hailo/hailo8_fw.bin

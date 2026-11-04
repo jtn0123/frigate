@@ -10,10 +10,7 @@ from frigate.motion.improved_motion import ImprovedMotionDetector
 from frigate.util import create_mask
 
 # get info on the video
-# cap = cv2.VideoCapture("debug/front_cam_2023_05_23_08_41__2023_05_23_08_43.mp4")
-# cap = cv2.VideoCapture("debug/motion_test_clips/rain_1.mp4")
 cap = cv2.VideoCapture("debug/motion_test_clips/lawn_mower_night_1.mp4")
-# cap = cv2.VideoCapture("airport.mp4")
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fps = cap.get(cv2.CAP_PROP_FPS)
@@ -44,20 +41,13 @@ mask = create_mask(
 motion_config_1 = MotionConfig()
 motion_config_1.mask = np.zeros((height, width), np.uint8)
 motion_config_1.mask[:] = mask
-# motion_config_1.improve_contrast = 1
 motion_config_1.frame_height = 150
-# motion_config_1.frame_alpha = 0.02
-# motion_config_1.threshold = 30
-# motion_config_1.contour_area = 10
 
 motion_config_2 = MotionConfig()
 motion_config_2.mask = np.zeros((height, width), np.uint8)
 motion_config_2.mask[:] = mask
-# motion_config_2.improve_contrast = 1
 motion_config_2.frame_height = 150
-# motion_config_2.frame_alpha = 0.01
 motion_config_2.threshold = 20
-# motion_config.contour_area = 10
 
 save_images = True
 
