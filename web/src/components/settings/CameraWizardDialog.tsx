@@ -77,18 +77,6 @@ type CameraWizardDialogProps = {
   onClose: () => void;
 };
 
-// fork: also update the running go2rtc instance for immediate effect. A
-// failed stream update never fails the save, so the results are settled.
-function updateRunningStreams(streams: Record<string, string[]>) {
-  return Promise.allSettled(
-    Object.entries(streams).map(([streamName, urls]) =>
-      axios.put(
-        `go2rtc/streams/${streamName}?src=${encodeURIComponent(urls[0])}`,
-      ),
-    ),
-  );
-}
-
 export default function CameraWizardDialog({
   open,
   onClose,
@@ -332,9 +320,19 @@ export default function CameraWizardDialog({
 
                 axios
                   .put("config/set", go2rtcRequestBody)
-                  // fork: chained rather than nested; the second handler
-                  // still covers only the config save, as the catch did
-                  .then(() => updateRunningStreams(go2rtcStreams))
+                  .then(() => {
+                    // also update the running go2rtc instance for immediate effect
+                    const updatePromises = Object.entries(go2rtcStreams).map(
+                      ([streamName, urls]) =>
+                        axios.put(
+                          `go2rtc/streams/${streamName}?src=${encodeURIComponent(urls[0])}`,
+                        ),
+                    );
+
+                    // fork: chained rather than nested; the second handler
+                    // still covers only the config save, as the catch did
+                    return Promise.allSettled(updatePromises);
+                  })
                   .then(
                     () => {
                       toast.success(
