@@ -1,8 +1,8 @@
-import { MutableRefObject, useEffect } from "react";
+import { RefObject, useEffect } from "react";
 import { isIOS } from "react-device-detect";
 
 export default function useContextMenu(
-  ref: MutableRefObject<HTMLDivElement | null>,
+  ref: RefObject<HTMLDivElement | null>,
   callback: () => void,
 ) {
   useEffect(() => {

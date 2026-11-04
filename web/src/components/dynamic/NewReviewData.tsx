@@ -1,13 +1,13 @@
 import { ReviewSegment } from "@/types/review";
 import { Button } from "../ui/button";
 import { LuRefreshCcw } from "react-icons/lu";
-import { MutableRefObject, useMemo } from "react";
+import { RefObject, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
 type NewReviewDataProps = {
   className: string;
-  contentRef: MutableRefObject<HTMLDivElement | null>;
+  contentRef: RefObject<HTMLDivElement | null>;
   reviewItems?: ReviewSegment[] | null;
   itemsToReview?: number;
   pullLatestData: () => void;

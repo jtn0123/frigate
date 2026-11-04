@@ -21,9 +21,9 @@ export default function StepIndicator({
   if (variant == "dots") {
     return (
       <div className={cn("flex flex-row justify-center gap-2", className)}>
-        {steps.map((_, idx) => (
+        {steps.map((name, idx) => (
           <div
-            key={idx}
+            key={name}
             className={cn(
               "size-3 rounded-full border border-primary/10 transition-colors",
               currentStep === idx
@@ -42,7 +42,7 @@ export default function StepIndicator({
   return (
     <div className={cn("flex flex-row justify-evenly", className)}>
       {steps.map((name, idx) => (
-        <div key={idx} className="flex flex-col items-center gap-2">
+        <div key={name} className="flex flex-col items-center gap-2">
           <div
             className={cn(
               "flex size-16 items-center justify-center rounded-full",

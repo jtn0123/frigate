@@ -13,10 +13,9 @@ const DIVISIONS: { amount: number; name: Intl.RelativeTimeFormatUnit }[] = [
 ];
 
 export function formatTimeAgo(date: Date) {
-  let duration = (date.getTime() - new Date().getTime()) / 1000;
+  let duration = (date.getTime() - Date.now()) / 1000;
 
-  for (let i = 0; i < DIVISIONS.length; i++) {
-    const division = DIVISIONS[i];
+  for (const division of DIVISIONS) {
     if (Math.abs(duration) < division.amount) {
       return formatter.format(Math.round(duration), division.name);
     }

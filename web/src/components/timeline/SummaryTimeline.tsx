@@ -66,16 +66,14 @@ export function SummaryTimeline({
       (event) => event.severity === severityType,
     );
 
-    const sortedEvents = filteredEvents.sort(
-      (a, b) => a.start_time - b.start_time,
-    );
+    filteredEvents.sort((a, b) => a.start_time - b.start_time);
 
     const consolidated: ConsolidatedSegmentData[] = [];
 
     let currentTime = alignEndDateToTimeline(timelineEnd);
     const timelineStartAligned = alignStartDateToTimeline(timelineStart);
 
-    sortedEvents.forEach((event) => {
+    filteredEvents.forEach((event) => {
       const alignedStartTime = Math.max(
         alignStartDateToTimeline(event.start_time),
         currentTime,

@@ -3,7 +3,7 @@ import type { WidgetProps } from "@rjsf/utils";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
-export function RangeWidget(props: WidgetProps) {
+export function RangeWidget(props: Readonly<WidgetProps>) {
   const { id, value, disabled, readonly, onChange, schema, options } = props;
 
   const min = schema.minimum ?? 0;

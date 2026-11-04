@@ -557,7 +557,7 @@ function GridLayoutObjectFieldTemplate(
   );
 }
 
-export function LayoutGridField(props: FieldProps) {
+export function LayoutGridField(props: Readonly<FieldProps>) {
   const { registry, schema, uiSchema, idSchema, formData } = props;
 
   // Store the original ObjectFieldTemplate before any modifications

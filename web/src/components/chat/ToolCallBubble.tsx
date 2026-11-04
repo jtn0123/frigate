@@ -26,7 +26,7 @@ export function ToolCallBubble({
   const [open, setOpen] = useState(false);
   const isLeft = side === "left";
   const normalizedName = name
-    .replace(/_/g, " ")
+    .replaceAll("_", " ")
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");

@@ -121,5 +121,5 @@ export function getProfileColor(
 ): ProfileColor {
   const sorted = sortedStrings(allProfileNames);
   const index = sorted.indexOf(profileName);
-  return PROFILE_COLORS[(index >= 0 ? index : 0) % PROFILE_COLORS.length];
+  return PROFILE_COLORS[Math.max(index, 0) % PROFILE_COLORS.length];
 }

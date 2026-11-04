@@ -37,7 +37,7 @@ export function usePersistence<S>(
 
     async function load() {
       const value = await getData(key);
-      if (typeof value !== "undefined") {
+      if (value !== undefined) {
         setValue(value);
       }
       setLoaded(true);

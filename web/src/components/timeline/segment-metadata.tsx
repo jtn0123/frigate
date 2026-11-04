@@ -11,7 +11,7 @@ type MinimapSegmentProps = {
   isLastSegmentInMinimap: boolean;
   alignedMinimapStartTime: number;
   alignedMinimapEndTime: number;
-  firstMinimapSegmentRef: React.MutableRefObject<HTMLDivElement | null>;
+  firstMinimapSegmentRef: React.RefObject<HTMLDivElement | null>;
   dense: boolean;
 };
 

@@ -28,7 +28,7 @@ function getTimezoneList(): string[] {
   return fallback ? [fallback] : ["UTC"];
 }
 
-export function TimezoneSelectWidget(props: WidgetProps) {
+export function TimezoneSelectWidget(props: Readonly<WidgetProps>) {
   const { id, value, disabled, readonly, onChange, schema, options } = props;
   const { t } = useTranslation(["views/settings", "common"]);
 

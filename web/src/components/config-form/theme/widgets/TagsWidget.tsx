@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useCallback, useMemo } from "react";
 import { LuX } from "react-icons/lu";
 
-export function TagsWidget(props: WidgetProps) {
+export function TagsWidget(props: Readonly<WidgetProps>) {
   const { id, value = [], disabled, readonly, onChange, schema } = props;
 
   const [inputValue, setInputValue] = useState("");
@@ -33,7 +33,7 @@ export function TagsWidget(props: WidgetProps) {
       e.preventDefault();
       addTag();
     } else if (e.key === "Backspace" && inputValue === "" && tags.length > 0) {
-      removeTag(tags[tags.length - 1]);
+      removeTag(tags.at(-1));
     }
   };
 

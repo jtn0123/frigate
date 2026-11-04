@@ -1,19 +1,19 @@
-import { MutableRefObject, useCallback, useEffect, useState } from "react";
+import { RefObject, useCallback, useEffect, useState } from "react";
 import { isMobile } from "react-device-detect";
 
-export function useScrollLockout(ref: MutableRefObject<HTMLElement | null>) {
-  const [scrollLock, setScrollLockout] = useState(false);
+export function useScrollLockout(ref: RefObject<HTMLElement | null>) {
+  const [scrollLock, setScrollLock] = useState(false);
 
   const onScroll = useCallback(() => {
     if (!scrollLock) {
-      setScrollLockout(true);
+      setScrollLock(true);
     }
-  }, [scrollLock, setScrollLockout]);
+  }, [scrollLock, setScrollLock]);
   const onMouseMove = useCallback(() => {
     if (scrollLock) {
-      setScrollLockout(false);
+      setScrollLock(false);
     }
-  }, [scrollLock, setScrollLockout]);
+  }, [scrollLock, setScrollLock]);
 
   useEffect(() => {
     if (isMobile) {

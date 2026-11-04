@@ -17,7 +17,7 @@ export const getAveragePoint = (points: number[]): Vector2d => {
 export const getDistance = (node1: number[], node2: number[]): string => {
   const diffX = Math.abs(node1[0] - node2[0]);
   const diffY = Math.abs(node1[1] - node2[1]);
-  const distanceInPixel = Math.sqrt(diffX * diffX + diffY * diffY);
+  const distanceInPixel = Math.hypot(diffX, diffY);
   return distanceInPixel.toFixed(2);
 };
 
@@ -79,7 +79,7 @@ export const parseCoordinates = (coordinatesString: string) => {
 };
 
 export const flattenPoints = (points: number[][]): number[] => {
-  return points.reduce((acc, point) => [...acc, ...point], []);
+  return points.flat();
 };
 
 export const toRGBColorString = (color: number[], darkened: boolean) => {
@@ -162,7 +162,7 @@ function snapPointToLine(
 
   const dx = x - xx;
   const dy = y - yy;
-  const distance = Math.sqrt(dx * dx + dy * dy);
+  const distance = Math.hypot(dx, dy);
 
   if (distance <= threshold) {
     return [xx, yy];
