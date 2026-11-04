@@ -188,9 +188,10 @@ class TestNginxShareConf(unittest.TestCase):
             (f"/share/{SHARE_ID}?x=1", "/share/<redacted>?x=1"),
         ):
             match = loggable.search(uri)
-            masked = f"{match['share_prefix']}<redacted>{match['share_rest']}"
-            self.assertEqual(masked, expected)
-            self.assertNotIn(SHARE_ID, masked)
+            self.assertEqual(
+                f"{match['share_prefix']}<redacted>{match['share_rest']}", expected
+            )
+            self.assertNotIn(SHARE_ID, match["share_prefix"] + match["share_rest"])
 
     def test_token_is_masked_in_the_referer(self):
         loggable = map_regex(self.conf, "$loggable_referer")
