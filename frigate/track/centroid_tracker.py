@@ -21,14 +21,14 @@ class CentroidTracker(ObjectTracker):
 
     def register(self, obj: dict[str, Any]) -> None:
         rand_id = generate_id(6)
-        id = f"{obj['frame_time']}-{rand_id}"
-        obj["id"] = id
+        obj_id = f"{obj['frame_time']}-{rand_id}"
+        obj["id"] = obj_id
         obj["start_time"] = obj["frame_time"]
         obj["motionless_count"] = 0
         obj["position_changes"] = 0
-        self.tracked_objects[id] = obj
-        self.disappeared[id] = 0
-        self.positions[id] = {
+        self.tracked_objects[obj_id] = obj
+        self.disappeared[obj_id] = 0
+        self.positions[obj_id] = {
             "xmins": [],
             "ymins": [],
             "xmaxs": [],
@@ -219,28 +219,28 @@ class CentroidTracker(ObjectTracker):
             for row, col in zip(rows, cols):
                 # grab the object ID for the current row, set its new centroid,
                 # and reset the disappeared counter
-                objectID = current_ids[row]
-                self.update(objectID, group[col])
+                object_id = current_ids[row]
+                self.update(object_id, group[col])
 
             # compute the row and column indices we have NOT yet examined
-            unusedRows = set(range(D.shape[0])).difference(rows)
-            unusedCols = set(range(D.shape[1])).difference(cols)
+            unused_rows = set(range(D.shape[0])).difference(rows)
+            unused_cols = set(range(D.shape[1])).difference(cols)
 
             # in the event that the number of object centroids is
             # equal or greater than the number of input centroids
             # we need to check and see if some of these objects have
             # potentially disappeared
             if D.shape[0] >= D.shape[1]:
-                for row in unusedRows:
-                    id = current_ids[row]
+                for row in unused_rows:
+                    obj_id = current_ids[row]
 
-                    if self.disappeared[id] >= self.max_disappeared:
-                        self.deregister(id)
+                    if self.disappeared[obj_id] >= self.max_disappeared:
+                        self.deregister(obj_id)
                     else:
-                        self.disappeared[id] += 1
+                        self.disappeared[obj_id] += 1
             # if the number of input centroids is greater
             # than the number of existing object centroids we need to
             # register each new input centroid as a trackable object
             else:
-                for col in unusedCols:
+                for col in unused_cols:
                     self.register(group[col])

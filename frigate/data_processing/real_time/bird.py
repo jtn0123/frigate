@@ -130,20 +130,20 @@ class BirdRealTimeProcessor(RealTimeProcessorApi):
         )
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_I420)
-        input = rgb[
+        bird_input = rgb[
             y:y2,
             x:x2,
         ]
 
-        if input.shape != (224, 224):
+        if bird_input.shape != (224, 224):
             try:
-                input = cv2.resize(input, (224, 224))
+                bird_input = cv2.resize(bird_input, (224, 224))
             except Exception:
                 logger.warning("Failed to resize image for bird classification")
                 return
 
-        input = np.expand_dims(input, axis=0)
-        self.interpreter.set_tensor(self.tensor_input_details[0]["index"], input)
+        bird_input = np.expand_dims(bird_input, axis=0)
+        self.interpreter.set_tensor(self.tensor_input_details[0]["index"], bird_input)
         self.interpreter.invoke()
         res: np.ndarray = self.interpreter.get_tensor(
             self.tensor_output_details[0]["index"]

@@ -39,17 +39,17 @@ def create_ground_plane(zone_points, distances):
     A, B, C, D = zone_points
 
     # Calculate pixel lengths of each side
-    AB_px = np.linalg.norm(np.array(B) - np.array(A))
-    BC_px = np.linalg.norm(np.array(C) - np.array(B))
-    CD_px = np.linalg.norm(np.array(D) - np.array(C))
-    DA_px = np.linalg.norm(np.array(A) - np.array(D))
+    ab_px = np.linalg.norm(np.array(B) - np.array(A))
+    bc_px = np.linalg.norm(np.array(C) - np.array(B))
+    cd_px = np.linalg.norm(np.array(D) - np.array(C))
+    da_px = np.linalg.norm(np.array(A) - np.array(D))
 
     AB, BC, CD, DA = map(float, distances)
 
-    AB_scale = AB / AB_px
-    BC_scale = BC / BC_px
-    CD_scale = CD / CD_px
-    DA_scale = DA / DA_px
+    ab_scale = AB / ab_px
+    bc_scale = BC / bc_px
+    cd_scale = CD / cd_px
+    da_scale = DA / da_px
 
     def distance_per_pixel(x, y):
         """
@@ -69,8 +69,8 @@ def create_ground_plane(zone_points, distances):
         y_norm = (y - A[1]) / (D[1] - A[1])
 
         # Interpolate scales horizontally and vertically
-        vertical_scale = AB_scale + (CD_scale - AB_scale) * y_norm
-        horizontal_scale = DA_scale + (BC_scale - DA_scale) * x_norm
+        vertical_scale = ab_scale + (cd_scale - ab_scale) * y_norm
+        horizontal_scale = da_scale + (bc_scale - da_scale) * x_norm
 
         # Combine horizontal and vertical scales
         return (vertical_scale + horizontal_scale) / 2
