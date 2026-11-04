@@ -1,6 +1,5 @@
 import React, { Children, cloneElement } from "react";
 import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 export default function ConfigTabs({ children }) {
   const wrapped = Children.map(children, (child) => {

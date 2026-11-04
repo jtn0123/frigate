@@ -30,7 +30,7 @@ function getIconType(icon: string): "svg" | "image" | "emoji" {
 function hasBackgroundProps(style: React.CSSProperties | undefined): boolean {
   if (!style) return false;
   return Object.keys(style).some((key) => {
-    const k = key.toLowerCase().replace(/-/g, "");
+    const k = key.toLowerCase().replaceAll("-", "");
     return k === "backgroundsize" || k === "backgroundposition" || k === "backgroundrepeat" || k === "backgroundimage";
   });
 }

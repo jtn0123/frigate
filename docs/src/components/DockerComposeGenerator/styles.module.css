@@ -103,6 +103,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .inputError {
+    animation: none;
+  }
+}
+
 /* --- Select dropdown --- */
 
 .select {
@@ -147,7 +153,7 @@
   border: 2px solid var(--ifm-color-emphasis-400);
   border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.2s, background-color 0.2s, transform 0.2s, box-shadow 0.2s;
   text-align: center;
   background: var(--ifm-background-color);
   display: flex;

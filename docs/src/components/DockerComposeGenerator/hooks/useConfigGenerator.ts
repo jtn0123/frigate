@@ -85,7 +85,7 @@ export function useConfigGenerator() {
 
   const validatePath = useCallback((value: string): boolean => {
     if (!value) return true;
-    return /^[a-zA-Z0-9_\-/./]+$/.test(value);
+    return /^[a-zA-Z0-9_\-/.]+$/.test(value);
   }, []);
 
   const handleShmSizeChange = useCallback(
@@ -100,7 +100,7 @@ export function useConfigGenerator() {
 
   const handleConfigPathChange = useCallback(
     (value: string) => {
-      const filtered = value.replace(/[^a-zA-Z0-9_\-/./]/g, "");
+      const filtered = value.replace(/[^a-zA-Z0-9_\-/.]/g, "");
       const valid = validatePath(filtered);
       setConfigPath(filtered);
       setConfigPathError(!valid && filtered !== "");
@@ -110,7 +110,7 @@ export function useConfigGenerator() {
 
   const handleMediaPathChange = useCallback(
     (value: string) => {
-      const filtered = value.replace(/[^a-zA-Z0-9_\-/./]/g, "");
+      const filtered = value.replace(/[^a-zA-Z0-9_\-/.]/g, "");
       const valid = validatePath(filtered);
       setMediaPath(filtered);
       setMediaPathError(!valid && filtered !== "");

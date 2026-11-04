@@ -252,7 +252,7 @@
 }
 
 .config-tabs-wrapper .tabs-container {
-  margin-bottom: 0 !important;
+  margin-bottom: 0;
 }
 
 .config-tabs-wrapper .tabs {

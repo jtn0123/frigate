@@ -13,7 +13,7 @@ interface Props {
 function renderDescription(text: string): React.ReactNode {
   const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
   return parts.map((part, i) => {
-    const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    const match = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
     if (match) {
       return <a key={i} href={match[2]}>{match[1]}</a>;
     }
