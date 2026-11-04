@@ -87,9 +87,7 @@ class PaddleOCRDetection(BaseEmbedding):
             )
 
     def _preprocess_inputs(self, raw_inputs):
-        preprocessed = []
-        for x in raw_inputs:
-            preprocessed.append(x)
+        preprocessed = list(raw_inputs)
         return [{"x": preprocessed[0]}]
 
 

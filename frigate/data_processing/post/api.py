@@ -22,7 +22,6 @@ class PostProcessorApi(ABC):
         self.config = config
         self.metrics = metrics
         self.model_runner = model_runner
-        pass
 
     @abstractmethod
     def process_data(
