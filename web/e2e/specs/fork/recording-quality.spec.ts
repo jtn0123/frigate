@@ -29,24 +29,31 @@ test.describe("Recording stream quality (B17) @high @mobile", () => {
       `/review?timestamp=front_door_${Math.floor(Date.now() / 1000) - 300}`,
     );
     if (frigateApp.isMobile) {
-      await page
-        .getByRole("button", { name: /filters/i })
-        .first()
-        .click();
-      await page.getByRole("button", { name: "Quality", exact: true }).click();
+      const filters = page.getByRole("button", { name: /filters/i }).first();
+      const quality = page.getByRole("button", {
+        name: "Quality",
+        exact: true,
+      });
+      // The review page re-renders into the recording view after it loads,
+      // so an early tap can land on a Filters button that is then replaced
+      // and the drawer never opens. Tap again until Quality is shown (D81).
+      const openQuality = async () => {
+        await expect(async () => {
+          if (!(await quality.isVisible())) {
+            await filters.click({ timeout: 2_000 });
+          }
+          await expect(quality).toBeVisible({ timeout: 2_000 });
+        }).toPass({ timeout: 15_000 });
+        await quality.click();
+      };
+      await openQuality();
       for (const name of ["Low", "Original", "Auto"]) {
         const option = page.getByRole("button", {
           name: new RegExp(`^${name}`),
         });
         await option.click();
         // Choosing quality closes the drawer and applies the preference.
-        await page
-          .getByRole("button", { name: /filters/i })
-          .first()
-          .click();
-        await page
-          .getByRole("button", { name: "Quality", exact: true })
-          .click();
+        await openQuality();
         await expect(option).toHaveAttribute("aria-pressed", "true");
       }
     } else {
