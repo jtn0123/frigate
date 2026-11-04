@@ -12,7 +12,9 @@ ARG TARGETARCH
 ARG COMPUTE_LEVEL
 
 RUN apt-get update \
-    && apt-get install -y git build-essential cuda-nvcc-* cuda-nvtx-* libnvinfer-dev libnvinfer-plugin-dev libnvparsers-dev libnvonnxparsers-dev \
+    && apt-get install -y \
+    build-essential cuda-nvcc-* cuda-nvtx-* git \
+    libnvinfer-dev libnvinfer-plugin-dev libnvonnxparsers-dev libnvparsers-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN --mount=type=bind,source=docker/tensorrt/detector/tensorrt_libyolo.sh,target=/tensorrt_libyolo.sh \
     /tensorrt_libyolo.sh
@@ -68,8 +70,8 @@ RUN apt-get -qq update && \
 # Use a separate container to build wheels to prevent build dependencies in final image
 RUN apt-get -qq update \
     && apt-get -qq install -y --no-install-recommends \
-    python3.11 python3.11-dev \
-    wget curl ca-certificates build-essential cmake git \
+    build-essential ca-certificates cmake curl git \
+    python3.11 python3.11-dev wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Ensure python3 defaults to python3.11
@@ -86,13 +88,15 @@ ARG TARGETARCH
 
 # python-tensorrt build deps are 3.4 GB!
 RUN apt-get update \
-    && apt-get install -y ccache cuda-cudart-dev-* cuda-nvcc-* libnvonnxparsers-dev libnvparsers-dev libnvinfer-plugin-dev \
+    && apt-get install -y \
+    ccache cuda-cudart-dev-* cuda-nvcc-* \
+    libnvinfer-plugin-dev libnvonnxparsers-dev libnvparsers-dev \
     && ([ -e /usr/local/cuda ] || ln -s /usr/local/cuda-* /usr/local/cuda) \
     && rm -rf /var/lib/apt/lists/*;
 
 # Determine version of tensorrt already installed in base image, e.g. "Version: 8.4.1-1+cuda11.4"
 RUN NVINFER_VER=$(dpkg -s libnvinfer8 | grep -Po "Version: \K.*") \
-    && echo $NVINFER_VER | grep -Po "^\d+\.\d+\.\d+" > /etc/TENSORRT_VER
+    && echo "$NVINFER_VER" | grep -Po "^\d+\.\d+\.\d+" > /etc/TENSORRT_VER
 
 RUN --mount=type=bind,source=docker/tensorrt/detector/build_python_tensorrt.sh,target=/deps/build_python_tensorrt.sh \
     --mount=type=cache,target=/root/.ccache \
@@ -136,7 +140,7 @@ ENV INCLUDED_FFMPEG_VERSIONS="${DEFAULT_FFMPEG_VERSION}:${INCLUDED_FFMPEG_VERSIO
 # ffmpeg runtime dependencies
 RUN apt-get -qq update \
     && apt-get -qq install -y --no-install-recommends \
-    libx264-163 libx265-199 libegl1 \
+    libegl1 libx264-163 libx265-199 \
     && rm -rf /var/lib/apt/lists/*
 
 # Fixes "Error loading shared libs"

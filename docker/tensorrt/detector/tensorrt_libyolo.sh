@@ -8,7 +8,7 @@ SCRIPT_DIR="/usr/local/src/tensorrt_demos"
 git clone --depth 1 https://github.com/NateMeyer/tensorrt_demos.git -b conditional_download
 
 # Build libyolo
-if [ ! -e /usr/local/cuda ]; then
+if [[ ! -e /usr/local/cuda ]]; then
     ln -s /usr/local/cuda-* /usr/local/cuda
 fi
 cd ./tensorrt_demos/plugins && make all -j$(nproc) computes="${COMPUTE_LEVEL:-}"

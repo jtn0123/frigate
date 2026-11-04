@@ -9,7 +9,7 @@ download_https() {
 
 # Intel media driver is x86_64-only. Create empty rootfs on other arches so
 # the downstream COPY --from has a valid source.
-if [ "$(uname -m)" != "x86_64" ]; then
+if [[ "$(uname -m)" != "x86_64" ]]; then
     mkdir -p /rootfs
     exit 0
 fi
