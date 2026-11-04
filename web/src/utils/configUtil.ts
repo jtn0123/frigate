@@ -121,7 +121,7 @@ export function getBaseCameraSectionValue(
   const cam = config.cameras?.[cameraName];
   if (!cam) return undefined;
   const base = cam.base_config?.[sectionPath];
-  return base !== undefined ? base : get(cam, sectionPath);
+  return base ?? get(cam, sectionPath);
 }
 
 // mergeWith customizer that replaces arrays wholesale instead of merging them
