@@ -28,8 +28,8 @@ export function generateFixedHash(name: string, prefix: string = "id"): string {
 
   // FNV-1a 32-bit hash algorithm
   let hash = 0x811c9dc5; // FNV offset basis
-  for (let i = 0; i < utf8Bytes.length; i++) {
-    hash ^= utf8Bytes[i];
+  for (const byte of utf8Bytes) {
+    hash ^= byte;
     // Multiply by FNV prime (0x01000193) with 32-bit overflow
     hash = (hash >>> 0) * 0x01000193;
     // Ensure 32-bit unsigned integer
@@ -42,7 +42,7 @@ export function generateFixedHash(name: string, prefix: string = "id"): string {
   // Ensure the first character is a letter to avoid an identifier that's purely
   // numeric (isValidId forbids all-digit IDs). If it starts with a digit,
   // replace with 'a'. This is extremely unlikely but a simple safeguard.
-  const safeHash = /^[0-9]/.test(hashHex[0]) ? `a${hashHex.slice(1)}` : hashHex;
+  const safeHash = /^\d/.test(hashHex[0]) ? `a${hashHex.slice(1)}` : hashHex;
 
   return `${prefix}_${safeHash}`;
 }
@@ -80,6 +80,6 @@ export function formatList(item: string[]): string {
   const allButLast = item.slice(0, -1).join(separatorWithSpace);
   return t("list.many", {
     items: allButLast,
-    last: item[item.length - 1],
+    last: item.at(-1),
   });
 }

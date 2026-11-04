@@ -6,7 +6,7 @@ const frigateDateStamp = /\[[\d\s-:]*]/;
 const frigateSection = /[\w.]*/;
 
 const goSeverity = /(DEB )|(DBG )|(TRC )|(INF )|(WRN )|(ERR )/;
-const goSection = /\[[\w]*]/;
+const goSection = /\[\w*]/;
 
 const httpMethods = /(GET)|(POST)|(PUT)|(PATCH)|(DELETE)/;
 
@@ -28,7 +28,7 @@ export function parseLogLines(logService: LogType, logs: string[]) {
               content: line
                 .substring(loggingIndex + 9)
                 .trim()
-                .replace(/\u200b/g, "\n"),
+                .replaceAll("\u200b", "\n"),
             };
           }
 
@@ -40,7 +40,7 @@ export function parseLogLines(logService: LogType, logs: string[]) {
               content: line
                 .substring(infoIndex + 6)
                 .trim()
-                .replace(/\u200b/g, "\n"),
+                .replaceAll("\u200b", "\n"),
             };
           }
 
@@ -48,10 +48,7 @@ export function parseLogLines(logService: LogType, logs: string[]) {
             dateStamp: line.substring(0, 19),
             severity: "unknown",
             section: "unknown",
-            content: line
-              .substring(30)
-              .trim()
-              .replace(/\u200b/g, "\n"),
+            content: line.substring(30).trim().replaceAll("\u200b", "\n"),
           };
         }
 
@@ -74,7 +71,7 @@ export function parseLogLines(logService: LogType, logs: string[]) {
           content: line
             .substring(line.indexOf(":", match.index + match[0].length) + 2)
             .trim()
-            .replace(/\u200b/g, "\n"),
+            .replaceAll("\u200b", "\n"),
         };
       })
       .filter((value) => value != null) as LogLine[];
@@ -171,7 +168,7 @@ export function parseLogLines(logService: LogType, logs: string[]) {
           };
         } else if (line.includes("[error]")) {
           // Error log
-          const errorMatch = line.match(/(\[error\].*?,.*request: "[^"]*")/);
+          const errorMatch = /(\[error\].*?,.*request: "[^"]*")/.exec(line);
           const content = errorMatch ? errorMatch[1] : line;
           return {
             dateStamp,

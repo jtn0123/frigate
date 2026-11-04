@@ -2,7 +2,7 @@
 import type { WidgetProps } from "@rjsf/utils";
 import { Input } from "@/components/ui/input";
 
-export function NumberWidget(props: WidgetProps) {
+export function NumberWidget(props: Readonly<WidgetProps>) {
   const {
     id,
     value,

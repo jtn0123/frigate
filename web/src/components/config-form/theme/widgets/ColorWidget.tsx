@@ -10,7 +10,7 @@ interface RGBColor {
   blue: number;
 }
 
-export function ColorWidget(props: WidgetProps) {
+export function ColorWidget(props: Readonly<WidgetProps>) {
   const { id, value, disabled, readonly, onChange } = props;
 
   // Convert object to hex for color picker

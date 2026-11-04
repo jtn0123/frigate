@@ -43,7 +43,7 @@ function getAudioLabelDisplayName(label: string): string {
   return getTranslatedLabel(label, "audio");
 }
 
-export function AudioLabelSwitchesWidget(props: WidgetProps) {
+export function AudioLabelSwitchesWidget(props: Readonly<WidgetProps>) {
   const { data: audioLabels } = useSWR<Record<string, string>>("/audio_labels");
 
   const allLabels = useMemo(() => {

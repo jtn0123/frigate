@@ -1,6 +1,6 @@
-import { MutableRefObject, useEffect, useMemo, useState } from "react";
+import { RefObject, useEffect, useMemo, useState } from "react";
 
-type RefType = MutableRefObject<Element | null> | Window;
+type RefType = RefObject<Element | null> | Window;
 
 export function useResizeObserver(...refs: RefType[]) {
   const [dimensions, setDimensions] = useState<

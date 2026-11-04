@@ -17,7 +17,7 @@ export const getTranslatedLabel = (
       .trim()
       .replace(/[-'\s]+/g, "_")
       .replace(/__+/g, "_")
-      .replace(/^_+|_+$/g, "")
+      .replace(/^_|_$/g, "")
       .toLowerCase();
 
   const key = normalize(label);

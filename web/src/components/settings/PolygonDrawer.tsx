@@ -179,7 +179,7 @@ export default function PolygonDrawer({
         dash={enabled ? undefined : [10, 5]}
         hitStrokeWidth={12}
         closed={isFinished}
-        fill={colorString(isActive || isHovered ? true : false)}
+        fill={colorString(isActive || isHovered)}
         opacity={enabled ? 1 : 0.85}
         onMouseOver={() =>
           isActive

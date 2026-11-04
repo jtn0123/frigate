@@ -2,13 +2,13 @@
 import type { WidgetProps } from "@rjsf/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
-export function CheckboxWidget(props: WidgetProps) {
+export function CheckboxWidget(props: Readonly<WidgetProps>) {
   const { id, value, disabled, readonly, onChange, label, schema } = props;
 
   return (
     <Checkbox
       id={id}
-      checked={typeof value === "undefined" ? false : value}
+      checked={value === undefined ? false : value}
       disabled={disabled || readonly}
       onCheckedChange={(checked) => onChange(checked)}
       aria-label={label || schema.title || "Checkbox"}

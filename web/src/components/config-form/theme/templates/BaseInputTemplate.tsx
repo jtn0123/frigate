@@ -3,7 +3,7 @@ import type { WidgetProps } from "@rjsf/utils";
 import { Input } from "@/components/ui/input";
 import { getSizedFieldClassName } from "../utils";
 
-export function BaseInputTemplate(props: WidgetProps) {
+export function BaseInputTemplate(props: Readonly<WidgetProps>) {
   const {
     id,
     type,

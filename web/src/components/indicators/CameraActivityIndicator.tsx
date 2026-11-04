@@ -8,7 +8,12 @@ function CameraActivityIndicator() {
         <div className="mr-[2px] size-[5px] flex-1 animate-scale3 rounded-full bg-severity_alert"></div>
         <div className="mr-[2px] size-[5px] flex-1 animate-scale4 rounded-full bg-severity_alert"></div>
       </div>
-      <svg className="hidden" xmlns="http://www.w3.org/2000/svg" version="1.1">
+      <svg
+        className="hidden"
+        xmlns="http://www.w3.org/2000/svg"
+        version="1.1"
+        aria-hidden="true"
+      >
         <defs>
           <filter id="goo">
             <feGaussianBlur

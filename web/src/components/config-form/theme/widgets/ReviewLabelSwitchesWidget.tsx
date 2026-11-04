@@ -67,7 +67,7 @@ function getReviewLabelDisplayName(
   return getTranslatedLabel(label, isAudio ? "audio" : "object");
 }
 
-export function ReviewLabelSwitchesWidget(props: WidgetProps) {
+export function ReviewLabelSwitchesWidget(props: Readonly<WidgetProps>) {
   return (
     <SwitchesWidget
       {...props}
