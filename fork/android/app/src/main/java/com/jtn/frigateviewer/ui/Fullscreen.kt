@@ -1,11 +1,17 @@
 package com.jtn.frigateviewer.ui
 
+import android.content.Context
 import android.content.pm.ActivityInfo
+import android.provider.Settings
+import android.view.OrientationEventListener
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
@@ -43,25 +49,122 @@ fun ImmersiveEffect(enabled: Boolean) {
 }
 
 /**
- * Returns a toggle that forces landscape (fullscreen) or hands orientation
- * back to the sensor. Leaving the screen always releases the lock.
+ * Returns a toggle into and out of fullscreen. Each way turns the screen at once, then hands
+ * rotation back to the sensor once the phone is held that way, so turning it back works again.
+ * Leaving the screen always releases the lock.
  */
 @Composable
 fun rememberFullscreenToggle(): (Boolean) -> Unit {
     val activity = LocalActivity.current
-    DisposableEffect(activity) {
+    val window = LocalWindowInfo.current.containerDpSize
+    val orientation = remember(activity) {
+        lateinit var lock: FullscreenOrientation
+        val sensor = activity?.let {
+            object : OrientationEventListener(it) {
+                override fun onOrientationChanged(degrees: Int) = lock.onSensor(degrees)
+            }
+        }
+        lock = FullscreenOrientation(
+            request = { activity?.requestedOrientation = it },
+            watch = { on ->
+                val watching = on && sensor?.canDetectOrientation() == true
+                if (watching) sensor?.enable() else sensor?.disable()
+                watching
+            },
+            autoRotate = { activity?.let(::autoRotateOn) ?: false },
+        )
+        lock
+    }
+    DisposableEffect(orientation) {
         onDispose {
             fullscreenRequested = false
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            orientation.release()
         }
+    }
+    // Turned upright after the lock was handed back: fullscreen was left the natural way.
+    val upright = window.width <= window.height
+    LaunchedEffect(upright) {
+        if (upright && !orientation.turningSideways) fullscreenRequested = false
     }
     return { fullscreen ->
         fullscreenRequested = fullscreen
-        activity?.requestedOrientation = if (fullscreen) {
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        orientation.set(fullscreen)
+    }
+}
+
+/**
+ * Back leaves [fullscreen] before it leaves the screen. Only once: should the screen stay
+ * sideways regardless, as a window too short for the controls with no sensor to turn it,
+ * the next Back leaves rather than trapping the user.
+ */
+@Composable
+fun FullscreenBackHandler(fullscreen: Boolean, setFullscreen: (Boolean) -> Unit) {
+    var exited by remember { mutableStateOf(false) }
+    LaunchedEffect(fullscreen) { if (!fullscreen) exited = false }
+    BackHandler(enabled = fullscreen && !exited) {
+        exited = true
+        setFullscreen(false)
+    }
+}
+
+/** Whether the user lets the screen turn with the phone, rather than locking it. */
+private fun autoRotateOn(context: Context): Boolean =
+    Settings.System.getInt(context.contentResolver, Settings.System.ACCELEROMETER_ROTATION, 0) == 1
+
+/**
+ * The orientation asked of the activity on the way into and out of fullscreen. Each way is
+ * forced until the sensor reports the phone held that way, then released to the sensor:
+ * without that, "Exit fullscreen" while held sideways would turn straight back. [watch]
+ * starts or stops the sensor and says whether it can report; [autoRotate] says whether the
+ * user lets the screen turn at all, as releasing a sideways lock with rotation locked would
+ * turn the screen back upright under the user.
+ */
+internal class FullscreenOrientation(
+    private val request: (Int) -> Unit,
+    private val watch: (Boolean) -> Boolean,
+    private val autoRotate: () -> Boolean,
+) {
+    private var awaiting: Hold? = null
+
+    /** True while fullscreen waits for the phone to be turned sideways. */
+    val turningSideways: Boolean get() = awaiting == Hold.SIDEWAYS
+
+    fun set(fullscreen: Boolean) {
+        if (fullscreen) {
+            request(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+            // With rotation locked, sideways stays until fullscreen is left.
+            awaiting = if (autoRotate() && watch(true)) Hold.SIDEWAYS else null
         } else {
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            request(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT)
+            if (watch(true)) awaiting = Hold.UPRIGHT else release()
         }
+    }
+
+    /** A reading from the sensor, in degrees, or [OrientationEventListener.ORIENTATION_UNKNOWN]. */
+    fun onSensor(degrees: Int) {
+        val held = holdOf(degrees) ?: return
+        if (held == awaiting) release()
+    }
+
+    /** Hands rotation back to the sensor and the user's setting. */
+    fun release() {
+        awaiting = null
+        watch(false)
+        request(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+    }
+
+    private enum class Hold { UPRIGHT, SIDEWAYS }
+
+    private fun holdOf(degrees: Int): Hold? = when {
+        degrees < 0 -> null
+        // Within this of straight up or down; the angles between are ambiguous.
+        degrees % 180 <= TILT || degrees % 180 >= 180 - TILT -> Hold.UPRIGHT
+        degrees % 180 in 90 - TILT..90 + TILT -> Hold.SIDEWAYS
+        else -> null
+    }
+
+    private companion object {
+        const val TILT = 30
     }
 }
 

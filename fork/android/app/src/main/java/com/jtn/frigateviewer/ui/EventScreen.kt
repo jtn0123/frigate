@@ -197,6 +197,8 @@ internal fun PlaybackLayout(
     val landscape = isLandscape()
     val setFullscreen = rememberFullscreenToggle()
     ImmersiveEffect(landscape)
+    // Back leaves fullscreen before it leaves the recording.
+    FullscreenBackHandler(landscape, setFullscreen)
     // One player for both layouts, so turning the phone carries on where it was.
     val playback = rememberVodPlayback(session, url, onPosition)
 
