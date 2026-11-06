@@ -191,9 +191,13 @@ class RemoteAccess(
         foreground = true
         idleJob?.cancel()
         if (watching == null) {
+            // Android calls back on its own thread; handed to the scope, so the check and the
+            // job it replaces are only ever touched on the scope's.
             watching = route.watch {
-                log.add("Networks changed")
-                check(settleMs = SETTLE_MS)
+                scope.launch {
+                    log.add("Networks changed")
+                    check(settleMs = SETTLE_MS)
+                }
             }
         }
         check()

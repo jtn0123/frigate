@@ -8,6 +8,7 @@ import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -164,17 +165,61 @@ class SignInTest {
     @Test
     fun recognizesPrivateAddresses() {
         listOf(
-            "10.1.2.3", "172.16.0.1", "172.31.255.1", "192.168.1.10", "127.0.0.1", "100.101.102.103", "169.254.1.1",
+            "10.1.2.3", "172.16.0.1", "172.31.255.1", "192.168.1.10", "127.0.0.1", "169.254.1.1",
             "fd12::1", "::1", "nvr", "frigate.local", "frigate.home.arpa",
             // Range edges.
-            "10.255.255.255", "100.64.0.0", "100.127.255.255", "172.31.255.255",
+            "10.255.255.255", "172.31.255.255",
         ).forEach { host ->
             assertTrue("$host is private", isPrivateHost(host))
         }
         listOf(
             "8.8.8.8", "172.32.0.1", "192.169.1.1", "100.128.0.1", "2001:db8::1", "frigate.example.com", "10.0.0.1.example.com",
             "9.255.255.255", "11.0.0.0", "100.63.255.255", "172.15.255.255", "256.1.1.1",
+            // Carrier-grade NAT is asked about instead.
+            "100.101.102.103", "100.64.0.0", "100.127.255.255",
         )
             .forEach { host -> assertFalse("$host is public", isPrivateHost(host)) }
+    }
+
+    @Test
+    fun recognizesCarrierGradeNatAddresses() {
+        listOf("100.64.0.0", "100.101.102.103", "100.127.255.255", "100.100.1.1.")
+            .forEach { host -> assertTrue("$host is shared", isSharedAddress(host)) }
+        listOf("100.63.255.255", "100.128.0.0", "10.1.2.3", "nvr", "100.64.example.com")
+            .forEach { host -> assertFalse("$host is not shared", isSharedAddress(host)) }
+    }
+
+    @Test
+    fun aPasswordOverPlainHttpToATailscaleAddressWaitsForConsent() = runTest {
+        // Tailscale gives devices 100.64.0.0/10 addresses, as do mobile carriers: not refused, but asked about.
+        val result = signIn.signIn(ServerSettings(), "http://100.101.102.103:5000", "admin", "secret", selfSignedCert = false)
+
+        assertEquals(SignInResult.NeedsHttpConsent("100.101.102.103"), result)
+    }
+
+    @Test
+    fun consentLetsAPasswordGoToACarrierGradeNatAddressOnly() {
+        assertNull(plainHttpCheck(https = false, host = "100.101.102.103", user = "admin", consent = true))
+        assertEquals(
+            SignInResult.NeedsHttpConsent("100.101.102.103"),
+            plainHttpCheck(https = false, host = "100.101.102.103", user = "admin", consent = false),
+        )
+        assertNull("No password, nothing to protect", plainHttpCheck(https = false, host = "100.101.102.103", user = " ", consent = false))
+        assertNull(plainHttpCheck(https = true, host = "100.101.102.103", user = "admin", consent = false))
+        assertNull(plainHttpCheck(https = false, host = "192.168.1.10", user = "admin", consent = false))
+        val failure = runCatching { plainHttpCheck(https = false, host = "203.0.113.5", user = "admin", consent = true) }.exceptionOrNull()
+        assertTrue("Consent never covers a public address, got $failure", failure is InsecureLoginException)
+    }
+
+    @Test
+    fun signingInAgainClearsSigningOut() = runTest {
+        server.enqueue(MockResponse.Builder().body("""{"cameras": {}}""").build())
+        val signedOut = ServerSettings(baseUrl = base(), signedOut = true)
+
+        val result = signIn.signIn(signedOut, url(), "", "", selfSignedCert = false)
+
+        val settings = (result as SignInResult.SignedIn).settings
+        assertFalse(settings.signedOut)
+        assertTrue(settings.canResume)
     }
 }

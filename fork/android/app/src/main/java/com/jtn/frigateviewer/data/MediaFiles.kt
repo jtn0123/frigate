@@ -19,6 +19,9 @@ interface MediaFiles {
 
     /** Puts [bytes] where other apps can be handed them to share, and returns its `content://` URI. */
     suspend fun shareable(name: String, bytes: ByteArray): String
+
+    /** Deletes what the app cached from the server: event thumbnails, and the snapshot last shared. */
+    suspend fun clearCaches() {}
 }
 
 class AndroidMediaFiles(private val context: Context) : MediaFiles {
@@ -62,7 +65,16 @@ class AndroidMediaFiles(private val context: Context) : MediaFiles {
         FileProvider.getUriForFile(context, "${context.packageName}.files", file).toString()
     }
 
+    override suspend fun clearCaches() {
+        withContext(Dispatchers.IO) {
+            listOf(SHARED_DIR, IMAGE_CACHE_DIR).forEach { File(context.cacheDir, it).deleteRecursively() }
+        }
+    }
+
     private companion object {
         const val SHARED_DIR = "shared"
+
+        /** Where Coil keeps its disk cache by default; the app turns it off, but earlier versions used it. */
+        const val IMAGE_CACHE_DIR = "image_cache"
     }
 }

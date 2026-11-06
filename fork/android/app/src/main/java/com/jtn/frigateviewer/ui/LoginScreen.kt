@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,7 +47,8 @@ fun LoginScreen(vm: AppViewModel) {
     val saved = vm.savedSettings
     var url by rememberSaveable { mutableStateOf(saved.baseUrl.trimEnd('/')) }
     var user by rememberSaveable { mutableStateOf(saved.username) }
-    var password by rememberSaveable { mutableStateOf("") }
+    // Not saveable: saved instance state is written outside the app's encrypted settings.
+    var password by remember { mutableStateOf("") }
     var selfSigned by rememberSaveable { mutableStateOf(saved.selfSignedCert) }
 
     Column(
@@ -148,6 +150,19 @@ fun LoginScreen(vm: AppViewModel) {
     }
 
     vm.pendingCertificate?.let { CertificateDialog(it, onTrust = vm::trustCertificate, onCancel = vm::rejectCertificate) }
+    vm.pendingHttpLogin?.let { HttpLoginDialog(it.host, onAllow = vm::allowHttpLogin, onCancel = vm::rejectHttpLogin) }
+}
+
+/** Asks before a password goes over plain HTTP to a carrier-grade NAT address, which Tailscale and mobile carriers both use. */
+@Composable
+internal fun HttpLoginDialog(host: String, onAllow: () -> Unit, onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.login_http_title)) },
+        text = { Text(stringResource(R.string.login_http_detail, host), style = MaterialTheme.typography.bodyMedium) },
+        confirmButton = { TextButton(onClick = onAllow) { Text(stringResource(R.string.login_http_allow)) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 /** Asks the user to trust a self-signed certificate before any password is sent. */

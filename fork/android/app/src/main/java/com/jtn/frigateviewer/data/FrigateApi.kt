@@ -12,13 +12,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -27,6 +28,17 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+
+/**
+ * How the app reads Frigate's replies, the live feed's included: a field it
+ * does not know, a null where it has a default, or a value of the wrong kind
+ * for a field with a default, takes the default rather than failing the reply.
+ */
+internal val frigateJson = Json {
+    ignoreUnknownKeys = true
+    explicitNulls = false
+    coerceInputValues = true
+}
 
 /** The server no longer accepts this session (HTTP 401): it has to be signed in again. */
 class AuthException(message: String) : IOException(message)
@@ -46,7 +58,7 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
 
     val base: HttpUrl = normalizeBaseUrl(baseUrl).toHttpUrl()
 
-    internal val json = Json { ignoreUnknownKeys = true }
+    internal val json = frigateJson
 
     /**
      * Logs in and returns the JWT. Frigate only delivers it as a cookie named
@@ -187,32 +199,33 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
             return ServerConfig(
                 cameras = parseCameras(root),
                 liveStreams = root.obj("go2rtc")?.obj("streams")?.keys,
-                semanticSearch = root.obj("semantic_search")?.get("enabled")?.jsonPrimitive?.booleanOrNull ?: false,
+                semanticSearch = root.obj("semantic_search")?.get("enabled").primitive()?.booleanOrNull ?: false,
             )
         }
 
+        /** Each camera read on its own: one oddly shaped is skipped, or its odd fields defaulted, not the whole list. */
         private fun parseCameras(root: JsonObject): List<Camera> {
             val cameras = root.obj("cameras") ?: return emptyList()
-            return cameras.map { (name, element) ->
-                val cam = element.jsonObject
+            return cameras.mapNotNull { (name, element) ->
+                val cam = element as? JsonObject ?: return@mapNotNull null
                 val ui = cam.obj("ui")
                 val detect = cam.obj("detect")
                 val streams = cam.obj("live")?.obj("streams")
-                    ?.mapNotNull { (label, value) -> value.jsonPrimitive.contentOrNull?.let { label to it } }
+                    ?.mapNotNull { (label, value) -> value.primitive()?.contentOrNull?.let { label to it } }
                     ?.toMap()
                     .orEmpty()
                 Camera(
                     name = name,
-                    label = cam["friendly_name"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                    label = cam["friendly_name"].primitive()?.contentOrNull?.takeIf { it.isNotBlank() }
                         ?: name.replace('_', ' ').replaceFirstChar { it.uppercase() },
-                    order = ui?.get("order")?.jsonPrimitive?.intOrNull ?: 0,
-                    enabled = cam["enabled"]?.jsonPrimitive?.booleanOrNull ?: true,
+                    order = ui?.get("order").primitive()?.intOrNull ?: 0,
+                    enabled = cam["enabled"].primitive()?.booleanOrNull ?: true,
                     liveStreams = streams,
-                    width = detect?.get("width")?.jsonPrimitive?.intOrNull ?: 0,
-                    height = detect?.get("height")?.jsonPrimitive?.intOrNull ?: 0,
-                    onvif = !cam.obj("onvif")?.get("host")?.jsonPrimitive?.contentOrNull.isNullOrBlank(),
-                ).takeIf { ui?.get("dashboard")?.jsonPrimitive?.booleanOrNull != false }
-            }.filterNotNull().sortedWith(compareBy({ it.order }, { it.label }))
+                    width = detect?.get("width").primitive()?.intOrNull ?: 0,
+                    height = detect?.get("height").primitive()?.intOrNull ?: 0,
+                    onvif = !cam.obj("onvif")?.get("host").primitive()?.contentOrNull.isNullOrBlank(),
+                ).takeIf { ui?.get("dashboard").primitive()?.booleanOrNull != false }
+            }.sortedWith(compareBy({ it.order }, { it.label }))
         }
 
         /**
@@ -234,6 +247,8 @@ class FrigateApi(private val client: OkHttpClient, baseUrl: String) {
         }
 
         private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
+
+        private fun JsonElement?.primitive(): JsonPrimitive? = this as? JsonPrimitive
 
         /** Three base64url parts joined by dots, as a JWT is. */
         private fun String.isJwt(): Boolean = JWT.matches(this)

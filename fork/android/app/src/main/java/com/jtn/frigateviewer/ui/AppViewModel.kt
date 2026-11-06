@@ -56,11 +56,25 @@ class PendingCertificate(
     override fun toString() = "PendingCertificate(fingerprint=$fingerprint, changed=$changed, url=$url)"
 }
 
+/**
+ * A sign-in over plain HTTP to a carrier-grade NAT address, such as
+ * Tailscale's, waiting for the user to agree before the password is sent.
+ * Not a data class, so the password never appears in `toString()`.
+ */
+class PendingHttpLogin(
+    val host: String,
+    internal val url: String,
+    internal val user: String,
+    internal val password: String,
+) {
+    override fun toString() = "PendingHttpLogin(host=$host, url=$url)"
+}
+
 class AppViewModel(
     saved: SavedStateHandle,
     private val store: SettingsStore,
     private val signIn: SignIn = SignIn(),
-    media: MediaFiles? = null,
+    private val media: MediaFiles? = null,
     /** The WireGuard tunnel used away from home; null where there is none, as in tests. */
     val remoteAccess: RemoteAccess? = null,
     /** Each camera's latest picture. */
@@ -186,20 +200,32 @@ class AppViewModel(
     var pendingCertificate by mutableStateOf<PendingCertificate?>(null)
         private set
 
+    var pendingHttpLogin by mutableStateOf<PendingHttpLogin?>(null)
+        private set
+
     /**
      * Signs in. For a self-signed server the certificate is checked first: an
      * unknown or changed one is shown as [pendingCertificate], and nothing is
-     * sent until the user trusts it with [trustCertificate].
+     * sent until the user trusts it with [trustCertificate]. Plain HTTP to a
+     * carrier-grade NAT address waits as [pendingHttpLogin] for [allowHttpLogin].
      */
-    fun login(url: String, user: String, password: String, selfSignedCert: Boolean, trustedFingerprint: String? = null) {
+    fun login(
+        url: String,
+        user: String,
+        password: String,
+        selfSignedCert: Boolean,
+        trustedFingerprint: String? = null,
+        httpConsent: Boolean = false,
+    ) {
         if (loggingIn) return
         loggingIn = true
         loginError = null
         viewModelScope.launch {
             try {
-                when (val result = signIn.signIn(savedSettings, url, user, password, selfSignedCert, trustedFingerprint)) {
+                when (val result = signIn.signIn(savedSettings, url, user, password, selfSignedCert, trustedFingerprint, httpConsent)) {
                     is SignInResult.NeedsTrust ->
                         pendingCertificate = PendingCertificate(result.fingerprint, result.changed, url, user, password)
+                    is SignInResult.NeedsHttpConsent -> pendingHttpLogin = PendingHttpLogin(result.host, url, user, password)
                     is SignInResult.SignedIn -> {
                         store.save(result.settings)
                         savedSettings = result.settings
@@ -236,6 +262,17 @@ class AppViewModel(
         pendingCertificate = null
     }
 
+    /** Sends the pending password over plain HTTP, as the user agreed. */
+    fun allowHttpLogin() {
+        val pending = pendingHttpLogin ?: return
+        pendingHttpLogin = null
+        login(pending.url, pending.user, pending.password, selfSignedCert = false, httpConsent = true)
+    }
+
+    fun rejectHttpLogin() {
+        pendingHttpLogin = null
+    }
+
     /** Signs out here and, best effort, on the server. */
     fun logout() {
         session?.api?.let { api ->
@@ -256,8 +293,10 @@ class AppViewModel(
         sessionJob.cancel()
         viewModelScope.launch {
             store.clearSession()
-            savedSettings = savedSettings.copy(token = "")
+            savedSettings = savedSettings.copy(token = "", signedOut = true)
             session = null
+            // Thumbnails and shared snapshots stay on this phone no longer than the session.
+            media?.clearCaches()
             openedEvents.clear()
             restoringEvents = emptySet()
             clips.reset()

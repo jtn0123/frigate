@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -17,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -37,10 +39,45 @@ class LoginScreenTest {
         storeScope.cancel()
     }
 
+    private fun viewModel() = AppViewModel(SavedStateHandle(), testSettingsStore(File(temp.root, "server.preferences_pb"), storeScope))
+
     private fun show(): AppViewModel {
-        val vm = AppViewModel(SavedStateHandle(), testSettingsStore(File(temp.root, "server.preferences_pb"), storeScope))
+        val vm = viewModel()
         compose.setContent { LoginScreen(vm) }
         return vm
+    }
+
+    private fun typed(label: String): Int =
+        compose.onNodeWithText(label).fetchSemanticsNode().config[SemanticsProperties.EditableText].text.length
+
+    @Test
+    fun thePasswordIsNotKeptInSavedStateButTheRestIs() {
+        val vm = viewModel()
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { LoginScreen(vm) }
+        compose.onNodeWithText("Username (optional)").performTextReplacement("admin")
+        compose.onNodeWithText("Password").performTextReplacement("secret")
+        assertEquals(6, typed("Password"))
+
+        restoration.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithText("admin").assertExists()
+        assertEquals("Saved state is written outside the encrypted settings", 0, typed("Password"))
+    }
+
+    @Test
+    fun plainHttpToATailscaleAddressAsksFirst() {
+        show()
+        compose.onNodeWithText("Server address").performTextReplacement("http://100.101.102.103:5000")
+        compose.onNodeWithText("Username (optional)").performTextReplacement("admin")
+        compose.onNodeWithText("Password").performTextReplacement("secret")
+        compose.onNodeWithText("Connect").performScrollTo().performClick()
+        compose.waitUntil { compose.onAllNodes(hasTextContaining("used by Tailscale")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasTextContaining("100.101.102.103 is a shared address")).assertExists()
+
+        compose.onNodeWithText("Cancel").performClick()
+
+        compose.onNode(hasTextContaining("used by Tailscale")).assertDoesNotExist()
     }
 
     private val switch = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch)

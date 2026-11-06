@@ -206,6 +206,48 @@ class FrigateApiTest {
     }
 
     @Test
+    fun anOddlyShapedCameraIsSkippedOrDefaultedNotTheWholeList() {
+        val config = """
+            {"cameras": {
+              "garage": {"detect": {"width": 1280, "height": 720}},
+              "broken": "not a camera",
+              "odd": {"friendly_name": {"text": "Odd"}, "enabled": [true], "ui": {"order": "first", "dashboard": {}},
+                      "detect": {"width": null}, "live": {"streams": {"Main": ["odd_main"], "Sub": "odd_sub"}},
+                      "onvif": {"host": {}}}
+            },
+            "semantic_search": {"enabled": {}}}
+        """.trimIndent()
+
+        val parsed = FrigateApi.parseConfig(config)
+
+        assertEquals(listOf("garage", "odd"), parsed.cameras.map { it.name })
+        val odd = parsed.cameras[1]
+        assertEquals("Odd", odd.label)
+        assertTrue(odd.enabled)
+        assertEquals(0, odd.width)
+        assertEquals(mapOf("Sub" to "odd_sub"), odd.liveStreams)
+        assertFalse(odd.onvif)
+        assertFalse(parsed.semanticSearch)
+    }
+
+    @Test
+    fun aReviewWithANullFieldDoesNotFailTheList() = runTest {
+        server.enqueue(
+            MockResponse.Builder().body(
+                """[{"id":"r1","camera":"front_door","start_time":1000.5,"end_time":null,"has_been_reviewed":null,
+                    "severity":"alert","thumb_path":"/t1.webp","data":{"objects":null,"zones":null,"audio":null}},
+                   {"id":"r2","camera":"garage","start_time":500.0,"severity":"detection","thumb_path":"/t2.webp","data":null}]""",
+            ).build(),
+        )
+
+        val reviews = api().reviews()
+
+        assertEquals(listOf("r1", "r2"), reviews.map { it.id })
+        assertEquals(emptyList<String>(), reviews.first { it.id == "r1" }.data.zones)
+        assertFalse(reviews.first { it.id == "r1" }.reviewed)
+    }
+
+    @Test
     fun configWithoutGo2rtcHasUnknownStreams() {
         assertNull(FrigateApi.parseConfig("""{"cameras": {}}""").liveStreams)
     }

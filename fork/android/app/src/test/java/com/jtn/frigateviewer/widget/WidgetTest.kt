@@ -21,6 +21,7 @@ import com.jtn.frigateviewer.ui.json
 import com.jtn.frigateviewer.ui.text
 import java.io.ByteArrayOutputStream
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -49,7 +50,8 @@ class WidgetTest {
         Bitmap.createBitmap(16, 9, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 80, it)
     }.toByteArray()
 
-    private val paths = mutableListOf<String>()
+    /** Added to on the server's threads, one per connection, while the count and the frame load side by side. */
+    private val paths = CopyOnWriteArrayList<String>()
 
     private fun api(code: Int = 200): FrigateApi {
         serverRule.server.dispatcher = object : Dispatcher() {
