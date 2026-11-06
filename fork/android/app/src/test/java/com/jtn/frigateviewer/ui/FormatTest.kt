@@ -66,8 +66,10 @@ class FormatTest {
         val start = System.currentTimeMillis() / 1000.0 - 600
         val item =
             ReviewItem(id = "1", camera = "driveway", startTime = start, endTime = start + 42, severity = "alert", thumbPath = "/t.webp")
+        // The item's own day, so a run in the first ten minutes after midnight still calls it today.
+        val today = localDate(start)
 
-        assertEquals("Today · ${formatClock(start)} · 0:42 long", eventWhen(item).english())
-        assertEquals("Today · ${formatClock(start)} · in progress", eventWhen(item.copy(endTime = null)).english())
+        assertEquals("Today · ${formatClock(start)} · 0:42 long", eventWhen(item, today).english())
+        assertEquals("Today · ${formatClock(start)} · in progress", eventWhen(item.copy(endTime = null), today).english())
     }
 }
