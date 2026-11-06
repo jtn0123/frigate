@@ -182,6 +182,17 @@ class ReviewStoreTest {
     }
 
     @Test
+    fun resetPutsTheFiltersBackForTheNextSession() {
+        store.severity = Severity.DETECTION
+        store.cameraFilter = "front"
+
+        store.reset()
+
+        assertEquals(Severity.ALERT, store.severity)
+        assertNull(store.cameraFilter)
+    }
+
+    @Test
     fun adjacentReviewsFollowNewestFirstOrder() {
         loadSample()
         store.severity = Severity.ALL

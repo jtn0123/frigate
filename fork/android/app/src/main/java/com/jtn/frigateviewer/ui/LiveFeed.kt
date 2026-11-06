@@ -17,8 +17,8 @@ import kotlinx.coroutines.delay
  * review items, and the channel camera commands go out on.
  *
  * [api] is read again before each connection, so signing out ends the loop.
- * [onReconnect] runs when the feed comes back after a drop, to fetch anything
- * missed meanwhile. [onSessionLost] runs when the server refuses the session.
+ * [onReconnect] runs when the feed comes back after a drop or a time away, to
+ * fetch anything missed meanwhile. [onSessionLost] runs when the server refuses the session.
  */
 class LiveFeed(
     private val api: () -> FrigateApi?,
@@ -35,10 +35,14 @@ class LiveFeed(
     var connected by mutableStateOf(false)
         private set
 
-    /** Follows the feed until cancelled, reconnecting after a drop with a growing pause. */
-    suspend fun follow() {
+    /**
+     * Follows the feed until cancelled, reconnecting after a drop with a growing pause.
+     * With [returning], as when the app comes back to the screen, the feed was closed
+     * meanwhile, so the first connection also runs [onReconnect] for what it missed.
+     */
+    suspend fun follow(returning: Boolean = false) {
         var pause = RETRY_MIN_MS
-        var first = true
+        var first = !returning
         while (true) {
             val api = api() ?: return
             try {

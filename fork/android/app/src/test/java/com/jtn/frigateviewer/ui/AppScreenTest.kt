@@ -58,6 +58,8 @@ class AppScreenTest {
         storeScope.cancel()
     }
 
+    private val isHeading = SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading)
+
     /** Bodies sent to mark items, in order. */
     private val marks = CopyOnWriteArrayList<String>()
 
@@ -109,6 +111,30 @@ class AppScreenTest {
         awaitMain { marks.size == 2 }
         assertTrue(marks.last().contains("\"reviewed\":false"))
         compose.runOnIdle { check(!vm.reviewById("r1")!!.reviewed) { "Unreviewed again" } }
+    }
+
+    @Test
+    fun theUndoOfferStaysLongerThanAShortNotice() {
+        val vm = show(markStatus = 200)
+        compose.runOnIdle { vm.nav.tab = Tab.REVIEW }
+        compose.onNode(hasContentDescription("not reviewed", substring = true)).performTouchInput { swipeLeft() }
+        awaitMain { compose.onAllNodes(hasText("Marked reviewed")).fetchSemanticsNodes().isNotEmpty() }
+
+        // A short notice is gone after four seconds; one with an action stays to be read and reached.
+        compose.mainClock.autoAdvance = false
+        compose.mainClock.advanceTimeBy(6_000)
+
+        compose.onNodeWithText("Undo").assertExists()
+    }
+
+    @Test
+    fun sectionTitlesAreHeadings() {
+        val vm = show()
+        compose.runOnIdle { vm.nav.tab = Tab.REVIEW }
+        compose.onNode(hasText(" · 1", substring = true) and isHeading).assertExists()
+
+        compose.runOnIdle { vm.nav.tab = Tab.SETTINGS }
+        compose.onNode(hasText("Server") and isHeading).assertExists()
     }
 
     @Test

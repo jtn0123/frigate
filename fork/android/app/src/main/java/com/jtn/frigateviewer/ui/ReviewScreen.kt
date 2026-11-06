@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -250,7 +251,10 @@ private fun DayHeader(day: String, count: Int, collapsed: Boolean, onToggle: () 
         modifier
             .fillMaxWidth()
             .toggleable(value = !collapsed, role = Role.Button, onValueChange = { onToggle() })
-            .semantics(mergeDescendants = true) { stateDescription = state }
+            .semantics(mergeDescendants = true) {
+                stateDescription = state
+                heading()
+            }
             .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

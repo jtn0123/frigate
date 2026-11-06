@@ -113,13 +113,19 @@ class ReviewSearch(private val scope: CoroutineScope, private val onSessionLost:
         }
     }
 
-    /** Finds the review item [found] belongs to and hands it to [open]. */
-    fun openObject(api: FrigateApi, found: TrackedObject, open: (ReviewItem) -> Unit): Job = scope.launch {
-        when (val review = loadRemote(onSessionLost) { api.reviewForObject(found.id) }) {
-            is Remote.Ready -> open(review.value)
-            is Remote.Failed -> notice = uiText(R.string.search_open_failed, review.text)
-            Remote.Loading -> Unit
-        }
+    /** The [openObject] still asking the server, so a second tap meanwhile does not open the item twice. */
+    private var opening: Job? = null
+
+    /** Finds the review item [found] belongs to and hands it to [open]; null while another is still being found. */
+    fun openObject(api: FrigateApi, found: TrackedObject, open: (ReviewItem) -> Unit): Job? {
+        if (opening?.isActive == true) return null
+        return scope.launch {
+            when (val review = loadRemote(onSessionLost) { api.reviewForObject(found.id) }) {
+                is Remote.Ready -> open(review.value)
+                is Remote.Failed -> notice = uiText(R.string.search_open_failed, review.text)
+                Remote.Loading -> Unit
+            }
+        }.also { opening = it }
     }
 
     fun noticeShown() {
@@ -128,6 +134,7 @@ class ReviewSearch(private val scope: CoroutineScope, private val onSessionLost:
 
     fun reset() {
         running?.cancel()
+        opening?.cancel()
         inputs = SearchInputs()
         results = Remote.Loading
         labels = emptyList()

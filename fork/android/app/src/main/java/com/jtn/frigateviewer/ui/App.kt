@@ -98,8 +98,13 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Also restarted when the tunnel goes up or down, since the open feed is on the old route.
     LaunchedEffect(session.client, vm.remoteAccess?.routeChanges) {
+        // The feed is closed while the app is away, so on each return after the first start
+        // it also fetches what changed meanwhile; the first start has just loaded everything.
+        var started = false
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            launch { vm.feed.follow() }
+            val returning = started
+            started = true
+            launch { vm.feed.follow(returning) }
             while (true) {
                 delay(60_000)
                 if (!vm.feed.connected) vm.refreshRecentReviews()
@@ -116,7 +121,8 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
                 notice.text.resolve(res),
                 actionLabel = if (undoable) res.getString(R.string.rev_undo) else null,
                 withDismissAction = !undoable,
-                duration = if (undoable) SnackbarDuration.Short else SnackbarDuration.Long,
+                // Long either way: an Undo needs time to read and reach.
+                duration = SnackbarDuration.Long,
             )
             vm.reviewMessageShown()
             if (result == SnackbarResult.ActionPerformed) vm.undoReview(notice)

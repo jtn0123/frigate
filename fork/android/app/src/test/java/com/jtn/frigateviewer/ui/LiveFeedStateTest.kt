@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
@@ -80,6 +81,27 @@ class LiveFeedStateTest {
         // The server closes the first connection; the second one fetches what was missed.
         await(timeoutMs = 10_000) { reconnects.get() == 1 && feed.connected }
         assertNull("Commands stop while the feed is down", commands[1])
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun followingAgainAfterATimeAwayCatchesUpOnTheFirstConnection() {
+        val server = serverRule.server
+        server.enqueue(MockResponse.Builder().webSocketUpgrade(frigate(closeAfter = false)).build())
+        server.enqueue(MockResponse.Builder().webSocketUpgrade(frigate(closeAfter = false)).build())
+        val api = FrigateApi(buildHttpClient(null, pin = null), server.url("/").toString())
+        val reconnects = AtomicInteger()
+        val feed = LiveFeed({ api }, onReview = {}, onCommands = {}, onReconnect = { reconnects.incrementAndGet() })
+
+        // The first start has just loaded everything, so it fetches nothing more.
+        val first = scope.launch { feed.follow() }
+        await { feed.connected }
+        runBlocking { first.cancelAndJoin() }
+        assertEquals(0, reconnects.get())
+
+        // Coming back, the feed was closed meanwhile, so its first connection catches up.
+        scope.launch { feed.follow(returning = true) }
+        await(timeoutMs = 10_000) { reconnects.get() == 1 && feed.connected }
         assertEquals(2, server.requestCount)
     }
 

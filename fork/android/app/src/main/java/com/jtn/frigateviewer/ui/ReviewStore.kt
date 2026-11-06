@@ -87,12 +87,15 @@ class ReviewStore(
 
     val refreshing: Boolean get() = fetches.refreshing
 
-    /** Forgets the list and stops a refresh still running, for a new session. */
+    /** Forgets the list and its filters and stops a refresh still running, for a new session. */
     fun reset() {
         generation++
         fetches.reset()
         marking.clear()
         reviews = Remote.Loading
+        // Another server may not have the camera, and a new sign-in starts from the defaults.
+        severity = Severity.ALERT
+        cameraFilter = null
     }
 
     /** Fetches the whole list; null when a whole fetch is already running. */

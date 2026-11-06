@@ -23,6 +23,19 @@ class NavigatorTest {
     }
 
     @Test
+    fun aSecondQuickTapDoesNotOpenTheSameScreenTwice() {
+        nav.openCamera("driveway")
+        nav.openCamera("driveway")
+        nav.push(Overlay.Event("r1"))
+        nav.push(Overlay.Event("r1"))
+
+        assertEquals(listOf(Overlay.CameraDetail("driveway"), Overlay.Event("r1")), nav.overlays)
+        // The same screen further down is still opened again on top.
+        nav.openCamera("driveway")
+        assertEquals(3, nav.overlays.size)
+    }
+
+    @Test
     fun replaceSwapsTheTopScreenOfItsKindWithoutGrowingTheStack() {
         nav.openCamera("driveway")
         nav.push(Overlay.Event("r1"))

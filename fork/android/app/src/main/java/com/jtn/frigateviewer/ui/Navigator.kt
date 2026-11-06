@@ -26,7 +26,11 @@ class Navigator(private val saved: SavedStateHandle) {
     private val stack = mutableStateListOf<Overlay>().apply { addAll(decodeOverlays(saved[OVERLAYS_KEY])) }
     val overlays: List<Overlay> get() = stack
 
-    fun push(overlay: Overlay) = update { add(overlay) }
+    /** Opens [overlay] over the rest; already on top, as after a second quick tap, it is left alone. */
+    fun push(overlay: Overlay) {
+        if (stack.lastOrNull() == overlay) return
+        update { add(overlay) }
+    }
 
     /** Replaces the topmost screen of [overlay]'s kind, or pushes it when there is none. */
     fun replace(overlay: Overlay) = update {

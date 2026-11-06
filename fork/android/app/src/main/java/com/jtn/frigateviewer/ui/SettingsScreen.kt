@@ -43,6 +43,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jtn.frigateviewer.BuildConfig
@@ -201,7 +203,7 @@ internal fun Group(title: String?, content: @Composable ColumnScope.() -> Unit) 
                 title,
                 style = MaterialTheme.typography.titleSmall,
                 color = Palette.TextSecondary,
-                modifier = Modifier.padding(start = 16.dp),
+                modifier = Modifier.padding(start = 16.dp).semantics { heading() },
             )
         }
         Column(
