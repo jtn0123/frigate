@@ -324,13 +324,13 @@ private fun Pill(text: String, color: Color, dot: Boolean = false) {
 }
 
 /** When an item happened and for how long, on one line: "Today · 9:35:12 PM · 0:12 long". */
-internal fun eventWhen(item: ReviewItem): UiText {
+internal fun eventWhen(item: ReviewItem, today: java.time.LocalDate = java.time.LocalDate.now()): UiText {
     val length = if (item.isOngoing) {
         uiText(R.string.event_in_progress)
     } else {
         uiText(R.string.event_length, formatDuration(item.startTime, item.endTime))
     }
-    return uiText(R.string.event_when, dayLabel(item.startTime), formatClock(item.startTime), length)
+    return uiText(R.string.event_when, dayLabel(item.startTime, today), formatClock(item.startTime), length)
 }
 
 private const val PILL_TINT = 0.16f

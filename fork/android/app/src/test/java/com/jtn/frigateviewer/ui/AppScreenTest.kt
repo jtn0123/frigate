@@ -80,7 +80,8 @@ class AppScreenTest {
         runBlocking { store.save(ServerSettings(baseUrl = serverRule.server.url("/").toString())) }
         val vm = AppViewModel(saved, store)
         compose.setContent { App(vm) }
-        awaitMain { vm.reviews !is Remote.Loading }
+        // Restored event screens fetch their items alongside the list, and show a spinner until those answer.
+        awaitMain { vm.reviews !is Remote.Loading && vm.restoringEvents.isEmpty() }
         return vm
     }
 

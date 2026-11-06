@@ -208,25 +208,27 @@ class PlaybackTest {
         hang()
         val muted = mutableStateOf(true)
         compose.setContent { Live(session(), muted = muted.value) }
-        idleMain()
         compose.runOnIdle {
             val player = players.single()
+            player.awaitPlaybackThread()
             assertEquals(C.USAGE_MEDIA, player.audioAttributes.usage)
             assertEquals(C.AUDIO_CONTENT_TYPE_MOVIE, player.audioAttributes.contentType)
             assertNull("A muted tile asks for nothing", audio().lastAudioFocusRequest)
         }
 
         compose.runOnIdle { muted.value = false }
-        idleMain()
-        compose.runOnIdle { assertTrue("Sound asks for focus", audio().lastAudioFocusRequest != null) }
+        compose.runOnIdle {
+            players.single().awaitPlaybackThread()
+            assertTrue("Sound asks for focus", audio().lastAudioFocusRequest != null)
+        }
     }
 
     @Test
     fun aRecordingAsksForTheSound() {
         hang()
         showRecording()
-        idleMain()
         compose.runOnIdle {
+            players.single().awaitPlaybackThread()
             assertEquals(C.USAGE_MEDIA, players.single().audioAttributes.usage)
             assertTrue(audio().lastAudioFocusRequest != null)
         }
@@ -266,6 +268,15 @@ class PlaybackTest {
             idleMain()
         }
         compose.waitForIdle()
+    }
+
+    /**
+     * Waits until the player's playback thread has handled everything sent to
+     * it so far. Audio focus is requested there, not on the main thread, so a
+     * check straight after the effect that changed it could run first.
+     */
+    private fun ExoPlayer.awaitPlaybackThread() {
+        createMessage { _, _ -> }.send().blockUntilDelivered(TIMEOUT_MS)
     }
 
     private fun idleMain() = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
