@@ -23,6 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,7 +73,10 @@ internal fun playbackError(e: PlaybackException): UiText {
     val status = (e.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
     return when {
         status == HTTP_NOT_FOUND -> uiText(R.string.cam_vod_not_found)
-        status == HTTP_UNAUTHORIZED || status == HTTP_FORBIDDEN -> uiText(R.string.cam_vod_refused)
+        // The login expired; the session ends with it, as [LocalSessionLost] says.
+        status == HTTP_UNAUTHORIZED -> uiText(R.string.failure_session_expired)
+        // A permission, not the login: this account may not see the camera.
+        status == HTTP_FORBIDDEN -> uiText(R.string.cam_vod_refused)
         // nginx-vod's answer when it cannot put the clip together from the saved segments.
         status == HTTP_BAD_GATEWAY -> uiText(R.string.cam_vod_unassembled)
         status != null || e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
@@ -83,20 +89,44 @@ internal fun playbackError(e: PlaybackException): UiText {
 }
 
 /**
+ * Where a recording had got to, kept through the activity being made again (a
+ * dark mode or font size change), another screen pushed over this one, and the
+ * app's process being stopped in the background.
+ */
+internal class VodResume(var positionMs: Long = 0) {
+    /** The player while it is open, read at the moment the position is saved. */
+    var player: Player? = null
+
+    fun save(): Long = player?.currentPosition ?: positionMs
+
+    companion object {
+        val Saver = Saver<VodResume, Long>(save = { it.save() }, restore = { VodResume(it) })
+    }
+}
+
+/**
  * The player for [url], made once for as long as the caller stays composed, so
  * the layouts that show it can change (rotating, going fullscreen) without the
- * recording starting again from the beginning.
+ * recording starting again from the beginning. A player made again for the
+ * same [url] carries on from where the last one was. A recording the server
+ * refuses as unauthorized ends the session, as [LocalSessionLost] says.
  */
 @OptIn(UnstableApi::class)
 @Composable
 internal fun rememberVodPlayback(session: Session, url: String, onPosition: ((Long) -> Unit)? = null): VodPlayback {
     val context = LocalContext.current
     val newPlayer = LocalPlayerFactory.current
+    val sessionLost by rememberUpdatedState(LocalSessionLost.current)
+    val resume = rememberSaveable(url, saver = VodResume.Saver) { VodResume() }
     val playback = remember(url) {
-        val player = newPlayer(ExoPlayer.Builder(context)).apply {
+        val builder = ExoPlayer.Builder(context)
+            .setAudioAttributes(VideoAudio, true)
+            .setHandleAudioBecomingNoisy(true)
+        val player = newPlayer(builder).apply {
             setMediaSource(
                 HlsMediaSource.Factory(OkHttpDataSource.Factory(session.client)).createMediaSource(MediaItem.fromUri(url)),
             )
+            if (resume.positionMs > 0) seekTo(resume.positionMs)
             playWhenReady = true
             prepare()
         }
@@ -106,11 +136,16 @@ internal fun rememberVodPlayback(session: Session, url: String, onPosition: ((Lo
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
+                if (refusesSession(e)) sessionLost()
                 playback.error = playbackError(e)
             }
         }
         player.addListener(listener)
+        resume.player = player
         onDispose {
+            // Before it is released, while it still knows where it was.
+            resume.positionMs = player.currentPosition
+            resume.player = null
             player.removeListener(listener)
             player.release()
         }
@@ -132,10 +167,12 @@ internal fun rememberVodPlayback(session: Session, url: String, onPosition: ((Lo
  * Shows [playback]'s picture, its controls, and its error if it has one. An error
  * takes the controls' place: they are hidden, and the reason and a Retry button
  * sit centered on a dark scrim, so neither is drawn over the play button.
+ * The screen stays on while it plays, and may time out once it is paused.
  */
 @Composable
 internal fun VodVideo(playback: VodPlayback, modifier: Modifier = Modifier) {
     val error = playback.error
+    val playing = rememberIsPlaying(playback.player)
     Box(modifier) {
         AndroidView(
             factory = { ctx ->
@@ -145,6 +182,7 @@ internal fun VodVideo(playback: VodPlayback, modifier: Modifier = Modifier) {
                 it.player = playback.player
                 // Play and seek do nothing for a player that failed; Retry is the way on.
                 it.useController = error == null
+                it.keepScreenOn = playing && error == null
             },
             // The view of the layout being left lets go, and the next one takes the picture.
             onRelease = { it.player = null },

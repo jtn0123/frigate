@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import com.jtn.frigateviewer.data.AuthException
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -21,6 +22,7 @@ import mockwebserver3.junit4.MockWebServerRule
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -91,6 +93,42 @@ class SnapshotsTest {
 
         assertTrue(snapshots["yard"].failed)
         assertNull(snapshots["yard"].staleMs)
+    }
+
+    @Test
+    fun anExpiredLoginIsReportedRatherThanCountedAsAMissedPicture() = runTest {
+        val snapshots = Snapshots(clock = { now }, decode = { picture })
+        var lost = 0
+        snapshots.refresh("yard", 1_000, onSessionLost = { lost++ }) { throw IOException("down") }
+        assertEquals("Not for a network failure", 0, lost)
+        snapshots.refresh("yard", 1_000, onSessionLost = { lost++ }) { throw AuthException("401") }
+        assertEquals(1, lost)
+        assertTrue(snapshots["yard"].failed)
+    }
+
+    @Test
+    fun anUnauthorizedPictureSignsOut() {
+        val vm = compose.showApp(serverRule.server, temp.root, scope, settings = { it.copy(token = "jwt1") }) { request ->
+            when (request.url.encodedPath) {
+                "/api/config" -> json("""{"cameras": {"driveway": {"friendly_name": "Driveway"}}}""")
+                "/api/driveway/latest.jpg" -> json("{}", code = 401)
+                else -> null
+            }
+        }
+        compose.awaitMain { vm.session == null }
+    }
+
+    @Test
+    fun aForbiddenPictureKeepsTheSession() {
+        val vm = compose.showApp(serverRule.server, temp.root, scope) { request ->
+            when (request.url.encodedPath) {
+                "/api/config" -> json("""{"cameras": {"driveway": {"friendly_name": "Driveway"}}}""")
+                "/api/driveway/latest.jpg" -> json("{}", code = 403)
+                else -> null
+            }
+        }
+        compose.awaitMain { vm.snapshots["driveway"].failed }
+        compose.runOnIdle { assertNotNull(vm.session) }
     }
 
     @Test

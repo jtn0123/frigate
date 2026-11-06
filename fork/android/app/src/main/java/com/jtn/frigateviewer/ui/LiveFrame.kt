@@ -44,11 +44,12 @@ fun LiveFrame(
 ) {
     val snapshots = LocalSnapshots.current ?: remember { Snapshots() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val sessionLost = LocalSessionLost.current
 
     LaunchedEffect(snapshots, api, camera, intervalMs, height, active) {
         if (!active) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            snapshots.follow(camera, intervalMs) { api.latestFrame(camera, height) }
+            snapshots.follow(camera, intervalMs, sessionLost) { api.latestFrame(camera, height) }
         }
     }
 

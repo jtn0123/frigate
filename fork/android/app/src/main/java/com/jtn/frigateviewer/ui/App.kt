@@ -132,7 +132,8 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
     ShareSheet(vm.clips.share, onShown = { vm.clips.shared() })
 
     Box(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalSnapshots provides vm.snapshots) {
+        val sessionLost = remember(vm, session) { { vm.sessionRefused(session) } }
+        CompositionLocalProvider(LocalSnapshots provides vm.snapshots, LocalSessionLost provides sessionLost) {
             ProvideTickingNow { Screens(vm, session, imageLoader) }
         }
         AppSnackbarHost(
