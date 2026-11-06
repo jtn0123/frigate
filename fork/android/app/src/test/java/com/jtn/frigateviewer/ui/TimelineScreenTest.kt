@@ -11,11 +11,15 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import com.jtn.frigateviewer.data.ReviewItem
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import mockwebserver3.MockResponse
+import mockwebserver3.RecordedRequest
 import mockwebserver3.junit4.MockWebServerRule
+import okhttp3.HttpUrl
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -51,10 +55,14 @@ class TimelineScreenTest {
             "thumb_path": "/t.webp", "data": {"objects": ["person"], "zones": [], "audio": []}}"""
     }
 
-    private fun show(start: Long): AppViewModel {
+    /** The recordings requests the screen made, in order. */
+    private val asked = CopyOnWriteArrayList<HttpUrl>()
+
+    private fun show(start: Long, recordings: (RecordedRequest) -> MockResponse? = { null }): AppViewModel {
         val vm = compose.showApp(serverRule.server, temp.root, scope) { request ->
             val path = request.url.encodedPath
             when {
+                path.startsWith("/api/driveway/recordings") -> recordings(request).also { asked += request.url }
                 path == "/api/config" -> json("""{"cameras": {"driveway": {"friendly_name": "Driveway"}}}""")
                 path == "/api/review" -> json(reviews)
                 path == "/api/review/activity/motion" -> json("""[{"start_time": ${now - 600}.0, "motion": 40, "camera": "driveway"}]""")
@@ -113,6 +121,67 @@ class TimelineScreenTest {
         compose.runOnIdle { back.action() }
 
         assertEquals(clock(now - 7300), at())
+    }
+
+    /** Recorded for 100 seconds from 7000 seconds ago, then nothing for 900 seconds, then 1000 seconds more. */
+    private val recorded = listOf(now - 7000.0 to now - 6900.0, now - 6000.0 to now - 5000.0)
+
+    /** The coverage timeline the server realizes for a request: the recordings cut to its range. */
+    private fun coverage(request: RecordedRequest): MockResponse {
+        val after = request.url.queryParameter("after")!!.toDouble()
+        val before = request.url.queryParameter("before")!!.toDouble()
+        val spans = recorded.filter { (start, end) -> end > after && start < before }.joinToString { (start, end) ->
+            val from = maxOf(start, after)
+            val to = minOf(end, before)
+            """{"start_time": $from, "end_time": $to, "duration": ${((to - from) * 1000).toLong()}}"""
+        }
+        return json("""{"spans": [], "codecs_compatible": true, "timelines": {"auto": [$spans], "main": [], "sub": []}}""")
+    }
+
+    private fun awaitAt(time: Long) = compose.awaitMain { at() == clock(time) }
+
+    @Test
+    fun openingInAGapStartsAtTheNextRecording() {
+        show(now - 6500, ::coverage)
+
+        awaitAt(now - 6000)
+        compose.onNodeWithText(clock(now - 6000)).assertExists()
+        val request = asked.single()
+        assertEquals("One call for the range", "/api/driveway/recordings/coverage", request.encodedPath)
+        assertEquals("${now - 6500}", request.queryParameter("after"))
+    }
+
+    @Test
+    fun steppingIntoAGapPlaysFromTheNextRecording() {
+        show(now - 7000, ::coverage)
+        awaitAt(now - 7000)
+
+        val node = compose.onNodeWithContentDescription("Timeline").performScrollTo().fetchSemanticsNode()
+        val forward = node.config[SemanticsActions.CustomActions].first { it.label == "Forward 5 minutes" }
+        compose.runOnIdle { forward.action() }
+
+        awaitAt(now - 6000)
+    }
+
+    @Test
+    fun aServerWithoutCoverageIsReadFromItsRecordings() {
+        show(now - 6500) { request ->
+            if (request.url.encodedPath.endsWith("/coverage")) {
+                json("""{"detail": "Not Found"}""", code = 404)
+            } else {
+                json("""[{"start_time": ${now - 6100}.0, "end_time": ${now - 5000}.0, "duration": 1100.0}]""")
+            }
+        }
+
+        awaitAt(now - 6100)
+    }
+
+    @Test
+    fun withoutItsRecordingsTheTimelineCountsOnFromWhereItStarts() {
+        show(now - 6500) { json("{}", code = 500) }
+        compose.awaitMain { asked.isNotEmpty() }
+
+        assertEquals(clock(now - 6500), at())
     }
 
     @Test

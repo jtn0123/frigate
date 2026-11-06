@@ -7,6 +7,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.jtn.frigateviewer.R
+import com.jtn.frigateviewer.data.AuthException
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -51,18 +52,28 @@ class Snapshots(
 
     operator fun get(camera: String): Snapshot = states[camera] ?: Snapshot()
 
-    /** Fetches [camera]'s picture with [fetch] every [intervalMs] until cancelled. */
-    suspend fun follow(camera: String, intervalMs: Long, fetch: suspend () -> ByteArray) {
+    /**
+     * Fetches [camera]'s picture with [fetch] every [intervalMs] until cancelled.
+     * [onSessionLost] runs each time the server refuses the login.
+     */
+    suspend fun follow(camera: String, intervalMs: Long, onSessionLost: () -> Unit = {}, fetch: suspend () -> ByteArray) {
         while (true) {
-            refresh(camera, intervalMs, fetch)
+            refresh(camera, intervalMs, onSessionLost, fetch)
             delay(intervalMs)
         }
     }
 
-    /** One try; the previous picture stays up until the next one decodes. */
-    suspend fun refresh(camera: String, intervalMs: Long, fetch: suspend () -> ByteArray) {
+    /**
+     * One try; the previous picture stays up until the next one decodes. An
+     * expired login is not one more missed picture: [onSessionLost] runs, so
+     * the app can ask to sign in again.
+     */
+    suspend fun refresh(camera: String, intervalMs: Long, onSessionLost: () -> Unit = {}, fetch: suspend () -> ByteArray) {
         val bitmap = try {
             decode(fetch())
+        } catch (_: AuthException) {
+            onSessionLost()
+            null
         } catch (_: IOException) {
             null
         }

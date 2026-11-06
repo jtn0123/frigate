@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -49,6 +50,12 @@ import kotlinx.coroutines.delay
  * instead, and [onState] reports FAILED so the caller can say so. When
  * [route] changes, as when the tunnel or another VPN comes up or goes down,
  * the stream starts again on the new way to the server, with every retry.
+ *
+ * The screen stays on while the video plays. Sound takes audio focus only
+ * while it is not [muted], so a grid of muted tiles leaves music playing; if
+ * another app takes the sound, or headphones come out, the picture plays on
+ * silently instead of freezing. A stream the server refuses as unauthorized
+ * ends the session, as [LocalSessionLost] says.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -73,6 +80,10 @@ fun LiveVideo(
     }
     val state = retry.state
     val newPlayer = LocalPlayerFactory.current
+    val sessionLost by rememberUpdatedState(LocalSessionLost.current)
+    // Another app took the sound, or headphones came out: silent until the mute is next changed.
+    var silenced by remember(stream) { mutableStateOf(false) }
+    LaunchedEffect(muted) { silenced = false }
 
     LaunchedEffect(state) { onState(state) }
 
@@ -84,7 +95,9 @@ fun LiveVideo(
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(1_000, 4_000, 250, 500)
             .build()
-        newPlayer(ExoPlayer.Builder(context).setLoadControl(loadControl)).apply {
+        // Audio focus follows the mute, below.
+        val builder = ExoPlayer.Builder(context).setLoadControl(loadControl).setAudioAttributes(VideoAudio, false)
+        newPlayer(builder).apply {
             setMediaSource(source)
             playWhenReady = true
             prepare()
@@ -102,13 +115,27 @@ fun LiveVideo(
         }
     }
 
-    LaunchedEffect(player, muted) { player.volume = if (muted) 0f else 1f }
+    LaunchedEffect(player, muted, silenced) {
+        val audible = !muted && !silenced
+        player.volume = if (audible) 1f else 0f
+        player.setAudioAttributes(VideoAudio, audible)
+        player.setHandleAudioBecomingNoisy(audible)
+        // Given up the sound, so playing on cannot take it back.
+        if (silenced) player.play()
+    }
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() = retry.played()
 
-            override fun onPlayerError(error: PlaybackException) = retry.failed()
+            override fun onPlayerError(error: PlaybackException) {
+                if (refusesSession(error)) sessionLost()
+                retry.failed()
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (!playWhenReady && reason in SOUND_TAKEN) silenced = true
+            }
         }
         player.addListener(listener)
         onDispose {
@@ -169,10 +196,15 @@ fun LiveVideo(
         // One surface for the player's whole life, hidden until the first frame
         // renders so the snapshot shows through instead of a black rectangle.
         val playing = state == LiveState.PLAYING
+        val moving = rememberIsPlaying(player)
         key(player) {
             AndroidView(
                 factory = { ctx -> TextureView(ctx).also { player.setVideoTextureView(it) } },
-                update = { view -> view.alpha = if (playing) 1f else 0f },
+                update = { view ->
+                    view.alpha = if (playing) 1f else 0f
+                    // Not while it reconnects, stalls or has given up.
+                    view.keepScreenOn = playing && moving
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -181,3 +213,9 @@ fun LiveVideo(
         }
     }
 }
+
+/** Why a player stops itself when its sound is no longer wanted. */
+private val SOUND_TAKEN = setOf(
+    Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS,
+    Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY,
+)

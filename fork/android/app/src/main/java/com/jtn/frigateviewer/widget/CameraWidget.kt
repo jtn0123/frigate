@@ -195,6 +195,7 @@ class CameraWidget : AppWidgetProvider() {
             id,
             Intent(context, MainActivity::class.java)
                 .putExtra(EXTRA_CAMERA, camera)
+                .putExtra(com.jtn.frigateviewer.WidgetLaunch.EXTRA_TOKEN, com.jtn.frigateviewer.WidgetLaunch.token(context))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

@@ -2,8 +2,10 @@ package com.jtn.frigateviewer
 
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -20,6 +22,7 @@ import com.jtn.frigateviewer.ui.App
 import com.jtn.frigateviewer.ui.AppViewModel
 import com.jtn.frigateviewer.ui.FrigateTheme
 import com.jtn.frigateviewer.ui.LocalPip
+import com.jtn.frigateviewer.ui.LockGate
 import com.jtn.frigateviewer.ui.LockScreen
 import com.jtn.frigateviewer.ui.PipController
 import com.jtn.frigateviewer.ui.Tab
@@ -45,21 +48,28 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Every theme is dark, so the bars' icons stay light whatever the system's own mode.
+        enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         // Once only: a recreated activity has already opened it.
         if (savedInstanceState == null) openFromWidget(intent)
         setContent {
             FrigateTheme(vm.theme) {
                 LaunchedEffect(vm.appLock) { hideFromRecents(vm.appLock) }
-                if (vm.loaded && vm.appLock && vm.lock.locked) {
-                    var reason by remember { mutableStateOf<String?>(null) }
-                    LockScreen(reason) {
-                        container.unlock(this@MainActivity) { success, why ->
-                            if (success) vm.lock.unlocked() else reason = why
+                var reason by remember { mutableStateOf<String?>(null) }
+                // The app stays beneath the lock, so unlocking returns to every screen as it was.
+                LockGate(
+                    isLocked = { vm.loaded && vm.appLock && vm.lock.locked },
+                    lock = {
+                        LockScreen(reason) {
+                            container.unlock(this@MainActivity) { success, why ->
+                                reason = why
+                                if (success) vm.lock.unlocked()
+                            }
                         }
-                    }
-                } else {
-                    CompositionLocalProvider(LocalPip provides pip) { App(vm) }
+                    },
+                ) { locked ->
+                    // Leaving the app from the lock screen must not float a video window.
+                    CompositionLocalProvider(LocalPip provides pip.takeUnless { locked }) { App(vm) }
                 }
             }
         }
@@ -70,9 +80,10 @@ class MainActivity : ComponentActivity() {
         openFromWidget(intent)
     }
 
-    /** A tapped widget opens its camera over the camera list. */
+    /** A tapped widget opens its camera over the camera list; another app's intent naming one is ignored. */
     private fun openFromWidget(intent: Intent) {
         val camera = intent.getStringExtra(CameraWidget.EXTRA_CAMERA) ?: return
+        if (!WidgetLaunch.isFromWidget(this, intent)) return
         vm.nav.clear()
         vm.nav.tab = Tab.CAMERAS
         vm.nav.openCamera(camera)
@@ -89,8 +100,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStart() {
-        super.onStart()
+        // Before super, which tells the screens they started: a lock due now holds them paused.
         vm.lock.onForeground()
+        super.onStart()
         remoteAccess?.foreground()
     }
 

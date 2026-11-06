@@ -485,6 +485,14 @@ class AppViewModel(
         endSession()
         loginError = reason
     }
+
+    /**
+     * Live video, a picture or a recording on [refused] was turned away as
+     * unauthorized. Ends it once, and only while it is still the one signed in.
+     */
+    fun sessionRefused(refused: Session) {
+        if (refused === session && sessionJob.isActive) sessionLost(null)
+    }
 }
 
 /** A camera's motion between [from] and [to] (epoch seconds), in slices of [scaleSeconds]. */
