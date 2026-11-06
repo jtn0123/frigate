@@ -5,6 +5,7 @@
     <string name="cam_status_snapshot">SNAPSHOT</string>
     <string name="cam_status_connecting">CONNECTING</string>
     <string name="cam_status_live">LIVE</string>
+    <string name="cam_retry_live">Retry live video</string>
     <string name="cam_unmute">Unmute</string>
     <string name="cam_mute">Mute</string>
     <string name="cam_muted">Muted</string>

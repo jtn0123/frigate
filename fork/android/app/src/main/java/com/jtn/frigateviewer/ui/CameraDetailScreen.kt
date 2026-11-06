@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.PictureInPictureAlt
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Timeline
@@ -61,6 +62,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -85,12 +87,16 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
     val stream = streams[streamIndex.coerceIn(streams.indices)]
     var liveState by rememberSaveable(stream) { mutableStateOf(LiveState.CONNECTING) }
     val hasLive = vm.hasLiveVideo(camera)
+    // Each tap on a failed stream's status starts it again, as a new route to the server would.
+    var liveRetries by remember(stream) { mutableIntStateOf(0) }
     // Tapping the video shows it alone, larger, to pinch and zoom into.
     var expanded by rememberSaveable(camera.name) { mutableStateOf(false) }
     val zoom = remember(camera.name) { ZoomState() }
     val zoomable = expanded || landscape
     LaunchedEffect(zoomable) { if (!zoomable) zoom.reset() }
     BackHandler(enabled = expanded && !landscape) { expanded = false }
+    // Back leaves fullscreen before it leaves the camera.
+    FullscreenBackHandler(landscape, setFullscreen)
     var showSettings by rememberSaveable { mutableStateOf(false) }
     val hasSettings = (hasLive && streams.size > 1) || vm.controls.isAdmin
 
@@ -128,7 +134,7 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                         muted = muted,
                         onState = { liveState = it },
                         modifier = Modifier.fillMaxSize(),
-                        route = vm.remoteAccess?.routeChanges ?: 0,
+                        route = (vm.remoteAccess?.routeChanges ?: 0) + liveRetries,
                     )
                 } else {
                     LiveFrame(session.api, camera.name, intervalMs = 1_000, height = 720, modifier = Modifier.fillMaxSize())
@@ -142,14 +148,14 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                 else -> R.string.cam_status_live
             }
             // Landscape puts the back button top-left, so the status moves out of its way.
-            LivePill(
-                label = stringResource(status),
-                live = status == R.string.cam_status_live,
-                modifier = Modifier
-                    .align(if (landscape) Alignment.TopEnd else Alignment.TopStart)
-                    .then(if (landscape) Modifier.safeDrawingPadding() else Modifier)
-                    .padding(10.dp),
-            )
+            val place = Modifier
+                .align(if (landscape) Alignment.TopEnd else Alignment.TopStart)
+                .then(if (landscape) Modifier.safeDrawingPadding() else Modifier)
+            if (hasLive && liveState == LiveState.FAILED) {
+                RetryLivePill(stringResource(status), place.padding(4.dp)) { liveRetries++ }
+            } else {
+                LivePill(label = stringResource(status), live = status == R.string.cam_status_live, modifier = place.padding(10.dp))
+            }
             Row(
                 Modifier.align(Alignment.BottomEnd).padding(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -160,6 +166,10 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                         stringResource(if (muted) R.string.cam_unmute else R.string.cam_mute),
                         state = stringResource(if (muted) R.string.cam_muted else R.string.cam_sound_on),
                     ) { muted = !muted }
+                }
+                // Fullscreen has no header, so its settings and the motor are here.
+                if (landscape && hasSettings) {
+                    OverlayIconButton(Icons.Outlined.Tune, stringResource(R.string.cam_settings)) { showSettings = true }
                 }
                 pip?.takeIf { hasLive && it.supported }?.let { window ->
                     OverlayIconButton(Icons.Filled.PictureInPictureAlt, stringResource(R.string.cam_picture_in_picture)) { window.enter() }
@@ -184,6 +194,18 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
             video(Modifier.aspectRatio(camera.aspectRatio))
         }
         return
+    }
+
+    // Over either layout, so an open sheet stays open when the phone turns.
+    if (showSettings) {
+        CameraSettingsSheet(
+            vm,
+            camera,
+            streamNames = if (hasLive) streamNames else emptyList(),
+            streamIndex = streamIndex,
+            onStream = { streamIndex = it },
+            onDismiss = { showSettings = false },
+        )
     }
 
     if (landscape) {
@@ -240,17 +262,6 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                 CameraActivity(vm, session, camera, imageLoader)
             }
         }
-    }
-
-    if (showSettings) {
-        CameraSettingsSheet(
-            vm,
-            camera,
-            streamNames = if (hasLive) streamNames else emptyList(),
-            streamIndex = streamIndex,
-            onStream = { streamIndex = it },
-            onDismiss = { showSettings = false },
-        )
     }
 }
 
@@ -365,6 +376,29 @@ internal fun Stat(label: String, value: String, color: Color, modifier: Modifier
             maxLines = 1,
         )
         Text(label, style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary, maxLines = 1)
+    }
+}
+
+/** The status of live video that gave up, as a button that tries it again. */
+@Composable
+private fun RetryLivePill(label: String, modifier: Modifier, onRetry: () -> Unit) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClickLabel = stringResource(R.string.cam_retry_live), role = Role.Button, onClick = onRetry)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LivePill(label = label, live = false)
+        Icon(
+            Icons.Filled.Refresh,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.padding(
+                start = 4.dp,
+            ).clip(RoundedCornerShape(6.dp)).background(Color(0xB3000000)).padding(2.dp).size(16.dp),
+        )
     }
 }
 
