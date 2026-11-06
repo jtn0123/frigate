@@ -52,6 +52,8 @@ import com.jtn.frigateviewer.data.MotionBucket
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.Session
+import com.jtn.frigateviewer.data.recordingSpans
+import com.jtn.frigateviewer.data.remote
 import com.jtn.frigateviewer.data.vodUrl
 
 /**
@@ -69,9 +71,20 @@ fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Lo
     val end by rememberSaveable { mutableLongStateOf(System.currentTimeMillis() / 1000) }
     val from = end - DAY_SECONDS
     val latest = end - LIVE_EDGE_SECONDS
-    var playFrom by rememberSaveable { mutableLongStateOf(start.coerceIn(from, latest)) }
-    val at = rememberSaveable { mutableLongStateOf(playFrom) }
+    val at = rememberSaveable { mutableLongStateOf(start.coerceIn(from, latest)) }
+    // Restored, it plays on from where the playhead was rather than where it was last started.
+    var playFrom by remember { mutableLongStateOf(at.longValue) }
     var scrubbing by remember { mutableStateOf(false) }
+    // How far into the playlist each moment is; read where the playhead moves, so arriving composes nothing again.
+    val clock = remember { mutableStateOf<TimelineClock?>(null) }
+    LaunchedEffect(session.api, camera.name, playFrom, end) {
+        val playing = playFrom
+        val spans = remote { session.api.recordingSpans(camera.name, playing, end) }
+        val known = TimelineClock(playing, end, (spans as? Remote.Ready)?.value.orEmpty())
+        clock.value = known
+        // Starting in a gap, the playlist begins at the next recording, so the playhead does too.
+        if (!scrubbing && at.longValue == playing) known.snap(playing.toDouble())?.let { at.longValue = it.toLong() }
+    }
     val range = MotionRange(camera.name, from, end, MOTION_SCALE_SECONDS)
     LaunchedEffect(session.api, range) { vm.motion.load(session.api, range) }
     val motion = vm.motion[range]
@@ -94,7 +107,7 @@ fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Lo
         session = session,
         aspectRatio = camera.aspectRatio,
         title = camera.label,
-        onPosition = { ms -> if (!scrubbing) at.longValue = (playFrom + ms / 1000).coerceAtMost(end) },
+        onPosition = { ms -> if (!scrubbing) at.longValue = clockFor(clock.value, playFrom, end).wallAt(ms).toLong() },
     ) {
         PlayheadClock(position)
         TimelineStrip(
@@ -129,6 +142,10 @@ fun TimelineScreen(vm: AppViewModel, session: Session, camera: Camera, start: Lo
         }
     }
 }
+
+/** [known] when it is the playlist from [playFrom], else wall time counted on from [playFrom] while its recordings are fetched. */
+internal fun clockFor(known: TimelineClock?, playFrom: Long, end: Long): TimelineClock =
+    known?.takeIf { it.from == playFrom && it.to == end } ?: TimelineClock(playFrom, end, emptyList())
 
 /** The time and day under the playhead; the only text that follows it, so the only part composed again as it moves. */
 @Composable
