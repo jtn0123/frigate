@@ -1,7 +1,13 @@
 package com.jtn.frigateviewer.ui
 
 import android.net.Uri
+import android.view.View
+import android.view.ViewGroup
 import androidx.annotation.OptIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.hasAnySibling
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -9,11 +15,13 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import androidx.test.core.app.ApplicationProvider
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -26,6 +34,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -126,6 +135,36 @@ class FailureStatesTest {
         compose.runOnIdle { player.release() }
     }
 
+    @Test
+    fun aRecordingErrorTakesThePlaceOfThePlayerControls() {
+        val player = ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build()
+        val playback = VodPlayback(player)
+        lateinit var root: View
+        compose.setContent {
+            root = LocalView.current
+            VodVideo(playback, Modifier.size(360.dp, 203.dp))
+        }
+        val playerView = compose.runOnIdle { root.findPlayerView()!! }
+        compose.runOnIdle { assertTrue("Controls while it plays", playerView.useController) }
+
+        compose.runOnIdle { playback.error = UiText.Plain("The server could not send this recording.") }
+        compose.runOnIdle { assertFalse("No controls under the error", playerView.useController) }
+        val retry = compose.onNodeWithText("Retry").fetchSemanticsNode().boundsInRoot
+        val density = compose.density.density
+        assertTrue("Retry is at least 48dp tall", retry.height / density >= 48f)
+        compose.onNodeWithText("Retry").assertHasClickAction()
+
+        compose.onNodeWithText("Retry").performClick()
+        compose.runOnIdle { assertTrue("Controls back once it plays again", playerView.useController) }
+        compose.runOnIdle { player.release() }
+    }
+
+    private fun View.findPlayerView(): PlayerView? = when (this) {
+        is PlayerView -> this
+        is ViewGroup -> (0 until childCount).firstNotNullOfOrNull { getChildAt(it).findPlayerView() }
+        else -> null
+    }
+
     private fun httpError(code: Int) = PlaybackException(
         "bad status",
         HttpDataSource.InvalidResponseCodeException(code, null, null, emptyMap(), DataSpec(Uri.EMPTY), ByteArray(0)),
@@ -137,6 +176,10 @@ class FailureStatesTest {
         assertEquals("This recording is not on the server.", playbackError(httpError(404)).english())
         assertEquals("The server refused this recording.", playbackError(httpError(403)).english())
         assertEquals("The server could not send this recording.", playbackError(httpError(500)).english())
+        assertEquals(
+            "The server could not put this clip together. It may still be saving, so try again in a moment.",
+            playbackError(httpError(502)).english(),
+        )
         assertEquals(
             "Could not connect to the server.",
             playbackError(PlaybackException("down", IOException(), PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)).english(),

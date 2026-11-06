@@ -77,6 +77,8 @@
     <string name="cam_vod_not_found">This recording is not on the server.</string>
     <string name="cam_vod_refused">The server refused this recording.</string>
     <string name="cam_vod_server_error">The server could not send this recording.</string>
+    <!-- HTTP 502: the server could not assemble the clip, often while it is still being saved. -->
+    <string name="cam_vod_unassembled">The server could not put this clip together. It may still be saving, so try again in a moment.</string>
     <string name="cam_vod_offline">Could not connect to the server.</string>
     <string name="cam_vod_failed">This recording could not be played.</string>
 </resources>
