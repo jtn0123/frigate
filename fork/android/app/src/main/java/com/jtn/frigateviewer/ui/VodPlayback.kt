@@ -3,12 +3,19 @@ package com.jtn.frigateviewer.ui
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -38,6 +46,7 @@ import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.ui.PlayerView
 import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Session
+import java.net.HttpURLConnection.HTTP_BAD_GATEWAY
 import java.net.HttpURLConnection.HTTP_FORBIDDEN
 import java.net.HttpURLConnection.HTTP_NOT_FOUND
 import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
@@ -62,6 +71,8 @@ internal fun playbackError(e: PlaybackException): UiText {
     return when {
         status == HTTP_NOT_FOUND -> uiText(R.string.cam_vod_not_found)
         status == HTTP_UNAUTHORIZED || status == HTTP_FORBIDDEN -> uiText(R.string.cam_vod_refused)
+        // nginx-vod's answer when it cannot put the clip together from the saved segments.
+        status == HTTP_BAD_GATEWAY -> uiText(R.string.cam_vod_unassembled)
         status != null || e.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
             uiText(R.string.cam_vod_server_error)
         e.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
@@ -117,28 +128,49 @@ internal fun rememberVodPlayback(session: Session, url: String, onPosition: ((Lo
     return playback
 }
 
-/** Shows [playback]'s picture, its controls, and its error if it has one. */
+/**
+ * Shows [playback]'s picture, its controls, and its error if it has one. An error
+ * takes the controls' place: they are hidden, and the reason and a Retry button
+ * sit centered on a dark scrim, so neither is drawn over the play button.
+ */
 @Composable
 internal fun VodVideo(playback: VodPlayback, modifier: Modifier = Modifier) {
+    val error = playback.error
     Box(modifier) {
         AndroidView(
             factory = { ctx ->
                 LayoutInflater.from(ctx).inflate(R.layout.vod_player, FrameLayout(ctx), false) as PlayerView
             },
-            update = { it.player = playback.player },
+            update = {
+                it.player = playback.player
+                // Play and seek do nothing for a player that failed; Retry is the way on.
+                it.useController = error == null
+            },
             // The view of the layout being left lets go, and the next one takes the picture.
             onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize(),
         )
-        playback.error?.let {
-            Column(
-                Modifier.align(Alignment.Center).padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(it.resolve(), color = Palette.Alert, textAlign = TextAlign.Center)
-                OutlinedButton(onClick = playback::retry) { Text(stringResource(R.string.retry)) }
-            }
+        if (error != null) VodError(error, onRetry = playback::retry, Modifier.fillMaxSize())
+    }
+}
+
+/** Why the recording stopped and a way to try again, legible over any picture. */
+@Composable
+internal fun VodError(error: UiText, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier.background(Color.Black.copy(alpha = SCRIM_ALPHA)), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = Palette.Alert, modifier = Modifier.size(32.dp))
+            Text(
+                error.resolve(),
+                color = Color.White,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+            )
+            Button(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.retry)) }
         }
     }
 }
@@ -174,3 +206,6 @@ private fun PauseWhileStopped(player: Player) {
 }
 
 private const val POSITION_INTERVAL_MS = 250L
+
+/** Dark enough for white text over a bright picture, light enough to still see it. */
+private const val SCRIM_ALPHA = 0.72f

@@ -2,12 +2,15 @@ package com.jtn.frigateviewer.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.lifecycle.SavedStateHandle
@@ -73,6 +76,14 @@ class ScreenshotTest {
     @Test
     fun emptyState() = capture {
         Chrome { EmptyState(Icons.Outlined.NightsStay, "All quiet", detail = "Nothing happened in the last 24 hours.") }
+    }
+
+    /** A recording that failed, over a bright picture so the scrim's contrast shows. */
+    @Test
+    fun recordingError() = capture {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color(0xFFD8D2C4))) {
+            VodError(UiText.Plain("The server could not send this recording."), onRetry = {}, Modifier.fillMaxSize())
+        }
     }
 
     @Test
