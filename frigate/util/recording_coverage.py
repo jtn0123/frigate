@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from frigate.const import MAX_SEGMENT_DURATION, STREAM_TYPE_MAIN, STREAM_TYPE_SUB
+from frigate.fork.recording_audio_backfill import backfill_audio_duration
 from frigate.models import Recordings
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ def recording_overlap(after: float, before: float) -> Any:
 def _rows_query(camera: str, after: float, before: float, stream_type: str) -> Any:
     return (
         Recordings.select(
+            Recordings.id,  # Fork (B46): audio duration backfill target
             Recordings.path,
             Recordings.start_time,
             Recordings.end_time,
@@ -465,12 +467,14 @@ def plan_clip(
     # audio cut short by a camera dropout can end before the clip starts.
     # nginx-vod then counts no audio track in this clip and fails the whole
     # sequence on the track count mismatch
-    if (
-        needs_audio
-        and row.has_audio
-        and row.audio_duration is not None
-        and (clip_from or 0) >= int(row.audio_duration * 1000)
-    ):
+    audio_duration: float | None = None
+    if needs_audio and row.has_audio:
+        audio_duration = row.audio_duration
+        # Fork (B46): rows saved before B43 lack the duration, so probe it
+        # once for the mid-segment starts that can land past the audio
+        if audio_duration is None and clip_from:
+            audio_duration = backfill_audio_duration(row)
+    if audio_duration is not None and (clip_from or 0) >= int(audio_duration * 1000):
         logger.debug(
             "VOD: skipping recording %s - no audio after %sms",
             row.path,
