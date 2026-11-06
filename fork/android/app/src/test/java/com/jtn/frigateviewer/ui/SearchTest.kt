@@ -129,6 +129,9 @@ class SearchTest {
         awaitSearch("labels", "car")
         awaitRow("Person")
 
+        // Each day of results is a heading, for moving through them with a screen reader.
+        compose.onNode(hasText(" · 1", substring = true) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading)).assertExists()
+
         compose.onNode(row("Person")).performClick()
         compose.runOnIdle { assertEquals(Overlay.Event("r1"), vm.nav.overlays.last()) }
     }

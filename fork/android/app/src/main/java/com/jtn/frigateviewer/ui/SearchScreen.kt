@@ -51,6 +51,8 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -263,7 +265,7 @@ private fun ResultDay(day: String, count: Int) {
         stringResource(R.string.rev_day_count, day, count),
         style = MaterialTheme.typography.labelLarge.merge(Tabular),
         color = Palette.TextSecondary,
-        modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 6.dp),
+        modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 6.dp).semantics { heading() },
     )
 }
 
