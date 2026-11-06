@@ -4,18 +4,21 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Failure
+import com.jtn.frigateviewer.data.MediaFiles
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.data.certificateFingerprint
 import java.io.File
+import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -115,7 +118,11 @@ class AppViewModelTest {
 
     private fun url() = server.url("/").toString()
 
-    private fun viewModel(saved: SavedStateHandle = SavedStateHandle()) = AppViewModel(saved, store).also { vm ->
+    private fun viewModel(saved: SavedStateHandle = SavedStateHandle(), media: MediaFiles? = null) = AppViewModel(
+        saved,
+        store,
+        media = media,
+    ).also { vm ->
         viewModels += vm
         await("settings load") { vm.loaded }
     }
@@ -207,6 +214,74 @@ class AppViewModelTest {
         assertEquals(Tab.CAMERAS, runOnMain { vm.nav.tab })
         assertEquals("", runBlocking { store.settings.first() }.token)
         assertEquals("The address is kept for signing in again", url(), runBlocking { store.settings.first() }.baseUrl)
+    }
+
+    @Test
+    fun signingOutOfAServerWithNoLoginIsKeptAfterARestart() {
+        val vm = viewModel()
+        runOnMain { vm.login(url(), "", "", selfSignedCert = false) }
+        await("session") { vm.session != null }
+
+        runOnMain { vm.logout() }
+        await("sign-out") { vm.session == null && runBlocking { store.settings.first() }.signedOut }
+
+        val restarted = viewModel()
+        assertNull("Port 5000 needs no login, but the user signed out", runOnMain { restarted.session })
+
+        runOnMain { restarted.login(url(), "", "", selfSignedCert = false) }
+        await("signed in again") { restarted.session != null }
+        assertFalse(runBlocking { store.settings.first() }.signedOut)
+    }
+
+    @Test
+    fun signingOutClearsWhatWasCachedFromTheServer() {
+        val cleared = AtomicInteger()
+        val media = object : MediaFiles {
+            override suspend fun saveVideo(name: String, write: suspend (OutputStream) -> Unit) = ""
+
+            override suspend fun shareable(name: String, bytes: ByteArray) = ""
+
+            override suspend fun clearCaches() {
+                cleared.incrementAndGet()
+            }
+        }
+        val vm = viewModel(media = media)
+        signIn(vm)
+        assertEquals(0, cleared.get())
+
+        runOnMain { vm.logout() }
+        await("caches cleared") { cleared.get() == 1 }
+    }
+
+    @Test
+    fun aPasswordOverHttpToATailscaleAddressWaitsForConsent() {
+        val vm = viewModel()
+
+        runOnMain { vm.login("http://100.101.102.103:5000", "admin", "secret", selfSignedCert = false) }
+        await("consent prompt") { vm.pendingHttpLogin != null }
+
+        val pending = runOnMain { vm.pendingHttpLogin }!!
+        assertEquals("100.101.102.103", pending.host)
+        assertFalse("The password stays out of logs", "secret" in pending.toString())
+        assertNull(runOnMain { vm.loginError })
+        assertTrue("Nothing reached a server", paths.isEmpty())
+
+        runOnMain { vm.rejectHttpLogin() }
+        assertNull(runOnMain { vm.pendingHttpLogin })
+        assertFalse(runOnMain { vm.loggingIn })
+    }
+
+    @Test
+    fun consentToPlainHttpGoesOnSigningIn() {
+        val vm = viewModel()
+        runOnMain { vm.login("http://100.101.102.103:5000", "admin", "secret", selfSignedCert = false) }
+        await("consent prompt") { vm.pendingHttpLogin != null }
+
+        runOnMain { vm.allowHttpLogin() }
+
+        // It goes on to the server (which a test cannot reach), rather than asking again or refusing.
+        assertNull(runOnMain { vm.pendingHttpLogin })
+        assertTrue(runOnMain { vm.loggingIn || vm.loginError != uiText(R.string.login_insecure_http, "100.101.102.103") })
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.jtn.frigateviewer.data
 
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -12,6 +13,7 @@ import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -38,6 +40,21 @@ class MediaFilesTest {
             }
         }
     }.exceptionOrNull()
+
+    @Test
+    fun clearingTheCachesDeletesThumbnailsAndTheLastShare() {
+        val cache = ApplicationProvider.getApplicationContext<Context>().cacheDir
+        val thumbnail = File(cache, "image_cache/journal").apply {
+            parentFile?.mkdirs()
+            writeText("thumbnails")
+        }
+        runBlocking { files.shareable("snapshot.jpg", byteArrayOf(1, 2, 3)) }
+
+        runBlocking { files.clearCaches() }
+
+        assertFalse(thumbnail.exists())
+        assertFalse(File(cache, "shared").exists())
+    }
 
     @Test
     fun aFinishedSaveIsPublished() {

@@ -2,16 +2,20 @@ package com.jtn.frigateviewer.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import java.io.IOException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
@@ -37,14 +41,16 @@ data class ServerSettings(
     val theme: String = "",
     /** Ask for a fingerprint, face or the screen lock before showing anything. */
     val appLock: Boolean = false,
+    /** The user signed out, so even a server with no login waits to be signed in to again. */
+    val signedOut: Boolean = false,
 ) {
     val isConfigured: Boolean get() = baseUrl.isNotBlank()
 
     /**
      * A session can start from these settings without signing in: a server is
-     * saved, with a token, or with no login at all (port 5000).
+     * saved and not signed out of, with a token, or with no login at all (port 5000).
      */
-    val canResume: Boolean get() = isConfigured && (token.isNotEmpty() || username.isEmpty())
+    val canResume: Boolean get() = isConfigured && !signedOut && (token.isNotEmpty() || username.isEmpty())
 
     companion object {
         const val DEFAULT_TOKEN_COOKIE = "frigate_token"
@@ -62,7 +68,10 @@ class TunnelSettings(val config: String, val name: String, val enabled: Boolean)
     override fun toString() = "TunnelSettings(name=$name, enabled=$enabled)"
 }
 
-private val Context.dataStore by preferencesDataStore(name = "server")
+/** A settings file that cannot be parsed starts over empty, signed out, rather than crashing every launch. */
+internal fun settingsCorruptionHandler() = ReplaceFileCorruptionHandler { emptyPreferences() }
+
+private val Context.dataStore by preferencesDataStore(name = "server", corruptionHandler = settingsCorruptionHandler())
 
 /** Saved settings; the token is encrypted with [cipher], and read on [io], which tests replace to run on virtual time. */
 class SettingsStore(
@@ -85,9 +94,13 @@ class SettingsStore(
         val tunnelConfig = stringPreferencesKey("tunnel_config")
         val tunnelName = stringPreferencesKey("tunnel_name")
         val tunnelEnabled = booleanPreferencesKey("tunnel_enabled")
+        val signedOut = booleanPreferencesKey("signed_out")
     }
 
-    val settings: Flow<ServerSettings> = dataStore.data.map(::read).flowOn(io)
+    /** The stored preferences; a file that cannot be read is taken as empty, as on first launch. */
+    private val preferences: Flow<Preferences> = dataStore.data.catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+
+    val settings: Flow<ServerSettings> = preferences.map(::read).flowOn(io)
 
     suspend fun save(settings: ServerSettings) {
         dataStore.edit { p -> write(p, settings) }
@@ -120,6 +133,7 @@ class SettingsStore(
         trackReviews = p[Keys.trackReviews] ?: true,
         theme = p[Keys.theme].orEmpty(),
         appLock = p[Keys.appLock] ?: false,
+        signedOut = p[Keys.signedOut] ?: false,
     )
 
     private fun write(p: MutablePreferences, settings: ServerSettings, token: Boolean = true) {
@@ -134,10 +148,11 @@ class SettingsStore(
         p[Keys.trackReviews] = settings.trackReviews
         p[Keys.theme] = settings.theme
         p[Keys.appLock] = settings.appLock
+        p[Keys.signedOut] = settings.signedOut
     }
 
     /** The imported WireGuard tunnel, kept apart from the server's settings and through signing out; null when there is none. */
-    val tunnel: Flow<TunnelSettings?> = dataStore.data.map { p ->
+    val tunnel: Flow<TunnelSettings?> = preferences.map { p ->
         // Unreadable (the key is gone) means it has to be imported again.
         p[Keys.tunnelConfig]?.let(cipher::decrypt)?.takeIf { it.isNotEmpty() }?.let { config ->
             TunnelSettings(config, p[Keys.tunnelName].orEmpty(), p[Keys.tunnelEnabled] ?: true)
@@ -167,8 +182,12 @@ class SettingsStore(
         }
     }
 
+    /** Forgets the token and marks the server signed out of, so no session resumes until signing in again. */
     suspend fun clearSession() {
-        dataStore.edit { p -> p.remove(Keys.token) }
+        dataStore.edit { p ->
+            p.remove(Keys.token)
+            p[Keys.signedOut] = true
+        }
     }
 
     companion object {

@@ -8,8 +8,10 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.graphics.scale
 import com.jtn.frigateviewer.MainActivity
 import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.container
@@ -18,6 +20,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,7 +52,12 @@ class CameraWidget : AppWidgetProvider() {
         /** Extra naming the camera to open, for [MainActivity]. */
         const val EXTRA_CAMERA = "com.jtn.frigateviewer.camera"
 
-        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private const val LOG_TAG = "FrigateWidget"
+
+        /** Logged, not thrown: an update that fails unexpectedly must not take the app's process down with it. */
+        private val crashes = CoroutineExceptionHandler { _, e -> Log.w(LOG_TAG, "Widget update failed", e) }
+
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + crashes)
 
         /** Asks every placed widget, or just [ids], to update. */
         fun requestUpdate(context: Context, ids: IntArray? = null) {
@@ -77,15 +85,36 @@ class CameraWidget : AppWidgetProvider() {
             val contents = session?.api?.widgetContents(wanted.map { it.second }, settings)
             val loaded = wanted.mapIndexed { i, (id, _) -> id to (contents?.get(i) ?: WidgetContent.SignedOut) }.toMap()
             chosen.forEach { (id, choice) ->
-                val content = loaded[id]?.awayIf(tunnelOn)
-                val views = render(context, id, choice, content, settings)
-                if (isPartial(content, choices.shownSinceBoot(id))) {
-                    manager.partiallyUpdateAppWidget(id, views)
-                } else {
-                    manager.updateAppWidget(id, views)
-                    choices.markShown(id)
+                guarded(context, manager, id) {
+                    val content = loaded[id]?.awayIf(tunnelOn)
+                    val views = render(context, id, choice, content, settings)
+                    if (isPartial(content, choices.shownSinceBoot(id))) {
+                        manager.partiallyUpdateAppWidget(id, views)
+                    } else {
+                        manager.updateAppWidget(id, views)
+                        choices.markShown(id)
+                    }
                 }
             }
+        }
+
+        /**
+         * Runs [show] for widget [id]; if it fails, as with a picture too large
+         * for the launcher, the widget says so instead, and the rest still update.
+         */
+        internal fun guarded(context: Context, manager: AppWidgetManager, id: Int, show: () -> Unit) {
+            runCatching(show).onFailure { e ->
+                Log.w(LOG_TAG, "Widget $id could not be shown", e)
+                runCatching { manager.updateAppWidget(id, broken(context, id)) }
+                    .onFailure { Log.w(LOG_TAG, "Widget $id could not show its error", it) }
+            }
+        }
+
+        private fun broken(context: Context, id: Int) = RemoteViews(context.packageName, R.layout.widget_camera).apply {
+            setOnClickPendingIntent(R.id.widget_refresh, refreshIntent(context, id))
+            setImageViewBitmap(R.id.widget_frame, null)
+            showMessage(context.getString(R.string.widget_failed))
+            setTextViewText(R.id.widget_status, "")
         }
 
         /**
@@ -138,7 +167,7 @@ class CameraWidget : AppWidgetProvider() {
         }
 
         private fun RemoteViews.showReady(context: Context, content: WidgetContent.Ready, settings: ServerSettings, now: Instant) {
-            val frame = content.frame?.let(::decode)
+            val frame = content.frame?.let(::decodeFrame)
             if (frame != null) {
                 setImageViewBitmap(R.id.widget_frame, frame)
                 setViewVisibility(R.id.widget_message, View.GONE)
@@ -153,15 +182,6 @@ class CameraWidget : AppWidgetProvider() {
             val updated = clock.format(now.atZone(ZoneId.systemDefault()))
             setTextViewText(R.id.widget_status, context.getString(R.string.widget_updated, updated))
         }
-
-        private fun RemoteViews.showMessage(text: String) {
-            setViewVisibility(R.id.widget_message, View.VISIBLE)
-            setTextViewText(R.id.widget_message, text)
-        }
-
-        /** RGB_565 halves the bitmap, which a widget sends to the launcher in one parcel. */
-        private fun decode(bytes: ByteArray): Bitmap? =
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 })
 
         private fun refreshIntent(context: Context, id: Int): PendingIntent = PendingIntent.getBroadcast(
             context,
@@ -193,3 +213,24 @@ class CameraWidget : AppWidgetProvider() {
 /** The badge's number, "99+" past [MAX_BADGE]. */
 private fun badgeText(context: Context, toReview: Int): String =
     if (toReview > MAX_BADGE) context.getString(R.string.widget_badge_more, MAX_BADGE) else toReview.toString()
+
+private fun RemoteViews.showMessage(text: String) {
+    setViewVisibility(R.id.widget_message, View.VISIBLE)
+    setTextViewText(R.id.widget_message, text)
+}
+
+/**
+ * RGB_565 halves the bitmap, which a widget sends to the launcher in one
+ * parcel of about 1 MB. Frames come 360 px tall, so a very wide camera is
+ * also narrowed to [MAX_FRAME_WIDTH].
+ */
+internal fun decodeFrame(bytes: ByteArray): Bitmap? {
+    val options = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 }
+    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
+    if (bitmap.width <= MAX_FRAME_WIDTH) return bitmap
+    val height = (bitmap.height.toLong() * MAX_FRAME_WIDTH / bitmap.width).toInt().coerceAtLeast(1)
+    return bitmap.scale(MAX_FRAME_WIDTH, height).also { if (it !== bitmap) bitmap.recycle() }
+}
+
+/** 960 by 360 px in RGB_565 is about 690 KB, well inside the parcel. */
+internal const val MAX_FRAME_WIDTH = 960

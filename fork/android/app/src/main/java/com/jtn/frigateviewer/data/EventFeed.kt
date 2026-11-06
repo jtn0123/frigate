@@ -65,7 +65,7 @@ internal fun eventFeed(client: OkHttpClient, url: String): Flow<FeedEvent> = cal
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 // Frigate answers this with every camera's state.
                 webSocket.send("""{"topic":"onConnect","payload":""}""")
-                trySend(
+                deliver(
                     FeedEvent.Connected { topic, payload ->
                         webSocket.send(
                             buildJsonObject {
@@ -78,7 +78,16 @@ internal fun eventFeed(client: OkHttpClient, url: String): Flow<FeedEvent> = cal
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                parseFeedMessage(text)?.let { trySend(it) }
+                parseFeedMessage(text)?.let(::deliver)
+            }
+
+            /**
+             * While the feed is connected nothing is polled, so an event dropped
+             * because the app fell behind (a review's end, say) would never be
+             * seen. Ending the feed instead makes the reconnect fetch what was missed.
+             */
+            private fun deliver(event: FeedEvent) {
+                if (trySend(event).isFailure) close(IOException("The app fell behind the live feed"))
             }
 
             // A clean close from the server (a restart) waits for the app's answer; without
@@ -112,8 +121,6 @@ private const val NORMAL_CLOSURE = 1000
 /** The switches Frigate reports as `<camera>/<switch>/state`. */
 val CAMERA_SWITCHES = setOf("detect", "recordings", "snapshots", "audio", "enabled", "motion")
 
-private val json = Json { ignoreUnknownKeys = true }
-
 /**
  * Reads one `{"topic", "payload"}` message; null for topics the app does not
  * use or a message it cannot read. Payloads are often JSON sent as a string.
@@ -140,7 +147,7 @@ private fun parseReview(payload: JsonElement?): FeedEvent? {
     val type = body?.get("type").text()
     val after = body?.get("after") as? JsonObject
     if (type == null || after == null) return null
-    return FeedEvent.Review(type, json.decodeFromJsonElement(ReviewItem.serializer(), after))
+    return FeedEvent.Review(type, frigateJson.decodeFromJsonElement(ReviewItem.serializer(), after))
 }
 
 private fun parseActivity(payload: JsonElement?): FeedEvent? {

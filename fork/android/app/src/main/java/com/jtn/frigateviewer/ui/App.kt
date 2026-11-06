@@ -84,10 +84,11 @@ fun App(vm: AppViewModel) {
 @Composable
 private fun SignedIn(vm: AppViewModel, session: Session) {
     val context = LocalContext.current
-    // Thumbnails go through the session's client so they carry the login token.
+    // Thumbnails go through the session's client so they carry the login token; memory only, never on disk.
     val imageLoader = remember(session.client) {
         ImageLoader.Builder(context)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { session.client })) }
+            .diskCache(null)
             .build()
     }
 

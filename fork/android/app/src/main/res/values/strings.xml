@@ -12,6 +12,7 @@
     <string name="widget_picture_failed">Could not load the picture</string>
     <string name="widget_picture_locked">Picture hidden while the app is locked</string>
     <string name="widget_no_picture">No picture</string>
+    <string name="widget_failed">Could not show this camera. Tap refresh to try again.</string>
     <string name="widget_badge_more">%1$d+</string>
     <!-- %1$s is the time of the update. -->
     <string name="widget_updated">Updated %1$s</string>
@@ -87,6 +88,9 @@
     <string name="login_needs_user">This server requires a login. Use port 8971 with a username.</string>
     <string name="login_wrong_password">Wrong username or password</string>
     <string name="login_insecure_http">%1$s is not a local address, so plain HTTP would send your password unencrypted. Use https:// instead.</string>
+    <string name="login_http_title">Send the password over plain HTTP?</string>
+    <string name="login_http_detail">%1$s is a shared address, used by Tailscale and by some mobile carriers. Over Tailscale the connection is encrypted; anywhere else plain HTTP would send your password unencrypted.</string>
+    <string name="login_http_allow">Sign in anyway</string>
 
     <!-- The app lock (ui/Unlock.kt). -->
     <string name="unlock_prompt_title">Unlock Frigate</string>

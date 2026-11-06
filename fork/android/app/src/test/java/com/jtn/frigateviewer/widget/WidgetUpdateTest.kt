@@ -4,7 +4,11 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import android.content.Context
+import android.graphics.Bitmap
+import android.view.View
+import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
+import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.Failure
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.ServerSettings
@@ -12,6 +16,7 @@ import com.jtn.frigateviewer.data.buildHttpClient
 import com.jtn.frigateviewer.installTestContainer
 import com.jtn.frigateviewer.ui.json
 import com.jtn.frigateviewer.ui.text
+import java.io.ByteArrayOutputStream
 import java.util.Collections
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +38,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.GraphicsMode
 
 /** One update for every placed widget: within one time limit, one alert count, the frames side by side. */
 @RunWith(RobolectricTestRunner::class)
@@ -144,6 +150,39 @@ class WidgetUpdateTest {
 
         assertTrue(paths.isEmpty())
         assertTrue(WidgetChoices(context).shownSinceBoot(4))
+    }
+
+    @Test
+    fun aWidgetThatCannotBeShownSaysSoAndTheOthersStillUpdate() {
+        placeWidgets(5, 6)
+        val manager = AppWidgetManager.getInstance(context)
+        var shown = false
+
+        CameraWidget.guarded(context, manager, 5) { error("Too large for the launcher") }
+        CameraWidget.guarded(context, manager, 6) { shown = true }
+
+        val message = shadowOf(manager).getViewFor(5).findViewById<TextView>(R.id.widget_message)
+        assertEquals(context.getString(R.string.widget_failed), message.text)
+        assertEquals(View.VISIBLE, message.visibility)
+        assertTrue(shown)
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun aVeryWideFrameIsNarrowedToFitTheLaunchersParcel() {
+        fun jpeg(width: Int, height: Int) = ByteArrayOutputStream().also {
+            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 80, it)
+        }.toByteArray()
+
+        val wide = decodeFrame(jpeg(2_400, 360))!!
+        assertEquals(MAX_FRAME_WIDTH, wide.width)
+        assertEquals(144, wide.height)
+        assertEquals(Bitmap.Config.RGB_565, wide.config)
+        assertTrue("Inside the 1 MB parcel", wide.byteCount < 1_000_000)
+
+        val usual = decodeFrame(jpeg(640, 360))!!
+        assertEquals(640, usual.width)
+        assertEquals(360, usual.height)
     }
 
     private companion object {
