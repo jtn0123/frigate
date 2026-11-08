@@ -17,7 +17,7 @@ suspend fun <T> loadRemote(onSessionLost: (UiText?) -> Unit, block: suspend () -
 }
 
 /** What to tell the user at sign-in about a session that ended with this failure. */
-private val Failure.signInReason: UiText?
+internal val Failure.signInReason: UiText?
     get() = when (this) {
         Failure.CertificateChanged, Failure.CertificateUntrusted -> text
         else -> null

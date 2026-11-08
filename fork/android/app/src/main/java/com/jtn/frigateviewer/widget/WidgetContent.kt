@@ -113,6 +113,18 @@ class WidgetChoices(context: Context) {
         prefs.edit { putInt("boot_$id", boot) }
     }
 
+    /**
+     * Whether widget [id] showed a fresh picture and count less than [ms]
+     * ago; a time ahead of [now], as after the clock was set back, is not.
+     */
+    fun updatedWithin(id: Int, ms: Long, now: Long = System.currentTimeMillis()): Boolean =
+        prefs.contains("updated_$id") && now - prefs.getLong("updated_$id", 0) in 0 until ms
+
+    /** Notes that widget [id] just showed a fresh picture and count. */
+    fun markUpdated(id: Int, now: Long = System.currentTimeMillis()) {
+        prefs.edit { putLong("updated_$id", now) }
+    }
+
     operator fun get(id: Int): WidgetChoice? {
         val camera = prefs.getString("camera_$id", null) ?: return null
         return WidgetChoice(camera, prefs.getString("label_$id", null) ?: camera)
@@ -123,6 +135,6 @@ class WidgetChoices(context: Context) {
     }
 
     fun forget(ids: IntArray) {
-        prefs.edit { ids.forEach { remove("camera_$it").remove("label_$it").remove("boot_$it") } }
+        prefs.edit { ids.forEach { remove("camera_$it").remove("label_$it").remove("boot_$it").remove("updated_$it") } }
     }
 }

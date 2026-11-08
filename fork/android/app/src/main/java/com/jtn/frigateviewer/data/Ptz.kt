@@ -1,6 +1,5 @@
 package com.jtn.frigateviewer.data
 
-import java.io.IOException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
@@ -28,19 +27,6 @@ data class PtzInfo(val canMove: Boolean, val canZoom: Boolean, val presets: List
 }
 
 suspend fun FrigateApi.profile(): Profile = getJson(url("api/profile"))
-
-/**
- * The cameras this account may see, or null when the server does not say or
- * the profile cannot be read, in which case nothing should be hidden. Frigate's
- * config lists every camera whatever the role, and the others answer 403.
- */
-suspend fun FrigateApi.allowedCameras(): Set<String>? = try {
-    profile().allowedCameras?.toSet()
-} catch (_: IOException) {
-    null
-} catch (_: IllegalArgumentException) {
-    null
-}
 
 suspend fun FrigateApi.ptzInfo(camera: String): PtzInfo = getBody(url("api/$camera/ptz/info")) { reply ->
     val root = json.parseToJsonElement(reply).jsonObject

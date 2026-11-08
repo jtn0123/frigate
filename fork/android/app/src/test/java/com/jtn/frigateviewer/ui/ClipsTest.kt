@@ -4,6 +4,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.jtn.frigateviewer.data.ClipRequest
+import com.jtn.frigateviewer.data.Failure
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.MediaFiles
 import com.jtn.frigateviewer.data.ReviewItem
@@ -16,6 +18,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.junit4.MockWebServerRule
@@ -23,6 +28,7 @@ import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -56,7 +62,7 @@ class ClipsTest {
     /** Paths the app asked for, with the method. */
     private val requests = CopyOnWriteArrayList<String>()
 
-    /** Times /api/exports was asked; the export finishes on the second. */
+    /** Times the export's job was asked about; it finishes on the second. */
     @Volatile private var polls = 0
 
     private val media = object : MediaFiles {
@@ -83,13 +89,14 @@ class ClipsTest {
                 path == "/api/config" -> json("""{"cameras": {"driveway": {"friendly_name": "Drive way!"}}}""")
                 path == "/api/review" -> json(reviews)
                 path.startsWith("/api/export/") -> json("""{"export_id": "driveway_abc", "status": "queued"}""", code = exportStatus)
-                path == "/api/exports" -> {
+                path == "/api/jobs/export/driveway_abc" -> {
                     polls++
-                    json(
-                        """[{"id": "driveway_abc", "camera": "driveway", "name": "x", "in_progress": ${polls < 2},
-                        "video_path": "/media/frigate/exports/driveway_abc.mp4"}]""",
-                    )
+                    json("""{"id": "driveway_abc", "status": "${if (polls < 2) "running" else "success"}"}""")
                 }
+                path == "/api/exports/driveway_abc" -> json(
+                    """{"id": "driveway_abc", "camera": "driveway", "name": "x", "in_progress": false,
+                    "video_path": "/media/frigate/exports/driveway_abc.mp4"}""",
+                )
                 path == "/exports/driveway_abc.mp4" -> MockResponse.Builder().body(Buffer().write(clip)).build()
                 path == "/api/events/ev1/snapshot.jpg" -> MockResponse.Builder().body(Buffer().write(jpeg)).build()
                 else -> null
@@ -155,6 +162,75 @@ class ClipsTest {
         assertTrue(clips.sharingSnapshots.isEmpty())
         assertEquals("image/jpeg", clips.share?.mime)
     }
+
+    /** Background jobs as the test tells them to go; [wantsNotifications] as on Android 13 without the permission. */
+    private class FakeJobs(override val wantsNotifications: Boolean = true) : ClipJobs {
+        val states = MutableSharedFlow<ClipState?>(replay = 8)
+        val requests = CopyOnWriteArrayList<ClipRequest>()
+        var cancelled = 0
+
+        override fun save(api: FrigateApi, request: ClipRequest): Flow<ClipState?> {
+            requests += request
+            return states.transformWhile {
+                emit(it)
+                it == ClipState.Preparing || it == ClipState.Downloading
+            }
+        }
+
+        override fun cancelAll() {
+            cancelled++
+        }
+    }
+
+    private val item =
+        ReviewItem(id = "r1", camera = "driveway", startTime = 100.0, endTime = 120.0, severity = "alert", thumbPath = "/t.webp")
+    private val api get() = FrigateApi(buildHttpClient(null, pin = null), serverRule.server.url("/").toString())
+
+    @Test
+    fun aClipSavedInTheBackgroundIsFollowedAndAsksForNotificationsOnce() {
+        val jobs = FakeJobs()
+        val clips = Clips(scope, onSessionLost = {}, media, jobs)
+
+        clips.save(api, item, "Driveway")
+        compose.awaitMain { jobs.requests.isNotEmpty() }
+        assertEquals(ClipRequest("r1", "driveway", 95, 125, clipName("Driveway", 100.0)), jobs.requests.single())
+        assertTrue(clips.asksNotifications)
+        clips.notificationsAsked()
+        assertNull("A second tap waits for the first", clips.save(api, item, "Driveway"))
+
+        runBlocking {
+            jobs.states.emit(ClipState.Downloading)
+            jobs.states.emit(ClipState.Saved("content://media/video/9"))
+        }
+        awaitState(clips) { it == ClipState.Saved("content://media/video/9") }
+
+        clips.save(api, item, "Driveway")
+        assertFalse("Asked once only", clips.asksNotifications)
+    }
+
+    @Test
+    fun aJobThatEndsTheSessionSignsOutAndCancelledWorkLeavesNoState() {
+        val lost = CopyOnWriteArrayList<UiText?>()
+        val jobs = FakeJobs(wantsNotifications = false)
+        val clips = Clips(scope, onSessionLost = { lost += it }, media, jobs)
+
+        clips.save(api, item, "Driveway")
+        assertFalse("Allowed already, so not asked", clips.asksNotifications)
+        runBlocking { jobs.states.emit(ClipState.Failed(Failure.SessionExpired)) }
+        awaitState(clips) { it is ClipState.Failed }
+        assertEquals(listOf<UiText?>(null), lost)
+
+        jobs.states.resetReplayCache()
+        clips.save(api, item, "Driveway")
+        runBlocking { jobs.states.emit(null) }
+        awaitState(clips) { it == null }
+
+        clips.reset()
+        assertEquals(1, jobs.cancelled)
+    }
+
+    /** Waits for the item's state to reach [condition]; the jobs report on the scope's threads. */
+    private fun awaitState(clips: Clips, condition: (ClipState?) -> Boolean) = compose.awaitMain { condition(clips.states["r1"]) }
 
     @Test
     fun namesAreSafeForFiles() {

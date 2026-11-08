@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Saving a clip in the background (work/ClipNotifications.kt); the notifications' text is the clip_* strings. -->
+    <string name="clip_channel_name">Saving clips</string>
+    <string name="clip_channel_description">A clip being saved while the app is away, and whether it was saved</string>
+</resources>

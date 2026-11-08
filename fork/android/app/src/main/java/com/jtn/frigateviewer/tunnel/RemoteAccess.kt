@@ -117,6 +117,13 @@ class RemoteAccess(
 
     private val paths = PathChanges()
 
+    /**
+     * Keeps the tunnel up after the app leaves while one is open, so work the
+     * user started can finish over it. It closes [idleMs] after the app left
+     * or once the last hold is closed, whichever is later.
+     */
+    val holds = TunnelHolds()
+
     /** Counts each time the way to the server changes, so open connections can be remade on the new one. */
     val routeChanges: Int get() = paths.count
 
@@ -210,6 +217,7 @@ class RemoteAccess(
         idleJob?.cancel()
         idleJob = scope.launch {
             delay(idleMs)
+            holds.released()
             checkJob?.cancel()
             changing.withLock {
                 close("the app has been in the background ${idleMs / MS_PER_S} s")
@@ -323,12 +331,18 @@ class RemoteAccess(
      * Progress goes to the log every few seconds, with the bytes sent and
      * received: sent with nothing back means the server is not answering. A
      * check on a network change picks the same wait up where it was.
+     *
+     * Each check is a new attempt, as WireGuard tries again on a new network,
+     * so the tunnel is read every [POLL_MS] for [handshakeMs] from it; a wait
+     * already given up on is then read only every [GAVE_UP_POLL_MS], since it
+     * may go on for as long as the app is open.
      */
     private suspend fun awaitAnswer(): TunnelStatus {
         val started = waitingSince ?: clock().also {
             waitingSince = it
             log.add("Tunnel up, waiting for the VPN server to answer")
         }
+        val attempt = clock()
         var reported = clock()
         var every = if (gaveUp) reportMs * QUIET_FACTOR else reportMs
         while (refreshStats()?.lastHandshakeMs == null) {
@@ -347,7 +361,7 @@ class RemoteAccess(
                 reported = now
                 log.add("No answer yet after $waited s: ${stats.describe()}")
             }
-            delay(POLL_MS)
+            delay(if (gaveUp && now - attempt > handshakeMs) GAVE_UP_POLL_MS else POLL_MS)
         }
         log.add("VPN server answered after ${(clock() - started) / MS_PER_S} s: ${stats.describe()}")
         answered = true
@@ -402,6 +416,9 @@ class RemoteAccess(
         const val SETTLE_MS = 1_000L
         const val HANDSHAKE_MS = 15_000L
         const val POLL_MS = 500L
+
+        /** How often a wait already given up on is read, a tenth as often as [POLL_MS]. */
+        const val GAVE_UP_POLL_MS = 5_000L
         const val REPORT_MS = 5_000L
         const val MS_PER_S = 1_000L
 

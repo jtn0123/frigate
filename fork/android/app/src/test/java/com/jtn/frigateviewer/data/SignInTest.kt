@@ -64,6 +64,18 @@ class SignInTest {
     }
 
     @Test
+    fun signingInCostsOneHandshake() = runTest {
+        useTls()
+        enqueueLoginAndConfig()
+
+        signIn.signIn(ServerSettings(), url(), "admin", "secret", selfSignedCert = true, trustedFingerprint = fingerprint)
+
+        val requests = List(server.requestCount) { server.takeRequest() }
+        assertEquals("The login and the config share one connection", setOf(0), requests.map { it.connectionIndex }.toSet())
+        assertEquals(listOf(0, 1), requests.map { it.exchangeIndex })
+    }
+
+    @Test
     fun theSavedCertificateForThisAddressNeedsNoPrompt() = runTest {
         useTls()
         enqueueLoginAndConfig()

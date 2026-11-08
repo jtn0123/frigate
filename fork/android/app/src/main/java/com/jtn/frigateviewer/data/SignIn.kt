@@ -1,5 +1,6 @@
 package com.jtn.frigateviewer.data
 
+import java.io.IOException
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** What signing in came to. Failures are thrown: [AuthException] for a refused login. */
@@ -25,8 +26,10 @@ sealed interface SignInResult {
 
 /**
  * Signs in to a Frigate server. For a self-signed server the certificate is
- * read and checked before the password is sent, and the one the user trusted
- * is the only one accepted afterwards.
+ * checked before the password is sent, and the one the user trusted is the
+ * only one accepted afterwards. Every step goes over the same pooled
+ * connection, so signing in costs one TLS handshake, or two when the
+ * certificate has to be read and shown first.
  */
 class SignIn(private val certificateOf: suspend (baseUrl: String) -> String = FrigateApi::serverCertificate) {
     /**
@@ -52,22 +55,29 @@ class SignIn(private val certificateOf: suspend (baseUrl: String) -> String = Fr
         plainHttpCheck(parsed.isHttps, host, user, httpConsent)?.let { return it }
         var pin = ""
         if (selfSignedCert && parsed.isHttps) {
-            val saved = previous.certificatePin.takeIf { previous.baseUrl == base && previous.selfSignedCert }
-            val seen = trustedFingerprint ?: certificateOf(base)
-            if (trustedFingerprint == null && !seen.equals(saved, ignoreCase = true)) {
-                return SignInResult.NeedsTrust(seen, changed = !saved.isNullOrEmpty())
-            }
-            pin = seen
+            val saved = previous.certificatePin.takeIf { previous.baseUrl == base && previous.selfSignedCert && it.isNotEmpty() }
+            // None trusted yet: read it, sending nothing, for the user to decide on.
+            pin = trustedFingerprint ?: saved ?: return SignInResult.NeedsTrust(certificateOf(base), changed = false)
         }
-        val probe = Session(ServerSettings(baseUrl = base, selfSignedCert = selfSignedCert, certificatePin = pin))
-        val login = if (user.isBlank()) null else probe.api.login(user.trim(), password)
+        return try {
+            signIn(previous, ServerSettings(baseUrl = base, selfSignedCert = selfSignedCert, certificatePin = pin), user, password)
+        } catch (e: IOException) {
+            // The TLS handshake fails before anything is sent, the password included.
+            val change = e.certificateChange() ?: throw e
+            SignInResult.NeedsTrust(change.actual, changed = true)
+        }
+    }
+
+    /** Logs in to the server [probe] names, trusting the certificate it pins, and checks the result works. */
+    private suspend fun signIn(previous: ServerSettings, probe: ServerSettings, user: String, password: String): SignInResult {
+        val login = if (user.isBlank()) null else Session(probe).api.login(user.trim(), password)
         val settings = previous.copy(
-            baseUrl = base,
+            baseUrl = probe.baseUrl,
             username = user.trim(),
             token = login?.token.orEmpty(),
             tokenCookie = login?.cookieName ?: ServerSettings.DEFAULT_TOKEN_COOKIE,
-            selfSignedCert = selfSignedCert,
-            certificatePin = pin,
+            selfSignedCert = probe.selfSignedCert,
+            certificatePin = probe.certificatePin,
             signedOut = false,
         )
         // Prove the credentials work before they are saved.
