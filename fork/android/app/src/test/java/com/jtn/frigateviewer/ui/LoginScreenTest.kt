@@ -1,5 +1,7 @@
 package com.jtn.frigateviewer.ui
 
+import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -9,6 +11,7 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.SavedStateHandle
@@ -19,6 +22,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -104,6 +109,43 @@ class LoginScreenTest {
         compose.onNodeWithText("Server address").performTextReplacement("http://nvr.lan:5000")
 
         compose.onNode(hasTextContaining("not a local address")).assertDoesNotExist()
+    }
+
+    @Test
+    fun passwordManagersFindTheUsernameAndPassword() {
+        show()
+
+        assertEquals(ContentType.Username, contentType("Username (optional)"))
+        assertEquals(ContentType.Password, contentType("Password"))
+    }
+
+    private fun contentType(label: String) = compose.onNodeWithText(label).fetchSemanticsNode().config[SemanticsProperties.ContentType]
+
+    @Test
+    fun doneOnThePasswordConnectsAndTheErrorIsReadOut() {
+        show()
+        compose.onNodeWithText("Server address").performTextReplacement("http://example.com:5000")
+        compose.onNodeWithText("Username (optional)").performTextReplacement("admin")
+        compose.onNodeWithText("Password").performTextReplacement("secret")
+
+        compose.onNodeWithText("Password").performImeAction()
+
+        compose.waitUntil { compose.onAllNodes(hasTextContaining("not a local address")).fetchSemanticsNodes().isNotEmpty() }
+        val error = compose.onNode(hasTextContaining("not a local address")).fetchSemanticsNode()
+        assertEquals(LiveRegionMode.Polite, error.config[SemanticsProperties.LiveRegion])
+    }
+
+    @Test
+    fun doneWithoutAnAddressDoesNothing() {
+        val vm = show()
+        compose.onNodeWithText("Server address").performTextReplacement("")
+
+        compose.onNodeWithText("Password").performImeAction()
+
+        compose.runOnIdle {
+            assertFalse(vm.loggingIn)
+            assertNull(vm.loginError)
+        }
     }
 
     private fun hasTextContaining(text: String) = androidx.compose.ui.test.hasText(text, substring = true)

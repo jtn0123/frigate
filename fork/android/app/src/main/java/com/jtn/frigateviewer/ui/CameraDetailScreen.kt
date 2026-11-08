@@ -59,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
@@ -68,6 +69,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import com.jtn.frigateviewer.R
@@ -125,7 +127,8 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
             } else {
                 Modifier.clickable(interactionSource = null, indication = null, onClickLabel = showLarger) { expanded = true }
             }
-            Box(Modifier.fillMaxSize().then(media)) {
+            val liveView = stringResource(R.string.cam_live_view, camera.label)
+            Box(Modifier.fillMaxSize().then(media).semantics { contentDescription = liveView }) {
                 if (hasLive) {
                     LiveVideo(
                         session = session,
@@ -137,7 +140,8 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                         route = (vm.remoteAccess?.routeChanges ?: 0) + liveRetries,
                     )
                 } else {
-                    LiveFrame(session.api, camera.name, intervalMs = 1_000, height = 720, modifier = Modifier.fillMaxSize())
+                    // The picture is this camera's only view, so it stays quick, but only as large as it shows.
+                    FittedLiveFrame(session.api, camera.name, intervalMs = 1_000, modifier = Modifier.fillMaxSize())
                 }
             }
             // The floating window is too small for controls; it has its own.
@@ -151,10 +155,11 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
             val place = Modifier
                 .align(if (landscape) Alignment.TopEnd else Alignment.TopStart)
                 .then(if (landscape) Modifier.safeDrawingPadding() else Modifier)
+            // TalkBack reads out each change of status, which otherwise only shows.
             if (hasLive && liveState == LiveState.FAILED) {
                 RetryLivePill(stringResource(status), place.padding(4.dp)) { liveRetries++ }
             } else {
-                LivePill(label = stringResource(status), live = status == R.string.cam_status_live, modifier = place.padding(10.dp))
+                LivePill(stringResource(status), live = status == R.string.cam_status_live, place.padding(10.dp), announce = true)
             }
             Row(
                 Modifier.align(Alignment.BottomEnd).padding(6.dp),
@@ -272,15 +277,11 @@ private fun CameraActivity(vm: AppViewModel, session: Session, camera: Camera, i
     val now = LocalNow.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = WindowInsets.navigationBars.asPaddingValues()) {
         item {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
+            StatRow(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp)) {
                 Stat(
                     stringResource(R.string.cam_stat_alerts),
                     events.count { it.isAlert }.toString(),
                     Palette.Alert,
-                    Modifier.weight(1f),
                 ) {
                     vm.showReviews(camera.name, Severity.ALERT)
                 }
@@ -288,7 +289,6 @@ private fun CameraActivity(vm: AppViewModel, session: Session, camera: Camera, i
                     stringResource(R.string.cam_stat_detections),
                     events.count { !it.isAlert }.toString(),
                     Palette.Detection,
-                    Modifier.weight(1f),
                 ) {
                     vm.showReviews(camera.name, Severity.DETECTION)
                 }
@@ -297,7 +297,6 @@ private fun CameraActivity(vm: AppViewModel, session: Session, camera: Camera, i
                     // "12m", "3h" or "now": a full "12m ago" does not fit a third of the width.
                     events.maxOfOrNull { it.startTime }?.let { timeSince(it, now).resolve() } ?: stringResource(R.string.cam_stat_none),
                     Palette.TextPrimary,
-                    Modifier.weight(1f),
                 )
             }
         }
@@ -368,16 +367,47 @@ internal fun Stat(label: String, value: String, color: Color, modifier: Modifier
             .then(if (onClick != null) Modifier.clickable(onClickLabel = showLabel, onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
+        // The figure stays on one line, and [StatRow] makes room for it; the label wraps.
         Text(
             value,
             style = MaterialTheme.typography.titleLarge.merge(Tabular),
             color = color,
             fontWeight = FontWeight.Bold,
-            maxLines = 1,
+            softWrap = false,
         )
-        Text(label, style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary)
     }
 }
+
+/**
+ * [Stat]s side by side in equal shares of the width and as tall as the tallest, or with
+ * large text, when one of them would have to break a word or its figure to fit its share,
+ * one above another across the whole width.
+ */
+@Composable
+internal fun StatRow(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { stats, constraints ->
+        val gap = STAT_GAP.roundToPx()
+        val width = constraints.maxWidth
+        val share = (width - gap * (stats.size - 1)) / stats.size.coerceAtLeast(1)
+        if (stats.all { it.minIntrinsicWidth(constraints.maxHeight) <= share }) {
+            val height = stats.maxOfOrNull { it.minIntrinsicHeight(share) } ?: 0
+            val tiles = stats.map { it.measure(Constraints.fixed(share, height)) }
+            layout(width, height) { tiles.forEachIndexed { i, tile -> tile.placeRelative(i * (share + gap), 0) } }
+        } else {
+            val tiles = stats.map { it.measure(Constraints(minWidth = width, maxWidth = width)) }
+            layout(width, tiles.sumOf { it.height } + gap * (tiles.size - 1).coerceAtLeast(0)) {
+                var y = 0
+                tiles.forEach { tile ->
+                    tile.placeRelative(0, y)
+                    y += tile.height + gap
+                }
+            }
+        }
+    }
+}
+
+private val STAT_GAP = 10.dp
 
 /** The status of live video that gave up, as a button that tries it again. */
 @Composable
@@ -390,7 +420,7 @@ private fun RetryLivePill(label: String, modifier: Modifier, onRetry: () -> Unit
             .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LivePill(label = label, live = false)
+        LivePill(label = label, live = false, announce = true)
         Icon(
             Icons.Filled.Refresh,
             contentDescription = null,

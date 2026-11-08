@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Telling the home network from elsewhere, for the tunnel (tunnel/DirectRoute.kt). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- A clip saving in the background says how it went; asked for on the first save. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- A clip saving runs on as a data sync foreground service once the app is left. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- For the optional unlock prompt; granted at install, nothing is asked. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
@@ -50,6 +58,12 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/camera_widget_info" />
         </receiver>
+
+        <!-- WorkManager's foreground service, which saving a clip (work/ClipWorker.kt) runs in. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <!-- Lets the share sheet read a snapshot from the app's cache. -->
         <provider

@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
@@ -92,7 +93,10 @@ private fun SignedIn(vm: AppViewModel, session: Session) {
             .build()
     }
 
-    BackHandler(enabled = vm.nav.overlays.isNotEmpty()) { vm.nav.back() }
+    // Back closes the top screen; with none, another tab returns to Cameras, and only there leaves the app.
+    BackHandler(enabled = vm.nav.overlays.isNotEmpty() || vm.nav.tab != Tab.CAMERAS) {
+        if (!vm.nav.back()) vm.nav.tab = Tab.CAMERAS
+    }
 
     // Keep counts and badges current while the app is on screen: the live feed
     // pushes changes as they happen, and polling stands in while it is down.
@@ -175,21 +179,39 @@ private fun Screens(vm: AppViewModel, session: Session, imageLoader: ImageLoader
     // Each screen keeps what it saves (its scroll, folded days, the stream chosen) while
     // others are pushed over it, and forgets it once closed, so opening it again starts afresh.
     val states = rememberSaveableStateHolder()
-    val keys = vm.nav.overlays.mapIndexed { index, overlay -> "$index:$overlay" }
+    val overlays = vm.nav.overlays
+    val keys = overlays.mapIndexed(::screenKey)
     val composed = remember { mutableSetOf<String>() }
     LaunchedEffect(keys) {
         (composed - keys.toSet()).forEach(states::removeState)
         composed.retainAll(keys.toSet())
         composed += keys
     }
-    val overlay = vm.nav.overlays.lastOrNull()
-    states.SaveableStateProvider(keys.lastOrNull() ?: "tabs") {
-        if (overlay == null) Tabs(vm, session, imageLoader) else OverlayScreen(vm, session, imageLoader, overlay)
+    val kept = rememberKeptGrid(overlays, keys)
+    // Keyed, so a grid kept beneath carries on as it was when Back brings it to the top.
+    Box(Modifier.fillMaxSize()) {
+        listOfNotNull(kept, keys.lastOrNull() ?: TABS_KEY).forEach { screen ->
+            key(screen) {
+                val covered = screen == kept
+                states.SaveableStateProvider(screen) {
+                    Layer(covered) {
+                        val overlay = overlays.getOrNull(keys.indexOf(screen))
+                        if (overlay == null) Tabs(vm, session, imageLoader) else OverlayScreen(vm, session, imageLoader, overlay, covered)
+                    }
+                }
+            }
+        }
     }
 }
 
+/**
+ * What a pushed screen's state is kept under. Stepping to an older or newer item
+ * keeps the event screen itself, so fullscreen and its turn of the screen carry on.
+ */
+private fun screenKey(index: Int, overlay: Overlay): String = if (overlay is Overlay.Event) "$index:event" else "$index:$overlay"
+
 @Composable
-private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader, overlay: Overlay) {
+private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader, overlay: Overlay, covered: Boolean) {
     when (overlay) {
         is Overlay.CameraDetail -> vm.cameraByName(overlay.camera)
             ?.let { CameraDetailScreen(vm, session, it, imageLoader) }
@@ -208,7 +230,7 @@ private fun OverlayScreen(vm: AppViewModel, session: Session, imageLoader: Image
         is Overlay.Timeline -> vm.cameraByName(overlay.camera)
             ?.let { TimelineScreen(vm, session, it, overlay.start) }
             ?: Unavailable(vm, vm.cameras, onRetry = vm::refreshCameras)
-        is Overlay.LiveGrid -> LiveGridScreen(vm, session, overlay.cameras)
+        is Overlay.LiveGrid -> LiveGridScreen(vm, session, overlay.cameras, covered)
         Overlay.Health -> HealthScreen(
             stats = vm.health.value,
             cameraLabel = vm::cameraLabel,
@@ -319,3 +341,5 @@ private fun Tab.icon(selected: Boolean): ImageVector = when (this) {
     Tab.REVIEW -> if (selected) Icons.Filled.VideoLibrary else Icons.Outlined.VideoLibrary
     Tab.SETTINGS -> if (selected) Icons.Filled.Settings else Icons.Outlined.Settings
 }
+
+private const val TABS_KEY = "tabs"

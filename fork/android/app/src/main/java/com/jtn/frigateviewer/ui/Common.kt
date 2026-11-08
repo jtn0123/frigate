@@ -46,7 +46,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -182,9 +184,12 @@ fun TabSheet(modifier: Modifier = Modifier, content: @Composable ColumnScope.() 
     )
 }
 
-/** Status tag over video: a breathing red dot while [live], a still grey one otherwise. */
+/**
+ * Status tag over video: a breathing red dot while [live], a still grey one otherwise. When
+ * [announce], TalkBack reads out each new [label], such as the video going from connecting to live.
+ */
 @Composable
-fun LivePill(label: String, live: Boolean, modifier: Modifier = Modifier) {
+fun LivePill(label: String, live: Boolean, modifier: Modifier = Modifier, announce: Boolean = false) {
     val pulse by rememberInfiniteTransition(label = "live").animateFloat(
         initialValue = 1f,
         targetValue = 0.25f,
@@ -206,7 +211,14 @@ fun LivePill(label: String, live: Boolean, modifier: Modifier = Modifier) {
                 .clip(CircleShape)
                 .background(if (live) Palette.Live else Palette.TextSecondary),
         )
-        Text(label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text(
+            label,
+            color = Color.White,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            modifier = if (announce) Modifier.semantics { liveRegion = LiveRegionMode.Polite } else Modifier,
+        )
     }
 }
 

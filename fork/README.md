@@ -11,11 +11,14 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
 - `scripts/check.sh` runs every CI gate locally (`make check`), or only what
   changed since `origin/next` (`make check-fast`). Host gates run one after
   another, the Docker gates beside them; see the script header for why.
+- `scripts/local_ci.py` runs CI on this machine and posts the result to the
+  pull request as its "Checks passed" status (`make ci PR=<n>`, or
+  `make ci-watch` for every open pull request and `next`). See `LOCAL-CI.md`.
 - `scripts/release_notes.py` writes a release's notes from the fork's own
   commits (tests: `scripts/test_release_notes.py`). "Fork - Build image" runs it
   for every `main` build and publishes the GitHub Release.
 - `scripts/promote.sh` moves `main` to `next` (`make promote`) once
-  "Fork - Checks" is green on `next`, after previewing the release notes.
+  "Checks passed" is green on `next`, after previewing the release notes.
 - `scripts/py-checks.sh` runs mypy, the API spec check and unittest in the test
   image at the same time (`make check-py`, CI "Python - mypy, API spec, unittest").
   unittest includes the `audio_trial` and `monitoring` suites, as in CI.
@@ -46,6 +49,7 @@ Inner loop (from the repo root):
 make wt NAME=<name>                        # new worktree: branch, deps, e2e port
 make check-fast                            # changed-only gates, for every commit
 make check                                 # every CI gate, before a PR
+make ci PR=<n>                             # CI for a pull request, here; posts its status
 make dev-web PROXY_HOST=<frigate-host>:5000   # vite against a live Frigate
 make lint                                  # ruff + eslint + e2e spec lint
 make typecheck                             # tsc for the app and e2e specs (incremental)
@@ -158,6 +162,7 @@ An HTTPS `HF_ENDPOINT` mirror must serve the same reviewed bytes.
 - [Historical graded backlog (2026-09-18 snapshot)](GRADE-REPORT.md)
 - [Architecture and message ownership](ARCHITECTURE.md)
 - [Owner deployment, backup and rollback runbook](DEPLOYMENT.md)
+- [Container hardening versus upstream](HARDENING.md)
 - Shared demo/test image: `fork/runtime-base.env` (local tests may explicitly override `FORK_TEST_BASE`).
 - Pre-commit checks the fork Python roots, fork-owned workflows with actionlint,
   and `fork/**/*.sh` with ShellCheck. Install with `pre-commit install`; run the

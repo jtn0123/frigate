@@ -33,7 +33,13 @@ update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 mkdir -p -m 600 /root/.gnupg
 
 # install coral runtime
+# sha256 digests of the release debs; update when bumping the libedgetpu release.
+declare -A edgetpu_checksums=(
+    ["amd64"]="63fd00989d29160fa9894e115156a9abe456e88751fc9be89d26e4696200441b"
+    ["arm64"]="eab8aa4576b4dbf738135d8094f32270b24117f77147d25cbe0f49d0144d85f2"
+)
 download_https --output /tmp/libedgetpu1-max.deb "https://github.com/feranick/libedgetpu/releases/download/16.0TF2.17.1-1/libedgetpu1-max_16.0tf2.17.1-1.bookworm_${TARGETARCH}.deb"
+echo "${edgetpu_checksums[${TARGETARCH}]}  /tmp/libedgetpu1-max.deb" | sha256sum -c -
 unset DEBIAN_FRONTEND
 yes | dpkg -i /tmp/libedgetpu1-max.deb && export DEBIAN_FRONTEND=noninteractive
 rm /tmp/libedgetpu1-max.deb
@@ -131,27 +137,56 @@ if [[ "${TARGETARCH}" == "amd64" ]]; then
     apt-get -qq install -y libtbb12
 
     # install legacy and standard intel compute packages
+    # sha256 digests of the driver debs, taken from the ww<week>.sum asset
+    # compute-runtime ships per release and the checksum.sha256 on npu-driver
+    # v1.19.0; intel-graphics-compiler and level-zero publish none, so those
+    # five are hash-what-you-get. Refresh after a version bump with
+    # `curl -sL <url> | sha256sum`, cross-checking upstream's sum where the
+    # release still has one. npu-driver stopped publishing them after v1.19.0.
+    declare -A intel_checksums=(
+        ["libigdgmm12_22.9.0_amd64.deb"]="9d712f71c18baee076de9961dda71e8089291e1bd0deb5d649ab5ba5de114f97"
+        ["intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb"]="bbe71e4f414259e06a10cde72c29a2bd78d41b2bb2f6f8463b1806797fe66e85"
+        ["intel-level-zero-gpu-legacy1_1.5.30872.36_amd64.deb"]="40dfbd15ab62de036a00824b304a2aa1fa2d81ad60ef83da09cfe3c5a80c429f"
+        ["intel-igc-opencl_1.0.17537.24_amd64.deb"]="dd016400f87fa2b6a9fa9fbcca7eb4a2629174a29de679709f9bec5cede88b0e"
+        ["intel-igc-core_1.0.17537.24_amd64.deb"]="c1e1ecdfe2064c047c552651cfdcdafc504f2033afafba65654338b880048b67"
+        ["intel-opencl-icd_26.14.37833.4-0_amd64.deb"]="2e15eeb4fe9c1bba467a655967373eec6a20dd04cc7159de53c359f17ab53e41"
+        ["libze-intel-gpu1_26.14.37833.4-0_amd64.deb"]="34ce5791160d87ce6d54edb558a4030858ee1dad2afb067b9c5c58d4cde774c6"
+        ["intel-igc-opencl-2_2.32.7+21184_amd64.deb"]="3c9bddbfe558279402bbeaabcf9c63b8de46b956b0ad9625415fd35dda53ad52"
+        ["intel-igc-core-2_2.32.7+21184_amd64.deb"]="64e5230788e3a31e611e8d815a141b1facb91e5f0ef239233ef3f0614bfe3fd6"
+        ["level-zero_1.28.2+u22.04_amd64.deb"]="9015a579abef960166f8e943858d5c81fd4199a960f07260c1da66038257effb"
+        ["intel-driver-compiler-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb"]="8087bfcc0872d7976d0163203c7c783a4176f813c473766587e86c7b34135dff"
+        ["intel-fw-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb"]="740219c03495f8812c03ab74baf8199acf17d13929001105418d4ba226ba2290"
+        ["intel-level-zero-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb"]="f4f5eb97aa7da52c7fec97e4ddfb43aae01703bbadc767bae1f2d4faf342ba42"
+    )
+
+    fetch_intel_deb() {
+        local url="$1" name
+        name=$(basename "$url")
+        download_https --remote-name "$url"
+        echo "${intel_checksums[${name}]}  ${name}" | sha256sum -c -
+    }
+
     # see https://github.com/intel/compute-runtime/blob/master/LEGACY_PLATFORMS.md for more info
     # needed core package
-    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/libigdgmm12_22.9.0_amd64.deb
+    fetch_intel_deb https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/libigdgmm12_22.9.0_amd64.deb
     dpkg -i libigdgmm12_22.9.0_amd64.deb
     rm libigdgmm12_22.9.0_amd64.deb
 
     # legacy compute-runtime packages
-    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb
-    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-level-zero-gpu-legacy1_1.5.30872.36_amd64.deb
-    download_https --remote-name https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-opencl_1.0.17537.24_amd64.deb
-    download_https --remote-name https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-core_1.0.17537.24_amd64.deb
+    fetch_intel_deb https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb
+    fetch_intel_deb https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-level-zero-gpu-legacy1_1.5.30872.36_amd64.deb
+    fetch_intel_deb https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-opencl_1.0.17537.24_amd64.deb
+    fetch_intel_deb https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-core_1.0.17537.24_amd64.deb
     # standard compute-runtime packages
-    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/intel-opencl-icd_26.14.37833.4-0_amd64.deb
-    download_https --remote-name https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/libze-intel-gpu1_26.14.37833.4-0_amd64.deb
-    download_https --remote-name https://github.com/intel/intel-graphics-compiler/releases/download/v2.32.7/intel-igc-opencl-2_2.32.7+21184_amd64.deb
-    download_https --remote-name https://github.com/intel/intel-graphics-compiler/releases/download/v2.32.7/intel-igc-core-2_2.32.7+21184_amd64.deb
+    fetch_intel_deb https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/intel-opencl-icd_26.14.37833.4-0_amd64.deb
+    fetch_intel_deb https://github.com/intel/compute-runtime/releases/download/26.14.37833.4/libze-intel-gpu1_26.14.37833.4-0_amd64.deb
+    fetch_intel_deb https://github.com/intel/intel-graphics-compiler/releases/download/v2.32.7/intel-igc-opencl-2_2.32.7+21184_amd64.deb
+    fetch_intel_deb https://github.com/intel/intel-graphics-compiler/releases/download/v2.32.7/intel-igc-core-2_2.32.7+21184_amd64.deb
     # npu packages
-    download_https --remote-name https://github.com/oneapi-src/level-zero/releases/download/v1.28.2/level-zero_1.28.2+u22.04_amd64.deb
-    download_https --remote-name https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-driver-compiler-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
-    download_https --remote-name https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-fw-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
-    download_https --remote-name https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-level-zero-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
+    fetch_intel_deb https://github.com/oneapi-src/level-zero/releases/download/v1.28.2/level-zero_1.28.2+u22.04_amd64.deb
+    fetch_intel_deb https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-driver-compiler-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
+    fetch_intel_deb https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-fw-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
+    fetch_intel_deb https://github.com/intel/linux-npu-driver/releases/download/v1.19.0/intel-level-zero-npu_1.19.0.20250707-16111289554_ubuntu22.04_amd64.deb
 
     dpkg -i *.deb
     rm *.deb
@@ -177,7 +212,15 @@ apt-get autoremove --purge -y
 rm -rf /var/lib/apt/lists/*
 
 # Install yq, for frigate-prepare and go2rtc echo source
+# sha256 digests from the release's published checksums file; update when
+# bumping the yq release.
+declare -A yq_checksums=(
+    ["amd64"]="0ffc35320180d4911bc3a772934da508715e08af444cb33d4d43660065e25bcc"
+    ["arm64"]="3c21630fda217239a5b7d718d08f08e02503098230b3abd49195d315a6dcfe45"
+)
+yq_arch="$(dpkg --print-architecture)"
 download_https \
-    "https://github.com/mikefarah/yq/releases/download/v4.48.2/yq_linux_$(dpkg --print-architecture)" \
+    "https://github.com/mikefarah/yq/releases/download/v4.48.2/yq_linux_${yq_arch}" \
     --output /usr/local/bin/yq
+echo "${yq_checksums[${yq_arch}]}  /usr/local/bin/yq" | sha256sum -c -
 chmod +x /usr/local/bin/yq

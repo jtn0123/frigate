@@ -2,6 +2,7 @@
 
 import asyncio
 import io
+import threading
 import time
 import unittest
 from types import SimpleNamespace
@@ -14,8 +15,17 @@ from fastapi import FastAPI
 from frigate.api import app as app_api
 from frigate.api import media
 
+# Only a blocked event loop waits this out, so the test fails instead of hanging
+# there. A busy machine answers the heartbeat long before it.
+HOLD_TIMEOUT = 30
+
 
 class TestApiResponsiveness(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self.released_by_heartbeat = None
+
     def app(self):
         app = FastAPI()
         app.add_api_route("/frame/{camera_name}/latest.{extension}", media.latest_frame)
@@ -27,19 +37,33 @@ class TestApiResponsiveness(unittest.IsolatedAsyncioTestCase):
 
         return app
 
+    def hold(self):
+        """Stand in for slow work that lasts until the heartbeat is answered.
+
+        In a worker thread, the event loop answers the heartbeat during the wait.
+        On the event loop itself, nothing else runs until the wait times out.
+        """
+        self.entered.set()
+        self.released_by_heartbeat = self.release.wait(HOLD_TIMEOUT)
+
     async def check_heartbeat(self, app, slow_path):
+        # The order of events is checked, not their timing, so a slow or busy
+        # machine (the local CI runs Docker gates side by side) cannot fail it.
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
-            started = time.monotonic()
             slow = asyncio.create_task(client.get(slow_path))
-            await asyncio.sleep(0.05)
+            # ask for the heartbeat only once the slow work is under way
+            await asyncio.to_thread(self.entered.wait, HOLD_TIMEOUT)
             heartbeat = await client.get("/heartbeat")
-            latency = time.monotonic() - started
+            self.release.set()
             response = await slow
         self.assertEqual(heartbeat.status_code, 200)
         self.assertEqual(response.status_code, 200)
-        self.assertLess(latency, 0.25)
+        self.assertTrue(
+            self.released_by_heartbeat,
+            "the slow work held the event loop, so the heartbeat waited for it",
+        )
         return response
 
     async def test_latest_image_work_does_not_block_the_event_loop(self):
@@ -52,7 +76,7 @@ class TestApiResponsiveness(unittest.IsolatedAsyncioTestCase):
         frame = np.zeros((64, 64, 3), np.uint8)
 
         def slow_frame(*args):
-            time.sleep(0.4)
+            self.hold()
             return frame
 
         app.detected_frames_processor = Mock()
@@ -65,7 +89,7 @@ class TestApiResponsiveness(unittest.IsolatedAsyncioTestCase):
 
     async def test_log_download_does_not_block_the_event_loop(self):
         def slow_open(*args, **kwargs):
-            time.sleep(0.4)
+            self.hold()
             return io.StringIO("a log entry\n")
 
         with patch.object(app_api, "open", side_effect=slow_open, create=True):

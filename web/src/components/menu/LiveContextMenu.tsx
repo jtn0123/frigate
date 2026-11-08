@@ -50,6 +50,7 @@ import { use24HourTime } from "@/hooks/use-date-utils";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { CameraNameLabel } from "../camera/FriendlyNameLabel";
 import { LiveStreamMetadata } from "@/types/live";
+import CustomSuspensionDialog from "@/components/overlay/dialog/CustomSuspensionDialog";
 
 type LiveContextMenuProps = {
   className?: string;
@@ -232,6 +233,8 @@ export default function LiveContextMenu({
     useNotificationSuspend(camera);
   const isSuspended =
     notificationSuspendUntil !== "0" || notificationState === "OFF";
+
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
 
   const handleSuspend = (duration: string) => {
     if (duration === "off") {
@@ -545,6 +548,12 @@ export default function LiveContextMenu({
                             </ContextMenuItem>
                             <ContextMenuItem
                               disabled={!isEnabled}
+                              onClick={() => setCustomDialogOpen(true)}
+                            >
+                              {t("time.custom", { ns: "common" })}
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              disabled={!isEnabled}
                               onClick={
                                 isEnabled
                                   ? () => handleSuspend("off")
@@ -577,6 +586,12 @@ export default function LiveContextMenu({
           />
         )}
       </Dialog>
+
+      <CustomSuspensionDialog
+        open={customDialogOpen}
+        onOpenChange={setCustomDialogOpen}
+        onConfirm={(minutes) => sendNotificationSuspend(minutes)}
+      />
     </div>
   );
 }

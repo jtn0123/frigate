@@ -11,9 +11,12 @@ import androidx.lifecycle.viewModelScope
 import com.jtn.frigateviewer.R
 import com.jtn.frigateviewer.data.AuthException
 import com.jtn.frigateviewer.data.Camera
+import com.jtn.frigateviewer.data.Failure
+import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.InsecureLoginException
 import com.jtn.frigateviewer.data.MediaFiles
 import com.jtn.frigateviewer.data.MotionBucket
+import com.jtn.frigateviewer.data.Profile
 import com.jtn.frigateviewer.data.PtzInfo
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
@@ -23,16 +26,18 @@ import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.data.Severity
 import com.jtn.frigateviewer.data.SignIn
 import com.jtn.frigateviewer.data.SignInResult
-import com.jtn.frigateviewer.data.allowedCameras
 import com.jtn.frigateviewer.data.map
 import com.jtn.frigateviewer.data.motionActivity
+import com.jtn.frigateviewer.data.profile
 import com.jtn.frigateviewer.data.ptzInfo
 import com.jtn.frigateviewer.data.review
 import com.jtn.frigateviewer.tunnel.RemoteAccess
 import java.io.IOException
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
@@ -79,6 +84,8 @@ class AppViewModel(
     val remoteAccess: RemoteAccess? = null,
     /** Each camera's latest picture. */
     val snapshots: Snapshots = Snapshots(),
+    /** Where clips are saved: in the background on a phone; in process, when null, as in tests. */
+    clipJobs: ClipJobs? = null,
 ) : ViewModel() {
 
     /** False until settings load, so the login screen does not flash on start. */
@@ -121,6 +128,7 @@ class AppViewModel(
     var severity by reviewStore::severity
     var cameraFilter by reviewStore::cameraFilter
     val filteredReviews get() = reviewStore.filtered
+    val reviewCounts get() = reviewStore.counts
     val unreviewedAlerts get() = reviewStore.unreviewedAlerts
     val reviewsCapped get() = reviewStore.capped
     val reviewMessage get() = reviewStore.message
@@ -131,14 +139,20 @@ class AppViewModel(
     fun reviewMessageShown() = reviewStore.messageShown()
 
     /** Clips being saved and snapshots being shared. */
-    val clips = Clips(sessionScope, onSessionLost = ::sessionLost, media)
+    val clips = Clips(sessionScope, onSessionLost = ::sessionLost, media, clipJobs ?: media?.let(::ScopedClipJobs))
 
     /** The server can find tracked objects from a description. */
     var semanticSearch by mutableStateOf(false)
         private set
 
     /** Switching cameras' detection and recording, and moving PTZ cameras, for admins. */
-    val controls = CameraControl(sessionScope, onSessionLost = ::sessionLost)
+    val controls = CameraControl(sessionScope)
+
+    /** The account's profile, read once a session for both the camera list and [controls]. */
+    private var profile: Deferred<Remote<Profile>>? = null
+
+    /** The last read of [profile] did not reach the server, so the next refresh reads it again. */
+    private var profileUnreached = false
 
     /** Searching past the last 24 hours; kept while its results are opened. */
     val search = ReviewSearch(sessionScope, onSessionLost = ::sessionLost)
@@ -302,6 +316,7 @@ class AppViewModel(
             clips.reset()
             search.reset()
             controls.reset()
+            profile = null
             health.reset()
             motion.reset()
             ptz.reset()
@@ -363,8 +378,22 @@ class AppViewModel(
                 semanticSearch = config.value.semanticSearch
             }
             // A role limited to some cameras would only get 403s from the others.
-            val allowed = if (config is Remote.Ready) api.allowedCameras() else null
+            val allowed = if (config is Remote.Ready) (profile(api).await() as? Remote.Ready)?.value?.allowedCameras else null
             cameras = config.map { it.cameras.filter { camera -> allowed == null || camera.name in allowed } }
+        }
+    }
+
+    /**
+     * The session's profile: read on the first call and shared after that, so
+     * starting a session and refreshing the cameras do not each ask again. A
+     * read that did not reach the server is tried again on the next call.
+     */
+    private fun profile(api: FrigateApi): Deferred<Remote<Profile>> {
+        profile?.takeUnless { profileUnreached }?.let { return it }
+        profileUnreached = false
+        return sessionScope.async { load { api.profile() }.also { profileUnreached = it.unreached } }.also {
+            profile = it
+            controls.loadRole(it)
         }
     }
 
@@ -448,9 +477,11 @@ class AppViewModel(
         session = Session.saving(settings) { change -> ownScope.launch { updateSettings(change) } }
         cameras = Remote.Loading
         reviewStore.reset()
+        profile = null
+        // Read at once for the controls, even when the camera list cannot be.
+        session?.let { profile(it.api) }
         refreshCameras()
         refreshReviews()
-        session?.let { controls.loadRole(it.api) }
         loadVersion()
         restoreEvents()
     }
@@ -494,6 +525,11 @@ class AppViewModel(
         if (refused === session && sessionJob.isActive) sessionLost(null)
     }
 }
+
+/** A read that never got an answer from the server, so asking again may work. */
+private val Remote<*>.unreached: Boolean
+    get() = this is Remote.Failed &&
+        (failure is Failure.Offline || failure is Failure.Timeout || failure is Failure.ServerNotFound || failure is Failure.Other)
 
 /** A camera's motion between [from] and [to] (epoch seconds), in slices of [scaleSeconds]. */
 data class MotionRange(val camera: String, val from: Long, val to: Long, val scaleSeconds: Int)

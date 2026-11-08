@@ -328,6 +328,14 @@ jobs:
       - name: Audio companion unit tests
         run: docker run --rm -v "$PWD/fork/audio_trial:/opt/frigate/fork/audio_trial:ro" frigate-fork-test discover -s fork/audio_trial -v
 
+  # The image pins apt to one snapshot.debian.org timestamp, and that single
+  # host was down for hours on 2026-11-05 and 06, failing this job each time
+  # (I162). The layers are kept in the Actions cache, so apt and pip only
+  # reach the network when the Dockerfile or a file it copies changes. The
+  # digest-pinned base, the fixed snapshot and the hash-pinned lock mean a
+  # cached layer holds the packages a fresh build would install. Pull requests
+  # read the cache that pushes to next save. A failed save only warns: the
+  # image was still built and every step below still runs against it.
   audio_companion:
     name: Audio companion - actual image and offline startup
     needs: changes
@@ -338,8 +346,16 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build locked runtime
-        run: docker build --platform linux/amd64 -t frigate-audio-check fork/audio_trial
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fork/audio_trial
+          platforms: linux/amd64
+          tags: frigate-audio-check
+          load: true
+          cache-from: type=gha,scope=audio-companion
+          cache-to: type=gha,mode=max,scope=audio-companion,ignore-error=true
       - name: Recover after forced container termination
         run: python3 fork/scripts/audio-recovery-check.py frigate-audio-check
       - name: Benchmark safety and scoring regressions

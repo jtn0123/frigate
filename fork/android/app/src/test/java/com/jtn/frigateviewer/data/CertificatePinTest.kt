@@ -9,6 +9,7 @@ import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -36,6 +37,42 @@ class CertificatePinTest {
     fun acceptsThePinnedCertificate() = runTest {
         server.enqueue(MockResponse.Builder().body("0.17.0").build())
         assertEquals("0.17.0", api(CertificatePin(serverFingerprint)).version())
+    }
+
+    @Test
+    fun aNewSessionTrustingTheSameCertificateReusesTheConnection() = runTest {
+        server.enqueue(MockResponse.Builder().body("0.17.0").build())
+        server.enqueue(MockResponse.Builder().body("0.17.0").build())
+
+        api(CertificatePin(serverFingerprint)).version()
+        // As a widget update does after the app signed in: another client, the same certificate.
+        api(CertificatePin(serverFingerprint.lowercase())).version()
+
+        val requests = List(server.requestCount) { server.takeRequest() }
+        assertEquals("No second handshake", listOf(0, 0), requests.map { it.connectionIndex })
+    }
+
+    @Test
+    fun aDifferentPinNeverReusesATrustedConnection() = runTest {
+        server.enqueue(MockResponse.Builder().body("0.17.0").build())
+        api(CertificatePin(serverFingerprint)).version()
+
+        try {
+            api(CertificatePin(otherFingerprint)).version()
+            fail("A connection trusted under another pin was reused")
+        } catch (e: IOException) {
+            assertNotNull("Expected a certificate change, got $e", e.certificateChange())
+        }
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun everyClientSharesOnePoolAndDispatcher() {
+        val plain = buildHttpClient(null, pin = null)
+        val pinned = buildHttpClient(AuthToken(server.url("/").toString(), "frigate_token", "jwt"), CertificatePin(serverFingerprint))
+        assertSame(plain.connectionPool, pinned.connectionPool)
+        assertSame(plain.dispatcher, pinned.dispatcher)
+        assertSame(baseHttpClient.connectionPool, plain.connectionPool)
     }
 
     @Test

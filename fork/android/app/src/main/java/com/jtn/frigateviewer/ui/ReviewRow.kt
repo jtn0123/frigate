@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -174,19 +174,24 @@ private fun ReviewRowContent(
                     )
                 }
             }
-            // Reviewed items fade back so the ones still to look at stand out.
-            .alpha(if (reviewed) REVIEWED_ALPHA else 1f)
             .padding(8.dp)
-            .height(68.dp),
+            // Large text makes the row taller rather than cutting it off.
+            .heightIn(min = THUMB_HEIGHT),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.fillMaxHeight().aspectRatio(16f / 9f)) {
+        Box(Modifier.height(THUMB_HEIGHT).aspectRatio(16f / 9f)) {
+            // Reviewed items fade back so the ones still to look at stand out. Only the picture
+            // fades: faded text would fall below a readable contrast, so it turns grey instead.
             AsyncImage(
                 model = session.api.thumbnailUrl(item),
                 imageLoader = imageLoader,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Palette.Surface),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(if (reviewed) REVIEWED_ALPHA else 1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Palette.Surface),
             )
             SeverityDot(
                 item.isAlert,
@@ -203,6 +208,7 @@ private fun ReviewRowContent(
                 Text(
                     item.title,
                     style = MaterialTheme.typography.bodyLarge,
+                    color = if (reviewed) Palette.TextSecondary else Palette.TextPrimary,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -246,4 +252,5 @@ internal fun whereLine(item: ReviewItem, cameraLabel: String, showCamera: Boolea
 }
 
 private const val REVIEWED_ALPHA = 0.55f
+private val THUMB_HEIGHT = 68.dp
 private const val SWIPE_THRESHOLD = 0.58f

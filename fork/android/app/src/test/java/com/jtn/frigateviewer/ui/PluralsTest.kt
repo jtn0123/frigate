@@ -105,6 +105,17 @@ class PluralsTest {
     }
 
     @Test
+    fun reviewCountsHaveAFormForOne() {
+        assertEquals("1 to review · last 24 hours", uiPlural(R.plurals.rev_subtitle_to_review, 1).english())
+        assertEquals("4 to review · last 24 hours", uiPlural(R.plurals.rev_subtitle_to_review, 4).english())
+        assertEquals("Mark 1 item as reviewed?", uiPlural(R.plurals.rev_mark_all_title, 1).english())
+        assertEquals("Mark 3 items as reviewed?", uiPlural(R.plurals.rev_mark_all_title, 3).english())
+        assertEquals("Alerts 1", uiPlural(R.plurals.rev_filter_alerts, 1).english())
+        assertEquals("Detections 0", uiPlural(R.plurals.rev_filter_detections, 0).english())
+        assertEquals("All 2", uiPlural(R.plurals.rev_filter_all, 2).english())
+    }
+
+    @Test
     fun theTunnelsTrafficCountsOneByte() {
         val stats = TunnelStats(sentBytes = 1, receivedBytes = 2, lastHandshakeMs = null)
         assertEquals("Sent 1 byte, received 2 bytes · server has not answered", trafficText(stats).english())
