@@ -9,7 +9,6 @@ download_https() {
 
 NGINX_VERSION="1.27.4"
 VOD_MODULE_VERSION="v1.9.1"
-SECURE_TOKEN_MODULE_VERSION="1.5"
 SET_MISC_MODULE_VERSION="v0.33"
 NGX_DEVEL_KIT_VERSION="v0.3.3"
 
@@ -57,11 +56,6 @@ patch -d /tmp/nginx-vod-module/ -p1 << 'EOF'
 EOF
 
 
-mkdir /tmp/nginx-secure-token-module
-download_https --remote-name https://github.com/kaltura/nginx-secure-token-module/archive/refs/tags/${SECURE_TOKEN_MODULE_VERSION}.tar.gz
-tar -zxf ${SECURE_TOKEN_MODULE_VERSION}.tar.gz -C /tmp/nginx-secure-token-module --strip-components=1
-rm ${SECURE_TOKEN_MODULE_VERSION}.tar.gz
-
 mkdir /tmp/ngx_devel_kit
 download_https --remote-name https://github.com/vision5/ngx_devel_kit/archive/refs/tags/${NGX_DEVEL_KIT_VERSION}.tar.gz
 tar -zxf ${NGX_DEVEL_KIT_VERSION}.tar.gz -C /tmp/ngx_devel_kit --strip-components=1
@@ -85,7 +79,6 @@ cd /tmp/nginx
     --add-module=../ngx_devel_kit \
     --add-module=../nginx-set-misc-module \
     --add-module=../nginx-vod-module \
-    --add-module=../nginx-secure-token-module \
     --with-cc-opt="-O3 -Wno-error=implicit-fallthrough"
 
 make CC="ccache gcc" -j$(nproc) && make install
