@@ -29,8 +29,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.data.AuthException
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.Session
+import com.jtn.frigateviewer.runMainLooper
+import com.jtn.frigateviewer.waitOnMain
 import java.io.IOException
-import java.time.Duration
 import java.util.concurrent.TimeUnit
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -261,12 +262,7 @@ class PlaybackTest {
 
     /** Runs the main looper until the first player has failed. */
     private fun awaitError() {
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (players.firstOrNull()?.playerError == null) {
-            check(System.currentTimeMillis() < deadline) { "Timed out" }
-            Thread.sleep(10)
-            idleMain()
-        }
+        waitOnMain("the player to fail", stepMs = MAIN_STEP_MS) { players.firstOrNull()?.playerError != null }
         compose.waitForIdle()
     }
 
@@ -279,7 +275,7 @@ class PlaybackTest {
         createMessage { _, _ -> }.send().blockUntilDelivered(TIMEOUT_MS)
     }
 
-    private fun idleMain() = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
+    private fun idleMain() = runMainLooper(MAIN_STEP_MS)
 
     private inline fun <reified T : View> View.find(): T? = all().filterIsInstance<T>().firstOrNull()
 
@@ -312,5 +308,8 @@ class PlaybackTest {
 
     private companion object {
         const val TIMEOUT_MS = 5_000L
+
+        /** How far the main looper's clock moves each time, so the player's own retries come round. */
+        const val MAIN_STEP_MS = 100L
     }
 }

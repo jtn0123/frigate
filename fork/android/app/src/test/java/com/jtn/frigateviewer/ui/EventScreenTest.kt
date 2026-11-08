@@ -1,6 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.os.Looper
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -10,6 +9,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
+import com.jtn.frigateviewer.waitOnMain
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +27,6 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 
 /** Stepping through items from an open one, and the way back to the camera. */
 @RunWith(RobolectricTestRunner::class)
@@ -118,16 +117,7 @@ class EventScreenTest {
 
     /** Waits for [condition], running the main looper, where the view model's work resumes. */
     private fun awaitMain(condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (!condition()) {
-            check(System.currentTimeMillis() < deadline) { "Timed out" }
-            shadowOf(Looper.getMainLooper()).idle()
-            Thread.sleep(10)
-        }
+        waitOnMain(stepMs = 0, condition = condition)
         compose.waitForIdle()
-    }
-
-    private companion object {
-        const val TIMEOUT_MS = 5_000L
     }
 }

@@ -3,7 +3,6 @@ package com.jtn.frigateviewer
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.os.Looper
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -19,7 +18,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.ui.json
 import com.jtn.frigateviewer.widget.CameraWidget
-import java.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,7 +34,6 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 
 /** The app as launched from the home screen widget: a tapped camera opens straight to that camera. */
 @RunWith(RobolectricTestRunner::class)
@@ -160,12 +157,6 @@ class MainActivityTest {
     private fun awaitText(text: String, timeoutMs: Long = 10_000) =
         awaitLooper(timeoutMs, text) { compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
 
-    private fun awaitLooper(timeoutMs: Long = 10_000, what: String = "the condition", condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (!condition()) {
-            check(System.currentTimeMillis() < deadline) { "Timed out waiting for $what" }
-            Thread.sleep(10)
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10))
-        }
-    }
+    private fun awaitLooper(timeoutMs: Long = 10_000, what: String = "the condition", condition: () -> Boolean) =
+        waitOnMain(what, timeoutMs, condition = condition)
 }

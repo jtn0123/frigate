@@ -10,6 +10,7 @@ import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.SettingsStore
 import com.jtn.frigateviewer.data.certificateFingerprint
+import com.jtn.frigateviewer.waitUntil
 import java.io.File
 import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
@@ -128,13 +129,7 @@ class AppViewModelTest {
     }
 
     /** Waits for the app's background work to reach [condition]. */
-    private fun await(what: String, condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + 5_000
-        while (!runOnMain(condition)) {
-            check(System.currentTimeMillis() < deadline) { "Timed out waiting for $what" }
-            Thread.sleep(10)
-        }
-    }
+    private fun await(what: String, condition: () -> Boolean) = waitUntil(what) { runOnMain(condition) }
 
     private fun <T> runOnMain(block: () -> T): T = runBlocking(main) { block() }
 
@@ -408,13 +403,16 @@ class AppViewModelTest {
         val vm = viewModel()
         signIn(vm)
         await("the first session's reviews to be asked for") { "/api/review" in paths }
+        val first = runOnMain { vm.session!! }
 
         runOnMain { vm.logout() }
         await("sign-out") { vm.session == null }
         signIn(vm)
         val second = runOnMain { vm.session }
         release.countDown()
-        Thread.sleep(500)
+        // The held request is over, refused or cancelled, and what it set off on the main thread has run.
+        await("the first session's requests to end") { first.client.dispatcher.runningCallsCount() == 0 }
+        runOnMain {}
 
         assertTrue("The new session is kept", runOnMain { vm.session } === second)
         assertNull(runOnMain { vm.loginError })

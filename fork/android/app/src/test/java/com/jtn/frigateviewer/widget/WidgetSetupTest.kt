@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Looper
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
@@ -14,7 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.installTestContainer
 import com.jtn.frigateviewer.ui.json
-import java.time.Duration
+import com.jtn.frigateviewer.waitOnMain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -121,12 +120,6 @@ class WidgetSetupTest {
     }
 
     /** Waits for [text], running the main looper, where the activity's work resumes after each request. */
-    private fun awaitText(text: String, timeoutMs: Long = 10_000) {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isEmpty()) {
-            check(System.currentTimeMillis() < deadline) { "Timed out waiting for $text" }
-            Thread.sleep(10)
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10))
-        }
-    }
+    private fun awaitText(text: String, timeoutMs: Long = 10_000) =
+        waitOnMain(text, timeoutMs) { compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
 }

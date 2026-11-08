@@ -4,7 +4,7 @@ import com.jtn.frigateviewer.data.FeedCommands
 import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.buildHttpClient
-import com.jtn.frigateviewer.tunnel.await
+import com.jtn.frigateviewer.waitUntil
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
@@ -72,14 +72,14 @@ class LiveFeedStateTest {
 
         scope.launch { feed.follow() }
 
-        await { reviews.isNotEmpty() && feed.activity["driveway"]?.motion == false }
+        waitUntil("the review and activity to arrive") { reviews.isNotEmpty() && feed.activity["driveway"]?.motion == false }
         // Motion ending clears what the camera saw.
         assertTrue(feed.activity.getValue("driveway").objects.isEmpty())
         assertEquals("r9", reviews.first().id)
         assertTrue(commands.first() != null)
 
         // The server closes the first connection; the second one fetches what was missed.
-        await(timeoutMs = 10_000) { reconnects.get() == 1 && feed.connected }
+        waitUntil("the feed to reconnect", timeoutMs = 10_000) { reconnects.get() == 1 && feed.connected }
         assertNull("Commands stop while the feed is down", commands[1])
         assertEquals(2, server.requestCount)
     }
@@ -95,13 +95,13 @@ class LiveFeedStateTest {
 
         // The first start has just loaded everything, so it fetches nothing more.
         val first = scope.launch { feed.follow() }
-        await { feed.connected }
+        waitUntil("the feed to connect") { feed.connected }
         runBlocking { first.cancelAndJoin() }
         assertEquals(0, reconnects.get())
 
         // Coming back, the feed was closed meanwhile, so its first connection catches up.
         scope.launch { feed.follow(returning = true) }
-        await(timeoutMs = 10_000) { reconnects.get() == 1 && feed.connected }
+        waitUntil("the feed to reconnect", timeoutMs = 10_000) { reconnects.get() == 1 && feed.connected }
         assertEquals(2, server.requestCount)
     }
 

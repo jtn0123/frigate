@@ -1,6 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.os.Looper
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -13,7 +12,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.data.Session
-import java.time.Duration
+import com.jtn.frigateviewer.waitOnMain
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.RecordedRequest
@@ -23,7 +22,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 
 /** Live video reconnects after a failure only while the app is on screen. */
 @RunWith(RobolectricTestRunner::class)
@@ -95,16 +93,7 @@ class LiveVideoTest {
 
     /** Runs the main looper, without moving the screen's clock, until the first player has failed. */
     private fun awaitFailure() {
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (players.firstOrNull()?.playerError == null) {
-            check(System.currentTimeMillis() < deadline) { "Timed out" }
-            Thread.sleep(10)
-            // The player's own retries wait on this looper's clock.
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
-        }
-    }
-
-    private companion object {
-        const val TIMEOUT_MS = 5_000L
+        // The player's own retries wait on this looper's clock.
+        waitOnMain("the player to fail", stepMs = 100) { players.firstOrNull()?.playerError != null }
     }
 }
