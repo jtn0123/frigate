@@ -207,7 +207,7 @@ class Runner:
 
     def post(self, sha: str, state: str, text: str) -> None:
         """Posts the "Checks passed" status on a commit."""
-        print(f"status {state}: {text}")
+        print(f"status {state}: {text}", flush=True)
         if not self.post_enabled:
             return
         run(
@@ -483,7 +483,7 @@ class Runner:
         logs.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y%m%d-%H%M%S")
         log = logs / f"{stamp}-{target.sha[:9]}.log"
-        print(f"== {target.label} {target.sha[:9]}  log: {log}")
+        print(f"== {target.label} {target.sha[:9]}  log: {log}", flush=True)
         if not self.prepare(target):
             self.post(
                 target.sha,
@@ -498,7 +498,7 @@ class Runner:
         ok = self.run_jobs(gates, android, log)
         state = "success" if ok else "failure"
         self.post(target.sha, state, description(state, gates, android))
-        print(f"   {state}: {log}")
+        print(f"   {state}: {log}", flush=True)
         return ok
 
     def run_jobs(self, gates: list[str], android: bool, log: Path) -> bool:
@@ -547,7 +547,7 @@ class Runner:
                 try:
                     check_trusted(pr, self.owner)
                 except Refused as reason:
-                    print(f"skip: {reason}")
+                    print(f"skip: {reason}", flush=True)
                     continue
                 if needs_run(self.statuses(sha), time.time()):
                     base = str(pr.get("baseRefName"))
