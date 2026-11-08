@@ -2,12 +2,25 @@ name: Fork - Android device tests
 
 # Runs the Android viewer's on-device smoke tests (fork/android/app/src/androidTest:
 # the Keystore token cipher, the encrypted settings store, the VPN permission check,
-# and launching to sign-in) on an emulator (AN7). The JVM tests in "Fork - Android"
-# cover the rest under Robolectric. An emulator run takes several minutes, so this
-# runs only when started by hand, never on a push or pull request.
+# and launching to sign-in) on an emulator (AN7), first on the debug build and then
+# on the minified one, which R8 shrinks as it does the release build (AN20). The JVM
+# tests in "Fork - Android" cover the rest under Robolectric. An emulator run takes
+# several minutes, so a pull request runs it only when it changes what decides how
+# R8 shrinks the app: the keep rules, the build file, the dependencies, the device
+# tests or this workflow. Otherwise it is started by hand (Actions, Run workflow).
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - next
+      - main
+    paths:
+      - "fork/android/app/proguard-*.pro"
+      - "fork/android/app/build.gradle.kts"
+      - "fork/android/gradle/libs.versions.toml"
+      - "fork/android/app/src/androidTest/**"
+      - ".github/workflows/fork-android-device.yml"
 
 permissions:
   contents: read
@@ -20,15 +33,15 @@ jobs:
   device:
     name: Android device tests (API 34 emulator)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: fork/android
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: 21
@@ -39,9 +52,13 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Build the app and its device tests
-        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
-      - name: Run the device tests on an emulator
+      # Built before the emulator starts, so its wait is not spent compiling.
+      # -Pfrigate.testBuildType picks the build the device tests run against.
+      - name: Build the app and its device tests, debug and minified
+        run: |
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+          ./gradlew -Pfrigate.testBuildType=minified :app:assembleMinified :app:assembleMinifiedAndroidTest
+      - name: Run the device tests on an emulator, debug then minified
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 34
@@ -49,7 +66,9 @@ jobs:
           target: google_apis
           disable-animations: true
           working-directory: fork/android
-          script: ./gradlew :app:connectedDebugAndroidTest
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest
+            ./gradlew -Pfrigate.testBuildType=minified :app:connectedMinifiedAndroidTest
       - name: Test report
         if: always()
         uses: mikepenz/action-junit-report@8a133bfa3ecb0ea9024c1e2ae788b4c25f6cdb9d # v6.6.2
@@ -57,12 +76,16 @@ jobs:
           report_paths: fork/android/app/build/outputs/androidTest-results/connected/**/TEST-*.xml
           annotate_only: true
           detailed_summary: true
+      # On failure, R8's mapping and what it removed too, to tell a missing keep
+      # rule from a failing test: a minified stack trace reads back through
+      # mapping.txt, and usage.txt lists the code R8 dropped.
       - name: Upload reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-device-reports
           path: |
             fork/android/app/build/reports/androidTests/
             fork/android/app/build/outputs/androidTest-results/
+            fork/android/app/build/outputs/mapping/
           retention-days: 7

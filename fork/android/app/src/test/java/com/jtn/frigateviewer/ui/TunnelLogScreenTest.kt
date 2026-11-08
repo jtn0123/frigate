@@ -5,8 +5,10 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -168,9 +170,7 @@ class TunnelLogScreenTest {
 
         compose.awaitMain { app.peekNextStartedActivity() != null }
         assertEquals(Intent.ACTION_CHOOSER, app.nextStartedActivity.action)
-        // Long enough for a second report to be built and sent.
-        Thread.sleep(500)
-        compose.waitForIdle()
+        awaitEnabledAgain("Share report")
         assertNull(app.nextStartedActivity)
     }
 
@@ -185,10 +185,19 @@ class TunnelLogScreenTest {
         compose.onNodeWithContentDescription("Copy report").performClick()
 
         compose.awaitMain { copies > 0 }
-        Thread.sleep(500)
-        compose.waitForIdle()
+        awaitEnabledAgain("Copy report")
         assertEquals(1, copies)
     }
+
+    /**
+     * Waits until the button described as [label] can be tapped again, which is
+     * once the first tap's report has gone out and settled: a second report from
+     * the second tap would have gone out by then too.
+     */
+    private fun awaitEnabledAgain(label: String) =
+        compose.awaitMain(what = "$label to be enabled again") {
+            compose.onAllNodes(hasContentDescription(label) and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        }
 
     private companion object {
         /** More entries than the log keeps. */

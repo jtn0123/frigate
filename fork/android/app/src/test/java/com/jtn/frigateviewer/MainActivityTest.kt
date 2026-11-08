@@ -8,7 +8,6 @@ import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Looper
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -26,7 +25,6 @@ import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.ui.json
 import com.jtn.frigateviewer.widget.CameraWidget
 import com.jtn.frigateviewer.widget.WidgetChoices
-import java.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -219,12 +217,6 @@ class MainActivityTest {
     private fun awaitText(text: String, timeoutMs: Long = 10_000) =
         awaitLooper(timeoutMs, text) { compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
 
-    private fun awaitLooper(timeoutMs: Long = 10_000, what: String = "the condition", condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (!condition()) {
-            check(System.currentTimeMillis() < deadline) { "Timed out waiting for $what" }
-            Thread.sleep(10)
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10))
-        }
-    }
+    private fun awaitLooper(timeoutMs: Long = 10_000, what: String = "the condition", condition: () -> Boolean) =
+        waitOnMain(what, timeoutMs, condition = condition)
 }

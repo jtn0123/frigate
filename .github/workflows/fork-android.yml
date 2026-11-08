@@ -1,9 +1,9 @@
 name: Fork - Android
 
 # Builds and checks the Android viewer in fork/android (AN1): formatting,
-# detekt, unit tests with coverage and screenshot comparison, Android lint, and
-# the debug and minified release builds, all through its scripts/check.sh. It
-# runs only when the app or this workflow changes.
+# detekt, unit tests with coverage and screenshot comparison, the coverage floor
+# (AN20), Android lint, and the debug and minified release builds, all through
+# its scripts/check.sh. It runs only when the app or this workflow changes.
 
 on:
   workflow_dispatch:
@@ -38,22 +38,35 @@ jobs:
       run:
         working-directory: fork/android
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-      - name: Format, static analysis, test, lint and build (debug and release)
+      - name: Format, static analysis, test, coverage floor, lint and build (debug and release)
         run: scripts/check.sh
       - name: Upload debug APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-app-debug
           path: fork/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
+      # The minified release APK, signed with this runner's throwaway debug key (so
+      # for a fresh install to test, not an update), and R8's mapping.txt, which
+      # turns a stack trace from that APK back into names. A pull request's go after
+      # 7 days; those built on next and main are kept 30, to compare and read back.
+      - name: Upload release APK and R8 mapping
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-app-release
+          path: |
+            fork/android/app/build/outputs/apk/release/app-release.apk
+            fork/android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 7 || 30 }}
       # The test results as a job summary, with failures annotated, pass or fail.
       # annotate_only: no check run, so the job needs no checks: write.
       - name: Test report
@@ -67,7 +80,7 @@ jobs:
       # and diffs (*_actual.png, *_compare.png), to see what changed.
       - name: Upload reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-reports
           path: |

@@ -1,6 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.os.Looper
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
@@ -16,6 +15,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
+import com.jtn.frigateviewer.waitOnMain
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
@@ -34,7 +34,6 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 
 /** Whole-app states that are hard to reach by hand: a refused mark and a restored screen whose item is gone. */
 @RunWith(RobolectricTestRunner::class)
@@ -215,16 +214,7 @@ class AppScreenTest {
      * work resumes there after each request, and the test thread is the main thread.
      */
     private fun awaitMain(condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (!condition()) {
-            check(System.currentTimeMillis() < deadline) { "Timed out" }
-            shadowOf(Looper.getMainLooper()).idle()
-            Thread.sleep(10)
-        }
+        waitOnMain(stepMs = 0, condition = condition)
         compose.waitForIdle()
-    }
-
-    private companion object {
-        const val TIMEOUT_MS = 5_000L
     }
 }

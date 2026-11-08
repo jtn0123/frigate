@@ -1,6 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.os.Looper
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
@@ -11,18 +10,19 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.SavedStateHandle
+import com.jtn.frigateviewer.WAIT_MS
 import com.jtn.frigateviewer.data.MediaFiles
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerSettings
+import com.jtn.frigateviewer.runMainLooper
+import com.jtn.frigateviewer.waitUntil
 import java.io.File
-import java.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
-import org.robolectric.Shadows.shadowOf
 
 /** A JSON reply from the fake server. */
 fun json(body: String, code: Int = 200): MockResponse = MockResponse.Builder().code(code).body(body).build()
@@ -64,19 +64,16 @@ fun ComposeContentTestRule.showApp(
  * `delay` on the main thread finishes too. Composition effects run on the
  * rule's test dispatcher, which moves on a frame at a time with it.
  */
-fun ComposeContentTestRule.awaitMain(timeoutMs: Long = 5_000, condition: () -> Boolean) {
-    val deadline = System.currentTimeMillis() + timeoutMs
-    while (!condition()) {
-        check(System.currentTimeMillis() < deadline) { "Timed out" }
-        Thread.sleep(10)
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(10))
+fun ComposeContentTestRule.awaitMain(timeoutMs: Long = WAIT_MS, what: String = "the condition", condition: () -> Boolean) {
+    waitUntil(what, timeoutMs, between = {
+        runMainLooper(MAIN_STEP_MS)
         mainClock.advanceTimeByFrame()
-    }
+    }, condition = condition)
     waitForIdle()
 }
 
 /** Waits until a node with [text] shows. */
-fun ComposeContentTestRule.awaitText(text: String, substring: Boolean = false) = awaitMain {
+fun ComposeContentTestRule.awaitText(text: String, substring: Boolean = false) = awaitMain(what = "\"$text\"") {
     onAllNodes(androidx.compose.ui.test.hasText(text, substring = substring)).fetchSemanticsNodes().isNotEmpty()
 }
 
@@ -98,6 +95,9 @@ fun Window(size: DpSize, content: @Composable () -> Unit) {
     }
     CompositionLocalProvider(LocalWindowInfo provides window, content = content)
 }
+
+/** How far the main looper's clock moves each time [awaitMain] checks again. */
+private const val MAIN_STEP_MS = 10L
 
 private val PHONE_SHORT = 400.dp
 private val PHONE_LONG = 860.dp

@@ -120,15 +120,6 @@ internal class FakeRoute(@Volatile var reach: Reach, @Volatile var otherVpn: Boo
     }
 }
 
-/** Waits in real time, for tests whose work runs on real threads, such as the store's. */
-internal fun await(timeoutMs: Long = 5_000, condition: () -> Boolean) {
-    val end = System.currentTimeMillis() + timeoutMs
-    while (!condition()) {
-        if (System.currentTimeMillis() > end) fail("Timed out waiting")
-        Thread.sleep(10)
-    }
-}
-
 /** Runs virtual time on [ms] and everything due by then. */
 internal fun TestScope.elapse(ms: Long) {
     advanceTimeBy(ms)

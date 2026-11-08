@@ -1,6 +1,5 @@
 package com.jtn.frigateviewer.ui
 
-import android.os.Looper
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsEnabled
@@ -17,6 +16,7 @@ import com.jtn.frigateviewer.data.MediaFiles
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ReviewItem
 import com.jtn.frigateviewer.data.ServerSettings
+import com.jtn.frigateviewer.waitOnMain
 import java.io.File
 import java.io.OutputStream
 import kotlinx.coroutines.CoroutineScope
@@ -36,7 +36,6 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 
 /** Stepping through items from an open one, in fullscreen too, and the way back to the camera. */
 @RunWith(RobolectricTestRunner::class)
@@ -179,17 +178,11 @@ class EventScreenTest {
 
     /** Waits for [condition], running the main looper, where the view model's work resumes. */
     private fun awaitMain(condition: () -> Boolean) {
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (!condition()) {
-            check(System.currentTimeMillis() < deadline) { "Timed out" }
-            shadowOf(Looper.getMainLooper()).idle()
-            Thread.sleep(10)
-        }
+        waitOnMain(stepMs = 0, condition = condition)
         compose.waitForIdle()
     }
 
     private companion object {
-        const val TIMEOUT_MS = 5_000L
         val PHONE_SIDEWAYS = DpSize(860.dp, 400.dp)
         val TABLET_SIDEWAYS = DpSize(1280.dp, 800.dp)
     }
