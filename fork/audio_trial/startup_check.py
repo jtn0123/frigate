@@ -2,6 +2,7 @@
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -54,6 +55,8 @@ def main() -> None:
         **os.environ,
         "FRIGATE_API": f"http://127.0.0.1:{server.server_port}",
         "PARENT_MEMORY_LIMIT_BYTES": "21474836480",
+        # SIGABRT then prints every thread's stack (see the stop below).
+        "PYTHONFAULTHANDLER": "1",
     }
     process = subprocess.Popen([sys.executable, "worker.py"], env=env)
     try:
@@ -82,8 +85,15 @@ def main() -> None:
         try:
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
+            # A worker that ignores SIGTERM fails the check either way; abort
+            # it first so faulthandler shows where it was stuck.
+            print("Worker did not stop within 10 s after SIGTERM", flush=True)
+            process.send_signal(signal.SIGABRT)
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
         server.shutdown()
         thread.join(timeout=2)
     assert process.returncode == 0, process.returncode
