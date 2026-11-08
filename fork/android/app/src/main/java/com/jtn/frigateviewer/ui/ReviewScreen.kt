@@ -70,13 +70,13 @@ import java.time.ZoneId
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
-    val all = (vm.reviews as? Remote.Ready)?.value.orEmpty()
     val items = vm.filteredReviews
-    val unreviewed = if (vm.trackReviews) items.count { !it.reviewed } else 0
+    // Counted once per change of the list or filters, not each minute as the times move on.
+    val counts = vm.reviewCounts
+    val unreviewed = if (vm.trackReviews) counts.unreviewed else 0
     var confirmMarkAll by remember { mutableStateOf(false) }
     // Folded days are kept as dates (epoch days), not labels: after midnight "Today" is another day.
     var collapsedDays by rememberSaveable { mutableStateOf(emptyList<Long>()) }
-    val today = Instant.ofEpochMilli(LocalNow.current).atZone(ZoneId.systemDefault()).toLocalDate()
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(
@@ -104,12 +104,11 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
         }
 
         val haptics = LocalHapticFeedback.current
-        val inScope = all.filter { vm.cameraFilter == null || it.camera == vm.cameraFilter }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             val options = listOf(
-                Severity.ALERT to stringResource(R.string.rev_filter_alerts, inScope.count { it.isAlert }),
-                Severity.DETECTION to stringResource(R.string.rev_filter_detections, inScope.count { !it.isAlert }),
-                Severity.ALL to stringResource(R.string.rev_filter_all, inScope.size),
+                Severity.ALERT to stringResource(R.string.rev_filter_alerts, counts.alerts),
+                Severity.DETECTION to stringResource(R.string.rev_filter_detections, counts.detections),
+                Severity.ALL to stringResource(R.string.rev_filter_all, counts.all),
             )
             options.forEachIndexed { index, (severity, label) ->
                 SegmentedButton(
@@ -177,6 +176,8 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
                                 val day = date.toEpochDay()
                                 val folded = day in collapsedDays
                                 stickyHeader(key = "day-$day") {
+                                    // Read here, so the minute's tick draws the day labels again, not the whole tab.
+                                    val today = Instant.ofEpochMilli(LocalNow.current).atZone(ZoneId.systemDefault()).toLocalDate()
                                     DayHeader(
                                         dayLabel(date, today).resolve(),
                                         dayItems.size,

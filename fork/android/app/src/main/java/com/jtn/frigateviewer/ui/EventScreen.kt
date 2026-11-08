@@ -36,16 +36,22 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -101,27 +107,7 @@ fun EventScreen(vm: AppViewModel, session: Session, item: ReviewItem) {
                 }
             }
         },
-        // Stepping through items stays in reach of the thumb however long the details run.
-        bottomBar = {
-            OutlinedButton(
-                onClick = { older?.let(vm::showEvent) },
-                enabled = older != null,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Palette.TextPrimary),
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(Icons.Outlined.SkipPrevious, contentDescription = null)
-                Text(stringResource(R.string.rev_older))
-            }
-            OutlinedButton(
-                onClick = { newer?.let(vm::showEvent) },
-                enabled = newer != null,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Palette.TextPrimary),
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(stringResource(R.string.rev_newer))
-                Icon(Icons.Outlined.SkipNext, contentDescription = null)
-            }
-        },
+        steps = Steps(older = older?.let { item -> { vm.showEvent(item) } }, newer = newer?.let { item -> { vm.showEvent(item) } }),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(item.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
@@ -181,7 +167,13 @@ fun RecordingScreen(vm: AppViewModel, session: Session, camera: Camera, minutes:
     }
 }
 
-/** Video on top and details below in portrait; video alone, fullscreen, in landscape. */
+/** Stepping to the items either side of the one playing; null at an end of the list. */
+internal class Steps(val older: (() -> Unit)?, val newer: (() -> Unit)?)
+
+/**
+ * Video on top and details below in portrait; video alone, fullscreen, in landscape,
+ * with the [actions] and [steps] laid over it so neither is lost there.
+ */
 @Composable
 internal fun PlaybackLayout(
     vm: AppViewModel,
@@ -190,7 +182,7 @@ internal fun PlaybackLayout(
     aspectRatio: Float,
     title: String,
     actions: @Composable RowScope.() -> Unit = {},
-    bottomBar: (@Composable RowScope.() -> Unit)? = null,
+    steps: Steps? = null,
     onPosition: ((Long) -> Unit)? = null,
     details: @Composable () -> Unit,
 ) {
@@ -205,8 +197,12 @@ internal fun PlaybackLayout(
     if (landscape) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             VodVideo(playback, Modifier.fillMaxSize())
-            // One row, so a long title ends short of the exit button rather than under it.
-            Row(Modifier.fillMaxWidth().safeDrawingPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // One row, so a long title ends short of the actions rather than under them. The
+            // shade keeps white icons legible over a bright picture.
+            Row(
+                Modifier.fillMaxWidth().background(TopShade).safeDrawingPadding().padding(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 IconButton(onClick = { vm.nav.back() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.rev_back), tint = Color.White)
                 }
@@ -218,7 +214,13 @@ internal fun PlaybackLayout(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                CompositionLocalProvider(LocalContentColor provides Color.White) { actions() }
                 OverlayIconButton(Icons.Filled.FullscreenExit, stringResource(R.string.rev_exit_fullscreen)) { setFullscreen(false) }
+            }
+            // Clear of the player's own controls, which sit in the middle and along the bottom.
+            steps?.let {
+                StepButton(Icons.Outlined.SkipPrevious, stringResource(R.string.rev_older), it.older, Modifier.align(Alignment.CenterStart))
+                StepButton(Icons.Outlined.SkipNext, stringResource(R.string.rev_newer), it.newer, Modifier.align(Alignment.CenterEnd))
             }
         }
         return
@@ -243,26 +245,64 @@ internal fun PlaybackLayout(
             }
         }
         TabSheet(Modifier.padding(top = 12.dp)) {
-            Column(
-                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) { details() }
+            // Each item opens at the top of its details, though stepping keeps the screen.
+            key(url) {
+                Column(
+                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) { details() }
+            }
+            // Stepping through items stays in reach of the thumb however long the details run.
             Row(
-                Modifier.fillMaxWidth().navigationBarsPadding().padding(
-                    horizontal = 16.dp,
-                    vertical = if (bottomBar !=
-                        null
-                    ) {
-                        10.dp
-                    } else {
-                        0.dp
-                    },
-                ),
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = if (steps != null) 10.dp else 0.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) { bottomBar?.invoke(this) }
+            ) { steps?.let { StepBar(it) } }
         }
     }
 }
+
+/** Older and Newer as full buttons, under the details. */
+@Composable
+private fun RowScope.StepBar(steps: Steps) {
+    OutlinedButton(
+        onClick = { steps.older?.invoke() },
+        enabled = steps.older != null,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Palette.TextPrimary),
+        modifier = Modifier.weight(1f),
+    ) {
+        Icon(Icons.Outlined.SkipPrevious, contentDescription = null)
+        Text(stringResource(R.string.rev_older))
+    }
+    OutlinedButton(
+        onClick = { steps.newer?.invoke() },
+        enabled = steps.newer != null,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Palette.TextPrimary),
+        modifier = Modifier.weight(1f),
+    ) {
+        Text(stringResource(R.string.rev_newer))
+        Icon(Icons.Outlined.SkipNext, contentDescription = null)
+    }
+}
+
+/** A step over fullscreen video, at an edge: a 48dp target, dimmed at an end of the list. */
+@Composable
+private fun StepButton(icon: ImageVector, description: String, onClick: (() -> Unit)?, modifier: Modifier) {
+    IconButton(
+        onClick = { onClick?.invoke() },
+        enabled = onClick != null,
+        colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White),
+        modifier = modifier.safeDrawingPadding().padding(8.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = description,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0x99000000)).padding(5.dp),
+        )
+    }
+}
+
+/** Darkens the top of fullscreen video behind its title and actions. */
+private val TopShade = Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))
 
 /** How saving the clip is going, and a way to share it once saved. */
 @Composable

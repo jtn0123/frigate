@@ -3,6 +3,7 @@ package com.jtn.frigateviewer.ui
 import android.view.TextureView
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,6 +37,7 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.extractor.ExtractorsFactory
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor
 import androidx.media3.extractor.text.SubtitleParser
+import com.jtn.frigateviewer.data.FrigateApi
 import com.jtn.frigateviewer.data.MseDataSource
 import com.jtn.frigateviewer.data.Session
 import com.jtn.frigateviewer.data.liveUrl
@@ -56,6 +58,10 @@ import kotlinx.coroutines.delay
  * another app takes the sound, or headphones come out, the picture plays on
  * silently instead of freezing. A stream the server refuses as unauthorized
  * ends the session, as [LocalSessionLost] says.
+ *
+ * While [covered] by another screen it shows nothing: the picture is let go, so
+ * nothing is drawn unseen, and no snapshot or reconnect is fetched, while the
+ * stream stays open, so uncovering shows it again without connecting anew.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -66,6 +72,7 @@ fun LiveVideo(
     muted: Boolean,
     modifier: Modifier = Modifier,
     route: Int = 0,
+    covered: Boolean = false,
     onState: (LiveState) -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -108,8 +115,9 @@ fun LiveVideo(
 
     // Give the network a moment before reconnecting rather than failing again at once.
     // Not in the background, where the new player would play unseen: returning starts one.
-    LaunchedEffect(retry.pendingRetry) {
-        if (retry.pendingRetry) {
+    // Nor while covered, where it would be unseen too: uncovering starts it.
+    LaunchedEffect(retry.pendingRetry, covered) {
+        if (retry.pendingRetry && !covered) {
             delay(LiveRetry.RETRY_DELAY_MS)
             if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) retry.retry()
         }
@@ -185,34 +193,56 @@ fun LiveVideo(
     Box(modifier, contentAlignment = Alignment.Center) {
         // Snapshots only while the video is not showing; the last one stays
         // underneath so a reconnect never flashes black.
-        LiveFrame(
+        FittedLiveFrame(
             api = session.api,
             camera = camera,
-            intervalMs = if (state == LiveState.FAILED) 1_000 else 3_000,
-            height = 720,
+            intervalMs = if (state == LiveState.FAILED) FAILED_SNAPSHOT_MS else CONNECTING_SNAPSHOT_MS,
             modifier = Modifier.fillMaxSize(),
-            active = state != LiveState.PLAYING,
+            active = state != LiveState.PLAYING && !covered,
         )
         // One surface for the player's whole life, hidden until the first frame
         // renders so the snapshot shows through instead of a black rectangle.
         val playing = state == LiveState.PLAYING
         val moving = rememberIsPlaying(player)
         key(player) {
+            var surface by remember { mutableStateOf<TextureView?>(null) }
             AndroidView(
-                factory = { ctx -> TextureView(ctx).also { player.setVideoTextureView(it) } },
+                factory = { ctx -> TextureView(ctx).also { surface = it } },
                 update = { view ->
                     view.alpha = if (playing) 1f else 0f
-                    // Not while it reconnects, stalls or has given up.
-                    view.keepScreenOn = playing && moving
+                    // Not while it reconnects, stalls, has given up or is covered.
+                    view.keepScreenOn = playing && moving && !covered
                 },
                 modifier = Modifier.fillMaxSize(),
             )
+            DisposableEffect(surface, covered) {
+                val shown = surface?.takeUnless { covered }
+                shown?.let(player::setVideoTextureView)
+                onDispose { shown?.let(player::clearVideoTextureView) }
+            }
         }
         if (state == LiveState.CONNECTING) {
             CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp, color = Color.White)
         }
     }
 }
+
+/**
+ * [LiveFrame] asking for a picture only as tall as it shows, in one of a few
+ * fixed sizes, rather than a fixed 720p whatever the view.
+ */
+@Composable
+internal fun FittedLiveFrame(api: FrigateApi, camera: String, intervalMs: Long, modifier: Modifier = Modifier, active: Boolean = true) {
+    BoxWithConstraints(modifier) {
+        LiveFrame(api, camera, intervalMs, snapshotHeight(constraints.maxHeight), Modifier.fillMaxSize(), active)
+    }
+}
+
+/** How often the picture under live video refreshes while it connects. */
+internal const val CONNECTING_SNAPSHOT_MS = 3_000L
+
+/** How often it refreshes once live video has given up: the picture is all there is, but it need not be live. */
+internal const val FAILED_SNAPSHOT_MS = 4_000L
 
 /** Why a player stops itself when its sound is no longer wanted. */
 private val SOUND_TAKEN = setOf(

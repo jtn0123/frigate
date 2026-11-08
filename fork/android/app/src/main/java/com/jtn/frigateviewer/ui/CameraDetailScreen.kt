@@ -137,7 +137,8 @@ fun CameraDetailScreen(vm: AppViewModel, session: Session, camera: Camera, image
                         route = (vm.remoteAccess?.routeChanges ?: 0) + liveRetries,
                     )
                 } else {
-                    LiveFrame(session.api, camera.name, intervalMs = 1_000, height = 720, modifier = Modifier.fillMaxSize())
+                    // The picture is this camera's only view, so it stays quick, but only as large as it shows.
+                    FittedLiveFrame(session.api, camera.name, intervalMs = 1_000, modifier = Modifier.fillMaxSize())
                 }
             }
             // The floating window is too small for controls; it has its own.
