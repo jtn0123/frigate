@@ -79,15 +79,27 @@ class TestRegenerateReviewDescription(unittest.TestCase):
     def _review(self, camera: str = "front", end_time: float | None = 130.0):
         return SimpleNamespace(camera=camera, end_time=end_time)
 
-    def _run(self, processor, review, data: dict | None = None) -> None:
+    def _run(self, processor, review, data: dict | None = None):
         if data is None:
-            data = {"id": "r1", "start_time": 100.0, "end_time": 130.0}
+            data = {
+                "id": "r1",
+                "start_time": 100.0,
+                "end_time": 130.0,
+                "data": {"detections": ["e1", "e2"]},
+            }
 
         with (
             patch.object(review_descriptions.ReviewSegment, "get", return_value=review),
             patch.object(review_descriptions, "model_to_dict", return_value=data),
+            patch.object(
+                review_descriptions,
+                "get_named_objects",
+                return_value=[("person", "Nick")],
+            ) as named,
         ):
             processor.regenerate_description("r1")
+
+        return named
 
     def test_handle_request_starts_a_background_thread(self):
         processor = self._make_processor()
@@ -106,17 +118,34 @@ class TestRegenerateReviewDescription(unittest.TestCase):
 
     def test_runs_analysis_on_padded_recording_frames(self):
         processor = self._make_processor()
-        self._run(processor, self._review())
+        named = self._run(processor, self._review())
 
         processor.get_recording_frames.assert_called_once_with(
             "front", 97.0, 133.0, height=480, frame_mode=ReviewFrameModeEnum.frames
         )
         processor.start_analysis.assert_called_once()
-        camera_config, final_data, thumbs = processor.start_analysis.call_args.args
+        camera_config, final_data, thumbs, named_objects = (
+            processor.start_analysis.call_args.args
+        )
         self.assertIs(camera_config, processor.config.cameras["front"])
         self.assertEqual(final_data["id"], "r1")
         self.assertEqual(thumbs, [(b"a", 100.0), (b"b", 110.0)])
         processor.save_debug_recording_frames.assert_not_called()
+        # a regenerated item reads its names from the tracked objects, since a
+        # sub label edit rebuilds the stored lists out of order
+        named.assert_called_once_with(["e1", "e2"], processor.config.all_attributes)
+        self.assertEqual(named_objects, [("person", "Nick")])
+
+    def test_item_without_detections_looks_up_no_objects(self):
+        processor = self._make_processor()
+        named = self._run(
+            processor,
+            self._review(),
+            {"id": "r1", "start_time": 100.0, "end_time": 130.0, "data": {}},
+        )
+
+        named.assert_called_once_with([], processor.config.all_attributes)
+        processor.start_analysis.assert_called_once()
 
     def test_saves_debug_frames_when_enabled(self):
         processor = self._make_processor()
@@ -285,7 +314,30 @@ class TestReviewDescriptionProcessData(unittest.TestCase):
         self.assertIs(args[7], camera.review.genai)
         self.assertEqual(args[8], ["car", "person"])
         self.assertEqual(args[9], ["amazon"])
+        # live items pair verified objects with their sub labels in run_analysis
+        self.assertIsNone(args[10])
         thread.return_value.start.assert_called_once()
+
+    def test_start_analysis_passes_named_objects_to_the_thread(self):
+        processor = ReviewDescriptionProcessor.__new__(ReviewDescriptionProcessor)
+        processor.review_desc_dps = MagicMock()
+        processor.requestor = MagicMock()
+        processor.review_desc_speed = MagicMock()
+        processor.genai_manager = MagicMock()
+        processor.config = MagicMock()
+        processor.config.model_for_camera.return_value.merged_labelmap = {}
+        camera = MagicMock()
+        camera.review.genai.max_frames = None
+
+        with patch.object(review_descriptions.threading, "Thread") as thread:
+            processor.start_analysis(
+                camera,
+                {"id": "r1", "camera": "front"},
+                [(b"a", 100.0)],
+                [("person", "Nick")],
+            )
+
+        self.assertEqual(thread.call_args.kwargs["args"][10], [("person", "Nick")])
 
     def test_debug_frames_are_written_in_order(self):
         processor = ReviewDescriptionProcessor.__new__(ReviewDescriptionProcessor)

@@ -33,6 +33,7 @@ class TestReviewDescriptionBackport(unittest.TestCase):
             model_for_camera=lambda camera: SimpleNamespace(
                 merged_labelmap={0: "person", 1: "car"}, all_attributes=["face"]
             ),
+            all_attributes=["face", "amazon"],
             ffmpeg=object(),
         )
         self.client = MagicMock()
@@ -73,6 +74,9 @@ class TestReviewDescriptionBackport(unittest.TestCase):
             ) as frames,
             patch.object(self.processor, "save_debug_recording_frames") as debug,
             patch.object(self.processor, "start_analysis") as start,
+            patch.object(
+                module, "get_named_objects", return_value=[("person", "Nick")]
+            ) as named,
         ):
             self.processor.regenerate_description("review1")
         frames.assert_called_once_with(
@@ -83,7 +87,12 @@ class TestReviewDescriptionBackport(unittest.TestCase):
             frame_mode=ReviewFrameModeEnum.annotated_frames,
         )
         debug.assert_called_once_with("review1", self.frames)
-        start.assert_called_once_with(self.camera, self.data, self.frames)
+        # names come from the tracked objects, filtered by the same global
+        # attribute list the review maintainer uses
+        named.assert_called_once_with(["event1"], ["face", "amazon"])
+        start.assert_called_once_with(
+            self.camera, self.data, self.frames, [("person", "Nick")]
+        )
         self.assertEqual(self.data["start_time"], 100.0)
 
     def test_manual_generation_rejects_unavailable_inputs(self):
@@ -157,7 +166,7 @@ class TestReviewDescriptionBackport(unittest.TestCase):
                 self.processor.start_analysis(self.camera, self.data, self.frames)
                 args = thread.call_args.kwargs["args"]
                 self.assertEqual(args[5:7], ([b"first", b"last"], captions))
-                self.assertEqual(args[8:], (["car", "person"], ["face"]))
+                self.assertEqual(args[8:], (["car", "person"], ["face"], None))
                 thread.return_value.start.assert_called_once()
                 if mode == ReviewFrameModeEnum.annotated_frames:
                     annotate.assert_called_once_with(["event1"], [100.0, 104.0], [])
