@@ -525,7 +525,15 @@ test.describe("Android phone @high @mobile", () => {
     { tag: "@mobile-only" },
     async ({ frigateApp }) => {
       const { page } = frigateApp;
-      // The mocked front_door camera overrides the global FFmpeg settings
+      // A camera's own inputs are not an override (UI157), so front_door
+      // overrides the global input args
+      await frigateApp.installDefaults({
+        config: {
+          cameras: {
+            front_door: { ffmpeg: { input_args: "preset-rtsp-udp" } },
+          },
+        },
+      });
       await frigateApp.goto("/settings?page=cameraFfmpeg");
       const badge = page
         .getByRole("button", {

@@ -156,6 +156,32 @@ vi.mock("react-device-detect", async (importOriginal) => ({
   },
 }));
 
+// The dialog has its own tests; here it only reports how the switch drives it.
+vi.mock("@/components/overlay/dialog/CustomSuspensionDialog", () => ({
+  default: ({
+    open,
+    onOpenChange,
+    onConfirm,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onConfirm: (minutes: number) => void;
+  }) =>
+    open ? (
+      <div data-testid="custom-suspension-dialog">
+        <button
+          type="button"
+          onClick={() => {
+            onConfirm(90);
+            onOpenChange(false);
+          }}
+        >
+          confirm-custom
+        </button>
+      </div>
+    ) : null,
+}));
+
 vi.mock("@/components/camera/FriendlyNameLabel", () => ({
   CameraNameLabel: ({
     camera,
@@ -893,19 +919,44 @@ describe("CameraNotificationSwitch", () => {
     return render(<CameraNotificationSwitch camera="front" />);
   }
 
+  function suspendMenu(): HTMLElement {
+    return screen.getByRole("button", {
+      name: "notification.suspendTime.suspend",
+    });
+  }
+
   function chooseSuspend(label: string) {
-    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
-    const option = screen.getByRole("option", { name: label });
-    fireEvent.keyDown(option, { key: "Enter" });
+    fireEvent.keyDown(suspendMenu(), { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitem", { name: label }));
   }
 
   it("shows an active camera with suspend options", () => {
     renderSwitch();
     expect(screen.getByText("front")).toBeInTheDocument();
     expect(screen.getByText("notification.active")).toBeInTheDocument();
-    expect(screen.getByRole("combobox")).toHaveTextContent(
-      "notification.suspendTime.suspend",
-    );
+    fireEvent.keyDown(suspendMenu(), { key: "Enter" });
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual([
+      "notification.suspendTime.5minutes",
+      "notification.suspendTime.10minutes",
+      "notification.suspendTime.30minutes",
+      "notification.suspendTime.1hour",
+      "notification.suspendTime.12hours",
+      "notification.suspendTime.24hours",
+      "notification.suspendTime.untilRestart",
+      "notification.suspendTime.custom",
+    ]);
+  });
+
+  it("suspends until a custom time from the dialog", () => {
+    renderSwitch();
+    expect(screen.queryByTestId("custom-suspension-dialog")).toBeNull();
+    chooseSuspend("notification.suspendTime.custom");
+    fireEvent.click(screen.getByRole("button", { name: "confirm-custom" }));
+    expect(h.sendSuspend).toHaveBeenCalledWith("front", 90);
+    expect(h.sendNotification).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("custom-suspension-dialog")).toBeNull();
   });
 
   it("suspends for a number of minutes", () => {

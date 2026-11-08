@@ -51,9 +51,12 @@ import com.jtn.frigateviewer.data.Camera
 import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.Session
 
-/** Up to four cameras live at once, two by two, each on its lighter stream. */
+/**
+ * Up to four cameras live at once, two by two, each on its lighter stream. While
+ * [covered] by a camera opened from it, its streams stay open but show nothing.
+ */
 @Composable
-fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
+fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>, covered: Boolean = false) {
     val cameras = vm.cameras
     val all = (cameras as? Remote.Ready)?.value.orEmpty().filter { it.enabled }
     if (cameras !is Remote.Ready || all.isEmpty()) {
@@ -76,7 +79,8 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
     val shown = liveGridCameras(all, chosen)
     var picking by rememberSaveable { mutableStateOf(false) }
     val landscape = isLandscape()
-    ImmersiveEffect(landscape)
+    // Covered, the screen above has the bars; uncovered, they are hidden again.
+    ImmersiveEffect(landscape && !covered)
 
     val gridContent: @Composable (Modifier) -> Unit = { modifier ->
         BoxWithConstraints(modifier) {
@@ -87,7 +91,7 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
                 shown.chunked(2).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(GAP)) {
                         row.forEach { camera ->
-                            LiveTile(vm, session, camera, Modifier.width(tileWidth).aspectRatio(TILE_ASPECT)) {
+                            LiveTile(vm, session, camera, covered, Modifier.width(tileWidth).aspectRatio(TILE_ASPECT)) {
                                 vm.nav.openCamera(camera.name)
                             }
                         }
@@ -129,7 +133,7 @@ fun LiveGridScreen(vm: AppViewModel, session: Session, chosen: List<String>) {
         }
     }
 
-    if (picking) {
+    if (picking && !covered) {
         CameraPicker(all, shown.map { it.name }, onDismiss = { picking = false }) { names ->
             picking = false
             vm.nav.replace(Overlay.LiveGrid(names))
@@ -142,7 +146,7 @@ internal fun liveGridCameras(all: List<Camera>, chosen: List<String>): List<Came
     chosen.mapNotNull { name -> all.firstOrNull { it.name == name } }.take(MAX_LIVE).ifEmpty { all.take(MAX_LIVE) }
 
 @Composable
-private fun LiveTile(vm: AppViewModel, session: Session, camera: Camera, modifier: Modifier, onClick: () -> Unit) {
+private fun LiveTile(vm: AppViewModel, session: Session, camera: Camera, covered: Boolean, modifier: Modifier, onClick: () -> Unit) {
     var state by rememberSaveable(camera.name) { mutableStateOf(LiveState.CONNECTING) }
     val hasLive = vm.hasLiveVideo(camera)
     val openLabel = stringResource(R.string.cam_open, camera.label)
@@ -156,19 +160,19 @@ private fun LiveTile(vm: AppViewModel, session: Session, camera: Camera, modifie
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             val fit = Modifier.aspectRatio(camera.aspectRatio)
             if (hasLive) {
-                // The last stream is the lighter one when a camera has two.
                 LiveVideo(
                     session,
                     camera.name,
-                    camera.liveStreams.values.lastOrNull() ?: camera.name,
+                    lightStream(camera),
                     muted = true,
                     fit,
                     route = vm.remoteAccess?.routeChanges ?: 0,
+                    covered = covered,
                 ) {
                     state = it
                 }
             } else {
-                LiveFrame(session.api, camera.name, intervalMs = 2_000, height = 360, modifier = fit)
+                FittedLiveFrame(session.api, camera.name, intervalMs = 2_000, modifier = fit, active = !covered)
             }
         }
         Row(Modifier.align(Alignment.TopStart).padding(6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -183,6 +187,45 @@ private fun LiveTile(vm: AppViewModel, session: Session, camera: Camera, modifie
         }
     }
 }
+
+/**
+ * The stream a tile plays, the lightest to decode four at once, chosen from what
+ * the config says of each rather than from where it is listed: one named as the
+ * sub or low stream, else the lowest resolution a name gives (as "360p" or
+ * "640x360"), else one not named as the main or high stream. With nothing to tell
+ * them apart, the last, as Frigate's examples list the main stream first.
+ */
+internal fun lightStream(camera: Camera): String {
+    val streams = camera.liveStreams.entries.toList().ifEmpty { return camera.name }
+    // The camera's own name says nothing of a stream: "low_garage_sub" is the garage's sub stream.
+    val own = words(camera.name) + words(camera.label)
+    val described = streams.map { it to (words(it.key) + words(it.value) - own) }
+    val light = described.firstOrNull { (_, said) -> said.any(LIGHT_WORDS::contains) }?.first
+        ?: streams.mapNotNull { stream -> heightIn(stream.key, stream.value)?.let { stream to it } }.minByOrNull { it.second }?.first
+        ?: described.lastOrNull { (_, said) -> said.none(MAIN_WORDS::contains) }?.first
+        ?: streams.last()
+    return light.value
+}
+
+/** The words of a stream's label or name, lower case: "Sub Stream", "front_sub" and "frontSub" all have "sub". */
+private fun words(text: String): Set<String> =
+    WORD.findAll(text.replace(CAMEL, "$1 $2").lowercase()).map { it.value }.toSet()
+
+/** The smallest picture height either of [texts] gives, as "360p" or "640x360", or null when neither does. */
+private fun heightIn(vararg texts: String): Int? = texts.flatMap { text ->
+    HEIGHT.findAll(text.lowercase()).mapNotNull { match -> (match.groups[1] ?: match.groups[2])?.value?.toIntOrNull() }
+}.minOrNull()
+
+private val WORD = Regex("[a-z]+")
+private val CAMEL = Regex("([a-z])([A-Z])")
+private val HEIGHT = Regex("""(?<![0-9])\d{3,4}x(\d{3,4})(?![0-9])|(?<![0-9])(\d{3,4})p(?![a-z])""")
+
+/** Words naming the lighter stream. */
+private val LIGHT_WORDS =
+    setOf("sub", "substream", "low", "lowres", "lo", "lq", "sd", "lite", "light", "small", "mobile", "preview", "secondary")
+
+/** Words naming the full-resolution stream. */
+private val MAIN_WORDS = setOf("main", "mainstream", "high", "highres", "hi", "hq", "hd", "fhd", "uhd", "full", "primary", "record")
 
 /** Checkboxes for up to four cameras. */
 @Composable

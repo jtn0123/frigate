@@ -19,11 +19,13 @@ GIT_ENV = {
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_CONFIG_NOSYSTEM": "1",
 }
-# Answers the two gh queries promote.sh makes: Fork - Checks is green on next,
+# Answers the gh queries promote.sh makes: the "Checks passed" commit status
+# and check run on next (STATUS and CHECK_RUN, success and none by default),
 # and there is no previous release.
 GH_STUB = """#!/bin/sh
 case "$1 $2" in
-  "run list") echo completed/success ;;
+  api*/status) echo "${STATUS:-success}" ;;
+  api*/check-runs*) echo "${CHECK_RUN:-none/}" ;;
 esac
 """
 FEATURE_DATE = "1700000000 +0000"
@@ -91,11 +93,13 @@ class PromoteTest(unittest.TestCase):
     def remote(self, branch: str) -> str:
         return self.git("ls-remote", "origin", f"refs/heads/{branch}").split()[0]
 
-    def promote(self, *args: str, answer: str = "") -> subprocess.CompletedProcess:
+    def promote(
+        self, *args: str, answer: str = "", **checks: str
+    ) -> subprocess.CompletedProcess:
         return subprocess.run(
             ["bash", str(SCRIPTS / "promote.sh"), *args],
             cwd=self.repo,
-            env=self.env,
+            env={**self.env, **checks},
             input=answer,
             capture_output=True,
             text=True,
@@ -110,6 +114,30 @@ class PromoteTest(unittest.TestCase):
         self.commit("UI3: a new feature", "web/src/feature.tsx", "feature\n")
         self.git("push", "-q", "origin", "next")
         return self.remote("main")
+
+    def new_next_commit(self) -> str:
+        self.commit("UI3: a new feature", "web/src/feature.tsx", "feature\n")
+        self.git("push", "-q", "origin", "next")
+        return self.remote("main")
+
+    def test_refuses_when_checks_have_not_passed(self) -> None:
+        main = self.new_next_commit()
+
+        for status in ("pending", "failure", "none"):
+            result = self.promote("--yes", STATUS=status)
+
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn(f"is {status}, not success", result.stderr)
+            self.assertIn("local_ci.py ref next", result.stderr)
+            self.assertEqual(self.remote("main"), main)
+
+    def test_a_passed_check_run_from_ci_is_enough(self) -> None:
+        self.new_next_commit()
+
+        result = self.promote("--yes", STATUS="none", CHECK_RUN="completed/success")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.remote("main"), self.remote("next"))
 
     def test_refuses_a_commit_pushed_to_main_only(self) -> None:
         main = self.push_main_only_commit()
