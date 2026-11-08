@@ -30,7 +30,8 @@ import kotlinx.coroutines.launch
 /**
  * A home screen widget with one camera's latest picture and the alerts left to
  * review. It updates every half hour, when its refresh button is tapped and
- * when the app goes to the background; tapping the picture opens the camera.
+ * when the app goes to the background, unless it did a moment before; tapping
+ * the picture opens the camera.
  */
 class CameraWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -59,11 +60,21 @@ class CameraWidget : AppWidgetProvider() {
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + crashes)
 
-        /** Asks every placed widget, or just [ids], to update. */
-        fun requestUpdate(context: Context, ids: IntArray? = null) {
-            val all = ids ?: AppWidgetManager.getInstance(context)
-                .getAppWidgetIds(ComponentName(context, CameraWidget::class.java))
-            if (all.isNotEmpty()) context.sendBroadcast(updateIntent(context, all))
+        /**
+         * How long a widget's picture and count count as fresh, so leaving the
+         * app again soon after, or several times in a row, does not reload them.
+         */
+        internal const val FRESH_MS = 2 * 60_000L
+
+        /**
+         * Asks every placed widget, or just [ids], to update; [ifStale], only
+         * those that did not update in the [FRESH_MS] before [now].
+         */
+        fun requestUpdate(context: Context, ids: IntArray? = null, ifStale: Boolean = false, now: Long = System.currentTimeMillis()) {
+            val choices = WidgetChoices(context)
+            val all = (ids ?: AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, CameraWidget::class.java)))
+                .filterNot { ifStale && choices.updatedWithin(it, FRESH_MS, now) }
+            if (all.isNotEmpty()) context.sendBroadcast(updateIntent(context, all.toIntArray()))
         }
 
         private fun updateIntent(context: Context, ids: IntArray) =
@@ -94,6 +105,8 @@ class CameraWidget : AppWidgetProvider() {
                         manager.updateAppWidget(id, views)
                         choices.markShown(id)
                     }
+                    // Only a fresh picture and count put off the next update; a failure or sign-in prompt does not.
+                    if (content is WidgetContent.Ready) choices.markUpdated(id)
                 }
             }
         }

@@ -1,6 +1,11 @@
 package com.jtn.frigateviewer
 
 import android.app.Activity
+import android.app.Application
+import android.app.PictureInPictureParams
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Looper
@@ -14,11 +19,13 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.jtn.frigateviewer.data.ServerSettings
 import com.jtn.frigateviewer.ui.json
 import com.jtn.frigateviewer.widget.CameraWidget
+import com.jtn.frigateviewer.widget.WidgetChoices
 import java.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +37,7 @@ import mockwebserver3.MockResponse
 import mockwebserver3.RecordedRequest
 import mockwebserver3.junit4.MockWebServerRule
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
@@ -153,6 +161,57 @@ class MainActivityTest {
                 assertFalse(bars.isAppearanceLightStatusBars)
                 assertFalse(bars.isAppearanceLightNavigationBars)
             }
+        }
+    }
+
+    /** Widget [id] on the home screen, last updated at [updatedAt]. */
+    private fun placeWidget(id: Int, updatedAt: Long) {
+        val info = AppWidgetProviderInfo().apply { provider = ComponentName(context, CameraWidget::class.java) }
+        shadowOf(AppWidgetManager.getInstance(context)).addBoundWidget(id, info)
+        WidgetChoices(context).markUpdated(id, updatedAt)
+    }
+
+    /** The widgets asked to update since the last call, by ID. */
+    private fun widgetUpdates(): List<Int> {
+        val app = shadowOf(context as Application)
+        val sent = app.broadcastIntents.filter { it.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE }
+        app.clearBroadcastIntents()
+        return sent.flatMap { it.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS)?.toList().orEmpty() }
+    }
+
+    @Test
+    fun leavingTheAppRefreshesOnlyTheWidgetsNotUpdatedAMomentAgo() {
+        useServer()
+        val now = System.currentTimeMillis()
+        placeWidget(1, updatedAt = now)
+        placeWidget(2, updatedAt = now - CameraWidget.FRESH_MS)
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            widgetUpdates()
+            scenario.moveToState(Lifecycle.State.CREATED)
+            assertEquals(listOf(2), widgetUpdates())
+
+            // Back, and away again once that one has shown a fresh picture: nothing is asked.
+            scenario.moveToState(Lifecycle.State.RESUMED)
+            WidgetChoices(context).markUpdated(2)
+            scenario.moveToState(Lifecycle.State.CREATED)
+            assertEquals(emptyList<Int>(), widgetUpdates())
+        }
+    }
+
+    @Test
+    fun aVideoFloatingInItsWindowPutsTheRefreshOffUntilTheWindowCloses() {
+        useServer()
+        placeWidget(3, updatedAt = 0)
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            widgetUpdates()
+            scenario.onActivity { it.enterPictureInPictureMode(PictureInPictureParams.Builder().build()) }
+            scenario.moveToState(Lifecycle.State.CREATED)
+            assertEquals("Still in use", emptyList<Int>(), widgetUpdates())
+
+            scenario.onActivity { it.onPictureInPictureModeChanged(false, it.resources.configuration) }
+            assertEquals(listOf(3), widgetUpdates())
         }
     }
 

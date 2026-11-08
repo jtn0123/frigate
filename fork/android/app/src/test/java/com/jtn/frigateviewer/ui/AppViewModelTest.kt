@@ -35,6 +35,7 @@ import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
+import mockwebserver3.SocketEffect
 import mockwebserver3.junit4.MockWebServerRule
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
@@ -386,6 +387,46 @@ class AppViewModelTest {
         await("cameras") { vm.cameras is Remote.Ready }
 
         assertEquals(listOf("front", "garage"), (runOnMain { vm.cameras } as Remote.Ready).value.map { it.name })
+    }
+
+    @Test
+    fun theProfileIsReadOnceASessionForTheCamerasAndTheControls() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "admin", token = "jwt1")) }
+        bodies["/api/config"] = """{"cameras": {"front": {}, "back": {}}}"""
+        bodies["/api/profile"] = """{"username": "admin", "role": "admin", "allowed_cameras": ["front", "side"]}"""
+
+        val vm = viewModel()
+        await("cameras and role") { vm.cameras is Remote.Ready && vm.controls.isAdmin }
+        runOnMain { vm.refreshCameras() }
+        // A camera added to the config shows once the second refresh has filtered it.
+        bodies["/api/config"] = """{"cameras": {"front": {}, "back": {}, "side": {}}}"""
+        runOnMain { vm.refreshCameras() }
+        await("the last refresh") { (vm.cameras as? Remote.Ready)?.value?.map { it.name } == listOf("front", "side") }
+
+        assertEquals("Read once, not per refresh or for the controls", 1, paths.count { it == "/api/profile" })
+        assertEquals(3, paths.count { it == "/api/config" })
+    }
+
+    @Test
+    fun aProfileThatCouldNotBeReachedIsReadAgainOnTheNextRefresh() {
+        runBlocking { store.save(ServerSettings(baseUrl = url(), username = "admin", token = "jwt1")) }
+        bodies["/api/config"] = """{"cameras": {"front": {}, "back": {}}}"""
+        bodies["/api/profile"] = """{"username": "admin", "role": "admin", "allowed_cameras": ["front"]}"""
+        val unreachable = AtomicBoolean(true)
+        hooks["/api/profile"] = {
+            if (unreachable.get()) MockResponse.Builder().onResponseStart(SocketEffect.ShutdownConnection).build() else null
+        }
+
+        val vm = viewModel()
+        await("cameras") { vm.cameras is Remote.Ready }
+        val listed = (runOnMain { vm.cameras } as Remote.Ready).value.map { it.name }
+        assertEquals("Nothing hidden without a profile", setOf("front", "back"), listed.toSet())
+        assertFalse(runOnMain { vm.controls.isAdmin })
+        assertNotNull("Still signed in", runOnMain { vm.session })
+
+        unreachable.set(false)
+        runOnMain { vm.refreshCameras() }
+        await("the profile read again") { (vm.cameras as? Remote.Ready)?.value?.map { it.name } == listOf("front") && vm.controls.isAdmin }
     }
 
     /** The first [path] request waits for [release] and is then refused as signed out. */

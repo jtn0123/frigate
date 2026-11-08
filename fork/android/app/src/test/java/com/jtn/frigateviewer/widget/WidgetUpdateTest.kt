@@ -1,5 +1,6 @@
 package com.jtn.frigateviewer.widget
 
+import android.app.Application
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
@@ -31,6 +32,7 @@ import mockwebserver3.junit4.MockWebServerRule
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -137,6 +139,33 @@ class WidgetUpdateTest {
         assertEquals(1, paths.count { it.startsWith("/api/review?") })
         assertEquals(2, paths.count { "latest.jpg" in it })
         assertTrue(choices.shownSinceBoot(1) && choices.shownSinceBoot(2) && choices.shownSinceBoot(3))
+        assertTrue("A fresh picture puts the next update off", choices.updatedWithin(1, CameraWidget.FRESH_MS))
+        assertFalse("Nothing chosen, nothing fresh", choices.updatedWithin(3, CameraWidget.FRESH_MS))
+    }
+
+    @Test
+    fun onlyWidgetsNotUpdatedAMomentAgoAreAskedAgain() {
+        placeWidgets(7, 8)
+        val choices = WidgetChoices(context)
+        val now = 1_000_000L
+        choices.markUpdated(7, now - 1_000)
+        choices.markUpdated(8, now - CameraWidget.FRESH_MS)
+        val app = shadowOf(context as Application)
+        app.clearBroadcastIntents()
+
+        CameraWidget.requestUpdate(context, ifStale = true, now = now)
+        assertEquals(listOf(8), app.broadcastIntents.single().getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS)?.toList())
+
+        // A time ahead of now, as after the clock was set back, is not fresh.
+        assertFalse(choices.updatedWithin(7, CameraWidget.FRESH_MS, now = now - 5_000))
+        app.clearBroadcastIntents()
+        choices.markUpdated(8, now)
+        CameraWidget.requestUpdate(context, ifStale = true, now = now)
+        assertTrue("All fresh, nothing sent", app.broadcastIntents.isEmpty())
+
+        // Asked without ifStale, as after a widget is set up, every widget updates.
+        CameraWidget.requestUpdate(context, now = now)
+        assertEquals(listOf(7, 8), app.broadcastIntents.single().getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS)?.toList())
     }
 
     @Test
@@ -150,6 +179,7 @@ class WidgetUpdateTest {
 
         assertTrue(paths.isEmpty())
         assertTrue(WidgetChoices(context).shownSinceBoot(4))
+        assertFalse("A sign-in prompt is asked again next time", WidgetChoices(context).updatedWithin(4, CameraWidget.FRESH_MS))
     }
 
     @Test

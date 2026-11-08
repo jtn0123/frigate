@@ -107,10 +107,8 @@ class FrigateApiTest {
     fun allowedCamerasAreReadFromTheProfile() = runTest {
         server.enqueue(MockResponse.Builder().body("""{"username":"v","role":"viewer","allowed_cameras":["front"]}""").build())
         server.enqueue(MockResponse.Builder().body("""{"username":"v","role":"viewer"}""").build())
-        server.enqueue(MockResponse.Builder().code(404).build())
-        assertEquals(setOf("front"), api().allowedCameras())
-        assertNull("An older server does not say", api().allowedCameras())
-        assertNull("No profile hides nothing", api().allowedCameras())
+        assertEquals(listOf("front"), api().profile().allowedCameras)
+        assertNull("An older server does not say", api().profile().allowedCameras)
     }
 
     @Test

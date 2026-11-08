@@ -5,9 +5,12 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import okhttp3.Cookie
@@ -57,12 +60,13 @@ internal fun cookieValue(setCookie: String, name: String): String? {
 }
 
 /**
- * Builds the single HTTP client shared by the API, image loading and video
- * playback, so every request carries the same credentials. A [pin] limits
- * TLS to one self-signed certificate; without one the system trust store applies.
+ * The client every session's own is made from, so they all share one
+ * connection pool, dispatcher and set of threads: a widget update, or the next
+ * step of signing in, reuses an open connection, TLS handshake and all, rather
+ * than starting cold.
  */
-fun buildHttpClient(auth: AuthToken?, pin: CertificatePin?): OkHttpClient {
-    val builder = OkHttpClient.Builder()
+internal val baseHttpClient: OkHttpClient by lazy {
+    OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         // The live feed and MSE video are WebSockets: without pings a connection that died
@@ -73,6 +77,17 @@ fun buildHttpClient(auth: AuthToken?, pin: CertificatePin?): OkHttpClient {
             // Frigate's CSRF check only needs the header to be present.
             chain.proceed(if (request.method != "GET") request.newBuilder().header("X-CSRF-TOKEN", "1").build() else request)
         }
+        .build()
+}
+
+/**
+ * Builds a session's HTTP client, shared by its API, image loading and video
+ * playback, so every request carries the same credentials. It is made from
+ * [baseHttpClient], whose connections and threads it shares. A [pin] limits
+ * TLS to one self-signed certificate; without one the system trust store applies.
+ */
+fun buildHttpClient(auth: AuthToken?, pin: CertificatePin?): OkHttpClient {
+    val builder = baseHttpClient.newBuilder()
     // OkHttp asks the cookie jar on each hop of a redirect, WebSockets included, so the token goes only where it belongs.
     if (auth != null) builder.cookieJar(TokenCookieJar(auth))
     if (pin != null) builder.trustOnly(pin)
@@ -157,8 +172,23 @@ class CertificatePin(val fingerprint: String) {
  * self-signed certificate rarely names the address it is reached at, and the
  * pin already identifies the server more strictly than a hostname would.
  */
-@SuppressLint("CustomX509TrustManager")
 private fun OkHttpClient.Builder.trustOnly(pin: CertificatePin) {
+    // A certificate being read to show the user records what it saw, so it gets its own.
+    val trust = if (pin.fingerprint.isEmpty()) PinnedTrust(pin) else pinnedTrusts.getOrPut(pin.fingerprint.uppercase()) { PinnedTrust(pin) }
+    sslSocketFactory(trust.socketFactory, trust.trustManager)
+    hostnameVerifier(trust.hostnames)
+}
+
+/**
+ * The TLS set-up trusting each pinned certificate, made once per certificate.
+ * OkHttp reuses a pooled connection only for the same socket factory and
+ * hostname verifier, so sessions trusting the same certificate share their
+ * connections.
+ */
+private val pinnedTrusts = ConcurrentHashMap<String, PinnedTrust>()
+
+@SuppressLint("CustomX509TrustManager")
+private class PinnedTrust(pin: CertificatePin) {
     val trustManager = object : X509TrustManager {
         override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) =
             throw CertificateException("Client certificates are not supported")
@@ -169,9 +199,10 @@ private fun OkHttpClient.Builder.trustOnly(pin: CertificatePin) {
 
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     }
-    val context = SSLContext.getInstance("TLS").apply {
+
+    val socketFactory: SSLSocketFactory = SSLContext.getInstance("TLS").apply {
         init(null, arrayOf<TrustManager>(trustManager), SecureRandom())
-    }
-    sslSocketFactory(context.socketFactory, trustManager)
-    hostnameVerifier { _, _ -> true }
+    }.socketFactory
+
+    val hostnames = HostnameVerifier { _, _ -> true }
 }
