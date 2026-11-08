@@ -2,6 +2,8 @@
 <resources>
     <!-- A camera's screen (ui/CameraDetailScreen.kt). -->
     <string name="cam_show_larger">Show larger</string>
+    <!-- What TalkBack says for the video; %1$s is the camera's name. -->
+    <string name="cam_live_view">Live view of %1$s</string>
     <string name="cam_status_snapshot">SNAPSHOT</string>
     <string name="cam_status_connecting">CONNECTING</string>
     <string name="cam_status_live">LIVE</string>

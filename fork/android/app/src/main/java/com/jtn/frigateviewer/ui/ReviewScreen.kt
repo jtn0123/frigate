@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -85,7 +86,7 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
                 append(
                     when {
                         !vm.trackReviews -> stringResource(R.string.rev_last_24_hours)
-                        unreviewed > 0 -> stringResource(R.string.rev_subtitle_to_review, unreviewed)
+                        unreviewed > 0 -> uiPlural(R.plurals.rev_subtitle_to_review, unreviewed).resolve()
                         else -> stringResource(R.string.rev_subtitle_caught_up)
                     },
                 )
@@ -106,9 +107,9 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
         val haptics = LocalHapticFeedback.current
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             val options = listOf(
-                Severity.ALERT to stringResource(R.string.rev_filter_alerts, counts.alerts),
-                Severity.DETECTION to stringResource(R.string.rev_filter_detections, counts.detections),
-                Severity.ALL to stringResource(R.string.rev_filter_all, counts.all),
+                Severity.ALERT to uiPlural(R.plurals.rev_filter_alerts, counts.alerts).resolve(),
+                Severity.DETECTION to uiPlural(R.plurals.rev_filter_detections, counts.detections).resolve(),
+                Severity.ALL to uiPlural(R.plurals.rev_filter_all, counts.all).resolve(),
             )
             options.forEachIndexed { index, (severity, label) ->
                 SegmentedButton(
@@ -210,7 +211,7 @@ fun ReviewScreen(vm: AppViewModel, session: Session, imageLoader: ImageLoader) {
     if (confirmMarkAll) {
         AlertDialog(
             onDismissRequest = { confirmMarkAll = false },
-            title = { Text(stringResource(R.string.rev_mark_all_title, unreviewed)) },
+            title = { Text(uiPlural(R.plurals.rev_mark_all_title, unreviewed).resolve()) },
             text = { Text(stringResource(R.string.rev_mark_all_detail)) },
             confirmButton = {
                 TextButton(onClick = {
@@ -256,6 +257,7 @@ private fun DayHeader(day: String, count: Int, collapsed: Boolean, onToggle: () 
                 stateDescription = state
                 heading()
             }
+            .heightIn(min = 48.dp)
             .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
