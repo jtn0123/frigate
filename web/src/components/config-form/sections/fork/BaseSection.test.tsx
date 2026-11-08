@@ -739,6 +739,83 @@ describe("ConfigSection", () => {
     expect(screen.queryByTestId("global-overrides-badge")).toBeNull();
   });
 
+  // Reset deletes the section from config.yml, which fails for a key the
+  // file never had (upstream #24878).
+  it("hides Reset to Default for a global section at its schema defaults", () => {
+    h.config = { ...baseConfig(), snapshots: { enabled: false, threshold: 5 } };
+    renderSection();
+    expect(queryButton("button.resetToDefault")).toBeNull();
+  });
+
+  it("compares nested objects that carry no schema default of their own", () => {
+    h.schema = {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean", default: false },
+        retain: {
+          type: "object",
+          properties: { days: { type: "number", default: 1 } },
+        },
+      },
+    };
+    h.config = { ...baseConfig(), snapshots: { retain: { days: 1 } } };
+    const { unmount } = renderSection();
+    expect(queryButton("button.resetToDefault")).toBeNull();
+    unmount();
+
+    h.config = { ...baseConfig(), snapshots: { retain: { days: 3 } } };
+    renderSection();
+    expect(button("button.resetToDefault")).toBeEnabled();
+  });
+
+  it("ignores fields the backend resolves at runtime", () => {
+    h.schema = {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean", default: false },
+        hwaccel_args: { type: "string" },
+        export: {
+          type: "object",
+          properties: { hwaccel_args: { type: "string" } },
+        },
+      },
+    };
+    h.config = {
+      ...baseConfig(),
+      snapshots: {
+        enabled: false,
+        hwaccel_args: "resolved",
+        export: { hwaccel_args: "resolved" },
+      },
+    };
+    const { unmount } = renderSection();
+    expect(button("button.resetToDefault")).toBeEnabled();
+    unmount();
+
+    renderSection({
+      defaultConfig: { runtimeFields: ["hwaccel_args", "export.hwaccel_args"] },
+    });
+    expect(queryButton("button.resetToDefault")).toBeNull();
+  });
+
+  it("never offers a reset for a section that hides it", () => {
+    const { unmount } = renderSection({ defaultConfig: { hideReset: true } });
+    expect(queryButton("button.resetToDefault")).toBeNull();
+    unmount();
+
+    h.override = {
+      isOverridden: true,
+      globalValue: { enabled: true },
+      cameraValue: { enabled: false },
+    };
+    renderSection({
+      level: "camera",
+      cameraName: "front",
+      defaultConfig: { hideReset: true },
+    });
+    expect(queryButton("button.resetToGlobal")).toBeNull();
+  });
+
   it("treats replay like a camera section", () => {
     renderSection({
       level: "replay",

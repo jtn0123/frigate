@@ -439,7 +439,8 @@ class TestPtzAutoTrackerInit(unittest.TestCase):
         scheduled = []
 
         def fake_run(coro, loop):
-            scheduled.append(coro.cr_code.co_name)
+            # an unstarted coroutine's frame still holds its arguments
+            scheduled.append((coro.cr_code.co_name, coro.cr_frame.f_locals["startup"]))
             coro.close()
             return MagicMock()
 
@@ -455,7 +456,8 @@ class TestPtzAutoTrackerInit(unittest.TestCase):
 
         self.assertIs(tracker.config_subscriber, sub.return_value)
         self.assertEqual(tracker.autotracker_init, {CAMERA: False, "plain_cam": False})
-        self.assertEqual(scheduled, ["_autotracker_setup"])
+        # only startup setup may calibrate (upstream #24878)
+        self.assertEqual(scheduled, [("_autotracker_setup", True)])
 
 
 class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
@@ -468,8 +470,10 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
         self.run = run_patch.start()
         self.addCleanup(run_patch.stop)
 
-    async def _setup(self, tracker: PtzAutoTracker) -> None:
-        await tracker._autotracker_setup(tracker.config.cameras[CAMERA], CAMERA)
+    async def _setup(self, tracker: PtzAutoTracker, startup: bool = False) -> None:
+        await tracker._autotracker_setup(
+            tracker.config.cameras[CAMERA], CAMERA, startup=startup
+        )
 
     def _assert_disabled(self, tracker: PtzAutoTracker) -> None:
         autotracking = tracker.config.cameras[CAMERA].onvif.autotracking
@@ -478,6 +482,10 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
         update = tracker.dispatcher.config_updater.publish_update.call_args.args
         self.assertEqual(update[0].camera, CAMERA)
         self.assertIs(update[1], autotracking)
+        # the UI toggle follows the retained state topic
+        tracker.dispatcher.publish.assert_called_once_with(
+            f"{CAMERA}/ptz_autotracker/state", "OFF", retain=True
+        )
 
     async def test_missing_onvif_connection_disables(self) -> None:
         tracker = _tracker()
@@ -511,6 +519,31 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(tracker.config.cameras[CAMERA].onvif.autotracking.enabled)
         self.assertIn("FOV relative movement not supported", logs.output[0])
+
+    async def test_runtime_enable_checks_initialized_camera(self) -> None:
+        # Enabling autotracking from the UI finds ONVIF already initialized;
+        # the capability checks still run (upstream #24878).
+        for features, capability, reason in (
+            (["pt"], True, "FOV relative movement not supported"),
+            (["pt", "pt-r-fov"], False, "MoveStatus not supported"),
+        ):
+            with self.subTest(reason=reason):
+                tracker = _tracker(calibrate=True)
+                tracker.onvif = _onvif(features=features, init=True)
+                tracker.onvif.get_service_capabilities.return_value = capability
+
+                with (
+                    patch.object(tracker, "_calibrate_camera", AsyncMock()) as cal,
+                    self.assertLogs("frigate.ptz.autotrack", "WARNING") as logs,
+                ):
+                    await self._setup(tracker)
+
+                self._assert_disabled(tracker)
+                self.assertIn(reason, logs.output[0])
+                tracker.onvif._init_onvif.assert_not_awaited()
+                tracker.onvif.get_camera_status.assert_not_awaited()
+                cal.assert_not_awaited()
+                self.run.assert_not_called()
 
     async def test_move_status_capability_values(self) -> None:
         for capability, supported in (
@@ -571,9 +604,20 @@ class TestAutotrackerSetup(unittest.IsolatedAsyncioTestCase):
         tracker = _tracker(calibrate=True)
 
         with patch.object(tracker, "_calibrate_camera", AsyncMock()) as calibrate:
-            await self._setup(tracker)
+            await self._setup(tracker, startup=True)
 
         calibrate.assert_awaited_once_with(CAMERA)
+
+    async def test_runtime_setup_skips_calibration(self) -> None:
+        # calibration would block the object processing thread (upstream #24878)
+        tracker = _tracker(calibrate=True)
+
+        with patch.object(tracker, "_calibrate_camera", AsyncMock()) as calibrate:
+            await self._setup(tracker)
+
+        calibrate.assert_not_awaited()
+        tracker.onvif.get_camera_status.assert_awaited_once_with(CAMERA)
+        self.assertTrue(tracker.autotracker_init[CAMERA])
 
 
 class _FakePtz:
@@ -1218,6 +1262,26 @@ class TestAutotrackObject(unittest.TestCase):
             self.tracker.autotrack_object(CAMERA, _obj())
 
         run.assert_called_once()
+        self.ptz_move.assert_not_called()
+
+    def test_stops_when_setup_disables_camera(self) -> None:
+        self.tracker.autotracker_init = {}
+        autotracking = self.tracker.config.cameras[CAMERA].onvif.autotracking
+
+        def setup_disables(coro, loop):
+            coro.close()
+            autotracking.enabled = False
+            return MagicMock()
+
+        with patch.object(
+            autotrack_module.asyncio,
+            "run_coroutine_threadsafe",
+            side_effect=setup_disables,
+        ):
+            self.tracker.autotrack_object(CAMERA, _obj())
+
+        self.assertIsNone(self.tracker.tracked_object[CAMERA])
+        self.tracker.dispatcher.publish.assert_not_called()
         self.ptz_move.assert_not_called()
 
     def test_new_object_starts_tracking(self) -> None:
