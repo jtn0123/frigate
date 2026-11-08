@@ -59,19 +59,24 @@ def main() -> None:
     try:
         deadline = time.monotonic() + 30
         status = Path("/state/status.json")
+        models = Path("/telemetry/models.json")
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 raise RuntimeError("Worker exited before becoming ready")
-            if status.exists():
+            # One pass writes status.json and then models.json, after walking
+            # the model folders, so wait for both rather than catch the gap.
+            if status.exists() and models.is_file():
                 data = json.loads(status.read_text())
                 assert data["status"] == "listening", data["status"]
-                assert Path("/telemetry/models.json").is_file()
                 assert Path("/state/queue.sqlite").is_file()
                 print("Offline runtime startup, polling, and publication passed")
                 break
             time.sleep(0.1)
         else:
-            raise TimeoutError("Worker startup timed out")
+            raise TimeoutError(
+                f"Worker startup timed out (status written: {status.exists()}, "
+                f"telemetry written: {models.is_file()})"
+            )
     finally:
         process.terminate()
         try:
