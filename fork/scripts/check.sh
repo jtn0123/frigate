@@ -4,6 +4,14 @@
 #
 #   fork/scripts/check.sh           # every gate CI runs (make check)
 #   fork/scripts/check.sh --fast    # changed-only, for the inner loop (make check-fast)
+#   fork/scripts/check.sh --gates lint,python,e2e   # exactly these gates
+#
+# --gates is what the local CI runner (fork/scripts/local_ci.py, I163) uses to
+# run the jobs CI would pick for a change. Besides the gates above it can run
+# the CI-only jobs: locks (the audio lock and the advisory audit), runtime (the
+# non-root NVR startup) and audio (the audio companion image). With
+# FORK_DOCKER_LOCK set to a lock directory, every Docker gate holds that lock
+# while it runs, so it never builds beside another worktree's images.
 #
 # --fast compares against the merge base with $FORK_BASE (default origin/next),
 # including uncommitted and untracked files: vitest runs only tests affected by
@@ -29,7 +37,26 @@ set -uo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
 mode=full
-if [[ "${1:-}" == "--fast" ]]; then mode=fast; fi
+host_gates=" lint typecheck ratchet vitest i18n ruff mypy_fork gitleaks scripts locks build "
+docker_gates=" python runtime audio "
+wanted=()
+case "${1:-}" in
+  --fast) mode=fast ;;
+  --gates)
+    mode=gates
+    IFS=, read -r -a wanted <<<"${2:-}"
+    ((${#wanted[@]})) || {
+      echo "usage: fork/scripts/check.sh --gates <gate>[,<gate>...]" >&2
+      exit 2
+    }
+    for gate in "${wanted[@]}"; do
+      if [[ "$host_gates$docker_gates e2e " != *" $gate "* ]]; then
+        echo "unknown gate: $gate (gates:$host_gates${docker_gates}e2e)" >&2
+        exit 2
+      fi
+    done
+    ;;
+esac
 
 base_ref="${FORK_BASE:-origin/next}"
 base="$(git merge-base HEAD "$base_ref")" || {
@@ -139,17 +166,86 @@ gate_e2e() {
   return $?
 }
 
-gate_python() {
+# Same per-worktree tag as the Makefile, so parallel worktrees never test each
+# other's sources.
+test_image() { echo "frigate-fork-test-$(basename "$PWD")"; }
+
+# docker_gate <command...>: runs a Docker gate, holding $FORK_DOCKER_LOCK (a
+# directory, created to take it) when one is set. The subshell's trap gives the
+# lock back however the command ends.
+docker_gate() {
   if ! docker info >/dev/null 2>&1; then
     echo "Docker is not running; start it with 'colima start' and re-run."
     return 1
   fi
-  # Same per-worktree tag as the Makefile, so parallel worktrees never test
-  # each other's sources.
+  local lock="${FORK_DOCKER_LOCK:-}"
+  if [[ -z "$lock" ]]; then
+    "$@"
+    return $?
+  fi
+  until mkdir "$lock" 2>/dev/null; do sleep 15; done
+  (
+    trap 'rmdir "$lock"' EXIT
+    "$@"
+  )
+}
+
+python_in_docker() {
   local image
-  image="frigate-fork-test-$(basename "$PWD")"
+  image="$(test_image)"
   make -s fork-test-image FORK_TEST_IMAGE="$image" && FORK_TEST_IMAGE="$image" fork/scripts/py-checks.sh
 }
+gate_python() { docker_gate python_in_docker; }
+
+# CI's "Python - non-root NVR runtime" job: nginx built from source, the NVR
+# started as a non-root user, then the audio companion's unit tests.
+runtime_in_docker() {
+  local image tag
+  image="$(test_image)"
+  tag="$(basename "$PWD")"
+  make -s fork-test-image FORK_TEST_IMAGE="$image" &&
+    docker build -q --target nginx -f docker/main/Dockerfile -t "frigate-nginx-check-$tag" . &&
+    docker build -q -f fork/Dockerfile.rootless-test --build-arg BASE="$image" \
+      --build-arg NGINX_IMAGE="frigate-nginx-check-$tag" -t "frigate-rootless-check-$tag" . &&
+    python3 fork/scripts/test_rootless_runtime.py "frigate-rootless-check-$tag" &&
+    docker run --rm -v "$PWD/fork/audio_trial:/opt/frigate/fork/audio_trial:ro" "$image" \
+      discover -s fork/audio_trial -v
+}
+gate_runtime() { docker_gate runtime_in_docker; }
+
+# CI's "Audio companion" job: the companion's own amd64 image (emulated on an
+# arm64 host, which needs Colima's amd64 binfmt), its recovery, regression and
+# read-only offline startup checks.
+audio_in_docker() {
+  local tag base
+  tag="frigate-audio-check-$(basename "$PWD")"
+  # On Apple silicon the amd64 image runs under emulation, which Colima drops
+  # when it restarts. Say so, rather than fail in the build's first RUN.
+  base="$(awk '/^FROM /{print $2; exit}' fork/audio_trial/Dockerfile)"
+  if ! docker run --rm --platform linux/amd64 --network none "$base" true; then
+    echo "amd64 emulation is missing. Register it, then run the gate again:" >&2
+    echo "  docker run --privileged --rm tonistiigi/binfmt --install amd64" >&2
+    return 1
+  fi
+  docker build -q --platform linux/amd64 -t "$tag" fork/audio_trial &&
+    python3 fork/scripts/audio-recovery-check.py "$tag" &&
+    docker run --rm --network none --read-only --tmpfs /tmp \
+      -v "$PWD/fork/audio_trial/benchmarks:/benchmarks:ro" \
+      "$tag" python -m unittest discover -s /benchmarks -p 'test_*.py' &&
+    docker run --rm --network none "$tag" pip check &&
+    docker run --rm --network none --read-only --tmpfs /tmp "$tag" \
+      python -m unittest discover -s /app -p 'test_*.py' -v &&
+    perl -e 'alarm shift; exec @ARGV' 120 docker run --rm --network none --read-only \
+      --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp \
+      --tmpfs /state:uid=1000,gid=1000 --tmpfs /telemetry:uid=1000,gid=1000 \
+      --tmpfs /host-cgroup:uid=1000,gid=1000 "$tag" python startup_check.py
+}
+gate_audio() { docker_gate audio_in_docker; }
+
+# The lock checks from CI's "Python - Lint" job: the audio companion's lock
+# matches its requirements, and the fork's locks have no unreviewed advisories
+# (needs pip-audit, from fork/requirements-audit.txt).
+gate_locks() { python3 fork/scripts/audio-lock-check.py && python3 fork/scripts/lock-audit.py; }
 
 # ---- lanes ----
 
@@ -212,6 +308,15 @@ if [[ "$mode" == fast ]]; then
   else
     skip python "no backend changes"
   fi
+elif [[ "$mode" == gates ]]; then
+  host=()
+  for gate in "${wanted[@]}"; do
+    if [[ "$host_gates" == *" $gate "* ]]; then host+=("$gate"); fi
+    if [[ "$docker_gates" == *" $gate "* ]]; then docker_lane+=("$gate"); fi
+    if [[ "$gate" == e2e ]]; then e2e_lane=(e2e); fi
+  done
+  # e2e serves the bundle build writes.
+  if ((${#e2e_lane[@]})) && [[ " ${host[*]-} " != *" build "* ]]; then host+=(build); fi
 else
   host+=(scripts build)
   e2e_lane=(e2e)
@@ -219,13 +324,13 @@ else
 fi
 
 echo "fork check ($mode): base $base_ref @ $(git rev-parse --short "$base"), E2E_PORT $E2E_PORT"
-lane "${host[@]}"
+if ((${#host[@]})); then lane "${host[@]}"; fi
 if ((${#docker_lane[@]})); then lane "${docker_lane[@]}"; fi
 if ((${#e2e_lane[@]})); then
   # e2e needs the bundle build has just written, and needs the machine to
   # itself; the wait is announced so a quiet terminal is not a hung one.
   hold=(build)
-  if ((${#docker_lane[@]})); then hold+=(python); fi
+  if ((${#docker_lane[@]})); then hold+=("${docker_lane[${#docker_lane[@]} - 1]}"); fi
   lane --after "$(
     IFS=,
     echo "${hold[*]}"
