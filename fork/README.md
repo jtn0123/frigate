@@ -158,6 +158,7 @@ An HTTPS `HF_ENDPOINT` mirror must serve the same reviewed bytes.
 - [Historical graded backlog (2026-09-18 snapshot)](GRADE-REPORT.md)
 - [Architecture and message ownership](ARCHITECTURE.md)
 - [Owner deployment, backup and rollback runbook](DEPLOYMENT.md)
+- [Container hardening versus upstream](HARDENING.md)
 - Shared demo/test image: `fork/runtime-base.env` (local tests may explicitly override `FORK_TEST_BASE`).
 - Pre-commit checks the fork Python roots, fork-owned workflows with actionlint,
   and `fork/**/*.sh` with ShellCheck. Install with `pre-commit install`; run the

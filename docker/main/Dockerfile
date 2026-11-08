@@ -93,17 +93,20 @@ ARG DEBIAN_FRONTEND
 
 # Install OpenVINO for model conversion
 COPY docker/main/requirements-ov.lock /requirements-ov.lock
+# The same pinned get-pip revision as the wheels and deps stages (I77)
+ADD --chmod=644 --checksum=sha256:fb24e693bab954209a063d90953621412ccad4a500905a726286e038f508ddf6 \
+    https://raw.githubusercontent.com/pypa/get-pip/af54dfe793b24685f8dc4ebba0630d9f2d77653c/public/get-pip.py get-pip.py
 RUN apt-get -qq update \
     && apt-get -qq install -y --no-install-recommends ca-certificates curl python3 python3-distutils wget \
-    && curl --proto '=https' --proto-redir '=https' -fsSL --output get-pip.py https://bootstrap.pypa.io/get-pip.py \
     && sed -i 's/args.append("setuptools")/args.append("setuptools==84.1.0")/' get-pip.py \
     && python3 get-pip.py "pip" \
     && pip3 install --only-binary=:all: --require-hashes -r /requirements-ov.lock
 
 # Get OpenVino Model
+ADD --chmod=644 --checksum=sha256:542445cce834dbfbb7df1991425d475e85a2d7ec68c60a4f262bb18aac10c8b2 \
+    https://storage.googleapis.com/download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz /models/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz
 RUN --mount=type=bind,source=docker/main/build_ov_model.py,target=/build_ov_model.py \
-    mkdir /models && cd /models \
-    && curl --proto '=https' --proto-redir '=https' -fsSL --remote-name https://storage.googleapis.com/download.tensorflow.org/models/object_detection/ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz \
+    cd /models \
     && tar -xvf ssdlite_mobilenet_v2_coco_2018_05_09.tar.gz \
     && python3 /build_ov_model.py
 

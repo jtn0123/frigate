@@ -6,8 +6,11 @@ download_https() {
     curl --proto '=https' --proto-redir '=https' -fsSL "$@"
 }
 
-# Download the MxAccl for Frigate github release
+# Download the MxAccl for Frigate github release. The digest is the one the
+# runtime manifest in frigate/detectors/plugins/memryx.py pins; update both
+# when bumping the release.
 download_https https://github.com/memryx/mx_accl_frigate/archive/refs/tags/v2.1.0.zip --output /tmp/mxaccl.zip
+echo "54d1971dee54688541561b7bd9136342be51707b68c11a2a5e575fa19e69bc51  /tmp/mxaccl.zip" | sha256sum -c -
 unzip /tmp/mxaccl.zip -d /tmp
 mv /tmp/mx_accl_frigate-2.1.0 /opt/mx_accl_frigate
 rm /tmp/mxaccl.zip
