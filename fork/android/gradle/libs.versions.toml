@@ -16,6 +16,7 @@ spotless = "8.10.4"
 ktlint = "1.8.0"
 detekt = "2.0.0-alpha.6"
 robolectric = "4.17"
+junit = "4.13.2"
 wireguard = "1.0.20260102"
 roborazzi = "1.77.0"
 androidxTestRunner = "1.7.0"
@@ -48,7 +49,7 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
-junit = { group = "junit", name = "junit", version = "4.13.2" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 okhttp-tls = { group = "com.squareup.okhttp3", name = "okhttp-tls", version.ref = "okhttp" }
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }

@@ -23,6 +23,11 @@ android {
         versionName = "0.2.3"
     }
 
+    // The device tests in src/androidTest run against the debug build unless
+    // -Pfrigate.testBuildType=minified points them at the minified one below,
+    // as the Android device workflow does too.
+    testBuildType = providers.gradleProperty("frigate.testBuildType").getOrElse("debug")
+
     // Release signing: a dedicated key when its four FRIGATE_RELEASE_* values
     // are set, as Gradle properties (~/.gradle/gradle.properties) or environment
     // variables; otherwise this machine's debug key, as before. See the README.
@@ -60,16 +65,23 @@ android {
         debug {
             applicationIdSuffix = ".debug"
         }
+        // The release build as R8 shrinks it, but always signed with the debug key
+        // and installed beside the other two, so the device tests can run on what
+        // ships: `./gradlew -Pfrigate.testBuildType=minified :app:connectedMinifiedAndroidTest`.
+        create("minified") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".minified"
+            signingConfig = signingConfigs.getByName("debug")
+            // What the device tests call, which the app alone may not need; it is
+            // otherwise shrunk as for release (scripts/device-test-keep-rules.sh).
+            proguardFile("proguard-device-tests.pro")
+            testProguardFile("proguard-test-apk.pro")
+        }
     }
 
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
     }
 
     lint {
@@ -93,6 +105,7 @@ android {
     }
 }
 
+// JDK 21 compiles Kotlin and Java alike, and sets their bytecode level.
 kotlin {
     jvmToolchain(21)
 }
@@ -156,6 +169,18 @@ detekt {
     baseline = file("detekt-baseline.xml")
 }
 
+// Unit test coverage. koverVerifyDebug, which scripts/check.sh and CI run, fails
+// when line coverage drops below this floor; it was 93% when the floor was set.
+kover {
+    reports {
+        verify {
+            rule("Line coverage") {
+                minBound(90)
+            }
+        }
+    }
+}
+
 // A failing test prints its whole exception, cause and stack included, in the
 // build log, rather than only the assertion's class and line.
 tasks.withType<Test>().configureEach {
@@ -163,4 +188,8 @@ tasks.withType<Test>().configureEach {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
+    // Test classes run in parallel JVMs, each loading its own Robolectric Android
+    // runtime: half the cores (two on CI's four-core runners) keeps them busy
+    // without running short of memory.
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
 }
