@@ -1,5 +1,6 @@
 package com.jtn.frigateviewer.ui
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.mutableStateMapOf
@@ -92,8 +93,10 @@ class Snapshots(
     }
 }
 
-private suspend fun decodeFrame(bytes: ByteArray): ImageBitmap? = withContext(Dispatchers.Default) {
-    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+/** A camera's JPEG has no transparency, so each pixel takes two bytes rather than four. */
+internal suspend fun decodeFrame(bytes: ByteArray): ImageBitmap? = withContext(Dispatchers.Default) {
+    val options = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
 }
 
 /** The signed-in session's [Snapshots]; null outside it, where each picture keeps its own. */

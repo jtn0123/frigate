@@ -60,6 +60,15 @@ class ReviewStore(
     private val byCamera by derivedStateOf { all.groupBy { it.camera } }
 
     /**
+     * What the Review tab counts, worked out once per change of the list or the filters
+     * rather than each time the tab is drawn again, as when its relative times move on.
+     */
+    val counts by derivedStateOf {
+        val inScope = cameraFilter?.let { byCamera[it].orEmpty() } ?: all
+        ReviewCounts.of(inScope, filtered)
+    }
+
+    /**
      * What each camera's tile shows. A change to one camera's items leaves the
      * others' summaries equal, so their tiles are not drawn again.
      */
@@ -195,6 +204,17 @@ data class CameraSummary(val unreviewedAlerts: Int, val latest: ReviewItem?) {
         val NONE = CameraSummary(0, null)
 
         fun of(items: List<ReviewItem>) = CameraSummary(items.count { it.isAlert && !it.reviewed }, items.maxByOrNull { it.startTime })
+    }
+}
+
+/** Each severity's items on the chosen camera, for the filter's labels, and the unreviewed among those shown. */
+@Immutable
+data class ReviewCounts(val alerts: Int, val detections: Int, val all: Int, val unreviewed: Int) {
+    companion object {
+        fun of(inScope: List<ReviewItem>, shown: List<ReviewItem>): ReviewCounts {
+            val alerts = inScope.count { it.isAlert }
+            return ReviewCounts(alerts, inScope.size - alerts, inScope.size, shown.count { !it.reviewed })
+        }
     }
 }
 
