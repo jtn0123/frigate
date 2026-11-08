@@ -128,6 +128,7 @@ class AppViewModel(
     var severity by reviewStore::severity
     var cameraFilter by reviewStore::cameraFilter
     val filteredReviews get() = reviewStore.filtered
+    val reviewCounts get() = reviewStore.counts
     val unreviewedAlerts get() = reviewStore.unreviewedAlerts
     val reviewsCapped get() = reviewStore.capped
     val reviewMessage get() = reviewStore.message

@@ -41,6 +41,8 @@ import com.jtn.frigateviewer.data.Remote
 import com.jtn.frigateviewer.data.ServerStats
 import com.jtn.frigateviewer.data.StorageStats
 import com.jtn.frigateviewer.data.isNewerRelease
+import java.math.RoundingMode
+import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -74,27 +76,21 @@ fun HealthScreen(
 private fun HealthContent(cameraLabel: (String) -> String, stats: ServerStats) {
     // A few dozen rows at most, so one scrolling column rather than a lazy list.
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        StatRow(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp)) {
             Stat(
                 stringResource(R.string.set_health_uptime),
                 stats.uptimeSeconds?.let { formatUptime(it).resolve() } ?: stringResource(R.string.set_no_figure),
                 Palette.TextPrimary,
-                Modifier.weight(1f),
             )
             Stat(
                 stringResource(R.string.set_health_cpu),
                 percent(stats.cpuPercent).resolve(),
                 loadColor(stats.cpuPercent),
-                Modifier.weight(1f),
             )
             Stat(
                 stringResource(R.string.set_health_memory),
                 percent(stats.memoryPercent).resolve(),
                 loadColor(stats.memoryPercent),
-                Modifier.weight(1f),
             )
         }
         stats.version?.let { version ->
@@ -237,7 +233,12 @@ internal fun size(mb: Double): UiText = when {
 
 private fun percent(value: Double?): UiText = value?.let { uiText(R.string.set_percent, it.roundToInt()) } ?: uiText(R.string.set_no_figure)
 
-private fun decimal(value: Double): String = String.format(Locale.US, "%.1f", value).removeSuffix(".0")
+/** [value] to one decimal place, without a trailing zero, in [locale]'s digits: "3.5", or "3,5" in German. */
+internal fun decimal(value: Double, locale: Locale = Locale.getDefault()): String = NumberFormat.getNumberInstance(locale).run {
+    maximumFractionDigits = 1
+    roundingMode = RoundingMode.HALF_UP
+    format(value)
+}
 
 @Composable
 private fun loadColor(percent: Double?): Color = if ((percent ?: 0.0) >= HIGH_LOAD) Palette.Alert else Palette.TextPrimary

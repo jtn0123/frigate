@@ -68,7 +68,9 @@ test.describe("export action recovery @high", () => {
     await expect(input).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();
-    expect(attempts).toBe(2);
+    // the button shows "Saving…" as soon as it is pressed, before the retry
+    // reaches the route handler, so wait for the handler to count it
+    await expect.poll(() => attempts).toBe(2);
     await page.screenshot({
       animations: "disabled",
       path: testInfo.outputPath("rename-pending.png"),

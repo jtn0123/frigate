@@ -14,6 +14,7 @@ ARG ROCM
 RUN apt update -qq && \
     apt install -y --no-install-recommends gpg wget && \
     curl --proto '=https' --proto-redir '=https' -fsSL --output rocm.deb https://repo.radeon.com/amdgpu-install/7.2.3/ubuntu/jammy/amdgpu-install_7.2.3.70203-1_all.deb && \
+    echo "6626e0b4b99c22c659913c9333fc2e1925b6c319ee357a1e27841a4085be46bd  rocm.deb" | sha256sum -c - && \
     apt install -y --no-install-recommends ./rocm.deb && \
     apt update && \
     apt install -qq -y --no-install-recommends rocm

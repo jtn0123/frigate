@@ -1,6 +1,8 @@
 package com.jtn.frigateviewer.ui
 
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -11,6 +13,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import com.jtn.frigateviewer.data.FrigateApi
+import com.jtn.frigateviewer.data.Ptz
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -173,6 +176,27 @@ class CameraControlsTest {
 
         compose.awaitMain { compose.onAllNodes(hasContentDescription("Tilt down")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Motor controls unavailable").assertDoesNotExist()
+    }
+
+    @Test
+    fun aCommandThatCannotBeSentIsReadOutThenGoes() {
+        val vm = show("admin")
+        compose.awaitMain { vm.controls.isAdmin }
+        openSettings()
+
+        compose.runOnIdle {
+            // As when the feed has just closed.
+            vm.controls.commands = null
+            vm.controls.ptz("porch", Ptz.UP)
+        }
+
+        val notice = compose.onNodeWithText("Not connected to the server. Try again in a moment.")
+        assertEquals(LiveRegionMode.Polite, notice.fetchSemanticsNode().config[SemanticsProperties.LiveRegion])
+        compose.mainClock.autoAdvance = false
+        compose.mainClock.advanceTimeBy(3_000)
+        notice.assertExists()
+        compose.mainClock.advanceTimeBy(1_100)
+        notice.assertDoesNotExist()
     }
 
     @Test

@@ -334,6 +334,7 @@
           "type": "boolean"
         },
         "modes": {
+          "default": ["all_objects"],
           "description": "Activity types that include cameras in Birdseye.",
           "items": { "$ref": "#/$defs/BirdseyeModeEnum" },
           "title": "Activity types",
@@ -359,6 +360,7 @@
           "type": "boolean"
         },
         "modes": {
+          "default": ["all_objects"],
           "description": "Activity types that include cameras in Birdseye.",
           "items": { "$ref": "#/$defs/BirdseyeModeEnum" },
           "title": "Activity types",

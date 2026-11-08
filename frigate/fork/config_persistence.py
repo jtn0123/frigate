@@ -1,11 +1,17 @@
 """Locked, durable replacement of the persisted configuration."""
 
+import logging
 import os
 import stat
 import tempfile
+from io import StringIO
 from pathlib import Path
+from typing import Any
 
 from filelock import FileLock
+from ruamel.yaml import YAML
+
+logger = logging.getLogger(__name__)
 
 
 def config_file_lock(path: str) -> FileLock:
@@ -48,3 +54,22 @@ def write_config_file(path: str, content: str) -> None:
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
+
+
+def write_migrated_config(path: str, yaml: YAML, config: dict[str, Any]) -> None:
+    """Save a migrated configuration so that no reader sees it half written.
+
+    nginx reads the configuration while Frigate migrates it at startup. An
+    in-place rewrite leaves the file empty for a moment, and an nginx start
+    that reads it then fails and stops the container. A single-file bind mount
+    cannot be replaced, so that setup keeps the in-place write it always had.
+    """
+    output = StringIO()
+    yaml.dump(config, output)
+    content = output.getvalue()
+    try:
+        write_config_file(path, content)
+    except OSError as error:
+        logger.debug("Migrated config written in place (%s)", error.strerror)
+        with open(path, "w") as f:
+            f.write(content)

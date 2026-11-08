@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -34,8 +35,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -50,6 +56,8 @@ fun LoginScreen(vm: AppViewModel) {
     // Not saveable: saved instance state is written outside the app's encrypted settings.
     var password by remember { mutableStateOf("") }
     var selfSigned by rememberSaveable { mutableStateOf(saved.selfSignedCert) }
+    val canConnect = url.isNotBlank() && !vm.loggingIn
+    val connect = { vm.login(url, user, password, selfSigned) }
 
     Column(
         Modifier
@@ -111,7 +119,8 @@ fun LoginScreen(vm: AppViewModel) {
                         label = { Text(stringResource(R.string.set_login_username)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        modifier = Modifier.fillMaxWidth(),
+                        // Password managers fill the two fields they find marked.
+                        modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Username },
                     )
                     OutlinedTextField(
                         value = password,
@@ -123,7 +132,12 @@ fun LoginScreen(vm: AppViewModel) {
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                        modifier = Modifier.fillMaxWidth(),
+                        // Done connects, as the button below would.
+                        keyboardActions = KeyboardActions(onDone = {
+                            defaultKeyboardAction(ImeAction.Done)
+                            if (canConnect) connect()
+                        }),
+                        modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Password },
                     )
                 }
             }
@@ -132,12 +146,13 @@ fun LoginScreen(vm: AppViewModel) {
                     it.resolve(),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    // Read out when it appears, as the focus is still on the button or keyboard.
+                    modifier = Modifier.padding(horizontal = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             Button(
-                onClick = { vm.login(url, user, password, selfSigned) },
-                enabled = url.isNotBlank() && !vm.loggingIn,
+                onClick = connect,
+                enabled = canConnect,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
                 if (vm.loggingIn) {

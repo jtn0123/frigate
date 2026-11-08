@@ -5,7 +5,7 @@
 #
 #   fork/scripts/promote.sh [--yes] [--drop-main-commits]    # make promote
 #
-# Refuses when "Fork - Checks" is not green on next's tip, or when main has
+# Refuses when "Checks passed" is not green on next's tip, or when main has
 # commits next lacks (someone pushed main directly; merge them into next
 # first). A commit is on next when next has a patch-equivalent of it or a
 # rebased copy (same author, author date and subject): rebasing next onto
@@ -66,12 +66,18 @@ if [[ -n "$missing" ]]; then
   [[ "$answer" == "drop" ]] || { echo "Not promoted." >&2; exit 1; }
 fi
 
-checks="$(gh run list -R "$repo" --workflow "Fork - Checks" --branch next \
-  --commit "$next" --limit 1 --json status,conclusion \
-  --jq '.[0] // {} | "\(.status // "none")/\(.conclusion // "")"')"
-if [[ "$checks" != "completed/success" ]]; then
-  echo "Fork - Checks on next (${next:0:9}) is ${checks}, not green." >&2
-  echo "Watch it: gh run list -R $repo --branch next --limit 3" >&2
+# "Checks passed" is what the next ruleset requires. CI's last job reports it
+# as a check run; fork/scripts/local_ci.py posts it as a commit status.
+checks="$(gh api "repos/$repo/commits/$next/status" \
+  --jq '[.statuses[] | select(.context == "Checks passed") | .state][0] // "none"')"
+if [[ "$checks" != "success" ]]; then
+  run="$(gh api "repos/$repo/commits/$next/check-runs?check_name=Checks+passed" \
+    --jq '.check_runs[0] // {} | "\(.status // "none")/\(.conclusion // "")"')"
+  [[ "$run" == "completed/success" ]] && checks="success"
+fi
+if [[ "$checks" != "success" ]]; then
+  echo "Checks passed on next (${next:0:9}) is ${checks}, not success." >&2
+  echo "Run it on this Mac: python3 fork/scripts/local_ci.py ref next" >&2
   exit 1
 fi
 

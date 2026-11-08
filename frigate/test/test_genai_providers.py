@@ -145,11 +145,71 @@ def _openai_chunk(content=None, tool_calls=None, finish_reason=None, usage=None)
     return SimpleNamespace(choices=[choice], usage=usage)
 
 
+class _FakeAsyncOpenAIStream:
+    """Mimics openai.AsyncStream: async iterable and async context manager.
+
+    With ``stall_after`` set, the stream stops producing after that many
+    chunks, like a model that stops sending tokens, and sets ``stalled``.
+    """
+
+    def __init__(self, chunks, stall_after=None):
+        self._chunks = chunks
+        self._stall_after = stall_after
+        self.stalled = asyncio.Event()
+        self.close = AsyncMock()
+
+    async def __aiter__(self):
+        for i, chunk in enumerate(self._chunks):
+            if i == self._stall_after:
+                self.stalled.set()
+                await asyncio.Event().wait()
+            yield chunk
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        await self.close()
+
+
+class _FakeAsyncOpenAI:
+    """Mimics openai.AsyncOpenAI: async context manager with a completions API."""
+
+    def __init__(self, create):
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+        self.close = AsyncMock()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        await self.close()
+
+
 class TestOpenAIProvider(unittest.TestCase):
     def _client(self):
         return _make_client(
             "openai", model="gpt-4o", api_key="k", base_url="http://localhost:9999/v1"
         )
+
+    def _streaming_client(self, create):
+        """Build a client whose async completions call is ``create``."""
+        client = self._client()
+        async_client = _FakeAsyncOpenAI(create)
+        client._init_async_provider = MagicMock(return_value=async_client)
+        return client, async_client
+
+    def test_async_client_uses_configured_options(self):
+        from openai import AsyncOpenAI
+
+        client = self._client()
+        async_client = client._init_async_provider()
+        try:
+            self.assertIsInstance(async_client, AsyncOpenAI)
+            self.assertEqual(async_client.base_url, client.provider.base_url)
+            self.assertEqual(async_client.api_key, "k")
+        finally:
+            asyncio.run(async_client.close())
 
     def test_stream_tool_call_arguments_are_dict(self):
         # Arguments arrive split across chunks, as the real API streams them.
@@ -162,8 +222,9 @@ class TestOpenAIProvider(unittest.TestCase):
             _openai_chunk(tool_calls=[_openai_tc(0, arguments=' "person"}')]),
             _openai_chunk(finish_reason="tool_calls"),
         ]
-        client = self._client()
-        client.provider.chat.completions.create = MagicMock(return_value=iter(chunks))
+        client, _ = self._streaming_client(
+            AsyncMock(return_value=_FakeAsyncOpenAIStream(chunks))
+        )
 
         final = _final_message(_collect(client, SIMPLE_MESSAGES))
         self.assertEqual(final["finish_reason"], "tool_calls")
@@ -177,8 +238,9 @@ class TestOpenAIProvider(unittest.TestCase):
             _openai_chunk(content="lo"),
             _openai_chunk(finish_reason="stop"),
         ]
-        client = self._client()
-        client.provider.chat.completions.create = MagicMock(return_value=iter(chunks))
+        client, _ = self._streaming_client(
+            AsyncMock(return_value=_FakeAsyncOpenAIStream(chunks))
+        )
 
         events = _collect(client, SIMPLE_MESSAGES)
         deltas = [v for (k, v) in events if k == "content_delta"]
@@ -186,13 +248,83 @@ class TestOpenAIProvider(unittest.TestCase):
         self.assertEqual(_final_message(events)["content"], "hello")
 
     def test_multimodal_message_does_not_crash(self):
-        client = self._client()
-        client.provider.chat.completions.create = MagicMock(
-            return_value=iter([_openai_chunk(content="ok", finish_reason="stop")])
+        client, _ = self._streaming_client(
+            AsyncMock(
+                return_value=_FakeAsyncOpenAIStream(
+                    [_openai_chunk(content="ok", finish_reason="stop")]
+                )
+            )
         )
         # Passing the OpenAI-native multimodal list through must not raise.
         final = _final_message(_collect(client, MULTIMODAL_MESSAGES))
         self.assertEqual(final["content"], "ok")
+
+    def test_stream_uses_async_client_and_closes_it(self):
+        # The blocking sync client must never be used on the event loop.
+        stream = _FakeAsyncOpenAIStream(
+            [_openai_chunk(content="ok", finish_reason="stop")]
+        )
+        create = AsyncMock(return_value=stream)
+        client, async_client = self._streaming_client(create)
+        client.provider.chat.completions.create = MagicMock()
+
+        final = _final_message(_collect(client, SIMPLE_MESSAGES))
+
+        self.assertEqual(final["content"], "ok")
+        self.assertTrue(create.await_args.kwargs["stream"])
+        client.provider.chat.completions.create.assert_not_called()
+        stream.close.assert_awaited_once()
+        async_client.close.assert_awaited_once()
+
+    def test_client_closed_when_caller_leaves_while_opening(self):
+        # Cancelling before the response arrives must still close the client.
+        async def _run():
+            opening = asyncio.Event()
+
+            async def hang(**kwargs):
+                opening.set()
+                await asyncio.Event().wait()
+
+            client, async_client = self._streaming_client(hang)
+            gen = client.chat_with_tools_stream(
+                messages=SIMPLE_MESSAGES, tools=None, tool_choice="auto"
+            )
+            task = asyncio.create_task(gen.__anext__())
+            await opening.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await asyncio.wait_for(task, timeout=1)
+            return async_client
+
+        async_client = asyncio.run(_run())
+        async_client.close.assert_awaited_once()
+
+    def test_stream_closed_when_caller_leaves_mid_stream(self):
+        # Cancelling while waiting on a stalled model must close the stream
+        # right away instead of waiting for the next chunk.
+        async def _run():
+            stream = _FakeAsyncOpenAIStream(
+                [_openai_chunk(content="a"), _openai_chunk(finish_reason="stop")],
+                stall_after=1,
+            )
+            client, async_client = self._streaming_client(
+                AsyncMock(return_value=stream)
+            )
+            gen = client.chat_with_tools_stream(
+                messages=SIMPLE_MESSAGES, tools=None, tool_choice="auto"
+            )
+            first = await gen.__anext__()
+            task = asyncio.create_task(gen.__anext__())
+            await stream.stalled.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await asyncio.wait_for(task, timeout=1)
+            return first, stream, async_client
+
+        first, stream, async_client = asyncio.run(_run())
+        self.assertEqual(first, ("content_delta", "a"))
+        stream.close.assert_awaited_once()
+        async_client.close.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
@@ -297,6 +429,56 @@ class TestGeminiProvider(unittest.TestCase):
         )
         final = _final_message(_collect(client, MULTIMODAL_MESSAGES))
         self.assertEqual(final["content"], "ok")
+
+
+class TestGeminiImageTokens(unittest.TestCase):
+    def _client(self, count_tokens):
+        client = _make_client("gemini", model="gemini-3-flash", api_key="k")
+        client.provider = SimpleNamespace(
+            models=SimpleNamespace(count_tokens=count_tokens)
+        )
+        return client
+
+    def test_measures_image_cost_and_caches_per_size(self):
+        count_tokens = MagicMock(
+            side_effect=lambda model, contents, config: SimpleNamespace(
+                total_tokens=2 if len(contents) == 1 else 1102
+            )
+        )
+        client = self._client(count_tokens)
+
+        self.assertEqual(client.estimate_image_tokens(320, 180), 1100)
+        self.assertEqual(client.estimate_image_tokens(320, 180), 1100)
+        self.assertEqual(count_tokens.call_count, 2)
+
+        image = count_tokens.call_args.kwargs["contents"][1]
+        self.assertEqual(image.inline_data.mime_type, "image/jpeg")
+        self.assertEqual(count_tokens.call_args.kwargs["model"], "gemini-3-flash")
+        http_options = count_tokens.call_args.kwargs["config"].http_options
+        self.assertEqual(http_options.timeout, 5000)
+        self.assertEqual(http_options.retry_options.attempts, 1)
+
+        client.estimate_image_tokens(640, 360)
+        self.assertEqual(count_tokens.call_count, 4)
+
+    def test_failure_falls_back_to_heuristic_and_waits_before_retrying(self):
+        count_tokens = MagicMock(side_effect=RuntimeError("offline"))
+        client = self._client(count_tokens)
+
+        with patch("frigate.genai.plugins.gemini.time.monotonic", return_value=1000):
+            self.assertEqual(client.estimate_image_tokens(320, 180), 320 * 180 / 1250)
+            self.assertEqual(client.estimate_image_tokens(640, 360), 640 * 360 / 1250)
+        self.assertEqual(count_tokens.call_count, 1)
+
+        with patch("frigate.genai.plugins.gemini.time.monotonic", return_value=1300):
+            client.estimate_image_tokens(320, 180)
+        self.assertEqual(count_tokens.call_count, 2)
+
+    def test_missing_total_falls_back_to_heuristic(self):
+        client = self._client(
+            MagicMock(return_value=SimpleNamespace(total_tokens=None))
+        )
+        self.assertEqual(client.estimate_image_tokens(320, 180), 320 * 180 / 1250)
 
 
 # ---------------------------------------------------------------------------
@@ -941,6 +1123,17 @@ class TestAzureOpenAITranscribe(unittest.TestCase):
         self.assertIsInstance(client.provider, AzureOpenAI)
         self.assertTrue(client.supports_transcription)
 
+    def test_streaming_routes_through_async_azure_client(self):
+        from openai import AsyncAzureOpenAI
+
+        client = self._client()
+        async_client = client._init_async_provider()
+        try:
+            self.assertIsInstance(async_client, AsyncAzureOpenAI)
+            self.assertEqual(async_client.base_url, client.provider.base_url)
+        finally:
+            asyncio.run(async_client.close())
+
     def test_transcribe_inherited(self):
         client = self._client()
         create = MagicMock(return_value="azure text")
@@ -1182,7 +1375,11 @@ class TestLlamaCppTranscribe(unittest.TestCase):
 
 class TestImageTokenEstimate(unittest.TestCase):
     def test_provider_without_token_counts_uses_heuristic(self):
-        client = _make_client("gemini", model="m", api_key="k")
+        # Gemini measures image tokens now, so OpenAI is the provider without
+        # a token count; probing Gemini here would reach Google
+        client = _make_client(
+            "openai", model="m", api_key="k", base_url="http://localhost:9999/v1"
+        )
 
         self.assertEqual(client.estimate_image_tokens(250, 100), 20)
         self.assertEqual(client._image_token_cache, {})
