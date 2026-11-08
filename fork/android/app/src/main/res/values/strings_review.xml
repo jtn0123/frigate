@@ -26,19 +26,34 @@
 
     <!-- The Review tab (ui/ReviewScreen.kt). -->
     <!-- %1$d is how many items are left to review. -->
-    <string name="rev_subtitle_to_review">%1$d to review · last 24 hours</string>
+    <plurals name="rev_subtitle_to_review">
+        <item quantity="one">%1$d to review · last 24 hours</item>
+        <item quantity="other">%1$d to review · last 24 hours</item>
+    </plurals>
     <string name="rev_subtitle_caught_up">All caught up · last 24 hours</string>
     <!-- Added to the subtitle when the list was cut short; %1$s is the formatted limit, such as "1,000". -->
     <string name="rev_subtitle_capped">" · newest %1$s only"</string>
     <string name="rev_search_older">Search older</string>
     <string name="rev_mark_all">Mark all as reviewed</string>
     <!-- Severity filters with their counts: "Alerts 3". -->
-    <string name="rev_filter_alerts">Alerts %1$d</string>
-    <string name="rev_filter_detections">Detections %1$d</string>
-    <string name="rev_filter_all">All %1$d</string>
+    <plurals name="rev_filter_alerts">
+        <item quantity="one">Alerts %1$d</item>
+        <item quantity="other">Alerts %1$d</item>
+    </plurals>
+    <plurals name="rev_filter_detections">
+        <item quantity="one">Detections %1$d</item>
+        <item quantity="other">Detections %1$d</item>
+    </plurals>
+    <plurals name="rev_filter_all">
+        <item quantity="one">All %1$d</item>
+        <item quantity="other">All %1$d</item>
+    </plurals>
     <string name="rev_all_cameras">All cameras</string>
     <!-- %1$d is how many items would be marked. -->
-    <string name="rev_mark_all_title">Mark %1$d as reviewed?</string>
+    <plurals name="rev_mark_all_title">
+        <item quantity="one">Mark %1$d item as reviewed?</item>
+        <item quantity="other">Mark %1$d items as reviewed?</item>
+    </plurals>
     <string name="rev_mark_all_detail">This marks everything in the current filter as reviewed on your Frigate server.</string>
     <string name="rev_collapsed">Collapsed</string>
     <string name="rev_expanded">Expanded</string>
