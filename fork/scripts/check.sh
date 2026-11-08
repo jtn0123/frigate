@@ -317,6 +317,13 @@ elif [[ "$mode" == gates ]]; then
   done
   # e2e serves the bundle build writes.
   if ((${#e2e_lane[@]})) && [[ " ${host[*]-} " != *" build "* ]]; then host+=(build); fi
+  # vitest goes first, and the Docker lane waits for it (below): its tests
+  # time out at 5 s, which image builds on the same disk can push them past.
+  if [[ " ${host[*]-} " == *" vitest "* ]]; then
+    rest=()
+    for gate in "${host[@]}"; do [[ "$gate" == vitest ]] || rest+=("$gate"); done
+    host=(vitest ${rest[@]+"${rest[@]}"})
+  fi
 else
   host+=(scripts build)
   e2e_lane=(e2e)
@@ -325,7 +332,13 @@ fi
 
 echo "fork check ($mode): base $base_ref @ $(git rev-parse --short "$base"), E2E_PORT $E2E_PORT"
 if ((${#host[@]})); then lane "${host[@]}"; fi
-if ((${#docker_lane[@]})); then lane "${docker_lane[@]}"; fi
+if ((${#docker_lane[@]})); then
+  if [[ "$mode" == gates && " ${host[*]-} " == *" vitest "* ]]; then
+    lane --after vitest "${docker_lane[@]}"
+  else
+    lane "${docker_lane[@]}"
+  fi
+fi
 if ((${#e2e_lane[@]})); then
   # e2e needs the bundle build has just written, and needs the machine to
   # itself; the wait is announced so a quiet terminal is not a hung one.

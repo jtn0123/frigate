@@ -42,6 +42,10 @@ Python gates run in a Python 3.11 venv built from the fork's hash-pinned dev,
 Sonar and audit locks (`~/.cache/frigate-ci/venv`, rebuilt when a lock
 changes), and web gates use the worktree's own `npm ci` install.
 
+Gates run in three lanes: host, Docker and e2e. vitest runs first, and the
+Docker lane waits for it, because image builds share the disk with it and can
+push its tests past their 5 s timeout. e2e runs last, alone.
+
 ## Not covered
 
 - The Sonar quality gate: it needs the owner's `SONAR_TOKEN`. Every success
