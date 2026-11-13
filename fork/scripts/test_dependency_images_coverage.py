@@ -17,6 +17,8 @@ def load_tests(_loader: unittest.TestLoader, _tests: unittest.TestSuite, _patter
         "test_explicit_refresh_bypasses_cache_even_when_images_exist",
         "test_reused_images_skip_dependency_build_and_pin_runtime_inputs",
         "test_failed_dependency_build_never_starts_application_build",
+        "test_amd64_only_build_never_builds_or_requires_rocm",
+        "test_amd64_only_reuses_its_dependencies_without_a_rocm_image",
         "test_registry_error_is_not_treated_as_missing_dependencies",
         "test_registry_digest_is_used_without_rehashing_formatted_output",
         "test_application_change_reuses_key_but_dependency_change_invalidates_it",

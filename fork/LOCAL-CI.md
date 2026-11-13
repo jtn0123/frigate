@@ -58,7 +58,39 @@ push its tests past their 5 s timeout. e2e runs last, alone.
 - Publishing. Promoting pushes `main`, and "Fork - Build image" (a GitHub
   Actions workflow) is what builds and pushes `ghcr.io/jtn0123/frigate:main`
   and the GitHub Release. Without Actions, `make promote` moves `main` but no
-  image or release follows.
+  image or release follows; `make release-local` publishes them (below).
+
+## Publishing a release
+
+`make release-local` does what "Fork - Build image" does for a `main` push,
+from this Mac (`fork/scripts/release_local.py`):
+
+1. checks `origin/main` out in a worktree of its own, `frigate-wt/release`;
+2. builds the amd64 image with `dependency_images.py`, holding the Docker
+   lock, and pushes it as `:main`, `:<version>` and `:<sha>-amd64`;
+3. publishes the GitHub Release `fork/<version>` with `release_notes.py`'s
+   notes, which end with the build marker the app's update check reads.
+
+Versions are `<upstream base>-<date>.local<n>`, so they never collide with the
+workflow's `<date>.<run number>`. A commit that already has a release keeps
+its version and gets no second one. There is no ROCm image: the server does
+not use it. `make release-local ARGS=--dry-run` prints the plan and stops;
+`ARGS=--rebuild-dependencies` refreshes the system packages. Build logs go to
+`~/.cache/frigate-release/builds/`.
+
+The build runs under amd64 emulation, so a cold one (dependencies included)
+takes hours; a build that reuses the month's dependency image is much
+shorter. It needs Colima running with its amd64 binfmt registered, and
+Docker signed in to `ghcr.io` with a token that can write packages. The
+owner signs in once (agents never read or create the token):
+
+```bash
+gh auth refresh -h github.com -s write:packages
+gh auth token | docker login ghcr.io -u jtn0123 --password-stdin
+```
+
+The script checks both before it builds and prints the command that fixes a
+missing one. Updating the server stays a separate, owner-approved step.
 
 ## Trust
 

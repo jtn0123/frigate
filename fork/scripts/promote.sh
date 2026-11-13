@@ -96,3 +96,4 @@ fi
 
 git push --force-with-lease="main:$main" origin "$next:refs/heads/main"
 echo "Pushed. The build and release: gh run list -R $repo --workflow 'Fork - Build image' --limit 1"
+echo "If GitHub Actions does not run, publish them from here: make release-local"

@@ -137,7 +137,10 @@ def main() -> None:
     parser.add_argument("--repository", required=True)
     parser.add_argument("--cache", required=True)
     parser.add_argument("--amd64-tags", required=True)
-    parser.add_argument("--rocm-tags", required=True)
+    parser.add_argument(
+        "--rocm-tags",
+        help="Tags of the ROCm image; omit to build the amd64 image only",
+    )
     parser.add_argument("--context", help="Docker context; omit to use the current one")
     parser.add_argument("--builder")
     parser.add_argument("--output", type=Path, required=True)
@@ -164,40 +167,37 @@ def main() -> None:
         bake += ["--builder", args.builder]
     key = dependency_key(args.source, args.refresh)
     frontend_key = web_key(args.source, args.refresh)
-    tags = {arch: f"{args.repository}:deps-{key}-{arch}" for arch in ("amd64", "rocm")}
+    # Without --rocm-tags only the amd64 image is built and only its
+    # dependencies are needed (the local release, I164).
+    arches = ("amd64", "rocm") if args.rocm_tags else ("amd64",)
+    tags = {arch: f"{args.repository}:deps-{key}-{arch}" for arch in arches}
     tags["web"] = f"{args.repository}:web-{frontend_key}"
     started = time.monotonic()
     images = {arch: image_digest(docker, tag) for arch, tag in tags.items()}
-    reused = (
-        all(images[arch] for arch in ("amd64", "rocm"))
-        and not args.rebuild_dependencies
-    )
+    reused = all(images[arch] for arch in arches) and not args.rebuild_dependencies
     web_reused = bool(images["web"]) and not args.rebuild_dependencies
     seed_caches = (
         json.loads(args.seed_caches.read_text())
         if args.seed_caches
-        else [
-            args.cache + "-amd64",
-            args.cache + "-rocm",
-            "ghcr.io/blakeblackshear/frigate:cache-amd64",
-            "ghcr.io/blakeblackshear/frigate:cache-rocm",
-        ]
+        else [f"{args.cache}-{arch}" for arch in arches]
+        + [f"ghcr.io/blakeblackshear/frigate:cache-{arch}" for arch in arches]
     )
     env = os.environ | {
         "CACHE": args.cache,
         "AMD64_TAGS": args.amd64_tags,
-        "ROCM_TAGS": args.rocm_tags,
         "DEPENDENCY_AMD64_TAG": tags["amd64"],
-        "DEPENDENCY_ROCM_TAG": tags["rocm"],
         "WEB_ASSETS_TAG": tags["web"],
         "DEPENDENCY_CACHE_FROM": ",".join(
-            [args.cache + "-deps-amd64", args.cache + "-deps-rocm", args.cache + "-web"]
+            [f"{args.cache}-deps-{arch}" for arch in arches]
+            + [args.cache + "-web"]
             + seed_caches
         ),
         "RUNTIME_CACHE_FROM": ",".join(
-            [args.cache + "-app-amd64", args.cache + "-app-rocm"] + seed_caches
+            [f"{args.cache}-app-{arch}" for arch in arches] + seed_caches
         ),
     }
+    if args.rocm_tags:
+        env |= {"ROCM_TAGS": args.rocm_tags, "DEPENDENCY_ROCM_TAG": tags["rocm"]}
 
     def build(file: str, targets: list[str], label: str) -> float:
         print(f"Building {label}; log: {args.output / (label + '.log')}", flush=True)
@@ -231,7 +231,9 @@ def main() -> None:
 
     dependency_seconds = 0.0
     print(f"Dependency key: {key}; reuse: {reused}", flush=True)
-    prepare = ([] if reused else ["dependencies"]) + ([] if web_reused else ["web"])
+    # The "dependencies" group builds both variants; amd64-runtime is one of them.
+    dependency_target = "dependencies" if args.rocm_tags else "amd64-runtime"
+    prepare = ([] if reused else [dependency_target]) + ([] if web_reused else ["web"])
     if prepare:
         dependency_seconds = build(
             "docker/fork-dependencies.hcl", prepare, "dependencies"
@@ -243,9 +245,10 @@ def main() -> None:
     resolved = {arch: digest for arch, digest in images.items() if digest is not None}
     env.update(
         DEPENDENCY_AMD64_IMAGE=validate_digest(resolved["amd64"]),
-        DEPENDENCY_ROCM_IMAGE=validate_digest(resolved["rocm"]),
         WEB_ASSETS_IMAGE=validate_digest(resolved["web"]),
     )
+    if args.rocm_tags:
+        env["DEPENDENCY_ROCM_IMAGE"] = validate_digest(resolved["rocm"])
     # Save exact dependencies even if a subsequent application build fails.
     report = {
         "key": key,
@@ -258,8 +261,11 @@ def main() -> None:
         "dependency_cache_bypassed": args.rebuild_dependencies,
     }
     (args.output / "dependencies.json").write_text(json.dumps(report, indent=2) + "\n")
+    # The "fork" group is both images; "amd64" is the regular one alone.
     report["application_seconds"] = build(
-        "docker/fork-runtime.hcl", ["fork"], "application"
+        "docker/fork-runtime.hcl",
+        ["fork" if args.rocm_tags else "amd64"],
+        "application",
     )
     report["total_seconds"] = time.monotonic() - started
     (args.output / "results.json").write_text(json.dumps(report, indent=2) + "\n")

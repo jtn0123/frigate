@@ -127,6 +127,11 @@ ledger:
 promote:
 	fork/scripts/promote.sh
 
+# Build main's amd64 image here, push it and publish its release (I164);
+# for when GitHub Actions does not run. ARGS=--dry-run prints the plan.
+release-local:
+	python3 fork/scripts/release_local.py $(ARGS)
+
 demo-up:
 	fork/demo/prepare-build.sh
 	docker compose --env-file fork/runtime-base.env -f fork/demo/compose.yml up -d --build
@@ -143,4 +148,4 @@ demo-audit:
 	@test -f fork/demo/.data/tools/node_modules/axe-core/axe.min.js || npm --prefix fork/demo/.data/tools install axe-core@4 --no-audit --no-fund
 	cd web && node scripts/fork/phone-audit.mjs $(ARGS)
 
-.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast ci ci-watch wt ledger promote demo-up demo-down demo-logs demo-audit
+.PHONY: fork-test-image test-py check-py lint typecheck format test-web e2e dev-web check check-fast ci ci-watch wt ledger promote release-local demo-up demo-down demo-logs demo-audit
