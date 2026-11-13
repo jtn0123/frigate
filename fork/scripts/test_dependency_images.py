@@ -193,6 +193,68 @@ class TestDependencyImages(unittest.TestCase):
             self.assertIn("docker/fork-dependencies.hcl", run.call_args.args[0])
             self.assertFalse((Path(directory) / "results.json").exists())
 
+    def amd64_only(self, directory, digests):
+        """Run main without --rocm-tags; returns the inspected tags and bakes."""
+        argv = [
+            "dependency_images.py",
+            "--repository",
+            "example.invalid/image",
+            "--cache",
+            "example.invalid/image:cache",
+            "--amd64-tags",
+            "example.invalid/image:app-amd64",
+            "--output",
+            directory,
+        ]
+        with (
+            patch.object(sys, "argv", argv),
+            patch.object(dependencies, "dependency_key", return_value="test-key"),
+            patch.object(dependencies, "web_key", return_value="web-key"),
+            patch.object(
+                dependencies, "image_digest", side_effect=digests
+            ) as image_digest,
+            patch.object(dependencies.subprocess, "run") as run,
+        ):
+            dependencies.main()
+        inspected = [call.args[1] for call in image_digest.call_args_list]
+        return inspected, run.call_args_list
+
+    def test_amd64_only_build_never_builds_or_requires_rocm(self):
+        digest = "example.invalid/image@sha256:" + "a" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            inspected, bakes = self.amd64_only(directory, [None, None, digest, digest])
+        self.assertEqual(
+            inspected,
+            [
+                "example.invalid/image:deps-test-key-amd64",
+                "example.invalid/image:web-web-key",
+            ]
+            * 2,
+        )
+        self.assertEqual(len(bakes), 2)
+        prepare, application = (bake.args[0] for bake in bakes)
+        self.assertEqual(prepare[-2:], ["amd64-runtime", "web"])
+        self.assertEqual(application[-1], "amd64")
+        env = bakes[1].kwargs["env"]
+        for name in ("ROCM_TAGS", "DEPENDENCY_ROCM_TAG", "DEPENDENCY_ROCM_IMAGE"):
+            self.assertNotIn(name, env)
+        self.assertEqual(env["DEPENDENCY_AMD64_IMAGE"], digest)
+        for name in ("DEPENDENCY_CACHE_FROM", "RUNTIME_CACHE_FROM"):
+            self.assertNotIn("rocm", env[name])
+            self.assertIn("ghcr.io/blakeblackshear/frigate:cache-amd64", env[name])
+
+    def test_amd64_only_reuses_its_dependencies_without_a_rocm_image(self):
+        digest = "example.invalid/image@sha256:" + "a" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            inspected, bakes = self.amd64_only(directory, [digest, digest])
+            report = json.loads((Path(directory) / "results.json").read_text())
+        self.assertEqual(len(inspected), 2)
+        self.assertEqual(len(bakes), 1)
+        self.assertIn("docker/fork-runtime.hcl", bakes[0].args[0])
+        self.assertEqual(bakes[0].args[0][-1], "amd64")
+        self.assertTrue(report["dependencies_reused"])
+        self.assertEqual(set(report["images"]), {"amd64", "web"})
+
     def test_application_rootfs_copies_match_main_image(self):
         root = Path(__file__).resolve().parents[2]
         main = (root / "docker/main/Dockerfile").read_text()

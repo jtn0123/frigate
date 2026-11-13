@@ -17,6 +17,9 @@ Tooling that exists only in this fork. Nothing here is shipped in the image.
 - `scripts/release_notes.py` writes a release's notes from the fork's own
   commits (tests: `scripts/test_release_notes.py`). "Fork - Build image" runs it
   for every `main` build and publishes the GitHub Release.
+- `scripts/release_local.py` builds and pushes `main`'s amd64 image and
+  publishes its release from this machine (`make release-local`), for when
+  Actions does not run. See `LOCAL-CI.md`, "Publishing a release".
 - `scripts/promote.sh` moves `main` to `next` (`make promote`) once
   "Checks passed" is green on `next`, after previewing the release notes.
 - `scripts/py-checks.sh` runs mypy, the API spec check and unittest in the test
@@ -58,6 +61,7 @@ make e2e                                   # playwright, fully mocked (port from
 make test-py TESTS=frigate.test.test_x     # backend unittest in the thin image
 make check-py                              # mypy + API spec drift + unittest, in parallel
 make promote                               # release: main := next, image + GitHub Release
+make release-local                         # main's image + release from this Mac
 make demo-up                               # local overlay Frigate on 127.0.0.1:8971
 make demo-down
 make demo-logs

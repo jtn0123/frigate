@@ -47,6 +47,7 @@ py_script_tests=(
   test_e2e_port.py
   test_upstream_sync.py
   test_unittest_shard.py
+  test_release_local.py
 )
 
 main() {
