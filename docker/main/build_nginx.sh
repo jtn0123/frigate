@@ -7,7 +7,9 @@ download_https() {
 }
 
 
-NGINX_VERSION="1.27.4"
+NGINX_VERSION="1.30.7"
+# SHA-256 of the release tarball, whose nginx.org PGP signature was verified
+NGINX_SHA256="2565b5c837050e958f70fb0f73c48e2bca4542ad349fd356f46fb0c72610bc6e"
 VOD_MODULE_VERSION="v1.9.1"
 SET_MISC_MODULE_VERSION="v0.33"
 NGX_DEVEL_KIT_VERSION="v0.3.3"
@@ -32,6 +34,7 @@ export PATH="/usr/lib/ccache:$PATH"
 
 mkdir /tmp/nginx
 download_https --remote-name https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
+echo "${NGINX_SHA256}  nginx-${NGINX_VERSION}.tar.gz" | sha256sum -c -
 tar -zxf nginx-${NGINX_VERSION}.tar.gz -C /tmp/nginx --strip-components=1
 rm nginx-${NGINX_VERSION}.tar.gz
 mkdir /tmp/nginx-vod-module
